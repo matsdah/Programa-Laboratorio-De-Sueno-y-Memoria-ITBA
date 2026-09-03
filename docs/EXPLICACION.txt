@@ -1,0 +1,191 @@
+===============================================================================
+PROGRAMA OPEN SOURCE - LABORATORIO DE SUENO Y MEMORIA ITBA
+Archivo explicativo de soporte
+===============================================================================
+
+Este archivo cumple el requisito del pliego (seccion 7) de acompanar el codigo
+con un archivo de texto explicativo. Esta escrito para que lo pueda leer
+cualquier integrante del laboratorio, tenga o no experiencia en informatica.
+
+Se escribe sin acentos ni caracteres especiales a proposito, para que se lea
+igual en cualquier sistema operativo y con cualquier editor de texto.
+
+
+-------------------------------------------------------------------------------
+1. QUE ES ESTE PROGRAMA
+-------------------------------------------------------------------------------
+
+Un programa para mirar registros de polisomnografia (los estudios de sueno),
+decidir en que fase de sueno esta cada tramo de 30 segundos, marcar los eventos
+que aparecen en la senal, y despues calcular metricas sobre esa senal.
+
+Existe porque los programas que se consiguen hoy tienen problemas concretos:
+
+  - importan pocos formatos de archivo
+  - solo dejan scorear a mano
+  - no permiten anotar la senal
+  - no calculan metricas
+  - solo andan en Windows
+  - cuestan mucho dinero
+
+Este es libre, gratuito, funciona en Windows, macOS y Linux, y el laboratorio
+lo puede modificar.
+
+
+-------------------------------------------------------------------------------
+2. ESTADO ACTUAL
+-------------------------------------------------------------------------------
+
+ESQUELETO. Estan creadas todas las carpetas y todos los archivos, cada uno con
+la explicacion de lo que le toca hacer y la firma de sus funciones, pero la
+logica todavia no esta escrita. Si se ejecuta el programa ahora, avisa que la
+funcion pedida esta pendiente.
+
+Esto es a proposito: primero se acuerda la estructura, despues se programa.
+Asi se evita descubrir a mitad de camino que dos personas escribieron lo mismo
+en dos lugares distintos.
+
+
+-------------------------------------------------------------------------------
+3. COMO ESTA ORGANIZADO
+-------------------------------------------------------------------------------
+
+El pliego pide que el archivo principal sea lo mas simple posible y que los
+demas archivos esten separados por funcionalidad, para saber que hace cada uno
+y cual se toco cuando algo cambia. La organizacion sale de ahi.
+
+  main.py
+      El punto de entrada. Son 8 lineas de codigo y lo unico que hacen es
+      abrir el programa. Toda la logica esta en otro lado.
+
+  psglab/readers/
+      Leer archivos. Un archivo por formato: brainvision.py, edf.py.
+      Para agregar un formato nuevo se agrega un archivo aca y listo.
+
+  psglab/core/
+      El corazon: el registro cargado, las ventanas de 30 segundos, el
+      scoring, las anotaciones. Aca estan las reglas.
+      IMPORTANTE: esta parte no sabe nada de la pantalla. Por eso se la puede
+      probar sin abrir el programa.
+
+  psglab/ui/
+      Todo lo que se ve: la ventana principal, el visualizador de ondas, la
+      grilla de fondo, los botones de navegacion y de scoring.
+
+  psglab/tools/
+      Las herramientas: la lupa, la banda de amplitud, el medidor de
+      ocupacion, la Uebersicht, el histograma, el anotador.
+      Una herramienta por archivo. Agregar una no obliga a tocar las otras.
+
+  psglab/exporters/
+      Los tres archivos de salida: Scoring.txt, Anotaciones.txt e
+      Informacion.txt.
+
+  psglab/analysis/
+      La Parte 2: filtros, ICA, impedancia, PSD, complejidad, conectividad.
+
+  psglab/utils/
+      Cosas que usa todo el mundo: las unidades (microvoltios) y los errores.
+
+  docs/
+      Esta documentacion. TRAZABILIDAD.md dice en que archivo esta cada
+      requisito del pliego. ARQUITECTURA.md explica por que se decidio lo que
+      se decidio.
+
+  tests/
+      Pruebas automaticas, una por componente.
+
+
+-------------------------------------------------------------------------------
+4. COMO ENCONTRAR ALGO
+-------------------------------------------------------------------------------
+
+Si hay que cambiar algo, el camino mas rapido es abrir docs/TRAZABILIDAD.md y
+buscar el requisito. La tabla dice exactamente que archivo lo implementa.
+
+Al reves tambien sirve: si se cambio un archivo, la tabla dice que requisitos
+pueden haberse visto afectados y que habria que volver a probar.
+
+Ademas, cada archivo .py arranca con un comentario que dice de que se ocupa y
+que requisitos del pliego cubre.
+
+
+-------------------------------------------------------------------------------
+5. COMO INSTALARLO Y USARLO
+-------------------------------------------------------------------------------
+
+Hace falta Python 3.11 o superior. Se descarga de python.org. En Windows, al
+instalarlo hay que marcar la casilla "Add Python to PATH".
+
+Los pasos completos estan en README.md, en la raiz del proyecto. Resumidos:
+
+    python -m venv .venv                    (crea un entorno aislado)
+    .venv\Scripts\Activate.ps1              (lo activa, en Windows)
+    pip install -r requirements.txt         (instala lo que hace falta)
+    python main.py                          (abre el programa)
+
+
+-------------------------------------------------------------------------------
+6. REGLAS PARA TRABAJAR EN EL CODIGO
+-------------------------------------------------------------------------------
+
+Estas reglas las fija el pliego y son obligatorias:
+
+  1. Los pull request van a la rama "Add". NUNCA a "Master".
+  2. Todo pull request se comenta explicando que se cambio y por que.
+  3. El codigo va comentado.
+  4. main.py se mantiene minimo: lo nuevo va en el modulo que corresponde.
+  5. Cada componente nuevo viene con su prueba en tests/.
+
+Y una regla que sale de como esta armado el programa:
+
+  6. Las reglas de negocio van en psglab/core/, no en psglab/ui/.
+     Si una regla queda en la interfaz, no se la puede probar sin abrir una
+     ventana, y la prueba se termina no escribiendo.
+
+
+-------------------------------------------------------------------------------
+7. DECISIONES QUE CONVIENE CONOCER
+-------------------------------------------------------------------------------
+
+MICROVOLTIOS. Todo el programa trabaja en microvoltios (uV). El pliego escribia
+"mV", pero el criterio de 75 sobre EEG es en microvoltios; en milivoltios seria
+mil veces la amplitud real. Confirmado con el cliente.
+
+REM. El listado de fases del pliego no la mencionaba, pero el histograma si.
+Va en las dos nomenclaturas: REM en Rechtschaffen y Kales, R en AASM.
+Confirmado con el cliente.
+
+PYSIDE6 Y NO PYQT. Son parecidos, pero PyQt es GPL y usarlo obligaria a
+cambiar la licencia del proyecto, que el pliego pide MIT. No agregar PyQt.
+
+DATOS DE PACIENTES. Los registros nunca se suben al repositorio. El archivo
+.gitignore ya los excluye.
+
+
+-------------------------------------------------------------------------------
+8. LO QUE FALTA DEFINIR
+-------------------------------------------------------------------------------
+
+Puntos del pliego que quedaron ambiguos y hay que cerrar antes de programarlos:
+
+  1. Scoring.txt: el pliego describe tres datos por linea (numero de ventana,
+     fase, arousal) pero el ejemplo muestra dos ("2 0"). Hay que confirmar cual
+     de los dos es.
+
+  2. "Puntos": son muestras del registro. Falta definir si la primera muestra
+     es la 0 o la 1.
+
+  3. Impedancias: los archivos EDF y BrainVision no siempre las traen. Hay que
+     definir de donde salen.
+
+  4. Ocupacion: si dos lineas se pisan en horizontal, hay que definir si la
+     zona compartida se cuenta una vez o dos.
+
+  5. Titular del copyright para el archivo LICENSE, y nombre del repositorio.
+
+  6. Un registro de prueba en BrainVision y en EDF para poder probar la
+     importacion.
+
+
+===============================================================================

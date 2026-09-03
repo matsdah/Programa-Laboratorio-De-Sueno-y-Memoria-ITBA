@@ -1,0 +1,14 @@
+# Dependencias de la Parte 2 (módulo de análisis) y del desarrollo.
+# Instalar además de requirements.txt:
+#     pip install -r requirements.txt -r requirements-dev.txt
+
+-r requirements.txt
+
+mne-connectivity>=0.6   # BSD-3  - conectividad de la señal
+antropy>=0.1.6          # BSD-3  - complejidad (entropías, dimensión fractal)
+pytest>=8.0             # MIT    - testeos recurrentes por componente
+pip-licenses>=4.3       # MIT    - verificación de licencias de las dependencias
+
+# Nota: `yasa` (BSD-3) es el candidato natural para husos, ondas lentas y
+# acoplamiento huso-onda lenta cuando se retomen esas funcionalidades
+# futuras. Hoy están fuera del alcance, así que no se instala.

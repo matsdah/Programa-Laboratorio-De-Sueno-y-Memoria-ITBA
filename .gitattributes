@@ -1,0 +1,22 @@
+# Normalización de finales de línea.
+#
+# El pliego exige que el software funcione en Windows, macOS y Linux, así que
+# va a haber contribuidores en los tres. Sin esta configuración, Git convierte
+# los finales de línea según la máquina y aparecen diffs donde el archivo
+# entero figura como modificado sin que nadie lo haya tocado.
+#
+# `text=auto eol=lf` guarda todo con LF en el repositorio y deja que Git haga
+# la conversión en cada checkout según el sistema.
+
+* text=auto eol=lf
+
+# Archivos binarios: Git no debe tocarles los bytes.
+*.png binary
+*.jpg binary
+*.pdf binary
+*.ico binary
+
+# Formatos de registro polisomnográfico. No deberían llegar al repositorio
+# (los excluye .gitignore), pero si alguno entra por error, que no se corrompa.
+*.edf binary
+*.eeg binary

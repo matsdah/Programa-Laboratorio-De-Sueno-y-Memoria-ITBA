@@ -1,0 +1,48 @@
+# ---------------------------------------------------------------------------
+# REGISTROS POLISOMNOGRÁFICOS
+# Nunca se suben al repositorio: son datos de investigación y pueden contener
+# información de participantes. Guardarlos fuera del proyecto o en data/.
+# ---------------------------------------------------------------------------
+data/
+registros/
+*.edf
+*.EDF
+*.vhdr
+*.vmrk
+*.eeg
+
+# Archivos de salida generados por el programa
+Scoring.txt
+Anotaciones.txt
+Informacion.txt
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+
+# Testeo
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Configuración local de herramientas de asistencia (Claude Code).
+# Es personal de cada máquina: permisos concedidos, preferencias locales.
+# La configuración compartida del proyecto, si alguna vez hace falta, iría en
+# .claude/settings.json (sin "local") y esa sí se versiona.
+.claude/settings.local.json
