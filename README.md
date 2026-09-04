@@ -10,6 +10,9 @@ compatibilidad únicamente con Windows y precios excesivos.
 
 > **Estado: esqueleto.** La estructura del proyecto está creada, pero la lógica todavía
 > no está implementada. Los módulos declaran su interfaz y elevan `NotImplementedError`.
+>
+> **Por dónde seguir: [`docs/TODO.md`](docs/TODO.md)**, que ordena los 168 stubs
+> pendientes de la Parte 1 en hitos por dependencias.
 
 ---
 

@@ -45,6 +45,10 @@ Esto es a proposito: primero se acuerda la estructura, despues se programa.
 Asi se evita descubrir a mitad de camino que dos personas escribieron lo mismo
 en dos lugares distintos.
 
+Lo que falta y en que orden hacerlo esta en docs/TODO.md. Quedan 168 funciones
+por escribir en la Parte 1, agrupadas en hitos: cada hito solo usa cosas que ya
+estan terminadas en los hitos anteriores.
+
 
 -------------------------------------------------------------------------------
 3. COMO ESTA ORGANIZADO
@@ -88,9 +92,10 @@ y cual se toco cuando algo cambia. La organizacion sale de ahi.
       Cosas que usa todo el mundo: las unidades (microvoltios) y los errores.
 
   docs/
-      Esta documentacion. TRAZABILIDAD.md dice en que archivo esta cada
-      requisito del pliego. ARQUITECTURA.md explica por que se decidio lo que
-      se decidio.
+      Esta documentacion. TODO.md es la lista de trabajo pendiente y el unico
+      lugar que dice que esta hecho. TRAZABILIDAD.md dice en que archivo esta
+      cada requisito del pliego. ARQUITECTURA.md explica por que se decidio lo
+      que se decidio.
 
   tests/
       Pruebas automaticas, una por componente.
@@ -167,25 +172,43 @@ DATOS DE PACIENTES. Los registros nunca se suben al repositorio. El archivo
 8. LO QUE FALTA DEFINIR
 -------------------------------------------------------------------------------
 
-Puntos del pliego que quedaron ambiguos y hay que cerrar antes de programarlos:
+Puntos del pliego que quedaron ambiguos y hay que cerrar antes de programarlos.
+
+Los que dicen BLOQUEA frenan trabajo concreto: son el hito 0 de docs/TODO.md y
+conviene resolverlos antes de empezar a programar, porque despues hay que
+volver sobre codigo ya escrito.
 
   1. Scoring.txt: el pliego describe tres datos por linea (numero de ventana,
      fase, arousal) pero el ejemplo muestra dos ("2 0"). Hay que confirmar cual
      de los dos es.
+     NO BLOQUEA: las dos variantes ya funcionan cambiando una constante
+     (SCORING_INCLUDES_WINDOW_NUMBER, en psglab/config.py).
 
   2. "Puntos": son muestras del registro. Falta definir si la primera muestra
      es la 0 o la 1.
+     BLOQUEA la exportacion de Anotaciones.txt y la herramienta de anotacion.
+     No se puede elegir por defecto: cambia todos los numeros exportados.
 
   3. Impedancias: los archivos EDF y BrainVision no siempre las traen. Hay que
      definir de donde salen.
+     NO BLOQUEA la Parte 1: es de la Parte 2.
 
   4. Ocupacion: si dos lineas se pisan en horizontal, hay que definir si la
      zona compartida se cuenta una vez o dos.
+     BLOQUEA dos de los cinco requisitos de la herramienta de ocupacion.
 
   5. Titular del copyright para el archivo LICENSE, y nombre del repositorio.
+     NO BLOQUEA codigo.
 
   6. Un registro de prueba en BrainVision y en EDF para poder probar la
      importacion.
+     BLOQUEA la verificacion de la importacion de punta a punta. Ese registro
+     no se sube al repositorio.
+
+  7. Scoring automatico: aparece entre los motivos del pliego ("Scoring
+     automatico imposible") pero no figura en ninguna funcionalidad y no tiene
+     archivo asignado. Hay que confirmar si entra en el alcance. Si entra, es
+     un bloque de trabajo entero que hoy no esta previsto.
 
 
 ===============================================================================

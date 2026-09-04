@@ -83,3 +83,15 @@ Esta capa corre sin interfaz gráfica, así que se testea de punta a punta:
 ```bash
 python -m pytest tests/test_exporters.py
 ```
+
+## Estado
+
+Pendientes **13 stubs**, en el
+[hito 5 del TODO](../../docs/TODO.md#hito-5-exportadores).
+
+`annotations_txt.py` está bloqueado por el
+[hito 0](../../docs/TODO.md#hito-0-desbloquear): falta definir si la primera
+muestra es la 0 o la 1.
+
+**Cerrado este hito el programa hace su trabajo completo desde un script
+—leer, scorear, exportar los tres archivos— sin interfaz gráfica.**

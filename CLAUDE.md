@@ -25,6 +25,22 @@ Cuatro piezas están implementadas a propósito y **no deben convertirse en
 infraestructura que corre en tiempo de importación; si fallaran, ningún módulo
 del paquete podría cargarse y los mecanismos enchufables no existirían.
 
+## Por dónde seguir
+
+**[`docs/TODO.md`](docs/TODO.md) es la cola de trabajo** y el único documento
+que lleva estado. Ordena los 168 stubs de la Parte 1 en hitos **por
+dependencias reales**, no por sección del pliego.
+
+**No empieces un módulo si su hito anterior no está cerrado**: vas a escribir
+contra firmas que todavía elevan `NotImplementedError` y no vas a poder testear
+nada. Un módulo está terminado cuando además tiene su test corriendo (borrando
+el `pytestmark` si el archivo ya existía), su fila de `docs/TRAZABILIDAD.md`
+sigue siendo cierta y el README de su carpeta también.
+
+`docs/TRAZABILIDAD.md` **no lleva estado**: dice dónde va cada requisito, no
+qué falta. Duplicar el avance en los dos lugares garantiza que se
+desincronicen.
+
 ## Comandos
 
 Preparar el entorno, si todavía no está (el detalle está en `README.md`):

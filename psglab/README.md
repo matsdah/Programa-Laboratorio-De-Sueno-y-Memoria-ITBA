@@ -89,3 +89,12 @@ cargarse y los mecanismos enchufables no existirían.
 - Type hints en todas las firmas.
 - Los errores que ve el usuario heredan de `PsgLabError`.
 - **Todo el programa trabaja en microvoltios.**
+
+## Estado
+
+Pendientes **168 stubs** en 25 módulos de la Parte 1, ordenados por
+dependencias en el [TODO](../docs/TODO.md). `app.py` es el último de la fila
+(hito 6): hasta que se implemente, `python main.py` termina en
+`NotImplementedError`, que es lo esperado.
+
+`config.py` no tiene stubs: sus constantes ya están fijadas.

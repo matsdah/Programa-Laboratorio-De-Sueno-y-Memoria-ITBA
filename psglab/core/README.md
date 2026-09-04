@@ -75,3 +75,17 @@ que está incompleta.
 Los "puntos" del pliego son muestras del registro, pero **falta definir si la
 primera muestra es la 0 o la 1**. Afecta a `windows.py` y a los exportadores.
 Ver [`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt), sección 8.
+
+## Estado
+
+Pendientes **53 stubs**, repartidos en los tres primeros hitos del
+[TODO](../../docs/TODO.md):
+
+| Hito | Módulos |
+|---|---|
+| [1. Cimientos](../../docs/TODO.md#hito-1-cimientos) | `windows`, `nomenclature`, `recording` |
+| [2. Scoring y anotaciones](../../docs/TODO.md#hito-2-scoring-y-anotaciones) | `scoring`, `annotations` |
+| [3. Sesión](../../docs/TODO.md#hito-3-sesión) | `session` |
+
+**Cerrado el hito 3, toda esta capa funciona y se puede testear sin abrir una
+ventana.** Es el primer punto en que el proyecto tiene valor real.

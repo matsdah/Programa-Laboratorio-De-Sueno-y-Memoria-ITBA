@@ -85,3 +85,16 @@ def test_se_puede_scorear_una_ventana_alejada_sin_pasar_por_las_anteriores(scori
 
 El nombre es lo que aparece cuando el test falla, así que tiene que decir **qué
 regla se rompió**, no qué función se llamó.
+
+## Estado
+
+El [TODO](../docs/TODO.md) lleva la cuenta. Cada módulo que se implementa
+arrastra su test, y **eso es parte de darlo por terminado**:
+
+- **Reactivar** (borrar el `pytestmark`): `test_windows` y `test_nomenclature`
+  (hito 1), `test_scoring` (2), `test_exporters` (5), `test_occupancy` (7).
+- **Crear**: `test_units`, `test_recording` (1), `test_annotations` (2),
+  `test_session` (3), `test_channel_types`, `test_readers` (4), y uno por
+  herramienta (7).
+
+`psglab/ui/` no lleva tests unitarios: es deliberado, no una omisión.
