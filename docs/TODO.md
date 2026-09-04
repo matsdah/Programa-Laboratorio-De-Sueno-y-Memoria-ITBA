@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **168 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
+Quedan **170 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -41,12 +41,12 @@ nada**. Un verde por omisión es peor que un rojo.
 | [1. Cimientos](#hito-1-cimientos) | 4 | 16 | 🟡 1 de 4 |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 20 | ⬜ |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
-| [4. Importación](#hito-4-importación) | 5 | 8 | ⬜ |
-| [5. Exportadores](#hito-5-exportadores) | 4 | 13 | ⬜ |
+| [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
+| [5. Exportadores](#hito-5-exportadores) | 4 | 14 | ⬜ |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 45 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 47 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **29** | **168** | |
+| | **29** | **170** | |
 
 ### Los tres cortes que importan
 
@@ -76,15 +76,23 @@ de la Parte 2.
 | Índice de los "puntos": ¿0 o 1? | **Base 0**, la del programa, numpy y MNE. | `config.ANNOTATION_SAMPLE_BASE` |
 | Códigos de fase: ¿REM=5, MT=6? | **Sí**, la convención habitual: 0=W, 1..4=S1..S4, 5=REM, 6=MT. | `core/nomenclature.py::STAGE_CODES` |
 | Ocupación: ¿la superposición cuenta una o dos veces? | **Dos**: se suman los aportes sin descontar. El total puede pasar del 100 % y eso es lo buscado. | `config.OCCUPANCY_COUNTS_OVERLAP_ONCE` |
-| ¿Cómo se sabe con qué nomenclatura se generó un `Scoring.txt`? | **Se registra en `Informacion.txt`.** No se agrega cabecera a `Scoring.txt`, para no apartarse del pliego. | `exporters/information_txt.py` |
+| ¿Cómo se sabe con qué nomenclatura se generó un `Scoring.txt`? | **Cabecera comentada** en el propio archivo: `# AASM`. Se registra además en `Informacion.txt`. | `config.SCORING_INCLUDES_NOMENCLATURE_HEADER` |
+| ¿Qué código lleva una ventana sin scorear? | **`-1`.** No puede confundirse con ninguna fase real, porque todas son 0 o positivas. | `core/nomenclature.py::STAGE_CODES` |
 | ¿El scoring automático entra en el alcance? | **No.** Queda como funcionalidad futura, junto al potencial evocado y el acoplamiento de husos. | `TRAZABILIDAD.md` |
 | Titular del copyright | **Confirmado** tal como está: Laboratorio de Sueño y Memoria, ITBA. | `LICENSE` |
 
-La decisión de la nomenclatura tiene una consecuencia que conviene no perder de
-vista: **los tres archivos de salida sólo son interpretables juntos.**
-`Scoring.txt` escribe la fase como un número que significa cosas distintas según
-la nomenclatura, y `Anotaciones.txt` guarda posiciones en muestras que no se
-pasan a segundos sin la frecuencia. Los dos datos viven en `Informacion.txt`.
+La decisión de la nomenclatura se revisó una vez y conviene saber por qué. La
+primera versión la registraba **sólo** en `Informacion.txt`, dando por sentado
+que los tres archivos viajaban juntos. No es así: **V4_F deja exportar uno
+solo**, y exportar nada más que el scoring es el caso más común. Ese archivo
+salía ambiguo, porque "2" es S2 en R&K y N2 en AASM.
+
+Por eso `Scoring.txt` declara su nomenclatura en su propia cabecera. Queda una
+dependencia parecida sin resolver del todo: **`Anotaciones.txt` guarda
+posiciones en muestras y no lleva la frecuencia de muestreo**, que vive en
+`Informacion.txt`. Se aceptó porque falla distinto: una fase mal interpretada
+pasa desapercibida, una posición sin frecuencia directamente no se puede
+convertir y el problema salta enseguida.
 
 ### Material de prueba
 
@@ -183,7 +191,10 @@ cualquier orden, incluso en paralelo.
     prueba del hito 0.
   - `read()` devuelve la señal **ya en µV** y con la clase de canal detectada.
     Ninguna capa posterior lo vuelve a verificar.
-- [ ] **`psglab/readers/scoring_reader.py`** · 2 stubs · V3_F "Importación"
+- [ ] **`psglab/readers/scoring_reader.py`** · 3 stubs · V3_F "Importación"
+  - Incluye `detect_nomenclature()`, que lee la cabecera que escribe
+    `exporters/scoring_txt.py::format_header()`. Lo que uno escribe el otro lo
+    tiene que poder volver a leer.
 
 ---
 
@@ -192,9 +203,12 @@ cualquier orden, incluso en paralelo.
 - [ ] **`psglab/exporters/statistics.py`** · 6 stubs · alimenta V3_F
       "Archivo de salida"
   - No escribe archivos: por eso se puede testear sin tocar el disco.
-- [ ] **`psglab/exporters/scoring_txt.py`** · 2 stubs · V1_F "Archivo de salida"
-  - **Las dos variantes de formato tienen que seguir siendo alcanzables**
-    cambiando sólo `config.SCORING_INCLUDES_WINDOW_NUMBER`.
+- [ ] **`psglab/exporters/scoring_txt.py`** · 3 stubs · V1_F "Archivo de salida"
+  - **Las variantes de formato tienen que seguir siendo alcanzables** cambiando
+    sólo la constante de `config`: el nº de ventana por línea y la cabecera de
+    nomenclatura.
+  - `format_header()` escribe la cabecera que lee
+    `readers/scoring_reader.py::detect_nomenclature()`.
 - [ ] **`psglab/exporters/annotations_txt.py`** · 2 stubs · V2_F "Archivo de
       salida" — **depende del hito 0** (índice de los puntos)
 - [ ] **`psglab/exporters/information_txt.py`** · 3 stubs · V3_F "Archivo de
@@ -203,6 +217,10 @@ cualquier orden, incluso en paralelo.
     ceros.
 - [ ] Test de los cuatro: `tests/test_exporters.py` → **borrar el
       `pytestmark`** y extenderlo a `statistics`.
+- [ ] **Test de ida y vuelta de la cabecera**, que cruza este hito y el 4:
+      exportar un scoring en AASM, releerlo con `read_scoring()` sin pasarle la
+      nomenclatura, y verificar que sale AASM. Es un contrato entre dos módulos
+      de hitos distintos, del tipo que se rompe en silencio si nadie lo fija.
 
 > **Cerrado el hito 5, el programa hace su trabajo entero desde un script, sin
 > interfaz.** Vale la pena escribir ese script y guardarlo como verificación.

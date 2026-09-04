@@ -10,15 +10,16 @@ Resumen legible del registro y de lo que se hizo sobre él:
     - métricas de tiempo por fase: promedio, desvío estándar y mediana
     - lista de anotaciones con cantidad y tiempo promedio, si está anotado
 
-**Los dos primeros datos y la nomenclatura no son decorativos: son lo que hace
-interpretables a los otros dos archivos de salida.** "Scoring.txt" escribe la
-fase como un número y ese número significa cosas distintas según la
-nomenclatura —"2" es S2 en Rechtschaffen y Kales y N2 en AASM—, y
-"Anotaciones.txt" guarda posiciones en muestras, que no se pueden pasar a
-segundos sin la frecuencia. Los tres archivos se exportan juntos y este es el
-único que lleva esa información, así que **si se omite acá, los otros dos
-quedan ambiguos**. Decisión tomada con el cliente: no se agrega una cabecera a
-"Scoring.txt" para no apartarse del formato del pliego, y el dato viaja acá.
+**La frecuencia de muestreo no es un dato decorativo: es lo único que hace
+interpretable a "Anotaciones.txt".** Ese archivo guarda las posiciones en
+muestras, y sin la frecuencia no se pueden pasar a tiempo.
+
+Ojo con una trampa: V4_F deja exportar **uno solo** de los tres archivos, así
+que no se puede dar por sentado que este acompañe a los otros. Por eso
+"Scoring.txt" declara su nomenclatura en su propia cabecera en vez de depender
+de este archivo. Acá se la repite igual, porque es parte del resumen del
+trabajo, pero **la copia que importa para reimportar es la del propio
+"Scoring.txt"**.
 
 Las secciones que no correspondan se omiten con una explicación en vez de
 mostrar ceros: un archivo que dice "el registro no está scoreado" es más útil
@@ -60,10 +61,9 @@ def build_report(
     Separado de la escritura para poder testear el contenido y para poder
     mostrar el mismo informe en pantalla sin generar un archivo.
 
-    La nomenclatura sale de `scoring.nomenclature` y **tiene que aparecer
-    siempre que haya scoring**: sin ella, los códigos de fase de "Scoring.txt"
-    son ambiguos. Lo mismo la frecuencia de muestreo, que es lo único que
-    permite convertir a segundos los "puntos" de "Anotaciones.txt".
+    La nomenclatura sale de `scoring.nomenclature`. La frecuencia de muestreo
+    tiene que aparecer siempre: es lo único que permite convertir a segundos
+    los "puntos" de "Anotaciones.txt", y ese archivo no la lleva.
     """
     raise NotImplementedError("Pendiente: componer el texto del informe.")
 

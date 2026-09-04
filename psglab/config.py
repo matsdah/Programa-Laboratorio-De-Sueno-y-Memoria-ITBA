@@ -1,11 +1,20 @@
 """Constantes de configuración del programa.
 
-Punto único de verdad para los valores que fija el pliego. Ningún otro módulo
-debería escribir estos números a mano: si mañana el laboratorio quiere
-ventanas de 20 segundos, se cambia acá y en ningún otro lado.
+Punto único de verdad de dos cosas distintas:
 
-Cubre del pliego: valores de V1_P (ventana y grilla), V1_F de la herramienta
-de amplitud (75 µV) y los nombres de los archivos de salida.
+    1. Los valores que **fija el pliego**: la ventana de 30 s, la grilla, la
+       banda de 75 µV, los nombres de los archivos de salida.
+    2. Las decisiones que se tomaron sobre lo que el pliego **dejaba abierto**,
+       en la segunda sección del archivo.
+
+Ningún otro módulo debería escribir estos valores a mano: si mañana el
+laboratorio quiere ventanas de 20 segundos, se cambia acá y en ningún otro
+lado, y revertir una decisión es cambiar una línea.
+
+Cubre del pliego: ningún ID propio. Es infraestructura: sostiene los valores de
+V1_P y V2_F de "Diseño de la interfaz", V1_F de "Herramienta de amplitud" y los
+tres IDs de "Archivo de salida". Por eso figura en la sección de módulos de
+infraestructura de `docs/TRAZABILIDAD.md` y no en una fila de requisito.
 """
 
 from typing import Final
@@ -103,3 +112,23 @@ ANNOTATION_SAMPLE_BASE: Final[int] = 0
 #: cálculo, y la interfaz tiene que poder mostrarlo sin romperse.
 #: Afecta a V2_F y V4_F de `tools/occupancy.py`.
 OCCUPANCY_COUNTS_OVERLAP_ONCE: Final[bool] = False
+
+#: Confirmado con el cliente el 4 de septiembre de 2026.
+#: Si "Scoring.txt" arranca con una línea de comentario que declara la
+#: nomenclatura con la que se scoreó, por ejemplo "# AASM".
+#:
+#: Hace falta porque **el archivo no es interpretable sin ese dato**: el código
+#: "2" es S2 en Rechtschaffen y Kales y N2 en AASM. La primera decisión fue
+#: registrarlo sólo en "Informacion.txt", pero V4_F deja exportar **uno solo**
+#: de los tres archivos, y exportar nada más que el scoring es el caso más
+#: común. Sin cabecera, ese archivo sale ambiguo.
+#:
+#: El pliego muestra líneas de datos y no prohíbe comentarios, y el lector ya
+#: estaba diseñado para saltar hasta la primera línea con datos.
+#: Afecta a `exporters/scoring_txt.py` y a `readers/scoring_reader.py`.
+SCORING_INCLUDES_NOMENCLATURE_HEADER: Final[bool] = True
+
+#: Prefijo de la línea de cabecera de "Scoring.txt". Un lector que no la espere
+#: puede descartarla mirando este carácter, que es la convención de comentario
+#: más difundida en archivos de texto.
+SCORING_HEADER_PREFIX: Final[str] = "#"

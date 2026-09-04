@@ -101,7 +101,7 @@ probar la importación de punta a punta; está anotado en
 
 ## Estado
 
-Pendientes **8 stubs**, en el
+Pendientes **9 stubs**, en el
 [hito 4 del TODO](../../docs/TODO.md#hito-4-importación). Dependen de que
 `core/recording.py` esté terminado (hito 1).
 

@@ -4,8 +4,13 @@ Una línea por anotación, con tres campos separados por barra vertical:
 
     Label_Annotation | Puntos_Emp | Duracion_Puntos
 
-"Puntos" son muestras del registro, no segundos. Guardarlo así evita perder
-precisión por redondeo y no depende de la frecuencia de muestreo del archivo.
+"Puntos" son muestras del registro, no segundos, como pide el pliego. Guardarlo
+así evita perder precisión por redondeo: una posición en muestras es exacta, y
+convertirla a segundos y volver no siempre devuelve el mismo número.
+
+El precio es que **el archivo no se puede interpretar sin la frecuencia de
+muestreo**, que es lo único que traduce muestras a tiempo. Esa frecuencia se
+registra en "Informacion.txt".
 
 La primera muestra del registro es la **0**, confirmado con el cliente: es la
 base del programa, la de numpy y la de MNE, así que exportar y reimportar no
@@ -13,8 +18,10 @@ necesitan conversión. Vive en `config.ANNOTATION_SAMPLE_BASE` y no se escribe a
 mano acá, para que cambiarlo siga siendo cambiar una línea. Ojo si alguien
 procesa el archivo en MATLAB, que cuenta desde 1.
 
-La frecuencia de muestreo no se escribe en este archivo: queda registrada en
-"Informacion.txt", junto con el resto de lo que hace falta para interpretarlo.
+No se escribe una cabecera con la frecuencia acá, a diferencia de
+"Scoring.txt", que sí declara su nomenclatura: la fase de una ventana se
+interpreta mal en silencio, mientras que una posición sin frecuencia
+directamente no se puede convertir y el problema salta enseguida.
 
 Cubre del pliego: V2_F de "Archivo de salida".
 """
@@ -39,8 +46,7 @@ def export_annotations(
     Args:
         separator: separador de campos. Por defecto, el de `config`.
         sample_base: índice de la primera muestra del registro. Se suma a las
-            posiciones al escribirlas. Por defecto, el de `config`, que es 0
-            mientras el cliente no confirme lo contrario.
+            posiciones al escribirlas. Por defecto, el de `config`, que es 0.
     """
     raise NotImplementedError("Pendiente: escribir una línea por anotación.")
 

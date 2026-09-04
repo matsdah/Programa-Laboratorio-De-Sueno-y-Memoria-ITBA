@@ -185,17 +185,22 @@ En resumen se decidio:
     5=REM, 6=MT.
   - En la herramienta de ocupacion, si dos lineas se pisan, la zona compartida
     se cuenta dos veces. El total puede pasar del 100 % y eso es lo buscado.
-  - La nomenclatura con la que se scoreo se anota en Informacion.txt, no en
-    Scoring.txt.
+  - Scoring.txt arranca con una linea de comentario que dice con que
+    nomenclatura se scoreo, por ejemplo "# AASM". Se anota tambien en
+    Informacion.txt.
+  - Una ventana todavia sin scorear se escribe con el codigo -1.
   - El scoring automatico queda fuera del alcance.
   - El titular del copyright es el Laboratorio de Sueno y Memoria del ITBA.
 
-Una consecuencia importante de todo esto: LOS TRES ARCHIVOS DE SALIDA SOLO SE
-ENTIENDEN JUNTOS. Scoring.txt escribe la fase como un numero, y ese numero
-significa cosas distintas segun la nomenclatura. Anotaciones.txt guarda las
-posiciones en muestras, que no se pueden pasar a segundos sin saber la
-frecuencia. Las dos cosas estan en Informacion.txt. Si se comparte un scoring,
-hay que mandar los tres archivos.
+Una advertencia practica: ANOTACIONES.TXT NO SE ENTIENDE SOLO. Guarda las
+posiciones en muestras, y para pasarlas a segundos hace falta la frecuencia de
+muestreo, que esta en Informacion.txt. Si se comparten anotaciones, hay que
+mandar los dos archivos.
+
+Scoring.txt si se entiende solo, porque lleva su nomenclatura en la cabecera.
+Esa fue una correccion: la primera version la anotaba unicamente en
+Informacion.txt, dando por sentado que los tres archivos viajaban juntos, y no
+es asi, porque el programa deja exportar uno solo.
 
 Queda una sola pregunta abierta, y es de la Parte 2:
 
