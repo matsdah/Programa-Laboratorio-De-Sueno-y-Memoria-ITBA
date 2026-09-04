@@ -25,25 +25,25 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Importar BrainVision (VHDR/VMRK/EEG) | `psglab/readers/brainvision.py` |
-| V2_F | Importar `.edf` | `psglab/readers/edf.py` |
-| V3_F | Importar señal ya escorada y ver la fase de cada ventana | `psglab/readers/scoring_reader.py` |
+| V1_F | Importar BrainVision (VHDR/VMRK/EEG) | `psglab/readers/brainvision.py`, `psglab/readers/base.py` (despacho), `psglab/core/recording.py` (modelo) |
+| V2_F | Importar `.edf` | `psglab/readers/edf.py`, `psglab/readers/base.py` (despacho), `psglab/core/recording.py` (modelo) |
+| V3_F | Importar señal ya escorada y ver la fase de cada ventana | `psglab/readers/scoring_reader.py`, `psglab/core/scoring.py`, `psglab/core/recording.py` (cantidad de ventanas) |
 
 ### Visualización de la señal
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_P | Ventana de 30 s con ojos, C3, C4 y EMG; nº de ventana y total; nombres; escala en µV | `psglab/ui/signal_view.py` |
-| V2_P | Aumentar la amplitud con flechas y con botón; escala adaptada | `psglab/ui/signal_view.py`, `psglab/core/session.py` |
-| V3_P | Elegir cuántos y cuáles canales visualizar | `psglab/ui/channel_selector.py` (elección), `psglab/ui/signal_view.py` (dibujo) |
-| V4_F | Cualquier canal sin límite de tipo, con detección automática de clase | `psglab/readers/channel_types.py`, `psglab/ui/signal_view.py` |
-| V5_F | Amplitud de todos los canales, o sólo de los seleccionados | `psglab/core/session.py`, `psglab/ui/signal_view.py` |
+| V1_P | Ventana de 30 s con ojos, C3, C4 y EMG; nº de ventana y total; nombres; escala en µV | `psglab/ui/signal_view.py`, `psglab/ui/navigation.py` (nº de ventana), `psglab/core/windows.py` (cuenta de ventanas), `psglab/utils/units.py` (µV) |
+| V2_P | Aumentar la amplitud con flechas y con botón; escala adaptada | `psglab/ui/signal_view.py`, `psglab/core/session.py`, `psglab/ui/shortcuts.py` (flechas) |
+| V3_P | Elegir cuántos y cuáles canales visualizar | `psglab/ui/channel_selector.py` (elección), `psglab/ui/signal_view.py` (dibujo), `psglab/core/session.py` (estado) |
+| V4_F | Cualquier canal sin límite de tipo, con detección automática de clase | `psglab/readers/channel_types.py`, `psglab/ui/signal_view.py`, `psglab/ui/channel_selector.py`, `psglab/core/recording.py` (`ChannelKind`) |
+| V5_F | Amplitud de todos los canales, o sólo de los seleccionados | `psglab/core/session.py`, `psglab/ui/signal_view.py`, `psglab/ui/channel_selector.py` (selección), `psglab/ui/shortcuts.py` (flechas) |
 
 ### Navegación en la señal
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Avanzar y retroceder con flechas ←→ y con botones | `psglab/ui/navigation.py`, `psglab/ui/shortcuts.py`, `psglab/core/session.py` |
+| V1_F | Avanzar y retroceder con flechas ←→ y con botones | `psglab/ui/navigation.py`, `psglab/ui/shortcuts.py`, `psglab/core/session.py`, `psglab/core/windows.py` |
 
 ### Diseño de la interfaz de visualización
 
@@ -56,15 +56,15 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Elegir la fase de la ventana de 30 s | `psglab/core/scoring.py`, `psglab/ui/scoring_panel.py` |
-| V2_F | Indicar la presencia de un arousal | `psglab/core/scoring.py`, `psglab/ui/scoring_panel.py` |
-| V3_F | Elegir entre Rechtschaffen y Kales y AASM | `psglab/core/nomenclature.py`, `psglab/ui/scoring_panel.py` |
+| V1_F | Elegir la fase de la ventana de 30 s | `psglab/core/scoring.py`, `psglab/ui/scoring_panel.py`, `psglab/core/nomenclature.py` (vocabulario), `psglab/ui/shortcuts.py` (teclas) |
+| V2_F | Indicar la presencia de un arousal | `psglab/core/scoring.py`, `psglab/ui/scoring_panel.py`, `psglab/ui/shortcuts.py` (tecla A) |
+| V3_F | Elegir entre Rechtschaffen y Kales y AASM | `psglab/core/nomenclature.py`, `psglab/ui/scoring_panel.py`, `psglab/core/scoring.py` (`change_nomenclature`) |
 
 ### Herramienta de amplitud
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Banda de 75 µV adaptada a la escala del usuario | `psglab/tools/amplitude_band.py` |
+| V1_F | Banda de 75 µV adaptada a la escala del usuario | `psglab/tools/amplitude_band.py`, `psglab/utils/units.py` (µV) |
 
 ### Herramienta de ocupación de la página
 
@@ -104,14 +104,14 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Seleccionar un evento, asignarle o crear una clase, marcarlo con una banda | `psglab/tools/annotator.py`, `psglab/core/annotations.py` |
+| V1_F | Seleccionar un evento, asignarle o crear una clase, marcarlo con una banda | `psglab/tools/annotator.py`, `psglab/core/annotations.py`, `psglab/ui/signal_view.py` (`sample_at`) |
 
 ### Archivo de salida
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | `Scoring.txt` | `psglab/exporters/scoring_txt.py` |
-| V2_F | `Anotaciones.txt` | `psglab/exporters/annotations_txt.py` |
+| V1_F | `Scoring.txt` | `psglab/exporters/scoring_txt.py`, `psglab/core/nomenclature.py` (`STAGE_CODES`) |
+| V2_F | `Anotaciones.txt` | `psglab/exporters/annotations_txt.py`, `psglab/core/annotations.py` |
 | V3_F | `Informacion.txt` | `psglab/exporters/information_txt.py`, `psglab/exporters/statistics.py` |
 | V4_F | Elegir cuál de los tres exportar | `psglab/ui/main_window.py` |
 
@@ -132,16 +132,34 @@ commit.
 
 ---
 
+## Módulos de infraestructura
+
+No implementan ninguna funcionalidad numerada, así que no tienen fila arriba.
+Se listan igual porque la tabla también sirve para la pregunta inversa: **qué se
+rompe si se toca este archivo**. Estos cinco se rompen hacia todos lados.
+
+| Archivo | De qué se ocupa | Qué se ve afectado si cambia |
+|---|---|---|
+| `psglab/config.py` | Constantes del pliego (30 s, grilla, 75 µV, nombres de salida) | Todo lo que dependa de esos valores |
+| `psglab/core/recording.py` | Modelo del registro en memoria | Toda la Parte 1 y toda la Parte 2 |
+| `psglab/utils/units.py` | Conversión a microvoltios | Cualquier requisito que hable de amplitud |
+| `psglab/utils/errors.py` | Excepciones con mensaje para el investigador | Todo mensaje de error que ve el usuario |
+| `psglab/tools/base.py` | Los contratos `Tool` y `ViewerTool`, y el sistema de coordenadas | Las seis herramientas |
+| `psglab/tools/registry.py` | Registro enchufable de herramientas | La barra de herramientas entera |
+| `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |
+
+---
+
 ## Requisitos técnicos (sección 7 del pliego)
 
 | Requisito | Dónde se cumple |
 |-----------|-----------------|
 | Python con interfaz visual | Todo el proyecto; interfaz en `psglab/ui/` |
-| `main.py` lo más simple posible | `main.py` (8 líneas de código: crea la app, abre la ventana y sale) |
+| `main.py` lo más simple posible | `main.py` (9 sentencias: crea la app, abre la ventana y sale) |
 | Archivos `.py` separados por funcionalidad | Estructura de `psglab/`, documentada en esta tabla |
 | Código completamente comentado | Docstring de responsabilidad en cada módulo y función |
 | Archivo de texto explicativo de soporte | `docs/EXPLICACION.txt` |
-| Escalabilidad | `psglab/tools/registry.py` y `psglab/readers/base.py` |
+| Escalabilidad | `psglab/tools/registry.py` y `psglab/tools/base.py`; `psglab/readers/base.py` |
 | Multiplataforma | PySide6 y MNE funcionan en Windows, macOS y Linux |
 | Licencia MIT | `LICENSE`; ver la nota sobre PyQt en `docs/ARQUITECTURA.md` |
 | Branch `Add`, PRs comentadas | `README.md`, sección "Cómo contribuir" |
@@ -161,11 +179,14 @@ archivo; cuando se retomen, entran como módulos nuevos en `psglab/analysis/`.
 
 ## Puntos del pliego pendientes de definición
 
-| Tema | Qué falta definir | Archivo afectado |
-|------|-------------------|------------------|
-| Formato de `Scoring.txt` | El texto describe tres campos, el ejemplo muestra dos | `psglab/config.py`, `psglab/exporters/scoring_txt.py` |
-| Códigos numéricos de fase | El pliego sólo fija "2" para S2. El resto sigue la convención habitual (0=W, 5=REM, 6=MT) | `psglab/core/nomenclature.py` |
-| Índice de "puntos" | Si la primera muestra es 0 o 1 | `psglab/exporters/annotations_txt.py` |
-| Origen de las impedancias | Cabecera, archivo aparte o carga manual | `psglab/analysis/impedance.py` |
-| Superposición de líneas | Si el área compartida se cuenta una o dos veces | `psglab/tools/occupancy.py` |
-| Scoring automático | Figura entre las motivaciones del pliego ("Scoring automatico imposible") pero **no aparece en ninguna funcionalidad**. Hoy no tiene archivo asignado | — |
+La lista vive en **[`TODO.md`](TODO.md#hito-0-desbloquear)**, hito 0, con el
+detalle de qué trabajo frena cada una. Acá no se repite: el estado y las
+preguntas abiertas los posee el TODO, y duplicarlos garantizaba —y de hecho
+produjo— que las copias se desincronizaran.
+
+Las que ya afectan a un archivo concreto están anotadas además en el docstring
+de ese archivo, con la marca `PENDIENTE DE CONFIRMACIÓN`:
+
+```bash
+grep -rn "PENDIENTE DE" psglab --include=*.py
+```

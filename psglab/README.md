@@ -92,7 +92,7 @@ cargarse y los mecanismos enchufables no existirían.
 
 ## Estado
 
-Pendientes **168 stubs** en 25 módulos de la Parte 1, ordenados por
+Pendientes **173 stubs** en 30 módulos de la Parte 1, ordenados por
 dependencias en el [TODO](../docs/TODO.md). `app.py` es el último de la fila
 (hito 6): hasta que se implemente, `python main.py` termina en
 `NotImplementedError`, que es lo esperado.

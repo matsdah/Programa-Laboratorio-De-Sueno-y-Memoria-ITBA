@@ -59,7 +59,7 @@ demas archivos esten separados por funcionalidad, para saber que hace cada uno
 y cual se toco cuando algo cambia. La organizacion sale de ahi.
 
   main.py
-      El punto de entrada. Son 8 lineas de codigo y lo unico que hacen es
+      El punto de entrada. Son 9 sentencias y lo unico que hacen es
       abrir el programa. Toda la logica esta en otro lado.
 
   psglab/readers/
@@ -172,43 +172,24 @@ DATOS DE PACIENTES. Los registros nunca se suben al repositorio. El archivo
 8. LO QUE FALTA DEFINIR
 -------------------------------------------------------------------------------
 
-Puntos del pliego que quedaron ambiguos y hay que cerrar antes de programarlos.
+Hay puntos del pliego que quedaron ambiguos y que el cliente tiene que cerrar.
 
-Los que dicen BLOQUEA frenan trabajo concreto: son el hito 0 de docs/TODO.md y
-conviene resolverlos antes de empezar a programar, porque despues hay que
-volver sobre codigo ya escrito.
+La lista completa y actualizada esta en docs/TODO.md, en el "Hito 0", junto con
+cual es el trabajo que frena cada una. Se lleva en un solo lugar a proposito:
+hasta hace poco estaba repetida en tres archivos y ninguna copia coincidia con
+las otras, asi que no habia forma de saber cual era la buena.
 
-  1. Scoring.txt: el pliego describe tres datos por linea (numero de ventana,
-     fase, arousal) pero el ejemplo muestra dos ("2 0"). Hay que confirmar cual
-     de los dos es.
-     NO BLOQUEA: las dos variantes ya funcionan cambiando una constante
-     (SCORING_INCLUDES_WINDOW_NUMBER, en psglab/config.py).
+Resumen de lo que hay abierto hoy:
 
-  2. "Puntos": son muestras del registro. Falta definir si la primera muestra
-     es la 0 o la 1.
-     BLOQUEA la exportacion de Anotaciones.txt y la herramienta de anotacion.
-     No se puede elegir por defecto: cambia todos los numeros exportados.
-
-  3. Impedancias: los archivos EDF y BrainVision no siempre las traen. Hay que
-     definir de donde salen.
-     NO BLOQUEA la Parte 1: es de la Parte 2.
-
-  4. Ocupacion: si dos lineas se pisan en horizontal, hay que definir si la
-     zona compartida se cuenta una vez o dos.
-     BLOQUEA dos de los cinco requisitos de la herramienta de ocupacion.
-
-  5. Titular del copyright para el archivo LICENSE, y nombre del repositorio.
-     NO BLOQUEA codigo.
-
-  6. Un registro de prueba en BrainVision y en EDF para poder probar la
-     importacion.
-     BLOQUEA la verificacion de la importacion de punta a punta. Ese registro
-     no se sube al repositorio.
-
-  7. Scoring automatico: aparece entre los motivos del pliego ("Scoring
-     automatico imposible") pero no figura en ninguna funcionalidad y no tiene
-     archivo asignado. Hay que confirmar si entra en el alcance. Si entra, es
-     un bloque de trabajo entero que hoy no esta previsto.
+  - Codigos numericos de las fases (REM y MT sobre todo).
+  - Si "Scoring.txt" deberia decir con que nomenclatura se escribio. Hoy no lo
+    dice, y el mismo numero significa cosas distintas en cada nomenclatura.
+  - Si la primera muestra del registro es la 0 o la 1.
+  - Si dos lineas de ocupacion que se pisan cuentan una vez o dos.
+  - Conseguir un registro de prueba en BrainVision y en EDF.
+  - Si el scoring automatico entra en el alcance.
+  - Titular del copyright y nombre del repositorio.
+  - De donde salen las impedancias (esto es de la Parte 2).
 
 
 ===============================================================================

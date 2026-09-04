@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **168 stubs** (`raise NotImplementedError`) en 30 módulos de la Parte 1.
+Quedan **173 stubs** (`raise NotImplementedError`) en 30 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -40,13 +40,13 @@ nada**. Un verde por omisión es peor que un rojo.
 | [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ⬜ |
 | [1. Cimientos](#hito-1-cimientos) | 4 | 21 | ⬜ |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 20 | ⬜ |
-| [3. Sesión](#hito-3-sesión) | 1 | 16 | ⬜ |
+| [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 8 | ⬜ |
 | [5. Exportadores](#hito-5-exportadores) | 4 | 13 | ⬜ |
-| [6. Interfaz](#hito-6-interfaz) | 8 | 43 | ⬜ |
+| [6. Interfaz](#hito-6-interfaz) | 8 | 45 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 47 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **30** | **168** | |
+| | **30** | **173** | |
 
 ### Los tres cortes que importan
 
@@ -64,10 +64,25 @@ pueden ir en paralelo: una por 4 y 5, otra por 6.
 
 ## Hito 0: Desbloquear
 
-Sin código. Son las preguntas al cliente que frenan trabajo más adelante, y el
-material que falta. Están en [`EXPLICACION.txt`](EXPLICACION.txt) sección 8;
-acá quedan las que **bloquean**.
+Sin código. Son las preguntas abiertas del pliego y el material que falta.
 
+**Esta es la lista completa y el único lugar donde se lleva.**
+`EXPLICACION.txt` y `TRAZABILIDAD.md` remiten acá en vez de enumerar por su
+cuenta: hasta la auditoría había tres listas y ninguna coincidía con las otras.
+
+### Bloquean trabajo
+
+- [ ] **Códigos numéricos de fase: ¿REM es 5 y MT es 6?**
+  El pliego sólo fija "2" para S2; el resto sigue la convención habitual
+  (0=W, 1..4=S1..S4, 5=REM, 6=MT), pero es una suposición. Está marcado
+  PENDIENTE en `core/nomenclature.py`. Bloquea `exporters/scoring_txt.py`
+  (hito 5) y `readers/scoring_reader.py` (hito 4).
+- [ ] **¿`Scoring.txt` debería declarar la nomenclatura?**
+  Hoy el archivo **no es autodescriptivo**: "2" es S2 en R&K y N2 en AASM, así
+  que releerlo exige saber con qué nomenclatura se generó, y equivocarse carga
+  el scoring entero mal traducido sin ningún error visible. Una cabecera lo
+  resolvería, pero se apartaría del formato del pliego. Bloquea los hitos 4 y 5
+  junto con el punto anterior.
 - [ ] **Índice de los "puntos": ¿la primera muestra es la 0 o la 1?**
   Bloquea `exporters/annotations_txt.py` (hito 5) y `tools/annotator.py`
   (hito 7). No se puede elegir por defecto: cambia todos los números exportados.
@@ -76,13 +91,24 @@ acá quedan las que **bloquean**.
 - [ ] **Conseguir un registro de prueba en BrainVision y en EDF.**
   Sin él el hito 4 no se puede verificar de punta a punta. **No va al
   repositorio** (ver [`readers/README.md`](../psglab/readers/README.md)).
+
+### No bloquean, pero hay que cerrarlas
+
 - [ ] **¿El scoring automático entra en el alcance?**
   Aparece en la motivación del pliego ("Scoring automatico imposible") pero
   **no figura en ninguna funcionalidad y no tiene archivo asignado**. Si entra,
   es un hito nuevo entero y hay que agregarlo a `TRAZABILIDAD.md`.
+- [ ] **Titular del copyright y nombre del repositorio.**
+  `LICENSE` ya dice "Laboratorio de Sueño y Memoria, ITBA": falta confirmar que
+  sea correcto, no elegirlo de cero.
+- [ ] **Origen de las impedancias** (cabecera, archivo aparte o carga manual).
+  Es de la **Parte 2**, así que no frena nada de este TODO, pero sigue abierta.
 
-No bloquea, ya está resuelto por parametrización: el formato de `Scoring.txt`
-(dos campos o tres) vive en `config.SCORING_INCLUDES_WINDOW_NUMBER`.
+### Ya resuelta por parametrización
+
+El formato de `Scoring.txt` (dos campos o tres) vive en
+`config.SCORING_INCLUDES_WINDOW_NUMBER`. **No hardcodear ninguna variante**
+hasta que el cliente confirme.
 
 ---
 
@@ -125,13 +151,16 @@ cualquier orden, incluso en paralelo.
 
 ## Hito 3: Sesión
 
-- [ ] **`psglab/core/session.py`** · 16 stubs · V1_F "Navegación";
-      V2_P, V3_P, V5_F "Visualización"
+- [ ] **`psglab/core/session.py`** · 19 stubs · V1_F "Navegación";
+      V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
   - Test: **crear** `tests/test_session.py`. Navegación y amplitud son
     testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - Va a necesitar importar `core/windows.py` para `n_windows` (VENMAX); hoy
     todavía no lo importa.
   - Los topes de amplitud salen de `config`, no se escriben a mano.
+  - Las tres propiedades `recording`, `scoring` y `annotations` son el único
+    camino por el que las herramientas y la interfaz llegan a lo que hay
+    abierto: no agregar accesos por atributo suelto.
 
 > **Cerrado el hito 3, toda la capa de negocio funciona sin abrir una ventana.**
 
@@ -187,8 +216,11 @@ por eso la capa se mantiene delgada y toda la regla vive en `core/`. No es un
 olvido.
 
 - [ ] **`psglab/ui/grid.py`** · 4 stubs · V1_P, V2_F "Diseño de la interfaz"
-- [ ] **`psglab/ui/signal_view.py`** · 10 stubs · V1_P, V2_P, V4_F, V5_F
+- [ ] **`psglab/ui/signal_view.py`** · 12 stubs · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P)
+  - Incluye `seconds_at`, `window_fraction_at` y `sample_at`: es el **único**
+    lugar que traduce entre píxeles, segundos, fracción de ventana y muestras.
+    Ver el contrato en `psglab/tools/base.py`.
 - [ ] **`psglab/ui/navigation.py`** · 5 stubs · V1_F "Navegación"
 - [ ] **`psglab/ui/channel_selector.py`** · 6 stubs · V3_P, V4_F "Visualización"
 - [ ] **`psglab/ui/scoring_panel.py`** · 3 stubs · V1_F, V2_F, V3_F "Scoring"

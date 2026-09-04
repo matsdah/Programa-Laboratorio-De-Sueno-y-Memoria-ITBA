@@ -78,7 +78,7 @@ Ver [`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt), sección 8.
 
 ## Estado
 
-Pendientes **53 stubs**, repartidos en los tres primeros hitos del
+Pendientes **56 stubs**, repartidos en los tres primeros hitos del
 [TODO](../../docs/TODO.md):
 
 | Hito | Módulos |
