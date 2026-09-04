@@ -65,8 +65,10 @@ de 20 segundos, se cambia acá y en ningún otro lado.
 | `SCORING_INCLUDES_WINDOW_NUMBER` | `False` | `Scoring.txt` lleva dos campos, como el ejemplo del pliego. |
 | `ANNOTATION_SAMPLE_BASE` | `0` | Base de las muestras en `Anotaciones.txt`. |
 | `OCCUPANCY_COUNTS_OVERLAP_ONCE` | `False` | La superposición de líneas se cuenta dos veces. |
+| `SCORING_INCLUDES_NOMENCLATURE_HEADER` | `True` | `Scoring.txt` declara su nomenclatura en una cabecera. |
+| `SCORING_HEADER_PREFIX` | `#` | Prefijo de esa cabecera. |
 
-Las tres últimas resuelven puntos que el pliego dejaba ambiguos y que se
+Las cinco últimas resuelven puntos que el pliego dejaba ambiguos y que se
 cerraron con el cliente. Siguen siendo constantes, y no valores escritos a mano
 en el módulo que los usa, por dos motivos: revertir una decisión es cambiar una
 línea, y el valor queda junto al motivo por el que se eligió.
@@ -98,7 +100,7 @@ cargarse y los mecanismos enchufables no existirían.
 
 ## Estado
 
-Pendientes **173 stubs** en 30 módulos de la Parte 1, ordenados por
+Pendientes **170 stubs** en 29 módulos de la Parte 1, ordenados por
 dependencias en el [TODO](../docs/TODO.md). `app.py` es el último de la fila
 (hito 6): hasta que se implemente, `python main.py` termina en
 `NotImplementedError`, que es lo esperado.

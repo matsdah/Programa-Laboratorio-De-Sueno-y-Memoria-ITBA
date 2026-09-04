@@ -8,8 +8,9 @@ Este objeto es el que la interfaz consulta para dibujarse y el que modifica
 cuando el usuario hace algo. Mantenerlo fuera de `psglab.ui` es lo que permite
 testear la navegación y el manejo de amplitudes sin abrir una ventana.
 
-Cubre del pliego: V1_F de "Navegación en la señal"; V2_P, V3_P, V5_F de
-"Visualización de la señal".
+Cubre del pliego: V1_F de "Navegación en la señal"; V2_P, V3_P y V5_F de
+"Visualización de la señal"; V4_F del histograma (`go_to_window`, que es a
+donde llega el clic sobre el hipnograma).
 """
 
 from psglab.config import (

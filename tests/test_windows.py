@@ -147,3 +147,24 @@ def test_una_ventana_posterior_al_final_del_registro_dura_cero(sampling_rate):
     """Preguntar por una ventana que no existe no debería romper el programa."""
     n_samples = int(600 * sampling_rate)
     assert window_duration(50, n_samples, sampling_rate) == timedelta(0)
+
+
+# -- Precondiciones ---------------------------------------------------------
+#
+# El módulo es aritmética pura y no valida sus argumentos: quien llama ya lo
+# hizo (`Session.go_to_window()` eleva `WindowOutOfRangeError` antes de llegar
+# acá). Estos tests no piden que valide: fijan lo que hace hoy, para que si
+# alguien decide agregar validación sea una decisión y no un accidente.
+
+
+def test_un_indice_negativo_devuelve_numeros_negativos_sin_avisar(sampling_rate):
+    """Documentado en el docstring del módulo: no valida, y quien llama sí."""
+    start, stop = window_to_samples(-1, sampling_rate)
+    assert start < 0
+    assert stop == 0
+
+
+def test_una_frecuencia_de_cero_no_se_puede_convertir(sampling_rate):
+    """Una división por cero es correcta acá: no hay ventana que calcular."""
+    with pytest.raises(ZeroDivisionError):
+        sample_to_window(100, 0.0)

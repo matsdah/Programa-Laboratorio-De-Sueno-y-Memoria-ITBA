@@ -14,6 +14,14 @@ efectiva no es redonda: con 256,125 Hz, `30 * fs` da 7683,75. Acumular
 respecto de su lugar real. No rompe nada de forma visible: corre el scoring de
 toda la segunda mitad de la noche.
 
+**Precondiciones.** Las funciones de este módulo son aritmética pura y no
+validan sus argumentos: esperan `sampling_rate` mayor que cero e índices de
+ventana y muestra no negativos. Quien llama ya validó —`Session.go_to_window()`
+eleva `WindowOutOfRangeError` antes de llegar acá— y repetir la comprobación en
+el camino caliente, que se recorre en cada pulsación de flecha, no aporta nada.
+Con un índice negativo devuelven números negativos en silencio; con frecuencia
+cero, elevan `ZeroDivisionError`.
+
 Cubre del pliego: sostiene V1_P de "Visualización" (número de ventana actual
 y total), V1_F de "Navegación" y V2_F del histograma.
 """
