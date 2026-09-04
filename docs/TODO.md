@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **170 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
+Quedan **173 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -56,10 +56,10 @@ nada**. Un verde por omisión es peor que un rojo.
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
 | [5. Exportadores](#hito-5-exportadores) | 4 | 14 | ⬜ |
-| [6. Interfaz](#hito-6-interfaz) | 8 | 45 | ⬜ |
-| [7. Herramientas](#hito-7-herramientas) | 6 | 47 | ⬜ |
+| [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
+| [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **29** | **170** | |
+| | **29** | **173** | |
 
 ### Los tres cortes que importan
 
@@ -269,7 +269,7 @@ por eso la capa se mantiene delgada y toda la regla vive en `core/`. No es un
 olvido.
 
 - [ ] **`psglab/ui/grid.py`** · 4 stubs · V1_P, V2_F "Diseño de la interfaz"
-- [ ] **`psglab/ui/signal_view.py`** · 12 stubs · V1_P, V2_P, V4_F, V5_F
+- [ ] **`psglab/ui/signal_view.py`** · 13 stubs · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
   - Incluye `seconds_at_pixel`, `window_fraction_at_pixel` y `sample_at_pixel`: es el **único**
     lugar que traduce entre píxeles, segundos, fracción de ventana y muestras.
@@ -301,12 +301,12 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
       amplitud" · `ViewerTool`
   - Test: **crear** `tests/test_amplitude_band.py`. Los 75 µV salen de
     `config.AMPLITUDE_BAND_UV`.
-- [ ] **`psglab/tools/occupancy.py`** · 12 stubs · V1_F–V5_F "Ocupación" ·
+- [ ] **`psglab/tools/occupancy.py`** · 13 stubs · V1_F–V5_F "Ocupación" ·
       `ViewerTool`
   - V2_F y V4_F: el hito 0 fijó que la superposición se cuenta **dos veces**,
     y sale de `config.OCCUPANCY_COUNTS_OVERLAP_ONCE`.
   - Test: `tests/test_occupancy.py` → **borrar el `pytestmark`**.
-- [ ] **`psglab/tools/magnifier.py`** · 8 stubs · V1_F, V2_F "Lupa" ·
+- [ ] **`psglab/tools/magnifier.py`** · 9 stubs · V1_F, V2_F "Lupa" ·
       `ViewerTool`
   - Test: **crear** `tests/test_magnifier.py` (el contador de picos es
     testeable sin dibujar nada).

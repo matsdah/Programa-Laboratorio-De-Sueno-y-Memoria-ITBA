@@ -11,9 +11,11 @@ actuales del laboratorio no se puede anotar la señal.
 Cubre del pliego: V1_F de "Anotación de la señal".
 """
 
+from collections.abc import Sequence
+
 from psglab.core.annotations import Annotation
 from psglab.core.session import Session
-from psglab.tools.base import ViewerTool
+from psglab.tools.base import Overlay, SpanOverlay, ViewerTool
 from psglab.tools.registry import register_tool
 
 
@@ -38,8 +40,8 @@ class AnnotatorTool(ViewerTool):
         raise NotImplementedError("Pendiente: registrar el inicio de la selección.")
 
     def on_mouse_move(self, x: float, y: float) -> None:
-        """Muestra el ancho de la selección mientras el usuario arrastra."""
-        raise NotImplementedError("Pendiente: actualizar la vista previa de la banda.")
+        """Extiende la selección mientras el usuario arrastra."""
+        raise NotImplementedError("Pendiente: actualizar la selección en curso y avisar.")
 
     def on_mouse_release(self, x: float, y: float, button: str) -> None:
         """Cierra la selección y pide la clase del evento.
@@ -55,6 +57,12 @@ class AnnotatorTool(ViewerTool):
         Las posiciones se guardan en muestras del registro, no en píxeles ni
         en coordenadas de la ventana: es lo que exige "Anotaciones.txt" y lo
         único que sobrevive a un cambio de zoom.
+
+        Los eventos de mouse llegan en **segundos** desde el inicio de la
+        ventana, así que la conversión la hace
+        `core.windows.seconds_to_sample()`, que suma el desplazamiento sobre el
+        borde real de la ventana. Calcularlo como `ventana * 30 * fs` deja la
+        anotación en la ventana de al lado cuando la frecuencia no es redonda.
         """
         raise NotImplementedError("Pendiente: construir la anotación y agregarla.")
 
@@ -66,10 +74,15 @@ class AnnotatorTool(ViewerTool):
         """Elimina una anotación existente."""
         raise NotImplementedError("Pendiente: quitar la anotación del conjunto.")
 
-    def draw_annotations(self, window_index: int) -> None:
-        """Dibuja las bandas de color de los eventos de una ventana.
+    def overlays(self) -> Sequence[Overlay]:
+        """Las bandas de los eventos de la ventana actual, más la selección en curso.
 
         Cada banda ocupa todo el alto de la ventana de scoring, como pide el
-        pliego, para que se vea sin importar qué canales estén visibles.
+        pliego, para que se vea sin importar qué canales estén visibles; por eso
+        un `SpanOverlay` sólo lleva el tramo horizontal y no una altura.
+
+        Las anotaciones guardadas vienen en muestras y se devuelven en segundos
+        desde el inicio de la ventana, con
+        `core.windows.sample_to_seconds()`.
         """
-        raise NotImplementedError("Pendiente: dibujar las bandas de la ventana.")
+        raise NotImplementedError("Pendiente: devolver las anotaciones como SpanOverlay.")

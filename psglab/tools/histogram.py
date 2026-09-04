@@ -37,6 +37,10 @@ class HistogramTool(Tool):
     #: usuario hizo clic y quiere ir a otra ventana. Se usa un callback y no
     #: una señal de Qt porque `Tool` no hereda de QObject: las herramientas
     #: son objetos comunes, y así se las puede testear sin interfaz gráfica.
+    #:
+    #: **Se asigna sobre la instancia, nunca sobre la clase.** Asignado en la
+    #: clase, el protocolo de descriptores lo convierte en método ligado y la
+    #: llamada le pasaría `self` de más. Vale lo mismo para `Tool.on_changed`.
     on_window_requested: Callable[[int], None] | None = None
 
     def activate(self, session: Session) -> None:

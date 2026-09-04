@@ -28,16 +28,21 @@ class OverviewTool(Tool):
     exclusive = False  # Es un panel: no compite por el clic del mouse.
 
     def activate(self, session: Session) -> None:
-        """Abre el panel de contexto."""
-        raise NotImplementedError("Pendiente: crear y mostrar el panel.")
+        """Abre el panel de contexto.
+
+        A diferencia de las herramientas del visualizador, un panel tiene su
+        propia zona de pantalla y no publica `Overlay`: avisa de que hay que
+        repintarlo con `notify_changed()`.
+        """
+        raise NotImplementedError("Pendiente: preparar el panel y avisar.")
 
     def deactivate(self) -> None:
         """Cierra el panel."""
-        raise NotImplementedError("Pendiente: cerrar el panel.")
+        raise NotImplementedError("Pendiente: cerrar el panel y avisar.")
 
     def on_window_changed(self, window_index: int) -> None:
-        """Redibuja el contexto alrededor de la ventana nueva."""
-        raise NotImplementedError("Pendiente: redibujar el panel centrado en la ventana actual.")
+        """Recentra el contexto alrededor de la ventana nueva."""
+        raise NotImplementedError("Pendiente: recentrar el panel y avisar.")
 
     def set_span(
         self,

@@ -12,9 +12,11 @@ dice que "debe adaptarse a la amplitud de la señal elegida por el usuario".
 Cubre del pliego: V1_F de "Herramienta de amplitud".
 """
 
+from collections.abc import Sequence
+
 from psglab.config import AMPLITUDE_BAND_UV
 from psglab.core.session import Session
-from psglab.tools.base import ViewerTool
+from psglab.tools.base import BandOverlay, Overlay, ViewerTool
 from psglab.tools.registry import register_tool
 from psglab.utils.units import MICROVOLT
 
@@ -39,16 +41,16 @@ class AmplitudeBandTool(ViewerTool):
     height_uv: float = AMPLITUDE_BAND_UV
 
     def activate(self, session: Session) -> None:
-        """Muestra la banda y la engancha al movimiento del mouse."""
-        raise NotImplementedError("Pendiente: crear y mostrar la banda.")
+        """Empieza a publicar la banda y queda a la espera del mouse."""
+        raise NotImplementedError("Pendiente: guardar la sesión y publicar la banda.")
 
     def deactivate(self) -> None:
-        """Oculta la banda."""
-        raise NotImplementedError("Pendiente: quitar la banda del visualizador.")
+        """Deja de publicar la banda."""
+        raise NotImplementedError("Pendiente: dejar de publicar la banda y avisar.")
 
     def on_mouse_move(self, x: float, y: float) -> None:
         """Mueve la banda para que siga al mouse en vertical."""
-        raise NotImplementedError("Pendiente: reposicionar la banda.")
+        raise NotImplementedError("Pendiente: reposicionar la banda y avisar.")
 
     def set_height_uv(self, height_uv: float) -> None:
         """Cambia la altura de la banda.
@@ -58,10 +60,12 @@ class AmplitudeBandTool(ViewerTool):
         """
         raise NotImplementedError("Pendiente: cambiar la altura de la banda.")
 
-    def band_height_pixels(self, scale_uv: float, plot_height_px: float) -> float:
-        """Traduce la altura en µV a píxeles según la escala del canal.
+    def overlays(self) -> Sequence[Overlay]:
+        """La banda, en microvoltios, centrada donde está el mouse.
 
-        Es la cuenta que mantiene honesta a la herramienta cuando el usuario
-        cambia la amplitud.
+        **En µV y no en píxeles.** La conversión a pantalla la hace el
+        visualizador, que es el único que sabe con qué escala está dibujado cada
+        canal; por eso la banda sigue midiendo 75 µV reales aunque el usuario
+        cambie la amplitud, que es todo el sentido de la herramienta.
         """
-        raise NotImplementedError("Pendiente: convertir microvoltios a píxeles.")
+        raise NotImplementedError("Pendiente: devolver la banda como BandOverlay.")

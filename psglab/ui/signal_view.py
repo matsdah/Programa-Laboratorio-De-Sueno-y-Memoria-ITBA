@@ -22,9 +22,12 @@ de la señal", por `sample_at_pixel()`: es la conversión que traduce el gesto d
 a la posición en muestras que guarda la anotación.
 """
 
+from collections.abc import Sequence
+
 import pyqtgraph as pg
 
 from psglab.core.session import Session
+from psglab.tools.base import Overlay
 
 
 class SignalView(pg.PlotWidget):
@@ -49,6 +52,20 @@ class SignalView(pg.PlotWidget):
     def refresh(self) -> None:
         """Redibuja la ventana actual con la configuración vigente."""
         raise NotImplementedError("Pendiente: redibujar la ventana actual.")
+
+    # -- Lo que dibujan las herramientas ------------------------------------
+
+    def set_overlays(self, overlays: Sequence[Overlay]) -> None:
+        """Reemplaza todo lo que las herramientas quieren dibujar encima.
+
+        Recibe **estado completo, no un delta**: redibujar es reemplazar. Los
+        `Overlay` vienen en segundos y microvoltios, y acá es donde se traducen
+        a píxeles, que es lo único que esta clase sabe hacer y ninguna otra.
+
+        La ventana principal la llama cuando una herramienta avisa por
+        `Tool.notify_changed()`.
+        """
+        raise NotImplementedError("Pendiente: redibujar los overlays de las herramientas.")
 
     # -- Canales (V3_P, V4_F) ----------------------------------------------
 
