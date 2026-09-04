@@ -9,26 +9,37 @@ Este archivo está en español, como el resto de la documentación del proyecto
 
 ## Estado del proyecto
 
-**Esqueleto.** La estructura está completa y todo importa, pero la lógica no
-está implementada: hay unos 200 `NotImplementedError` repartidos en 39 de los
-49 módulos. `python main.py` termina en `NotImplementedError` en
-`psglab/app.py:25`: es el comportamiento esperado, no un bug.
+**Esqueleto**, con el hito 0 cerrado y `psglab/core/windows.py` implementado. La
+estructura está completa y todo importa, pero casi ninguna lógica está escrita.
+`python main.py` termina en `NotImplementedError` dentro de `psglab/app.py`: es
+el comportamiento esperado, no un bug.
 
-Los 42 tests están desactivados con `pytestmark = pytest.mark.skip(...)` en la
-primera línea de cada archivo de `tests/`. **Al implementar un componente hay
-que borrar esa línea del test correspondiente**, o el trabajo queda sin
-verificar.
+**Las cuentas del avance viven sólo en [`docs/TODO.md`](docs/TODO.md)** —cuántos
+stubs quedan, en cuántos módulos, qué hito está abierto— y
+`tests/test_consistencia.py` las verifica contra el código en cada corrida. No
+repetirlas acá: a este archivo no lo verifica nadie y se desincroniza.
 
-Cuatro piezas están implementadas a propósito y **no deben convertirse en
+Los tests de los módulos que todavía no están implementados están apagados con
+`pytestmark = pytest.mark.skip(...)` cerca del principio del archivo. **Al
+implementar un componente hay que borrar esa línea del test correspondiente**, o
+el trabajo queda sin verificar; el chequeo
+`test_ningun_modulo_terminado_tiene_su_test_salteado` hace fallar la suite si
+alguien se olvida.
+
+`psglab/core/windows.py` junto con `tests/test_windows.py` es el único módulo de
+la Parte 1 terminado: sirve de modelo de qué se espera de un módulo cerrado.
+
+Algunas piezas están implementadas a propósito y **no deben convertirse en
 `NotImplementedError`**: los decoradores `@register_tool` y `@register_reader`,
-`Reader.can_read`, `read_recording()` y `PsgLabError.__init__`. Son
+`Reader.can_read`, el despacho de `read_recording()`, `PsgLabError.__init__`,
+los métodos de evento de `Tool` y `ViewerTool`, y `psglab/config.py` entero. Son
 infraestructura que corre en tiempo de importación; si fallaran, ningún módulo
 del paquete podría cargarse y los mecanismos enchufables no existirían.
 
 ## Por dónde seguir
 
 **[`docs/TODO.md`](docs/TODO.md) es la cola de trabajo** y el único documento
-que lleva estado. Ordena los 168 stubs de la Parte 1 en hitos **por
+que lleva estado. Ordena los stubs pendientes de la Parte 1 en hitos **por
 dependencias reales**, no por sección del pliego.
 
 **No empieces un módulo si su hito anterior no está cerrado**: vas a escribir
@@ -58,7 +69,7 @@ Bash el script de activación no aplica**: conviene llamar al intérprete direct
 **Usar siempre `python -m pytest`, nunca `pytest` a secas.** No hay
 `pyproject.toml` ni instalación editable, así que `psglab` sólo es importable
 porque `python -m` agrega el directorio actual a `sys.path`; `pytest` directo
-falla con `ModuleNotFoundError: No module named 'psglab'` en los cinco archivos.
+falla con `ModuleNotFoundError: No module named 'psglab'` en los seis archivos.
 Agregar un `pyproject.toml` lo resolvería, pero es una decisión de empaquetado
 que nadie tomó todavía.
 
@@ -75,11 +86,45 @@ En la consola de Windows los acentos de los mensajes salen como mojibake
 todo el texto que ve el usuario está en español y los archivos son UTF-8.
 `$env:PYTHONUTF8=1` lo corrige para esa corrida.
 
-Verificación de licencias, obligatoria antes de un release:
+Verificación de licencias a mano. El CI ya la corre en cada push, así que
+esto sirve para mirar el detalle, no para no olvidarse:
 
 ```bash
 pip-licenses --format=markdown --order=license
 ```
+
+## Lo que se verifica solo
+
+`tests/test_consistencia.py` no testea el programa sino **el repositorio**, y
+corre con `python -m pytest` como cualquier otro test. Conviene saber qué va a
+rechazar antes de dar por terminado un cambio:
+
+- Las **tres** cuentas de stubs de `docs/TODO.md` —el resumen del principio, las
+  filas de la tabla de progreso y la fila de totales— tienen que coincidir con
+  el código. **Implementar un stub obliga a actualizar el TODO en el mismo
+  commit.**
+- Todo módulo de `psglab/` lleva `Cubre del pliego:` en su docstring, y sus IDs
+  coinciden con `docs/TRAZABILIDAD.md` **en las dos direcciones**. Los módulos de
+  infraestructura también la llevan, declarando que no cubren ningún ID.
+- Ningún enlace ni ancla de ningún `.md` versionado apunta a la nada, **este
+  archivo incluido**. Renombrar un encabezado rompe los enlaces que lo apuntaban.
+- `docs/EXPLICACION.txt` se mantiene en ASCII, sin acentos.
+- `core/` y `utils/` no importan `psglab.ui`, `PySide6` ni `pyqtgraph`.
+- Todas las firmas llevan type hints.
+- Ningún módulo terminado tiene su test salteado.
+- Cada archivo de `tests/` tiene su fila en el diccionario `COBERTURA_DE_TESTS`
+  del propio test, que dice qué módulos cubre. **Agregar un archivo de test
+  obliga a agregar esa fila**; si no, quedaría fuera del chequeo anterior.
+- Todos los módulos del paquete se pueden importar. Es lo único que ejercita la
+  capa `ui/`.
+
+El [workflow de CI](.github/workflows/ci.yml) corre en cada push y cada pull
+request contra `Add` y `Master`: los tests en Windows, macOS y Linux con Python
+3.11 y 3.14 —la única prueba real de que el programa es multiplataforma—, esos
+chequeos de consistencia, y la verificación de licencias, que falla si entra una
+dependencia GPL. Contempla que PySide6 declara una licencia disyuntiva
+(`LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`), así que un chequeo ingenuo de
+"GPL" fallaría contra la dependencia principal del proyecto.
 
 ## Arquitectura
 
@@ -165,7 +210,9 @@ base 1 al mostrarlos y exportarlos; la conversión se hace al mostrar.
   exactamente por eso.
 - **Nunca commitear registros de participantes.** El `.gitignore` ya excluye
   `data/`, `registros/`, `*.edf`, `*.vhdr`, `*.vmrk`, `*.eeg` y los tres
-  archivos de salida.
+  archivos de salida. En `data/` hay registros de prueba locales (un EDF y un
+  BrainVision) que sirven para probar la importación a mano; **ningún test debe
+  leerlos**, por la regla de abajo.
 - Los tests usan **señal sintética generada en el momento** (fixtures en
   `tests/conftest.py`), nunca registros reales. Además de la privacidad, un
   registro sintético tiene resultado conocido de antemano: una onda de 10 Hz

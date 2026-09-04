@@ -11,8 +11,9 @@ compatibilidad únicamente con Windows y precios excesivos.
 > **Estado: esqueleto.** La estructura del proyecto está creada, pero la lógica todavía
 > no está implementada. Los módulos declaran su interfaz y elevan `NotImplementedError`.
 >
-> **Por dónde seguir: [`docs/TODO.md`](docs/TODO.md)**, que ordena los 168 stubs
-> pendientes de la Parte 1 en hitos por dependencias.
+> **Por dónde seguir: [`docs/TODO.md`](docs/TODO.md)**, que ordena los stubs
+> pendientes de la Parte 1 en hitos por dependencias y es el único lugar que
+> lleva la cuenta de lo que falta.
 
 ---
 
@@ -119,11 +120,13 @@ python -m pytest tests/test_scoring.py::test_el_arousal_es_independiente_de_la_f
 
 Los tests de `core/` y `exporters/` corren sin interfaz gráfica.
 
-Mientras el proyecto sea un esqueleto, todos los tests están desactivados con
-`pytestmark = pytest.mark.skip(...)` en la primera línea de cada archivo, y la
-corrida informa `42 skipped`. **Al implementar un componente hay que borrar esa
-línea del test que le corresponde**, o el trabajo queda sin verificar. Para ver
-qué se salteó y por qué:
+Los tests de los componentes que todavía no están implementados están
+desactivados con `pytestmark = pytest.mark.skip(...)` cerca del principio del
+archivo, así que la corrida informa una parte de la suite como `skipped`. **Al
+implementar un componente hay que borrar esa línea del test que le
+corresponde**, o el trabajo queda sin verificar —y el chequeo de consistencia
+hace fallar la suite si el módulo ya está terminado—. Para ver qué se salteó y
+por qué:
 
 ```bash
 python -m pytest -rs
