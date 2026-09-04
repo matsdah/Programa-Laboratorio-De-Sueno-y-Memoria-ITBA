@@ -143,10 +143,14 @@ cualquier orden, incluso en paralelo.
     de asumir un factor.
 - [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
-  - Test: `tests/test_windows.py`, **17 tests en verde**.
+  - Test: `tests/test_windows.py`, **25 tests en verde**.
   - Los bordes se calculan desde el índice de la ventana, nunca acumulando un
     paso redondeado: con una frecuencia no redonda (256,125 Hz en EDF) acumular
     corre la ventana 960 casi tres segundos. Hay tres tests que lo fijan.
+  - Convierte entre las cuatro unidades no gráficas: ventanas, muestras,
+    segundos dentro de la ventana y fracción de ventana. Las herramientas
+    piden acá en vez de escribir la cuenta; los píxeles son de
+    `ui/signal_view.py`, que es lo único que conoce el ancho de la pantalla.
 - [ ] **`psglab/core/nomenclature.py`** · 5 stubs · V3_F "Scoring",
       V3_F "Histograma"
   - Test: `tests/test_nomenclature.py` → **borrar el `pytestmark`**.
@@ -267,7 +271,7 @@ olvido.
 - [ ] **`psglab/ui/grid.py`** · 4 stubs · V1_P, V2_F "Diseño de la interfaz"
 - [ ] **`psglab/ui/signal_view.py`** · 12 stubs · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Incluye `seconds_at`, `window_fraction_at` y `sample_at`: es el **único**
+  - Incluye `seconds_at_pixel`, `window_fraction_at_pixel` y `sample_at_pixel`: es el **único**
     lugar que traduce entre píxeles, segundos, fracción de ventana y muestras.
     Ver el contrato en `psglab/tools/base.py`.
 - [ ] **`psglab/ui/navigation.py`** · 5 stubs · V1_F "Navegación"

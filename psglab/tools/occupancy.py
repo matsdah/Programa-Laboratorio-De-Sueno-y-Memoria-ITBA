@@ -39,7 +39,7 @@ class OccupancyLine:
 
     **Ojo con la unidad.** Los métodos de mouse de `ViewerTool` reciben `x` en
     **segundos** (0 a 30), que no es lo que esta clase guarda. La conversión la
-    hace `SignalView.window_fraction_at()` y hay que aplicarla antes de
+    hace `SignalView.window_fraction_at_pixel()` y hay que aplicarla antes de
     construir la línea. Si se le pasan segundos crudos, `horizontal_fraction`
     devuelve hasta 30 en vez de 1 y `line_percentage` informa 3000 %: un número
     plausible y equivocado, que no falla de forma visible.

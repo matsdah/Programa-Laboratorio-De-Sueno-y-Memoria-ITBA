@@ -86,9 +86,9 @@ class ViewerTool(Tool):
         Unidad              Rango típico   Quién la produce
         ------------------  -------------  ---------------------------------
         píxeles             0 .. ancho     el evento de Qt
-        segundos            0 .. 30        `SignalView.seconds_at()`
-        fracción de ventana 0 .. 1         `SignalView.window_fraction_at()`
-        muestras            0 .. n_samples `SignalView.sample_at()`
+        segundos            0 .. 30        `SignalView.seconds_at_pixel()`
+        fracción de ventana 0 .. 1         `SignalView.window_fraction_at_pixel()`
+        muestras            0 .. n_samples `SignalView.sample_at_pixel()`
 
     Los métodos de esta clase reciben **segundos**, ya convertidos por el
     visualizador. Una herramienta que necesite otra unidad la pide:

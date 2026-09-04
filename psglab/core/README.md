@@ -41,13 +41,24 @@ Cuando agregues estado de trabajo nuevo, va acá, no en un widget.
 
 ## `windows.py`: el único lugar donde se convierten unidades de tiempo
 
-El programa habla en tres unidades a la vez: el usuario piensa en **ventanas de
-30 segundos**, el archivo guarda **muestras** (los "puntos" del pliego) y el
-histograma muestra la **hora de la noche**.
+El programa habla en varias unidades a la vez: el usuario piensa en **ventanas
+de 30 segundos**, el archivo guarda **muestras** (los "puntos" del pliego), las
+herramientas reciben **segundos** desde el inicio de la ventana, el medidor de
+ocupación trabaja en **fracción de ventana** y el histograma muestra la **hora
+de la noche**.
 
 Todas esas conversiones viven acá, para que no aparezcan cuentas de
 `* 30 * fs` repartidas por el código. Si necesitás pasar de una unidad a otra,
 llamá a este módulo en vez de escribir la cuenta.
+
+**El reparto con `ui/signal_view.py` es exacto:** unidad ↔ unidad se hace acá;
+píxel ↔ unidad se hace en el visualizador, que es lo único que conoce el ancho
+de la pantalla. Por eso todo esto se testea sin abrir una ventana.
+
+**Con una frecuencia de muestreo que no sea positiva, las cinco funciones que
+la reciben elevan `ZeroDivisionError`.** No validan índices —quien llama ya lo
+hizo— pero una frecuencia corrupta sí se detiene acá: devolver una ventana
+vacía en silencio esconde el archivo roto hasta mucho después.
 
 **Convención de índices:** las ventanas se numeran **desde 0 internamente** y
 desde 1 al mostrarlas y al exportarlas. La conversión se hace al mostrar, no

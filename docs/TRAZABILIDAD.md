@@ -104,7 +104,7 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Seleccionar un evento, asignarle o crear una clase, marcarlo con una banda | `psglab/tools/annotator.py`, `psglab/core/annotations.py`, `psglab/ui/signal_view.py` (`sample_at`) |
+| V1_F | Seleccionar un evento, asignarle o crear una clase, marcarlo con una banda | `psglab/tools/annotator.py`, `psglab/core/annotations.py`, `psglab/ui/signal_view.py` (`sample_at_pixel`) |
 
 ### Archivo de salida
 
