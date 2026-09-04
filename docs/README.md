@@ -6,6 +6,7 @@
 | [`ARQUITECTURA.md`](ARQUITECTURA.md) | **Decisiones de diseño y sus motivos.** Capas, puntos de extensión, licencias, convenciones de código. | Cada vez que se revisa una decisión: hay que anotar el motivo del cambio. |
 | [`TRAZABILIDAD.md`](TRAZABILIDAD.md) | **Requisito del pliego → archivo responsable.** | Cada vez que se agrega una funcionalidad, **en el mismo commit**. |
 | [`EXPLICACION.txt`](EXPLICACION.txt) | Explicación general del programa en texto plano, para quien no lee código. Su sección 8 lista lo que falta definir. | Cuando el cliente cierra una ambigüedad. |
+| [`AUDITORIA.md`](AUDITORIA.md) | **Foto fechada** de las incongruencias que se encontraron revisando el repositorio entero. No lleva estado: lo que falta hacer vive en `TODO.md`. | No se toca. Si hace falta otra revisión, se escribe una nueva. |
 | `mockups/` | Bocetos de la interfaz. | — |
 
 ## Por qué existe `ARQUITECTURA.md`
