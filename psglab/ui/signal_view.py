@@ -82,11 +82,42 @@ class SignalView(pg.PlotWidget):
         raise NotImplementedError("Pendiente: redibujar la escala en microvoltios.")
 
     # -- Coordenadas --------------------------------------------------------
+    #
+    # El visualizador es el **único** que sabe traducir entre las cuatro
+    # unidades horizontales del programa, porque es el único que conoce el
+    # ancho en píxeles y la ventana que está dibujando:
+    #
+    #     píxeles  --seconds_at-->         segundos  (0 .. 30)
+    #     píxeles  --window_fraction_at--> fracción  (0 .. 1)
+    #     píxeles  --sample_at-->          muestras  (0 .. n_samples)
+    #
+    # Las herramientas nunca reciben píxeles: la ventana principal convierte
+    # antes de avisarles. `ViewerTool` recibe segundos, `OccupancyLine` guarda
+    # fracciones y el anotador guarda muestras. Ver `psglab/tools/base.py`.
+
+    def seconds_at(self, x_pixel: float) -> float:
+        """Segundos desde el inicio de la ventana bajo una coordenada horizontal.
+
+        Es la unidad que reciben los métodos de mouse de `ViewerTool`, así que
+        esta conversión es la que aplica la ventana principal antes de avisarle
+        a la herramienta activa.
+        """
+        raise NotImplementedError("Pendiente: convertir píxel a segundos de la ventana.")
+
+    def window_fraction_at(self, x_pixel: float) -> float:
+        """Posición dentro de la ventana, de 0 (inicio) a 1 (final).
+
+        La usa el medidor de ocupación, que mide proporciones del ancho y no
+        tiempos: con esta unidad el porcentaje sigue siendo correcto aunque el
+        usuario redimensione la ventana del programa.
+        """
+        raise NotImplementedError("Pendiente: convertir píxel a fracción de la ventana.")
 
     def sample_at(self, x_pixel: float) -> int:
         """Muestra del registro que cae bajo una coordenada horizontal.
 
-        Lo usan las herramientas que trabajan con el mouse (anotador, lupa,
-        ocupación) para traducir un clic a una posición en la señal.
+        La usa el anotador, que guarda las posiciones en muestras porque es lo
+        que exige "Anotaciones.txt" y lo único que sobrevive a un cambio de
+        zoom.
         """
         raise NotImplementedError("Pendiente: convertir píxel a muestra.")

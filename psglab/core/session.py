@@ -41,6 +41,33 @@ class Session:
         """
         raise NotImplementedError("Pendiente: inicializar el estado de la sesión.")
 
+    # -- Lo que hay abierto -------------------------------------------------
+    #
+    # Las tres piezas que la sesión reúne se exponen de sólo lectura. Es el
+    # único camino por el que la interfaz y las herramientas llegan a ellas:
+    # el histograma necesita el scoring, el anotador el conjunto de
+    # anotaciones y el visualizador el registro, y todos reciben nada más que
+    # una `Session`. Sin estas propiedades cada uno inventaría su propio
+    # acceso a un atributo no documentado.
+    #
+    # Son de sólo lectura a propósito: cambiar de registro no es mutar la
+    # sesión, es abrir una nueva.
+
+    @property
+    def recording(self) -> Recording:
+        """Registro abierto en esta sesión."""
+        raise NotImplementedError("Pendiente: devolver el registro abierto.")
+
+    @property
+    def scoring(self) -> Scoring:
+        """Scoring del registro abierto."""
+        raise NotImplementedError("Pendiente: devolver el scoring.")
+
+    @property
+    def annotations(self) -> AnnotationSet:
+        """Anotaciones del registro abierto."""
+        raise NotImplementedError("Pendiente: devolver el conjunto de anotaciones.")
+
     # -- Navegación entre ventanas (V1_F de "Navegación") -------------------
 
     @property

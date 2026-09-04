@@ -7,6 +7,9 @@ Los mensajes van en español y dirigidos al usuario, no al programador: el
 pliego dice que los usuarios son investigadores con o sin experiencia en
 informática, y un `KeyError: 'C3'` no le sirve a nadie. La causa técnica se
 guarda aparte, en `details`, para el diagnóstico.
+
+Cubre del pliego: ningún ID de funcionalidad. Sostiene el requisito de que el
+programa lo pueda usar un investigador sin experiencia informática (sección 3).
 """
 
 

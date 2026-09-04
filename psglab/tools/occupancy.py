@@ -32,9 +32,16 @@ from psglab.tools.registry import register_tool
 class OccupancyLine:
     """Una línea dibujada por el usuario.
 
-    Las coordenadas se guardan en fracción del ancho y del alto de la ventana
-    (de 0 a 1) y no en píxeles: así el porcentaje sigue siendo correcto si el
+    Las coordenadas se guardan en **fracción del ancho y del alto de la ventana,
+    de 0 a 1**, y no en píxeles: así el porcentaje sigue siendo correcto si el
     usuario redimensiona la ventana del programa.
+
+    **Ojo con la unidad.** Los métodos de mouse de `ViewerTool` reciben `x` en
+    **segundos** (0 a 30), que no es lo que esta clase guarda. La conversión la
+    hace `SignalView.window_fraction_at()` y hay que aplicarla antes de
+    construir la línea. Si se le pasan segundos crudos, `horizontal_fraction`
+    devuelve hasta 30 en vez de 1 y `line_percentage` informa 3000 %: un número
+    plausible y equivocado, que no falla de forma visible.
     """
 
     x1: float

@@ -15,6 +15,7 @@ from typing import Final
 
 from PySide6.QtWidgets import QMainWindow
 
+from psglab.core.nomenclature import Nomenclature
 from psglab.core.session import Session
 
 #: Atajos fijos del programa: tecla -> descripción para la ayuda.
@@ -36,7 +37,7 @@ FIXED_SHORTCUTS: Final[dict[str, str]] = {
 }
 
 
-def stage_shortcuts(nomenclature) -> dict[str, str]:
+def stage_shortcuts(nomenclature: Nomenclature) -> dict[str, str]:
     """Atajos de las fases de sueño según la nomenclatura activa.
 
     En Rechtschaffen y Kales las teclas naturales son W, 1, 2, 3, 4, R y M;
@@ -51,7 +52,7 @@ def install_shortcuts(window: QMainWindow, session: Session) -> None:
     raise NotImplementedError("Pendiente: crear los QShortcut y conectarlos.")
 
 
-def shortcuts_help_text(nomenclature) -> str:
+def shortcuts_help_text(nomenclature: Nomenclature) -> str:
     """Texto de ayuda con todos los atajos disponibles.
 
     Se muestra en el menú Ayuda. Se arma desde los diccionarios de este

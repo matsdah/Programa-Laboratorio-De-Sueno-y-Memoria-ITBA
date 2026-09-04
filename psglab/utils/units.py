@@ -11,6 +11,10 @@ fisiológica real del EEG. Confirmado con el cliente: la unidad es µV.
 
 Los archivos declaran su unidad de formas variadas ("uV", "µV", "microvolt",
 "V", "mV"), así que la normalización tiene que ser explícita y tolerante.
+
+Cubre del pliego: ningún ID propio, pero sostiene todos los que hablan de
+amplitud — la escala en µV de V1_P de "Visualización" y la banda de V1_F de
+"Herramienta de amplitud" — porque es donde la señal queda en microvoltios.
 """
 
 from typing import Final

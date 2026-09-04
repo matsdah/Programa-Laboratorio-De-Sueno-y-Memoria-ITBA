@@ -16,6 +16,10 @@ Este módulo está implementado y no pendiente, a diferencia del resto del
 esqueleto: `register_tool` es un decorador, o sea que **se ejecuta al importar
 cada herramienta**. Si elevara NotImplementedError, ningún módulo de
 `psglab.tools` podría importarse y el mecanismo enchufable no existiría.
+
+Cubre del pliego: ningún ID de funcionalidad. Es el mecanismo que sostiene el
+requisito técnico de escalabilidad (sección 7): agregar una herramienta no
+obliga a tocar ningún archivo existente.
 """
 
 import importlib

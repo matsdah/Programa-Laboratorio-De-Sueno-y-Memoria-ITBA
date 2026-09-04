@@ -7,6 +7,11 @@ conciencia, y captan cosas que el análisis espectral no ve.
 Se ofrecen varias medidas porque no hay una sola definición de "complejidad" y
 cada una responde una pregunta distinta.
 
+Las funciones que reciben `window_index` tienen que traducirlo a muestras con
+`psglab.core.windows.window_to_samples()`, que es el único lugar del programa
+donde se hace esa conversión. No escribir la cuenta `* 30 * fs` acá: si la
+ventana deja de ser de 30 s, este módulo quedaría desincronizado en silencio.
+
 Cubre del pliego: sección "Complejidad".
 """
 

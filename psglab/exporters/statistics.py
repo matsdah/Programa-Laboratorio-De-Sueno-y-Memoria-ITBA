@@ -9,6 +9,7 @@ Cubre del pliego: alimenta V3_F de "Archivo de salida" (duración por fase,
 métricas de tiempo y resumen de anotaciones).
 """
 
+from psglab.config import WINDOW_SECONDS
 from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import SleepStage
 from psglab.core.scoring import Scoring
@@ -19,7 +20,10 @@ def stage_window_counts(scoring: Scoring) -> dict[SleepStage, int]:
     raise NotImplementedError("Pendiente: contar las ventanas por fase.")
 
 
-def stage_durations_seconds(scoring: Scoring, window_seconds: float) -> dict[SleepStage, float]:
+def stage_durations_seconds(
+    scoring: Scoring,
+    window_seconds: float = WINDOW_SECONDS,
+) -> dict[SleepStage, float]:
     """Tiempo total pasado en cada fase, en segundos."""
     raise NotImplementedError("Pendiente: multiplicar las cuentas por la duración de la ventana.")
 
@@ -35,7 +39,10 @@ def stage_episodes(scoring: Scoring) -> dict[SleepStage, list[int]]:
     raise NotImplementedError("Pendiente: recorrer las fases y agrupar los tramos continuos.")
 
 
-def episode_metrics(episodes: list[int], window_seconds: float) -> dict[str, float]:
+def episode_metrics(
+    episodes: list[int],
+    window_seconds: float = WINDOW_SECONDS,
+) -> dict[str, float]:
     """Promedio, desvío estándar y mediana de la duración de los episodios.
 
     Returns:
@@ -59,6 +66,9 @@ def annotation_summary(
     raise NotImplementedError("Pendiente: agrupar las anotaciones por clase y promediar.")
 
 
-def total_recording_time(scoring: Scoring, window_seconds: float) -> float:
+def total_recording_time(
+    scoring: Scoring,
+    window_seconds: float = WINDOW_SECONDS,
+) -> float:
     """Duración total del registro en segundos, según la cantidad de ventanas."""
     raise NotImplementedError("Pendiente: multiplicar las ventanas por su duración.")

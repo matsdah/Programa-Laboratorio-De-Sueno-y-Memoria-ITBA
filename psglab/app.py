@@ -3,6 +3,9 @@
 Es la única pieza que `main.py` conoce. Su tarea es armar los objetos de Qt y
 devolverlos ya cableados, para que el punto de entrada se mantenga mínimo
 (requisito del pliego, sección 7).
+
+Cubre del pliego: ningún ID de funcionalidad. Es infraestructura de arranque;
+sostiene el requisito técnico de "main.py lo más simple posible" (sección 7).
 """
 
 from PySide6.QtWidgets import QApplication
