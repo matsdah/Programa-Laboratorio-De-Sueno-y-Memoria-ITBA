@@ -62,6 +62,12 @@ python -m venv .venv
 pip install -r requirements.txt -r requirements-dev.txt
 ```
 
+Hay un tercer archivo, `requirements-analysis.txt`, con las dos dependencias
+exclusivas de la Parte 2 (`mne-connectivity` y `antropy`). **No instalarlo salvo
+para trabajar en `psglab/analysis/`**: arrastran numba, llvmlite, xarray, pandas
+y scikit-learn, y ningún test las importa. El CI las instala sólo en el job de
+licencias.
+
 Desde PowerShell se activa el entorno con ese script. **Desde la herramienta
 Bash el script de activación no aplica**: conviene llamar al intérprete directo,
 `./.venv/Scripts/python.exe -m pytest`.

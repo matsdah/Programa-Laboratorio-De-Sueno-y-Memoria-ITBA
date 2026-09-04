@@ -18,11 +18,27 @@ on:
     branches: [Add, Master]
   pull_request:
     branches: [Add, Master]
+  # Para poder relanzarlo a mano sin tener que inventar un commit.
+  workflow_dispatch:
+
+# Un push a una rama con pull request abierto dispara las dos cosas, y las seis
+# combinaciones se corrían por duplicado. La corrida vieja ya no le importa a
+# nadie en cuanto llega una nueva.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Sólo se lee el repositorio. Nada de este workflow escribe.
+permissions:
+  contents: read
 
 jobs:
   tests:
     name: Tests · ${{ matrix.os }} · Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
+    # La suite tarda segundos; lo que puede irse a horas es una resolución de
+    # pip con retroceso. Sin tope, GitHub la deja correr seis horas.
+    timeout-minutes: 20
     strategy:
       # Sin fail-fast: si algo falla sólo en macOS, queremos ver igual el
       # resultado de los otros para saber si es del sistema o del código.
@@ -41,17 +57,31 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
+          # Sin esto la clave del caché sale sólo de requirements.txt, así que
+          # cambiar requirements-dev.txt reutilizaba un caché viejo.
+          cache-dependency-path: requirements*.txt
 
       # PySide6 necesita bibliotecas de sistema que las imágenes de Linux no
       # traen. Sin esto, importar psglab.ui falla en ubuntu por un motivo que no
       # tiene nada que ver con el código del proyecto.
+      #
+      # libfontconfig1 y libfreetype6 son dependencias directas de libQt6Gui.
+      # Hoy vienen preinstaladas en la imagen de ubuntu, así que la lista corta
+      # funcionaba de casualidad; con --no-install-recommends no hay red de
+      # contención si la imagen cambia.
       - name: Bibliotecas de Qt (sólo Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libglib2.0-0
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libglib2.0-0 \
+            libfontconfig1 libfreetype6
 
+      # Sin requirements-analysis.txt: mne-connectivity y antropy son de la
+      # Parte 2, ningún test las importa, y arrastran numba, llvmlite, netCDF4,
+      # xarray, pandas y scikit-learn. Instalarlas seis veces costaba tiempo y
+      # riesgo de rotura a cambio de cero verificación. Su licencia igual se
+      # revisa: el job de abajo sí las instala.
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
@@ -67,6 +97,7 @@ jobs:
   licencias:
     name: Licencias compatibles con MIT
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -75,11 +106,15 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
+          cache-dependency-path: requirements*.txt
 
+      # Acá sí van las tres: lo que se revisa es la licencia de todo lo que el
+      # producto distribuye, incluida la Parte 2, que el job de tests no
+      # instala.
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt
+          pip install -r requirements.txt -r requirements-dev.txt -r requirements-analysis.txt
 
       # El pliego pide licencia MIT, y una dependencia GPL obligaría a
       # relicenciar el proyecto entero. Es la razón por la que se eligió PySide6
@@ -93,23 +128,41 @@ jobs:
           python - <<'PYTHON'
           import json, subprocess, sys
 
-          # PySide6 y shiboken6 declaran una licencia DISYUNTIVA:
-          #   "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
-          # Quien la usa elige una, y el proyecto elige LGPL, que es
-          # exactamente el motivo por el que se eligió PySide6 sobre PyQt.
-          # Un chequeo que sólo busque "GPL" fallaría contra la dependencia
-          # principal del proyecto. Ver docs/ARQUITECTURA.md.
+          # Familias permisivas, compatibles con MIT. La lista es explícita a
+          # propósito: antes la función terminaba en `return True`, así que una
+          # licencia que no se pareciera a nada conocida —"UNKNOWN", vacía, o
+          # el texto de la GPL sin la sigla— pasaba el control. El portón que
+          # el pliego pide antes de cada release estaba abierto por defecto.
+          PERMISIVAS = (
+              "MIT", "BSD", "0BSD", "APACHE", "ISC", "ZLIB", "CC0",
+              "PYTHON SOFTWARE FOUNDATION", "PSF", "UNLICENSE", "PUBLIC DOMAIN",
+              # MPL-2.0 es copyleft por archivo: obliga a compartir los cambios
+              # de esos archivos, y no los modificamos.
+              "MPL", "MOZILLA PUBLIC LICENSE",
+          )
+
           def es_aceptable(licencia: str) -> bool:
-              texto = licencia.upper()
+              texto = (licencia or "").upper().strip()
+              if not texto or texto == "UNKNOWN":
+                  return False
+              # Disyuntiva: alcanza con que una opción sirva. PySide6 y
+              # shiboken6 declaran "LGPL-3.0-only OR GPL-2.0-only OR
+              # GPL-3.0-only"; elegimos LGPL, que es exactamente el motivo por
+              # el que se eligió PySide6 sobre PyQt. Ver docs/ARQUITECTURA.md.
               if " OR " in texto:
-                  # Disyuntiva: alcanza con que una de las opciones sirva.
                   return any(es_aceptable(o) for o in texto.split(" OR "))
+              # Conjunción: hay que cumplir todas.
+              for separador in (" AND ", ";"):
+                  if separador in texto:
+                      return all(es_aceptable(p) for p in texto.split(separador))
+              # "BSD-2-Clause WITH LLVM-exception": la excepción sólo agrega
+              # permisos, así que decide la licencia base.
+              texto = texto.split(" WITH ")[0].strip()
               if "LGPL" in texto:
                   return True          # enlace dinámico: compatible con MIT
               if "GPL" in texto:
                   return False         # GPL puro: incompatible
-              # MPL-2.0 es copyleft por archivo y no alcanza a nuestro código.
-              return True
+              return any(familia in texto for familia in PERMISIVAS)
 
           salida = subprocess.run(
               [sys.executable, "-m", "piplicenses", "--format=json", "--with-system"],
