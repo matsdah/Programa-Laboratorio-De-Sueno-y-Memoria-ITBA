@@ -64,7 +64,18 @@ Es la excepción del directorio: verifica invariantes **del repositorio entero**
 no de un módulo. Que las cuentas del TODO cierren contra el código, que los
 enlaces de la documentación no apunten a la nada, que los IDs del pliego que
 declara cada módulo coincidan con `TRAZABILIDAD.md` en las dos direcciones, que
-`EXPLICACION.txt` siga en ASCII, que `core/` no haya empezado a importar Qt.
+`EXPLICACION.txt` siga en ASCII, que las capas de negocio no hayan empezado a
+importar Qt.
+
+La regla que ordena los IDs, y que es la que más se rompía sola:
+
+> Un módulo nombra un ID en su docstring **si y sólo si** `TRAZABILIDAD.md` se
+> lo asigna a ese archivo.
+
+Un módulo que no cubre ninguno no los nombra —ni siquiera para decir que no los
+cubre, porque el chequeo los lee de esa línea y no distingue una mención de una
+declaración— y a cambio tiene que figurar en la tabla de módulos de
+infraestructura o en una fila de la Parte 2 sin ID.
 
 Existe porque el equipo pasó a ser de tres personas. Con una, revisar eso a mano
 alcanza; con tres, la documentación se desincroniza más rápido de lo que alguien

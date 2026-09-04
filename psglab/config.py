@@ -11,10 +11,15 @@ Ningún otro módulo debería escribir estos valores a mano: si mañana el
 laboratorio quiere ventanas de 20 segundos, se cambia acá y en ningún otro
 lado, y revertir una decisión es cambiar una línea.
 
-Cubre del pliego: ningún ID propio. Es infraestructura: sostiene los valores de
-V1_P y V2_F de "Diseño de la interfaz", V1_F de "Herramienta de amplitud" y los
-tres IDs de "Archivo de salida". Por eso figura en la sección de módulos de
-infraestructura de `docs/TRAZABILIDAD.md` y no en una fila de requisito.
+Cubre del pliego: ningún ID. Es infraestructura: guarda los valores que usan
+las secciones de "Diseño de la interfaz", "Herramienta de amplitud" y "Archivo
+de salida", pero no implementa ninguno de sus requisitos. Por eso figura en la
+tabla de módulos de infraestructura de `docs/TRAZABILIDAD.md` y no en una fila
+de requisito.
+
+Los IDs no se nombran acá a propósito: `tests/test_consistencia.py` los lee de
+esta línea para cruzarlos contra la tabla, así que nombrarlos sería declarar que
+este archivo los cubre, que es justo lo contrario de lo que dice el párrafo.
 """
 
 from typing import Final
