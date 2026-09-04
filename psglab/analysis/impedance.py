@@ -16,11 +16,12 @@ Cubre del pliego: V1_F de "Impedancia de los electrodos".
 """
 
 from pathlib import Path
+from typing import Final
 
 from psglab.core.recording import Recording
 
 #: Límite por defecto, en kiloohmios. Es el criterio habitual para EEG.
-DEFAULT_LIMIT_KOHM: float = 5.0
+DEFAULT_LIMIT_KOHM: Final[float] = 5.0
 
 
 def read_impedances(recording: Recording) -> dict[str, float]:

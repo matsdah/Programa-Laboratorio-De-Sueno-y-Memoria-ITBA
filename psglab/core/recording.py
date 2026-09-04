@@ -63,6 +63,12 @@ class Recording:
         start_time: horario de inicio del registro si el archivo lo informa.
             El pliego lo usa en V2_F del histograma para poner el eje en hora
             real; si es None, el eje va de ventana 1 a VENMAX.
+        metadata: lo que trae el archivo y no entra en los campos de arriba.
+            Cada lector decide qué guardar acá: `brainvision.py` deja los
+            marcadores del `.vmrk` para poder convertirlos en anotaciones si el
+            usuario lo pide, e `impedance.py` busca acá las impedancias cuando
+            el formato las trae. **El contenido depende del formato de origen,
+            así que ninguna capa debería darlo por presente sin verificarlo.**
     """
 
     file_path: Path

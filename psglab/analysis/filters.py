@@ -32,12 +32,18 @@ class FilterSettings:
     notch_hz: float | None = None
 
 
+#: Frecuencia de la red eléctrica, que es la que hay que filtrar con el notch.
+#: 50 Hz en Argentina y en la mayor parte del mundo; 60 Hz en América del Norte
+#: y parte de América del Sur. Se declara una sola vez para que cambiarla sea
+#: un cambio y no cinco.
+DEFAULT_NOTCH_HZ: Final[float] = 50.0
+
 #: Rangos habituales por tipo de canal, ofrecidos como punto de partida.
 DEFAULT_FILTERS: Final[dict[ChannelKind, FilterSettings]] = {
-    ChannelKind.EEG: FilterSettings(highpass_hz=0.3, lowpass_hz=35.0, notch_hz=50.0),
-    ChannelKind.EOG: FilterSettings(highpass_hz=0.3, lowpass_hz=15.0, notch_hz=50.0),
-    ChannelKind.EMG: FilterSettings(highpass_hz=10.0, lowpass_hz=100.0, notch_hz=50.0),
-    ChannelKind.ECG: FilterSettings(highpass_hz=0.5, lowpass_hz=70.0, notch_hz=50.0),
+    ChannelKind.EEG: FilterSettings(highpass_hz=0.3, lowpass_hz=35.0, notch_hz=DEFAULT_NOTCH_HZ),
+    ChannelKind.EOG: FilterSettings(highpass_hz=0.3, lowpass_hz=15.0, notch_hz=DEFAULT_NOTCH_HZ),
+    ChannelKind.EMG: FilterSettings(highpass_hz=10.0, lowpass_hz=100.0, notch_hz=DEFAULT_NOTCH_HZ),
+    ChannelKind.ECG: FilterSettings(highpass_hz=0.5, lowpass_hz=70.0, notch_hz=DEFAULT_NOTCH_HZ),
     ChannelKind.RESPIRATORY: FilterSettings(highpass_hz=0.05, lowpass_hz=5.0),
     ChannelKind.OTHER: FilterSettings(),
 }

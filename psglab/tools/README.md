@@ -103,3 +103,14 @@ ocupación lo usa para borrar sus líneas (V5_F) y la Übersicht para redibujars
 **Ocupación:** si dos líneas se pisan en horizontal, falta definir si la zona
 compartida se cuenta una vez o dos. Ver
 [`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt), sección 8.
+
+## Estado
+
+Pendientes **47 stubs**, en el
+[hito 7 del TODO](../../docs/TODO.md#hito-7-herramientas). Las seis
+herramientas son independientes entre sí, así que **se pueden repartir**.
+
+`base.py` y `registry.py` ya están implementados y no tienen stubs.
+
+`occupancy.py` (V2_F y V4_F) y `annotator.py` están bloqueados por el
+[hito 0](../../docs/TODO.md#hito-0-desbloquear).

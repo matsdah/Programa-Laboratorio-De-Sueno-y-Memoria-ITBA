@@ -11,6 +11,11 @@ eléctrica desde distintos lugares del cuero cabelludo. Los métodos basados en
 la parte imaginaria (imaginary coherence, wPLI) son inmunes a ese artefacto y
 son los recomendados por defecto.
 
+Las funciones que reciben `window_index` tienen que traducirlo a muestras con
+`psglab.core.windows.window_to_samples()`, que es el único lugar del programa
+donde se hace esa conversión. No escribir la cuenta `* 30 * fs` acá: si la
+ventana deja de ser de 30 s, este módulo quedaría desincronizado en silencio.
+
 Cubre del pliego: sección "Conectividad de la señal".
 """
 

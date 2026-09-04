@@ -45,6 +45,10 @@ Esto es a proposito: primero se acuerda la estructura, despues se programa.
 Asi se evita descubrir a mitad de camino que dos personas escribieron lo mismo
 en dos lugares distintos.
 
+Lo que falta y en que orden hacerlo esta en docs/TODO.md. Quedan 168 funciones
+por escribir en la Parte 1, agrupadas en hitos: cada hito solo usa cosas que ya
+estan terminadas en los hitos anteriores.
+
 
 -------------------------------------------------------------------------------
 3. COMO ESTA ORGANIZADO
@@ -55,7 +59,7 @@ demas archivos esten separados por funcionalidad, para saber que hace cada uno
 y cual se toco cuando algo cambia. La organizacion sale de ahi.
 
   main.py
-      El punto de entrada. Son 8 lineas de codigo y lo unico que hacen es
+      El punto de entrada. Son 9 sentencias y lo unico que hacen es
       abrir el programa. Toda la logica esta en otro lado.
 
   psglab/readers/
@@ -88,9 +92,10 @@ y cual se toco cuando algo cambia. La organizacion sale de ahi.
       Cosas que usa todo el mundo: las unidades (microvoltios) y los errores.
 
   docs/
-      Esta documentacion. TRAZABILIDAD.md dice en que archivo esta cada
-      requisito del pliego. ARQUITECTURA.md explica por que se decidio lo que
-      se decidio.
+      Esta documentacion. TODO.md es la lista de trabajo pendiente y el unico
+      lugar que dice que esta hecho. TRAZABILIDAD.md dice en que archivo esta
+      cada requisito del pliego. ARQUITECTURA.md explica por que se decidio lo
+      que se decidio.
 
   tests/
       Pruebas automaticas, una por componente.
@@ -167,25 +172,24 @@ DATOS DE PACIENTES. Los registros nunca se suben al repositorio. El archivo
 8. LO QUE FALTA DEFINIR
 -------------------------------------------------------------------------------
 
-Puntos del pliego que quedaron ambiguos y hay que cerrar antes de programarlos:
+Hay puntos del pliego que quedaron ambiguos y que el cliente tiene que cerrar.
 
-  1. Scoring.txt: el pliego describe tres datos por linea (numero de ventana,
-     fase, arousal) pero el ejemplo muestra dos ("2 0"). Hay que confirmar cual
-     de los dos es.
+La lista completa y actualizada esta en docs/TODO.md, en el "Hito 0", junto con
+cual es el trabajo que frena cada una. Se lleva en un solo lugar a proposito:
+hasta hace poco estaba repetida en tres archivos y ninguna copia coincidia con
+las otras, asi que no habia forma de saber cual era la buena.
 
-  2. "Puntos": son muestras del registro. Falta definir si la primera muestra
-     es la 0 o la 1.
+Resumen de lo que hay abierto hoy:
 
-  3. Impedancias: los archivos EDF y BrainVision no siempre las traen. Hay que
-     definir de donde salen.
-
-  4. Ocupacion: si dos lineas se pisan en horizontal, hay que definir si la
-     zona compartida se cuenta una vez o dos.
-
-  5. Titular del copyright para el archivo LICENSE, y nombre del repositorio.
-
-  6. Un registro de prueba en BrainVision y en EDF para poder probar la
-     importacion.
+  - Codigos numericos de las fases (REM y MT sobre todo).
+  - Si "Scoring.txt" deberia decir con que nomenclatura se escribio. Hoy no lo
+    dice, y el mismo numero significa cosas distintas en cada nomenclatura.
+  - Si la primera muestra del registro es la 0 o la 1.
+  - Si dos lineas de ocupacion que se pisan cuentan una vez o dos.
+  - Conseguir un registro de prueba en BrainVision y en EDF.
+  - Si el scoring automatico entra en el alcance.
+  - Titular del copyright y nombre del repositorio.
+  - De donde salen las impedancias (esto es de la Parte 2).
 
 
 ===============================================================================

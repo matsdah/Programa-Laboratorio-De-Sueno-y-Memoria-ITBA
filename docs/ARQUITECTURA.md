@@ -171,6 +171,7 @@ Todas compatibles con MIT.
 | mne-connectivity | BSD-3 | Conectividad |
 | antropy | BSD-3 | Complejidad |
 | pytest | MIT | Tests |
+| pip-licenses | MIT | Verificación de licencias |
 
 **Prohibido:** PyQt5, PyQt6 (GPL).
 

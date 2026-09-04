@@ -106,3 +106,15 @@ ventanas de una noche, vuelve el programa inusable.
 Esta capa es la que **no** se puede testear sin levantar una ventana, y por eso
 se la mantiene delgada a propósito. Todo lo que valga la pena verificar debería
 poder verificarse desde `core/`, `tools/` o `exporters/`.
+
+## Estado
+
+Pendientes **43 stubs**, en el
+[hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz). Es el último hito de
+lógica: depende de que `core/session.py` esté terminado (hito 3).
+
+Al cerrarlo, `python main.py` abre algo usable por primera vez.
+
+Esta capa **no lleva tests unitarios**, y por eso se la mantiene delgada: todo
+lo que valga la pena verificar debería poder verificarse desde `core/`,
+`tools/` o `exporters/`. No es un olvido del TODO.

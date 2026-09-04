@@ -38,10 +38,14 @@ class Tool(ABC):
         label: nombre que se le muestra al usuario en la barra.
         description: texto de ayuda que aparece al pasar el mouse.
         exclusive: si es True, activarla desactiva las demás herramientas
-            exclusivas. Lo son las que se quedan con el clic del mouse sobre
-            el visualizador: la lupa y el anotador. La banda de amplitud no,
-            porque sólo se dibuja; los paneles tampoco, porque no compiten por
-            el mouse del visualizador.
+            exclusivas. Lo son las tres que se quedan con el clic del mouse
+            sobre el visualizador: la lupa, el anotador y el medidor de
+            ocupación. La banda de amplitud no, porque sólo se dibuja y no
+            escucha clics; los paneles tampoco, porque tienen su propia zona de
+            pantalla y no compiten por el mouse del visualizador.
+
+            El valor por defecto es True, así que una herramienta que no compita
+            por el mouse tiene que declarar `exclusive = False` explícitamente.
     """
 
     name: str = ""
@@ -74,6 +78,22 @@ class ViewerTool(Tool):
 
         x: segundos desde el inicio de la ventana de 30 segundos
         y: microvoltios
+
+    **En el programa conviven tres unidades horizontales distintas y hay que
+    convertir explícitamente entre ellas.** Confundirlas no rompe nada de forma
+    visible: produce números plausibles y equivocados, que es peor.
+
+        Unidad              Rango típico   Quién la produce
+        ------------------  -------------  ---------------------------------
+        píxeles             0 .. ancho     el evento de Qt
+        segundos            0 .. 30        `SignalView.seconds_at()`
+        fracción de ventana 0 .. 1         `SignalView.window_fraction_at()`
+        muestras            0 .. n_samples `SignalView.sample_at()`
+
+    Los métodos de esta clase reciben **segundos**, ya convertidos por el
+    visualizador. Una herramienta que necesite otra unidad la pide:
+    `OccupancyLine` trabaja en fracción de ventana y el anotador en muestras,
+    porque es lo que exige "Anotaciones.txt".
 
     Los tres métodos de mouse no hacen nada por defecto. Cada herramienta
     sobrescribe los que necesita: la banda de amplitud sólo escucha el

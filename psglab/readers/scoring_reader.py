@@ -6,7 +6,18 @@ reales del laboratorio: retomar un trabajo interrumpido y revisar o corregir
 el scoring hecho por otra persona.
 
 El formato nativo es el mismo "Scoring.txt" que produce el programa (V1_F de
-"Archivo de salida"), de modo que exportar e importar sean simétricos.
+"Archivo de salida").
+
+**La simetría entre exportar e importar es incompleta, y hay que saberlo.** El
+archivo guarda códigos numéricos que no son únicos entre nomenclaturas: "2" es
+S2 en Rechtschaffen y Kales y N2 en AASM. El archivo no dice cuál de las dos se
+usó, así que `read_scoring()` obliga a pasar la nomenclatura por parámetro y
+confía en que quien lo llama sepa con cuál se generó. Si se equivoca, el scoring
+se carga entero con las fases mal traducidas y sin ningún error visible.
+
+Escribir la nomenclatura en una cabecera lo resolvería, pero se apartaría del
+formato del pliego. Es una de las preguntas abiertas del hito 0 (ver
+`docs/TODO.md`).
 
 Cubre del pliego: V3_F de "Importación de archivos".
 """

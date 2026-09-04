@@ -116,6 +116,9 @@ def convert(stage: SleepStage, target: Nomenclature) -> SleepStage:
     - AASM → R&K es ambigua: N3 puede corresponder a S3 o a S4, y no hay forma
       de recuperar cuál era. Se mapea a S3.
 
+    - UNSCORED se devuelve tal cual en las dos direcciones: "todavía no lo
+      miré" no es una fase y no se traduce.
+
     Por eso el cambio de nomenclatura sobre un registro ya scoreado debe
     avisarle al usuario antes de aplicarse.
     """

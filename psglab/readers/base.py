@@ -11,7 +11,11 @@ Para agregar un formato:
 
 No hace falta modificar ningún archivo existente.
 
-Cubre del pliego: es la base de V1_F, V2_F y V3_F de "Importación de archivos".
+Importar un scoring ya existente **no** pasa por acá: `read_scoring()` es una
+función suelta de `scoring_reader.py` y no un `Reader`, porque un scoring no
+produce un `Recording`.
+
+Cubre del pliego: es la base de V1_F y V2_F de "Importación de archivos".
 """
 
 from abc import ABC, abstractmethod

@@ -8,6 +8,11 @@ El usuario elige las bandas. Las de abajo son las convencionales y sirven de
 punto de partida, pero los límites varían entre laboratorios y entre trabajos
 publicados, así que son editables.
 
+Las funciones que reciben `window_index` tienen que traducirlo a muestras con
+`psglab.core.windows.window_to_samples()`, que es el único lugar del programa
+donde se hace esa conversión. No escribir la cuenta `* 30 * fs` acá: si la
+ventana deja de ser de 30 s, este módulo quedaría desincronizado en silencio.
+
 Cubre del pliego: V1_F de "Power Spectral Density (PSD)".
 """
 

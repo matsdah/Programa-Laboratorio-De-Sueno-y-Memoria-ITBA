@@ -25,20 +25,42 @@ Cuatro piezas están implementadas a propósito y **no deben convertirse en
 infraestructura que corre en tiempo de importación; si fallaran, ningún módulo
 del paquete podría cargarse y los mecanismos enchufables no existirían.
 
+## Por dónde seguir
+
+**[`docs/TODO.md`](docs/TODO.md) es la cola de trabajo** y el único documento
+que lleva estado. Ordena los 168 stubs de la Parte 1 en hitos **por
+dependencias reales**, no por sección del pliego.
+
+**No empieces un módulo si su hito anterior no está cerrado**: vas a escribir
+contra firmas que todavía elevan `NotImplementedError` y no vas a poder testear
+nada. Un módulo está terminado cuando además tiene su test corriendo (borrando
+el `pytestmark` si el archivo ya existía), su fila de `docs/TRAZABILIDAD.md`
+sigue siendo cierta y el README de su carpeta también.
+
+`docs/TRAZABILIDAD.md` **no lleva estado**: dice dónde va cada requisito, no
+qué falta. Duplicar el avance en los dos lugares garantiza que se
+desincronicen.
+
 ## Comandos
 
-El `.venv` ya existe (Python 3.14.7, todas las dependencias de
-`requirements.txt` y `requirements-dev.txt` instaladas).
+Preparar el entorno, si todavía no está (el detalle está en `README.md`):
 
 ```bash
+python -m venv .venv
 .venv\Scripts\Activate.ps1
+pip install -r requirements.txt -r requirements-dev.txt
 ```
+
+Desde PowerShell se activa el entorno con ese script. **Desde la herramienta
+Bash el script de activación no aplica**: conviene llamar al intérprete directo,
+`./.venv/Scripts/python.exe -m pytest`.
 
 **Usar siempre `python -m pytest`, nunca `pytest` a secas.** No hay
 `pyproject.toml` ni instalación editable, así que `psglab` sólo es importable
 porque `python -m` agrega el directorio actual a `sys.path`; `pytest` directo
-falla con `ModuleNotFoundError: No module named 'psglab'`. (El README indica
-`pytest`: conviene corregirlo o agregar un `pyproject.toml`.)
+falla con `ModuleNotFoundError: No module named 'psglab'` en los cinco archivos.
+Agregar un `pyproject.toml` lo resolvería, pero es una decisión de empaquetado
+que nadie tomó todavía.
 
 ```bash
 python main.py
@@ -47,6 +69,11 @@ python -m pytest tests/test_scoring.py
 python -m pytest tests/test_scoring.py::test_el_arousal_es_independiente_de_la_fase
 python -m pytest -rs
 ```
+
+En la consola de Windows los acentos de los mensajes salen como mojibake
+(`configuraci�n`) por la codepage cp1252. Es cosmético y no un bug del código:
+todo el texto que ve el usuario está en español y los archivos son UTF-8.
+`$env:PYTHONUTF8=1` lo corrige para esa corrida.
 
 Verificación de licencias, obligatoria antes de un release:
 
@@ -144,7 +171,11 @@ base 1 al mostrarlos y exportarlos; la conversión se hace al mostrar.
   registro sintético tiene resultado conocido de antemano: una onda de 10 Hz
   debe dar un pico de PSD en 10 Hz, y eso se puede afirmar en un test.
 - Los pull requests van a la branch **`Add`, nunca a `Master`**, y vienen
-  comentados explicando qué cambió y por qué.
+  comentados explicando qué cambió y por qué. `Master` es el trunk y la rama por
+  defecto del repositorio. **No existe una rama `main`**: el repo nació con una,
+  sin relación con esta historia (era el commit stub de GitHub, con otro
+  `LICENSE`), y se retiró. Si alguna herramienta la da por sentada, está
+  equivocada.
 - `main.py` se mantiene mínimo: la lógica nueva va al módulo que corresponde.
 
 ## Decisiones ya cerradas — no re-litigar

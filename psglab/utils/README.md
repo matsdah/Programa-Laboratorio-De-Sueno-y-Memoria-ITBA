@@ -58,3 +58,11 @@ su grupo** y hacerlo heredar de `PsgLabError`.
 `PsgLabError.__init__` está implementado y no es un stub, a diferencia del resto
 del esqueleto: es la base de todas las excepciones, y si el constructor fallara
 ninguna de las clases de abajo podría siquiera construirse para ser elevada.
+
+## Estado
+
+Pendientes **4 stubs**, todos en `units.py`, en el
+[hito 1 del TODO](../../docs/TODO.md#hito-1-cimientos).
+
+`errors.py` ya está implementado: `PsgLabError.__init__` es la base de todas
+las excepciones y no debe convertirse en un stub.

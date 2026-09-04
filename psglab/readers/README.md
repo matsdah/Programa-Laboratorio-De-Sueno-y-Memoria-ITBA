@@ -98,3 +98,17 @@ reales: ver [`tests/README.md`](../../tests/README.md).
 Falta todavía **un registro de prueba en BrainVision y en EDF** para poder
 probar la importación de punta a punta; está anotado en
 [`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt), sección 8.
+
+## Estado
+
+Pendientes **8 stubs**, en el
+[hito 4 del TODO](../../docs/TODO.md#hito-4-importación). Dependen de que
+`core/recording.py` esté terminado (hito 1).
+
+De `base.py` sólo falta `file_dialog_filter()`. `can_read()`,
+`register_reader` y `read_recording()` ya están implementados a propósito:
+corren en tiempo de importación y **no deben convertirse en stubs**.
+
+Bloqueado por el [hito 0](../../docs/TODO.md#hito-0-desbloquear): hace falta un
+registro de prueba en BrainVision y en EDF para poder verificar la importación
+de punta a punta.

@@ -2,6 +2,7 @@
 
 | Archivo | Para qué sirve | Cuándo se toca |
 |---|---|---|
+| [`TODO.md`](TODO.md) | **La cola de trabajo.** Qué falta de la Parte 1, ordenado por dependencias en hitos. Es el único lugar que lleva estado. | Al empezar y al cerrar cada módulo. |
 | [`ARQUITECTURA.md`](ARQUITECTURA.md) | **Decisiones de diseño y sus motivos.** Capas, puntos de extensión, licencias, convenciones de código. | Cada vez que se revisa una decisión: hay que anotar el motivo del cambio. |
 | [`TRAZABILIDAD.md`](TRAZABILIDAD.md) | **Requisito del pliego → archivo responsable.** | Cada vez que se agrega una funcionalidad, **en el mismo commit**. |
 | [`EXPLICACION.txt`](EXPLICACION.txt) | Explicación general del programa en texto plano, para quien no lee código. Su sección 8 lista lo que falta definir. | Cuando el cliente cierra una ambigüedad. |
@@ -14,6 +15,16 @@ no es qué se decidió sino por qué, y sin el porqué cualquier decisión parec
 arbitraria y se revierte sin querer. Ahí está explicado, por ejemplo, por qué no
 se puede agregar PyQt, por qué las herramientas no heredan de `QObject` y por
 qué la unidad es µV y no mV.
+
+## Por qué el estado vive sólo en `TODO.md`
+
+`TRAZABILIDAD.md` dice **dónde** va cada requisito; `TODO.md` dice **qué falta
+y en qué orden**. Son preguntas distintas y la segunda cambia todas las
+semanas.
+
+Por eso `TRAZABILIDAD.md` **no lleva columna de estado**: si el avance se
+anotara en los dos lugares, se desincronizarían, y no habría forma de saber
+cuál miente.
 
 ## Por qué existe `TRAZABILIDAD.md`
 
@@ -66,3 +77,6 @@ reglas que lo gobiernan:
 [`analysis/`](../psglab/analysis/README.md) ·
 [`utils/`](../psglab/utils/README.md) ·
 [`tests/`](../tests/README.md)
+
+El estado de cada una está en su bloque "Estado", que remite al hito
+correspondiente del [TODO](TODO.md).
