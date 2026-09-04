@@ -219,6 +219,14 @@ tiene test:
     de mentira, sin ningún archivo real.
 - [ ] **`psglab/readers/edf.py`** · 1 stub · V2_F "Importación"
   - Test: `tests/test_readers.py`. Necesita el registro de prueba del hito 0.
+- [ ] **Decidir cómo corre `tests/test_readers.py` en el CI.** Los registros de
+      prueba viven en `data/`, que el `.gitignore` excluye entero y con razón,
+      así que en GitHub Actions **no van a estar**. Saltear el test ahí
+      reintroduce el verde por omisión que este proyecto combate. Las salidas
+      razonables son bajar la Sleep-EDF en un paso del workflow, o partir el
+      test en dos: el despacho y el registro con un lector de mentira, que
+      corren en cualquier lado, y la lectura real, que se saltea con un motivo
+      explícito y visible en `pytest -rs`.
 - [ ] **`psglab/readers/brainvision.py`** · 1 stub · V1_F "Importación"
   - Test: `tests/test_readers.py`. Necesita el registro de prueba del hito 0.
   - `read()` devuelve la señal **ya en µV** y con la clase de canal detectada.
