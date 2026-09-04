@@ -33,20 +33,23 @@ trazabilidad.
           ┌─────────►  core   ◄─────────┐
           │         └────▲────┘         │
           │              │              │
-    ┌─────┴─────┐  ┌─────┴─────┐  ┌─────┴──────┐
-    │  readers  │  │  tools    │  │ exporters  │
-    └───────────┘  └─────▲─────┘  └────────────┘
+    ┌─────┴─────┐  ┌─────┴─────┐  ┌─────┴──────┐  ┌──────────┐
+    │  readers  │  │  tools    │  │ exporters  │  │ analysis │
+    └───────────┘  └─────▲─────┘  └────────────┘  └──────────┘
                          │
-                    ┌────┴────┐        ┌──────────┐
-                    │   ui    │        │ analysis ├──► core
-                    └─────────┘        └──────────┘
+                    ┌────┴────┐
+                    │   ui    ├──────────────► core
+                    └─────────┘
 ```
+
+`ui/` es la única capa con **dos** dependencias: `core/` por el modelo y
+`tools/` por las herramientas que muestra. El resto cuelga sólo de `core/`.
 
 Las flechas apuntan en una sola dirección y **`core/` no importa nada de
 `ui/`**. No es una preferencia estética: es lo que permite testear el modelo,
 el scoring, las estadísticas y los exportadores sin abrir una ventana
 gráfica. Sin esa separación, el testeo recurrente que pide el pliego
-(sección 11) sería inviable en la práctica, porque cada test necesitaría
+(sección 7) sería inviable en la práctica, porque cada test necesitaría
 levantar la interfaz.
 
 Regla de bolsillo: **si una regla de negocio está en `ui/`, está en el lugar

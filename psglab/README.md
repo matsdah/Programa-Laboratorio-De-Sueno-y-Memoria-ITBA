@@ -20,7 +20,7 @@ core   ←  modelo y reglas de negocio
 **`core/` no importa nada de `ui/`.** Es la restricción que sostiene todo lo
 demás: gracias a ella el modelo, el scoring, las estadísticas y los
 exportadores se pueden testear sin abrir una ventana, que es el testeo
-recurrente que pide el pliego (sección 11).
+recurrente que pide el pliego (sección 7).
 
 Regla de bolsillo para ubicar código nuevo: **si es una regla de negocio y
 quedó en `ui/`, está mal ubicada.** Mostrar la ventana 0 como "Ventana 1" es
@@ -45,7 +45,7 @@ de 400 ventanas es una regla y va en `core/`.
 
 Lo único que `main.py` conoce. Arma los objetos de Qt y los devuelve cableados:
 `create_application(argv)` y `create_main_window()`. Mantener la construcción
-acá es lo que permite que el punto de entrada se quede en veinte líneas
+acá es lo que permite que el punto de entrada se quede en nueve sentencias
 (requisito del pliego, sección 7).
 
 ### `config.py`

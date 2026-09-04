@@ -12,7 +12,7 @@ polisomnografía": los formatos se suman de a uno sin rediseñar nada.
 
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
-| `base.py` | La clase `Reader`, el registro de formatos y `read_recording()`. | Base de V1_F–V3_F de "Importación" |
+| `base.py` | La clase `Reader`, el registro de formatos y `read_recording()`. | Base de V1_F y V2_F de "Importación" |
 | `brainvision.py` | Formato BrainVision (`.vhdr` + `.vmrk` + `.eeg`). | V1_F de "Importación" |
 | `edf.py` | Formato EDF y EDF+. | V2_F de "Importación" |
 | `scoring_reader.py` | Un scoring ya existente, para ver o corregir la fase de cada ventana. | V3_F de "Importación" |

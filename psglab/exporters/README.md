@@ -19,7 +19,7 @@ programa para poder leerse.
 
 Los nombres propuestos en el diálogo de guardado salen de `DEFAULT_FILENAMES`,
 en el `__init__.py` del paquete, que a su vez los toma de
-[`psglab/config.py`](../README.md).
+[`psglab/config.py`](../config.py).
 
 ## `Scoring.txt`
 

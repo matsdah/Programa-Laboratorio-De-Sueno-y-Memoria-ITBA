@@ -11,7 +11,7 @@ estándar, de numpy y de `psglab.utils` y `psglab.config`.
 No es preferencia estética. Es lo que permite testear el modelo, el scoring, la
 navegación y las estadísticas **sin abrir una ventana gráfica**. Sin esa
 separación, cada test tendría que levantar Qt y el testeo recurrente que pide el
-pliego (sección 11) sería inviable en la práctica.
+pliego (sección 7) sería inviable en la práctica.
 
 Si estás por escribir `from PySide6...` en un archivo de esta carpeta, algo se
 ubicó mal.
@@ -21,7 +21,7 @@ ubicó mal.
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
 | `recording.py` | El registro cargado en memoria: `Recording`, `Channel`, `ChannelKind`. | Soporte de V1_F–V3_F de "Importación", V4_F de "Visualización" |
-| `session.py` | Estado de trabajo del usuario. **Es el objeto central.** | V1_F de "Navegación"; V2_P, V3_P, V5_F de "Visualización" |
+| `session.py` | Estado de trabajo del usuario. **Es el objeto central.** | V1_F de "Navegación"; V2_P, V3_P, V5_F de "Visualización"; V4_F del histograma |
 | `scoring.py` | Fase y arousal de cada ventana: `Scoring`, `EpochScore`. | V1_F, V2_F, V3_F de "Scoring" |
 | `nomenclature.py` | Rechtschaffen y Kales frente a AASM: `Nomenclature`, `SleepStage`, conversión entre ambas. | V1_F, V3_F de "Scoring"; V3_F del histograma |
 | `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. | V1_F de "Anotación de la señal" |

@@ -33,14 +33,16 @@ segunda es la que alimenta los gráficos a lo largo de la noche.
 
 ## Dependencias propias de esta capa
 
-Se instalan con `requirements-dev.txt`, no con `requirements.txt`:
+| Paquete | Licencia | Para qué | Dónde se declara |
+|---|---|---|---|
+| `mne` | BSD-3 | Filtrado, ICA, re-referenciado | `requirements.txt` |
+| `scipy` | BSD-3 | PSD y estadística | `requirements.txt` |
+| `mne-connectivity` | BSD-3 | Conectividad | `requirements-dev.txt` |
+| `antropy` | BSD-3 | Entropías y dimensión fractal | `requirements-dev.txt` |
 
-| Paquete | Licencia | Para qué |
-|---|---|---|
-| `mne` | BSD-3 | Filtrado, ICA, re-referenciado |
-| `mne-connectivity` | BSD-3 | Conectividad |
-| `antropy` | BSD-3 | Entropías y dimensión fractal |
-| `scipy` | BSD-3 | PSD y estadística |
+`mne` y `scipy` viven en `requirements.txt` porque la Parte 1 también los
+necesita: `mne` lee BrainVision y EDF, y `scipy` filtra. Las dos exclusivas de
+esta capa son las otras dos.
 
 Se apoya en implementaciones ya validadas por la comunidad científica en vez de
 reescribir los algoritmos con menos horas de revisión encima.

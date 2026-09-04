@@ -194,7 +194,9 @@ cualquier orden, incluso en paralelo.
     `conftest.py` ya sirven: `C3` debe dar EEG por 10-20 y `EMG-menton` por
     prefijo.
 - [ ] **`psglab/readers/base.py`** · 1 stub (`file_dialog_filter`) · base de
-      V1_F/V2_F/V3_F "Importación"
+      V1_F/V2_F "Importación"
+  - V3_F no pasa por acá: lo resuelve `scoring_reader.py`, que lee un scoring
+    ya existente y no despacha por formato.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader` y `read_recording` corren al importar. **No convertirlos
     en stubs.**
@@ -250,7 +252,7 @@ olvido.
 
 - [ ] **`psglab/ui/grid.py`** · 4 stubs · V1_P, V2_F "Diseño de la interfaz"
 - [ ] **`psglab/ui/signal_view.py`** · 12 stubs · V1_P, V2_P, V4_F, V5_F
-      "Visualización" (+ el dibujo de V3_P)
+      "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
   - Incluye `seconds_at`, `window_fraction_at` y `sample_at`: es el **único**
     lugar que traduce entre píxeles, segundos, fracción de ventana y muestras.
     Ver el contrato en `psglab/tools/base.py`.

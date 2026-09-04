@@ -25,7 +25,7 @@ Windows, marcá la casilla **"Add Python to PATH"**.
 
 ```bash
 # 1. Ubicate en la carpeta del proyecto
-cd "Lab Del Sueño"
+cd Programa-Laboratorio-De-Sueno-y-Memoria-ITBA
 
 # 2. Creá un entorno virtual (aísla las dependencias del resto de tu computadora)
 python -m venv .venv

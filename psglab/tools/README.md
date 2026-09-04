@@ -69,8 +69,8 @@ class MiHerramienta(ViewerTool):
 
 `exclusive = True` significa que activarla desactiva a las demás exclusivas.
 Lo son **las que se quedan con el clic del mouse** sobre el visualizador: la
-lupa y el anotador. La banda de amplitud no, porque sólo se dibuja; los paneles
-tampoco, porque no compiten por el mouse.
+lupa, el anotador y el medidor de ocupación. La banda de amplitud no, porque
+sólo se dibuja; los paneles tampoco, porque no compiten por el mouse.
 
 `name` tiene que ser único: si se repite, `@register_tool` eleva
 `DuplicateToolError` **al importar**, que es cuando conviene enterarse.
