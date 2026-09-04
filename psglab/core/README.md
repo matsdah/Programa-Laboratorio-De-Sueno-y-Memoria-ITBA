@@ -78,12 +78,12 @@ Ver [`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt), sección 8.
 
 ## Estado
 
-Pendientes **56 stubs**, repartidos en los tres primeros hitos del
+Pendientes **51 stubs**, repartidos en los tres primeros hitos del
 [TODO](../../docs/TODO.md):
 
 | Hito | Módulos |
 |---|---|
-| [1. Cimientos](../../docs/TODO.md#hito-1-cimientos) | `windows`, `nomenclature`, `recording` |
+| [1. Cimientos](../../docs/TODO.md#hito-1-cimientos) | ~~`windows`~~ ✅, `nomenclature`, `recording` |
 | [2. Scoring y anotaciones](../../docs/TODO.md#hito-2-scoring-y-anotaciones) | `scoring`, `annotations` |
 | [3. Sesión](../../docs/TODO.md#hito-3-sesión) | `session` |
 

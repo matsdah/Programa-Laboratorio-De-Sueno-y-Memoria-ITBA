@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **173 stubs** (`raise NotImplementedError`) en 30 módulos de la Parte 1.
+Quedan **168 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -38,7 +38,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | Hito | Módulos | Stubs | Estado |
 |---|---|---|---|
 | [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ⬜ |
-| [1. Cimientos](#hito-1-cimientos) | 4 | 21 | ⬜ |
+| [1. Cimientos](#hito-1-cimientos) | 4 | 16 | 🟡 1 de 4 |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 20 | ⬜ |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 8 | ⬜ |
@@ -46,7 +46,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [6. Interfaz](#hito-6-interfaz) | 8 | 45 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 47 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **30** | **173** | |
+| | **29** | **168** | |
 
 ### Los tres cortes que importan
 
@@ -122,10 +122,12 @@ cualquier orden, incluso en paralelo.
   - Test: **crear** `tests/test_units.py`. Casos mínimos: `V`→µV es ×10⁶,
     `mV`→µV es ×10³, y una unidad desconocida eleva `UnknownUnitError` en vez
     de asumir un factor.
-- [ ] **`psglab/core/windows.py`** · 5 stubs · sostiene V1_P "Visualización"
+- [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
-  - Test: `tests/test_windows.py` → **borrar el `pytestmark`**.
-  - Ojo: la última ventana incompleta se cuenta igual.
+  - Test: `tests/test_windows.py`, **15 tests en verde**.
+  - Los bordes se calculan desde el índice de la ventana, nunca acumulando un
+    paso redondeado: con una frecuencia no redonda (256,125 Hz en EDF) acumular
+    corre la ventana 960 casi tres segundos. Hay tres tests que lo fijan.
 - [ ] **`psglab/core/nomenclature.py`** · 5 stubs · V3_F "Scoring",
       V3_F "Histograma"
   - Test: `tests/test_nomenclature.py` → **borrar el `pytestmark`**.
