@@ -19,6 +19,19 @@ devolver algo.
 contra firmas que todavía elevan `NotImplementedError` y no vas a poder testear
 nada.
 
+### Lo que el CI verifica solo
+
+Desde que el equipo es de tres, [el workflow](../.github/workflows/ci.yml) corre
+en cada push y cada pull request: los tests en los tres sistemas operativos, los
+chequeos de consistencia de `tests/test_consistencia.py` y la verificación de
+licencias.
+
+Eso quiere decir que **no hace falta acordarse** de que las cuentas de este
+archivo cuadren, ni de que los enlaces no se rompan, ni de borrar el
+`pytestmark` al terminar un módulo: si algo de eso queda mal, el pull request
+falla. Los chequeos corren también con `python -m pytest`, así que conviene
+pasarlos antes de pushear.
+
 ### Cuándo un ítem está terminado
 
 Las cuatro condiciones, no tres:

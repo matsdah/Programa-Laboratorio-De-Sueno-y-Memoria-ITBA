@@ -35,6 +35,7 @@ verde por omisión, que es peor que dar rojo.
 | Archivo | Qué verifica |
 |---|---|
 | `conftest.py` | Fixtures compartidas: señal sintética y nombres de canal. |
+| `test_consistencia.py` | **El repositorio, no un componente.** Ver abajo. |
 | `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
 | `test_nomenclature.py` | Las dos nomenclaturas y la conversión entre ellas. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
@@ -43,6 +44,31 @@ verde por omisión, que es peor que dar rojo.
 
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el
 motivo por el que `core/` no importa nada de `ui/`.
+
+## `test_consistencia.py` no testea un componente
+
+Es la excepción del directorio: verifica invariantes **del repositorio entero**,
+no de un módulo. Que las cuentas del TODO cierren contra el código, que los
+enlaces de la documentación no apunten a la nada, que los IDs del pliego que
+declara cada módulo coincidan con `TRAZABILIDAD.md` en las dos direcciones, que
+`EXPLICACION.txt` siga en ASCII, que `core/` no haya empezado a importar Qt.
+
+Existe porque el equipo pasó a ser de tres personas. Con una, revisar eso a mano
+alcanza; con tres, la documentación se desincroniza más rápido de lo que alguien
+la mira. No es una hipótesis: dos auditorías seguidas encontraron divergencias
+introducidas pocos días antes.
+
+Dos de sus tests merecen mención:
+
+- **`test_ningun_modulo_terminado_tiene_su_test_salteado`** cierra el agujero más
+  silencioso del repositorio. Si alguien implementa un módulo y se olvida de
+  borrar el `pytestmark`, la suite sigue informando "passed" y el trabajo queda
+  sin verificar. Necesita el mapa `COBERTURA_DE_TESTS`: **al agregar un archivo
+  de test hay que agregarle su fila**, y hay un test que lo verifica.
+- **`test_todos_los_modulos_del_paquete_se_pueden_importar`** es lo único que
+  ejercita `psglab/ui/`, porque la interfaz no lleva tests unitarios. Sin él, un
+  error de importación en la capa gráfica —una biblioteca de sistema que falta
+  en Linux— no aparecería hasta que alguien abriera el programa.
 
 ## Señal sintética, nunca datos reales
 
