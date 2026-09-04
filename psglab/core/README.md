@@ -1,0 +1,77 @@
+# `core/` — modelo de datos y reglas de negocio
+
+El corazón del programa. Acá vive **qué es un registro, qué es un scoring y qué
+está permitido hacer con ellos**; nada de cómo se dibujan.
+
+## La restricción que define esta capa
+
+**`core/` no importa nada de `psglab.ui`.** Sólo depende de la biblioteca
+estándar, de numpy y de `psglab.utils` y `psglab.config`.
+
+No es preferencia estética. Es lo que permite testear el modelo, el scoring, la
+navegación y las estadísticas **sin abrir una ventana gráfica**. Sin esa
+separación, cada test tendría que levantar Qt y el testeo recurrente que pide el
+pliego (sección 11) sería inviable en la práctica.
+
+Si estás por escribir `from PySide6...` en un archivo de esta carpeta, algo se
+ubicó mal.
+
+## Los archivos
+
+| Archivo | De qué se ocupa | Pliego |
+|---|---|---|
+| `recording.py` | El registro cargado en memoria: `Recording`, `Channel`, `ChannelKind`. | Soporte de V1_F–V3_F de "Importación", V4_F de "Visualización" |
+| `session.py` | Estado de trabajo del usuario. **Es el objeto central.** | V1_F de "Navegación"; V2_P, V3_P, V5_F de "Visualización" |
+| `scoring.py` | Fase y arousal de cada ventana: `Scoring`, `EpochScore`. | V1_F, V2_F, V3_F de "Scoring" |
+| `nomenclature.py` | Rechtschaffen y Kales frente a AASM: `Nomenclature`, `SleepStage`, conversión entre ambas. | V1_F, V3_F de "Scoring"; V3_F del histograma |
+| `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. | V1_F de "Anotación de la señal" |
+| `windows.py` | Conversión entre ventanas, muestras y hora de la noche. | V1_P de "Visualización", V1_F de "Navegación", V2_F del histograma |
+
+## `Session`: el objeto que todos consultan
+
+`Session` reúne todo lo que el usuario tiene abierto y configurado en un
+momento dado: qué registro, qué scoring, qué anotaciones, en qué ventana está
+parado, qué canales ve y con qué amplitud.
+
+La interfaz **lo consulta para dibujarse** y **lo modifica** cuando el usuario
+hace algo. Mantenerlo fuera de `ui/` es lo que hace testeables la navegación y
+el manejo de amplitudes sin abrir una ventana.
+
+Cuando agregues estado de trabajo nuevo, va acá, no en un widget.
+
+## `windows.py`: el único lugar donde se convierten unidades de tiempo
+
+El programa habla en tres unidades a la vez: el usuario piensa en **ventanas de
+30 segundos**, el archivo guarda **muestras** (los "puntos" del pliego) y el
+histograma muestra la **hora de la noche**.
+
+Todas esas conversiones viven acá, para que no aparezcan cuentas de
+`* 30 * fs` repartidas por el código. Si necesitás pasar de una unidad a otra,
+llamá a este módulo en vez de escribir la cuenta.
+
+**Convención de índices:** las ventanas se numeran **desde 0 internamente** y
+desde 1 al mostrarlas y al exportarlas. La conversión se hace al mostrar, no
+en `core/`.
+
+## Decisiones cerradas
+
+**REM es fase de primera clase en las dos nomenclaturas.** El listado del
+pliego no la menciona, pero el histograma sí la incluye, y R&K sin REM o AASM
+sin R no son nomenclaturas válidas. Confirmado con el cliente: REM en
+Rechtschaffen y Kales, R en AASM. `tests/test_nomenclature.py` lo verifica
+explícitamente para que la omisión no se vuelva a colar.
+
+**Un scoring nuevo arranca entero, con todas sus ventanas en `UNSCORED`.** Eso
+es lo que permite que el histograma tenga el tamaño de la noche completa desde
+el arranque y que se pueda scorear una parte alejada del registro sin pasar por
+las anteriores.
+
+**La última ventana incompleta se cuenta igual.** Si el registro no termina en
+un múltiplo exacto de 30 segundos, el usuario tiene que poder scorearla o ver
+que está incompleta.
+
+## Ambigüedad abierta
+
+Los "puntos" del pliego son muestras del registro, pero **falta definir si la
+primera muestra es la 0 o la 1**. Afecta a `windows.py` y a los exportadores.
+Ver [`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt), sección 8.

@@ -50,18 +50,22 @@ python main.py
 
 ## Estructura del proyecto
 
-| Carpeta | Responsabilidad |
-|---|---|
-| `main.py` | Punto de entrada. Sólo orquesta: crea la app y abre la ventana. |
-| `psglab/readers/` | Importación de archivos (BrainVision, EDF, scoring existente). |
-| `psglab/core/` | Modelo de datos y reglas de negocio. **No depende de la interfaz.** |
-| `psglab/ui/` | Interfaz gráfica: visualizador de ondas, navegación, panel de scoring. |
-| `psglab/tools/` | Herramientas enchufables: lupa, Übersicht, amplitud, ocupación, histograma, anotación. |
-| `psglab/exporters/` | Archivos de salida: `Scoring.txt`, `Anotaciones.txt`, `Informacion.txt`. |
-| `psglab/analysis/` | Parte 2: filtrado, ICA, impedancia, PSD, complejidad, conectividad. |
-| `psglab/utils/` | Unidades (µV) y errores propios. |
-| `docs/` | Documentación, incluida la trazabilidad requisito → archivo. |
-| `tests/` | Un test por componente. |
+**Cada carpeta tiene su propio README** con el mapa de sus archivos, las reglas
+que la gobiernan y cómo extenderla.
+
+| Carpeta | Responsabilidad | |
+|---|---|---|
+| `main.py` | Punto de entrada. Sólo orquesta: crea la app y abre la ventana. | |
+| [`psglab/`](psglab/README.md) | El paquete del programa: capas, `app.py` y `config.py`. | [→](psglab/README.md) |
+| [`psglab/readers/`](psglab/readers/README.md) | Importación de archivos (BrainVision, EDF, scoring existente). | [→](psglab/readers/README.md) |
+| [`psglab/core/`](psglab/core/README.md) | Modelo de datos y reglas de negocio. **No depende de la interfaz.** | [→](psglab/core/README.md) |
+| [`psglab/ui/`](psglab/ui/README.md) | Interfaz gráfica: visualizador de ondas, navegación, panel de scoring. | [→](psglab/ui/README.md) |
+| [`psglab/tools/`](psglab/tools/README.md) | Herramientas enchufables: lupa, Übersicht, amplitud, ocupación, histograma, anotación. | [→](psglab/tools/README.md) |
+| [`psglab/exporters/`](psglab/exporters/README.md) | Archivos de salida: `Scoring.txt`, `Anotaciones.txt`, `Informacion.txt`. | [→](psglab/exporters/README.md) |
+| [`psglab/analysis/`](psglab/analysis/README.md) | Parte 2: filtrado, ICA, impedancia, PSD, complejidad, conectividad. | [→](psglab/analysis/README.md) |
+| [`psglab/utils/`](psglab/utils/README.md) | Unidades (µV) y errores propios. | [→](psglab/utils/README.md) |
+| [`docs/`](docs/README.md) | Documentación, incluida la trazabilidad requisito → archivo. | [→](docs/README.md) |
+| [`tests/`](tests/README.md) | Un test por componente. | [→](tests/README.md) |
 
 **Regla de dependencias:** apuntan en una sola dirección —
 `readers → core`, `tools → core`, `ui → core + tools`, `exporters → core`,
@@ -88,17 +92,39 @@ Reglas del pliego (sección 7), de cumplimiento obligatorio:
 git checkout Add
 git pull
 # ... trabajás ...
-pytest
+python -m pytest
 git commit -m "Descripción clara del cambio"
 ```
 
 ## Testeo
 
 ```bash
-pytest
+python -m pytest
+```
+
+**Usá `python -m pytest`, no `pytest` a secas.** El proyecto no se instala como
+paquete (no hay `pyproject.toml`), así que `psglab` sólo es importable porque
+`python -m` agrega el directorio actual al camino de búsqueda. Con `pytest`
+directo la recolección falla con `ModuleNotFoundError: No module named 'psglab'`.
+
+Para correr un archivo o un test suelto:
+
+```bash
+python -m pytest tests/test_scoring.py
+python -m pytest tests/test_scoring.py::test_el_arousal_es_independiente_de_la_fase
 ```
 
 Los tests de `core/` y `exporters/` corren sin interfaz gráfica.
+
+Mientras el proyecto sea un esqueleto, todos los tests están desactivados con
+`pytestmark = pytest.mark.skip(...)` en la primera línea de cada archivo, y la
+corrida informa `42 skipped`. **Al implementar un componente hay que borrar esa
+línea del test que le corresponde**, o el trabajo queda sin verificar. Para ver
+qué se salteó y por qué:
+
+```bash
+python -m pytest -rs
+```
 
 ## Licencia
 
