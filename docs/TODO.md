@@ -48,10 +48,10 @@ nada**. Un verde por omisión es peor que un rojo.
 
 ## Progreso
 
-| Hito | Módulos | Stubs | Estado |
+| Hito | Módulos con stubs | Stubs | Estado |
 |---|---|---|---|
-| [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ⬜ |
-| [1. Cimientos](#hito-1-cimientos) | 4 | 16 | 🟡 1 de 4 |
+| [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ✅ cerrado |
+| [1. Cimientos](#hito-1-cimientos) | 3 | 16 | 🟡 1 de 4 hecho |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 20 | ⬜ |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
@@ -143,7 +143,7 @@ cualquier orden, incluso en paralelo.
     de asumir un factor.
 - [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
-  - Test: `tests/test_windows.py`, **15 tests en verde**.
+  - Test: `tests/test_windows.py`, **17 tests en verde**.
   - Los bordes se calculan desde el índice de la ventana, nunca acumulando un
     paso redondeado: con una frecuencia no redonda (256,125 Hz en EDF) acumular
     corre la ventana 960 casi tres segundos. Hay tres tests que lo fijan.

@@ -13,18 +13,31 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cinco
+camino de búsqueda. Con `pytest` directo la recolección falla en los seis
 archivos con `ModuleNotFoundError: No module named 'psglab'`.
 
 ## Mientras el proyecto sea un esqueleto
 
-Los 42 tests están **desactivados**, con esta línea al tope de cada archivo:
+Los tests de los módulos que todavía no están implementados están
+**desactivados**, con esta línea cerca del principio del archivo:
 
 ```python
 pytestmark = pytest.mark.skip(reason="Esqueleto: la lógica todavía no está implementada.")
 ```
 
-La corrida informa `42 skipped` y pasa en verde sin haber verificado nada.
+Los llevan cuatro de los seis archivos: `test_windows.py` corre desde que se
+implementó `core/windows.py`, y `test_consistencia.py` no cubre ningún módulo,
+así que corre siempre. Buena parte de la suite pasa entonces en verde sin haber
+verificado nada del programa.
+
+**Los números concretos —cuántos se recolectan y cuántos se saltean— no se
+escriben acá**, porque un número a mano en este archivo se desactualiza con el
+primer módulo que se implemente. Ya pasó: decía `42 skipped` mucho después de
+que dejaran de ser 42. Para verlos, la corrida:
+
+```bash
+python -m pytest -rs
+```
 
 **Al implementar un componente hay que borrar esa línea del archivo de test que
 le corresponde.** Si no, el trabajo queda sin verificar y la suite sigue dando
@@ -117,8 +130,9 @@ regla se rompió**, no qué función se llamó.
 El [TODO](../docs/TODO.md) lleva la cuenta. Cada módulo que se implementa
 arrastra su test, y **eso es parte de darlo por terminado**:
 
-- **Reactivar** (borrar el `pytestmark`): `test_windows` y `test_nomenclature`
-  (hito 1), `test_scoring` (2), `test_exporters` (5), `test_occupancy` (7).
+- **Reactivar** (borrar el `pytestmark`): `test_nomenclature` (hito 1),
+  `test_scoring` (2), `test_exporters` (5), `test_occupancy` (7).
+  `test_windows` ya está reactivado.
 - **Crear**: `test_units`, `test_recording` (1), `test_annotations` (2),
   `test_session` (3), `test_channel_types`, `test_readers` (4), y uno por
   herramienta (7).

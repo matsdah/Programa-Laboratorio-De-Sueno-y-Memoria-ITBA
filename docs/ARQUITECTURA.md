@@ -191,7 +191,7 @@ Corrida sobre el entorno completo (48 paquetes, Python 3.14.7). Resultado:
 paquete cuyo nombre contiene "PyQt" es `pyqtgraph`, que es MIT y no tiene
 relación con PyQt.
 
-Tres resultados que conviene explicar, porque parecen alarmas y no lo son:
+Dos resultados que conviene explicar, porque parecen alarmas y no lo son:
 
 - **PySide6, PySide6_Essentials, PySide6_Addons y shiboken6** declaran
   `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`. Es una licencia
