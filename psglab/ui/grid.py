@@ -18,12 +18,30 @@ import pyqtgraph as pg
 from psglab.config import COARSE_GRID_SECONDS, FINE_GRID_SECONDS
 
 
+def _segundos(valor: float) -> str:
+    """Formatea una cantidad de segundos como la escribiría un lector en español.
+
+    3,0 se muestra como "3" y 0,5 como "0,5": el separador decimal es la coma,
+    y un valor entero no arrastra un ".0" que nadie escribiría a mano.
+    """
+    entero = int(valor)
+    return str(entero) if valor == entero else str(valor).replace(".", ",")
+
+
 class BackgroundStyle(Enum):
-    """Fondos disponibles para la ventana de visualización (V2_F)."""
+    """Fondos disponibles para la ventana de visualización (V2_F).
+
+    Las etiquetas se arman con los valores de `config` en vez de escribir los
+    números a mano: si el laboratorio cambiara la grilla, un texto fijo acá
+    seguiría prometiéndole al usuario la separación vieja.
+    """
 
     BLANK = "Fondo blanco"
-    COARSE = "Líneas cada 3 segundos"
-    FULL = "Líneas cada 3 y 0,5 segundos"
+    COARSE = f"Líneas cada {_segundos(COARSE_GRID_SECONDS)} segundos"
+    FULL = (
+        f"Líneas cada {_segundos(COARSE_GRID_SECONDS)} "
+        f"y {_segundos(FINE_GRID_SECONDS)} segundos"
+    )
 
 
 class GridBackground:

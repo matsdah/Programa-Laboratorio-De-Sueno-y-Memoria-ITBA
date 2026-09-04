@@ -35,11 +35,17 @@ def test_el_archivo_tiene_una_linea_por_ventana(tmp_path):
 
     Si se saltearan, el número de línea dejaría de coincidir con el número de
     ventana y el archivo se volvería ambiguo.
+
+    La cabecera va explícita en `False`, como el número de ventana: con
+    `config.SCORING_INCLUDES_NOMENCLATURE_HEADER` en `True`, que es el valor de
+    hoy, un archivo de 20 ventanas tiene 21 líneas y este test contaría la
+    cabecera como si fuera una ventana. Lo que se verifica acá es que no falte
+    ninguna ventana, no cómo está configurado el formato.
     """
     scoring = Scoring(n_windows=20, nomenclature=Nomenclature.AASM)
     scoring.set_stage(0, SleepStage.WAKE)
     destino = tmp_path / "Scoring.txt"
-    export_scoring(scoring, destino)
+    export_scoring(scoring, destino, include_header=False)
     assert len(destino.read_text(encoding="utf-8").strip().splitlines()) == 20
 
 
@@ -54,12 +60,13 @@ def test_las_ventanas_se_exportan_en_orden(tmp_path):
     scoring.set_stage(1, SleepStage.N1)
     scoring.set_stage(2, SleepStage.N2)
     destino = tmp_path / "Scoring.txt"
-    # El flag va explícito: este test mira el primer campo de cada línea, así
-    # que sólo tiene sentido sin el número de ventana adelante. Si dependiera
-    # del valor de `config.SCORING_INCLUDES_WINDOW_NUMBER`, fallaría el día que
-    # el cliente confirme la otra variante, y por un motivo que no es el que
-    # este test verifica.
-    export_scoring(scoring, destino, include_window_number=False)
+    # Las dos constantes de formato van explícitas: este test mira el primer
+    # campo de cada línea, así que sólo tiene sentido sin el número de ventana
+    # adelante y sin la cabecera arriba. Si dependiera de los valores de
+    # `config`, fallaría cuando alguno cambiara, y por un motivo que no es el
+    # que este test verifica. Con la cabecera puesta, la primera línea sería
+    # "# AASM" y el primer campo, "#".
+    export_scoring(scoring, destino, include_window_number=False, include_header=False)
     lineas = destino.read_text(encoding="utf-8").strip().splitlines()
     codigos_de_fase = [linea.split()[0] for linea in lineas]
     assert codigos_de_fase == ["0", "1", "2"]

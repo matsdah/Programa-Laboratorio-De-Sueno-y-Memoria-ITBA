@@ -66,9 +66,22 @@ def annotation_summary(
     raise NotImplementedError("Pendiente: agrupar las anotaciones por clase y promediar.")
 
 
-def total_recording_time(
+def scored_time_seconds(
     scoring: Scoring,
     window_seconds: float = WINDOW_SECONDS,
 ) -> float:
-    """Duración total del registro en segundos, según la cantidad de ventanas."""
+    """Segundos abarcados por las ventanas del scoring.
+
+    **No es la duración del registro y no hay que confundirlas.** Ésta cuenta
+    ventanas completas, y la última del registro puede estar incompleta: para un
+    registro que termina a mitad de ventana, este número **sobreestima hasta
+    29,99 segundos**. La duración real la da `Recording.duration_seconds`, que
+    es `n_samples / sampling_rate`.
+
+    Se llamaba `total_recording_time`, y con ese nombre `Informacion.txt` iba a
+    imprimir dos números distintos —éste y el de `Recording`— presentados los
+    dos como "duración total", sin que nada explicara por qué no cerraban.
+    Miden cosas distintas y las dos son correctas; forzarlas a coincidir
+    falsificaría una.
+    """
     raise NotImplementedError("Pendiente: multiplicar las ventanas por su duración.")

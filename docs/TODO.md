@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **170 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
+Quedan **174 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -48,18 +48,18 @@ nada**. Un verde por omisión es peor que un rojo.
 
 ## Progreso
 
-| Hito | Módulos | Stubs | Estado |
+| Hito | Módulos con stubs | Stubs | Estado |
 |---|---|---|---|
-| [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ⬜ |
-| [1. Cimientos](#hito-1-cimientos) | 4 | 16 | 🟡 1 de 4 |
-| [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 20 | ⬜ |
+| [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ✅ cerrado |
+| [1. Cimientos](#hito-1-cimientos) | 3 | 16 | 🟡 1 de 4 hecho |
+| [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 21 | ⬜ |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
 | [5. Exportadores](#hito-5-exportadores) | 4 | 14 | ⬜ |
-| [6. Interfaz](#hito-6-interfaz) | 8 | 45 | ⬜ |
-| [7. Herramientas](#hito-7-herramientas) | 6 | 47 | ⬜ |
+| [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
+| [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **29** | **170** | |
+| | **29** | **174** | |
 
 ### Los tres cortes que importan
 
@@ -143,10 +143,14 @@ cualquier orden, incluso en paralelo.
     de asumir un factor.
 - [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
-  - Test: `tests/test_windows.py`, **15 tests en verde**.
+  - Test: `tests/test_windows.py`, **25 tests en verde**.
   - Los bordes se calculan desde el índice de la ventana, nunca acumulando un
     paso redondeado: con una frecuencia no redonda (256,125 Hz en EDF) acumular
     corre la ventana 960 casi tres segundos. Hay tres tests que lo fijan.
+  - Convierte entre las cuatro unidades no gráficas: ventanas, muestras,
+    segundos dentro de la ventana y fracción de ventana. Las herramientas
+    piden acá en vez de escribir la cuenta; los píxeles son de
+    `ui/signal_view.py`, que es lo único que conoce el ancho de la pantalla.
 - [ ] **`psglab/core/nomenclature.py`** · 5 stubs · V3_F "Scoring",
       V3_F "Histograma"
   - Test: `tests/test_nomenclature.py` → **borrar el `pytestmark`**.
@@ -156,6 +160,16 @@ cualquier orden, incluso en paralelo.
   - Test: **crear** `tests/test_recording.py`, con la fixture
     `synthetic_signal` de `conftest.py`.
 
+`psglab/utils/errors.py` ya está implementado y no tiene stubs, pero tampoco
+tiene test:
+
+- [ ] **`psglab/utils/errors.py`** · 0 pendientes · le falta el test:
+      **crear** `tests/test_errors.py`
+  - Que `PsgLabError` guarde el mensaje y la causa técnica por separado, y que
+    las subclases se puedan atrapar con un solo `except PsgLabError`. Es la
+    promesa sobre la que se apoya todo el manejo de errores que ve el
+    investigador.
+
 ---
 
 ## Hito 2: Scoring y anotaciones
@@ -164,7 +178,7 @@ cualquier orden, incluso en paralelo.
   - Test: `tests/test_scoring.py` → **borrar el `pytestmark`**.
   - Un scoring nuevo arranca entero en `UNSCORED`: el histograma tiene el
     tamaño de la noche desde el principio.
-- [ ] **`psglab/core/annotations.py`** · 10 stubs · V1_F "Anotación de la señal"
+- [ ] **`psglab/core/annotations.py`** · 11 stubs · V1_F "Anotación de la señal"
   - Test: **crear** `tests/test_annotations.py`.
   - Las anotaciones se guardan en muestras, no en segundos.
 
@@ -194,17 +208,31 @@ cualquier orden, incluso en paralelo.
     `conftest.py` ya sirven: `C3` debe dar EEG por 10-20 y `EMG-menton` por
     prefijo.
 - [ ] **`psglab/readers/base.py`** · 1 stub (`file_dialog_filter`) · base de
-      V1_F/V2_F/V3_F "Importación"
+      V1_F/V2_F "Importación"
+  - V3_F no pasa por acá: lo resuelve `scoring_reader.py`, que lee un scoring
+    ya existente y no despacha por formato.
   - El resto del módulo ya está implementado a propósito: `can_read`,
-    `register_reader` y `read_recording` corren al importar. **No convertirlos
-    en stubs.**
+    `register_reader`, `read_recording` y `load_all_readers` corren al
+    importar. **No convertirlos en stubs.**
+  - Test: **crear** `tests/test_readers.py`, que cubre este módulo y los dos de
+    abajo. El autodescubrimiento y el despacho se pueden testear con un lector
+    de mentira, sin ningún archivo real.
 - [ ] **`psglab/readers/edf.py`** · 1 stub · V2_F "Importación"
+  - Test: `tests/test_readers.py`. Necesita el registro de prueba del hito 0.
+- [ ] **Decidir cómo corre `tests/test_readers.py` en el CI.** Los registros de
+      prueba viven en `data/`, que el `.gitignore` excluye entero y con razón,
+      así que en GitHub Actions **no van a estar**. Saltear el test ahí
+      reintroduce el verde por omisión que este proyecto combate. Las salidas
+      razonables son bajar la Sleep-EDF en un paso del workflow, o partir el
+      test en dos: el despacho y el registro con un lector de mentira, que
+      corren en cualquier lado, y la lectura real, que se saltea con un motivo
+      explícito y visible en `pytest -rs`.
 - [ ] **`psglab/readers/brainvision.py`** · 1 stub · V1_F "Importación"
-  - Test de los dos: **crear** `tests/test_readers.py`. Necesita el registro de
-    prueba del hito 0.
+  - Test: `tests/test_readers.py`. Necesita el registro de prueba del hito 0.
   - `read()` devuelve la señal **ya en µV** y con la clase de canal detectada.
     Ninguna capa posterior lo vuelve a verificar.
 - [ ] **`psglab/readers/scoring_reader.py`** · 3 stubs · V3_F "Importación"
+  - Test: **crear** `tests/test_scoring_reader.py`.
   - Incluye `detect_nomenclature()`, que lee la cabecera que escribe
     `exporters/scoring_txt.py::format_header()`. Lo que uno escribe el otro lo
     tiene que poder volver a leer.
@@ -223,7 +251,9 @@ cualquier orden, incluso en paralelo.
   - `format_header()` escribe la cabecera que lee
     `readers/scoring_reader.py::detect_nomenclature()`.
 - [ ] **`psglab/exporters/annotations_txt.py`** · 2 stubs · V2_F "Archivo de
-      salida" — **depende del hito 0** (índice de los puntos)
+      salida"
+  - El índice de los puntos lo fijó el hito 0 en 0: sale de
+    `config.ANNOTATION_SAMPLE_BASE`, no se escribe a mano.
 - [ ] **`psglab/exporters/information_txt.py`** · 3 stubs · V3_F "Archivo de
       salida"
   - Las secciones que no correspondan se omiten con una explicación, no con
@@ -247,9 +277,9 @@ por eso la capa se mantiene delgada y toda la regla vive en `core/`. No es un
 olvido.
 
 - [ ] **`psglab/ui/grid.py`** · 4 stubs · V1_P, V2_F "Diseño de la interfaz"
-- [ ] **`psglab/ui/signal_view.py`** · 12 stubs · V1_P, V2_P, V4_F, V5_F
-      "Visualización" (+ el dibujo de V3_P)
-  - Incluye `seconds_at`, `window_fraction_at` y `sample_at`: es el **único**
+- [ ] **`psglab/ui/signal_view.py`** · 13 stubs · V1_P, V2_P, V4_F, V5_F
+      "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
+  - Incluye `seconds_at_pixel`, `window_fraction_at_pixel` y `sample_at_pixel`: es el **único**
     lugar que traduce entre píxeles, segundos, fracción de ventana y muestras.
     Ver el contrato en `psglab/tools/base.py`.
 - [ ] **`psglab/ui/navigation.py`** · 5 stubs · V1_F "Navegación"
@@ -279,10 +309,12 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
       amplitud" · `ViewerTool`
   - Test: **crear** `tests/test_amplitude_band.py`. Los 75 µV salen de
     `config.AMPLITUDE_BAND_UV`.
-- [ ] **`psglab/tools/occupancy.py`** · 12 stubs · V1_F–V5_F "Ocupación" ·
-      `ViewerTool` — **V2_F y V4_F dependen del hito 0**
+- [ ] **`psglab/tools/occupancy.py`** · 13 stubs · V1_F–V5_F "Ocupación" ·
+      `ViewerTool`
+  - V2_F y V4_F: el hito 0 fijó que la superposición se cuenta **dos veces**,
+    y sale de `config.OCCUPANCY_COUNTS_OVERLAP_ONCE`.
   - Test: `tests/test_occupancy.py` → **borrar el `pytestmark`**.
-- [ ] **`psglab/tools/magnifier.py`** · 8 stubs · V1_F, V2_F "Lupa" ·
+- [ ] **`psglab/tools/magnifier.py`** · 9 stubs · V1_F, V2_F "Lupa" ·
       `ViewerTool`
   - Test: **crear** `tests/test_magnifier.py` (el contador de picos es
     testeable sin dibujar nada).
@@ -296,11 +328,22 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
   - Su `on_click(x_fraction)` es propio: un clic cae en una ventana de la
     noche, no en un segundo de la ventana actual.
 - [ ] **`psglab/tools/annotator.py`** · 9 stubs · V1_F "Anotación" ·
-      `ViewerTool` — **depende del hito 0** (índice de los puntos)
+      `ViewerTool`
+  - El índice de los puntos lo fijó el hito 0 en 0: sale de
+    `config.ANNOTATION_SAMPLE_BASE`.
   - Test: **crear** `tests/test_annotator.py`.
 
 `tools/base.py` y `tools/registry.py` **ya están implementados** y no tienen
-stubs. No hay nada que hacer en ellos.
+stubs, pero eso no es lo mismo que estar verificados:
+
+- [ ] **`psglab/tools/registry.py` y `psglab/tools/base.py`** · 0 pendientes ·
+      les falta el test: **crear** `tests/test_registry.py`
+  - Que `@register_tool` eleve `DuplicateToolError` con dos herramientas del
+    mismo nombre, que `get_tool` eleve `UnknownToolError`, que `load_all_tools`
+    encuentre las seis y no se rompa si se la llama dos veces, y que los
+    métodos de evento de `Tool` y `ViewerTool` no hagan nada por defecto en vez
+    de elevar. Es el mecanismo del que dependen las seis herramientas y hoy no
+    lo verifica nada.
 
 ---
 
@@ -319,7 +362,7 @@ stubs. No hay nada que hacer en ellos.
       cerrados**, y cada fila apunta al archivo correcto.
 - [ ] **Las ambigüedades resueltas quedaron documentadas** en
       `EXPLICACION.txt` sección 8, y los módulos que decían "PENDIENTE DE
-      CONFIRMACIÓN" ya no lo dicen.
+      DEFINICIÓN CON EL CLIENTE" ya no lo dicen.
 - [ ] **Licencias verificadas**, sin ninguna GPL:
       ```bash
       pip-licenses --format=markdown --order=license

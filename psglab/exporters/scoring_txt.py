@@ -56,6 +56,7 @@ def export_scoring(
     path: Path,
     include_window_number: bool = SCORING_INCLUDES_WINDOW_NUMBER,
     include_header: bool = SCORING_INCLUDES_NOMENCLATURE_HEADER,
+    separator: str = SCORING_SEPARATOR,
 ) -> None:
     """Escribe el scoring completo en un archivo de texto.
 
@@ -65,6 +66,11 @@ def export_scoring(
         include_window_number: si cada línea arranca con el número de ventana.
             Por defecto toma el valor de `config`, que es el punto único donde
             se decide el formato.
+        separator: separador entre campos. Se expone acá, y no sólo en
+            `format_line`, para que el exportador tenga la misma superficie de
+            parámetros que `export_annotations`: los dos escriben un archivo del
+            pliego y no hay motivo para que uno deje configurar el separador y
+            el otro no.
         include_header: si el archivo arranca con la línea que declara la
             nomenclatura. Por defecto, el de `config`. La nomenclatura sale de
             `scoring.nomenclature`.

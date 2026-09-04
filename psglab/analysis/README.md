@@ -33,14 +33,27 @@ segunda es la que alimenta los gráficos a lo largo de la noche.
 
 ## Dependencias propias de esta capa
 
-Se instalan con `requirements-dev.txt`, no con `requirements.txt`:
+| Paquete | Licencia | Para qué | Dónde se declara |
+|---|---|---|---|
+| `mne` | BSD-3 | Filtrado, ICA, re-referenciado | `requirements.txt` |
+| `scipy` | BSD-3 | PSD y estadística | `requirements.txt` |
+| `mne-connectivity` | BSD-3 | Conectividad | `requirements-analysis.txt` |
+| `antropy` | BSD-3 | Entropías y dimensión fractal | `requirements-analysis.txt` |
 
-| Paquete | Licencia | Para qué |
-|---|---|---|
-| `mne` | BSD-3 | Filtrado, ICA, re-referenciado |
-| `mne-connectivity` | BSD-3 | Conectividad |
-| `antropy` | BSD-3 | Entropías y dimensión fractal |
-| `scipy` | BSD-3 | PSD y estadística |
+`mne` y `scipy` viven en `requirements.txt` porque la Parte 1 también los
+necesita: `mne` lee BrainVision y EDF, y `scipy` filtra. Las dos exclusivas de
+esta capa son las otras dos, y para trabajar acá hay que instalarlas aparte:
+
+```bash
+pip install -r requirements-analysis.txt
+```
+
+**Están en su propio archivo por un motivo medible.** `antropy` arrastra `numba`
+y `llvmlite`, y `mne-connectivity` arrastra `netCDF4`, `xarray`, `pandas` y
+`scikit-learn`. El CI las instalaba en las seis combinaciones de sistema
+operativo y versión de Python del job de tests, y ningún test las importa. El
+techo `numpy<2.6` que necesita `numba` también vive ahí, para no atarle las
+manos a la Parte 1, que no tiene ese problema.
 
 Se apoya en implementaciones ya validadas por la comunidad científica en vez de
 reescribir los algoritmos con menos horas de revisión encima.

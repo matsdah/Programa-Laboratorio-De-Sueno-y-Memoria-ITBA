@@ -20,7 +20,7 @@ core   ←  modelo y reglas de negocio
 **`core/` no importa nada de `ui/`.** Es la restricción que sostiene todo lo
 demás: gracias a ella el modelo, el scoring, las estadísticas y los
 exportadores se pueden testear sin abrir una ventana, que es el testeo
-recurrente que pide el pliego (sección 11).
+recurrente que pide el pliego (sección 7).
 
 Regla de bolsillo para ubicar código nuevo: **si es una regla de negocio y
 quedó en `ui/`, está mal ubicada.** Mostrar la ventana 0 como "Ventana 1" es
@@ -45,7 +45,7 @@ de 400 ventanas es una regla y va en `core/`.
 
 Lo único que `main.py` conoce. Arma los objetos de Qt y los devuelve cableados:
 `create_application(argv)` y `create_main_window()`. Mantener la construcción
-acá es lo que permite que el punto de entrada se quede en veinte líneas
+acá es lo que permite que el punto de entrada se quede en nueve sentencias
 (requisito del pliego, sección 7).
 
 ### `config.py`
@@ -77,17 +77,6 @@ línea, y el valor queda junto al motivo por el que se eligió.
 cada decisión está en el
 [hito 0 del TODO](../docs/TODO.md#hito-0-desbloquear).
 
-## Estado actual
-
-Esqueleto: la estructura está completa y los 49 módulos importan, pero la
-lógica todavía no está implementada y los métodos elevan `NotImplementedError`.
-
-Cuatro piezas **sí** están implementadas, a propósito, y no deben volver a ser
-stubs: los decoradores `@register_tool` y `@register_reader`, `Reader.can_read`,
-`read_recording()` y `PsgLabError.__init__`. Todas corren en tiempo de
-importación; si elevaran `NotImplementedError`, ningún módulo del paquete podría
-cargarse y los mecanismos enchufables no existirían.
-
 ## Convenciones
 
 - Identificadores y nombres de archivo en **inglés**; comentarios, docstrings y
@@ -100,9 +89,28 @@ cargarse y los mecanismos enchufables no existirían.
 
 ## Estado
 
-Pendientes **170 stubs** en 29 módulos de la Parte 1, ordenados por
+Esqueleto: los 42 módulos del paquete importan —50 archivos `.py` contando los
+ocho `__init__.py`— pero la lógica todavía no está implementada y los métodos
+elevan `NotImplementedError`.
+
+Pendientes **174 stubs** en 29 módulos de la Parte 1, ordenados por
 dependencias en el [TODO](../docs/TODO.md). `app.py` es el último de la fila
 (hito 6): hasta que se implemente, `python main.py` termina en
 `NotImplementedError`, que es lo esperado.
 
-`config.py` no tiene stubs: sus constantes ya están fijadas.
+Estas piezas **sí** están implementadas, a propósito, y no deben volver a ser
+stubs:
+
+- Los decoradores `@register_tool` y `@register_reader`, y el resto de
+  `tools/registry.py` (`available_tools`, `get_tool`, `load_all_tools`).
+- `Reader.can_read`, el despacho de `read_recording()` y `load_all_readers()`.
+- `PsgLabError.__init__`.
+- Los métodos de evento de `Tool` y `ViewerTool`, que no hacen nada por defecto
+  en vez de elevar: si el método base fallara, activar una herramienta y navegar
+  rompería el programa.
+- `config.py` entero: sus constantes ya están fijadas.
+- `core/windows.py` entero, único módulo de la Parte 1 terminado.
+
+Las primeras corren en tiempo de importación; si elevaran `NotImplementedError`,
+ningún módulo del paquete podría cargarse y los mecanismos enchufables no
+existirían.

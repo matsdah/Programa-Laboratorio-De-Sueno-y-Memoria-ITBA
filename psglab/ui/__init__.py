@@ -6,4 +6,6 @@ moverla a `core/`, donde se puede testear sin abrir una ventana.
 
 Se eligió PySide6 y no PyQt porque PyQt es GPL o comercial pago, y usarlo
 obligaría a relicenciar el proyecto, que el pliego pide bajo licencia MIT.
+
+Cubre del pliego: ningún ID propio del paquete. Los cubren sus módulos.
 """

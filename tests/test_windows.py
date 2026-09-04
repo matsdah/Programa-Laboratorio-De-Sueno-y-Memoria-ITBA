@@ -12,8 +12,12 @@ import pytest
 
 from psglab.core.windows import (
     count_windows,
+    sample_to_seconds,
     sample_to_window,
+    seconds_to_sample,
+    seconds_to_window_fraction,
     window_duration,
+    window_fraction_to_seconds,
     window_to_clock_time,
     window_to_samples,
 )
@@ -168,3 +172,77 @@ def test_una_frecuencia_de_cero_no_se_puede_convertir(sampling_rate):
     """Una división por cero es correcta acá: no hay ventana que calcular."""
     with pytest.raises(ZeroDivisionError):
         sample_to_window(100, 0.0)
+
+
+@pytest.mark.parametrize("frecuencia", [0.0, -256.0])
+def test_ninguna_conversion_acepta_una_frecuencia_no_positiva(frecuencia):
+    """La promesa del módulo valía para dos de las cuatro funciones.
+
+    `window_to_samples` devolvía `(0, 0)` y `window_duration` devolvía cero, en
+    silencio: una frecuencia corrupta leída de un EDF producía una ventana vacía
+    en vez de un error, y el problema aparecía mucho después y lejos.
+    """
+    with pytest.raises(ZeroDivisionError):
+        window_to_samples(5, frecuencia)
+    with pytest.raises(ZeroDivisionError):
+        window_duration(5, 1000, frecuencia)
+    with pytest.raises(ZeroDivisionError):
+        sample_to_window(100, frecuencia)
+    with pytest.raises(ZeroDivisionError):
+        count_windows(1000, frecuencia)
+
+
+def test_un_registro_vacio_con_frecuencia_corrupta_tambien_falla():
+    """El atajo de `n_samples <= 0` no puede tapar el archivo corrupto."""
+    with pytest.raises(ZeroDivisionError):
+        count_windows(0, 0.0)
+
+
+# -- Las otras unidades: fracción de ventana y segundos ----------------------
+
+
+def test_la_mitad_de_la_ventana_es_la_fraccion_un_medio():
+    """Es la conversión que necesita el medidor de ocupación.
+
+    Su `OccupancyLine` trabaja en fracción y `ViewerTool` le entrega segundos;
+    saltearse esta conversión es lo que haría informar 3000 % de ocupación.
+    """
+    assert seconds_to_window_fraction(15.0) == pytest.approx(0.5)
+    assert seconds_to_window_fraction(0.0) == pytest.approx(0.0)
+    assert seconds_to_window_fraction(30.0) == pytest.approx(1.0)
+
+
+def test_la_fraccion_y_los_segundos_son_inversas():
+    for segundos in (0.0, 7.5, 15.0, 29.9):
+        fraccion = seconds_to_window_fraction(segundos)
+        assert window_fraction_to_seconds(fraccion) == pytest.approx(segundos)
+
+
+def test_un_evento_al_inicio_de_una_ventana_cae_en_su_primera_muestra(sampling_rate):
+    """Es la conversión que necesita el anotador: recibe segundos y guarda muestras."""
+    for ventana in (0, 1, 19, 500):
+        start, _ = window_to_samples(ventana, sampling_rate)
+        assert seconds_to_sample(ventana, 0.0, sampling_rate) == start
+
+
+def test_segundos_y_muestras_son_inversas_con_una_frecuencia_no_redonda():
+    """Con 256,125 Hz, que es el caso que rompe las cuentas ingenuas."""
+    frecuencia = 256.125
+    for ventana in (0, 1, 960):
+        for segundos in (0.0, 12.0, 29.5):
+            muestra = seconds_to_sample(ventana, segundos, frecuencia)
+            vuelta = sample_to_seconds(ventana, muestra, frecuencia)
+            assert vuelta == pytest.approx(segundos, abs=1 / frecuencia)
+
+
+def test_un_evento_anotado_cae_en_la_ventana_de_la_que_salio():
+    """La propiedad que importa de verdad: la anotación no se corre de ventana.
+
+    Con una frecuencia no redonda, calcular la muestra como
+    `ventana * 30 * fs + segundos * fs` la deja caer en la ventana de al lado.
+    """
+    frecuencia = 256.125
+    for ventana in (0, 1, 500, 960, 2000):
+        for segundos in (0.0, 15.0, 29.99):
+            muestra = seconds_to_sample(ventana, segundos, frecuencia)
+            assert sample_to_window(muestra, frecuencia) == ventana

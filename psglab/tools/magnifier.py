@@ -11,8 +11,10 @@ picos de la señal y la herramienta lleva la cuenta.
 Cubre del pliego: V1_F, V2_F de "Herramienta Lupa".
 """
 
+from collections.abc import Sequence
+
 from psglab.core.session import Session
-from psglab.tools.base import ViewerTool
+from psglab.tools.base import CircleOverlay, Overlay, ViewerTool
 from psglab.tools.registry import register_tool
 
 
@@ -25,16 +27,16 @@ class MagnifierTool(ViewerTool):
     description = "Ampliar una porción de la señal y contar picos con el mouse"
 
     def activate(self, session: Session) -> None:
-        """Muestra la lupa y la engancha al mouse."""
-        raise NotImplementedError("Pendiente: crear el círculo de zoom.")
+        """Empieza a publicar la lupa y queda a la espera del mouse."""
+        raise NotImplementedError("Pendiente: guardar la sesión y publicar la lupa.")
 
     def deactivate(self) -> None:
-        """Oculta la lupa y deja el contador como estaba."""
-        raise NotImplementedError("Pendiente: quitar la lupa del visualizador.")
+        """Deja de publicar la lupa. El contador queda como estaba."""
+        raise NotImplementedError("Pendiente: dejar de publicar la lupa y avisar.")
 
     def on_mouse_move(self, x: float, y: float) -> None:
-        """Reposiciona la lupa y redibuja el contenido ampliado (V1_F)."""
-        raise NotImplementedError("Pendiente: mover la lupa y redibujar su contenido.")
+        """Mueve la lupa al punto donde está el mouse (V1_F)."""
+        raise NotImplementedError("Pendiente: reposicionar la lupa y avisar.")
 
     def on_mouse_press(self, x: float, y: float, button: str) -> None:
         """Suma un pico al contador (V2_F).
@@ -44,13 +46,22 @@ class MagnifierTool(ViewerTool):
         """
         raise NotImplementedError("Pendiente: incrementar o descontar el contador.")
 
-    def set_radius(self, radius_px: float) -> None:
-        """Cambia el tamaño del círculo de la lupa."""
-        raise NotImplementedError("Pendiente: cambiar el radio y redibujar.")
+    def set_radius_seconds(self, radius_seconds: float) -> None:
+        """Cambia el tamaño del círculo de la lupa.
+
+        En segundos y no en píxeles: `tools/base.py` declara que una herramienta
+        nunca recibe píxeles, y esta no tiene forma de conocerlos. El
+        visualizador sabe cuántos píxeles son.
+        """
+        raise NotImplementedError("Pendiente: cambiar el radio y avisar.")
 
     def set_zoom(self, factor: float) -> None:
         """Cambia el factor de ampliación."""
         raise NotImplementedError("Pendiente: cambiar el factor de zoom.")
+
+    def overlays(self) -> Sequence[Overlay]:
+        """El círculo de aumento donde está el mouse, o nada si está desactivada."""
+        raise NotImplementedError("Pendiente: devolver la lupa como CircleOverlay.")
 
     @property
     def click_count(self) -> int:

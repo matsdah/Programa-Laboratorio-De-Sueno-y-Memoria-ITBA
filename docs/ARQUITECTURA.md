@@ -33,20 +33,23 @@ trazabilidad.
           ┌─────────►  core   ◄─────────┐
           │         └────▲────┘         │
           │              │              │
-    ┌─────┴─────┐  ┌─────┴─────┐  ┌─────┴──────┐
-    │  readers  │  │  tools    │  │ exporters  │
-    └───────────┘  └─────▲─────┘  └────────────┘
+    ┌─────┴─────┐  ┌─────┴─────┐  ┌─────┴──────┐  ┌──────────┐
+    │  readers  │  │  tools    │  │ exporters  │  │ analysis │
+    └───────────┘  └─────▲─────┘  └────────────┘  └──────────┘
                          │
-                    ┌────┴────┐        ┌──────────┐
-                    │   ui    │        │ analysis ├──► core
-                    └─────────┘        └──────────┘
+                    ┌────┴────┐
+                    │   ui    ├──────────────► core
+                    └─────────┘
 ```
+
+`ui/` es la única capa con **dos** dependencias: `core/` por el modelo y
+`tools/` por las herramientas que muestra. El resto cuelga sólo de `core/`.
 
 Las flechas apuntan en una sola dirección y **`core/` no importa nada de
 `ui/`**. No es una preferencia estética: es lo que permite testear el modelo,
 el scoring, las estadísticas y los exportadores sin abrir una ventana
 gráfica. Sin esa separación, el testeo recurrente que pide el pliego
-(sección 11) sería inviable en la práctica, porque cada test necesitaría
+(sección 7) sería inviable en la práctica, porque cada test necesitaría
 levantar la interfaz.
 
 Regla de bolsillo: **si una regla de negocio está en `ui/`, está en el lugar
@@ -191,7 +194,7 @@ Corrida sobre el entorno completo (48 paquetes, Python 3.14.7). Resultado:
 paquete cuyo nombre contiene "PyQt" es `pyqtgraph`, que es MIT y no tiene
 relación con PyQt.
 
-Tres resultados que conviene explicar, porque parecen alarmas y no lo son:
+Dos resultados que conviene explicar, porque parecen alarmas y no lo son:
 
 - **PySide6, PySide6_Essentials, PySide6_Addons y shiboken6** declaran
   `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`. Es una licencia

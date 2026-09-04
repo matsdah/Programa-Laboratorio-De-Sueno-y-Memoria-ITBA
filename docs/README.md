@@ -6,6 +6,7 @@
 | [`ARQUITECTURA.md`](ARQUITECTURA.md) | **Decisiones de diseño y sus motivos.** Capas, puntos de extensión, licencias, convenciones de código. | Cada vez que se revisa una decisión: hay que anotar el motivo del cambio. |
 | [`TRAZABILIDAD.md`](TRAZABILIDAD.md) | **Requisito del pliego → archivo responsable.** | Cada vez que se agrega una funcionalidad, **en el mismo commit**. |
 | [`EXPLICACION.txt`](EXPLICACION.txt) | Explicación general del programa en texto plano, para quien no lee código. Su sección 8 lista lo que falta definir. | Cuando el cliente cierra una ambigüedad. |
+| [`AUDITORIA.md`](AUDITORIA.md) | **Foto fechada** de las incongruencias que se encontraron revisando el repositorio entero. No lleva estado: lo que falta hacer vive en `TODO.md`. | No se toca. Si hace falta otra revisión, se escribe una nueva. |
 | `mockups/` | Bocetos de la interfaz. | — |
 
 ## Por qué existe `ARQUITECTURA.md`
@@ -47,21 +48,28 @@ archivos: `signal_view.py` recorre V1_P → V5_F sin duplicarse.
 La tabla se alimenta de la línea "Cubre del pliego:" del docstring de cada
 módulo. Al agregar una funcionalidad, **agregá su fila acá en el mismo commit**.
 
-## Ambigüedades abiertas
+## Ambigüedades del pliego
 
-Están en `EXPLICACION.txt`, sección 8. Son los puntos del pliego que quedaron
-sin cerrar y hay que confirmar con el cliente antes de programarlos:
+**Las que estaban abiertas se cerraron el 4 de septiembre de 2026**, con el
+cliente. La lista de qué se preguntó, qué se respondió y en qué constante vive
+cada respuesta está en el [hito 0 del TODO](TODO.md#hito-0-desbloquear); el
+resumen para el lector no técnico, en `EXPLICACION.txt`, sección 8.
 
-1. `Scoring.txt`: ¿dos campos o tres? (Ya parametrizado en
-   `config.SCORING_INCLUDES_WINDOW_NUMBER`.)
-2. "Puntos": ¿la primera muestra es la 0 o la 1?
-3. Impedancias: ¿de dónde salen, si el archivo no las trae?
-4. Ocupación: si dos líneas se pisan, ¿la zona compartida se cuenta una o dos veces?
-5. Titular del copyright para `LICENSE`, y nombre del repositorio.
-6. Un registro de prueba en BrainVision y en EDF.
+**No se listan acá.** Una copia más de esa lista es una copia más para
+desincronizar, y ya pasó: al cerrarse el hito 0, siete README de carpeta
+siguieron pidiendo confirmar lo que el cliente ya había confirmado. Está
+documentado en [`AUDITORIA.md`](AUDITORIA.md).
 
-Cuando se cierre una, **actualizar `EXPLICACION.txt` y el módulo que la
-esperaba** (los que dicen "PENDIENTE DE CONFIRMACIÓN" en su docstring).
+Queda **una sola** genuinamente abierta, y es de la Parte 2: de dónde salen las
+impedancias de los electrodos, si el archivo no las trae. El módulo que la
+espera la declara en su docstring con la marca `PENDIENTE DE DEFINICIÓN CON EL
+CLIENTE`, que se encuentra así:
+
+```bash
+grep -rn "PENDIENTE DE" psglab --include=*.py
+```
+
+Cuando se cierre, **actualizar `EXPLICACION.txt` y borrar la marca del módulo**.
 
 ## Documentación por carpeta
 

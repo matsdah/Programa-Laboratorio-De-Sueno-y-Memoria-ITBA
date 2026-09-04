@@ -7,6 +7,9 @@ Los formatos son texto plano y fáciles de leer con cualquier herramienta.
 Eso es deliberado: los archivos de salida son la vía por la que el scoring
 entra a los análisis estadísticos del laboratorio, y no deberían necesitar
 este programa para poder leerse.
+
+Cubre del pliego: ningún ID propio del paquete. Los tres archivos de salida
+los cubren sus módulos.
 """
 
 from typing import Final

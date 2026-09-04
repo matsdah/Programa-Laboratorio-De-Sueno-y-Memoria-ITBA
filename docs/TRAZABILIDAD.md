@@ -104,7 +104,7 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Seleccionar un evento, asignarle o crear una clase, marcarlo con una banda | `psglab/tools/annotator.py`, `psglab/core/annotations.py`, `psglab/ui/signal_view.py` (`sample_at`) |
+| V1_F | Seleccionar un evento, asignarle o crear una clase, marcarlo con una banda | `psglab/tools/annotator.py`, `psglab/core/annotations.py`, `psglab/ui/signal_view.py` (`sample_at_pixel`) |
 
 ### Archivo de salida
 
@@ -134,9 +134,13 @@ commit.
 
 ## Módulos de infraestructura
 
-No implementan ninguna funcionalidad numerada, así que no tienen fila arriba.
-Se listan igual porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos cinco se rompen hacia todos lados.
+Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
+rompe si se toca este archivo**. Estos siete se rompen hacia todos lados.
+
+Cinco de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+fila arriba: `config.py`, `utils/errors.py`, `tools/base.py`, `tools/registry.py`
+y `app.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
 |---|---|---|
@@ -190,7 +194,7 @@ preguntas abiertas los posee el TODO, y duplicarlos garantizaba —y de hecho
 produjo— que las copias se desincronizaran.
 
 Las que ya afectan a un archivo concreto están anotadas además en el docstring
-de ese archivo, con la marca `PENDIENTE DE CONFIRMACIÓN`:
+de ese archivo, con la marca `PENDIENTE DE DEFINICIÓN CON EL CLIENTE`:
 
 ```bash
 grep -rn "PENDIENTE DE" psglab --include=*.py

@@ -59,6 +59,23 @@ class MainWindow(QMainWindow):
 
         Es el único lugar donde los paneles se enteran unos de otros: el
         visualizador no conoce al histograma, los dos pasan por acá.
+
+        Acá se cablean también los callbacks de las herramientas, que no son
+        señales de Qt porque `Tool` no hereda de `QObject`:
+
+        - `tool.on_changed`, que dispara
+          `signal_view.set_overlays(tool.overlays())`. Es el camino por el que
+          una herramienta hace aparecer algo en pantalla sin conocer Qt.
+        - `histogram.on_window_requested`, que lleva el clic del hipnograma a
+          `session.go_to_window()`.
+
+        **Los dos se asignan sobre la instancia de la herramienta, nunca sobre
+        su clase**: asignados en la clase quedarían como método ligado y la
+        llamada pasaría un argumento de más.
+
+        Las coordenadas de los eventos de mouse se convierten acá, con
+        `signal_view.seconds_at_pixel()`, antes de avisarle a la herramienta
+        activa: `ViewerTool` recibe segundos, nunca píxeles.
         """
         raise NotImplementedError("Pendiente: conectar las señales de los paneles.")
 

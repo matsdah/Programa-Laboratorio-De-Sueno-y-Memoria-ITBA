@@ -14,9 +14,15 @@ from dataclasses import dataclass
 from psglab.core.nomenclature import Nomenclature, SleepStage
 
 
-@dataclass
+@dataclass(frozen=True)
 class EpochScore:
     """Scoring de una única ventana de 30 segundos.
+
+    **Inmutable a propósito.** `Scoring.get()` devuelve uno de estos, y si se
+    pudiera escribir encima —`scoring.get(i).stage = SleepStage.N2`— se
+    esquivaría `Scoring.set_stage()`, que es la única guarda que impide asignar
+    una fase ajena a la nomenclatura activa. Para cambiar el scoring de una
+    ventana hay que pasar por `set_stage()` o `set_arousal()`.
 
     Attributes:
         stage: fase de sueño. UNSCORED si el usuario todavía no la scoreó.

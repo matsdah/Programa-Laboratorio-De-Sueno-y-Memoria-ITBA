@@ -34,7 +34,7 @@ registro de 400 es una regla y va en `core/`.
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
 | `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. | V4_F de "Archivo de salida" |
-| `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** | V1_P, V2_P, V4_F, V5_F de "Visualización" |
+| `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
 | `channel_selector.py` | Elegir cuántos y cuáles canales se ven, y corregir la clase detectada. | V3_P, V4_F de "Visualización" |
 | `grid.py` | La grilla de fondo y los tres fondos elegibles. | V1_P, V2_F de "Diseño de la interfaz" |
 | `navigation.py` | Botones de ventana anterior y siguiente, y posición actual. | V1_F de "Navegación" |
@@ -101,20 +101,16 @@ redibujar decenas de canales a cientos de hercios cada vez que el usuario apriet
 una flecha. Medio segundo de demora por ventana, multiplicado por las cientos de
 ventanas de una noche, vuelve el programa inusable.
 
-## Testeo
-
-Esta capa es la que **no** se puede testear sin levantar una ventana, y por eso
-se la mantiene delgada a propósito. Todo lo que valga la pena verificar debería
-poder verificarse desde `core/`, `tools/` o `exporters/`.
-
 ## Estado
 
-Pendientes **43 stubs**, en el
+Pendientes **44 stubs**, en el
 [hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz). Es el último hito de
 lógica: depende de que `core/session.py` esté terminado (hito 3).
 
 Al cerrarlo, `python main.py` abre algo usable por primera vez.
 
-Esta capa **no lleva tests unitarios**, y por eso se la mantiene delgada: todo
-lo que valga la pena verificar debería poder verificarse desde `core/`,
-`tools/` o `exporters/`. No es un olvido del TODO.
+Esta capa **no lleva tests unitarios**, y por eso se la mantiene delgada: es la
+única que no se puede verificar sin levantar una ventana, así que todo lo que
+valga la pena verificar debería poder verificarse desde `core/`, `tools/` o
+`exporters/`. No es un olvido del TODO, y lo único que la ejercita es
+`test_todos_los_modulos_del_paquete_se_pueden_importar`.

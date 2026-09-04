@@ -12,7 +12,7 @@ Cubre del pliego: V1_F de "Anotación de la señal"; alimenta V2_F de "Archivo
 de salida" y la vista de eventos de la herramienta Übersicht.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final
 
 #: Clases de evento ofrecidas por defecto. El usuario puede agregar las suyas.
@@ -23,7 +23,7 @@ DEFAULT_LABELS: Final[tuple[str, ...]] = (
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class Annotation:
     """Un evento anotado sobre la señal.
 
@@ -32,15 +32,21 @@ class Annotation:
         onset_sample: muestra de inicio ("Puntos_Emp" en el archivo de salida).
         duration_samples: duración en muestras ("Duracion_Puntos").
         channels: canales sobre los que se marcó el evento. Vacío significa
-            que la anotación vale para todos los canales mostrados.
+            que la anotación vale para todos los canales mostrados. Es una
+            tupla y no una lista para que la anotación entera sea hashable.
         color: color de la banda, en formato "#RRGGBB". Si es None, se usa el
             color asignado a la clase.
+
+    **Inmutable a propósito.** Una anotación es un hecho registrado sobre la
+    señal: se crea, se borra, no se edita. Además así se la puede guardar en un
+    conjunto y usar como clave, que es lo que necesita el anotador para saber
+    cuál está debajo del clic.
     """
 
     label: str
     onset_sample: int
     duration_samples: int
-    channels: list[str] = field(default_factory=list)
+    channels: tuple[str, ...] = ()
     color: str | None = None
 
     @property
@@ -66,8 +72,21 @@ class AnnotationSet:
         raise NotImplementedError("Pendiente: validar la clase y agregar la anotación.")
 
     def remove(self, annotation: Annotation) -> None:
-        """Elimina una anotación."""
+        """Elimina una anotación.
+
+        Si hay dos anotaciones exactamente iguales —misma clase, mismo inicio,
+        misma duración, mismos canales— son indistinguibles por definición y se
+        borra la primera. Para señalar una en particular está `remove_at()`.
+        """
         raise NotImplementedError("Pendiente: eliminar la anotación.")
+
+    def remove_at(self, index: int) -> None:
+        """Elimina la anotación que ocupa una posición de `all()`.
+
+        Es lo que necesita el anotador cuando el usuario hace clic sobre una
+        banda concreta: ahí no quiere borrar "una igual a esta" sino esa.
+        """
+        raise NotImplementedError("Pendiente: eliminar la anotación de esa posición.")
 
     def add_label(self, label: str, color: str | None = None) -> None:
         """Registra una clase de evento nueva creada por el usuario (V1_F)."""

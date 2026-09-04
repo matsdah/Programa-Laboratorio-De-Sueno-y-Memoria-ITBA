@@ -21,15 +21,16 @@ Cubre del pliego: V1_F, V2_F, V3_F, V4_F, V5_F de "Herramienta de ocupación
 de la página".
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from psglab.config import OCCUPANCY_COUNTS_OVERLAP_ONCE
 from psglab.core.session import Session
-from psglab.tools.base import ViewerTool
+from psglab.tools.base import Overlay, SegmentOverlay, ViewerTool
 from psglab.tools.registry import register_tool
 
 
-@dataclass
+@dataclass(frozen=True)
 class OccupancyLine:
     """Una línea dibujada por el usuario.
 
@@ -39,10 +40,14 @@ class OccupancyLine:
 
     **Ojo con la unidad.** Los métodos de mouse de `ViewerTool` reciben `x` en
     **segundos** (0 a 30), que no es lo que esta clase guarda. La conversión la
-    hace `SignalView.window_fraction_at()` y hay que aplicarla antes de
-    construir la línea. Si se le pasan segundos crudos, `horizontal_fraction`
-    devuelve hasta 30 en vez de 1 y `line_percentage` informa 3000 %: un número
-    plausible y equivocado, que no falla de forma visible.
+    hace `core.windows.seconds_to_window_fraction()` y hay que aplicarla en los
+    métodos de mouse, antes de construir la línea. Si se le pasan segundos
+    crudos, `horizontal_fraction` devuelve hasta 30 en vez de 1 y
+    `line_percentage` informa 3000 %: un número plausible y equivocado, que no
+    falla de forma visible.
+
+    Es inmutable (`frozen=True`) para poder guardarla en un conjunto y para que
+    borrar "la línea que está debajo del clic" sea inequívoco.
     """
 
     x1: float
@@ -82,8 +87,13 @@ class OccupancyTool(ViewerTool):
         raise NotImplementedError("Pendiente: iniciar la línea o borrar la que está debajo.")
 
     def on_mouse_move(self, x: float, y: float) -> None:
-        """Muestra la línea en curso mientras el usuario arrastra."""
-        raise NotImplementedError("Pendiente: actualizar la vista previa de la línea.")
+        """Extiende la línea en curso mientras el usuario arrastra.
+
+        Convierte los segundos que recibe a fracción de ventana con
+        `core.windows.seconds_to_window_fraction()`: es la conversión que
+        `OccupancyLine` exige y sin la que informaría 3000 %.
+        """
+        raise NotImplementedError("Pendiente: actualizar la línea en curso y avisar.")
 
     def on_mouse_release(self, x: float, y: float, button: str) -> None:
         """Cierra la línea y actualiza el porcentaje mostrado (V3_F)."""
@@ -136,3 +146,13 @@ class OccupancyTool(ViewerTool):
     def clear(self) -> None:
         """Borra todas las líneas."""
         raise NotImplementedError("Pendiente: vaciar la lista de líneas.")
+
+    def overlays(self) -> Sequence[Overlay]:
+        """Las líneas dibujadas, más la que el usuario está arrastrando.
+
+        Se devuelven en segundos y microvoltios, que es lo que entiende el
+        visualizador; internamente se guardan en fracción, que es lo que hace
+        correcto el porcentaje. La vuelta la hace
+        `core.windows.window_fraction_to_seconds()`.
+        """
+        raise NotImplementedError("Pendiente: devolver las líneas como SegmentOverlay.")

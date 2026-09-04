@@ -60,9 +60,27 @@ def ruta_relativa(archivo: pathlib.Path) -> str:
 
 
 def contar_stubs(archivo: pathlib.Path) -> int:
-    """Cantidad de `raise NotImplementedError` de un archivo."""
-    texto = archivo.read_text(encoding="utf-8")
-    return len(re.findall(r"raise NotImplementedError", texto))
+    """Cantidad de `raise NotImplementedError` de un archivo.
+
+    Se cuenta sobre el árbol de sintaxis y no sobre el texto: un comentario o un
+    docstring que mencione la frase —`tools/registry.py` explica por qué **no**
+    eleva `NotImplementedError`— inflaría el conteo y haría fallar el chequeo de
+    cuentas del TODO por un motivo que no es el real.
+    """
+    arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+    return sum(
+        1
+        for nodo in ast.walk(arbol)
+        if isinstance(nodo, ast.Raise) and _nombre_de_excepcion(nodo) == "NotImplementedError"
+    )
+
+
+def _nombre_de_excepcion(nodo: ast.Raise) -> str:
+    """Nombre de la excepción que eleva un `raise`, con o sin argumentos."""
+    excepcion = nodo.exc
+    if isinstance(excepcion, ast.Call):
+        excepcion = excepcion.func
+    return excepcion.id if isinstance(excepcion, ast.Name) else ""
 
 
 def stubs_de_la_parte_1() -> int:
@@ -107,12 +125,38 @@ def ids_de_la_trazabilidad() -> dict[str, set[str]]:
 
 
 def archivos_markdown() -> list[pathlib.Path]:
-    """Todos los `.md` versionados del repositorio."""
+    """Todos los `.md` versionados del repositorio.
+
+    Se excluye cualquier directorio que empiece con un punto y los que genera
+    una corrida: `.pytest_cache/README.md` lo escribe pytest y está en el
+    `.gitignore`, pero se colaba en el chequeo de enlaces y podía poner en rojo
+    el CI del proyecto por un archivo que no es del proyecto.
+    """
+    generados = {"build", "dist", "htmlcov", "venv", "env", "node_modules"}
     return sorted(
         p
         for p in RAIZ.rglob("*.md")
-        if ".venv" not in p.parts and ".git" not in p.parts
+        if not any(parte.startswith(".") or parte in generados for parte in p.parts)
     )
+
+
+def existe_respetando_mayusculas(destino: pathlib.Path) -> bool:
+    """Si el archivo existe **con exactamente esa caja** en el nombre.
+
+    `Path.exists()` no alcanza: en Windows y macOS el sistema de archivos no
+    distingue mayúsculas, así que un enlace a `TODO.md` escrito `todo.md` pasa
+    en la máquina de quien lo escribió y falla en el `ubuntu-latest` del CI.
+    Comparar contra la entrada real del directorio da el mismo resultado en los
+    tres sistemas.
+    """
+    if not destino.exists():
+        return False
+    actual = destino
+    while actual != RAIZ and actual.parent != actual:
+        if actual.name not in {hijo.name for hijo in actual.parent.iterdir()}:
+            return False
+        actual = actual.parent
+    return True
 
 
 def ancla(titulo: str) -> str:
@@ -177,6 +221,34 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
     )
 
 
+def test_las_cuentas_de_los_readme_de_carpeta_coinciden_con_el_codigo():
+    """Cada carpeta lleva su propia cuenta de stubs, y ninguna se verificaba.
+
+    El chequeo de arriba compara `TODO.md` contra el código, pero los siete
+    README de carpeta tienen su línea "Pendientes **N stubs**" escrita a mano.
+    Se desincronizaron dos veces en una sola tanda de trabajo.
+    """
+    problemas: list[str] = []
+    for readme in sorted((RAIZ / "psglab").rglob("README.md")):
+        declarado = re.search(r"Pendientes \*\*(\d+) stubs?\*\*", readme.read_text(encoding="utf-8"))
+        if declarado is None:
+            continue
+        # El README de la raíz del paquete cuenta la **Parte 1**, así que deja
+        # afuera `analysis/`, que es la Parte 2. Los de cada carpeta cuentan su
+        # propia carpeta.
+        es_raiz = readme.parent == RAIZ / "psglab"
+        real = sum(
+            contar_stubs(f)
+            for f in readme.parent.rglob("*.py")
+            if f.name != "__init__.py" and not (es_raiz and "analysis" in f.parts)
+        )
+        if int(declarado.group(1)) != real:
+            problemas.append(
+                f"{ruta_relativa(readme)} dice {declarado.group(1)} stubs y en la carpeta hay {real}"
+            )
+    assert not problemas, "\n".join(problemas)
+
+
 # -- Trazabilidad -----------------------------------------------------------
 
 
@@ -193,13 +265,36 @@ def test_cada_modulo_declara_que_ids_del_pliego_cubre():
     assert not sin_linea, f"módulos sin 'Cubre del pliego': {sin_linea}"
 
 
+def test_los_paquetes_y_el_punto_de_entrada_tambien_la_llevan():
+    """`psglab/README.md` la exige a "cada módulo", sin excepciones.
+
+    El chequeo de arriba no los alcanza porque `modulos_del_paquete()` excluye
+    los `__init__.py` y no sale de `psglab/`, y esa función no se puede tocar:
+    es la que alimenta todas las cuentas de stubs del TODO. Va aparte.
+
+    `main.py` es el caso que más llamaba la atención: es el único archivo
+    ejecutable del proyecto y ningún chequeo del repositorio lo miraba.
+    """
+    archivos = [RAIZ / "main.py", *sorted((RAIZ / "psglab").rglob("__init__.py"))]
+    sin_linea = [
+        ruta_relativa(f) for f in archivos if "Cubre del pliego" not in docstring_de(f)
+    ]
+    assert not sin_linea, f"archivos sin 'Cubre del pliego': {sin_linea}"
+
+
 def test_cada_modulo_aparece_en_la_trazabilidad():
     """La tabla sirve para la pregunta inversa: qué se rompe si toco este archivo.
 
-    Un módulo que no figura en ninguna fila no se puede responder.
+    Un módulo que no figura en ninguna fila no se puede responder. Se exige que
+    la mención esté **dentro de una fila de tabla** y no en cualquier parte del
+    documento: nombrado al pasar en un párrafo, el archivo no queda trazado y el
+    chequeo daría verde igual.
     """
     texto = (RAIZ / "docs" / "TRAZABILIDAD.md").read_text(encoding="utf-8")
-    citados = set(re.findall(r"`(psglab/[^`]+\.py)`", texto))
+    citados: set[str] = set()
+    for linea in texto.splitlines():
+        if linea.lstrip().startswith("|"):
+            citados.update(re.findall(r"`(psglab/[^`]+\.py)`", linea))
     ausentes = [ruta_relativa(f) for f in modulos_del_paquete() if ruta_relativa(f) not in citados]
     assert not ausentes, f"módulos sin fila en TRAZABILIDAD.md: {ausentes}"
 
@@ -217,8 +312,6 @@ def test_los_ids_coinciden_en_las_dos_direcciones():
     for archivo in modulos_del_paquete():
         declara = ids_declarados(archivo)
         asigna = asignados.get(ruta_relativa(archivo), set())
-        if not (declara and asigna):
-            continue
         if declara - asigna:
             problemas.append(
                 f"{ruta_relativa(archivo)} declara {sorted(declara - asigna)} y la tabla no se los asigna"
@@ -228,6 +321,53 @@ def test_los_ids_coinciden_en_las_dos_direcciones():
                 f"{ruta_relativa(archivo)} no declara {sorted(asigna - declara)}, que la tabla sí le asigna"
             )
     assert not problemas, "\n".join(problemas)
+
+
+def modulos_declarados_sin_ids() -> set[str]:
+    """Archivos que `TRAZABILIDAD.md` declara **a propósito** sin ningún ID.
+
+    Son de dos clases: los de la tabla de módulos de infraestructura, y los de
+    la Parte 2 cuya fila lleva `—` en la columna de ID porque el pliego no los
+    numera.
+    """
+    texto = (RAIZ / "docs" / "TRAZABILIDAD.md").read_text(encoding="utf-8")
+    declarados: set[str] = set()
+
+    infraestructura = texto.partition("## Módulos de infraestructura")[2]
+    for linea in infraestructura.splitlines():
+        if linea.lstrip().startswith("|"):
+            declarados.update(re.findall(r"`(psglab/[^`]+\.py)`", linea))
+
+    for linea in texto.splitlines():
+        if re.match(r"^\|[^|]*\|\s*—\s*\|", linea):
+            declarados.update(re.findall(r"`(psglab/[^`]+\.py)`", linea))
+
+    return declarados
+
+
+def test_un_modulo_sin_ids_esta_declarado_como_infraestructura():
+    """Distingue "no cubre ningún ID, a propósito" de "alguien se olvidó".
+
+    El chequeo anterior compara los IDs del docstring contra los de la tabla, y
+    si los dos lados están vacíos no tiene nada que comparar. Antes eso se
+    resolvía salteando esos módulos, y el salteo terminó tapando una divergencia
+    real: `config.py` nombraba tres IDs en la misma frase en la que decía no
+    cubrir ninguno, y como la tabla no le asignaba nada, quedaba exento.
+
+    En vez de saltear, se exige que la ausencia esté **declarada** en
+    `TRAZABILIDAD.md`, que es el documento que ya codifica la respuesta.
+    """
+    asignados = ids_de_la_trazabilidad()
+    declarados = modulos_declarados_sin_ids()
+    huerfanos = [
+        ruta_relativa(f)
+        for f in modulos_del_paquete()
+        if not asignados.get(ruta_relativa(f)) and ruta_relativa(f) not in declarados
+    ]
+    assert not huerfanos, (
+        "estos módulos no tienen ningún ID asignado y tampoco están declarados como "
+        f"infraestructura ni como fila sin ID de la Parte 2: {huerfanos}"
+    )
 
 
 # -- Documentación ----------------------------------------------------------
@@ -250,7 +390,7 @@ def test_ningun_enlace_de_la_documentacion_apunta_a_la_nada():
                 continue
             ruta, _, anc = destino.partition("#")
             objetivo = (md.parent / ruta).resolve() if ruta else md.resolve()
-            if not objetivo.exists():
+            if not existe_respetando_mayusculas(objetivo):
                 rotos.append(f"{ruta_relativa(md)} -> {destino} (no existe el archivo)")
                 continue
             destino_md = next((p for p in archivos if p.resolve() == objetivo), None)
@@ -275,25 +415,238 @@ def test_la_explicacion_se_mantiene_en_ascii():
     assert not culpables, f"líneas con caracteres no ASCII: {culpables[:5]}"
 
 
+#: Valor de cada constante del pliego, tal como lo escribiría alguien a mano en
+#: un texto para el usuario. Si un módulo importa la constante y además escribe
+#: el número al lado, el día que la constante cambie el texto va a mentir.
+CONSTANTES_DEL_PLIEGO: dict[str, tuple[str, ...]] = {
+    "WINDOW_SECONDS": ("30 s", "30 segundos"),
+    "COARSE_GRID_SECONDS": ("3 s", "3 segundos"),
+    "FINE_GRID_SECONDS": ("0,5 s", "0,5 segundos"),
+    "AMPLITUDE_BAND_UV": ("75 µV", "75µV", "75 uV"),
+}
+
+
+def literales_visibles(archivo: pathlib.Path) -> list[tuple[int, str]]:
+    """Cadenas del módulo que **no** son docstrings.
+
+    La distinción es la que hace útil al chequeo: los docstrings explican el
+    pliego y nombran sus números a propósito —es documentación, y está bien—,
+    mientras que una cadena asignada a un atributo termina en la pantalla del
+    investigador.
+    """
+    arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+    docstrings: set[int] = set()
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            primero = nodo.body[0] if nodo.body else None
+            if isinstance(primero, ast.Expr) and isinstance(primero.value, ast.Constant):
+                if isinstance(primero.value.value, str):
+                    docstrings.add(id(primero.value))
+    return [
+        (nodo.lineno, nodo.value)
+        for nodo in ast.walk(arbol)
+        if isinstance(nodo, ast.Constant)
+        and isinstance(nodo.value, str)
+        and id(nodo) not in docstrings
+    ]
+
+
+def test_las_constantes_del_pliego_no_se_escriben_a_mano():
+    """`config.py` es el punto único de verdad, y lo era a medias.
+
+    Tres textos que ve el usuario repetían el número al lado de la constante,
+    en archivos que ya la importaban: la banda decía "75 µV" y los fondos de la
+    grilla decían "3 segundos" y "0,5 segundos". Cambiar `config.py` los dejaba
+    mintiendo, que es peor que no tener la constante.
+
+    Sólo se miran las cadenas que no son docstrings: un docstring que explique
+    el pliego nombra sus números a propósito.
+    """
+    problemas: list[str] = []
+    for archivo in modulos_del_paquete():
+        importadas = {
+            nombre
+            for _, modulo in modulos_importados(archivo)
+            if modulo == "psglab.config"
+            for nombre in CONSTANTES_DEL_PLIEGO
+            if nombre in archivo.read_text(encoding="utf-8")
+        }
+        if not importadas:
+            continue
+        for linea, texto in literales_visibles(archivo):
+            for constante in importadas:
+                for escritura in CONSTANTES_DEL_PLIEGO[constante]:
+                    if escritura in texto:
+                        problemas.append(
+                            f"{ruta_relativa(archivo)}:{linea} escribe {escritura!r} a mano "
+                            f"pudiendo derivarlo de config.{constante}"
+                        )
+    assert not problemas, "\n".join(problemas)
+
+
+def test_la_marca_de_pendiente_que_citan_los_documentos_existe_en_el_codigo():
+    """Tres documentos citaban textualmente una marca que el código no usaba.
+
+    Decían `PENDIENTE DE CONFIRMACIÓN`; en el código dice `PENDIENTE DE
+    DEFINICIÓN CON EL CLIENTE`. Nadie lo notó porque el comando que proponían
+    buscaba sólo el prefijo `PENDIENTE DE` y encontraba la marca igual, pero
+    buscar la frase prometida no devolvía nada.
+    """
+    codigo = " ".join(
+        " ".join(f.read_text(encoding="utf-8").split()) for f in modulos_del_paquete()
+    )
+    faltantes: list[str] = []
+    for md in archivos_markdown():
+        if md.name == "AUDITORIA.md":
+            continue  # Es una foto fechada: cita a propósito lo que estaba mal.
+        for marca in re.findall(r"`(PENDIENTE DE [^`]+)`", md.read_text(encoding="utf-8")):
+            # La marca puede venir partida en dos líneas por el ancho del
+            # párrafo, así que se compara sin los saltos.
+            if " ".join(marca.split()) not in codigo:
+                faltantes.append(
+                    f"{ruta_relativa(md)} cita la marca {' '.join(marca.split())!r}, "
+                    "que no está en el código"
+                )
+    assert not faltantes, "\n".join(faltantes)
+
+
+def test_una_ambiguedad_declarada_abierta_lo_esta_de_verdad():
+    """La deriva concreta que produjo el cierre del hito 0.
+
+    El cliente respondió las ocho preguntas abiertas, la noticia llegó a
+    `config.py` y al TODO, y siete README de carpeta siguieron pidiendo
+    confirmar lo que ya estaba confirmado.
+
+    La regla no es prohibir la frase —hay una ambigüedad realmente abierta, la
+    de las impedancias— sino exigir que quien la use **nombre el módulo que la
+    espera**, y que ese módulo lleve de verdad la marca `PENDIENTE DE`. Una
+    ambigüedad que ya se cerró no tiene ningún módulo así al que apuntar.
+
+    `TODO.md` queda exento porque es el documento que lleva el estado, y
+    `AUDITORIA.md` porque es una foto de lo que estaba mal.
+    """
+    con_marca = {
+        ruta_relativa(f)
+        for f in modulos_del_paquete()
+        if "PENDIENTE DE" in docstring_de(f)
+    }
+    prohibidas = ("ambigüedad abierta", "ambigüedades abiertas", "hasta que el cliente confirme")
+    exentos = {"TODO.md", "AUDITORIA.md"}
+    apariciones: list[str] = []
+    for md in archivos_markdown():
+        if md.name in exentos:
+            continue
+        texto = md.read_text(encoding="utf-8")
+        if not any(frase in texto.lower() for frase in prohibidas):
+            continue
+        nombrados = {f"psglab/{m}" for m in re.findall(r"`(\w+\.py)`", texto)}
+        nombrados.update(re.findall(r"`(psglab/[^`]+\.py)`", texto))
+        if not any(any(m.endswith(c.split("/")[-1]) for m in nombrados) for c in con_marca):
+            apariciones.append(
+                f"{ruta_relativa(md)} declara una ambigüedad abierta pero no nombra "
+                f"ningún módulo con la marca PENDIENTE DE (los que la tienen: {sorted(con_marca)})"
+            )
+    assert not apariciones, (
+        "las ambigüedades del pliego se cerraron con el cliente el 4 de septiembre de "
+        "2026, salvo la de las impedancias; el estado vive en docs/TODO.md, hito 0:\n"
+        + "\n".join(apariciones)
+    )
+
+
+def test_ningun_documento_repite_un_parrafo():
+    """Un párrafo copiado dentro del mismo archivo es una desincronización futura.
+
+    Cuando alguien corrija uno de los dos, el otro queda diciendo lo viejo. Pasó
+    en `ui/README.md`, que explicaba dos veces por qué la capa no lleva tests.
+
+    Se miran sólo los párrafos largos: los títulos de tabla y las frases cortas
+    se repiten con toda razón.
+    """
+    repetidos: list[str] = []
+    for md in archivos_markdown():
+        vistos: dict[str, int] = {}
+        for bloque in re.split(r"\n\s*\n", md.read_text(encoding="utf-8")):
+            normalizado = " ".join(bloque.split())
+            if len(normalizado) < 200 or normalizado.startswith(("|", "```")):
+                continue
+            vistos[normalizado] = vistos.get(normalizado, 0) + 1
+        for texto, veces in vistos.items():
+            if veces > 1:
+                repetidos.append(f"{ruta_relativa(md)} repite {veces} veces: {texto[:70]}...")
+    assert not repetidos, "\n".join(repetidos)
+
+
+def test_los_requirements_que_nombra_la_documentacion_existen():
+    """Al separar las dependencias de la Parte 2 en su propio archivo, los que
+    lo nombran mal no fallan hasta que alguien copia el comando y no funciona.
+    """
+    nombrados: set[str] = set()
+    for documento in [*archivos_markdown(), RAIZ / "docs" / "EXPLICACION.txt"]:
+        nombrados.update(
+            re.findall(r"(requirements[\w-]*\.txt)", documento.read_text(encoding="utf-8"))
+        )
+    inexistentes = sorted(n for n in nombrados if not (RAIZ / n).exists())
+    assert not inexistentes, f"la documentación nombra requirements que no existen: {inexistentes}"
+
+
 # -- Reglas de arquitectura -------------------------------------------------
 
 
-def test_core_y_utils_no_conocen_la_interfaz():
+#: Capas que tienen que poder correr sin interfaz gráfica. `core` y `utils`
+#: sostienen el modelo; `readers` y `exporters` están acá porque de ellos
+#: depende el corte del hito 5: leer un registro, scorearlo y exportar los tres
+#: archivos desde un script, sin abrir una ventana.
+CAPAS_SIN_INTERFAZ = ("core", "utils", "readers", "exporters")
+
+
+def modulos_importados(archivo: pathlib.Path) -> list[tuple[int, str]]:
+    """Todo lo que importa un archivo, en las dos formas de la sintaxis.
+
+    Mirar sólo `ast.ImportFrom` dejaba pasar `import pyqtgraph as pg`, que es
+    exactamente cómo lo importan los módulos de `ui/`: la regla más importante
+    del proyecto se podía violar con la forma de import más común.
+    """
+    importados: list[tuple[int, str]] = []
+    for nodo in ast.walk(ast.parse(archivo.read_text(encoding="utf-8"))):
+        if isinstance(nodo, ast.ImportFrom) and nodo.module:
+            importados.append((nodo.lineno, nodo.module))
+        elif isinstance(nodo, ast.Import):
+            importados.extend((nodo.lineno, alias.name) for alias in nodo.names)
+    return importados
+
+
+def test_las_capas_de_negocio_no_conocen_la_interfaz():
     """Es la regla que sostiene todo lo demás.
 
     Si `core/` importara Qt, el modelo dejaría de poder testearse sin abrir una
     ventana y el testeo recurrente que pide el pliego se volvería inviable.
+
+    Se recorre la ruta entera y no sólo el directorio padre, para que un
+    subpaquete futuro —`core/algo/x.py`— quede cubierto igual.
     """
     prohibidos = ("psglab.ui", "PySide6", "pyqtgraph")
     violaciones: list[str] = []
     for archivo in modulos_del_paquete():
-        if archivo.parent.name not in ("core", "utils"):
+        if not any(capa in archivo.parts for capa in CAPAS_SIN_INTERFAZ):
             continue
-        for nodo in ast.walk(ast.parse(archivo.read_text(encoding="utf-8"))):
-            if isinstance(nodo, ast.ImportFrom) and nodo.module:
-                if any(nodo.module.startswith(p) for p in prohibidos):
-                    violaciones.append(f"{ruta_relativa(archivo)}:{nodo.lineno} importa {nodo.module}")
+        for linea, modulo in modulos_importados(archivo):
+            if any(modulo == p or modulo.startswith(p + ".") for p in prohibidos):
+                violaciones.append(f"{ruta_relativa(archivo)}:{linea} importa {modulo}")
     assert not violaciones, "\n".join(violaciones)
+
+
+def argumentos_de(nodo: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.arg]:
+    """Todos los argumentos de una firma, de las cinco clases que hay.
+
+    Mirar sólo `args` dejaba afuera los posicionales puros, los que van después
+    de `*`, y `*args` / `**opciones`: una firma como
+    `def f(*, umbral, **opciones) -> None` pasaba el chequeo con cero
+    anotaciones. Como éste es el único sustituto de un verificador de tipos que
+    tiene el proyecto, el hueco importaba.
+    """
+    firma = nodo.args
+    opcionales = [a for a in (firma.vararg, firma.kwarg) if a is not None]
+    return [*firma.posonlyargs, *firma.args, *firma.kwonlyargs, *opcionales]
 
 
 def test_todas_las_firmas_llevan_type_hints():
@@ -303,7 +656,7 @@ def test_todas_las_firmas_llevan_type_hints():
         for nodo in ast.walk(ast.parse(archivo.read_text(encoding="utf-8"))):
             if not isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            for argumento in nodo.args.args:
+            for argumento in argumentos_de(nodo):
                 if argumento.arg not in ("self", "cls") and argumento.annotation is None:
                     faltantes.append(
                         f"{ruta_relativa(archivo)}:{nodo.lineno} {nodo.name}({argumento.arg})"
@@ -314,6 +667,20 @@ def test_todas_las_firmas_llevan_type_hints():
 
 
 # -- El verde por omisión ---------------------------------------------------
+
+
+def esta_desactivado(archivo_test: pathlib.Path) -> bool:
+    """Si un archivo de test está apagado entero, de cualquiera de las formas.
+
+    Buscar sólo la palabra `pytestmark` no alcanzaba: la encontraba hasta en un
+    comentario, y al revés no veía `pytest.skip(..., allow_module_level=True)`
+    ni un `@pytest.mark.skip` puesto en cada test. Las tres apagan el archivo y
+    las tres tienen que contar.
+    """
+    texto = archivo_test.read_text(encoding="utf-8")
+    if re.search(r"^\s*pytestmark\s*=", texto, re.M):
+        return True
+    return "allow_module_level=True" in texto
 
 
 def test_ningun_modulo_terminado_tiene_su_test_salteado():
@@ -332,15 +699,132 @@ def test_ningun_modulo_terminado_tiene_su_test_salteado():
         archivo_test = RAIZ / "tests" / nombre
         if not archivo_test.exists():
             continue
-        if "pytestmark" not in archivo_test.read_text(encoding="utf-8"):
+        if not esta_desactivado(archivo_test):
             continue
-        stubs = {m: contar_stubs(RAIZ / m) for m in modulos}
-        if all(n == 0 for n in stubs.values()):
+        terminados = [m for m in modulos if contar_stubs(RAIZ / m) == 0]
+        if not terminados:
+            continue
+        if len(terminados) == len(modulos):
             pendientes.append(
                 f"tests/{nombre} sigue salteado pero {', '.join(modulos)} ya no tiene stubs: "
-                "borrá el pytestmark"
+                "borrá la desactivación del archivo"
+            )
+        else:
+            pendientes.append(
+                f"tests/{nombre} saltea el archivo entero, pero {', '.join(terminados)} ya "
+                "no tiene stubs: la desactivación en bloque no sirve para un archivo que "
+                "cubre varios módulos a medio terminar. Saltear test por test los que "
+                "todavía no se pueden verificar."
             )
     assert not pendientes, "\n".join(pendientes)
+
+
+#: Módulos de la Parte 1 que **no llevan test propio**, por decisión y no por
+#: olvido: `psglab/ui/` no se puede verificar sin abrir una ventana —está
+#: registrado en su README— y `app.py` es su constructor. `config.py` son
+#: constantes: no hay comportamiento que testear.
+SIN_TEST_PROPIO: frozenset[str] = frozenset(
+    {
+        "psglab/app.py",
+        "psglab/config.py",
+        "psglab/ui/main_window.py",
+        "psglab/ui/signal_view.py",
+        "psglab/ui/grid.py",
+        "psglab/ui/navigation.py",
+        "psglab/ui/scoring_panel.py",
+        "psglab/ui/channel_selector.py",
+        "psglab/ui/shortcuts.py",
+    }
+)
+
+
+def promesas_de_test_del_todo() -> dict[str, set[str]]:
+    """Qué archivo de test promete `TODO.md` para cada módulo.
+
+    Se lee por bloques: cada ítem `- [ ] **psglab/algo.py**` abre uno, y las
+    líneas sangradas que le siguen son suyas. Es donde vive la promesa "Test:
+    **crear** `tests/test_algo.py`".
+    """
+    todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
+    prometidos: dict[str, set[str]] = {}
+    actuales: list[str] = []
+    for linea in todo.splitlines():
+        modulos = re.findall(r"`(psglab/[^`]+\.py)`", linea)
+        if re.match(r"^\s*- \[[ x]\]", linea) and modulos:
+            actuales = modulos
+        elif re.match(r"^\s*- \[[ x]\]", linea) and not linea.startswith("  "):
+            actuales = []
+        for modulo in actuales:
+            prometidos.setdefault(modulo, set()).update(
+                re.findall(r"`tests/(test_\w+\.py)`", linea)
+            )
+    return prometidos
+
+
+def test_todo_modulo_de_la_parte_1_tiene_test_o_lo_tiene_prometido():
+    """El pliego pide un test por componente. Faltaba verificar el lado inverso.
+
+    Ya estaba verificado que todo archivo de test tuviera su fila en
+    `COBERTURA_DE_TESTS`; nadie verificaba que todo módulo tuviera test. Un
+    módulo sin test no se notaba de ninguna forma.
+
+    No se exige que el test **exista** —eso sería exigir el proyecto terminado y
+    dejaría el CI en rojo durante siete hitos— sino que su ausencia esté
+    registrada: o el módulo ya tiene test, o es una excepción declarada, o
+    `TODO.md` dice cuál va a ser. El estado sigue viviendo en el TODO, que es
+    quien lo posee.
+    """
+    cubiertos = {m for modulos in COBERTURA_DE_TESTS.values() for m in modulos}
+    prometidos = promesas_de_test_del_todo()
+    huerfanos = [
+        ruta_relativa(f)
+        for f in modulos_del_paquete()
+        if "analysis" not in f.parts
+        and ruta_relativa(f) not in cubiertos
+        and ruta_relativa(f) not in SIN_TEST_PROPIO
+        and not prometidos.get(ruta_relativa(f))
+    ]
+    assert not huerfanos, (
+        "estos módulos de la Parte 1 no tienen test, no figuran como excepción en "
+        f"SIN_TEST_PROPIO y el TODO no promete ninguno: {huerfanos}"
+    )
+
+
+def test_las_cuentas_de_tests_del_todo_coinciden_con_la_suite(request: pytest.FixtureRequest):
+    """Lo que faltaba: se auditaban las cuentas de stubs, no las de tests.
+
+    Por eso `TODO.md` pudo decir "15 tests en verde" cuando eran 17, y
+    `tests/README.md` prometer `42 skipped` mucho después de que dejaran de ser
+    42. Los números de stubs los verificaba un test y los de tests no.
+
+    No se cuentan los `def test_` del archivo: la suite recolecta más casos que
+    funciones, porque hay `parametrize`. Se cuenta lo que pytest recolectó de
+    verdad.
+    """
+    archivos_de_test = {p.name for p in (RAIZ / "tests").glob("test_*.py")}
+    recolectados: dict[str, int] = {}
+    for item in request.session.items:
+        recolectados[pathlib.Path(item.location[0]).name] = (
+            recolectados.get(pathlib.Path(item.location[0]).name, 0) + 1
+        )
+
+    if set(recolectados) != archivos_de_test:
+        pytest.skip(
+            "sólo tiene sentido en una corrida completa: `python -m pytest` sin "
+            "argumentos, que es la que hace el CI"
+        )
+
+    todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
+    problemas: list[str] = []
+    for nombre, declarados in re.findall(
+        r"`tests/(test_\w+\.py)`,?\s*\*\*(\d+) tests? en verde\*\*", todo
+    ):
+        real = recolectados.get(nombre, 0)
+        if int(declarados) != real:
+            problemas.append(
+                f"TODO.md dice {declarados} tests para tests/{nombre} y la suite recolecta {real}"
+            )
+    assert not problemas, "\n".join(problemas)
 
 
 def test_la_tabla_de_cobertura_nombra_modulos_que_existen():
@@ -386,9 +870,30 @@ def test_todos_los_modulos_del_paquete_se_pueden_importar():
     import psglab
 
     fallos: list[str] = []
-    for info in pkgutil.walk_packages(psglab.__path__, prefix="psglab."):
+
+    def anotar_subpaquete_roto(nombre: str) -> None:
+        """`walk_packages` **suprime** el error de un subpaquete si no se le pasa
+        esto, y deja de emitir sus hijos: el test se ponía verde justo cuando
+        `psglab/ui/__init__.py` fallara, que es el escenario que dice cubrir.
+        """
+        fallos.append(f"{nombre}: no se pudo importar el subpaquete, sus módulos no se probaron")
+
+    encontrados = 0
+    for info in pkgutil.walk_packages(
+        psglab.__path__, prefix="psglab.", onerror=anotar_subpaquete_roto
+    ):
+        encontrados += 1
         try:
             importlib.import_module(info.name)
         except Exception as exc:  # noqa: BLE001 - interesa cualquier fallo
             fallos.append(f"{info.name}: {type(exc).__name__}: {exc}")
+
     assert not fallos, f"no se pudieron importar {len(fallos)} módulos: {fallos}"
+
+    # Si el recorrido devolviera muy pocos módulos, algo lo cortó y el test
+    # estaría pasando sin haber probado nada.
+    esperados = len(modulos_del_paquete())
+    assert encontrados >= esperados, (
+        f"el recorrido encontró {encontrados} módulos y en el disco hay {esperados}: "
+        "algo cortó la enumeración del paquete"
+    )

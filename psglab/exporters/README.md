@@ -19,7 +19,7 @@ programa para poder leerse.
 
 Los nombres propuestos en el diálogo de guardado salen de `DEFAULT_FILENAMES`,
 en el `__init__.py` del paquete, que a su vez los toma de
-[`psglab/config.py`](../README.md).
+[`psglab/config.py`](../config.py).
 
 ## `Scoring.txt`
 
@@ -37,10 +37,10 @@ en Rechtschaffen y Kales y N2 en AASM. Registrar la nomenclatura sólo en
 `Informacion.txt` no alcanzaba, porque V4_F deja exportar **uno solo** de los
 tres archivos.
 
-**Ambigüedad abierta.** El pliego describe tres campos por línea (número de
-ventana, fase, arousal) pero su ejemplo muestra sólo dos. Mientras no se
-confirme, el número de ventana queda implícito en el orden de las líneas, como
-en el ejemplo, y el formato está parametrizado en
+**Dos campos, no tres.** El pliego describe tres por línea (número de ventana,
+fase, arousal) pero su ejemplo muestra sólo dos, y el cliente confirmó el 4 de
+septiembre de 2026 que **vale el ejemplo**: el número de ventana queda implícito
+en el orden de las líneas. El formato sigue parametrizado en
 `config.SCORING_INCLUDES_WINDOW_NUMBER` (hoy `False`).
 
 **Cambiar esa sola constante tiene que alcanzar para pasar a la otra variante:
@@ -57,17 +57,23 @@ Label_Annotation | Puntos_Emp | Duracion_Puntos
 Las anotaciones se escriben **ordenadas por muestra de inicio**, no por orden de
 creación.
 
-"Puntos" son **muestras del registro, no segundos**. Guardarlo así evita perder
-precisión por redondeo y no depende de la frecuencia de muestreo del archivo.
+"Puntos" son **muestras del registro, no segundos**, y la primera es la **0**
+(`config.ANNOTATION_SAMPLE_BASE`). Guardarlo así evita perder precisión por
+redondeo.
 
-**Ambigüedades abiertas:** si el índice de la primera muestra es 0 o 1, y si
-conviene escribir la frecuencia de muestreo en una cabecera para que el archivo
-se pueda interpretar sin tener el registro al lado.
+**El archivo no se interpreta solo**, y se aceptó a propósito: para convertir
+esas muestras a tiempo hace falta la frecuencia de muestreo, que vive en
+`Informacion.txt`. Se decidió no repetirla en una cabecera acá porque **falla
+distinto** que el caso de la nomenclatura: una fase mal interpretada pasa
+desapercibida, mientras que una posición sin frecuencia directamente no se puede
+convertir y el problema salta enseguida. Ver el
+[hito 0 del TODO](../../docs/TODO.md#hito-0-desbloquear).
 
 ## `Informacion.txt`
 
 Resumen legible del registro y de lo que se hizo sobre él: nombre del archivo,
-duración total en horas y en puntos, duración en cada fase, métricas de tiempo
+duración del registro en horas y en puntos, tiempo scoreado, duración en cada
+fase, métricas de tiempo
 por fase (promedio, desvío estándar y mediana) y lista de anotaciones con
 cantidad y tiempo promedio.
 
@@ -96,9 +102,9 @@ python -m pytest tests/test_exporters.py
 Pendientes **14 stubs**, en el
 [hito 5 del TODO](../../docs/TODO.md#hito-5-exportadores).
 
-`annotations_txt.py` está bloqueado por el
-[hito 0](../../docs/TODO.md#hito-0-desbloquear): falta definir si la primera
-muestra es la 0 o la 1.
+**Ninguno está bloqueado.** `annotations_txt.py` lo estuvo hasta que el
+[hito 0](../../docs/TODO.md#hito-0-desbloquear) fijó el índice de la primera
+muestra en 0.
 
 **Cerrado este hito el programa hace su trabajo completo desde un script
 —leer, scorear, exportar los tres archivos— sin interfaz gráfica.**

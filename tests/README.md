@@ -13,18 +13,31 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cinco
+camino de búsqueda. Con `pytest` directo la recolección falla en los seis
 archivos con `ModuleNotFoundError: No module named 'psglab'`.
 
 ## Mientras el proyecto sea un esqueleto
 
-Los 42 tests están **desactivados**, con esta línea al tope de cada archivo:
+Los tests de los módulos que todavía no están implementados están
+**desactivados**, con esta línea cerca del principio del archivo:
 
 ```python
 pytestmark = pytest.mark.skip(reason="Esqueleto: la lógica todavía no está implementada.")
 ```
 
-La corrida informa `42 skipped` y pasa en verde sin haber verificado nada.
+Los llevan cuatro de los seis archivos: `test_windows.py` corre desde que se
+implementó `core/windows.py`, y `test_consistencia.py` no cubre ningún módulo,
+así que corre siempre. Buena parte de la suite pasa entonces en verde sin haber
+verificado nada del programa.
+
+**Los números concretos —cuántos se recolectan y cuántos se saltean— no se
+escriben acá**, porque un número a mano en este archivo se desactualiza con el
+primer módulo que se implemente. Ya pasó: decía `42 skipped` mucho después de
+que dejaran de ser 42. Para verlos, la corrida:
+
+```bash
+python -m pytest -rs
+```
 
 **Al implementar un componente hay que borrar esa línea del archivo de test que
 le corresponde.** Si no, el trabajo queda sin verificar y la suite sigue dando
@@ -45,13 +58,34 @@ verde por omisión, que es peor que dar rojo.
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el
 motivo por el que `core/` no importa nada de `ui/`.
 
+## Las fixtures todavía no las usa nadie
+
+`synthetic_signal` y `channel_names` están escritas y **ningún test las
+consume** hoy. No es un olvido: son el material del hito 4, cuando haya un
+`Recording` que construir. Se conservan porque el contrato que fijan —C3 a 1 Hz,
+C4 a 10 Hz, nombres 10-20 para que la detección de clase tenga qué detectar— es
+el que van a necesitar `test_recording.py` y `test_readers.py`.
+
+Vale la pena saberlo antes de escribir esos tests: la señal ya existe.
+
 ## `test_consistencia.py` no testea un componente
 
 Es la excepción del directorio: verifica invariantes **del repositorio entero**,
 no de un módulo. Que las cuentas del TODO cierren contra el código, que los
 enlaces de la documentación no apunten a la nada, que los IDs del pliego que
 declara cada módulo coincidan con `TRAZABILIDAD.md` en las dos direcciones, que
-`EXPLICACION.txt` siga en ASCII, que `core/` no haya empezado a importar Qt.
+`EXPLICACION.txt` siga en ASCII, que las capas de negocio no hayan empezado a
+importar Qt.
+
+La regla que ordena los IDs, y que es la que más se rompía sola:
+
+> Un módulo nombra un ID en su docstring **si y sólo si** `TRAZABILIDAD.md` se
+> lo asigna a ese archivo.
+
+Un módulo que no cubre ninguno no los nombra —ni siquiera para decir que no los
+cubre, porque el chequeo los lee de esa línea y no distingue una mención de una
+declaración— y a cambio tiene que figurar en la tabla de módulos de
+infraestructura o en una fila de la Parte 2 sin ID.
 
 Existe porque el equipo pasó a ser de tres personas. Con una, revisar eso a mano
 alcanza; con tres, la documentación se desincroniza más rápido de lo que alguien
@@ -117,8 +151,9 @@ regla se rompió**, no qué función se llamó.
 El [TODO](../docs/TODO.md) lleva la cuenta. Cada módulo que se implementa
 arrastra su test, y **eso es parte de darlo por terminado**:
 
-- **Reactivar** (borrar el `pytestmark`): `test_windows` y `test_nomenclature`
-  (hito 1), `test_scoring` (2), `test_exporters` (5), `test_occupancy` (7).
+- **Reactivar** (borrar el `pytestmark`): `test_nomenclature` (hito 1),
+  `test_scoring` (2), `test_exporters` (5), `test_occupancy` (7).
+  `test_windows` ya está reactivado.
 - **Crear**: `test_units`, `test_recording` (1), `test_annotations` (2),
   `test_session` (3), `test_channel_types`, `test_readers` (4), y uno por
   herramienta (7).

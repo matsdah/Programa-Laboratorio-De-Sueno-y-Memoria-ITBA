@@ -25,7 +25,7 @@ Windows, marcá la casilla **"Add Python to PATH"**.
 
 ```bash
 # 1. Ubicate en la carpeta del proyecto
-cd "Lab Del Sueño"
+cd Programa-Laboratorio-De-Sueno-y-Memoria-ITBA
 
 # 2. Creá un entorno virtual (aísla las dependencias del resto de tu computadora)
 python -m venv .venv
@@ -40,10 +40,17 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Para trabajar en la Parte 2 (análisis) o correr los tests, instalá además:
+Para correr los tests, instalá además las herramientas de desarrollo:
 
 ```bash
 pip install -r requirements-dev.txt
+```
+
+Y sólo si vas a trabajar en la Parte 2 (el módulo de análisis), sus dos
+dependencias propias, que son pesadas y no hacen falta para nada más:
+
+```bash
+pip install -r requirements-analysis.txt
 ```
 
 ## Ejecución

@@ -18,13 +18,16 @@ control de amplitud por canal. Es el mismo archivo el que evoluciona.
 Cubre del pliego: V1_P, V2_P, V4_F, V5_F de "Visualización de la señal", y la
 mitad de dibujo de V3_P (la elección de qué canales mostrar la resuelve
 `psglab/ui/channel_selector.py`; acá se los dibuja). También V1_F de "Anotación
-de la señal", por `sample_at()`: es la conversión que traduce el gesto del mouse
+de la señal", por `sample_at_pixel()`: es la conversión que traduce el gesto del mouse
 a la posición en muestras que guarda la anotación.
 """
+
+from collections.abc import Sequence
 
 import pyqtgraph as pg
 
 from psglab.core.session import Session
+from psglab.tools.base import Overlay
 
 
 class SignalView(pg.PlotWidget):
@@ -49,6 +52,20 @@ class SignalView(pg.PlotWidget):
     def refresh(self) -> None:
         """Redibuja la ventana actual con la configuración vigente."""
         raise NotImplementedError("Pendiente: redibujar la ventana actual.")
+
+    # -- Lo que dibujan las herramientas ------------------------------------
+
+    def set_overlays(self, overlays: Sequence[Overlay]) -> None:
+        """Reemplaza todo lo que las herramientas quieren dibujar encima.
+
+        Recibe **estado completo, no un delta**: redibujar es reemplazar. Los
+        `Overlay` vienen en segundos y microvoltios, y acá es donde se traducen
+        a píxeles, que es lo único que esta clase sabe hacer y ninguna otra.
+
+        La ventana principal la llama cuando una herramienta avisa por
+        `Tool.notify_changed()`.
+        """
+        raise NotImplementedError("Pendiente: redibujar los overlays de las herramientas.")
 
     # -- Canales (V3_P, V4_F) ----------------------------------------------
 
@@ -85,19 +102,25 @@ class SignalView(pg.PlotWidget):
 
     # -- Coordenadas --------------------------------------------------------
     #
-    # El visualizador es el **único** que sabe traducir entre las cuatro
-    # unidades horizontales del programa, porque es el único que conoce el
-    # ancho en píxeles y la ventana que está dibujando:
+    # El visualizador es el **único** que convierte **desde píxeles**, porque
+    # es el único que conoce el ancho de la pantalla y la ventana que está
+    # dibujando:
     #
-    #     píxeles  --seconds_at-->         segundos  (0 .. 30)
-    #     píxeles  --window_fraction_at--> fracción  (0 .. 1)
-    #     píxeles  --sample_at-->          muestras  (0 .. n_samples)
+    #     píxeles  --seconds_at_pixel-->         segundos  (0 .. 30)
+    #     píxeles  --window_fraction_at_pixel--> fracción  (0 .. 1)
+    #     píxeles  --sample_at_pixel-->          muestras  (0 .. n_samples)
+    #
+    # Las conversiones **entre unidades no gráficas** —segundos, fracción,
+    # muestras, ventanas— no van acá sino en `psglab/core/windows.py`, que es
+    # su único lugar y se puede testear sin abrir una ventana. Estos tres
+    # métodos son un píxel→unidad y después una llamada a `windows`; no
+    # reimplementan la aritmética.
     #
     # Las herramientas nunca reciben píxeles: la ventana principal convierte
     # antes de avisarles. `ViewerTool` recibe segundos, `OccupancyLine` guarda
     # fracciones y el anotador guarda muestras. Ver `psglab/tools/base.py`.
 
-    def seconds_at(self, x_pixel: float) -> float:
+    def seconds_at_pixel(self, x_pixel: float) -> float:
         """Segundos desde el inicio de la ventana bajo una coordenada horizontal.
 
         Es la unidad que reciben los métodos de mouse de `ViewerTool`, así que
@@ -106,7 +129,7 @@ class SignalView(pg.PlotWidget):
         """
         raise NotImplementedError("Pendiente: convertir píxel a segundos de la ventana.")
 
-    def window_fraction_at(self, x_pixel: float) -> float:
+    def window_fraction_at_pixel(self, x_pixel: float) -> float:
         """Posición dentro de la ventana, de 0 (inicio) a 1 (final).
 
         La usa el medidor de ocupación, que mide proporciones del ancho y no
@@ -115,7 +138,7 @@ class SignalView(pg.PlotWidget):
         """
         raise NotImplementedError("Pendiente: convertir píxel a fracción de la ventana.")
 
-    def sample_at(self, x_pixel: float) -> int:
+    def sample_at_pixel(self, x_pixel: float) -> int:
         """Muestra del registro que cae bajo una coordenada horizontal.
 
         La usa el anotador, que guarda las posiciones en muestras porque es lo

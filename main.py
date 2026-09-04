@@ -7,6 +7,9 @@ paquete `psglab`, separados por funcionalidad.
 
 Uso:
     python main.py
+
+Cubre del pliego: ningún ID de funcionalidad. Cubre el requisito técnico de
+"main.py lo más simple posible" (sección 7).
 """
 
 import sys
