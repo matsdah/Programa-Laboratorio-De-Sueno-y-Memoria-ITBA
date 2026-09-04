@@ -93,7 +93,7 @@ Esqueleto: los 42 módulos del paquete importan —50 archivos `.py` contando lo
 ocho `__init__.py`— pero la lógica todavía no está implementada y los métodos
 elevan `NotImplementedError`.
 
-Pendientes **170 stubs** en 29 módulos de la Parte 1, ordenados por
+Pendientes **174 stubs** en 29 módulos de la Parte 1, ordenados por
 dependencias en el [TODO](../docs/TODO.md). `app.py` es el último de la fila
 (hito 6): hasta que se implemente, `python main.py` termina en
 `NotImplementedError`, que es lo esperado.
@@ -103,7 +103,7 @@ stubs:
 
 - Los decoradores `@register_tool` y `@register_reader`, y el resto de
   `tools/registry.py` (`available_tools`, `get_tool`, `load_all_tools`).
-- `Reader.can_read` y el despacho de `read_recording()`.
+- `Reader.can_read`, el despacho de `read_recording()` y `load_all_readers()`.
 - `PsgLabError.__init__`.
 - Los métodos de evento de `Tool` y `ViewerTool`, que no hacen nada por defecto
   en vez de elevar: si el método base fallara, activar una herramienta y navegar

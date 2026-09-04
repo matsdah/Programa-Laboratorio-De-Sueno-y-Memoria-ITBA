@@ -58,6 +58,16 @@ verde por omisión, que es peor que dar rojo.
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el
 motivo por el que `core/` no importa nada de `ui/`.
 
+## Las fixtures todavía no las usa nadie
+
+`synthetic_signal` y `channel_names` están escritas y **ningún test las
+consume** hoy. No es un olvido: son el material del hito 4, cuando haya un
+`Recording` que construir. Se conservan porque el contrato que fijan —C3 a 1 Hz,
+C4 a 10 Hz, nombres 10-20 para que la detección de clase tenga qué detectar— es
+el que van a necesitar `test_recording.py` y `test_readers.py`.
+
+Vale la pena saberlo antes de escribir esos tests: la señal ya existe.
+
 ## `test_consistencia.py` no testea un componente
 
 Es la excepción del directorio: verifica invariantes **del repositorio entero**,

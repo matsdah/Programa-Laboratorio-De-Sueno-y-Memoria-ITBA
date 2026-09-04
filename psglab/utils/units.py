@@ -25,10 +25,20 @@ from typing import Final
 MICROVOLT: Final[str] = "µV"
 
 #: Factores de conversión a microvoltios, por unidad declarada en el archivo.
-#: Las claves se comparan en minúscula y sin espacios.
+#: Las claves se comparan **después de pasar por `normalize_unit_name()`**, que
+#: baja a minúscula, saca espacios y unifica los dos caracteres "mu" en uno.
+#:
+#: Ese último punto no es cosmético: existen dos caracteres distintos que se ven
+#: igual, el signo micro (U+00B5) y la letra griega mu (U+03BC), y las cabeceras
+#: de EDF y BrainVision usan los dos. Comparar sin unificarlos hace que la mitad
+#: de los archivos parezcan traer una unidad desconocida.
 TO_MICROVOLTS: Final[dict[str, float]] = {
     "v": 1e6,
+    "volt": 1e6,
+    "volts": 1e6,
     "mv": 1e3,
+    "millivolt": 1e3,
+    "millivolts": 1e3,
     "uv": 1.0,
     "µv": 1.0,
     "microvolt": 1.0,
@@ -63,6 +73,15 @@ def format_amplitude(value_uv: float, decimals: int = 0) -> str:
 def normalize_unit_name(unit: str) -> str:
     """Normaliza el nombre de una unidad para poder compararlo.
 
-    Pasa a minúscula, quita espacios y unifica las variantes de "micro".
+    Pasa a minúscula, quita espacios y **unifica los dos caracteres "mu"**: la
+    letra griega mu (U+03BC, `"\\u03bc"`) se reemplaza por el signo micro
+    (U+00B5, `"\\u00b5"`), que es el que usa `TO_MICROVOLTS` y el que define
+    `MICROVOLT`.
+
+    Los dos se ven idénticos en pantalla y las cabeceras de EDF y BrainVision
+    usan uno u otro según quién las haya escrito. Sin esta unificación, un
+    archivo perfectamente válido elevaría `UnknownUnitError`, y el mensaje que
+    vería el investigador diría que la unidad "µV" es desconocida mostrándole
+    exactamente el texto que sí está en la tabla.
     """
     raise NotImplementedError("Pendiente: normalizar el nombre de la unidad.")

@@ -72,7 +72,8 @@ convertir y el problema salta enseguida. Ver el
 ## `Informacion.txt`
 
 Resumen legible del registro y de lo que se hizo sobre él: nombre del archivo,
-duración total en horas y en puntos, duración en cada fase, métricas de tiempo
+duración del registro en horas y en puntos, tiempo scoreado, duración en cada
+fase, métricas de tiempo
 por fase (promedio, desvío estándar y mediana) y lista de anotaciones con
 cantidad y tiempo promedio.
 

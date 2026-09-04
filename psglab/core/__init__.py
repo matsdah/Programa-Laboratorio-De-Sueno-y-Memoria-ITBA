@@ -6,4 +6,6 @@ ventana gráfica, y es la base del testeo recurrente que pide el pliego
 (sección 7).
 
 Sólo depende de la biblioteca estándar y de numpy.
+
+Cubre del pliego: ningún ID propio del paquete. Los cubren sus módulos.
 """

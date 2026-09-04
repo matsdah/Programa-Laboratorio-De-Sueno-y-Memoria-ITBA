@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **173 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
+Quedan **174 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -52,14 +52,14 @@ nada**. Un verde por omisión es peor que un rojo.
 |---|---|---|---|
 | [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ✅ cerrado |
 | [1. Cimientos](#hito-1-cimientos) | 3 | 16 | 🟡 1 de 4 hecho |
-| [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 20 | ⬜ |
+| [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 21 | ⬜ |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
 | [5. Exportadores](#hito-5-exportadores) | 4 | 14 | ⬜ |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **29** | **173** | |
+| | **29** | **174** | |
 
 ### Los tres cortes que importan
 
@@ -178,7 +178,7 @@ tiene test:
   - Test: `tests/test_scoring.py` → **borrar el `pytestmark`**.
   - Un scoring nuevo arranca entero en `UNSCORED`: el histograma tiene el
     tamaño de la noche desde el principio.
-- [ ] **`psglab/core/annotations.py`** · 10 stubs · V1_F "Anotación de la señal"
+- [ ] **`psglab/core/annotations.py`** · 11 stubs · V1_F "Anotación de la señal"
   - Test: **crear** `tests/test_annotations.py`.
   - Las anotaciones se guardan en muestras, no en segundos.
 

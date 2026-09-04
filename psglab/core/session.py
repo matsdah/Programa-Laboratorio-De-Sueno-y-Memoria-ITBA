@@ -39,6 +39,15 @@ class Session:
         Args:
             default_scale_uv: escala vertical inicial de todos los canales.
                 Por defecto, la de `config`.
+
+        Raises:
+            ScoringMismatchError: si `scoring.n_windows` no coincide con las
+                ventanas que tiene el registro. Las tres piezas llegan sueltas y
+                nada garantiza que hablen del mismo archivo: un scoring
+                importado de otro registro daría un histograma de largo
+                equivocado y dejaría ventanas imposibles de scorear, sin ningún
+                error visible. Se comprueba acá, que es donde se juntan por
+                primera vez.
         """
         raise NotImplementedError("Pendiente: inicializar el estado de la sesión.")
 

@@ -221,6 +221,34 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
     )
 
 
+def test_las_cuentas_de_los_readme_de_carpeta_coinciden_con_el_codigo():
+    """Cada carpeta lleva su propia cuenta de stubs, y ninguna se verificaba.
+
+    El chequeo de arriba compara `TODO.md` contra el código, pero los siete
+    README de carpeta tienen su línea "Pendientes **N stubs**" escrita a mano.
+    Se desincronizaron dos veces en una sola tanda de trabajo.
+    """
+    problemas: list[str] = []
+    for readme in sorted((RAIZ / "psglab").rglob("README.md")):
+        declarado = re.search(r"Pendientes \*\*(\d+) stubs?\*\*", readme.read_text(encoding="utf-8"))
+        if declarado is None:
+            continue
+        # El README de la raíz del paquete cuenta la **Parte 1**, así que deja
+        # afuera `analysis/`, que es la Parte 2. Los de cada carpeta cuentan su
+        # propia carpeta.
+        es_raiz = readme.parent == RAIZ / "psglab"
+        real = sum(
+            contar_stubs(f)
+            for f in readme.parent.rglob("*.py")
+            if f.name != "__init__.py" and not (es_raiz and "analysis" in f.parts)
+        )
+        if int(declarado.group(1)) != real:
+            problemas.append(
+                f"{ruta_relativa(readme)} dice {declarado.group(1)} stubs y en la carpeta hay {real}"
+            )
+    assert not problemas, "\n".join(problemas)
+
+
 # -- Trazabilidad -----------------------------------------------------------
 
 
@@ -235,6 +263,23 @@ def test_cada_modulo_declara_que_ids_del_pliego_cubre():
         ruta_relativa(f) for f in modulos_del_paquete() if "Cubre del pliego" not in docstring_de(f)
     ]
     assert not sin_linea, f"módulos sin 'Cubre del pliego': {sin_linea}"
+
+
+def test_los_paquetes_y_el_punto_de_entrada_tambien_la_llevan():
+    """`psglab/README.md` la exige a "cada módulo", sin excepciones.
+
+    El chequeo de arriba no los alcanza porque `modulos_del_paquete()` excluye
+    los `__init__.py` y no sale de `psglab/`, y esa función no se puede tocar:
+    es la que alimenta todas las cuentas de stubs del TODO. Va aparte.
+
+    `main.py` es el caso que más llamaba la atención: es el único archivo
+    ejecutable del proyecto y ningún chequeo del repositorio lo miraba.
+    """
+    archivos = [RAIZ / "main.py", *sorted((RAIZ / "psglab").rglob("__init__.py"))]
+    sin_linea = [
+        ruta_relativa(f) for f in archivos if "Cubre del pliego" not in docstring_de(f)
+    ]
+    assert not sin_linea, f"archivos sin 'Cubre del pliego': {sin_linea}"
 
 
 def test_cada_modulo_aparece_en_la_trazabilidad():

@@ -47,8 +47,14 @@ def stage_shortcuts(nomenclature: Nomenclature) -> dict[str, str]:
     raise NotImplementedError("Pendiente: generar los atajos desde la nomenclatura.")
 
 
-def install_shortcuts(window: QMainWindow, session: Session) -> None:
-    """Instala todos los atajos sobre la ventana principal."""
+def install_shortcuts(window: QMainWindow, session: Session | None) -> None:
+    """Instala todos los atajos sobre la ventana principal.
+
+    `session` admite `None` porque los atajos se instalan al construir la
+    ventana, y en ese momento **todavía no hay ningún registro abierto**: la
+    ventana arranca vacía y `MainWindow.session` es `Session | None`. Los atajos
+    que necesitan una sesión no hacen nada mientras no la haya.
+    """
     raise NotImplementedError("Pendiente: crear los QShortcut y conectarlos.")
 
 

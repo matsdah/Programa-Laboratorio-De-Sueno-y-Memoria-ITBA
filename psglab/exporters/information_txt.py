@@ -4,7 +4,11 @@ Resumen legible del registro y de lo que se hizo sobre él:
 
     - nombre del archivo
     - frecuencia de muestreo
-    - duración total, en horas y en puntos (muestras)
+    - duración del registro, en horas y en puntos (muestras)
+    - tiempo scoreado, que **no es lo mismo** y puede ser hasta 30 segundos
+      mayor: cuenta ventanas completas y la última puede estar incompleta. Se
+      imprimen los dos, rotulados distinto, en vez de elegir uno y que el otro
+      contradiga la cuenta de fases.
     - nomenclatura con la que se scoreó, si está scoreado
     - duración en cada fase de sueño, si está scoreado
     - métricas de tiempo por fase: promedio, desvío estándar y mediana
