@@ -51,8 +51,14 @@ construye recorriendo el registro (`file_dialog_filter()`).
 Sobrescribilo sólo si tu formato necesita inspeccionar el contenido del archivo
 para decidir.
 
-**No hace falta acordarse de importar el módulo nuevo**: `read_recording()`
-consulta el registro y el paquete se recorre solo.
+**No hace falta acordarse de importar el módulo nuevo**: `load_all_readers()`
+recorre el paquete e importa lo que encuentre, y `read_recording()` y
+`file_dialog_filter()` la llaman antes de consultar el registro.
+
+Eso es lo que hace que agregar un formato no obligue a tocar ningún archivo
+existente, ni siquiera el `__init__.py` de esta carpeta. Es a propósito que ahí
+no haya una lista de importaciones: sería exactamente el archivo que habría que
+editar cada vez.
 
 ## El contrato de `read()`
 
@@ -108,8 +114,13 @@ Pendientes **9 stubs**, en el
 `core/recording.py` esté terminado (hito 1).
 
 De `base.py` sólo falta `file_dialog_filter()`. `can_read()`,
-`register_reader` y `read_recording()` ya están implementados a propósito:
-corren en tiempo de importación y **no deben convertirse en stubs**.
+`register_reader`, `read_recording()` y `load_all_readers()` ya están
+implementados a propósito: sostienen el punto de extensión y **no deben
+convertirse en stubs**.
+
+`available_readers()` devuelve **clases**, no instancias, igual que
+`tools.registry.available_tools()`. Los dos son los puntos de extensión del
+proyecto y se consumen de la misma forma.
 
 **EDF ya tiene registro de prueba**: la Sleep-EDF Expanded de PhysioNet, abierta
 y con hipnogramas en Rechtschaffen y Kales. Va en `data/`, que el `.gitignore`

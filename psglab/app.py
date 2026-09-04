@@ -31,9 +31,11 @@ def create_application(argv: list[str]) -> QApplication:
 def create_main_window() -> MainWindow:
     """Crea la ventana principal con todos sus paneles y herramientas.
 
-    Registra las herramientas disponibles y los lectores de archivos, de modo
-    que agregar una herramienta nueva no obligue a tocar ni este archivo ni
-    `main.py`.
+    No hay que enumerar acá ni las herramientas ni los formatos: cada registro
+    se puebla solo, con `tools.registry.load_all_tools()` y
+    `readers.base.load_all_readers()`, que recorren su paquete e importan lo que
+    encuentran. Por eso agregar una herramienta o un formato nuevo no obliga a
+    tocar ni este archivo ni `main.py`.
 
     Returns:
         La ventana principal, todavía sin mostrar.
