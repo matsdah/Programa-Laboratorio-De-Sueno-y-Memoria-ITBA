@@ -172,24 +172,41 @@ DATOS DE PACIENTES. Los registros nunca se suben al repositorio. El archivo
 8. LO QUE FALTA DEFINIR
 -------------------------------------------------------------------------------
 
-Hay puntos del pliego que quedaron ambiguos y que el cliente tiene que cerrar.
+Casi nada, ya. Los puntos que el pliego dejaba ambiguos se cerraron con el
+cliente el 4 de septiembre de 2026. El detalle de cada decision, y donde vive
+en el codigo, esta en docs/TODO.md (hito 0).
 
-La lista completa y actualizada esta en docs/TODO.md, en el "Hito 0", junto con
-cual es el trabajo que frena cada una. Se lleva en un solo lugar a proposito:
-hasta hace poco estaba repetida en tres archivos y ninguna copia coincidia con
-las otras, asi que no habia forma de saber cual era la buena.
+En resumen se decidio:
 
-Resumen de lo que hay abierto hoy:
+  - Scoring.txt lleva dos campos por linea ("2 0"), como el ejemplo del pliego.
+    El numero de ventana queda implicito en el orden.
+  - La primera muestra del registro es la 0.
+  - Los codigos de fase siguen la convencion habitual: 0=W, 1 a 4 = S1 a S4,
+    5=REM, 6=MT.
+  - En la herramienta de ocupacion, si dos lineas se pisan, la zona compartida
+    se cuenta dos veces. El total puede pasar del 100 % y eso es lo buscado.
+  - Scoring.txt arranca con una linea de comentario que dice con que
+    nomenclatura se scoreo, por ejemplo "# AASM". Se anota tambien en
+    Informacion.txt.
+  - Una ventana todavia sin scorear se escribe con el codigo -1.
+  - El scoring automatico queda fuera del alcance.
+  - El titular del copyright es el Laboratorio de Sueno y Memoria del ITBA.
 
-  - Codigos numericos de las fases (REM y MT sobre todo).
-  - Si "Scoring.txt" deberia decir con que nomenclatura se escribio. Hoy no lo
-    dice, y el mismo numero significa cosas distintas en cada nomenclatura.
-  - Si la primera muestra del registro es la 0 o la 1.
-  - Si dos lineas de ocupacion que se pisan cuentan una vez o dos.
-  - Conseguir un registro de prueba en BrainVision y en EDF.
-  - Si el scoring automatico entra en el alcance.
-  - Titular del copyright y nombre del repositorio.
-  - De donde salen las impedancias (esto es de la Parte 2).
+Una advertencia practica: ANOTACIONES.TXT NO SE ENTIENDE SOLO. Guarda las
+posiciones en muestras, y para pasarlas a segundos hace falta la frecuencia de
+muestreo, que esta en Informacion.txt. Si se comparten anotaciones, hay que
+mandar los dos archivos.
+
+Scoring.txt si se entiende solo, porque lleva su nomenclatura en la cabecera.
+Esa fue una correccion: la primera version la anotaba unicamente en
+Informacion.txt, dando por sentado que los tres archivos viajaban juntos, y no
+es asi, porque el programa deja exportar uno solo.
+
+Queda una sola pregunta abierta, y es de la Parte 2:
+
+  - De donde salen las impedancias de los electrodos. Ni EDF ni BrainVision las
+    traen siempre. Puede ser de la cabecera del archivo, de un archivo aparte
+    que exporte el equipo, o cargadas a mano.
 
 
 ===============================================================================

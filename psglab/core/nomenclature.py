@@ -78,8 +78,12 @@ STAGES_BY_NOMENCLATURE: Final[dict[Nomenclature, tuple[SleepStage, ...]]] = {
 #: El pliego sólo fija un código: su ejemplo escribe la fase 2 como "2". El
 #: resto sigue la convención habitual de los archivos de scoring
 #: (0=W, 1..4=S1..S4, 5=REM, 6=MT), que es la que esperan los scripts de
-#: análisis del laboratorio. PENDIENTE DE CONFIRMACIÓN con el cliente,
-#: en particular los códigos de REM y de MT.
+#: análisis del laboratorio. Confirmado con el cliente el 4 de septiembre de
+#: 2026, incluidos los códigos de REM y de MT.
+#:
+#: La tabla **no es inyectiva a propósito**: S1 y N1 comparten el 1, igual que
+#: S2/N2, S3/N3 y REM/R. Codificar está bien; decodificar exige saber la
+#: nomenclatura, que por eso queda registrada en "Informacion.txt".
 STAGE_CODES: Final[dict[SleepStage, int]] = {
     SleepStage.WAKE: 0,
     SleepStage.S1: 1,

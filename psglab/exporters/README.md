@@ -23,12 +23,19 @@ en el `__init__.py` del paquete, que a su vez los toma de
 
 ## `Scoring.txt`
 
-Una línea por ventana, en orden, desde la primera hasta la última del registro:
+Una cabecera con la nomenclatura y después una línea por ventana, en orden:
 
 ```
+# AASM  ->  nomenclatura con la que se scoreó
 2 0     ->  fase 2, sin arousal
 2 1     ->  fase 2, con arousal
+-1 0    ->  ventana todavía sin scorear
 ```
+
+La cabecera existe porque **el archivo no es interpretable sin ella**: "2" es S2
+en Rechtschaffen y Kales y N2 en AASM. Registrar la nomenclatura sólo en
+`Informacion.txt` no alcanzaba, porque V4_F deja exportar **uno solo** de los
+tres archivos.
 
 **Ambigüedad abierta.** El pliego describe tres campos por línea (número de
 ventana, fase, arousal) pero su ejemplo muestra sólo dos. Mientras no se
@@ -86,7 +93,7 @@ python -m pytest tests/test_exporters.py
 
 ## Estado
 
-Pendientes **13 stubs**, en el
+Pendientes **14 stubs**, en el
 [hito 5 del TODO](../../docs/TODO.md#hito-5-exportadores).
 
 `annotations_txt.py` está bloqueado por el

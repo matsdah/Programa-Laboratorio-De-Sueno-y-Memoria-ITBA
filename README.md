@@ -129,6 +129,20 @@ qué se salteó y por qué:
 python -m pytest -rs
 ```
 
+## Integración continua
+
+Cada push y cada pull request disparan
+[el workflow de GitHub Actions](.github/workflows/ci.yml), que corre:
+
+- **Los tests en Windows, macOS y Linux**, con Python 3.11 y 3.14. Es la única
+  prueba real de que el programa es multiplataforma, que el pliego exige.
+- **Los chequeos de consistencia** entre el código y la documentación, que viven
+  en `tests/test_consistencia.py` y por lo tanto corren también en tu máquina
+  con `python -m pytest`, antes de pushear.
+- **La verificación de licencias**, que falla si entra una dependencia GPL. El
+  pliego pide MIT y hasta ahora ese control dependía de que alguien se acordara
+  de correrlo.
+
 ## Licencia
 
 [MIT](LICENSE).

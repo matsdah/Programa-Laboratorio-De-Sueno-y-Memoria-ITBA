@@ -17,7 +17,9 @@ control de amplitud por canal. Es el mismo archivo el que evoluciona.
 
 Cubre del pliego: V1_P, V2_P, V4_F, V5_F de "Visualización de la señal", y la
 mitad de dibujo de V3_P (la elección de qué canales mostrar la resuelve
-`psglab/ui/channel_selector.py`; acá se los dibuja).
+`psglab/ui/channel_selector.py`; acá se los dibuja). También V1_F de "Anotación
+de la señal", por `sample_at()`: es la conversión que traduce el gesto del mouse
+a la posición en muestras que guarda la anotación.
 """
 
 import pyqtgraph as pg

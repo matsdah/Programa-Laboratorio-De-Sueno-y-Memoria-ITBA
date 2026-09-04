@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **173 stubs** (`raise NotImplementedError`) en 30 módulos de la Parte 1.
+Quedan **170 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -18,6 +18,19 @@ devolver algo.
 **No empieces un módulo si el hito anterior no está cerrado.** Vas a escribir
 contra firmas que todavía elevan `NotImplementedError` y no vas a poder testear
 nada.
+
+### Lo que el CI verifica solo
+
+Desde que el equipo es de tres, [el workflow](../.github/workflows/ci.yml) corre
+en cada push y cada pull request: los tests en los tres sistemas operativos, los
+chequeos de consistencia de `tests/test_consistencia.py` y la verificación de
+licencias.
+
+Eso quiere decir que **no hace falta acordarse** de que las cuentas de este
+archivo cuadren, ni de que los enlaces no se rompan, ni de borrar el
+`pytestmark` al terminar un módulo: si algo de eso queda mal, el pull request
+falla. Los chequeos corren también con `python -m pytest`, así que conviene
+pasarlos antes de pushear.
 
 ### Cuándo un ítem está terminado
 
@@ -38,15 +51,15 @@ nada**. Un verde por omisión es peor que un rojo.
 | Hito | Módulos | Stubs | Estado |
 |---|---|---|---|
 | [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ⬜ |
-| [1. Cimientos](#hito-1-cimientos) | 4 | 21 | ⬜ |
+| [1. Cimientos](#hito-1-cimientos) | 4 | 16 | 🟡 1 de 4 |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 20 | ⬜ |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
-| [4. Importación](#hito-4-importación) | 5 | 8 | ⬜ |
-| [5. Exportadores](#hito-5-exportadores) | 4 | 13 | ⬜ |
+| [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
+| [5. Exportadores](#hito-5-exportadores) | 4 | 14 | ⬜ |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 45 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 47 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **30** | **173** | |
+| | **29** | **170** | |
 
 ### Los tres cortes que importan
 
@@ -64,51 +77,57 @@ pueden ir en paralelo: una por 4 y 5, otra por 6.
 
 ## Hito 0: Desbloquear
 
-Sin código. Son las preguntas abiertas del pliego y el material que falta.
+**Cerrado el 4 de septiembre de 2026.** Eran las preguntas que el pliego dejaba
+abiertas y el material de prueba que faltaba. Queda una sola sin responder, y es
+de la Parte 2.
 
-**Esta es la lista completa y el único lugar donde se lleva.**
-`EXPLICACION.txt` y `TRAZABILIDAD.md` remiten acá en vez de enumerar por su
-cuenta: hasta la auditoría había tres listas y ninguna coincidía con las otras.
+### Decidido con el cliente
 
-### Bloquean trabajo
+| Pregunta | Decisión | Dónde vive |
+|---|---|---|
+| Formato de `Scoring.txt`: ¿dos campos o tres? | **Dos**, como el ejemplo: `"2 0"`. El nº de ventana queda implícito en el orden. | `config.SCORING_INCLUDES_WINDOW_NUMBER` |
+| Índice de los "puntos": ¿0 o 1? | **Base 0**, la del programa, numpy y MNE. | `config.ANNOTATION_SAMPLE_BASE` |
+| Códigos de fase: ¿REM=5, MT=6? | **Sí**, la convención habitual: 0=W, 1..4=S1..S4, 5=REM, 6=MT. | `core/nomenclature.py::STAGE_CODES` |
+| Ocupación: ¿la superposición cuenta una o dos veces? | **Dos**: se suman los aportes sin descontar. El total puede pasar del 100 % y eso es lo buscado. | `config.OCCUPANCY_COUNTS_OVERLAP_ONCE` |
+| ¿Cómo se sabe con qué nomenclatura se generó un `Scoring.txt`? | **Cabecera comentada** en el propio archivo: `# AASM`. Se registra además en `Informacion.txt`. | `config.SCORING_INCLUDES_NOMENCLATURE_HEADER` |
+| ¿Qué código lleva una ventana sin scorear? | **`-1`.** No puede confundirse con ninguna fase real, porque todas son 0 o positivas. | `core/nomenclature.py::STAGE_CODES` |
+| ¿El scoring automático entra en el alcance? | **No.** Queda como funcionalidad futura, junto al potencial evocado y el acoplamiento de husos. | `TRAZABILIDAD.md` |
+| Titular del copyright | **Confirmado** tal como está: Laboratorio de Sueño y Memoria, ITBA. | `LICENSE` |
 
-- [ ] **Códigos numéricos de fase: ¿REM es 5 y MT es 6?**
-  El pliego sólo fija "2" para S2; el resto sigue la convención habitual
-  (0=W, 1..4=S1..S4, 5=REM, 6=MT), pero es una suposición. Está marcado
-  PENDIENTE en `core/nomenclature.py`. Bloquea `exporters/scoring_txt.py`
-  (hito 5) y `readers/scoring_reader.py` (hito 4).
-- [ ] **¿`Scoring.txt` debería declarar la nomenclatura?**
-  Hoy el archivo **no es autodescriptivo**: "2" es S2 en R&K y N2 en AASM, así
-  que releerlo exige saber con qué nomenclatura se generó, y equivocarse carga
-  el scoring entero mal traducido sin ningún error visible. Una cabecera lo
-  resolvería, pero se apartaría del formato del pliego. Bloquea los hitos 4 y 5
-  junto con el punto anterior.
-- [ ] **Índice de los "puntos": ¿la primera muestra es la 0 o la 1?**
-  Bloquea `exporters/annotations_txt.py` (hito 5) y `tools/annotator.py`
-  (hito 7). No se puede elegir por defecto: cambia todos los números exportados.
-- [ ] **Ocupación: si dos líneas se pisan en horizontal, ¿el área compartida se
-  cuenta una vez o dos?** Bloquea V2_F y V4_F de `tools/occupancy.py` (hito 7).
-- [ ] **Conseguir un registro de prueba en BrainVision y en EDF.**
-  Sin él el hito 4 no se puede verificar de punta a punta. **No va al
-  repositorio** (ver [`readers/README.md`](../psglab/readers/README.md)).
+La decisión de la nomenclatura se revisó una vez y conviene saber por qué. La
+primera versión la registraba **sólo** en `Informacion.txt`, dando por sentado
+que los tres archivos viajaban juntos. No es así: **V4_F deja exportar uno
+solo**, y exportar nada más que el scoring es el caso más común. Ese archivo
+salía ambiguo, porque "2" es S2 en R&K y N2 en AASM.
 
-### No bloquean, pero hay que cerrarlas
+Por eso `Scoring.txt` declara su nomenclatura en su propia cabecera. Queda una
+dependencia parecida sin resolver del todo: **`Anotaciones.txt` guarda
+posiciones en muestras y no lleva la frecuencia de muestreo**, que vive en
+`Informacion.txt`. Se aceptó porque falla distinto: una fase mal interpretada
+pasa desapercibida, una posición sin frecuencia directamente no se puede
+convertir y el problema salta enseguida.
 
-- [ ] **¿El scoring automático entra en el alcance?**
-  Aparece en la motivación del pliego ("Scoring automatico imposible") pero
-  **no figura en ninguna funcionalidad y no tiene archivo asignado**. Si entra,
-  es un hito nuevo entero y hay que agregarlo a `TRAZABILIDAD.md`.
-- [ ] **Titular del copyright y nombre del repositorio.**
-  `LICENSE` ya dice "Laboratorio de Sueño y Memoria, ITBA": falta confirmar que
-  sea correcto, no elegirlo de cero.
-- [ ] **Origen de las impedancias** (cabecera, archivo aparte o carga manual).
-  Es de la **Parte 2**, así que no frena nada de este TODO, pero sigue abierta.
+### Material de prueba
 
-### Ya resuelta por parametrización
+- [x] **EDF** — [Sleep-EDF Database Expanded](https://physionet.org/content/sleep-edfx/1.0.0/)
+  de PhysioNet, bajo [ODC-By v1.0](https://www.physionet.org/content/sleep-edfx/view-license/1.0.0/).
+  Registro real de noche completa: 7 canales, 100 Hz, 22 h, con hipnograma
+  scoreado en Rechtschaffen y Kales.
+- [x] **BrainVision** — los archivos de prueba de
+  [MNE-Python](https://github.com/mne-tools/mne-python/tree/main/mne/io/brainvision/tests/data)
+  (BSD-3): tripleta `.vhdr` + `.vmrk` + `.eeg`, 32 canales con nombres 10-20,
+  1000 Hz. **Son 7,9 segundos, no una noche**: sirven para verificar que el
+  lector entiende el formato, no para probar el programa de punta a punta.
+  Conseguir un registro real del laboratorio sigue siendo deseable.
 
-El formato de `Scoring.txt` (dos campos o tres) vive en
-`config.SCORING_INCLUDES_WINDOW_NUMBER`. **No hardcodear ninguna variante**
-hasta que el cliente confirme.
+Los dos viven en `data/`, que **el `.gitignore` excluye**: no van al
+repositorio.
+
+### Sigue abierta
+
+- [ ] **Origen de las impedancias** (cabecera del archivo, archivo aparte o
+  carga manual). Es de la **Parte 2**, así que no frena nada de este TODO.
+  Ver `analysis/impedance.py`.
 
 ---
 
@@ -122,10 +141,12 @@ cualquier orden, incluso en paralelo.
   - Test: **crear** `tests/test_units.py`. Casos mínimos: `V`→µV es ×10⁶,
     `mV`→µV es ×10³, y una unidad desconocida eleva `UnknownUnitError` en vez
     de asumir un factor.
-- [ ] **`psglab/core/windows.py`** · 5 stubs · sostiene V1_P "Visualización"
+- [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
-  - Test: `tests/test_windows.py` → **borrar el `pytestmark`**.
-  - Ojo: la última ventana incompleta se cuenta igual.
+  - Test: `tests/test_windows.py`, **15 tests en verde**.
+  - Los bordes se calculan desde el índice de la ventana, nunca acumulando un
+    paso redondeado: con una frecuencia no redonda (256,125 Hz en EDF) acumular
+    corre la ventana 960 casi tres segundos. Hay tres tests que lo fijan.
 - [ ] **`psglab/core/nomenclature.py`** · 5 stubs · V3_F "Scoring",
       V3_F "Histograma"
   - Test: `tests/test_nomenclature.py` → **borrar el `pytestmark`**.
@@ -183,7 +204,10 @@ cualquier orden, incluso en paralelo.
     prueba del hito 0.
   - `read()` devuelve la señal **ya en µV** y con la clase de canal detectada.
     Ninguna capa posterior lo vuelve a verificar.
-- [ ] **`psglab/readers/scoring_reader.py`** · 2 stubs · V3_F "Importación"
+- [ ] **`psglab/readers/scoring_reader.py`** · 3 stubs · V3_F "Importación"
+  - Incluye `detect_nomenclature()`, que lee la cabecera que escribe
+    `exporters/scoring_txt.py::format_header()`. Lo que uno escribe el otro lo
+    tiene que poder volver a leer.
 
 ---
 
@@ -192,9 +216,12 @@ cualquier orden, incluso en paralelo.
 - [ ] **`psglab/exporters/statistics.py`** · 6 stubs · alimenta V3_F
       "Archivo de salida"
   - No escribe archivos: por eso se puede testear sin tocar el disco.
-- [ ] **`psglab/exporters/scoring_txt.py`** · 2 stubs · V1_F "Archivo de salida"
-  - **Las dos variantes de formato tienen que seguir siendo alcanzables**
-    cambiando sólo `config.SCORING_INCLUDES_WINDOW_NUMBER`.
+- [ ] **`psglab/exporters/scoring_txt.py`** · 3 stubs · V1_F "Archivo de salida"
+  - **Las variantes de formato tienen que seguir siendo alcanzables** cambiando
+    sólo la constante de `config`: el nº de ventana por línea y la cabecera de
+    nomenclatura.
+  - `format_header()` escribe la cabecera que lee
+    `readers/scoring_reader.py::detect_nomenclature()`.
 - [ ] **`psglab/exporters/annotations_txt.py`** · 2 stubs · V2_F "Archivo de
       salida" — **depende del hito 0** (índice de los puntos)
 - [ ] **`psglab/exporters/information_txt.py`** · 3 stubs · V3_F "Archivo de
@@ -203,6 +230,10 @@ cualquier orden, incluso en paralelo.
     ceros.
 - [ ] Test de los cuatro: `tests/test_exporters.py` → **borrar el
       `pytestmark`** y extenderlo a `statistics`.
+- [ ] **Test de ida y vuelta de la cabecera**, que cruza este hito y el 4:
+      exportar un scoring en AASM, releerlo con `read_scoring()` sin pasarle la
+      nomenclatura, y verificar que sale AASM. Es un contrato entre dos módulos
+      de hitos distintos, del tipo que se rompe en silencio si nadie lo fija.
 
 > **Cerrado el hito 5, el programa hace su trabajo entero desde un script, sin
 > interfaz.** Vale la pena escribir ese script y guardarlo como verificación.

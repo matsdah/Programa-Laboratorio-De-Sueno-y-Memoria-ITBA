@@ -1,0 +1,129 @@
+# Integración continua del scorer de polisomnografía.
+#
+# Corre en cada push y en cada pull request contra las ramas de trabajo. Hace
+# tres cosas que hasta ahora se hacían a mano y que con un equipo de tres
+# personas ya no se sostienen:
+#
+#   1. Los tests, en los tres sistemas operativos que el pliego exige soportar.
+#      Es la única prueba real de que el programa es multiplataforma.
+#   2. Los chequeos de consistencia entre el código y la documentación, que
+#      viven en tests/test_consistencia.py y corren junto con el resto.
+#   3. La verificación de licencias, que el pliego pide antes de cada release y
+#      que hoy nadie ejecuta si no se acuerda.
+
+name: CI
+
+on:
+  push:
+    branches: [Add, Master]
+  pull_request:
+    branches: [Add, Master]
+
+jobs:
+  tests:
+    name: Tests · ${{ matrix.os }} · Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Sin fail-fast: si algo falla sólo en macOS, queremos ver igual el
+      # resultado de los otros para saber si es del sistema o del código.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # El README promete "Python 3.11 o superior" y el entorno de desarrollo
+        # es 3.14. Probar una sola deja la otra mitad de la promesa sin
+        # verificar.
+        python: ["3.11", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      # PySide6 necesita bibliotecas de sistema que las imágenes de Linux no
+      # traen. Sin esto, importar psglab.ui falla en ubuntu por un motivo que no
+      # tiene nada que ver con el código del proyecto.
+      - name: Bibliotecas de Qt (sólo Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libglib2.0-0
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      # Con `python -m`, que es la invocación que funciona sin pyproject.toml:
+      # `pytest` a secas falla con ModuleNotFoundError. Que el CI lo haga así
+      # deja documentada la trampa.
+      - name: Tests
+        run: python -m pytest -v
+
+
+  licencias:
+    name: Licencias compatibles con MIT
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      # El pliego pide licencia MIT, y una dependencia GPL obligaría a
+      # relicenciar el proyecto entero. Es la razón por la que se eligió PySide6
+      # sobre PyQt, así que conviene que deje de depender de que alguien se
+      # acuerde de correr pip-licenses antes de un release.
+      # pip-licenses ya viene en requirements-dev.txt. Se lo invoca con
+      # `python -m` y no por su nombre de comando para no depender de que el
+      # directorio de scripts esté en el PATH del runner.
+      - name: Verificar que no entró ninguna GPL
+        run: |
+          python - <<'PYTHON'
+          import json, subprocess, sys
+
+          # PySide6 y shiboken6 declaran una licencia DISYUNTIVA:
+          #   "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+          # Quien la usa elige una, y el proyecto elige LGPL, que es
+          # exactamente el motivo por el que se eligió PySide6 sobre PyQt.
+          # Un chequeo que sólo busque "GPL" fallaría contra la dependencia
+          # principal del proyecto. Ver docs/ARQUITECTURA.md.
+          def es_aceptable(licencia: str) -> bool:
+              texto = licencia.upper()
+              if " OR " in texto:
+                  # Disyuntiva: alcanza con que una de las opciones sirva.
+                  return any(es_aceptable(o) for o in texto.split(" OR "))
+              if "LGPL" in texto:
+                  return True          # enlace dinámico: compatible con MIT
+              if "GPL" in texto:
+                  return False         # GPL puro: incompatible
+              # MPL-2.0 es copyleft por archivo y no alcanza a nuestro código.
+              return True
+
+          salida = subprocess.run(
+              [sys.executable, "-m", "piplicenses", "--format=json", "--with-system"],
+              capture_output=True, text=True, check=True,
+          ).stdout
+          incompatibles = [
+              p for p in json.loads(salida) if not es_aceptable(p["License"])
+          ]
+          for p in incompatibles:
+              print(f'INCOMPATIBLE  {p["Name"]} {p["Version"]}: {p["License"]}')
+          if incompatibles:
+              print()
+              print("Una dependencia GPL obligaría a relicenciar el proyecto, que")
+              print("el pliego pide bajo MIT. Ver docs/ARQUITECTURA.md.")
+              sys.exit(1)
+          print("Ninguna dependencia obliga a relicenciar: la licencia MIT se sostiene.")
+          PYTHON

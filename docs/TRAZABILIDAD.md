@@ -174,6 +174,11 @@ archivo; cuando se retomen, entran como módulos nuevos en `psglab/analysis/`.
 
 - Detección de potencial evocado
 - Acoplamiento de husos de sueño
+- **Scoring automático.** Aparece entre las motivaciones del pliego ("Scoring
+  automatico imposible") pero no figura en ninguna funcionalidad numerada.
+  Confirmado con el cliente el 4 de septiembre de 2026: **queda fuera del
+  alcance.** Se anota acá para que nadie vuelva a preguntarse si se omitió por
+  error.
 
 ---
 

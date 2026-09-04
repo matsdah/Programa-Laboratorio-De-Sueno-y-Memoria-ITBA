@@ -62,12 +62,20 @@ de 20 segundos, se cambia acá y en ningún otro lado.
 | `DEFAULT_SCALE_UV`, `MIN_SCALE_UV`, `MAX_SCALE_UV` | 100 / 1 / 10 000 | Escala vertical y sus topes. |
 | `AMPLITUDE_STEP_FACTOR` | 1,25 | Cuánto cambia la amplitud por pulsación de flecha. |
 | `SCORING_FILENAME` y compañía | `Scoring.txt`, … | Nombres de los archivos de salida. |
-| `SCORING_INCLUDES_WINDOW_NUMBER` | `False` | **Ambigüedad abierta del pliego**, ver abajo. |
+| `SCORING_INCLUDES_WINDOW_NUMBER` | `False` | `Scoring.txt` lleva dos campos, como el ejemplo del pliego. |
+| `ANNOTATION_SAMPLE_BASE` | `0` | Base de las muestras en `Anotaciones.txt`. |
+| `OCCUPANCY_COUNTS_OVERLAP_ONCE` | `False` | La superposición de líneas se cuenta dos veces. |
+| `SCORING_INCLUDES_NOMENCLATURE_HEADER` | `True` | `Scoring.txt` declara su nomenclatura en una cabecera. |
+| `SCORING_HEADER_PREFIX` | `#` | Prefijo de esa cabecera. |
 
-`SCORING_INCLUDES_WINDOW_NUMBER` existe porque el pliego describe tres campos
-por línea en `Scoring.txt` pero su ejemplo muestra dos. Mientras el cliente no
-confirme, las dos variantes tienen que seguir siendo alcanzables cambiando esa
-sola constante: **no hardcodear ninguna de las dos.**
+Las cinco últimas resuelven puntos que el pliego dejaba ambiguos y que se
+cerraron con el cliente. Siguen siendo constantes, y no valores escritos a mano
+en el módulo que los usa, por dos motivos: revertir una decisión es cambiar una
+línea, y el valor queda junto al motivo por el que se eligió.
+
+**No hardcodear ninguna de estas variantes** en ningún módulo. El detalle de
+cada decisión está en el
+[hito 0 del TODO](../docs/TODO.md#hito-0-desbloquear).
 
 ## Estado actual
 
@@ -92,7 +100,7 @@ cargarse y los mecanismos enchufables no existirían.
 
 ## Estado
 
-Pendientes **173 stubs** en 30 módulos de la Parte 1, ordenados por
+Pendientes **170 stubs** en 29 módulos de la Parte 1, ordenados por
 dependencias en el [TODO](../docs/TODO.md). `app.py` es el último de la fila
 (hito 6): hasta que se implemente, `python main.py` termina en
 `NotImplementedError`, que es lo esperado.
