@@ -6,11 +6,11 @@ registro. Cada línea lleva la fase y la presencia de arousal:
     2 0     ->  fase 2, sin arousal
     2 1     ->  fase 2, con arousal
 
-PENDIENTE DE CONFIRMACIÓN. El pliego describe tres campos (número de ventana,
-fase, arousal) pero su ejemplo muestra sólo dos. Mientras no se aclare, el
-formato queda parametrizado en `config.SCORING_INCLUDES_WINDOW_NUMBER`, hoy
-en False para respetar el ejemplo; cambiar esa constante alcanza para pasar a
-la otra variante.
+El pliego describe tres campos (número de ventana, fase, arousal) pero su
+ejemplo muestra sólo dos, y **vale el ejemplo**: confirmado con el cliente. El
+número de ventana queda implícito en el orden de las líneas. El formato sigue
+viviendo en `config.SCORING_INCLUDES_WINDOW_NUMBER` para que revertirlo sea
+cambiar una línea.
 
 **El archivo no es autodescriptivo, y es una limitación real del formato.**
 Los códigos de fase de `nomenclature.STAGE_CODES` no son únicos entre
@@ -19,10 +19,13 @@ REM/R. Una línea que dice "2 0" no alcanza para saber si la ventana es S2 de
 Rechtschaffen y Kales o N2 de AASM.
 
 Por eso `readers.scoring_reader.read_scoring()` exige que le pasen la
-nomenclatura: el archivo no la trae. Exportar e importar **no son simétricos**
-mientras el archivo no la guarde. Escribirla en una cabecera lo resolvería, pero
-se apartaría del formato del pliego, así que es una de las preguntas abiertas
-del hito 0 (ver `docs/TODO.md`).
+nomenclatura: este archivo no la trae.
+
+**Decisión tomada con el cliente:** no se agrega una cabecera acá, para no
+apartarse del formato del pliego. La nomenclatura se registra en
+"Informacion.txt", que ya es un resumen legible y se exporta junto con el
+scoring. Quien reimporte un `Scoring.txt` tiene que mirar ese archivo para
+saber con qué nomenclatura se generó.
 
 Cubre del pliego: V1_F de "Archivo de salida".
 """

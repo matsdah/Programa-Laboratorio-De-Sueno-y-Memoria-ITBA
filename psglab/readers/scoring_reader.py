@@ -15,9 +15,10 @@ usó, así que `read_scoring()` obliga a pasar la nomenclatura por parámetro y
 confía en que quien lo llama sepa con cuál se generó. Si se equivoca, el scoring
 se carga entero con las fases mal traducidas y sin ningún error visible.
 
-Escribir la nomenclatura en una cabecera lo resolvería, pero se apartaría del
-formato del pliego. Es una de las preguntas abiertas del hito 0 (ver
-`docs/TODO.md`).
+**Decisión tomada con el cliente:** el `Scoring.txt` no lleva cabecera, para no
+apartarse del formato del pliego. La nomenclatura con la que se generó queda
+registrada en "Informacion.txt". Antes de reimportar un scoring conviene mirar
+ese archivo; si no está, hay que preguntarle al usuario en vez de adivinar.
 
 Cubre del pliego: V3_F de "Importación de archivos".
 """

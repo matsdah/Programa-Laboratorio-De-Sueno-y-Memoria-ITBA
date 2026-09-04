@@ -23,6 +23,7 @@ de la página".
 
 from dataclasses import dataclass
 
+from psglab.config import OCCUPANCY_COUNTS_OVERLAP_ONCE
 from psglab.core.session import Session
 from psglab.tools.base import ViewerTool
 from psglab.tools.registry import register_tool
@@ -112,13 +113,23 @@ class OccupancyTool(ViewerTool):
         """Porcentaje de ocupación horizontal de una línea (V2_F)."""
         raise NotImplementedError("Pendiente: convertir la fracción horizontal a porcentaje.")
 
-    def total_percentage(self) -> float:
+    def total_percentage(
+        self,
+        counts_overlap_once: bool = OCCUPANCY_COUNTS_OVERLAP_ONCE,
+    ) -> float:
         """Porcentaje sumado de todas las líneas de la ventana (V4_F).
 
-        Ojo con un caso que hay que definir con el cliente: si dos líneas se
-        superponen horizontalmente, ¿la zona compartida se cuenta una vez o
-        dos? El pliego dice "sumar la distancia horizontal total", así que por
-        ahora se suman los aportes sin descontar la superposición.
+        Args:
+            counts_overlap_once: si dos líneas se pisan en horizontal, True
+                cuenta la zona compartida una sola vez —hay que unir los
+                intervalos antes de sumar— y False suma los aportes por
+                separado. Por defecto, el de `config`.
+
+        Confirmado con el cliente: se suman los aportes sin descontar la zona
+        compartida, que es "sumar la distancia horizontal total" leído al pie
+        de la letra. **Con ese criterio el total puede pasar del 100 %**, y eso
+        es lo buscado, no un error de cálculo: la interfaz tiene que poder
+        mostrarlo sin romperse. Ver `config.OCCUPANCY_COUNTS_OVERLAP_ONCE`.
         """
         raise NotImplementedError("Pendiente: sumar los aportes de todas las líneas.")
 

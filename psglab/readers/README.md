@@ -109,6 +109,13 @@ De `base.py` sólo falta `file_dialog_filter()`. `can_read()`,
 `register_reader` y `read_recording()` ya están implementados a propósito:
 corren en tiempo de importación y **no deben convertirse en stubs**.
 
-Bloqueado por el [hito 0](../../docs/TODO.md#hito-0-desbloquear): hace falta un
-registro de prueba en BrainVision y en EDF para poder verificar la importación
-de punta a punta.
+**EDF ya tiene registro de prueba**: la Sleep-EDF Expanded de PhysioNet, abierta
+y con hipnogramas en Rechtschaffen y Kales. Va en `data/`, que el `.gitignore`
+excluye. El enlace y la licencia están en el
+[hito 0](../../docs/TODO.md#hito-0-desbloquear).
+
+**BrainVision** usa los archivos de prueba de MNE-Python (BSD-3): una tripleta
+`.vhdr` + `.vmrk` + `.eeg` de 32 canales con nombres 10-20. Son **7,9 segundos,
+no una noche**: alcanzan para verificar que el lector entiende el formato, no
+para probar el programa de punta a punta. Un registro real del laboratorio
+sigue siendo deseable.
