@@ -16,6 +16,7 @@ from psglab.config import AMPLITUDE_BAND_UV
 from psglab.core.session import Session
 from psglab.tools.base import ViewerTool
 from psglab.tools.registry import register_tool
+from psglab.utils.units import MICROVOLT
 
 
 @register_tool
@@ -24,7 +25,13 @@ class AmplitudeBandTool(ViewerTool):
 
     name = "amplitude_band"
     label = "Banda de amplitud"
-    description = "Banda de 75 µV para comparar la amplitud de la señal"
+    #: El número y la unidad salen de `config` y de `utils.units`, no escritos a
+    #: mano: este texto lo lee el usuario en la barra de herramientas, y si
+    #: alguien cambiara la constante, un literal acá le mentiría.
+    description = (
+        f"Banda de {AMPLITUDE_BAND_UV:.0f} {MICROVOLT} "
+        "para comparar la amplitud de la señal"
+    )
     exclusive = False  # Sólo se dibuja: no compite por el clic del mouse.
 
     #: Altura actual de la banda, en microvoltios. Arranca en el valor del

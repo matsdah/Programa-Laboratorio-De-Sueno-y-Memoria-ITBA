@@ -156,6 +156,16 @@ cualquier orden, incluso en paralelo.
   - Test: **crear** `tests/test_recording.py`, con la fixture
     `synthetic_signal` de `conftest.py`.
 
+`psglab/utils/errors.py` ya está implementado y no tiene stubs, pero tampoco
+tiene test:
+
+- [ ] **`psglab/utils/errors.py`** · 0 pendientes · le falta el test:
+      **crear** `tests/test_errors.py`
+  - Que `PsgLabError` guarde el mensaje y la causa técnica por separado, y que
+    las subclases se puedan atrapar con un solo `except PsgLabError`. Es la
+    promesa sobre la que se apoya todo el manejo de errores que ve el
+    investigador.
+
 ---
 
 ## Hito 2: Scoring y anotaciones
@@ -198,15 +208,19 @@ cualquier orden, incluso en paralelo.
   - V3_F no pasa por acá: lo resuelve `scoring_reader.py`, que lee un scoring
     ya existente y no despacha por formato.
   - El resto del módulo ya está implementado a propósito: `can_read`,
-    `register_reader` y `read_recording` corren al importar. **No convertirlos
-    en stubs.**
+    `register_reader`, `read_recording` y `load_all_readers` corren al
+    importar. **No convertirlos en stubs.**
+  - Test: **crear** `tests/test_readers.py`, que cubre este módulo y los dos de
+    abajo. El autodescubrimiento y el despacho se pueden testear con un lector
+    de mentira, sin ningún archivo real.
 - [ ] **`psglab/readers/edf.py`** · 1 stub · V2_F "Importación"
+  - Test: `tests/test_readers.py`. Necesita el registro de prueba del hito 0.
 - [ ] **`psglab/readers/brainvision.py`** · 1 stub · V1_F "Importación"
-  - Test de los dos: **crear** `tests/test_readers.py`. Necesita el registro de
-    prueba del hito 0.
+  - Test: `tests/test_readers.py`. Necesita el registro de prueba del hito 0.
   - `read()` devuelve la señal **ya en µV** y con la clase de canal detectada.
     Ninguna capa posterior lo vuelve a verificar.
 - [ ] **`psglab/readers/scoring_reader.py`** · 3 stubs · V3_F "Importación"
+  - Test: **crear** `tests/test_scoring_reader.py`.
   - Incluye `detect_nomenclature()`, que lee la cabecera que escribe
     `exporters/scoring_txt.py::format_header()`. Lo que uno escribe el otro lo
     tiene que poder volver a leer.
@@ -308,7 +322,16 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
   - Test: **crear** `tests/test_annotator.py`.
 
 `tools/base.py` y `tools/registry.py` **ya están implementados** y no tienen
-stubs. No hay nada que hacer en ellos.
+stubs, pero eso no es lo mismo que estar verificados:
+
+- [ ] **`psglab/tools/registry.py` y `psglab/tools/base.py`** · 0 pendientes ·
+      les falta el test: **crear** `tests/test_registry.py`
+  - Que `@register_tool` eleve `DuplicateToolError` con dos herramientas del
+    mismo nombre, que `get_tool` eleve `UnknownToolError`, que `load_all_tools`
+    encuentre las seis y no se rompa si se la llama dos veces, y que los
+    métodos de evento de `Tool` y `ViewerTool` no hagan nada por defecto en vez
+    de elevar. Es el mecanismo del que dependen las seis herramientas y hoy no
+    lo verifica nada.
 
 ---
 
