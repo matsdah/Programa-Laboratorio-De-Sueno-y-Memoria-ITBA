@@ -223,7 +223,9 @@ cualquier orden, incluso en paralelo.
   - `format_header()` escribe la cabecera que lee
     `readers/scoring_reader.py::detect_nomenclature()`.
 - [ ] **`psglab/exporters/annotations_txt.py`** · 2 stubs · V2_F "Archivo de
-      salida" — **depende del hito 0** (índice de los puntos)
+      salida"
+  - El índice de los puntos lo fijó el hito 0 en 0: sale de
+    `config.ANNOTATION_SAMPLE_BASE`, no se escribe a mano.
 - [ ] **`psglab/exporters/information_txt.py`** · 3 stubs · V3_F "Archivo de
       salida"
   - Las secciones que no correspondan se omiten con una explicación, no con
@@ -280,7 +282,9 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
   - Test: **crear** `tests/test_amplitude_band.py`. Los 75 µV salen de
     `config.AMPLITUDE_BAND_UV`.
 - [ ] **`psglab/tools/occupancy.py`** · 12 stubs · V1_F–V5_F "Ocupación" ·
-      `ViewerTool` — **V2_F y V4_F dependen del hito 0**
+      `ViewerTool`
+  - V2_F y V4_F: el hito 0 fijó que la superposición se cuenta **dos veces**,
+    y sale de `config.OCCUPANCY_COUNTS_OVERLAP_ONCE`.
   - Test: `tests/test_occupancy.py` → **borrar el `pytestmark`**.
 - [ ] **`psglab/tools/magnifier.py`** · 8 stubs · V1_F, V2_F "Lupa" ·
       `ViewerTool`
@@ -296,7 +300,9 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
   - Su `on_click(x_fraction)` es propio: un clic cae en una ventana de la
     noche, no en un segundo de la ventana actual.
 - [ ] **`psglab/tools/annotator.py`** · 9 stubs · V1_F "Anotación" ·
-      `ViewerTool` — **depende del hito 0** (índice de los puntos)
+      `ViewerTool`
+  - El índice de los puntos lo fijó el hito 0 en 0: sale de
+    `config.ANNOTATION_SAMPLE_BASE`.
   - Test: **crear** `tests/test_annotator.py`.
 
 `tools/base.py` y `tools/registry.py` **ya están implementados** y no tienen
@@ -319,7 +325,7 @@ stubs. No hay nada que hacer en ellos.
       cerrados**, y cada fila apunta al archivo correcto.
 - [ ] **Las ambigüedades resueltas quedaron documentadas** en
       `EXPLICACION.txt` sección 8, y los módulos que decían "PENDIENTE DE
-      CONFIRMACIÓN" ya no lo dicen.
+      DEFINICIÓN CON EL CLIENTE" ya no lo dicen.
 - [ ] **Licencias verificadas**, sin ninguna GPL:
       ```bash
       pip-licenses --format=markdown --order=license

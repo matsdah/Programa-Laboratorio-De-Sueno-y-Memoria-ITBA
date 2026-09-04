@@ -95,9 +95,11 @@ proyecto.
 `*.eeg`. Los tests usan señal sintética generada en el momento, no registros
 reales: ver [`tests/README.md`](../../tests/README.md).
 
-Falta todavía **un registro de prueba en BrainVision y en EDF** para poder
-probar la importación de punta a punta; está anotado en
-[`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt), sección 8.
+**Los dos formatos ya tienen registro de prueba**, conseguidos al cerrar el
+[hito 0](../../docs/TODO.md#hito-0-desbloquear); el detalle está más abajo, en
+"Estado". Lo que sigue faltando es un registro **real del laboratorio**: el de
+BrainVision dura 7,9 segundos y no alcanza para probar la importación de punta a
+punta.
 
 ## Estado
 

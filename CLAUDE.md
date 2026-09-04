@@ -241,10 +241,17 @@ base 1 al mostrarlos y exportarlos; la conversión se hace al mostrar.
 Los motivos completos están en `docs/ARQUITECTURA.md`. Si alguna decisión se
 revisa, actualizar ese archivo con el motivo del cambio.
 
-## Ambigüedades abiertas del pliego
+## Ambigüedades del pliego
 
-Listadas en `docs/EXPLICACION.txt`, sección 8. La única que ya afecta al
-código: el formato de `Scoring.txt` (el pliego describe tres campos, el ejemplo
-muestra dos). Está parametrizado en `config.SCORING_INCLUDES_WINDOW_NUMBER`,
-hoy `False`. **No hardcodear ninguna de las dos variantes** hasta que el
-cliente confirme.
+**Se cerraron el 4 de septiembre de 2026**, en el hito 0. La lista de qué se
+preguntó y en qué constante vive cada respuesta está en `docs/TODO.md`, hito 0.
+Queda una sola abierta y es de la Parte 2: de dónde salen las impedancias
+(`psglab/analysis/impedance.py`, marcada `PENDIENTE DE DEFINICIÓN CON EL
+CLIENTE`).
+
+Que estén cerradas **no las hardcodea**. Las respuestas viven en
+`psglab/config.py` —`SCORING_INCLUDES_WINDOW_NUMBER`,
+`ANNOTATION_SAMPLE_BASE`, `OCCUPANCY_COUNTS_OVERLAP_ONCE`,
+`SCORING_INCLUDES_NOMENCLATURE_HEADER`— y **revertir cualquiera tiene que
+seguir siendo cambiar una línea**. Un `if` que dé por sentada una de las
+variantes rompe esa propiedad aunque hoy acierte.

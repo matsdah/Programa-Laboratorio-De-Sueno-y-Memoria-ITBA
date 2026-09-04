@@ -190,7 +190,7 @@ preguntas abiertas los posee el TODO, y duplicarlos garantizaba —y de hecho
 produjo— que las copias se desincronizaran.
 
 Las que ya afectan a un archivo concreto están anotadas además en el docstring
-de ese archivo, con la marca `PENDIENTE DE CONFIRMACIÓN`:
+de ese archivo, con la marca `PENDIENTE DE DEFINICIÓN CON EL CLIENTE`:
 
 ```bash
 grep -rn "PENDIENTE DE" psglab --include=*.py

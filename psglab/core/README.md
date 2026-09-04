@@ -70,11 +70,13 @@ las anteriores.
 un múltiplo exacto de 30 segundos, el usuario tiene que poder scorearla o ver
 que está incompleta.
 
-## Ambigüedad abierta
+## El índice de los "puntos"
 
-Los "puntos" del pliego son muestras del registro, pero **falta definir si la
-primera muestra es la 0 o la 1**. Afecta a `windows.py` y a los exportadores.
-Ver [`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt), sección 8.
+Los "puntos" del pliego son muestras del registro, y **la primera es la 0**:
+confirmado con el cliente el 4 de septiembre de 2026, por ser la base del
+programa, de numpy y de MNE. Vive en `config.ANNOTATION_SAMPLE_BASE`, no en el
+código de `windows.py` ni en el de los exportadores, para que revertirla sea
+cambiar una línea. Ver el [hito 0 del TODO](../../docs/TODO.md#hito-0-desbloquear).
 
 ## Estado
 

@@ -98,11 +98,13 @@ Lo hereda todo lo que sea `Tool`. No hace nada por defecto; sobrescribilo sólo
 si a tu herramienta le importa enterarse de que el usuario navegó. El medidor de
 ocupación lo usa para borrar sus líneas (V5_F) y la Übersicht para redibujarse.
 
-## Ambigüedad abierta
+## La superposición de la ocupación
 
-**Ocupación:** si dos líneas se pisan en horizontal, falta definir si la zona
-compartida se cuenta una vez o dos. Ver
-[`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt), sección 8.
+Si dos líneas se pisan en horizontal, **la zona compartida se cuenta dos
+veces**: se suman los aportes sin descontar, así que el total puede pasar del
+100 % y eso es lo buscado. Confirmado con el cliente el 4 de septiembre de 2026
+y parametrizado en `config.OCCUPANCY_COUNTS_OVERLAP_ONCE` (hoy `False`). Ver el
+[hito 0 del TODO](../../docs/TODO.md#hito-0-desbloquear).
 
 ## Estado
 
@@ -112,5 +114,6 @@ herramientas son independientes entre sí, así que **se pueden repartir**.
 
 `base.py` y `registry.py` ya están implementados y no tienen stubs.
 
-`occupancy.py` (V2_F y V4_F) y `annotator.py` están bloqueados por el
-[hito 0](../../docs/TODO.md#hito-0-desbloquear).
+**Ninguna está bloqueada.** `occupancy.py` (V2_F y V4_F) y `annotator.py` lo
+estuvieron hasta que el [hito 0](../../docs/TODO.md#hito-0-desbloquear) fijó el
+conteo de la superposición y el índice de los puntos.
