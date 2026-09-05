@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **137 stubs** (`raise NotImplementedError`) en 24 módulos de la Parte 1.
+Quedan **118 stubs** (`raise NotImplementedError`) en 23 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -53,13 +53,13 @@ nada**. Un verde por omisión es peor que un rojo.
 | [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ✅ cerrado |
 | [1. Cimientos](#hito-1-cimientos) | — | 0 | ✅ cerrado |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | — | 0 | ✅ cerrado |
-| [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
+| [3. Sesión](#hito-3-sesión) | — | 0 | ✅ cerrado |
 | [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
 | [5. Exportadores](#hito-5-exportadores) | 4 | 14 | ⬜ |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **24** | **137** | |
+| | **23** | **118** | |
 
 ### Los tres cortes que importan
 
@@ -246,16 +246,33 @@ de negocio entera funciona sin abrir una ventana.
 
 ## Hito 3: Sesión
 
-- [ ] **`psglab/core/session.py`** · 19 stubs · V1_F "Navegación";
+**Cerrado el 5 de septiembre de 2026.** Con esto **`core/` queda terminada
+entera** y la capa de negocio funciona sin abrir una ventana. Los hitos 4 y 5 no
+dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
+
+- [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: **crear** `tests/test_session.py`. Navegación y amplitud son
-    testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
-  - Va a necesitar importar `core/windows.py` para `n_windows` (VENMAX); hoy
-    todavía no lo importa.
-  - Los topes de amplitud salen de `config`, no se escriben a mano.
-  - Las tres propiedades `recording`, `scoring` y `annotations` son el único
-    camino por el que las herramientas y la interfaz llegan a lo que hay
-    abierto: no agregar accesos por atributo suelto.
+  - Test: `tests/test_session.py`, **37 tests en verde**. Navegación y amplitud
+    son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
+  - `n_windows` sale de `windows.count_windows()` sobre el registro, que es la
+    fuente de verdad, y `__init__` eleva `ScoringMismatchError` si el scoring no
+    mide lo mismo. Sin ese chequeo, un scoring importado de otro registro daría
+    un histograma de largo equivocado sin ningún error visible.
+  - **Aumentar la amplitud BAJA el número de `scale_uv`.** Parece al revés:
+    `scale_uv` es cuántos µV representa la altura del canal, así que para que la
+    señal se vea más grande esa altura tiene que representar menos µV. Hay un
+    test que lo dice con todas las letras.
+  - Las dos flechas delegan en `set_scale_uv`, que es el único lugar que recorta
+    contra los topes de `config`.
+  - `active_tool` significa **la herramienta exclusiva del mouse**: la banda de
+    amplitud y los dos paneles declaran `exclusive = False` y están activos a la
+    vez, así que los gestiona la ventana principal. `Session` tampoco valida el
+    nombre: importar `tools/registry.py` desde `core/` cerraría un ciclo.
+  - Visibilidad y selección son ejes independientes y los dos validan contra el
+    registro. No se exige que lo seleccionado esté visible: el pliego no los ata.
+  - `visible_channels` arranca con **todos** los canales. El subconjunto inicial
+    de V1_P (ojos, C3, C4, EMG) necesita `readers/channel_types.py`, del hito 4,
+    y es un default de la interfaz, no de `core/`.
 
 > **Cerrado el hito 3, toda la capa de negocio funciona sin abrir una ventana.**
 
