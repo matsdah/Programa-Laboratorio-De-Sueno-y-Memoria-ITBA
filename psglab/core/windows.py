@@ -180,9 +180,21 @@ def seconds_to_sample(
     El desplazamiento se suma sobre el borde que devuelve `window_to_samples`,
     no sobre `window_index * 30 * fs`, para que la muestra caiga en la misma
     ventana de la que se dice que salió incluso con una frecuencia no redonda.
+
+    **Sumar no alcanzaba.** `floor(i·spw) + floor(off·fs)` puede alcanzar
+    `floor((i+1)·spw)`, así que la muestra se iba a la ventana siguiente. Medido
+    a 256,125 Hz sobre ocho horas: **240 de 960 ventanas** fallaban, para
+    desplazamientos en los últimos 2,9 ms. Una anotación marcada pegada al final
+    de la ventana se guardaba con una muestra que ya no le pertenece, y al
+    redibujarla desaparecía del lugar donde el usuario la puso. Por eso el
+    resultado se recorta a la última muestra de la ventana.
+
+    Un desplazamiento mayor que la ventana entera se recorta igual: la promesa
+    es que el resultado pertenezca a `window_index`, y eso vale para cualquier
+    entrada.
     """
-    start, _ = window_to_samples(window_index, sampling_rate, window_seconds)
-    return start + math.floor(offset_seconds * sampling_rate)
+    start, stop = window_to_samples(window_index, sampling_rate, window_seconds)
+    return min(start + math.floor(offset_seconds * sampling_rate), stop - 1)
 
 
 def sample_to_seconds(

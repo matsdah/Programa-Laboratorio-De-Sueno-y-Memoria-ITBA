@@ -41,7 +41,7 @@ class ChannelKind(Enum):
     OTHER = "Otro"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Channel:
     """Un canal del registro.
 
@@ -51,6 +51,13 @@ class Channel:
         unit: unidad física original del archivo. La señal se normaliza
             internamente a microvoltios (ver `psglab.utils.units`).
         index: posición del canal dentro de la matriz de datos.
+
+    **Inmutable a propósito.** `channel_by_name()` y `channels_of_kind()`
+    devuelven el canal interno, y siendo mutable se lo podía renombrar desde
+    afuera: después `get_segment(["nombre nuevo"])` devolvía la fila de otro
+    canal bajo el nombre pedido, que es señal equivocada presentada como si
+    fuera la correcta. Corregir la clase detectada de un canal (V4_F) se hace
+    construyendo otro, no escribiéndole encima.
     """
 
     name: str

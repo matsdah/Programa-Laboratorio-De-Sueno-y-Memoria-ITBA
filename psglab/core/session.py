@@ -260,8 +260,14 @@ class Session:
         """Canales a los que llega un cambio de amplitud (V5_F).
 
         Los seleccionados si hay alguno; si no, todos los visibles.
+
+        **Sin repetidos.** Mostrar el mismo canal dos veces es un uso soportado
+        —`get_segment` lo documenta— y sin esta deduplicación cada pulsación de
+        flecha le aplicaba el paso dos veces: el canal se escapaba del resto y
+        el usuario no tenía cómo entender por qué.
         """
-        return self._selected_channels or self._visible_channels
+        elegidos = self._selected_channels or self._visible_channels
+        return list(dict.fromkeys(elegidos))
 
     def increase_amplitude(self, factor: float = AMPLITUDE_STEP_FACTOR) -> None:
         """Aumenta la amplitud (flecha "Arriba").
