@@ -167,19 +167,70 @@ def test_declarar_mas_canales_que_filas_se_rechaza():
     assert "2" in excepcion.value.message and "1" in excepcion.value.message
 
 
-def test_una_frecuencia_de_muestreo_no_positiva_se_rechaza():
+@pytest.mark.parametrize("frecuencia", [0.0, -256.0, float("nan"), float("inf")])
+def test_una_frecuencia_de_muestreo_que_no_es_finita_y_positiva_se_rechaza(frecuencia):
     """Sin frecuencia válida no se puede ubicar ninguna ventana en el tiempo.
 
-    Cierra además el agujero que `core/windows.py` documenta: con frecuencia
-    cero las conversiones elevan `ZeroDivisionError`, y con esta validación ese
-    registro no llega a existir.
+    NaN e infinito están en la lista por un motivo concreto: `<= 0` a secas es
+    **falso** para NaN, así que la primera versión de esta validación los dejaba
+    pasar. El NaN reaparecía mucho más lejos, como un `ValueError` de numpy
+    adentro de `core/windows.py` —justo lo que `__post_init__` dice existir para
+    evitar— y el infinito daba una duración de 0 segundos para un registro con
+    muestras.
     """
     with pytest.raises(InvalidRecordingError):
         Recording(
             file_path=Path("roto.edf"),
             channels=[canal("C3", 0)],
             data=np.zeros((1, 1000)),
-            sampling_rate=0.0,
+            sampling_rate=frecuencia,
+        )
+
+
+def test_una_señal_con_valores_enteros_se_rechaza():
+    """Los enteros son las cuentas crudas del conversor del equipo.
+
+    Que lleguen hasta acá significa que el lector no convirtió a microvoltios,
+    que es el fallo que `utils/units.py` existe para impedir: la señal queda
+    escalada por un factor arbitrario y en pantalla sigue pareciendo una señal.
+    """
+    with pytest.raises(InvalidRecordingError):
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[canal("C3", 0)],
+            data=np.zeros((1, 1000), dtype=np.int16),
+            sampling_rate=256.0,
+        )
+
+
+def test_un_registro_sin_ningun_canal_se_rechaza():
+    """No hay nada que mostrar ni que scorear, y las cuentas cerraban igual.
+
+    `len(channels) == data.shape[0]` se cumple con cero de cada uno, así que
+    este registro pasaba la validación entera.
+    """
+    with pytest.raises(InvalidRecordingError):
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[],
+            data=np.zeros((0, 1000)),
+            sampling_rate=256.0,
+        )
+
+
+def test_una_ruta_que_no_es_una_ruta_se_rechaza():
+    """Se valida primero porque todos los demás mensajes usan `file_path.name`.
+
+    Con un `str`, el camino feliz construía sin quejarse y **cualquier otro
+    error de validación** se convertía en un `AttributeError`, que es peor que
+    el error que iba a reportar.
+    """
+    with pytest.raises(InvalidRecordingError):
+        Recording(
+            file_path="roto.edf",
+            channels=[canal("C3", 0)],
+            data=np.zeros((1, 1000)),
+            sampling_rate=256.0,
         )
 
 

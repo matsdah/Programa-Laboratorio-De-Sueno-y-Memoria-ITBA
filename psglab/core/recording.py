@@ -9,6 +9,7 @@ Cubre del pliego: es el soporte de V1_F, V2_F y V3_F de "Importación de
 archivos" y de V4_F de "Visualización de la señal".
 """
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -93,14 +94,25 @@ class Recording:
         `psglab.utils.units.to_microvolts`: preferir fallar a asumir.
 
         Raises:
-            InvalidRecordingError: si la matriz no es de dos dimensiones, si la
-                cantidad de canales no coincide con sus filas, si la frecuencia
-                de muestreo no es positiva, o si el `index` de un canal no es su
-                posición en la lista.
+            InvalidRecordingError: si `file_path` no es un `Path`, si la matriz
+                no es de dos dimensiones o no tiene ningún canal, si sus valores
+                no son de punto flotante, si la cantidad de canales no coincide
+                con sus filas, si la frecuencia de muestreo no es un número
+                finito y positivo, o si el `index` de un canal no es su posición
+                en la lista.
             DuplicateChannelError: si dos canales se llaman igual. Los canales se
                 piden por nombre en toda la interfaz, así que un nombre repetido
                 vuelve ambiguo cuál se está mostrando.
         """
+        # Va primero porque todos los mensajes de abajo usan `file_path.name`:
+        # con un `str` la validación entera se convertiría en un AttributeError,
+        # y el tipo equivocado sólo se notaría el día que hubiera otro error.
+        if not isinstance(self.file_path, Path):
+            raise InvalidRecordingError(
+                "El registro no se pudo interpretar porque su ruta no es una ruta.",
+                details=f"file_path es {type(self.file_path).__name__}, se esperaba Path.",
+            )
+
         if self.data.ndim != 2:
             raise InvalidRecordingError(
                 f"El registro '{self.file_path.name}' no se pudo interpretar: la señal "
@@ -118,11 +130,37 @@ class Recording:
                 ),
             )
 
-        if self.sampling_rate <= 0:
+        if not self.channels:
+            raise InvalidRecordingError(
+                f"El registro '{self.file_path.name}' no tiene ningún canal, así que no "
+                "hay nada que mostrar ni que scorear.",
+                details=f"data.shape = {self.data.shape}.",
+            )
+
+        # Los enteros son las cuentas crudas del conversor analógico-digital.
+        # Que lleguen hasta acá significa que el lector no aplicó la conversión
+        # a microvoltios, que es exactamente el fallo que `utils/units.py`
+        # existe para impedir, y produce una señal escalada por un factor
+        # arbitrario que en pantalla sigue pareciendo una señal.
+        if not np.issubdtype(self.data.dtype, np.floating):
+            raise InvalidRecordingError(
+                f"La señal del registro '{self.file_path.name}' no está en microvoltios: "
+                "llegó con valores enteros, que son las cuentas crudas del equipo.",
+                details=f"data.dtype = {self.data.dtype}, se esperaba punto flotante.",
+            )
+
+        # `<= 0` a secas no alcanza: es **falso** para NaN, así que un NaN se
+        # colaba y reaparecía mucho más lejos como un ValueError de numpy dentro
+        # de `core/windows.py`. Y un infinito daba una duración de 0 segundos
+        # para un registro con muestras.
+        if not math.isfinite(self.sampling_rate) or self.sampling_rate <= 0:
             raise InvalidRecordingError(
                 f"El registro '{self.file_path.name}' declara una frecuencia de muestreo "
                 "que no es válida, así que no se puede ubicar ninguna ventana en el tiempo.",
-                details=f"sampling_rate = {self.sampling_rate}, se esperaba un número positivo.",
+                details=(
+                    f"sampling_rate = {self.sampling_rate}, se esperaba un número "
+                    "finito y positivo."
+                ),
             )
 
         desubicados = [c.name for i, c in enumerate(self.channels) if c.index != i]
