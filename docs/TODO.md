@@ -153,7 +153,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     módulo, la normalización dejaría de hacer nada y ningún otro test lo notaría.
 - [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
-  - Test: `tests/test_windows.py`, **25 tests en verde**.
+  - Test: `tests/test_windows.py`, **27 tests en verde**.
   - Los bordes se calculan desde el índice de la ventana, nunca acumulando un
     paso redondeado: con una frecuencia no redonda (256,125 Hz en EDF) acumular
     corre la ventana 960 casi tres segundos. Hay tres tests que lo fijan.
@@ -275,6 +275,9 @@ tiene test:
 - [ ] **`psglab/exporters/statistics.py`** · 6 stubs · alimenta V3_F
       "Archivo de salida"
   - No escribe archivos: por eso se puede testear sin tocar el disco.
+  - Test: **extender** `tests/test_exporters.py`, que hoy **no lo importa**.
+    Figuraba como cubierto en `COBERTURA_DE_TESTS` sin estarlo, y eso hacía que
+    nadie exigiera un test para sus 6 stubs.
 - [ ] **`psglab/exporters/scoring_txt.py`** · 3 stubs · V1_F "Archivo de salida"
   - **Las variantes de formato tienen que seguir siendo alcanzables** cambiando
     sólo la constante de `config`: el nº de ventana por línea y la cabecera de
@@ -289,6 +292,8 @@ tiene test:
       salida"
   - Las secciones que no correspondan se omiten con una explicación, no con
     ceros.
+  - Test: **extender** `tests/test_exporters.py`, que hoy **no lo importa**.
+    Mismo caso que `statistics.py`.
 - [ ] Test de los cuatro: `tests/test_exporters.py` → **borrar el
       `pytestmark`** y extenderlo a `statistics`.
 - [ ] **Test de ida y vuelta de la cabecera**, que cruza este hito y el 4:

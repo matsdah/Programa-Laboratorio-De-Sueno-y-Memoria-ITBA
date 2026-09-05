@@ -32,7 +32,8 @@ eleva `WindowOutOfRangeError` antes de llegar acá— y repetir la comprobación
 el camino caliente, que se recorre en cada pulsación de flecha, no aporta nada.
 Con un índice negativo devuelven números negativos en silencio.
 
-**Con una frecuencia que no sea positiva, todas elevan `ZeroDivisionError`.**
+**Con una frecuencia que no sea finita y positiva, todas elevan
+`ZeroDivisionError`.**
 Esa promesa era cierta a medias: `sample_to_window` y `count_windows` fallaban,
 pero `window_to_samples` devolvía `(0, 0)` y `window_duration` devolvía cero, en
 silencio. Una frecuencia corrupta leída de un EDF producía una ventana vacía en
@@ -59,13 +60,19 @@ def _samples_per_window(sampling_rate: float, window_seconds: float) -> float:
     módulo.
 
     Raises:
-        ZeroDivisionError: si la frecuencia no es positiva. Una frecuencia cero
-            o negativa no describe ninguna señal, y devolver una ventana vacía
-            en silencio esconde un archivo corrupto hasta mucho después.
+        ZeroDivisionError: si la frecuencia no es un número finito y positivo.
+            Una frecuencia cero, negativa o no finita no describe ninguna señal,
+            y devolver una ventana vacía en silencio esconde un archivo corrupto
+            hasta mucho después.
+
+            NaN entra en la lista por un motivo que costó ver: `<= 0` es
+            **falso** para NaN, así que se colaba y reaparecía mucho más lejos
+            como un `ValueError` de numpy al convertir a entero. El mismo
+            descuido estaba copiado en `core/recording.py`.
     """
-    if sampling_rate <= 0:
+    if not math.isfinite(sampling_rate) or sampling_rate <= 0:
         raise ZeroDivisionError(
-            f"la frecuencia de muestreo tiene que ser positiva, y es {sampling_rate}"
+            f"la frecuencia de muestreo tiene que ser finita y positiva, y es {sampling_rate}"
         )
     return window_seconds * sampling_rate
 

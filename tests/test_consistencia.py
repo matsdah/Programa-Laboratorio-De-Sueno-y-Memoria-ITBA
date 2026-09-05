@@ -37,11 +37,14 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_nomenclature.py": ("psglab/core/nomenclature.py",),
     "test_scoring.py": ("psglab/core/scoring.py",),
     "test_occupancy.py": ("psglab/tools/occupancy.py",),
+    # `information_txt.py` y `statistics.py` **no** figuran acá aunque el TODO
+    # los agrupe con los otros dos: `test_exporters.py` ni siquiera los importa.
+    # Declararlos cubiertos contaba 9 stubs como verificados y hacía que nadie
+    # exigiera un test para ellos. Se agregan cuando el archivo los cubra de
+    # verdad, que es lo que el hito 5 ya pide.
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",
-        "psglab/exporters/information_txt.py",
-        "psglab/exporters/statistics.py",
     ),
     # `test_consistencia.py` no cubre ningún módulo: testea el repositorio.
 }
