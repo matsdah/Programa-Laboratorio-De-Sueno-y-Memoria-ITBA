@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **165 stubs** (`raise NotImplementedError`) en 27 módulos de la Parte 1.
+Quedan **158 stubs** (`raise NotImplementedError`) en 26 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -51,7 +51,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | Hito | Módulos con stubs | Stubs | Estado |
 |---|---|---|---|
 | [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ✅ cerrado |
-| [1. Cimientos](#hito-1-cimientos) | 1 | 7 | 🟡 3 de 4 hecho |
+| [1. Cimientos](#hito-1-cimientos) | — | 0 | ✅ cerrado |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 21 | ⬜ |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
@@ -59,7 +59,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **27** | **165** | |
+| | **26** | **158** | |
 
 ### Los tres cortes que importan
 
@@ -133,8 +133,13 @@ repositorio.
 
 ## Hito 1: Cimientos
 
-Los cuatro módulos que **no importan nada interno**. Se pueden hacer en
-cualquier orden, incluso en paralelo.
+**Cerrado el 4 de septiembre de 2026.** Eran los cuatro módulos que **no
+importan nada interno**, así que se podían hacer en cualquier orden.
+
+Con esto `core/` ya tiene el vocabulario (`SleepStage`, `Nomenclature`), el
+modelo (`Recording`) y las conversiones de tiempo (`windows`), que es
+exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
+`utils/` queda terminada entera.
 
 - [x] **`psglab/utils/units.py`** · ~~4 stubs~~ · sostiene la escala en µV de
       V1_P "Visualización" y la banda de V1_F "Herramienta de amplitud"
@@ -168,10 +173,17 @@ cualquier orden, incluso en paralelo.
   - Las equivalencias entre nomenclaturas se escriben en las dos direcciones,
     sin derivar una de la otra: no son simétricas, y derivarlas escondería que
     S3 y S4 caen los dos en N3 y que volver no puede distinguirlos.
-- [ ] **`psglab/core/recording.py`** · 7 stubs · soporte de V1_F/V2_F/V3_F
+- [x] **`psglab/core/recording.py`** · ~~7 stubs~~ · soporte de V1_F/V2_F/V3_F
       "Importación" y V4_F "Visualización"
-  - Test: **crear** `tests/test_recording.py`, con la fixture
+  - Test: `tests/test_recording.py`, **20 tests en verde**, sobre la fixture
     `synthetic_signal` de `conftest.py`.
+  - **`__post_init__` rechaza un registro incoherente consigo mismo**: matriz
+    que no es 2-D, canales que no coinciden con las filas, frecuencia no
+    positiva, `Channel.index` que no es su posición, o nombres repetidos. El
+    error salta en el lector, que es donde está el bug, y no tres capas arriba.
+  - `get_segment` con un `stop` posterior al final devuelve un tramo **más
+    corto, en silencio**. Es el caso normal de la última ventana incompleta, no
+    un error: `windows.window_to_samples` devuelve justamente eso.
 
 `psglab/utils/errors.py` ya está implementado y no tiene stubs, pero tampoco
 tiene test:
