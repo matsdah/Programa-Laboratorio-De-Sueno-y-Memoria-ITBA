@@ -163,7 +163,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     `ui/signal_view.py`, que es lo único que conoce el ancho de la pantalla.
 - [x] **`psglab/core/nomenclature.py`** · ~~5 stubs~~ · V3_F "Scoring",
       V3_F "Histograma"
-  - Test: `tests/test_nomenclature.py`, **14 tests en verde**.
+  - Test: `tests/test_nomenclature.py`, **37 tests en verde**.
   - REM va en las dos nomenclaturas. El test ya lo verificaba: no se tocó.
   - `is_valid(UNSCORED, ...)` da **`True`** aunque `stages_of()` no la incluya.
     Es el punto donde las dos funciones dejan de responder lo mismo:
