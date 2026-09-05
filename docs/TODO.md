@@ -163,12 +163,18 @@ cualquier orden, incluso en paralelo.
 `psglab/utils/errors.py` ya está implementado y no tiene stubs, pero tampoco
 tiene test:
 
-- [ ] **`psglab/utils/errors.py`** · 0 pendientes · le falta el test:
-      **crear** `tests/test_errors.py`
-  - Que `PsgLabError` guarde el mensaje y la causa técnica por separado, y que
-    las subclases se puedan atrapar con un solo `except PsgLabError`. Es la
-    promesa sobre la que se apoya todo el manejo de errores que ve el
+- [x] **`psglab/utils/errors.py`** · 0 pendientes · ya tiene su test
+  - Test: `tests/test_errors.py`, **9 tests en verde**.
+  - Verifica que `PsgLabError` guarde el mensaje y la causa técnica por
+    separado, y que las subclases se atrapen con un solo `except PsgLabError`.
+    Es la promesa sobre la que se apoya todo el manejo de errores que ve el
     investigador.
+  - Dos de los tests **recorren el módulo** en vez de enumerar las clases: una
+    excepción nueva que se olvide de heredar de `PsgLabError` los hace fallar,
+    cosa que una lista escrita a mano no vería.
+  - Se agregó `InvalidRecordingError`, que usa `core/recording.py` para rechazar
+    un registro incoherente. No es `UnreadableFileError`: el archivo se leyó
+    bien, lo que quedó mal es lo que armó el lector.
 
 ---
 

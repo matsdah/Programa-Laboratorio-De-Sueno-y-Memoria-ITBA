@@ -53,7 +53,9 @@ raise ChannelNotFoundError(
 
 Están agrupadas por tema: importación de archivos, canales, scoring y
 anotaciones, herramientas, y análisis. **Al agregar un error nuevo, ponerlo en
-su grupo** y hacerlo heredar de `PsgLabError`.
+su grupo** y hacerlo heredar de `PsgLabError`. Dos tests de
+`tests/test_errors.py` recorren el módulo entero para que un error nuevo que se
+olvide de heredar haga fallar la suite.
 
 `PsgLabError.__init__` está implementado y no es un stub, a diferencia del resto
 del esqueleto: es la base de todas las excepciones, y si el constructor fallara
@@ -64,5 +66,6 @@ ninguna de las clases de abajo podría siquiera construirse para ser elevada.
 Pendientes **4 stubs**, todos en `units.py`, en el
 [hito 1 del TODO](../../docs/TODO.md#hito-1-cimientos).
 
-`errors.py` ya está implementado: `PsgLabError.__init__` es la base de todas
-las excepciones y no debe convertirse en un stub.
+`errors.py` ya está implementado y **tiene su test**
+(`tests/test_errors.py`): `PsgLabError.__init__` es la base de todas las
+excepciones y no debe convertirse en un stub.
