@@ -140,6 +140,46 @@ def test_el_tramo_es_el_mismo_dato_y_no_una_copia_alterada(recording, synthetic_
     assert np.array_equal(recording.get_segment(0, 50), synthetic_signal[:, 0:50])
 
 
+def test_un_indice_negativo_no_devuelve_señal_del_final_del_registro(recording):
+    """El bug que más caro salía, porque el resultado era plausible.
+
+    `core/windows.py` documenta que sus conversiones devuelven números negativos
+    en silencio ante un índice de ventana negativo, y numpy interpreta un
+    negativo como "desde el final". Sin esta guarda, pedir la ventana −1 dibujaba
+    el final de la noche como si fuera el principio.
+    """
+    with pytest.raises(InvalidRecordingError):
+        recording.get_segment(-100, -50)
+
+
+def test_un_tramo_que_empieza_despues_de_terminar_se_rechaza(recording):
+    """Devolvía un arreglo vacío, que se lee como "acá no hay señal"."""
+    with pytest.raises(InvalidRecordingError):
+        recording.get_segment(500, 100)
+
+
+def test_el_tramo_devuelto_no_se_puede_modificar(recording):
+    """Escribir en el tramo corrompía el registro entero.
+
+    Y ocurría o no según qué canales hubiera pedido el usuario: sin lista, numpy
+    devuelve un recorte que comparte memoria; con lista, copia. Marcarlo de sólo
+    lectura iguala las dos ramas sin pagar una copia.
+    """
+    tramo = recording.get_segment(0, 50)
+    with pytest.raises(ValueError):
+        tramo[0, 0] = -999.0
+
+    con_canales = recording.get_segment(0, 50, channel_names=["C3"])
+    with pytest.raises(ValueError):
+        con_canales[0, 0] = -999.0
+
+
+def test_pedir_una_lista_vacia_de_canales_no_devuelve_ninguno(recording):
+    """`None` y `[]` no son lo mismo: uno pide todos y el otro ninguno."""
+    assert recording.get_segment(0, 10, channel_names=[]).shape == (0, 10)
+    assert recording.get_segment(0, 10, channel_names=None).shape == (4, 10)
+
+
 # -- Lo que no se deja construir --------------------------------------------
 
 

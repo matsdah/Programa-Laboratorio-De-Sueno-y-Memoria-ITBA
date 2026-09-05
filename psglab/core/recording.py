@@ -247,7 +247,10 @@ class Recording:
         Args:
             start_sample: primera muestra incluida.
             stop_sample: primera muestra excluida.
-            channel_names: canales pedidos. Si es None, devuelve todos.
+            channel_names: canales pedidos, en el orden en que se quieren
+                apilar, que no tiene por qué ser el del registro. **Si es
+                `None` devuelve todos; una lista vacía devuelve ninguno**, que
+                no es lo mismo. Un nombre repetido en la lista repite la fila.
 
         Returns:
             Matriz de forma (n_canales_pedidos, stop_sample - start_sample)
@@ -260,10 +263,37 @@ class Recording:
             un `stop` posterior al final. O sea que éste es el caso normal al
             dibujar la última ventana, no un error que haya que reportar.
 
+            El arreglo devuelto es de **sólo lectura**. Es un recorte de la
+            señal del registro, no una copia, así que escribir en él modificaría
+            el registro; y como pedir canales sueltos sí copia, el efecto
+            dependería de qué canales pidió el usuario. Se marca de sólo lectura
+            para que las dos ramas se comporten igual, sin pagar una copia.
+
         Raises:
             ChannelNotFoundError: si se pide un canal que el registro no tiene.
+            InvalidRecordingError: si `start_sample` es negativo o mayor que
+                `stop_sample`. `core.windows` documenta que sus conversiones
+                devuelven números negativos en silencio ante un índice de
+                ventana negativo, y sin esta guarda un índice así devolvía señal
+                **del final del registro** presentada como si fuera del
+                principio: numpy interpreta el negativo como "desde el final".
+                Es la clase de error que produce un resultado plausible y
+                equivocado, que es peor que uno vacío.
         """
+        if start_sample < 0 or start_sample > stop_sample:
+            raise InvalidRecordingError(
+                "Se pidió un tramo de señal que no existe en el registro.",
+                details=(
+                    f"start_sample = {start_sample}, stop_sample = {stop_sample}; "
+                    "se esperaba 0 <= start_sample <= stop_sample."
+                ),
+            )
+
         if channel_names is None:
-            return self.data[:, start_sample:stop_sample]
-        filas = [self.channel_by_name(nombre).index for nombre in channel_names]
-        return self.data[filas, start_sample:stop_sample]
+            tramo = self.data[:, start_sample:stop_sample]
+        else:
+            filas = [self.channel_by_name(nombre).index for nombre in channel_names]
+            tramo = self.data[filas, start_sample:stop_sample]
+
+        tramo.flags.writeable = False
+        return tramo
