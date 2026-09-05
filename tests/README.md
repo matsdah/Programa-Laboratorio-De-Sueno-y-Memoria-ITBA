@@ -26,9 +26,9 @@ Los tests de los módulos que todavía no están implementados están
 pytestmark = pytest.mark.skip(reason="Esqueleto: la lógica todavía no está implementada.")
 ```
 
-La llevan **los tests de los hitos que todavía no se abrieron**: `test_scoring`
-(hito 2), `test_exporters` (5) y `test_occupancy` (7). Los demás corren, porque
-sus módulos están cerrados o —como `test_consistencia.py`— no cubren ninguno.
+La llevan **los tests de los hitos que todavía no se abrieron**:
+`test_exporters` (hito 5) y `test_occupancy` (7). Los demás corren, porque sus
+módulos están cerrados o —como `test_consistencia.py`— no cubren ninguno.
 
 **Los números concretos —cuántos se recolectan y cuántos se saltean— no se
 escriben acá**, porque un número a mano en este archivo se desactualiza con el
