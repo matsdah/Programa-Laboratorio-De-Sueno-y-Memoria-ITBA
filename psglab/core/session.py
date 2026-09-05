@@ -29,7 +29,7 @@ from psglab.utils.errors import (
     ScoringMismatchError,
     WindowOutOfRangeError,
 )
-from psglab.utils.validation import check_finite, clamp
+from psglab.utils.validation import check_finite, check_index, clamp
 
 
 class Session:
@@ -164,6 +164,12 @@ class Session:
                 que pasara de acá terminaría dibujando el final de la noche como
                 si fuera el principio.
         """
+        check_index(
+            window_index,
+            error=WindowOutOfRangeError,
+            message="Se pidió una ventana que no se puede ubicar en el registro.",
+            details="Se esperaba un número de ventana entero.",
+        )
         if not 0 <= window_index < self.n_windows:
             raise WindowOutOfRangeError(
                 f"La ventana {window_index + 1} no existe en este registro, que "

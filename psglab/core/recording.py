@@ -22,6 +22,7 @@ from psglab.utils.errors import (
     DuplicateChannelError,
     InvalidRecordingError,
 )
+from psglab.utils.validation import check_finite
 
 
 class ChannelKind(Enum):
@@ -113,6 +114,32 @@ class Recording:
                 details=f"file_path es {type(self.file_path).__name__}, se esperaba Path.",
             )
 
+        # El tipo antes de la forma, por el mismo motivo que la ruta: una lista
+        # de listas —el error más obvio de un lector nuevo— no tiene `.ndim`, y
+        # sin esta guarda la validación entera se convertía en un AttributeError
+        # de numpy, que es justo lo que este método existe para impedir.
+        if not isinstance(self.data, np.ndarray):
+            raise InvalidRecordingError(
+                f"El registro '{self.file_path.name}' no se pudo interpretar: la señal "
+                "no llegó como una matriz.",
+                details=f"data es {type(self.data).__name__}, se esperaba numpy.ndarray.",
+            )
+
+        if not isinstance(self.channels, list):
+            raise InvalidRecordingError(
+                f"El registro '{self.file_path.name}' no se pudo interpretar: la lista "
+                "de canales no es una lista.",
+                details=f"channels es {type(self.channels).__name__}.",
+            )
+
+        nombres_raros = [c for c in self.channels if not isinstance(getattr(c, "name", None), str)]
+        if nombres_raros:
+            raise InvalidRecordingError(
+                f"El registro '{self.file_path.name}' tiene canales sin un nombre "
+                "utilizable, y los canales se piden por nombre en toda la interfaz.",
+                details=f"{len(nombres_raros)} canal(es) con un nombre que no es texto.",
+            )
+
         if self.data.ndim != 2:
             raise InvalidRecordingError(
                 f"El registro '{self.file_path.name}' no se pudo interpretar: la señal "
@@ -163,15 +190,22 @@ class Recording:
         # `<= 0` a secas no alcanza: es **falso** para NaN, así que un NaN se
         # colaba y reaparecía mucho más lejos como un ValueError de numpy dentro
         # de `core/windows.py`. Y un infinito daba una duración de 0 segundos
-        # para un registro con muestras.
-        if not math.isfinite(self.sampling_rate) or self.sampling_rate <= 0:
+        # para un registro con muestras. `check_finite` cubre además el caso de
+        # una frecuencia que llega como texto, que antes daba un TypeError crudo.
+        check_finite(
+            self.sampling_rate,
+            error=InvalidRecordingError,
+            message=(
+                f"El registro '{self.file_path.name}' declara una frecuencia de muestreo "
+                "que no es válida, así que no se puede ubicar ninguna ventana en el tiempo."
+            ),
+            details="Se esperaba un número finito y positivo.",
+        )
+        if self.sampling_rate <= 0:
             raise InvalidRecordingError(
                 f"El registro '{self.file_path.name}' declara una frecuencia de muestreo "
                 "que no es válida, así que no se puede ubicar ninguna ventana en el tiempo.",
-                details=(
-                    f"sampling_rate = {self.sampling_rate}, se esperaba un número "
-                    "finito y positivo."
-                ),
+                details=f"sampling_rate = {self.sampling_rate}, se esperaba un número positivo.",
             )
 
         desubicados = [c.name for i, c in enumerate(self.channels) if c.index != i]
@@ -241,7 +275,18 @@ class Recording:
         Lo usa el selector de canales para ofrecer "mostrar todos los EEG" o
         "ocultar los EMG" (V3_P). Una clase sin canales devuelve una lista
         vacía: no es un error, es un registro que no tiene ese tipo de señal.
+
+        Raises:
+            InvalidRecordingError: si `kind` no es un `ChannelKind`. Se rechaza
+                en vez de devolver la lista vacía porque las dos respuestas se
+                leen igual desde afuera: pasar la cadena `"EEG"` en vez del enum
+                haría que el programa afirme que el registro no tiene ningún EEG.
         """
+        if not isinstance(kind, ChannelKind):
+            raise InvalidRecordingError(
+                "Se pidieron los canales de una clase que no existe.",
+                details=f"kind es {type(kind).__name__}, se esperaba ChannelKind.",
+            )
         return [canal for canal in self.channels if canal.kind is kind]
 
     def get_segment(

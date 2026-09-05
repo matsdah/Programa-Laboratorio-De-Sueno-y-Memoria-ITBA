@@ -59,6 +59,32 @@ def check_finite(
         raise error(message, details=f"{details} Se recibió {value}.")
 
 
+def check_index(
+    value: int,
+    *,
+    error: type[PsgLabError],
+    message: str,
+    details: str,
+) -> None:
+    """Rechaza lo que no sea un entero, antes de compararlo con nada.
+
+    Un índice llega de tres lados: del clic sobre el histograma, de un archivo
+    que se está leyendo, y de la propia interfaz. En los tres puede venir como
+    texto, como `None` o como un `float` calculado desde un píxel, y comparar
+    cualquiera de ellos con `0 <= i < n` eleva un `TypeError` crudo que escapa
+    del `except PsgLabError` de la interfaz.
+
+    **Un `float` se rechaza aunque valga 1.0.** No es purismo: `x/ancho*n` da un
+    float, y `1.5` atraviesa una comprobación de rango sin problema y después
+    devuelve media ventana corrida. Quien tenga un float que redondee y lo diga.
+
+    Raises:
+        El `error` que se le pasó, si `value` no es un entero.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise error(message, details=f"{details} Se recibió {value!r}.")
+
+
 def clamp(value: float, minimum: float, maximum: float) -> float:
     """Recorta un número finito al rango permitido.
 

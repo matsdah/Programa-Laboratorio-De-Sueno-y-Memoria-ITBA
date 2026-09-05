@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los once
+camino de búsqueda. Con `pytest` directo la recolección falla en los doce
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -51,6 +51,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_consistencia.py` | **El repositorio, no un componente.** Ver abajo. |
 | `test_errors.py` | Que el mensaje y la causa técnica viajen separados, y que un solo `except` las atrape todas. |
 | `test_validation.py` | Que un NaN no atraviese una guarda numérica. |
+| `test_contratos.py` | Que ningún método público escape del `except` de la interfaz. |
 | `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
 | `test_nomenclature.py` | Las dos nomenclaturas, la conversión entre ellas y los códigos de `Scoring.txt`. |

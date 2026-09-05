@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from psglab.utils.errors import InvalidAnnotationError, UnknownAnnotationLabelError
-from psglab.utils.validation import check_finite
+from psglab.utils.validation import check_finite, check_index
 
 #: Clases de evento ofrecidas por defecto. El usuario puede agregar las suyas.
 DEFAULT_LABELS: Final[tuple[str, ...]] = (
@@ -176,6 +176,12 @@ class AnnotationSet:
                 sin la guarda `remove_at(-1)` borraría la última anotación de la
                 noche en vez de avisar que el índice está mal.
         """
+        check_index(
+            index,
+            error=InvalidAnnotationError,
+            message="Se quiso borrar una anotación que no existe.",
+            details="Se esperaba una posición entera.",
+        )
         if not 0 <= index < len(self._annotations):
             raise InvalidAnnotationError(
                 "Se quiso borrar una anotación que no existe.",
@@ -223,7 +229,7 @@ class AnnotationSet:
                 clase registrada tiene color, así que es el único motivo por el
                 que esto puede fallar.
         """
-        if label not in self._colors:
+        if not isinstance(label, str) or label not in self._colors:
             raise UnknownAnnotationLabelError(
                 f"La clase de evento '{label}' no está registrada.",
                 details=f"Clases disponibles: {', '.join(self.labels())}.",

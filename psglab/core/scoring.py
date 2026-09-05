@@ -13,6 +13,7 @@ from dataclasses import dataclass, replace
 
 from psglab.core.nomenclature import Nomenclature, SleepStage, convert, is_valid
 from psglab.utils.errors import InvalidStageError, WindowOutOfRangeError
+from psglab.utils.validation import check_index
 
 
 @dataclass(frozen=True)
@@ -60,11 +61,20 @@ class Scoring:
             WindowOutOfRangeError: si `n_windows` es negativo. Un scoring con
                 menos de cero ventanas no describe ningún registro.
         """
-        if n_windows < 0:
+        if not isinstance(n_windows, int) or isinstance(n_windows, bool) or n_windows < 0:
             raise WindowOutOfRangeError(
-                "No se puede crear el scoring de un registro con una cantidad "
-                "negativa de ventanas.",
-                details=f"n_windows = {n_windows}.",
+                "No se puede crear el scoring de un registro con esa cantidad de "
+                "ventanas.",
+                details=f"n_windows = {n_windows!r}, se esperaba un entero no negativo.",
+            )
+        # Sin esta guarda, una nomenclatura equivocada se acepta y explota mucho
+        # después, con un `KeyError` crudo desde `nomenclature.stages_of()` la
+        # primera vez que alguien asigna una fase. Es el fallo lejos del bug que
+        # el resto del modelo existe para evitar.
+        if not isinstance(nomenclature, Nomenclature):
+            raise InvalidStageError(
+                "El scoring se pidió con una nomenclatura que no existe.",
+                details=f"nomenclature es {type(nomenclature).__name__}, se esperaba Nomenclature.",
             )
         self._scores: list[EpochScore] = [EpochScore() for _ in range(n_windows)]
         self._nomenclature = nomenclature
@@ -87,6 +97,12 @@ class Scoring:
         −1 devolvería la última de la noche como si fuera la primera: un
         resultado plausible y equivocado, que es la peor forma de fallar.
         """
+        check_index(
+            window_index,
+            error=WindowOutOfRangeError,
+            message="Se pidió una ventana que no se puede ubicar en el registro.",
+            details="Se esperaba un número de ventana entero.",
+        )
         if not 0 <= window_index < self.n_windows:
             raise WindowOutOfRangeError(
                 f"La ventana {window_index + 1} no existe en este registro, que "
@@ -116,6 +132,14 @@ class Scoring:
             InvalidStageError: si la fase no pertenece a la nomenclatura activa.
         """
         self._check_window(window_index)
+        # El tipo antes de la pertenencia: `is_valid("N2", ...)` devuelve False
+        # correctamente, y el mensaje que explica el rechazo era el que explotaba
+        # con un AttributeError al pedirle `.value` a una cadena.
+        if not isinstance(stage, SleepStage):
+            raise InvalidStageError(
+                "Se quiso asignar algo que no es una fase de sueño.",
+                details=f"stage es {type(stage).__name__}, se esperaba SleepStage.",
+            )
         if not is_valid(stage, self._nomenclature):
             raise InvalidStageError(
                 f"La fase '{stage.value}' no pertenece a la nomenclatura "
@@ -131,8 +155,18 @@ class Scoring:
 
         Raises:
             WindowOutOfRangeError: si el índice cae fuera del registro.
+            InvalidStageError: si `arousal` no es un booleano. `EpochScore` es
+                inmutable justamente para que toda escritura pase por acá, y
+                dejar entrar una cadena haría que `Scoring.txt` escriba `"si"` en
+                la columna del arousal, o que la exportación falle al final de la
+                sesión con la noche entera scoreada.
         """
         self._check_window(window_index)
+        if not isinstance(arousal, bool):
+            raise InvalidStageError(
+                "La marca de arousal sólo puede estar puesta o no puesta.",
+                details=f"arousal es {type(arousal).__name__}, se esperaba bool.",
+            )
         self._scores[window_index] = replace(self._scores[window_index], arousal=arousal)
 
     def change_nomenclature(self, target: Nomenclature) -> None:
