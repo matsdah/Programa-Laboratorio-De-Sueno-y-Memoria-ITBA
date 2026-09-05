@@ -91,7 +91,7 @@ cambiar una línea. Ver el [hito 0 del TODO](../../docs/TODO.md#hito-0-desbloque
 
 ## Estado
 
-Pendientes **52 stubs**, repartidos en los tres primeros hitos del
+Pendientes **47 stubs**, repartidos en los tres primeros hitos del
 [TODO](../../docs/TODO.md):
 
 | Hito | Módulos |

@@ -15,9 +15,6 @@ from psglab.core.nomenclature import (
     stages_of,
 )
 
-pytestmark = pytest.mark.skip(reason="Esqueleto: la lógica todavía no está implementada.")
-
-
 def test_rk_incluye_rem():
     """Rechtschaffen y Kales sin REM no sería una nomenclatura válida."""
     assert SleepStage.REM in stages_of(Nomenclature.RK)

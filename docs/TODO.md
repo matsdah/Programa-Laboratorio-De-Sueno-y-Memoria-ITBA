@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **170 stubs** (`raise NotImplementedError`) en 28 módulos de la Parte 1.
+Quedan **165 stubs** (`raise NotImplementedError`) en 27 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -51,7 +51,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | Hito | Módulos con stubs | Stubs | Estado |
 |---|---|---|---|
 | [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ✅ cerrado |
-| [1. Cimientos](#hito-1-cimientos) | 2 | 12 | 🟡 1 de 4 hecho |
+| [1. Cimientos](#hito-1-cimientos) | 1 | 7 | 🟡 3 de 4 hecho |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 21 | ⬜ |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
@@ -59,7 +59,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **28** | **170** | |
+| | **27** | **165** | |
 
 ### Los tres cortes que importan
 
@@ -156,10 +156,18 @@ cualquier orden, incluso en paralelo.
     segundos dentro de la ventana y fracción de ventana. Las herramientas
     piden acá en vez de escribir la cuenta; los píxeles son de
     `ui/signal_view.py`, que es lo único que conoce el ancho de la pantalla.
-- [ ] **`psglab/core/nomenclature.py`** · 5 stubs · V3_F "Scoring",
+- [x] **`psglab/core/nomenclature.py`** · ~~5 stubs~~ · V3_F "Scoring",
       V3_F "Histograma"
-  - Test: `tests/test_nomenclature.py` → **borrar el `pytestmark`**.
-  - REM va en las dos nomenclaturas. El test ya lo verifica: no lo toques.
+  - Test: `tests/test_nomenclature.py`, **14 tests en verde**.
+  - REM va en las dos nomenclaturas. El test ya lo verificaba: no se tocó.
+  - `is_valid(UNSCORED, ...)` da **`True`** aunque `stages_of()` no la incluya.
+    Es el punto donde las dos funciones dejan de responder lo mismo:
+    `stages_of()` da las filas del histograma y "sin scorear" no es una fila,
+    pero sí es asignable, porque es como se **borra** el scoring de una ventana
+    marcada por error. Si diera `False`, despuntuar sería imposible.
+  - Las equivalencias entre nomenclaturas se escriben en las dos direcciones,
+    sin derivar una de la otra: no son simétricas, y derivarlas escondería que
+    S3 y S4 caen los dos en N3 y que volver no puede distinguirlos.
 - [ ] **`psglab/core/recording.py`** · 7 stubs · soporte de V1_F/V2_F/V3_F
       "Importación" y V4_F "Visualización"
   - Test: **crear** `tests/test_recording.py`, con la fixture
