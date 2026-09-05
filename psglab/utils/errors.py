@@ -93,6 +93,20 @@ class UnknownAnnotationLabelError(PsgLabError):
     """Se usó una clase de anotación que no está registrada."""
 
 
+class InvalidAnnotationError(PsgLabError):
+    """La anotación está mal formada y no se puede guardar.
+
+    No es lo mismo que `UnknownAnnotationLabelError`, que habla de la **clase**
+    del evento: acá la clase puede estar bien y lo que no cierra es el evento
+    —una posición negativa, una duración que no cubre ninguna muestra, una
+    etiqueta vacía—.
+
+    Existe por el mismo motivo que `InvalidRecordingError`: que el error salte
+    donde está el bug, que es el anotador armando la anotación, y no al
+    exportar `Anotaciones.txt` con una línea que nadie puede interpretar.
+    """
+
+
 # -- Herramientas -----------------------------------------------------------
 
 
