@@ -57,9 +57,9 @@ su grupo** y hacerlo heredar de `PsgLabError`. Dos tests de
 `tests/test_errors.py` recorren el módulo entero para que un error nuevo que se
 olvide de heredar haga fallar la suite.
 
-`PsgLabError.__init__` está implementado y no es un stub, a diferencia del resto
-del esqueleto: es la base de todas las excepciones, y si el constructor fallara
-ninguna de las clases de abajo podría siquiera construirse para ser elevada.
+`PsgLabError.__init__` está implementado y no es un stub: es la base de todas
+las excepciones, y si el constructor fallara ninguna de las clases de abajo
+podría siquiera construirse para ser elevada.
 
 ## Estado
 

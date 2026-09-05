@@ -36,10 +36,12 @@ lo puede modificar.
 2. ESTADO ACTUAL
 -------------------------------------------------------------------------------
 
-ESQUELETO. Estan creadas todas las carpetas y todos los archivos, cada uno con
-la explicacion de lo que le toca hacer y la firma de sus funciones, pero la
-logica todavia no esta escrita. Si se ejecuta el programa ahora, avisa que la
-funcion pedida esta pendiente.
+ESQUELETO, CON LOS CIMIENTOS PUESTOS. Estan creadas todas las carpetas y todos
+los archivos, cada uno con la explicacion de lo que le toca hacer y la firma de
+sus funciones. Ya estan escritas las piezas de base: el vocabulario de fases de
+sueno, el registro cargado en memoria, las conversiones de tiempo y las
+unidades. El resto de la logica todavia no esta. Si se ejecuta el programa
+ahora, avisa que la funcion pedida esta pendiente.
 
 Esto es a proposito: primero se acuerda la estructura, despues se programa.
 Asi se evita descubrir a mitad de camino que dos personas escribieron lo mismo

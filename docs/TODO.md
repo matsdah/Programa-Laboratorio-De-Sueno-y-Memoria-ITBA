@@ -111,8 +111,14 @@ convertir y el problema salta enseguida.
 
 - [x] **EDF** — [Sleep-EDF Database Expanded](https://physionet.org/content/sleep-edfx/1.0.0/)
   de PhysioNet, bajo [ODC-By v1.0](https://www.physionet.org/content/sleep-edfx/view-license/1.0.0/).
-  Registro real de noche completa: 7 canales, 100 Hz, 22 h, con hipnograma
-  scoreado en Rechtschaffen y Kales.
+  Registro real de noche completa: 7 canales y 22 h, con hipnograma scoreado en
+  Rechtschaffen y Kales. **Ojo con las frecuencias: son mixtas.** Verificado
+  leyendo la cabecera: `EEG Fpz-Cz`, `EEG Pz-Oz` y `EOG horizontal` van a
+  100 Hz, y `Resp oro-nasal`, `EMG submental`, `Temp rectal` y `Event marker`
+  van a 1 Hz. `core/recording.py` exige **una sola** frecuencia para toda la
+  matriz, así que este archivo no entra tal cual en el modelo: es lo primero
+  que hay que resolver en el hito 4, y `MixedSamplingRateError` existe para
+  eso.
 - [x] **BrainVision** — los archivos de prueba de
   [MNE-Python](https://github.com/mne-tools/mne-python/tree/main/mne/io/brainvision/tests/data)
   (BSD-3): tripleta `.vhdr` + `.vmrk` + `.eeg`, 32 canales con nombres 10-20,

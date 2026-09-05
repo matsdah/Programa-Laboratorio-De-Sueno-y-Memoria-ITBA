@@ -110,8 +110,8 @@ punta.
 ## Estado
 
 Pendientes **9 stubs**, en el
-[hito 4 del TODO](../../docs/TODO.md#hito-4-importación). Dependen de que
-`core/recording.py` esté terminado (hito 1).
+[hito 4 del TODO](../../docs/TODO.md#hito-4-importación). Dependían de
+`core/recording.py`, terminado en el hito 1.
 
 De `base.py` sólo falta `file_dialog_filter()`. `can_read()`,
 `register_reader`, `read_recording()` y `load_all_readers()` ya están

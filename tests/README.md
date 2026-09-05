@@ -13,8 +13,9 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los seis
-archivos con `ModuleNotFoundError: No module named 'psglab'`.
+camino de búsqueda. Con `pytest` directo la recolección falla en los ocho
+archivos que importan `psglab` al cargarse, con
+`ModuleNotFoundError: No module named 'psglab'`.
 
 ## Mientras el proyecto sea un esqueleto
 
@@ -25,10 +26,9 @@ Los tests de los módulos que todavía no están implementados están
 pytestmark = pytest.mark.skip(reason="Esqueleto: la lógica todavía no está implementada.")
 ```
 
-Los llevan cuatro de los seis archivos: `test_windows.py` corre desde que se
-implementó `core/windows.py`, y `test_consistencia.py` no cubre ningún módulo,
-así que corre siempre. Buena parte de la suite pasa entonces en verde sin haber
-verificado nada del programa.
+La llevan **los tests de los hitos que todavía no se abrieron**: `test_scoring`
+(hito 2), `test_exporters` (5) y `test_occupancy` (7). Los demás corren, porque
+sus módulos están cerrados o —como `test_consistencia.py`— no cubren ninguno.
 
 **Los números concretos —cuántos se recolectan y cuántos se saltean— no se
 escriben acá**, porque un número a mano en este archivo se desactualiza con el
@@ -49,24 +49,28 @@ verde por omisión, que es peor que dar rojo.
 |---|---|
 | `conftest.py` | Fixtures compartidas: señal sintética y nombres de canal. |
 | `test_consistencia.py` | **El repositorio, no un componente.** Ver abajo. |
-| `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
-| `test_nomenclature.py` | Las dos nomenclaturas y la conversión entre ellas. |
+| `test_errors.py` | Que el mensaje y la causa técnica viajen separados, y que un solo `except` las atrape todas. |
+| `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
+| `test_nomenclature.py` | Las dos nomenclaturas, la conversión entre ellas y los códigos de `Scoring.txt`. |
+| `test_recording.py` | El registro en memoria y lo que no deja construir. |
+| `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
 | `test_occupancy.py` | La herramienta de ocupación horizontal. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el
 motivo por el que `core/` no importa nada de `ui/`.
 
-## Las fixtures todavía no las usa nadie
+## Las fixtures, y por qué la señal ya existe
 
-`synthetic_signal` y `channel_names` están escritas y **ningún test las
-consume** hoy. No es un olvido: son el material del hito 4, cuando haya un
-`Recording` que construir. Se conservan porque el contrato que fijan —C3 a 1 Hz,
-C4 a 10 Hz, nombres 10-20 para que la detección de clase tenga qué detectar— es
-el que van a necesitar `test_recording.py` y `test_readers.py`.
+`synthetic_signal` y `channel_names` fijan un contrato que conviene conocer
+antes de escribir un test nuevo: cuatro canales de diez minutos —**exactamente
+veinte ventanas de 30 segundos**, un número cómodo para verificar las cuentas a
+mano—, con C3 a 1 Hz, C4 a 10 Hz, el EOG a 0,5 Hz y el EMG a 30 Hz, y nombres
+10-20 para que la detección automática de clase tenga qué detectar.
 
-Vale la pena saberlo antes de escribir esos tests: la señal ya existe.
+`test_recording.py` es su primer consumidor. `test_readers.py`, cuando se abra
+el hito 4, es el siguiente: no hace falta inventar otra señal.
 
 ## `test_consistencia.py` no testea un componente
 
@@ -151,11 +155,14 @@ regla se rompió**, no qué función se llamó.
 El [TODO](../docs/TODO.md) lleva la cuenta. Cada módulo que se implementa
 arrastra su test, y **eso es parte de darlo por terminado**:
 
-- **Reactivar** (borrar el `pytestmark`): `test_nomenclature` (hito 1),
-  `test_scoring` (2), `test_exporters` (5), `test_occupancy` (7).
-  `test_windows` ya está reactivado.
-- **Crear**: `test_units`, `test_recording` (1), `test_annotations` (2),
-  `test_session` (3), `test_channel_types`, `test_readers` (4), y uno por
-  herramienta (7).
+- **Reactivar** (borrar el `pytestmark`): `test_scoring` (hito 2),
+  `test_exporters` (5), `test_occupancy` (7).
+- **Crear**: `test_annotations` (2), `test_session` (3), `test_channel_types`,
+  `test_readers`, `test_scoring_reader` (4), y uno por herramienta (7).
+- **Extender**: `test_exporters` para que cubra de verdad `statistics.py` e
+  `information_txt.py` (5), que hoy no importa.
+
+Los cinco del hito 1 —`test_units`, `test_windows`, `test_nomenclature`,
+`test_recording` y `test_errors`— ya están y corren.
 
 `psglab/ui/` no lleva tests unitarios: es deliberado, no una omisión.
