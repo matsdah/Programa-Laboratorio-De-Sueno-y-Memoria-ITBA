@@ -9,9 +9,10 @@ Este archivo está en español, como el resto de la documentación del proyecto
 
 ## Estado del proyecto
 
-**Esqueleto con los cimientos puestos**, con los hitos 0 y 1 cerrados: `core/`
-ya tiene el vocabulario de fases, el modelo del registro y las conversiones de
-tiempo, y `utils/` está terminada entera. El resto de la lógica no está escrita.
+**Esqueleto con los cimientos puestos**, con los hitos 0, 1 y 2 cerrados:
+`core/` ya tiene el vocabulario de fases, el modelo del registro, las
+conversiones de tiempo, el scoring y las anotaciones, y `utils/` está terminada
+entera. El resto de la lógica no está escrita.
 `python main.py` termina en `NotImplementedError` dentro de `psglab/app.py`: es
 el comportamiento esperado, no un bug.
 
@@ -27,15 +28,15 @@ el trabajo queda sin verificar; el chequeo
 `test_ningun_modulo_terminado_tiene_su_test_salteado` hace fallar la suite si
 alguien se olvida.
 
-**Los cinco módulos del hito 1 sirven de modelo de qué se espera de un módulo
-cerrado**: `core/windows.py`, `core/nomenclature.py`, `core/recording.py`,
-`utils/units.py` y `utils/errors.py`, cada uno con su test corriendo. Mirá
-`windows.py` para ver cómo se documenta lo que un módulo **no** valida, y
-`recording.py` para el criterio opuesto: rechazar al construir lo que no se
-puede arreglar después.
+**Los siete módulos ya cerrados sirven de modelo de qué se espera de un módulo
+terminado**: `core/windows.py`, `core/nomenclature.py`, `core/recording.py`,
+`core/scoring.py`, `core/annotations.py`, `utils/units.py` y `utils/errors.py`,
+cada uno con su test corriendo. Mirá `windows.py` para ver cómo se documenta lo
+que un módulo **no** valida, y `recording.py` para el criterio opuesto: rechazar
+al construir lo que no se puede arreglar después.
 
 Algunas piezas están implementadas a propósito y **no deben convertirse en
-`NotImplementedError`**: los cinco módulos de arriba, los decoradores
+`NotImplementedError`**: los siete módulos de arriba, los decoradores
 `@register_tool` y `@register_reader`, `Reader.can_read`, el despacho de
 `read_recording()` con `load_all_readers()`, los métodos de evento de `Tool` y
 `ViewerTool`, y `psglab/config.py` entero. Las últimas son infraestructura que
@@ -81,7 +82,7 @@ Bash el script de activación no aplica**: conviene llamar al intérprete direct
 **Usar siempre `python -m pytest`, nunca `pytest` a secas.** No hay
 `pyproject.toml` ni instalación editable, así que `psglab` sólo es importable
 porque `python -m` agrega el directorio actual a `sys.path`; `pytest` directo
-falla con `ModuleNotFoundError: No module named 'psglab'` en los ocho archivos
+falla con `ModuleNotFoundError: No module named 'psglab'` en los nueve archivos
 que lo importan al cargarse.
 Agregar un `pyproject.toml` lo resolvería, pero es una decisión de empaquetado
 que nadie tomó todavía.

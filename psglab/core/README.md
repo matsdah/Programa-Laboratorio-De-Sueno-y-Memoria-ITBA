@@ -91,14 +91,11 @@ cambiar una línea. Ver el [hito 0 del TODO](../../docs/TODO.md#hito-0-desbloque
 
 ## Estado
 
-Pendientes **19 stubs**, todos en `session.py`, el hito 3 del
-[TODO](../../docs/TODO.md):
+Pendientes **0 stubs**: la carpeta está **terminada**, con los hitos 1, 2 y 3
+del [TODO](../../docs/TODO.md) cerrados. Sus seis módulos tienen su test
+corriendo.
 
-| Hito | Módulos |
-|---|---|
-| [1. Cimientos](../../docs/TODO.md#hito-1-cimientos) | ~~`windows`~~ ✅, ~~`nomenclature`~~ ✅, ~~`recording`~~ ✅ |
-| [2. Scoring y anotaciones](../../docs/TODO.md#hito-2-scoring-y-anotaciones) | ~~`scoring`~~ ✅, ~~`annotations`~~ ✅ |
-| [3. Sesión](../../docs/TODO.md#hito-3-sesión) | `session` |
-
-**Cerrado el hito 3, toda esta capa funciona y se puede testear sin abrir una
-ventana.** Es el primer punto en que el proyecto tiene valor real.
+**Toda esta capa funciona y se puede testear sin abrir una ventana**, que es el
+pago concreto de que `core/` no importe `ui/`. Es el primer punto en que el
+proyecto tiene valor real: desde acá, los hitos 4 y 5 pueden ir en paralelo con
+el 6.
