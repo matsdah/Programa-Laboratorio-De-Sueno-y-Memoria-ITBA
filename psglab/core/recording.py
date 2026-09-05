@@ -9,12 +9,19 @@ Cubre del pliego: es el soporte de V1_F, V2_F y V3_F de "Importación de
 archivos" y de V4_F de "Visualización de la señal".
 """
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
 import numpy as np
+
+from psglab.utils.errors import (
+    ChannelNotFoundError,
+    DuplicateChannelError,
+    InvalidRecordingError,
+)
 
 
 class ChannelKind(Enum):
@@ -78,24 +85,130 @@ class Recording:
     start_time: datetime | None = None
     metadata: dict[str, object] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        """Rechaza un registro que no es coherente consigo mismo.
+
+        Se valida acá, al construir, para que el error salte **en el lector, que
+        es donde está el bug**, y no tres capas más arriba con una traza de
+        numpy que no dice de dónde vino. Es el mismo criterio que ya declara
+        `psglab.utils.units.to_microvolts`: preferir fallar a asumir.
+
+        Raises:
+            InvalidRecordingError: si `file_path` no es un `Path`, si la matriz
+                no es de dos dimensiones o no tiene ningún canal, si sus valores
+                no son de punto flotante, si la cantidad de canales no coincide
+                con sus filas, si la frecuencia de muestreo no es un número
+                finito y positivo, o si el `index` de un canal no es su posición
+                en la lista.
+            DuplicateChannelError: si dos canales se llaman igual. Los canales se
+                piden por nombre en toda la interfaz, así que un nombre repetido
+                vuelve ambiguo cuál se está mostrando.
+        """
+        # Va primero porque todos los mensajes de abajo usan `file_path.name`:
+        # con un `str` la validación entera se convertiría en un AttributeError,
+        # y el tipo equivocado sólo se notaría el día que hubiera otro error.
+        if not isinstance(self.file_path, Path):
+            raise InvalidRecordingError(
+                "El registro no se pudo interpretar porque su ruta no es una ruta.",
+                details=f"file_path es {type(self.file_path).__name__}, se esperaba Path.",
+            )
+
+        if self.data.ndim != 2:
+            raise InvalidRecordingError(
+                f"El registro '{self.file_path.name}' no se pudo interpretar: la señal "
+                "no tiene la forma esperada de canales por muestras.",
+                details=f"data.ndim = {self.data.ndim}, se esperaba 2.",
+            )
+
+        if len(self.channels) != self.data.shape[0]:
+            raise InvalidRecordingError(
+                f"El registro '{self.file_path.name}' declara {len(self.channels)} canales "
+                f"pero la señal trae {self.data.shape[0]}.",
+                details=(
+                    f"len(channels) = {len(self.channels)}, "
+                    f"data.shape = {self.data.shape}."
+                ),
+            )
+
+        if not self.channels:
+            raise InvalidRecordingError(
+                f"El registro '{self.file_path.name}' no tiene ningún canal, así que no "
+                "hay nada que mostrar ni que scorear.",
+                details=f"data.shape = {self.data.shape}.",
+            )
+
+        # Los enteros son las cuentas crudas del conversor analógico-digital.
+        # Que lleguen hasta acá significa que el lector no aplicó la conversión
+        # a microvoltios, que es exactamente el fallo que `utils/units.py`
+        # existe para impedir, y produce una señal escalada por un factor
+        # arbitrario que en pantalla sigue pareciendo una señal.
+        if not np.issubdtype(self.data.dtype, np.floating):
+            raise InvalidRecordingError(
+                f"La señal del registro '{self.file_path.name}' no está en microvoltios: "
+                "llegó con valores enteros, que son las cuentas crudas del equipo.",
+                details=f"data.dtype = {self.data.dtype}, se esperaba punto flotante.",
+            )
+
+        # `<= 0` a secas no alcanza: es **falso** para NaN, así que un NaN se
+        # colaba y reaparecía mucho más lejos como un ValueError de numpy dentro
+        # de `core/windows.py`. Y un infinito daba una duración de 0 segundos
+        # para un registro con muestras.
+        if not math.isfinite(self.sampling_rate) or self.sampling_rate <= 0:
+            raise InvalidRecordingError(
+                f"El registro '{self.file_path.name}' declara una frecuencia de muestreo "
+                "que no es válida, así que no se puede ubicar ninguna ventana en el tiempo.",
+                details=(
+                    f"sampling_rate = {self.sampling_rate}, se esperaba un número "
+                    "finito y positivo."
+                ),
+            )
+
+        desubicados = [c.name for i, c in enumerate(self.channels) if c.index != i]
+        if desubicados:
+            raise InvalidRecordingError(
+                f"El registro '{self.file_path.name}' tiene canales cuya posición declarada "
+                "no coincide con la fila que ocupan en la señal.",
+                details=f"Canales desubicados: {', '.join(desubicados)}.",
+            )
+
+        nombres = [c.name for c in self.channels]
+        repetidos = sorted({n for n in nombres if nombres.count(n) > 1})
+        if repetidos:
+            raise DuplicateChannelError(
+                f"El registro '{self.file_path.name}' tiene más de un canal con el mismo "
+                "nombre, así que no se puede saber a cuál se refiere cada pedido.",
+                details=f"Nombres repetidos: {', '.join(repetidos)}.",
+            )
+
     @property
     def n_channels(self) -> int:
-        """Cantidad de canales del registro."""
-        raise NotImplementedError("Pendiente: devolver la cantidad de canales.")
+        """Cantidad de canales del registro.
+
+        Sale de `channels` y no de `data.shape[0]`: la lista es la que tiene los
+        nombres y las clases, y `__post_init__` es lo que garantiza que las dos
+        coincidan. Sin esa validación habría dos fuentes de verdad.
+        """
+        return len(self.channels)
 
     @property
     def n_samples(self) -> int:
         """Cantidad de muestras ("puntos") por canal."""
-        raise NotImplementedError("Pendiente: devolver la cantidad de muestras.")
+        return int(self.data.shape[1])
 
     @property
     def duration_seconds(self) -> float:
-        """Duración total del registro en segundos."""
-        raise NotImplementedError("Pendiente: calcular n_samples / sampling_rate.")
+        """Duración total del registro en segundos.
+
+        Es la duración **real** de la señal. No confundir con el tiempo que
+        cubren las ventanas de scoring: la última puede estar incompleta y
+        `exporters/statistics.py` la cuenta entera, así que los dos números
+        difieren hasta en una ventana.
+        """
+        return self.n_samples / self.sampling_rate
 
     def channel_names(self) -> list[str]:
         """Nombres de todos los canales, en orden."""
-        raise NotImplementedError("Pendiente: devolver los nombres de los canales.")
+        return [canal.name for canal in self.channels]
 
     def channel_by_name(self, name: str) -> Channel:
         """Busca un canal por su nombre.
@@ -103,15 +216,22 @@ class Recording:
         Raises:
             ChannelNotFoundError: si no existe un canal con ese nombre.
         """
-        raise NotImplementedError("Pendiente: buscar el canal por nombre.")
+        for canal in self.channels:
+            if canal.name == name:
+                return canal
+        raise ChannelNotFoundError(
+            f"El registro no tiene ningún canal llamado '{name}'.",
+            details=f"Canales disponibles: {', '.join(self.channel_names())}.",
+        )
 
     def channels_of_kind(self, kind: ChannelKind) -> list[Channel]:
         """Devuelve todos los canales de una clase dada.
 
         Lo usa el selector de canales para ofrecer "mostrar todos los EEG" o
-        "ocultar los EMG" (V3_P).
+        "ocultar los EMG" (V3_P). Una clase sin canales devuelve una lista
+        vacía: no es un error, es un registro que no tiene ese tipo de señal.
         """
-        raise NotImplementedError("Pendiente: filtrar los canales por clase.")
+        return [canal for canal in self.channels if canal.kind is kind]
 
     def get_segment(
         self,
@@ -127,10 +247,53 @@ class Recording:
         Args:
             start_sample: primera muestra incluida.
             stop_sample: primera muestra excluida.
-            channel_names: canales pedidos. Si es None, devuelve todos.
+            channel_names: canales pedidos, en el orden en que se quieren
+                apilar, que no tiene por qué ser el del registro. **Si es
+                `None` devuelve todos; una lista vacía devuelve ninguno**, que
+                no es lo mismo. Un nombre repetido en la lista repite la fila.
 
         Returns:
             Matriz de forma (n_canales_pedidos, stop_sample - start_sample)
             en microvoltios.
+
+            **Si `stop_sample` se pasa del final del registro, el tramo sale más
+            corto, en silencio.** No es un descuido: la última ventana de un
+            registro que no termina en un múltiplo exacto de 30 segundos es
+            justamente así, y `core.windows.window_to_samples` devuelve para ella
+            un `stop` posterior al final. O sea que éste es el caso normal al
+            dibujar la última ventana, no un error que haya que reportar.
+
+            El arreglo devuelto es de **sólo lectura**. Es un recorte de la
+            señal del registro, no una copia, así que escribir en él modificaría
+            el registro; y como pedir canales sueltos sí copia, el efecto
+            dependería de qué canales pidió el usuario. Se marca de sólo lectura
+            para que las dos ramas se comporten igual, sin pagar una copia.
+
+        Raises:
+            ChannelNotFoundError: si se pide un canal que el registro no tiene.
+            InvalidRecordingError: si `start_sample` es negativo o mayor que
+                `stop_sample`. `core.windows` documenta que sus conversiones
+                devuelven números negativos en silencio ante un índice de
+                ventana negativo, y sin esta guarda un índice así devolvía señal
+                **del final del registro** presentada como si fuera del
+                principio: numpy interpreta el negativo como "desde el final".
+                Es la clase de error que produce un resultado plausible y
+                equivocado, que es peor que uno vacío.
         """
-        raise NotImplementedError("Pendiente: recortar el tramo pedido de la matriz.")
+        if start_sample < 0 or start_sample > stop_sample:
+            raise InvalidRecordingError(
+                "Se pidió un tramo de señal que no existe en el registro.",
+                details=(
+                    f"start_sample = {start_sample}, stop_sample = {stop_sample}; "
+                    "se esperaba 0 <= start_sample <= stop_sample."
+                ),
+            )
+
+        if channel_names is None:
+            tramo = self.data[:, start_sample:stop_sample]
+        else:
+            filas = [self.channel_by_name(nombre).index for nombre in channel_names]
+            tramo = self.data[filas, start_sample:stop_sample]
+
+        tramo.flags.writeable = False
+        return tramo

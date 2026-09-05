@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **174 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
+Quedan **158 stubs** (`raise NotImplementedError`) en 26 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -51,7 +51,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | Hito | Módulos con stubs | Stubs | Estado |
 |---|---|---|---|
 | [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ✅ cerrado |
-| [1. Cimientos](#hito-1-cimientos) | 3 | 16 | 🟡 1 de 4 hecho |
+| [1. Cimientos](#hito-1-cimientos) | — | 0 | ✅ cerrado |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 21 | ⬜ |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
@@ -59,7 +59,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **29** | **174** | |
+| | **26** | **158** | |
 
 ### Los tres cortes que importan
 
@@ -111,8 +111,14 @@ convertir y el problema salta enseguida.
 
 - [x] **EDF** — [Sleep-EDF Database Expanded](https://physionet.org/content/sleep-edfx/1.0.0/)
   de PhysioNet, bajo [ODC-By v1.0](https://www.physionet.org/content/sleep-edfx/view-license/1.0.0/).
-  Registro real de noche completa: 7 canales, 100 Hz, 22 h, con hipnograma
-  scoreado en Rechtschaffen y Kales.
+  Registro real de noche completa: 7 canales y 22 h, con hipnograma scoreado en
+  Rechtschaffen y Kales. **Ojo con las frecuencias: son mixtas.** Verificado
+  leyendo la cabecera: `EEG Fpz-Cz`, `EEG Pz-Oz` y `EOG horizontal` van a
+  100 Hz, y `Resp oro-nasal`, `EMG submental`, `Temp rectal` y `Event marker`
+  van a 1 Hz. `core/recording.py` exige **una sola** frecuencia para toda la
+  matriz, así que este archivo no entra tal cual en el modelo: es lo primero
+  que hay que resolver en el hito 4, y `MixedSamplingRateError` existe para
+  eso.
 - [x] **BrainVision** — los archivos de prueba de
   [MNE-Python](https://github.com/mne-tools/mne-python/tree/main/mne/io/brainvision/tests/data)
   (BSD-3): tripleta `.vhdr` + `.vmrk` + `.eeg`, 32 canales con nombres 10-20,
@@ -133,17 +139,27 @@ repositorio.
 
 ## Hito 1: Cimientos
 
-Los cuatro módulos que **no importan nada interno**. Se pueden hacer en
-cualquier orden, incluso en paralelo.
+**Cerrado el 4 de septiembre de 2026.** Eran los cuatro módulos que **no
+importan nada interno**, así que se podían hacer en cualquier orden.
 
-- [ ] **`psglab/utils/units.py`** · 4 stubs · sostiene la escala en µV de V1_P
-      "Visualización" y la banda de V1_F "Herramienta de amplitud"
-  - Test: **crear** `tests/test_units.py`. Casos mínimos: `V`→µV es ×10⁶,
-    `mV`→µV es ×10³, y una unidad desconocida eleva `UnknownUnitError` en vez
-    de asumir un factor.
+Con esto `core/` ya tiene el vocabulario (`SleepStage`, `Nomenclature`), el
+modelo (`Recording`) y las conversiones de tiempo (`windows`), que es
+exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
+`utils/` queda terminada entera.
+
+- [x] **`psglab/utils/units.py`** · ~~4 stubs~~ · sostiene la escala en µV de
+      V1_P "Visualización" y la banda de V1_F "Herramienta de amplitud"
+  - Test: `tests/test_units.py`, **21 tests en verde**.
+  - La mitad de los tests son de **entrada sucia**, no de aritmética: las
+    cabeceras de EDF y BrainVision escriben la unidad de formas variadas, y
+    confundir "no reconozco esto" con "esto vale 1" deja la señal mal escalada
+    de punta a punta sin que nada se vea raro en pantalla.
+  - Los dos caracteres "mu" (U+03BC y U+00B5) se ven idénticos, así que un test
+    afirma sus puntos de código: si alguien los intercambiara al editar el
+    módulo, la normalización dejaría de hacer nada y ningún otro test lo notaría.
 - [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
-  - Test: `tests/test_windows.py`, **25 tests en verde**.
+  - Test: `tests/test_windows.py`, **27 tests en verde**.
   - Los bordes se calculan desde el índice de la ventana, nunca acumulando un
     paso redondeado: con una frecuencia no redonda (256,125 Hz en EDF) acumular
     corre la ventana 960 casi tres segundos. Hay tres tests que lo fijan.
@@ -151,24 +167,45 @@ cualquier orden, incluso en paralelo.
     segundos dentro de la ventana y fracción de ventana. Las herramientas
     piden acá en vez de escribir la cuenta; los píxeles son de
     `ui/signal_view.py`, que es lo único que conoce el ancho de la pantalla.
-- [ ] **`psglab/core/nomenclature.py`** · 5 stubs · V3_F "Scoring",
+- [x] **`psglab/core/nomenclature.py`** · ~~5 stubs~~ · V3_F "Scoring",
       V3_F "Histograma"
-  - Test: `tests/test_nomenclature.py` → **borrar el `pytestmark`**.
-  - REM va en las dos nomenclaturas. El test ya lo verifica: no lo toques.
-- [ ] **`psglab/core/recording.py`** · 7 stubs · soporte de V1_F/V2_F/V3_F
+  - Test: `tests/test_nomenclature.py`, **37 tests en verde**.
+  - REM va en las dos nomenclaturas. El test ya lo verificaba: no se tocó.
+  - `is_valid(UNSCORED, ...)` da **`True`** aunque `stages_of()` no la incluya.
+    Es el punto donde las dos funciones dejan de responder lo mismo:
+    `stages_of()` da las filas del histograma y "sin scorear" no es una fila,
+    pero sí es asignable, porque es como se **borra** el scoring de una ventana
+    marcada por error. Si diera `False`, despuntuar sería imposible.
+  - Las equivalencias entre nomenclaturas se escriben en las dos direcciones,
+    sin derivar una de la otra: no son simétricas, y derivarlas escondería que
+    S3 y S4 caen los dos en N3 y que volver no puede distinguirlos.
+- [x] **`psglab/core/recording.py`** · ~~7 stubs~~ · soporte de V1_F/V2_F/V3_F
       "Importación" y V4_F "Visualización"
-  - Test: **crear** `tests/test_recording.py`, con la fixture
+  - Test: `tests/test_recording.py`, **30 tests en verde**, sobre la fixture
     `synthetic_signal` de `conftest.py`.
+  - **`__post_init__` rechaza un registro incoherente consigo mismo**: matriz
+    que no es 2-D, canales que no coinciden con las filas, frecuencia no
+    positiva, `Channel.index` que no es su posición, o nombres repetidos. El
+    error salta en el lector, que es donde está el bug, y no tres capas arriba.
+  - `get_segment` con un `stop` posterior al final devuelve un tramo **más
+    corto, en silencio**. Es el caso normal de la última ventana incompleta, no
+    un error: `windows.window_to_samples` devuelve justamente eso.
 
 `psglab/utils/errors.py` ya está implementado y no tiene stubs, pero tampoco
 tiene test:
 
-- [ ] **`psglab/utils/errors.py`** · 0 pendientes · le falta el test:
-      **crear** `tests/test_errors.py`
-  - Que `PsgLabError` guarde el mensaje y la causa técnica por separado, y que
-    las subclases se puedan atrapar con un solo `except PsgLabError`. Es la
-    promesa sobre la que se apoya todo el manejo de errores que ve el
+- [x] **`psglab/utils/errors.py`** · 0 pendientes · ya tiene su test
+  - Test: `tests/test_errors.py`, **9 tests en verde**.
+  - Verifica que `PsgLabError` guarde el mensaje y la causa técnica por
+    separado, y que las subclases se atrapen con un solo `except PsgLabError`.
+    Es la promesa sobre la que se apoya todo el manejo de errores que ve el
     investigador.
+  - Dos de los tests **recorren el módulo** en vez de enumerar las clases: una
+    excepción nueva que se olvide de heredar de `PsgLabError` los hace fallar,
+    cosa que una lista escrita a mano no vería.
+  - Se agregó `InvalidRecordingError`, que usa `core/recording.py` para rechazar
+    un registro incoherente. No es `UnreadableFileError`: el archivo se leyó
+    bien, lo que quedó mal es lo que armó el lector.
 
 ---
 
@@ -244,6 +281,9 @@ tiene test:
 - [ ] **`psglab/exporters/statistics.py`** · 6 stubs · alimenta V3_F
       "Archivo de salida"
   - No escribe archivos: por eso se puede testear sin tocar el disco.
+  - Test: **extender** `tests/test_exporters.py`, que hoy **no lo importa**.
+    Figuraba como cubierto en `COBERTURA_DE_TESTS` sin estarlo, y eso hacía que
+    nadie exigiera un test para sus 6 stubs.
 - [ ] **`psglab/exporters/scoring_txt.py`** · 3 stubs · V1_F "Archivo de salida"
   - **Las variantes de formato tienen que seguir siendo alcanzables** cambiando
     sólo la constante de `config`: el nº de ventana por línea y la cabecera de
@@ -258,6 +298,8 @@ tiene test:
       salida"
   - Las secciones que no correspondan se omiten con una explicación, no con
     ceros.
+  - Test: **extender** `tests/test_exporters.py`, que hoy **no lo importa**.
+    Mismo caso que `statistics.py`.
 - [ ] Test de los cuatro: `tests/test_exporters.py` → **borrar el
       `pytestmark`** y extenderlo a `statistics`.
 - [ ] **Test de ida y vuelta de la cabecera**, que cruza este hito y el 4:

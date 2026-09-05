@@ -91,12 +91,12 @@ cambiar una línea. Ver el [hito 0 del TODO](../../docs/TODO.md#hito-0-desbloque
 
 ## Estado
 
-Pendientes **52 stubs**, repartidos en los tres primeros hitos del
+Pendientes **40 stubs**, repartidos en los hitos 2 y 3 del
 [TODO](../../docs/TODO.md):
 
 | Hito | Módulos |
 |---|---|
-| [1. Cimientos](../../docs/TODO.md#hito-1-cimientos) | ~~`windows`~~ ✅, `nomenclature`, `recording` |
+| [1. Cimientos](../../docs/TODO.md#hito-1-cimientos) | ~~`windows`~~ ✅, ~~`nomenclature`~~ ✅, ~~`recording`~~ ✅ |
 | [2. Scoring y anotaciones](../../docs/TODO.md#hito-2-scoring-y-anotaciones) | `scoring`, `annotations` |
 | [3. Sesión](../../docs/TODO.md#hito-3-sesión) | `session` |
 

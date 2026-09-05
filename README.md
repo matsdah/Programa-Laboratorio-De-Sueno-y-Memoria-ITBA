@@ -8,8 +8,10 @@ Nace para resolver las limitaciones de los programas actuales: formatos de impor
 limitados, scoring sólo manual, imposibilidad de anotar la señal, ausencia de métricas,
 compatibilidad únicamente con Windows y precios excesivos.
 
-> **Estado: esqueleto.** La estructura del proyecto está creada, pero la lógica todavía
-> no está implementada. Los módulos declaran su interfaz y elevan `NotImplementedError`.
+> **Estado: esqueleto, con los cimientos puestos.** Los hitos 0 y 1 están cerrados:
+> ya funcionan el vocabulario de fases, el registro en memoria, las conversiones de
+> tiempo y las unidades. El resto de los módulos declara su interfaz y eleva
+> `NotImplementedError`.
 >
 > **Por dónde seguir: [`docs/TODO.md`](docs/TODO.md)**, que ordena los stubs
 > pendientes de la Parte 1 en hitos por dependencias y es el único lugar que

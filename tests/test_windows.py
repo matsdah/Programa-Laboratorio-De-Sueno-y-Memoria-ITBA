@@ -174,7 +174,7 @@ def test_una_frecuencia_de_cero_no_se_puede_convertir(sampling_rate):
         sample_to_window(100, 0.0)
 
 
-@pytest.mark.parametrize("frecuencia", [0.0, -256.0])
+@pytest.mark.parametrize("frecuencia", [0.0, -256.0, float("nan"), float("inf")])
 def test_ninguna_conversion_acepta_una_frecuencia_no_positiva(frecuencia):
     """La promesa del módulo valía para dos de las cuatro funciones.
 

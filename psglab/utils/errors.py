@@ -50,6 +50,19 @@ class ScoringMismatchError(PsgLabError):
     """El archivo de scoring no corresponde al registro abierto."""
 
 
+class InvalidRecordingError(PsgLabError):
+    """El registro que se armó es incoherente consigo mismo.
+
+    No es lo mismo que `UnreadableFileError`, que habla del archivo: acá el
+    archivo se leyó bien y lo que quedó mal es el `Recording` resultante —tantos
+    canales declarados como filas no tiene la matriz, una frecuencia de muestreo
+    que no es positiva, una matriz que no es de dos dimensiones—.
+
+    Existe para que ese error salte **en el lector, que es donde está el bug**, y
+    no tres capas más arriba con una traza de numpy que no dice de dónde vino.
+    """
+
+
 # -- Canales ----------------------------------------------------------------
 
 

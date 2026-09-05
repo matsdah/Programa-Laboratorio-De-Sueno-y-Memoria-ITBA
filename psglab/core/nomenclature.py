@@ -100,14 +100,55 @@ STAGE_CODES: Final[dict[SleepStage, int]] = {
 }
 
 
+#: Cómo se traduce cada fase ajena a la nomenclatura de destino.
+#:
+#: Se escriben las dos direcciones explícitamente en vez de derivar una de la
+#: otra, porque **no son simétricas** y una tabla derivada escondería justamente
+#: eso: S3 y S4 caen los dos en N3, y volver no puede distinguirlos.
+_EQUIVALENCIAS: Final[dict[Nomenclature, dict[SleepStage, SleepStage]]] = {
+    Nomenclature.AASM: {
+        SleepStage.S1: SleepStage.N1,
+        SleepStage.S2: SleepStage.N2,
+        SleepStage.S3: SleepStage.N3,
+        SleepStage.S4: SleepStage.N3,
+        SleepStage.REM: SleepStage.R,
+        # MT no existe en AASM. Se trata como W, que es la convención habitual:
+        # un tramo de movimiento no es sueño.
+        SleepStage.MT: SleepStage.WAKE,
+    },
+    Nomenclature.RK: {
+        SleepStage.N1: SleepStage.S1,
+        SleepStage.N2: SleepStage.S2,
+        # N3 se mapea a S3 porque hay que elegir uno: la información de si era
+        # S3 o S4 se perdió al convertir en la otra dirección.
+        SleepStage.N3: SleepStage.S3,
+        SleepStage.R: SleepStage.REM,
+    },
+}
+
+
 def stages_of(nomenclature: Nomenclature) -> tuple[SleepStage, ...]:
-    """Fases válidas de una nomenclatura, en orden de histograma."""
-    raise NotImplementedError("Pendiente: devolver las fases de la nomenclatura.")
+    """Fases válidas de una nomenclatura, en orden de histograma.
+
+    No incluye `UNSCORED`, que no es una fila del histograma sino la ausencia
+    de una: el pliego (V1_P) pide que lo no anotado quede **en blanco**.
+    """
+    return STAGES_BY_NOMENCLATURE[nomenclature]
 
 
 def is_valid(stage: SleepStage, nomenclature: Nomenclature) -> bool:
-    """Indica si una fase pertenece a la nomenclatura dada."""
-    raise NotImplementedError("Pendiente: verificar la pertenencia de la fase.")
+    """Indica si una fase se le puede asignar a una ventana en esta nomenclatura.
+
+    **`UNSCORED` es válido en todas**, aunque no aparezca en `stages_of()`. Las
+    dos funciones responden preguntas distintas y es acá donde dejan de
+    coincidir: `stages_of()` da las filas del histograma, y "sin scorear" no es
+    una fila; pero sí es un valor asignable, porque es como el usuario **borra**
+    el scoring de una ventana que había marcado por error.
+
+    Si esta función dijera que no, `Scoring.set_stage(UNSCORED)` elevaría
+    `InvalidStageError` y despuntuar una ventana sería imposible.
+    """
+    return stage is SleepStage.UNSCORED or stage in stages_of(nomenclature)
 
 
 def convert(stage: SleepStage, target: Nomenclature) -> SleepStage:
@@ -125,15 +166,30 @@ def convert(stage: SleepStage, target: Nomenclature) -> SleepStage:
 
     Por eso el cambio de nomenclatura sobre un registro ya scoreado debe
     avisarle al usuario antes de aplicarse.
+
+    Una fase que ya pertenece a la nomenclatura pedida se devuelve sin tocar,
+    así que convertir dos veces a lo mismo no cambia nada.
     """
-    raise NotImplementedError("Pendiente: convertir la fase entre nomenclaturas.")
+    if is_valid(stage, target):
+        return stage
+    return _EQUIVALENCIAS[target][stage]
 
 
 def stage_label(stage: SleepStage) -> str:
-    """Etiqueta que se muestra al usuario para una fase."""
-    raise NotImplementedError("Pendiente: devolver la etiqueta de la fase.")
+    """Etiqueta que se muestra al usuario para una fase.
+
+    Es el valor del enum: las etiquetas del pliego ("W", "S1", "REM", "N2") son
+    justamente los nombres con los que se define cada fase, así que no hay una
+    segunda tabla que pueda desincronizarse.
+    """
+    return stage.value
 
 
 def stage_code(stage: SleepStage) -> int:
-    """Código numérico de la fase para "Scoring.txt"."""
-    raise NotImplementedError("Pendiente: devolver el código numérico de la fase.")
+    """Código numérico de la fase para "Scoring.txt".
+
+    La tabla no es inyectiva: S1 y N1 comparten el 1, igual que S2/N2, S3/N3 y
+    REM/R. Codificar está bien; **decodificar exige saber la nomenclatura**, que
+    por eso viaja en la cabecera del propio archivo.
+    """
+    return STAGE_CODES[stage]

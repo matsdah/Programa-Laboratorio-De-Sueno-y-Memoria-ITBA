@@ -23,6 +23,13 @@ import unicodedata as _ud
 
 import pytest
 
+#: La documentación escribe las cantidades chicas con palabras, así que hay que
+#: poder compararlas contra un número.
+NUMEROS_EN_PALABRAS: dict[str, int] = {
+    "cero": 0, "un": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
+    "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10, "once": 11, "doce": 12,
+}
+
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 
@@ -31,14 +38,20 @@ RAIZ = pathlib.Path(__file__).resolve().parent.parent
 #: Al agregar un archivo de test, agregar acá su fila.
 COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_windows.py": ("psglab/core/windows.py",),
+    "test_errors.py": ("psglab/utils/errors.py",),
+    "test_units.py": ("psglab/utils/units.py",),
+    "test_recording.py": ("psglab/core/recording.py",),
     "test_nomenclature.py": ("psglab/core/nomenclature.py",),
     "test_scoring.py": ("psglab/core/scoring.py",),
     "test_occupancy.py": ("psglab/tools/occupancy.py",),
+    # `information_txt.py` y `statistics.py` **no** figuran acá aunque el TODO
+    # los agrupe con los otros dos: `test_exporters.py` ni siquiera los importa.
+    # Declararlos cubiertos contaba 9 stubs como verificados y hacía que nadie
+    # exigiera un test para ellos. Se agregan cuando el archivo los cubra de
+    # verdad, que es lo que el hito 5 ya pide.
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",
-        "psglab/exporters/information_txt.py",
-        "psglab/exporters/statistics.py",
     ),
     # `test_consistencia.py` no cubre ningún módulo: testea el repositorio.
 }
@@ -227,25 +240,93 @@ def test_las_cuentas_de_los_readme_de_carpeta_coinciden_con_el_codigo():
     El chequeo de arriba compara `TODO.md` contra el código, pero los siete
     README de carpeta tienen su línea "Pendientes **N stubs**" escrita a mano.
     Se desincronizaron dos veces en una sola tanda de trabajo.
+
+    Se verifica también **la cantidad de módulos** que declara la misma frase,
+    porque verificar sólo los stubs no alcanzó: durante el hito 1, cuatro commits
+    seguidos reescribieron esa línea de `psglab/README.md` actualizando el número
+    de stubs y ninguno tocó el de módulos, que quedó cuatro commits en 29 cuando
+    ya eran 26. El chequeo miraba justo la mitad de la frase que sí cambiaba.
     """
     problemas: list[str] = []
     for readme in sorted((RAIZ / "psglab").rglob("README.md")):
-        declarado = re.search(r"Pendientes \*\*(\d+) stubs?\*\*", readme.read_text(encoding="utf-8"))
+        texto = readme.read_text(encoding="utf-8")
+        declarado = re.search(r"Pendientes \*\*(\d+) stubs?\*\*", texto)
         if declarado is None:
             continue
         # El README de la raíz del paquete cuenta la **Parte 1**, así que deja
         # afuera `analysis/`, que es la Parte 2. Los de cada carpeta cuentan su
         # propia carpeta.
         es_raiz = readme.parent == RAIZ / "psglab"
-        real = sum(
-            contar_stubs(f)
+        propios = [
+            f
             for f in readme.parent.rglob("*.py")
             if f.name != "__init__.py" and not (es_raiz and "analysis" in f.parts)
-        )
+        ]
+        real = sum(contar_stubs(f) for f in propios)
         if int(declarado.group(1)) != real:
             problemas.append(
                 f"{ruta_relativa(readme)} dice {declarado.group(1)} stubs y en la carpeta hay {real}"
             )
+
+        modulos = re.search(r"Pendientes \*\*\d+ stubs?\*\* en (\d+) módulos", texto)
+        if modulos is not None:
+            con_stubs = sum(1 for f in propios if contar_stubs(f) > 0)
+            if int(modulos.group(1)) != con_stubs:
+                problemas.append(
+                    f"{ruta_relativa(readme)} dice {modulos.group(1)} módulos con stubs "
+                    f"y hay {con_stubs}"
+                )
+    assert not problemas, "\n".join(problemas)
+
+
+def test_lo_que_tests_readme_dice_de_la_suite_es_cierto():
+    """`tests/README.md` describe la suite y **nada lo verificaba**.
+
+    El chequeo de arriba sólo entra a `psglab/`, así que este archivo quedaba
+    fuera de todo control. Sobrevivieron cinco afirmaciones falsas a la vez:
+    decía que había seis archivos de test cuando eran nueve, que cuatro llevaban
+    `pytestmark` cuando eran tres, mandaba crear tests que ya existían y
+    reactivar uno ya reactivado.
+
+    Se verifican las dos cantidades que se pueden contar. El resto de la prosa
+    sigue sin auditarse, pero éstas son las que envejecen en cada hito.
+    """
+    texto = (RAIZ / "tests" / "README.md").read_text(encoding="utf-8")
+    archivos = sorted((RAIZ / "tests").glob("test_*.py"))
+    desactivados = [p for p in archivos if esta_desactivado(p)]
+
+    problemas: list[str] = []
+
+    # "la recolección falla en los ocho archivos que importan psglab": el número
+    # va en palabras y puede quedar partido por un salto de línea.
+    cantidad = re.search(r"en los\s+(\w+)\s+archivos", texto)
+    if cantidad is None:
+        problemas.append("tests/README.md ya no dice en cuántos archivos falla la recolección")
+    else:
+        con_import = sum(1 for p in archivos if importa_psglab_al_cargarse(p))
+        if NUMEROS_EN_PALABRAS.get(cantidad.group(1)) != con_import:
+            problemas.append(
+                f"tests/README.md dice '{cantidad.group(1)}' archivos y son {con_import}"
+            )
+
+    # Cada archivo de test tiene que estar nombrado, y los desactivados tienen
+    # que ser exactamente los que el README dice que lo están.
+    for archivo in archivos:
+        if archivo.stem not in texto:
+            problemas.append(f"tests/README.md no nombra {archivo.name}")
+
+    declarados = re.search(r"La llevan \*\*[^*]+\*\*:([^.]*)\.", texto)
+    if declarados is None:
+        problemas.append("tests/README.md ya no dice qué tests están desactivados")
+    else:
+        nombrados = {f"{n}.py" for n in re.findall(r"`(test_\w+)`", declarados.group(1))}
+        reales = {p.name for p in desactivados}
+        if nombrados != reales:
+            problemas.append(
+                f"tests/README.md dice que están desactivados {sorted(nombrados)} "
+                f"y los desactivados son {sorted(reales)}"
+            )
+
     assert not problemas, "\n".join(problemas)
 
 
@@ -669,18 +750,41 @@ def test_todas_las_firmas_llevan_type_hints():
 # -- El verde por omisión ---------------------------------------------------
 
 
+def importa_psglab_al_cargarse(archivo_test: pathlib.Path) -> bool:
+    """Si el archivo importa `psglab` a nivel de módulo.
+
+    Son los que fallan al recolectar con `pytest` a secas.
+    `test_consistencia.py` no está entre ellos: lo importa dentro de una función.
+    """
+    arbol = ast.parse(archivo_test.read_text(encoding="utf-8"))
+    for nodo in arbol.body:
+        if isinstance(nodo, ast.ImportFrom) and (nodo.module or "").startswith("psglab"):
+            return True
+        if isinstance(nodo, ast.Import) and any(a.name.startswith("psglab") for a in nodo.names):
+            return True
+    return False
+
+
 def esta_desactivado(archivo_test: pathlib.Path) -> bool:
     """Si un archivo de test está apagado entero, de cualquiera de las formas.
 
-    Buscar sólo la palabra `pytestmark` no alcanzaba: la encontraba hasta en un
-    comentario, y al revés no veía `pytest.skip(..., allow_module_level=True)`
-    ni un `@pytest.mark.skip` puesto en cada test. Las tres apagan el archivo y
-    las tres tienen que contar.
+    Se mira el árbol de sintaxis y no el texto. Buscar la cadena encontraba la
+    palabra hasta en un comentario o en un docstring —este mismo archivo habla
+    de `allow_module_level` al explicarlo, y se daba a sí mismo por
+    desactivado—, y al revés no distinguía un `pytestmark` de verdad de una
+    mención.
     """
-    texto = archivo_test.read_text(encoding="utf-8")
-    if re.search(r"^\s*pytestmark\s*=", texto, re.M):
-        return True
-    return "allow_module_level=True" in texto
+    arbol = ast.parse(archivo_test.read_text(encoding="utf-8"))
+    for nodo in arbol.body:
+        if isinstance(nodo, (ast.Assign, ast.AnnAssign)):
+            destinos = nodo.targets if isinstance(nodo, ast.Assign) else [nodo.target]
+            if any(isinstance(d, ast.Name) and d.id == "pytestmark" for d in destinos):
+                return True
+        # `pytest.skip("...", allow_module_level=True)` suelto en el módulo.
+        if isinstance(nodo, ast.Expr) and isinstance(nodo.value, ast.Call):
+            if any(k.arg == "allow_module_level" for k in nodo.value.keywords):
+                return True
+    return False
 
 
 def test_ningun_modulo_terminado_tiene_su_test_salteado():
