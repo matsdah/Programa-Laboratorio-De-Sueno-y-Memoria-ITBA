@@ -76,8 +76,35 @@ def conversion_factor(unit: str) -> float:
     acá para que no haya dos caminos que puedan discrepar.
 
     Raises:
-        UnknownUnitError: si la unidad no está en la tabla.
+        UnknownUnitError: si la unidad no está en la tabla, si no es una cadena
+            —una cabecera EDF sin campo de dimensión física llega como `None`—,
+            o si es una de las formas **ambiguas** que se parecen a dos unidades
+            distintas.
     """
+    if not isinstance(unit, str):
+        raise UnknownUnitError(
+            "El archivo no declara en qué unidad está la señal, así que no se puede "
+            "convertir a microvoltios.",
+            details=f"Se recibió {type(unit).__name__} en vez de una cadena.",
+        )
+
+    # "MV" es ambigua a la vista y catastrófica al elegir mal: plegando
+    # mayúsculas sería "mv", milivoltios, pero en el SI "M" es mega, y encima se
+    # ve idéntica a "ΜV" con mu griega mayúscula, que sí son microvoltios. Entre
+    # adivinar y fallar, el módulo falla: un factor equivocado de mil o de un
+    # millón produce un scoring incorrecto que nadie nota mirando la pantalla.
+    if unit.strip() in ("MV", "MVOLT", "MVOLTS"):
+        raise UnknownUnitError(
+            f"La unidad '{unit}' del archivo es ambigua y no se puede interpretar sin "
+            "riesgo de escalar mal la señal.",
+            details=(
+                "Con 'M' latina mayúscula el SI indica mega; escrita en minúscula "
+                "sería mili, y con mu griega mayúscula sería micro. Las tres se "
+                "parecen y difieren por factores de mil. Corregir la unidad en el "
+                "archivo: 'mV', 'uV' o 'µV'."
+            ),
+        )
+
     normalizada = normalize_unit_name(unit)
     if normalizada not in TO_MICROVOLTS:
         raise UnknownUnitError(

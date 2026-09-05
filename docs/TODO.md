@@ -143,7 +143,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
 
 - [x] **`psglab/utils/units.py`** · ~~4 stubs~~ · sostiene la escala en µV de
       V1_P "Visualización" y la banda de V1_F "Herramienta de amplitud"
-  - Test: `tests/test_units.py`, **19 tests en verde**.
+  - Test: `tests/test_units.py`, **21 tests en verde**.
   - La mitad de los tests son de **entrada sucia**, no de aritmética: las
     cabeceras de EDF y BrainVision escriben la unidad de formas variadas, y
     confundir "no reconozco esto" con "esto vale 1" deja la señal mal escalada

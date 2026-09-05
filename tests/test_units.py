@@ -94,7 +94,9 @@ def test_la_mu_griega_mayuscula_tambien_se_normaliza():
 
 
 def test_las_mayusculas_no_importan():
-    assert conversion_factor("MV") == conversion_factor("mv")
+    """Salvo en el símbolo de dos letras, donde deciden el factor. Ver abajo."""
+    assert conversion_factor("UV") == conversion_factor("uv")
+    assert conversion_factor("MicroVolt") == conversion_factor("microvolt")
 
 
 def test_los_espacios_no_importan():
@@ -135,6 +137,39 @@ def test_una_unidad_vacia_no_se_reconoce():
     """Una cabecera sin unidad no es lo mismo que una cabecera en µV."""
     with pytest.raises(UnknownUnitError):
         conversion_factor("")
+
+
+def test_una_cabecera_sin_unidad_falla_con_el_error_del_programa():
+    """Un EDF sin campo de dimensión física llega como `None`.
+
+    Antes elevaba `AttributeError`, que **escapa del `except PsgLabError` único**
+    de la interfaz: el investigador terminaba viendo una traza de Python en vez
+    de un cartel.
+    """
+    with pytest.raises(UnknownUnitError):
+        conversion_factor(None)
+
+
+def test_la_unidad_ambigua_de_dos_letras_se_rechaza_en_vez_de_adivinarse():
+    """El agujero más caro que tenía el módulo, y el más difícil de ver.
+
+    `"MV"` y `"ΜV"` se ven idénticas en pantalla. Plegando mayúsculas la primera
+    daba milivoltios y la segunda microvoltios: **un factor mil de diferencia**,
+    elegido por un carácter que nadie puede distinguir leyendo. Y en el SI, `M`
+    mayúscula es mega, así que ninguna de las dos lecturas es obviamente la
+    correcta.
+
+    El módulo prefiere fallar a adivinar, que es lo que dice su docstring.
+    """
+    with pytest.raises(UnknownUnitError) as excepcion:
+        conversion_factor("MV")
+
+    assert "ambigua" in excepcion.value.message
+
+    # La que lleva mu griega mayúscula no es ambigua: sólo puede ser micro.
+    assert conversion_factor("ΜV") == conversion_factor("uV")
+    # Y la minúscula, que es como la escriben los archivos reales, sigue andando.
+    assert conversion_factor("mV") == 1e3
 
 
 def test_la_tabla_esta_normalizada():
