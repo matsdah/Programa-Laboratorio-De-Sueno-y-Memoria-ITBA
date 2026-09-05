@@ -258,6 +258,24 @@ def test_un_registro_sin_ningun_canal_se_rechaza():
         )
 
 
+def test_un_registro_sin_ninguna_muestra_se_rechaza():
+    """Canales sin señal es tan incoherente como señal sin canales.
+
+    Y tiene una consecuencia aguas abajo: sobre un registro así,
+    `windows.count_windows` da cero, y una `Session` tendría `current_window`
+    apuntando a una ventana que no existe. Rechazarlo acá hace ese caso
+    imposible por construcción, en vez de obligar a `Session` a comprobarlo de
+    nuevo.
+    """
+    with pytest.raises(InvalidRecordingError):
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[canal("C3", 0)],
+            data=np.zeros((1, 0)),
+            sampling_rate=256.0,
+        )
+
+
 def test_una_ruta_que_no_es_una_ruta_se_rechaza():
     """Se valida primero porque todos los demás mensajes usan `file_path.name`.
 

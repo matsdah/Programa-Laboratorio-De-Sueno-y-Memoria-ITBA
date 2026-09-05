@@ -95,11 +95,11 @@ class Recording:
 
         Raises:
             InvalidRecordingError: si `file_path` no es un `Path`, si la matriz
-                no es de dos dimensiones o no tiene ningún canal, si sus valores
-                no son de punto flotante, si la cantidad de canales no coincide
-                con sus filas, si la frecuencia de muestreo no es un número
-                finito y positivo, o si el `index` de un canal no es su posición
-                en la lista.
+                no es de dos dimensiones, no tiene ningún canal o no tiene
+                ninguna muestra, si sus valores no son de punto flotante, si la
+                cantidad de canales no coincide con sus filas, si la frecuencia
+                de muestreo no es un número finito y positivo, o si el `index` de
+                un canal no es su posición en la lista.
             DuplicateChannelError: si dos canales se llaman igual. Los canales se
                 piden por nombre en toda la interfaz, así que un nombre repetido
                 vuelve ambiguo cuál se está mostrando.
@@ -134,6 +134,17 @@ class Recording:
             raise InvalidRecordingError(
                 f"El registro '{self.file_path.name}' no tiene ningún canal, así que no "
                 "hay nada que mostrar ni que scorear.",
+                details=f"data.shape = {self.data.shape}.",
+            )
+
+        # Simétrico con el de arriba: canales sin señal es tan incoherente como
+        # señal sin canales. Además hace imposible por construcción el caso
+        # degenerado de `Session`, que sobre un registro sin muestras tendría
+        # cero ventanas y un `current_window` apuntando a una que no existe.
+        if self.data.shape[1] == 0:
+            raise InvalidRecordingError(
+                f"El registro '{self.file_path.name}' no tiene ninguna muestra: declara "
+                "canales pero no trae señal.",
                 details=f"data.shape = {self.data.shape}.",
             )
 
