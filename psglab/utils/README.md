@@ -63,9 +63,9 @@ ninguna de las clases de abajo podría siquiera construirse para ser elevada.
 
 ## Estado
 
-Pendientes **4 stubs**, todos en `units.py`, en el
+Pendientes **0 stubs**: la carpeta está **terminada**, en el
 [hito 1 del TODO](../../docs/TODO.md#hito-1-cimientos).
 
-`errors.py` ya está implementado y **tiene su test**
-(`tests/test_errors.py`): `PsgLabError.__init__` es la base de todas las
+Los dos módulos tienen su test corriendo: `tests/test_units.py` y
+`tests/test_errors.py`. `PsgLabError.__init__` es la base de todas las
 excepciones y no debe convertirse en un stub.

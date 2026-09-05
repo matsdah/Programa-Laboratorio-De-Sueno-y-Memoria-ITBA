@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **174 stubs** (`raise NotImplementedError`) en 29 módulos de la Parte 1.
+Quedan **170 stubs** (`raise NotImplementedError`) en 28 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -51,7 +51,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | Hito | Módulos con stubs | Stubs | Estado |
 |---|---|---|---|
 | [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ✅ cerrado |
-| [1. Cimientos](#hito-1-cimientos) | 3 | 16 | 🟡 1 de 4 hecho |
+| [1. Cimientos](#hito-1-cimientos) | 2 | 12 | 🟡 1 de 4 hecho |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 21 | ⬜ |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
@@ -59,7 +59,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **29** | **174** | |
+| | **28** | **170** | |
 
 ### Los tres cortes que importan
 
@@ -136,11 +136,16 @@ repositorio.
 Los cuatro módulos que **no importan nada interno**. Se pueden hacer en
 cualquier orden, incluso en paralelo.
 
-- [ ] **`psglab/utils/units.py`** · 4 stubs · sostiene la escala en µV de V1_P
-      "Visualización" y la banda de V1_F "Herramienta de amplitud"
-  - Test: **crear** `tests/test_units.py`. Casos mínimos: `V`→µV es ×10⁶,
-    `mV`→µV es ×10³, y una unidad desconocida eleva `UnknownUnitError` en vez
-    de asumir un factor.
+- [x] **`psglab/utils/units.py`** · ~~4 stubs~~ · sostiene la escala en µV de
+      V1_P "Visualización" y la banda de V1_F "Herramienta de amplitud"
+  - Test: `tests/test_units.py`, **19 tests en verde**.
+  - La mitad de los tests son de **entrada sucia**, no de aritmética: las
+    cabeceras de EDF y BrainVision escriben la unidad de formas variadas, y
+    confundir "no reconozco esto" con "esto vale 1" deja la señal mal escalada
+    de punta a punta sin que nada se vea raro en pantalla.
+  - Los dos caracteres "mu" (U+03BC y U+00B5) se ven idénticos, así que un test
+    afirma sus puntos de código: si alguien los intercambiara al editar el
+    módulo, la normalización dejaría de hacer nada y ningún otro test lo notaría.
 - [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
   - Test: `tests/test_windows.py`, **25 tests en verde**.

@@ -21,6 +21,18 @@ significaría nada.
 
 from typing import Final
 
+from psglab.utils.errors import UnknownUnitError
+
+#: Los dos caracteres que se ven como "mu" y que aparecen en las cabeceras.
+#: `normalize_unit_name()` reemplaza el primero por el segundo.
+#:
+#: En pantalla son indistinguibles, así que leer el código no alcanza para saber
+#: cuál es cuál: si alguien los intercambiara sin querer, la normalización
+#: dejaría de funcionar y nada se vería raro. Por eso `tests/test_units.py`
+#: afirma sus puntos de código (U+03BC y U+00B5) en vez de confiar en la vista.
+_MU_GRIEGA: Final[str] = "μ"
+_SIGNO_MICRO: Final[str] = "µ"
+
 #: Símbolo de la unidad que se muestra en la interfaz.
 MICROVOLT: Final[str] = "µV"
 
@@ -54,20 +66,40 @@ def to_microvolts(value: float, unit: str) -> float:
             asumir un factor: escalar mal la señal produce un scoring incorrecto
             que nadie va a notar mirando la pantalla.
     """
-    raise NotImplementedError("Pendiente: aplicar el factor de conversión.")
+    return value * conversion_factor(unit)
 
 
 def conversion_factor(unit: str) -> float:
-    """Factor por el que hay que multiplicar para pasar de `unit` a µV."""
-    raise NotImplementedError("Pendiente: buscar el factor en la tabla.")
+    """Factor por el que hay que multiplicar para pasar de `unit` a µV.
+
+    Es el único lugar que consulta `TO_MICROVOLTS`: `to_microvolts()` delega
+    acá para que no haya dos caminos que puedan discrepar.
+
+    Raises:
+        UnknownUnitError: si la unidad no está en la tabla.
+    """
+    normalizada = normalize_unit_name(unit)
+    if normalizada not in TO_MICROVOLTS:
+        raise UnknownUnitError(
+            f"No se reconoce la unidad '{unit}' del archivo, así que no se puede "
+            "convertir la señal a microvoltios.",
+            details=(
+                f"Unidad normalizada: '{normalizada}'. "
+                f"Unidades conocidas: {', '.join(sorted(TO_MICROVOLTS))}."
+            ),
+        )
+    return TO_MICROVOLTS[normalizada]
 
 
 def format_amplitude(value_uv: float, decimals: int = 0) -> str:
     """Formatea una amplitud para mostrarla en la escala del visualizador.
 
     Ejemplo: 75.0 -> "75 µV".
+
+    La unidad sale de `MICROVOLT` y no de un literal: es el símbolo que ve el
+    usuario y tiene que salir de un solo lugar.
     """
-    raise NotImplementedError("Pendiente: formatear el valor con su unidad.")
+    return f"{value_uv:.{decimals}f} {MICROVOLT}"
 
 
 def normalize_unit_name(unit: str) -> str:
@@ -83,5 +115,10 @@ def normalize_unit_name(unit: str) -> str:
     archivo perfectamente válido elevaría `UnknownUnitError`, y el mensaje que
     vería el investigador diría que la unidad "µV" es desconocida mostrándole
     exactamente el texto que sí está en la tabla.
+
+    **El orden de los tres pasos importa.** `lower()` va antes del reemplazo
+    porque la mu griega mayúscula (U+039C) baja a U+03BC, y así el reemplazo
+    también la alcanza; al revés, "ΜV" quedaría sin normalizar.
     """
-    raise NotImplementedError("Pendiente: normalizar el nombre de la unidad.")
+    sin_espacios = "".join(unit.split())
+    return sin_espacios.lower().replace(_MU_GRIEGA, _SIGNO_MICRO)
