@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los ocho
+camino de búsqueda. Con `pytest` directo la recolección falla en los nueve
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -26,9 +26,9 @@ Los tests de los módulos que todavía no están implementados están
 pytestmark = pytest.mark.skip(reason="Esqueleto: la lógica todavía no está implementada.")
 ```
 
-La llevan **los tests de los hitos que todavía no se abrieron**: `test_scoring`
-(hito 2), `test_exporters` (5) y `test_occupancy` (7). Los demás corren, porque
-sus módulos están cerrados o —como `test_consistencia.py`— no cubren ninguno.
+La llevan **los tests de los hitos que todavía no se abrieron**:
+`test_exporters` (hito 5) y `test_occupancy` (7). Los demás corren, porque sus
+módulos están cerrados o —como `test_consistencia.py`— no cubren ninguno.
 
 **Los números concretos —cuántos se recolectan y cuántos se saltean— no se
 escriben acá**, porque un número a mano en este archivo se desactualiza con el
@@ -55,6 +55,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_nomenclature.py` | Las dos nomenclaturas, la conversión entre ellas y los códigos de `Scoring.txt`. |
 | `test_recording.py` | El registro en memoria y lo que no deja construir. |
 | `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
+| `test_annotations.py` | Los eventos sobre la señal: qué se borra y qué se dibuja. |
 | `test_occupancy.py` | La herramienta de ocupación horizontal. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 
@@ -155,14 +156,15 @@ regla se rompió**, no qué función se llamó.
 El [TODO](../docs/TODO.md) lleva la cuenta. Cada módulo que se implementa
 arrastra su test, y **eso es parte de darlo por terminado**:
 
-- **Reactivar** (borrar el `pytestmark`): `test_scoring` (hito 2),
-  `test_exporters` (5), `test_occupancy` (7).
-- **Crear**: `test_annotations` (2), `test_session` (3), `test_channel_types`,
-  `test_readers`, `test_scoring_reader` (4), y uno por herramienta (7).
+- **Reactivar** (borrar el `pytestmark`): `test_exporters` (hito 5),
+  `test_occupancy` (7).
+- **Crear**: `test_session` (hito 3), `test_channel_types`, `test_readers`,
+  `test_scoring_reader` (4), y uno por herramienta (7).
 - **Extender**: `test_exporters` para que cubra de verdad `statistics.py` e
   `information_txt.py` (5), que hoy no importa.
 
-Los cinco del hito 1 —`test_units`, `test_windows`, `test_nomenclature`,
-`test_recording` y `test_errors`— ya están y corren.
+Los siete de los hitos 1 y 2 —`test_units`, `test_windows`,
+`test_nomenclature`, `test_recording`, `test_errors`, `test_scoring` y
+`test_annotations`— ya están y corren.
 
 `psglab/ui/` no lleva tests unitarios: es deliberado, no una omisión.

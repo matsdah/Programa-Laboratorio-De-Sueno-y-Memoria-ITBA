@@ -93,7 +93,7 @@ Esqueleto **con los cimientos puestos**: los 42 módulos del paquete importan
 —50 archivos `.py` contando los ocho `__init__.py`—, los hitos 0 y 1 están
 cerrados, y el resto de los métodos todavía eleva `NotImplementedError`.
 
-Pendientes **158 stubs** en 26 módulos de la Parte 1, ordenados por
+Pendientes **137 stubs** en 24 módulos de la Parte 1, ordenados por
 dependencias en el [TODO](../docs/TODO.md). `app.py` es el último de la fila
 (hito 6): hasta que se implemente, `python main.py` termina en
 `NotImplementedError`, que es lo esperado.

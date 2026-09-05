@@ -91,13 +91,13 @@ cambiar una línea. Ver el [hito 0 del TODO](../../docs/TODO.md#hito-0-desbloque
 
 ## Estado
 
-Pendientes **40 stubs**, repartidos en los hitos 2 y 3 del
+Pendientes **19 stubs**, todos en `session.py`, el hito 3 del
 [TODO](../../docs/TODO.md):
 
 | Hito | Módulos |
 |---|---|
 | [1. Cimientos](../../docs/TODO.md#hito-1-cimientos) | ~~`windows`~~ ✅, ~~`nomenclature`~~ ✅, ~~`recording`~~ ✅ |
-| [2. Scoring y anotaciones](../../docs/TODO.md#hito-2-scoring-y-anotaciones) | `scoring`, `annotations` |
+| [2. Scoring y anotaciones](../../docs/TODO.md#hito-2-scoring-y-anotaciones) | ~~`scoring`~~ ✅, ~~`annotations`~~ ✅ |
 | [3. Sesión](../../docs/TODO.md#hito-3-sesión) | `session` |
 
 **Cerrado el hito 3, toda esta capa funciona y se puede testear sin abrir una

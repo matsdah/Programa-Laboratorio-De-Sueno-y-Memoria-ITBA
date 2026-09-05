@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **158 stubs** (`raise NotImplementedError`) en 26 módulos de la Parte 1.
+Quedan **137 stubs** (`raise NotImplementedError`) en 24 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -52,14 +52,14 @@ nada**. Un verde por omisión es peor que un rojo.
 |---|---|---|---|
 | [0. Desbloquear](#hito-0-desbloquear) | — | 0 | ✅ cerrado |
 | [1. Cimientos](#hito-1-cimientos) | — | 0 | ✅ cerrado |
-| [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | 2 | 21 | ⬜ |
+| [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | — | 0 | ✅ cerrado |
 | [3. Sesión](#hito-3-sesión) | 1 | 19 | ⬜ |
 | [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
 | [5. Exportadores](#hito-5-exportadores) | 4 | 14 | ⬜ |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **26** | **158** | |
+| | **24** | **137** | |
 
 ### Los tres cortes que importan
 
@@ -211,13 +211,36 @@ tiene test:
 
 ## Hito 2: Scoring y anotaciones
 
-- [ ] **`psglab/core/scoring.py`** · 10 stubs · V1_F, V2_F, V3_F "Scoring"
-  - Test: `tests/test_scoring.py` → **borrar el `pytestmark`**.
+**Cerrado el 5 de septiembre de 2026.** Con esto `core/` tiene todo lo que
+`session.py` recibe en su constructor, que es el hito 3 y el corte donde la capa
+de negocio entera funciona sin abrir una ventana.
+
+- [x] **`psglab/core/scoring.py`** · ~~10 stubs~~ · V1_F, V2_F, V3_F "Scoring"
+  - Test: `tests/test_scoring.py`, **23 tests en verde**.
   - Un scoring nuevo arranca entero en `UNSCORED`: el histograma tiene el
     tamaño de la noche desde el principio.
-- [ ] **`psglab/core/annotations.py`** · 11 stubs · V1_F "Anotación de la señal"
-  - Test: **crear** `tests/test_annotations.py`.
+  - `set_stage` acepta `UNSCORED`, que es cómo el usuario **borra** el scoring
+    de una ventana marcada por error. Se apoya en que
+    `nomenclature.is_valid(UNSCORED, ...)` sea `True`, decidido en el hito 1.
+  - **El índice se valida antes que la fase.** Con los dos mal, "esa ventana no
+    existe" manda al usuario al problema correcto.
+  - `stages()` devuelve una copia: prestarle la lista interna al histograma lo
+    dejaría corromper el scoring sin pasar por `set_stage`.
+- [x] **`psglab/core/annotations.py`** · ~~11 stubs~~ · V1_F "Anotación de la señal"
+  - Test: `tests/test_annotations.py`, **30 tests en verde**.
   - Las anotaciones se guardan en muestras, no en segundos.
+  - **La lista interna se mantiene ordenada por muestra de inicio.** No es una
+    optimización: es lo que hace que el índice de `remove_at()` signifique lo
+    mismo que la posición en `all()`. Con orden de creación, el anotador
+    borraría una banda distinta de la que el usuario señaló.
+  - **La duración cero se rechaza.** El pliego pide marcar el evento con una
+    banda, y una sin ancho no se dibuja ni la devuelve nunca `in_range`: el
+    usuario la crearía y no la vería jamás.
+  - `in_range` usa intervalo semiabierto, igual que `windows.window_to_samples`,
+    para que una anotación no se dibuje en dos ventanas seguidas.
+  - Los colores salen de `PALETTE`, en `annotations.py` y no en `config.py`:
+    el pliego pide una banda de color pero no dice cuáles, así que elegirlos es
+    del programa. La asignación es por orden de registro, o sea determinística.
 
 ---
 

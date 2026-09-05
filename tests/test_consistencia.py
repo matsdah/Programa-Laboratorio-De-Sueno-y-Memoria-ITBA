@@ -41,6 +41,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_errors.py": ("psglab/utils/errors.py",),
     "test_units.py": ("psglab/utils/units.py",),
     "test_recording.py": ("psglab/core/recording.py",),
+    "test_annotations.py": ("psglab/core/annotations.py",),
     "test_nomenclature.py": ("psglab/core/nomenclature.py",),
     "test_scoring.py": ("psglab/core/scoring.py",),
     "test_occupancy.py": ("psglab/tools/occupancy.py",),
