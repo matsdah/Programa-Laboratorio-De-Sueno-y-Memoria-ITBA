@@ -25,9 +25,11 @@ from psglab.core.scoring import Scoring
 from psglab.core.windows import count_windows
 from psglab.utils.errors import (
     ChannelNotFoundError,
+    InvalidScaleError,
     ScoringMismatchError,
     WindowOutOfRangeError,
 )
+from psglab.utils.validation import check_finite, clamp
 
 
 class Session:
@@ -79,8 +81,20 @@ class Session:
         self._current_window = 0
         self._visible_channels: list[str] = recording.channel_names()
         self._selected_channels: list[str] = []
+        # La escala inicial pasa por la misma guarda que `set_scale_uv`, que
+        # declara ser el único lugar que recorta. Escribir el diccionario
+        # directamente esquivaba el recorte entero: con `0.0` el visualizador
+        # divide por cero, y con un valor negativo dibuja toda la señal
+        # invertida mientras la escala de la izquierda anuncia "-50 µV".
+        check_finite(
+            default_scale_uv,
+            error=InvalidScaleError,
+            message="La escala vertical inicial no es un número válido.",
+            details="Se esperaba un número finito.",
+        )
+        inicial = clamp(default_scale_uv, MIN_SCALE_UV, MAX_SCALE_UV)
         self._scales_uv: dict[str, float] = {
-            nombre: default_scale_uv for nombre in recording.channel_names()
+            nombre: inicial for nombre in recording.channel_names()
         }
         self._active_tool: str | None = None
 
@@ -280,14 +294,25 @@ class Session:
         Los límites existen para que el usuario no pueda dejar la pantalla
         inutilizable a fuerza de flechazos. Por defecto son los de `config`.
 
-        Es el **único lugar que recorta**: las dos flechas delegan acá en vez de
-        repetir la comprobación, para que no puedan discrepar.
+        Es el **único lugar que recorta**: las dos flechas y la escala inicial
+        del constructor delegan acá en vez de repetir la comprobación, para que
+        no puedan discrepar.
 
         Raises:
             ChannelNotFoundError: si el registro no tiene ese canal.
+            InvalidScaleError: si la escala no es un número finito. `min(max(nan,
+                lo), hi)` devuelve **NaN**, así que la forma corta de recortar no
+                recorta nada: el canal dejaría de dibujarse y la escala de la
+                izquierda anunciaría "nan µV".
         """
         self._recording.channel_by_name(channel_name)
-        self._scales_uv[channel_name] = min(max(scale_uv, minimum_uv), maximum_uv)
+        check_finite(
+            scale_uv,
+            error=InvalidScaleError,
+            message=f"La escala pedida para el canal '{channel_name}' no es un número válido.",
+            details="Se esperaba un número finito.",
+        )
+        self._scales_uv[channel_name] = clamp(scale_uv, minimum_uv, maximum_uv)
 
     # -- Herramienta activa -------------------------------------------------
 

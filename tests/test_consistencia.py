@@ -39,6 +39,7 @@ RAIZ = pathlib.Path(__file__).resolve().parent.parent
 COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_windows.py": ("psglab/core/windows.py",),
     "test_errors.py": ("psglab/utils/errors.py",),
+    "test_validation.py": ("psglab/utils/validation.py",),
     "test_units.py": ("psglab/utils/units.py",),
     "test_recording.py": ("psglab/core/recording.py",),
     "test_annotations.py": ("psglab/core/annotations.py",),

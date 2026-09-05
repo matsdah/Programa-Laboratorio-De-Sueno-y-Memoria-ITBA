@@ -135,11 +135,11 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos siete se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos ocho se rompen hacia todos lados.
 
-Cinco de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
-fila arriba: `config.py`, `utils/errors.py`, `tools/base.py`, `tools/registry.py`
-y `app.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+Seis de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
+`tools/base.py`, `tools/registry.py` y `app.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -148,6 +148,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/core/recording.py` | Modelo del registro en memoria | Toda la Parte 1 y toda la Parte 2 |
 | `psglab/utils/units.py` | Conversión a microvoltios | Cualquier requisito que hable de amplitud |
 | `psglab/utils/errors.py` | Excepciones con mensaje para el investigador | Todo mensaje de error que ve el usuario |
+| `psglab/utils/validation.py` | Que un NaN no atraviese una guarda numérica | Toda validación del modelo |
 | `psglab/tools/base.py` | Los contratos `Tool` y `ViewerTool`, y el sistema de coordenadas | Las seis herramientas |
 | `psglab/tools/registry.py` | Registro enchufable de herramientas | La barra de herramientas entera |
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |

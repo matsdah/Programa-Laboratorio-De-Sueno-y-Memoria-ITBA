@@ -1,4 +1,4 @@
-# `utils/` — unidades y errores
+# `utils/` — unidades, errores y validación
 
 Utilidades transversales. **Este paquete no depende de ningún otro del
 proyecto**, así que cualquier capa lo puede importar sin generar un ciclo.
@@ -7,6 +7,7 @@ proyecto**, así que cualquier capa lo puede importar sin generar un ciclo.
 |---|---|
 | `units.py` | Conversión de amplitudes a microvoltios. |
 | `errors.py` | Todas las excepciones propias del programa. |
+| `validation.py` | Comprobaciones numéricas que se repiten en todo el modelo. |
 
 ## `units.py` — todo el programa trabaja en µV
 
@@ -61,11 +62,23 @@ olvide de heredar haga fallar la suite.
 las excepciones, y si el constructor fallara ninguna de las clases de abajo
 podría siquiera construirse para ser elevada.
 
+## `validation.py` — que un NaN no atraviese una guarda
+
+Existe por un descuido que apareció **cuatro veces** en módulos distintos:
+escribir `if valor < 0` o `if valor < 1` y dar por sentado que rechaza cualquier
+número inválido. No lo hace, porque **toda comparación con NaN es falsa**, así
+que el NaN sigue viaje. Y lo que hace después es peor que fallar: una anotación
+con duración NaN se cuenta en el informe y no se dibuja en ninguna ventana.
+
+`check_finite()` recibe **qué excepción elevar**, porque el error que le sirve
+al investigador depende de qué se estaba haciendo. `clamp()` rechaza lo que no
+puede recortar: `min(max(nan, lo), hi)` devuelve NaN.
+
 ## Estado
 
 Pendientes **0 stubs**: la carpeta está **terminada**, en el
 [hito 1 del TODO](../../docs/TODO.md#hito-1-cimientos).
 
-Los dos módulos tienen su test corriendo: `tests/test_units.py` y
-`tests/test_errors.py`. `PsgLabError.__init__` es la base de todas las
-excepciones y no debe convertirse en un stub.
+Los tres módulos tienen su test corriendo: `tests/test_units.py`,
+`tests/test_errors.py` y `tests/test_validation.py`. `PsgLabError.__init__` es
+la base de todas las excepciones y no debe convertirse en un stub.

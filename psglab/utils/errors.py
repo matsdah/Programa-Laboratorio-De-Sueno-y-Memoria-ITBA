@@ -78,6 +78,16 @@ class UnknownUnitError(PsgLabError):
     """La unidad declarada en el archivo no se reconoce."""
 
 
+class InvalidScaleError(PsgLabError):
+    """La escala vertical pedida no es un número con el que se pueda dibujar.
+
+    Los valores fuera de los topes de `config` **no** llegan acá: se recortan en
+    silencio, que es lo que corresponde a alguien apretando una flecha. Esto es
+    para lo que no se puede recortar —NaN, infinito, algo que no es un número—,
+    que suele venir de un autoescalado calculado sobre una señal con huecos.
+    """
+
+
 # -- Scoring y anotaciones --------------------------------------------------
 
 

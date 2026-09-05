@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los diez
+camino de búsqueda. Con `pytest` directo la recolección falla en los once
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -50,6 +50,7 @@ verde por omisión, que es peor que dar rojo.
 | `conftest.py` | Fixtures compartidas: señal sintética y nombres de canal. |
 | `test_consistencia.py` | **El repositorio, no un componente.** Ver abajo. |
 | `test_errors.py` | Que el mensaje y la causa técnica viajen separados, y que un solo `except` las atrape todas. |
+| `test_validation.py` | Que un NaN no atraviese una guarda numérica. |
 | `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
 | `test_nomenclature.py` | Las dos nomenclaturas, la conversión entre ellas y los códigos de `Scoring.txt`. |
@@ -164,8 +165,8 @@ arrastra su test, y **eso es parte de darlo por terminado**:
 - **Extender**: `test_exporters` para que cubra de verdad `statistics.py` e
   `information_txt.py` (5), que hoy no importa.
 
-Los ocho de los hitos 1, 2 y 3 —`test_units`, `test_windows`,
-`test_nomenclature`, `test_recording`, `test_errors`, `test_scoring`,
-`test_annotations` y `test_session`— ya están y corren.
+Los nueve de los hitos 1, 2 y 3 —`test_units`, `test_windows`,
+`test_nomenclature`, `test_recording`, `test_errors`, `test_validation`,
+`test_scoring`, `test_annotations` y `test_session`— ya están y corren.
 
 `psglab/ui/` no lleva tests unitarios: es deliberado, no una omisión.

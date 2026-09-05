@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from psglab.utils.errors import InvalidAnnotationError, UnknownAnnotationLabelError
+from psglab.utils.validation import check_finite
 
 #: Clases de evento ofrecidas por defecto. El usuario puede agregar las suyas.
 DEFAULT_LABELS: Final[tuple[str, ...]] = (
@@ -107,8 +108,9 @@ class AnnotationSet:
         Raises:
             UnknownAnnotationLabelError: si la clase no está registrada. Para
                 usar una clase nueva hay que llamar antes a `add_label`.
-            InvalidAnnotationError: si la posición es negativa o la duración no
-                cubre ninguna muestra. **La duración cero se rechaza a
+            InvalidAnnotationError: si la posición o la duración no son números
+                finitos, si la posición es negativa, o si la duración no cubre
+                ninguna muestra. **La duración cero se rechaza a
                 propósito**: el pliego pide marcar el evento con una banda sobre
                 la señal, y una banda sin ancho no se puede dibujar ni solapar
                 con nada.
@@ -119,17 +121,23 @@ class AnnotationSet:
                 "no se puede anotar con ella.",
                 details=f"Clases disponibles: {', '.join(self.labels())}.",
             )
-        if annotation.onset_sample < 0:
-            raise InvalidAnnotationError(
-                "La anotación empieza antes del comienzo del registro.",
-                details=f"onset_sample = {annotation.onset_sample}.",
-            )
-        if annotation.duration_samples < 1:
-            raise InvalidAnnotationError(
+        check_finite(
+            annotation.onset_sample,
+            error=InvalidAnnotationError,
+            message="La anotación empieza antes del comienzo del registro.",
+            details="Se esperaba una muestra de inicio finita y no negativa.",
+            minimum=0,
+        )
+        check_finite(
+            annotation.duration_samples,
+            error=InvalidAnnotationError,
+            message=(
                 "La anotación no cubre ninguna muestra del registro, así que no se "
-                "podría ni dibujar.",
-                details=f"duration_samples = {annotation.duration_samples}, se esperaba 1 o más.",
-            )
+                "podría ni dibujar."
+            ),
+            details="Se esperaba una duración finita de 1 muestra o más.",
+            minimum=1,
+        )
 
         posicion = bisect.bisect_right(
             [a.onset_sample for a in self._annotations], annotation.onset_sample
