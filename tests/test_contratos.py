@@ -13,9 +13,26 @@ attribute 'value'` — el rechazo era correcto y la explicación del rechazo,
 imposible.
 
 Este archivo recorre cada método público de los módulos implementados con
-entradas hostiles y afirma que lo que sale hereda de `PsgLabError`. La tabla es
-explícita a propósito: un método nuevo sin fila hace fallar
-`test_consistencia.py`, igual que pasa con `COBERTURA_DE_TESTS`.
+entradas hostiles y afirma que lo que sale hereda de `PsgLabError`.
+
+La tabla es explícita a propósito, y desde
+`test_consistencia.py::test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato`
+un método público sin fila hace fallar la suite, igual que pasa con
+`COBERTURA_DE_TESTS`.
+
+**Durante mucho tiempo eso fue mentira.** Este docstring lo prometía y no había
+ningún chequeo: `CONTRATOS` sólo aparecía acá adentro, y lo único que se
+verificaba era que las rutas nombradas existieran. La tabla cubría 5 de los 9
+módulos terminados. Al escribir el chequeo que faltaba aparecieron **13 métodos
+más** que dejaban escapar `TypeError`, `KeyError` o `AttributeError` crudos, más
+del doble de los que había encontrado a mano la auditoría, incluido `stage_code`,
+que alimenta la línea de `Scoring.txt`.
+
+El alcance es `core/` y `utils/`, que son las capas terminadas. `tools/` tiene su
+propio test prometido en el hito 7 y `ui/` no lleva tests unitarios. Las
+excepciones se declaran en `SIN_CONTRATO`, con el motivo: hoy son `windows.py`,
+que documenta que no valida porque quien llama ya validó, y `clamp`, que declara
+la misma precondición.
 """
 
 from pathlib import Path
@@ -23,13 +40,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from psglab.core import nomenclature as nom
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
-from psglab.utils import units
-from psglab.utils.errors import PsgLabError
+from psglab.utils import units, validation
+from psglab.utils.errors import InvalidRecordingError, PsgLabError
 
 #: Valores que nunca deberían llegar, y que llegan igual: un lector con un bug,
 #: una cabecera que no trae el campo, un parser que se olvidó de convertir.
@@ -48,6 +66,19 @@ def registro(canales: int = 2, muestras: int = 3000, fs: float = 100.0) -> Recor
 
 def sesion() -> Session:
     return Session(registro(), Scoring(1, Nomenclature.AASM), AnnotationSet())
+
+
+def anotaciones() -> AnnotationSet:
+    """Un conjunto con una anotación válida, para las filas que consultan.
+
+    Ojo con el orden de los campos: `Annotation(label, onset, duration)`.
+    Construirla al revés la hace rechazar en `add()`, y entonces la fila
+    informa un `PsgLabError` que vino del armado y no de lo que se quería
+    probar: verde por omisión.
+    """
+    conjunto = AnnotationSet()
+    conjunto.add(Annotation("Arousal", 0, 100))
+    return conjunto
 
 
 #: Cada fila es (nombre legible, función que recibe un valor hostil).
@@ -70,23 +101,58 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("set_stage(stage=...)", lambda v: Scoring(3, Nomenclature.AASM).set_stage(0, v)),
         ("set_arousal(arousal=...)", lambda v: Scoring(3, Nomenclature.AASM).set_arousal(0, v)),
         ("get", lambda v: Scoring(3, Nomenclature.AASM).get(v)),
+        ("change_nomenclature", lambda v: Scoring(3, Nomenclature.AASM).change_nomenclature(v)),
+    ],
+    "psglab/core/nomenclature.py": [
+        ("stages_of", lambda v: nom.stages_of(v)),
+        ("is_valid(stage=...)", lambda v: nom.is_valid(v, Nomenclature.AASM)),
+        ("is_valid(nomenclature=...)", lambda v: nom.is_valid(SleepStage.N2, v)),
+        ("convert(stage=...)", lambda v: nom.convert(v, Nomenclature.AASM)),
+        ("convert(target=...)", lambda v: nom.convert(SleepStage.N2, v)),
+        ("stage_label", lambda v: nom.stage_label(v)),
+        ("stage_code", lambda v: nom.stage_code(v)),
     ],
     "psglab/core/annotations.py": [
         ("add(onset=...)", lambda v: AnnotationSet().add(Annotation("Arousal", v, 10))),
         ("add(duration=...)", lambda v: AnnotationSet().add(Annotation("Arousal", 0, v))),
         ("color_of", lambda v: AnnotationSet().color_of(v)),
         ("remove_at", lambda v: AnnotationSet().remove_at(v)),
+        ("add(annotation=...)", lambda v: AnnotationSet().add(v)),
+        ("add(label=...)", lambda v: AnnotationSet().add(Annotation(v, 0, 10))),
+        ("add_label(label=...)", lambda v: AnnotationSet().add_label(v)),
+        ("add_label(color=...)", lambda v: AnnotationSet().add_label("Arousal", v)),
+        ("remove", lambda v: anotaciones().remove(v)),
+        ("in_range(start_sample=...)", lambda v: anotaciones().in_range(v, 100)),
+        ("in_range(stop_sample=...)", lambda v: anotaciones().in_range(0, v)),
     ],
     "psglab/core/session.py": [
+        ("Session(recording=...)", lambda v: Session(v, Scoring(1, Nomenclature.AASM), AnnotationSet())),
+        ("Session(scoring=...)", lambda v: Session(registro(), v, AnnotationSet())),
+        ("Session(annotations=...)", lambda v: Session(registro(), Scoring(1, Nomenclature.AASM), v)),
+        ("Session(default_scale_uv=...)", lambda v: Session(registro(), Scoring(1, Nomenclature.AASM), AnnotationSet(), v)),
         ("go_to_window", lambda v: sesion().go_to_window(v)),
         ("scale_uv", lambda v: sesion().scale_uv(v)),
         ("set_scale_uv(scale=...)", lambda v: sesion().set_scale_uv("C0", v)),
         ("set_visible_channels", lambda v: sesion().set_visible_channels([v])),
         ("set_selected_channels", lambda v: sesion().set_selected_channels([v])),
+        ("increase_amplitude(factor=...)", lambda v: sesion().increase_amplitude(v)),
+        ("decrease_amplitude(factor=...)", lambda v: sesion().decrease_amplitude(v)),
+        ("set_active_tool", lambda v: sesion().set_active_tool(v)),
     ],
     "psglab/utils/units.py": [
         ("conversion_factor", lambda v: units.conversion_factor(v)),
         ("to_microvolts(unit=...)", lambda v: units.to_microvolts(1.0, v)),
+        ("format_amplitude(value_uv=...)", lambda v: units.format_amplitude(v)),
+        ("format_amplitude(decimals=...)", lambda v: units.format_amplitude(1.0, v)),
+        ("normalize_unit_name", lambda v: units.normalize_unit_name(v)),
+    ],
+    "psglab/utils/validation.py": [
+        ("check_finite(value=...)", lambda v: validation.check_finite(v, error=InvalidRecordingError, message="m", details="d")),
+        ("check_index(value=...)", lambda v: validation.check_index(v, error=InvalidRecordingError, message="m", details="d")),
+    ],
+    "psglab/utils/errors.py": [
+        ("PsgLabError(message=...)", lambda v: PsgLabError(v)),
+        ("PsgLabError(details=...)", lambda v: PsgLabError("m", v)),
     ],
 }
 
@@ -127,6 +193,21 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     # El arousal se guardaba tal cual: "si" terminaría escrito en Scoring.txt.
     ("set_arousal con una cadena", "si",
      lambda v: Scoring(3, Nomenclature.AASM).set_arousal(0, v)),
+    # Segunda tanda. `stage_code` alimenta la línea de `Scoring.txt`: una fase
+    # que no es fase escribiría basura en el archivo del investigador.
+    ("stage_code con una cadena", "N2", lambda v: nom.stage_code(v)),
+    # `stages_of` da las filas del histograma; con una nomenclatura equivocada
+    # daba `KeyError` y la ventana principal mostraba una traza.
+    ("stages_of con una cadena", "AASM", lambda v: nom.stages_of(v)),
+    # La unidad llega de la cabecera de un EDF o un BrainVision. Es entrada
+    # externa, no un valor que arme el programa.
+    ("normalize_unit_name con None", None, lambda v: units.normalize_unit_name(v)),
+    # El factor cero dividía por cero al subir la amplitud.
+    ("increase_amplitude con factor cero", 0, lambda v: sesion().increase_amplitude(v)),
+    # Una etiqueta que no es texto se usaba como clave de un diccionario.
+    ("add_label con None", None, lambda v: AnnotationSet().add_label(v)),
+    # Guardar algo que no es una anotación reventaba al pedirle `.label`.
+    ("add con algo que no es una anotación", "Arousal", lambda v: AnnotationSet().add(v)),
 ]
 
 

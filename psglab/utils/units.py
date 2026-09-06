@@ -21,7 +21,8 @@ significaría nada.
 
 from typing import Final
 
-from psglab.utils.errors import UnknownUnitError
+from psglab.utils.errors import InvalidScaleError, UnknownUnitError
+from psglab.utils.validation import check_finite
 
 #: Los dos caracteres que se ven como "mu" y que aparecen en las cabeceras.
 #: `normalize_unit_name()` reemplaza el primero por el segundo.
@@ -126,6 +127,17 @@ def format_amplitude(value_uv: float, decimals: int = 0) -> str:
     La unidad sale de `MICROVOLT` y no de un literal: es el símbolo que ve el
     usuario y tiene que salir de un solo lugar.
     """
+    check_finite(
+        value_uv,
+        error=InvalidScaleError,
+        message="No se pudo mostrar la amplitud del canal.",
+        details="value_uv tiene que ser un número finito de microvoltios.",
+    )
+    if isinstance(decimals, bool) or not isinstance(decimals, int) or decimals < 0:
+        raise InvalidScaleError(
+            "No se pudo mostrar la amplitud del canal.",
+            details=f"decimals tiene que ser un entero no negativo; se recibió {decimals!r}.",
+        )
     return f"{value_uv:.{decimals}f} {MICROVOLT}"
 
 
@@ -147,5 +159,10 @@ def normalize_unit_name(unit: str) -> str:
     porque la mu griega mayúscula (U+039C) baja a U+03BC, y así el reemplazo
     también la alcanza; al revés, "ΜV" quedaría sin normalizar.
     """
+    if not isinstance(unit, str):
+        raise UnknownUnitError(
+            "No se pudo interpretar la unidad declarada en el archivo.",
+            details=f"unit es {type(unit).__name__}, se esperaba str.",
+        )
     sin_espacios = "".join(unit.split())
     return sin_espacios.lower().replace(_MU_GRIEGA, _SIGNO_MICRO)

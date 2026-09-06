@@ -1021,6 +1021,136 @@ def test_cada_archivo_de_test_esta_en_la_tabla_de_cobertura(archivo: str):
         "el chequeo de tests salteados lo cubra"
     )
 
+# -- Contratos de error -----------------------------------------------------
+
+
+#: Métodos públicos de `core/` y `utils/` que **no** llevan fila en `CONTRATOS`,
+#: con el motivo. No es una lista de pendientes: son decisiones documentadas en
+#: el propio módulo, y meterlos en la tabla obligaría a agregarles guardas que
+#: esas decisiones descartaron a propósito. Se declaran acá en vez de saltearse
+#: en silencio, que es la diferencia entre una excepción y un agujero.
+SIN_CONTRATO: dict[str, str] = {
+    "psglab/core/windows.py": (
+        "su docstring declara las precondiciones: es aritmética pura, no valida sus "
+        "argumentos y eleva ZeroDivisionError a propósito con una frecuencia corrupta. "
+        "Quien llama ya validó —Session.go_to_window() eleva WindowOutOfRangeError "
+        "antes de llegar acá— y repetir la comprobación en el camino caliente, que se "
+        "recorre en cada pulsación de flecha, no aporta nada."
+    ),
+    "psglab/utils/validation.py::clamp": (
+        "documenta que un valor no finito es un error de programación y no algo que el "
+        "usuario pueda provocar: quien llama tiene que haber pasado antes por "
+        "check_finite."
+    ),
+}
+
+
+def contratos_declarados() -> dict[str, set[str]]:
+    """Qué nombres ejercita cada módulo en la tabla `CONTRATOS`.
+
+    Se lee el árbol de sintaxis de `tests/test_contratos.py` en vez de
+    importarlo: lo que interesa es **qué se llama adentro de cada lambda**, no
+    el resultado de llamarla.
+    """
+    arbol = ast.parse((RAIZ / "tests" / "test_contratos.py").read_text(encoding="utf-8"))
+    tabla = None
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.AnnAssign) and getattr(nodo.target, "id", "") == "CONTRATOS":
+            tabla = nodo.value
+    assert isinstance(tabla, ast.Dict), "tests/test_contratos.py ya no define CONTRATOS como dict"
+
+    declarados: dict[str, set[str]] = {}
+    for clave, filas in zip(tabla.keys, tabla.values):
+        nombres: set[str] = set()
+        for hijo in ast.walk(filas):
+            if isinstance(hijo, ast.Attribute):
+                nombres.add(hijo.attr)
+            elif isinstance(hijo, ast.Name):
+                nombres.add(hijo.id)
+        declarados[clave.value] = nombres
+    return declarados
+
+
+def metodos_que_reciben_algo(archivo: pathlib.Path) -> list[tuple[str, str]]:
+    """Métodos públicos del módulo que pueden recibir un valor hostil.
+
+    Devuelve pares (nombre legible, token que la tabla tiene que nombrar). Para
+    un `__init__` el token es la clase, porque en la tabla se lo llama
+    construyendo: `Scoring(3, v)`.
+
+    Los que no reciben nada quedan afuera: a una propiedad sin argumentos no hay
+    con qué atacarla, y exigirle una fila sería ruido.
+    """
+    arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+    encontrados: list[tuple[str, str]] = []
+    for nodo in arbol.body:
+        candidatos: list[tuple[str, str, ast.FunctionDef]] = []
+        if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)) and not nodo.name.startswith("_"):
+            candidatos = [(nodo.name, nodo.name, nodo)]
+        elif isinstance(nodo, ast.ClassDef):
+            for hijo in nodo.body:
+                if not isinstance(hijo, ast.FunctionDef):
+                    continue
+                if hijo.name == "__init__":
+                    candidatos.append((f"{nodo.name}.__init__", nodo.name, hijo))
+                elif not hijo.name.startswith("_"):
+                    candidatos.append((f"{nodo.name}.{hijo.name}", hijo.name, hijo))
+        for legible, token, funcion in candidatos:
+            recibe = [a for a in argumentos_de(funcion) if a.arg not in ("self", "cls")]
+            if recibe:
+                encontrados.append((legible, token))
+    return encontrados
+
+
+def test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato():
+    """Lo que el docstring de `test_contratos.py` prometía y nadie verificaba.
+
+    Ese archivo decía que un método público sin fila hace fallar este test,
+    "igual que pasa con `COBERTURA_DE_TESTS`". No era cierto: `CONTRATOS` sólo
+    aparecía dentro de `test_contratos.py`, y lo único que se comprobaba era que
+    las rutas nombradas existieran. La tabla cubría 5 de los 9 módulos
+    terminados, y los 34 métodos que faltaban no se notaban de ninguna forma.
+
+    Al escribirlo aparecieron **13 métodos** que dejaban escapar `TypeError`,
+    `KeyError` o `AttributeError` crudos —más del doble de los que había
+    encontrado a mano la auditoría—, incluido `stage_code`, que alimenta la
+    línea de `Scoring.txt`. Dos de ellos, los del constructor de `Session`, no
+    los encontró ninguna sonda escrita a mano sino este chequeo.
+
+    Sólo se exige de `core/` y `utils/`: son las capas terminadas. `tools/` tiene
+    su propio test prometido en el hito 7 y `ui/` no lleva tests unitarios.
+    """
+    declarados = contratos_declarados()
+    faltantes: list[str] = []
+    for archivo in modulos_del_paquete():
+        relativa = ruta_relativa(archivo)
+        if not any(capa in archivo.parts for capa in ("core", "utils")):
+            continue
+        if contar_stubs(archivo) or relativa in SIN_CONTRATO:
+            continue
+        cubiertos = declarados.get(relativa, set())
+        for legible, token in metodos_que_reciben_algo(archivo):
+            if f"{relativa}::{legible.split('.')[-1]}" in SIN_CONTRATO:
+                continue
+            if token not in cubiertos:
+                faltantes.append(f"{relativa}::{legible}")
+    assert not faltantes, (
+        "estos métodos públicos pueden recibir un valor hostil y no tienen fila en "
+        "CONTRATOS de tests/test_contratos.py, así que nada verifica que lo rechacen "
+        f"con un PsgLabError: {faltantes}"
+    )
+
+
+def test_las_exenciones_de_contrato_siguen_existiendo():
+    """Una exención que apunte a algo borrado tapa un módulo nuevo por accidente."""
+    inexistentes = [
+        objetivo
+        for objetivo in SIN_CONTRATO
+        if not (RAIZ / objetivo.split("::")[0]).exists()
+    ]
+    assert not inexistentes, f"SIN_CONTRATO nombra archivos que no existen: {inexistentes}"
+
+
 # -- Que el paquete entero se pueda importar --------------------------------
 
 

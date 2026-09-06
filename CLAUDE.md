@@ -178,6 +178,10 @@ rechazar antes de dar por terminado un cambio:
 - Todo módulo de la Parte 1 tiene test, figura en `SIN_TEST_PROPIO` —`ui/`
   entero, `app.py` y `config.py`— o el TODO promete el suyo **por nombre de
   archivo**. Un módulo nuevo sin ninguna de las tres cosas hace fallar la suite.
+- Todo método público de `core/` y `utils/` que reciba argumentos tiene su fila
+  en `CONTRATOS` de `tests/test_contratos.py`, o figura en `SIN_CONTRATO` con el
+  motivo. Es lo que obliga a verificar que una entrada hostil salga como
+  `PsgLabError` y no como una traza en la cara del investigador.
 - `COBERTURA_DE_TESTS` no puede declarar un módulo que el test no importe.
   Declararlo sin importarlo ya contó nueve stubs como verificados mientras nadie
   exigía un test para ellos.
@@ -200,12 +204,12 @@ aceptar. La segunda salió de generar mutantes del árbol de sintaxis: cuatro
 guardas de tipo se podían borrar enteras, cambiando `if not isinstance(...)` por
 `if False`, sin que la suite lo notara.
 
-**Al implementar un módulo hay que agregar a mano una fila por método público.**
-A diferencia de `COBERTURA_DE_TESTS`, acá **no hay red**: nada verifica que un
-método nuevo tenga la suya, así que un método sin cubrir no se nota de ninguna
-forma. El docstring de ese archivo afirma que `test_consistencia.py` lo atrapa;
-hoy no es cierto, y es la única promesa de verificación del proyecto que no
-tiene detrás un chequeo.
+**Al implementar un módulo hay que agregar una fila por método público**, y hay
+red que lo exige: `test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato`
+recorre `core/` y `utils/` y hace fallar la suite si falta alguna. Las
+excepciones se declaran en `SIN_CONTRATO` **con el motivo** —hoy `windows.py` y
+`clamp`, que documentan que no validan porque quien llama ya validó—, nunca se
+saltean en silencio.
 
 El [workflow de CI](.github/workflows/ci.yml) corre en cada push y cada pull
 request contra `Add` y `Master`: los tests en Windows, macOS y Linux con Python

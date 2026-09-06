@@ -25,6 +25,8 @@ from psglab.core.scoring import Scoring
 from psglab.core.windows import count_windows
 from psglab.utils.errors import (
     ChannelNotFoundError,
+    InvalidAnnotationError,
+    InvalidRecordingError,
     InvalidScaleError,
     ScoringMismatchError,
     WindowOutOfRangeError,
@@ -63,6 +65,24 @@ class Session:
         detección de clase de canal, que vive en `readers/channel_types.py`: ese
         default es de la interfaz cuando exista, no de `core/`.
         """
+        # Las tres piezas llegan sueltas desde la capa de carga. Sin esta
+        # guarda, `recording.n_samples` y `scoring.n_windows` elevaban
+        # `AttributeError` en la línea de abajo: el rechazo era correcto y la
+        # explicación del rechazo, imposible.
+        for nombre, valor, esperado, error in (
+            ("recording", recording, Recording, InvalidRecordingError),
+            ("scoring", scoring, Scoring, ScoringMismatchError),
+            ("annotations", annotations, AnnotationSet, InvalidAnnotationError),
+        ):
+            if not isinstance(valor, esperado):
+                raise error(
+                    "No se pudo abrir la sesión de trabajo con lo que se le pasó.",
+                    details=(
+                        f"{nombre} es {type(valor).__name__}, "
+                        f"se esperaba {esperado.__name__}."
+                    ),
+                )
+
         ventanas = count_windows(recording.n_samples, recording.sampling_rate)
         if scoring.n_windows != ventanas:
             raise ScoringMismatchError(
@@ -269,6 +289,25 @@ class Session:
         elegidos = self._selected_channels or self._visible_channels
         return list(dict.fromkeys(elegidos))
 
+    def _check_amplitude_factor(self, factor: float) -> None:
+        """Rechaza un paso de amplitud con el que no se puede escalar.
+
+        Sin esta guarda, un factor que no sea número sale como `TypeError` y el
+        cero como `ZeroDivisionError`. Los dos atraviesan el `except
+        PsgLabError` de la ventana principal.
+        """
+        check_finite(
+            factor,
+            error=InvalidScaleError,
+            message="El paso de amplitud no sirve para escalar la señal.",
+            details="factor tiene que ser un número finito mayor que cero.",
+        )
+        if factor <= 0:
+            raise InvalidScaleError(
+                "El paso de amplitud no sirve para escalar la señal.",
+                details=f"factor tiene que ser mayor que cero; se recibió {factor}.",
+            )
+
     def increase_amplitude(self, factor: float = AMPLITUDE_STEP_FACTOR) -> None:
         """Aumenta la amplitud (flecha "Arriba").
 
@@ -286,11 +325,13 @@ class Session:
             factor: cuánto se multiplica la amplitud por cada pulsación. Por
                 defecto, el paso de `config`.
         """
+        self._check_amplitude_factor(factor)
         for nombre in self._channels_under_amplitude():
             self.set_scale_uv(nombre, self._scales_uv[nombre] / factor)
 
     def decrease_amplitude(self, factor: float = AMPLITUDE_STEP_FACTOR) -> None:
         """Reduce la amplitud (flecha "Abajo"). Mismo criterio de alcance."""
+        self._check_amplitude_factor(factor)
         for nombre in self._channels_under_amplitude():
             self.set_scale_uv(nombre, self._scales_uv[nombre] * factor)
 

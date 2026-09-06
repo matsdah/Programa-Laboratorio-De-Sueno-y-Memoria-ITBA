@@ -115,6 +115,22 @@ class AnnotationSet:
                 la señal, y una banda sin ancho no se puede dibujar ni solapar
                 con nada.
         """
+        if not isinstance(annotation, Annotation):
+            raise InvalidAnnotationError(
+                "Se quiso guardar algo que no es una anotación.",
+                details=f"annotation es {type(annotation).__name__}, se esperaba Annotation.",
+            )
+        # La etiqueta se usa como clave del diccionario de colores: una que no
+        # sea `str` —una lista, un diccionario— elevaba `TypeError: unhashable`
+        # en la línea de abajo, antes de poder explicar nada.
+        if not isinstance(annotation.label, str):
+            raise InvalidAnnotationError(
+                "La clase del evento anotado no es un nombre.",
+                details=(
+                    f"annotation.label es {type(annotation.label).__name__}, "
+                    "se esperaba str."
+                ),
+            )
         if annotation.label not in self._colors:
             raise UnknownAnnotationLabelError(
                 f"La clase de evento '{annotation.label}' no está registrada, así que "
@@ -203,6 +219,11 @@ class AnnotationSet:
             InvalidAnnotationError: si la etiqueta está vacía. Una clase sin
                 nombre no se puede elegir en ninguna lista.
         """
+        if not isinstance(label, str):
+            raise InvalidAnnotationError(
+                "Una clase de evento necesita un nombre escrito.",
+                details=f"label es {type(label).__name__}, se esperaba str.",
+            )
         if not label.strip():
             raise InvalidAnnotationError(
                 "Una clase de evento necesita un nombre.",
@@ -248,6 +269,13 @@ class AnnotationSet:
         tampoco la que empieza justo donde el tramo termina. Es lo que evita que
         una anotación se dibuje en dos ventanas seguidas.
         """
+        for nombre, valor in (("start_sample", start_sample), ("stop_sample", stop_sample)):
+            check_finite(
+                valor,
+                error=InvalidAnnotationError,
+                message="No se pudo buscar anotaciones en ese tramo de señal.",
+                details=f"{nombre} tiene que ser un número finito de muestras.",
+            )
         return [
             a
             for a in self._annotations

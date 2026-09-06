@@ -99,6 +99,10 @@ class InvalidStageError(PsgLabError):
     """La fase no pertenece a la nomenclatura activa."""
 
 
+class InvalidNomenclatureError(PsgLabError):
+    """Se pidió una nomenclatura de scoring que no existe."""
+
+
 class UnknownAnnotationLabelError(PsgLabError):
     """Se usó una clase de anotación que no está registrada."""
 

@@ -17,6 +17,8 @@ Cubre del pliego: V1_F, V3_F de "Scoring de la señal"; V3_F del histograma.
 from enum import Enum
 from typing import Final
 
+from psglab.utils.errors import InvalidNomenclatureError, InvalidStageError
+
 
 class Nomenclature(Enum):
     """Sistema de clasificación de fases elegido por el usuario."""
@@ -127,12 +129,40 @@ _EQUIVALENCIAS: Final[dict[Nomenclature, dict[SleepStage, SleepStage]]] = {
 }
 
 
+def _check_nomenclature(nomenclature: Nomenclature) -> None:
+    """Rechaza lo que no sea una nomenclatura, con un error del programa.
+
+    Las tablas de este módulo son diccionarios indexados por el enum, así que
+    sin esta guarda un valor equivocado sale como `KeyError` o `TypeError`
+    crudo, atraviesa el `except PsgLabError` de la ventana principal y el
+    investigador ve una traza de Python.
+    """
+    if not isinstance(nomenclature, Nomenclature):
+        raise InvalidNomenclatureError(
+            "Se pidió una nomenclatura de scoring que no existe.",
+            details=(
+                f"nomenclature es {type(nomenclature).__name__}, "
+                "se esperaba Nomenclature."
+            ),
+        )
+
+
+def _check_stage(stage: SleepStage) -> None:
+    """El equivalente para las fases. Mismo motivo que arriba."""
+    if not isinstance(stage, SleepStage):
+        raise InvalidStageError(
+            "Se usó algo que no es una fase de sueño.",
+            details=f"stage es {type(stage).__name__}, se esperaba SleepStage.",
+        )
+
+
 def stages_of(nomenclature: Nomenclature) -> tuple[SleepStage, ...]:
     """Fases válidas de una nomenclatura, en orden de histograma.
 
     No incluye `UNSCORED`, que no es una fila del histograma sino la ausencia
     de una: el pliego (V1_P) pide que lo no anotado quede **en blanco**.
     """
+    _check_nomenclature(nomenclature)
     return STAGES_BY_NOMENCLATURE[nomenclature]
 
 
@@ -170,6 +200,7 @@ def convert(stage: SleepStage, target: Nomenclature) -> SleepStage:
     Una fase que ya pertenece a la nomenclatura pedida se devuelve sin tocar,
     así que convertir dos veces a lo mismo no cambia nada.
     """
+    _check_stage(stage)
     if is_valid(stage, target):
         return stage
     return _EQUIVALENCIAS[target][stage]
@@ -182,6 +213,7 @@ def stage_label(stage: SleepStage) -> str:
     justamente los nombres con los que se define cada fase, así que no hay una
     segunda tabla que pueda desincronizarse.
     """
+    _check_stage(stage)
     return stage.value
 
 
@@ -192,4 +224,5 @@ def stage_code(stage: SleepStage) -> int:
     REM/R. Codificar está bien; **decodificar exige saber la nomenclatura**, que
     por eso viaja en la cabecera del propio archivo.
     """
+    _check_stage(stage)
     return STAGE_CODES[stage]
