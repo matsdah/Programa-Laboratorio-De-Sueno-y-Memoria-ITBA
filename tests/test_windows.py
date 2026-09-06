@@ -249,8 +249,9 @@ def test_un_hercio_es_una_frecuencia_valida():
     `<= 0` y no `<= 1`, y con `<= 1` esos cuatro canales harían fallar la
     apertura del archivo con un error que habla de una frecuencia inválida.
     """
-    assert count_windows(90, 1.0) == 3
-    assert window_to_samples(1, 1.0) == (30, 60)
+    por_ventana = int(WINDOW_SECONDS)  # a 1 Hz, una muestra por segundo
+    assert count_windows(3 * por_ventana, 1.0) == 3
+    assert window_to_samples(1, 1.0) == (por_ventana, 2 * por_ventana)
 
 
 # -- Las otras unidades: fracción de ventana y segundos ----------------------
