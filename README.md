@@ -64,6 +64,18 @@ pip install -r requirements.txt
 > Para usar los dos a la vez, dale al de WSL un directorio propio con
 > `python3 -m venv .venv-linux`. El `.gitignore` ya excluye cualquier `.venv*/`.
 
+> **Y uno por ruta.** El entorno tampoco sobrevive a que le renombren o le
+> muevan la carpeta: cada `.exe` de `Scripts/` —`pip`, `pytest`,
+> `pip-licenses`— lleva grabada adentro la ruta absoluta del intérprete. Después
+> de un renombre fallan todos con `Fatal error in launcher: Unable to create
+> process using '...'`, citando la ruta vieja.
+>
+> El `python.exe` del entorno **sí** sigue funcionando, así que `python -m pip` y
+> `python -m pytest` no se enteran y el problema queda latente. Acá se descubrió
+> recién al correr el `pip install` de esta misma sección.
+>
+> No hay nada que rescatar: se borra `.venv` y se rehace con los pasos de arriba.
+
 Para correr los tests, instalá además las herramientas de desarrollo:
 
 ```bash

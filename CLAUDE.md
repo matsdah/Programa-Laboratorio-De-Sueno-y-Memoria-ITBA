@@ -103,6 +103,10 @@ importan al cargarse, que hoy son casi todos. La cuenta exacta la lleva
 Agregar un `pyproject.toml` lo resolvería, pero es una decisión de empaquetado
 que nadie tomó todavía.
 
+Hay una segunda razón, independiente del `sys.path`: `python -m` no pasa por los
+lanzadores de `Scripts/`, que quedan rotos si alguien renombra o mueve la carpeta
+del proyecto. El README explica el síntoma y cómo se repara.
+
 ```bash
 python main.py
 python -m pytest
@@ -120,8 +124,13 @@ Verificación de licencias a mano. El CI ya la corre en cada push, así que
 esto sirve para mirar el detalle, no para no olvidarse:
 
 ```bash
-pip-licenses --format=markdown --order=license
+python -m piplicenses --format=markdown --order=license
 ```
+
+Por módulo y no por el comando `pip-licenses`, igual que hace el CI: los
+lanzadores de `Scripts/` llevan grabada la ruta absoluta del intérprete, así que
+dependen de que ese directorio esté en el PATH y de que el entorno no se haya
+movido.
 
 ## Lo que se verifica solo
 

@@ -181,8 +181,12 @@ Todas compatibles con MIT.
 Verificar antes de cada release:
 
 ```bash
-pip-licenses --format=markdown --order=license
+python -m piplicenses --format=markdown --order=license
 ```
+
+Se invoca por módulo: el comando `pip-licenses` depende de que el directorio
+`Scripts/` del entorno esté en el PATH y de que el entorno no haya cambiado de
+ruta.
 
 Si aparece una dependencia GPL, hay que reemplazarla: no es un detalle
 formal, es la licencia del proyecto entero.
