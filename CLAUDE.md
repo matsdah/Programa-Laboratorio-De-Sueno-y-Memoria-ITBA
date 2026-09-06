@@ -94,6 +94,11 @@ Desde PowerShell se activa el entorno con ese script. **Desde la herramienta
 Bash el script de activación no aplica**: conviene llamar al intérprete directo,
 `./.venv/Scripts/python.exe -m pytest`.
 
+Esa forma tiene dos ventajas más, que valen también en PowerShell: esquiva la
+Execution Policy —que de fábrica bloquea `Activate.ps1`— y no puede instalar en
+el Python equivocado si la activación falló sin que nadie lo notara. El README
+explica por qué eso último es más caro que el error visible.
+
 **Usar siempre `python -m pytest`, nunca `pytest` a secas.** No hay
 `pyproject.toml` ni instalación editable, así que `psglab` sólo es importable
 porque `python -m` agrega el directorio actual a `sys.path`; `pytest` directo

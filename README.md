@@ -43,7 +43,11 @@ python3 -m venv .venv
 #    macOS / Linux:
 source .venv/bin/activate
 
-# 4. Instalá las dependencias
+# 4. Comprobá que estás adentro ANTES de instalar: tiene que imprimir la
+#    carpeta .venv del proyecto y no otra ruta.
+python -c "import sys; print(sys.prefix)"
+
+# 5. Instalá las dependencias
 pip install -r requirements.txt
 ```
 
@@ -75,6 +79,30 @@ pip install -r requirements.txt
 > recién al correr el `pip install` de esta misma sección.
 >
 > No hay nada que rescatar: se borra `.venv` y se rehace con los pasos de arriba.
+
+> **En Windows, `Activate.ps1` falla la primera vez.** Es la Execution Policy de
+> PowerShell, que de fábrica no deja correr ningún script: *"la ejecución de
+> scripts está deshabilitada en este sistema"*. Se arregla dándole permiso a tu
+> usuario —alcanza con eso, no hace falta administrador, y es una sola vez—:
+>
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+> ```
+>
+> **Lo caro no es el error sino lo que viene después.** El error se ve, se
+> ignora, y todo lo demás aparenta funcionar: con el entorno sin activar,
+> `pip install` instala en el Python global y `python main.py` arranca igual. El
+> proyecto no falla hasta mucho más tarde, cuando ya nadie relaciona una cosa con
+> la otra. Por eso el paso 4 existe.
+>
+> Si preferís no tocar la política, **no hace falta activar**. Invocar el
+> intérprete del entorno por su ruta hace exactamente lo mismo, esquiva la
+> política y no puede equivocarse de Python:
+>
+> ```powershell
+> .venv\Scripts\python.exe -m pip install -r requirements.txt
+> .venv\Scripts\python.exe -m pytest
+> ```
 
 Para correr los tests, instalá además las herramientas de desarrollo:
 
