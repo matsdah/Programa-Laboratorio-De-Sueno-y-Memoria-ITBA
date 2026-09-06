@@ -8,10 +8,12 @@ Nace para resolver las limitaciones de los programas actuales: formatos de impor
 limitados, scoring sólo manual, imposibilidad de anotar la señal, ausencia de métricas,
 compatibilidad únicamente con Windows y precios excesivos.
 
-> **Estado: esqueleto, con los cimientos puestos.** Los hitos 0 y 1 están cerrados:
-> ya funcionan el vocabulario de fases, el registro en memoria, las conversiones de
-> tiempo y las unidades. El resto de los módulos declara su interfaz y eleva
-> `NotImplementedError`.
+> **Estado: la capa de negocio está terminada.** Los hitos 0 a 3 están cerrados,
+> así que ya funcionan el vocabulario de fases, el registro en memoria, las
+> conversiones de tiempo, las unidades, el scoring, las anotaciones y la sesión
+> de trabajo —y todo eso se testea **sin abrir una ventana**. Falta leer
+> archivos, exportarlos y la interfaz gráfica; esos módulos declaran su interfaz
+> y elevan `NotImplementedError`.
 >
 > **Por dónde seguir: [`docs/TODO.md`](docs/TODO.md)**, que ordena los stubs
 > pendientes de la Parte 1 en hitos por dependencias y es el único lugar que

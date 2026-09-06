@@ -314,9 +314,52 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
     `exporters/scoring_txt.py::format_header()`. Lo que uno escribe el otro lo
     tiene que poder volver a leer.
 
+### Lo que la auditoría dejó medido para este hito
+
+Cuatro cosas que hoy no fallan porque nadie las ejecuta todavía, y que se
+verificaron leyendo el código y el material de prueba. No son bugs abiertos:
+son decisiones que este hito tiene que tomar.
+
+- [ ] **V3_F es el único ID sin camino desde su propio material de prueba.** El
+      hipnograma de la Sleep-EDF es un `.edf` —un EDF+ de anotaciones—, y
+      `Reader.can_read()` despacha por extensión, así que `read_recording()` se
+      lo entrega al `EdfReader`, que va a intentar leerlo como señal.
+      `read_scoring()` recibe un `Path` pero **no hay nada que enrute hasta
+      ella**. Decidir si el scoring entra por su propio diálogo —lo más
+      probable, porque V3_F es "importar un scoring existente" y no un
+      formato más— o si el despacho tiene que mirar el contenido.
+- [ ] **`Channel` no tiene dónde anotar la frecuencia original.** Si el hito
+      resuelve las frecuencias mixtas remuestreando, el registro pierde el dato
+      de a qué frecuencia venía cada canal, que es justo lo que hay que mostrar
+      para que el investigador sepa qué está mirando. Agregar el campo es
+      barato ahora y caro después: `Channel` es `frozen` y lo construye cada
+      lector.
+- [ ] **Descartar un canal obliga a renumerar `Channel.index`.** El EDF de
+      prueba trae `Event marker`, y un EDF+ trae además `EDF Annotations`.
+      Sacarlos del medio de la lista sin renumerar hace que
+      `Recording.__post_init__` eleve `InvalidRecordingError` hablando de
+      "canales cuya posición declarada no coincide con la fila que ocupan":
+      un mensaje correcto que le hace creer al usuario que su archivo está
+      roto. El lector renumera, o no descarta.
+- [ ] **Los prefijos 10-20 de `channel_types.py` son voraces.** `EEG_POSITIONS`
+      incluye `"t"`, `"c"`, `"f"`, `"p"` y `"o"` sueltos, y ningún patrón de
+      `KIND_PATTERNS` atrapa la temperatura: **`"Temp rectal"`, que está en el
+      registro de prueba, empieza con `"t"` y se clasificaría como EEG**. El
+      parámetro `unit` de `detect_channel_kind()` existe para esto —un canal en
+      °C no es un EEG—, pero hoy nada obliga a usarlo. El test tiene que
+      incluir los siete nombres reales del archivo.
+
 ---
 
 ## Hito 5: Exportadores
+
+> **Medido en la auditoría:** `stage_durations_seconds()` y
+> `scored_time_seconds()` **no pueden ser correctas con la firma que tienen**.
+> Reciben `scoring` y `window_seconds`, y con eso sólo saben multiplicar; para
+> la **última ventana, que casi siempre está incompleta**, hace falta
+> `window_duration()`, que pide `n_samples` y `sampling_rate`. Son las que
+> alimentan la tabla de tiempos de `Informacion.txt`, así que el error se
+> publica. Cambiar la firma es parte de este hito, no de otro.
 
 - [ ] **`psglab/exporters/statistics.py`** · 6 stubs · alimenta V3_F
       "Archivo de salida"
@@ -358,6 +401,13 @@ Primera vez que el programa se puede abrir. `ui/` **no lleva tests unitarios**:
 por eso la capa se mantiene delgada y toda la regla vive en `core/`. No es un
 olvido.
 
+> **Medido en la auditoría:** `Session` **no tiene mecanismo de notificación**
+> —ni callbacks, ni observadores, ni señales—, así que V5_F depende por entero
+> de que `main_window.py` se acuerde de llamar a `Tool.on_window_changed()`
+> después de cada `go_to_window()`, `next_window()` y `previous_window()`.
+> Son 10 stubs y la única capa sin tests: es el peor lugar posible para dejar
+> una obligación que nadie verifica. Decidir acá si `Session` avisa sola.
+
 - [ ] **`psglab/ui/grid.py`** · 4 stubs · V1_P, V2_F "Diseño de la interfaz"
 - [ ] **`psglab/ui/signal_view.py`** · 13 stubs · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
@@ -386,6 +436,12 @@ testear sin GUI, porque `Tool` y `ViewerTool` no heredan de `QObject`.
 Antes de escribir una, leé [`tools/README.md`](../psglab/tools/README.md): el
 sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
 (coordenadas propias del panel).
+
+> **Medido en la auditoría:** `BandOverlay` lleva `y_center_uv` y `height_uv`
+> pero **no lleva canal**, y `Session.scale_uv()` es por canal. Con dos canales
+> a escalas distintas, esos 75 µV no tienen una única traducción a píxeles y
+> `signal_view.py` no tiene con qué elegir. O el overlay dice sobre qué canal
+> va, o la banda se define en coordenadas de pantalla y deja de ser 75 µV.
 
 - [ ] **`psglab/tools/amplitude_band.py`** · 5 stubs · V1_F "Herramienta de
       amplitud" · `ViewerTool`

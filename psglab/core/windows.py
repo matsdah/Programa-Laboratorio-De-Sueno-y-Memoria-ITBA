@@ -37,7 +37,7 @@ Con un índice negativo devuelven números negativos en silencio.
 Esa promesa era cierta a medias: `sample_to_window` y `count_windows` fallaban,
 pero `window_to_samples` devolvía `(0, 0)` y `window_duration` devolvía cero, en
 silencio. Una frecuencia corrupta leída de un EDF producía una ventana vacía en
-vez de un error, que es la peor forma de fallar. Ahora las cuatro pasan por
+vez de un error, que es la peor forma de fallar. Ahora las seis pasan por
 `_samples_per_window()`, que es el único lugar donde se divide.
 
 Cubre del pliego: sostiene V1_P de "Visualización" (número de ventana actual
@@ -56,8 +56,8 @@ def _samples_per_window(sampling_rate: float, window_seconds: float) -> float:
     Es el único punto del módulo donde se mira `sampling_rate`, y por eso el
     único lugar donde hace falta comprobarla. No es validación de argumentos en
     el sentido general —los índices siguen sin validarse a propósito— sino lo
-    que hace cierta, para las cuatro funciones, la promesa del docstring del
-    módulo.
+    que hace cierta, para las seis funciones públicas que reciben una
+    frecuencia, la promesa del docstring del módulo.
 
     Raises:
         ZeroDivisionError: si la frecuencia no es un número finito y positivo.

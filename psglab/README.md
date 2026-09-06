@@ -89,9 +89,10 @@ cada decisión está en el
 
 ## Estado
 
-Esqueleto **con los cimientos puestos**: los 42 módulos del paquete importan
-—50 archivos `.py` contando los ocho `__init__.py`—, los hitos 0, 1 y 2 están
-cerrados, y el resto de los métodos todavía eleva `NotImplementedError`.
+Esqueleto **con la capa de negocio terminada**: los 42 módulos del paquete
+importan —51 archivos `.py` contando los ocho `__init__.py`—, los hitos 0 a 3
+están cerrados y con ellos `core/` y `utils/` quedaron completas. El resto de
+los métodos todavía eleva `NotImplementedError`.
 
 Pendientes **118 stubs** en 23 módulos de la Parte 1, ordenados por
 dependencias en el [TODO](../docs/TODO.md). `app.py` es el último de la fila
@@ -109,10 +110,8 @@ stubs:
   en vez de elevar: si el método base fallara, activar una herramienta y navegar
   rompería el programa.
 - `config.py` entero: sus constantes ya están fijadas.
-- **Los siete módulos cerrados en los hitos 1 y 2**: `core/windows.py`,
-  `core/nomenclature.py`, `core/recording.py`, `core/scoring.py`,
-  `core/annotations.py`, `utils/units.py` y `utils/errors.py`, cada uno con su
-  test corriendo.
+- **`core/` y `utils/` enteras**: los nueve módulos cerrados en los hitos 1 a 3,
+  cada uno con su test corriendo.
 
 Las primeras corren en tiempo de importación; si elevaran `NotImplementedError`,
 ningún módulo del paquete podría cargarse y los mecanismos enchufables no

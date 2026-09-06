@@ -55,10 +55,11 @@ llamá a este módulo en vez de escribir la cuenta.
 píxel ↔ unidad se hace en el visualizador, que es lo único que conoce el ancho
 de la pantalla. Por eso todo esto se testea sin abrir una ventana.
 
-**Con una frecuencia de muestreo que no sea positiva, las cinco funciones que
-la reciben elevan `ZeroDivisionError`.** No validan índices —quien llama ya lo
-hizo— pero una frecuencia corrupta sí se detiene acá: devolver una ventana
-vacía en silencio esconde el archivo roto hasta mucho después.
+**Con una frecuencia de muestreo que no sea finita y positiva, las seis
+funciones públicas que la reciben elevan `ZeroDivisionError`.** No validan
+índices —quien llama ya lo hizo— pero una frecuencia corrupta sí se detiene
+acá: devolver una ventana vacía en silencio esconde el archivo roto hasta mucho
+después.
 
 **Convención de índices:** las ventanas se numeran **desde 0 internamente** y
 desde 1 al mostrarlas y al exportarlas. La conversión se hace al mostrar, no
