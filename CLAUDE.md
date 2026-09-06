@@ -84,6 +84,12 @@ para trabajar en `psglab/analysis/`**: arrastran numba, llvmlite, xarray, pandas
 y scikit-learn, y ningún test las importa. El CI las instala sólo en el job de
 licencias.
 
+En macOS y Linux la activación es `source .venv/bin/activate`, y en Debian,
+Ubuntu y WSL el intérprete se llama `python3`. **Windows y WSL no pueden
+compartir un mismo `.venv`**: el segundo pisa el `pyvenv.cfg` del primero y lo
+deja inservible sin avisar en el momento. El README explica el síntoma y cómo se
+repara sin reinstalar los paquetes.
+
 Desde PowerShell se activa el entorno con ese script. **Desde la herramienta
 Bash el script de activación no aplica**: conviene llamar al intérprete directo,
 `./.venv/Scripts/python.exe -m pytest`.

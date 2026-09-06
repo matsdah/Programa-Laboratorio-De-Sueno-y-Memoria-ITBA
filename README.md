@@ -33,6 +33,9 @@ cd Programa-Laboratorio-De-Sueno-y-Memoria-ITBA
 
 # 2. Creá un entorno virtual (aísla las dependencias del resto de tu computadora)
 python -m venv .venv
+#    En Debian, Ubuntu y WSL el binario se llama python3, no python:
+python3 -m venv .venv
+#    (si eso falla, falta el paquete: sudo apt install python3-venv)
 
 # 3. Activalo
 #    Windows (PowerShell):
@@ -43,6 +46,23 @@ source .venv/bin/activate
 # 4. Instalá las dependencias
 pip install -r requirements.txt
 ```
+
+> **Un `.venv` por sistema operativo.** Si trabajás sobre la misma carpeta
+> desde Windows y desde WSL, no compartas el entorno. Correr
+> `python3 -m venv .venv` desde WSL **sobrescribe el `pyvenv.cfg`** del entorno
+> de Windows y lo deja apuntando al intérprete de Linux. En el momento no avisa
+> nada: el que falla es el comando siguiente, con
+> `did not find executable at '/usr/bin\python.exe'`.
+>
+> Los paquetes ya instalados **no se pierden** —el daño es ese único archivo— y
+> se repara regenerándolo desde Windows, sin reinstalar nada:
+>
+> ```bash
+> python -m venv --upgrade .venv
+> ```
+>
+> Para usar los dos a la vez, dale al de WSL un directorio propio con
+> `python3 -m venv .venv-linux`. El `.gitignore` ya excluye cualquier `.venv*/`.
 
 Para correr los tests, instalá además las herramientas de desarrollo:
 
