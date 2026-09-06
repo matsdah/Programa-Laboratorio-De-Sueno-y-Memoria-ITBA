@@ -61,6 +61,13 @@ sigue siendo cierta y el README de su carpeta también.
 qué falta. Duplicar el avance en los dos lugares garantiza que se
 desincronicen.
 
+[`docs/AUDITORIA.md`](docs/AUDITORIA.md) tampoco: es la foto fechada de lo que
+se encontró revisando el repositorio entero. Antes de abrir un hito conviene
+leer sus bloques "Medido en la auditoría", que están citados dentro del TODO en
+el hito al que le tocan. No son bugs abiertos sino decisiones que ese hito tiene
+que tomar: firmas que no pueden ser correctas en `statistics.py`, `Session` sin
+mecanismo de notificación, `BandOverlay` sin canal al que referir sus 75 µV.
+
 ## Comandos
 
 Preparar el entorno, si todavía no está (el detalle está en `README.md`):
@@ -126,14 +133,64 @@ rechazar antes de dar por terminado un cambio:
 - Ningún enlace ni ancla de ningún `.md` versionado apunta a la nada, **este
   archivo incluido**. Renombrar un encabezado rompe los enlaces que lo apuntaban.
 - `docs/EXPLICACION.txt` se mantiene en ASCII, sin acentos.
-- `core/` y `utils/` no importan `psglab.ui`, `PySide6` ni `pyqtgraph`.
+- **Cuatro** capas no importan `psglab.ui`, `PySide6` ni `pyqtgraph`: `core/`,
+  `utils/`, `readers/` y `exporters/` (`CAPAS_SIN_INTERFAZ`, en el test). Las dos
+  últimas están en la lista porque de ellas depende el corte del hito 5 —leer un
+  registro, scorearlo y exportar los tres archivos desde un script, sin abrir una
+  ventana—, que es exactamente lo que se pierde si entra Qt.
 - Todas las firmas llevan type hints.
 - Ningún módulo terminado tiene su test salteado.
 - Cada archivo de `tests/` tiene su fila en el diccionario `COBERTURA_DE_TESTS`
   del propio test, que dice qué módulos cubre. **Agregar un archivo de test
   obliga a agregar esa fila**; si no, quedaría fuera del chequeo anterior.
+- Cada `README.md` de carpeta declara sus pendientes con la frase literal
+  `Pendientes **N stubs** en M módulos`, y se verifican **los dos números**. En
+  el hito 1 hubo cuatro commits seguidos que corrigieron el de stubs y ninguno
+  el de módulos, que quedó en 29 cuando ya eran 26.
+- `tests/README.md` también: su tabla tiene que nombrar todos los archivos de
+  test y ninguno que ya no exista, decir cuáles llevan `pytestmark` y en cuántos
+  archivos falla la recolección con `pytest` a secas.
+- Las cuentas de tests de `docs/TODO.md` —`**N tests en verde**`— se comparan
+  contra lo que pytest recolecta de verdad, no contra los `def test_` del
+  archivo: hay `parametrize` y los números no coinciden.
+- Un módulo que importe `config` no puede escribir a mano los números del pliego
+  en el texto que ve el usuario: "30 s", "3 segundos", "0,5 segundos" y "75 µV"
+  salen de la constante. Los docstrings quedan afuera, porque ahí nombrar el
+  número es a propósito.
+- Ningún `.md` versionado repite un párrafo largo dentro de sí mismo, **este
+  archivo incluido**. Explicar lo mismo dos veces en un archivo garantiza que
+  alguien corrija una sola.
+- Todo módulo de la Parte 1 tiene test, figura en `SIN_TEST_PROPIO` —`ui/`
+  entero, `app.py` y `config.py`— o el TODO promete el suyo **por nombre de
+  archivo**. Un módulo nuevo sin ninguna de las tres cosas hace fallar la suite.
+- `COBERTURA_DE_TESTS` no puede declarar un módulo que el test no importe.
+  Declararlo sin importarlo ya contó nueve stubs como verificados mientras nadie
+  exigía un test para ellos.
 - Todos los módulos del paquete se pueden importar. Es lo único que ejercita la
   capa `ui/`.
+
+### El otro test transversal
+
+`tests/test_contratos.py` tampoco cubre un módulo: verifica una promesa que
+cruza todos los implementados. La ventana principal atrapa **una sola** clase,
+`PsgLabError`, así que un `AttributeError` o un `KeyError` crudo la atraviesa y
+el investigador termina viendo una traza de Python. Una auditoría encontró seis
+caminos así, y todos tenían la misma forma: la guarda funcionaba y el `raise`
+era el que explotaba al armar el mensaje.
+
+Son dos tablas porque una sola dejaba un hueco. `CONTRATOS` afirma que lo que se
+rechaza sale como `PsgLabError` —no exige rechazar todo: un 3,5 de escala es un
+número válido—, y `RECHAZOS_OBLIGATORIOS` fija las guardas que **no pueden**
+aceptar. La segunda salió de generar mutantes del árbol de sintaxis: cuatro
+guardas de tipo se podían borrar enteras, cambiando `if not isinstance(...)` por
+`if False`, sin que la suite lo notara.
+
+**Al implementar un módulo hay que agregar a mano una fila por método público.**
+A diferencia de `COBERTURA_DE_TESTS`, acá **no hay red**: nada verifica que un
+método nuevo tenga la suya, así que un método sin cubrir no se nota de ninguna
+forma. El docstring de ese archivo afirma que `test_consistencia.py` lo atrapa;
+hoy no es cierto, y es la única promesa de verificación del proyecto que no
+tiene detrás un chequeo.
 
 El [workflow de CI](.github/workflows/ci.yml) corre en cada push y cada pull
 request contra `Add` y `Master`: los tests en Windows, macOS y Linux con Python
@@ -142,6 +199,11 @@ chequeos de consistencia, y la verificación de licencias, que falla si entra un
 dependencia GPL. Contempla que PySide6 declara una licencia disyuntiva
 (`LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`), así que un chequeo ingenuo de
 "GPL" fallaría contra la dependencia principal del proyecto.
+
+**Sólo dispara en `Add` y `Master`.** Un push a una rama de trabajo no corre
+nada hasta que se abra la pull request, así que en el día a día el único control
+es `python -m pytest` local, y conviene correrlo entero: el chequeo de las
+cuentas de tests se saltea si se le pasa un archivo suelto.
 
 ## Arquitectura
 
