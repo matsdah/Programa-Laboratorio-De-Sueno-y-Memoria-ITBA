@@ -48,9 +48,14 @@ class Channel:
     Attributes:
         name: nombre tal como viene en el archivo (ej. "C3", "EOG izq").
         kind: clase detectada automáticamente (EEG, EOG, EMG, ECG, ...).
-        unit: unidad física original del archivo. La señal se normaliza
-            internamente a microvoltios (ver `psglab.utils.units`).
+        unit: unidad física original del archivo, y **la fuente de verdad de
+            en qué escala está la fila**. Los canales eléctricos se normalizan
+            a microvoltios al importar (ver `psglab.utils.units`); los que no
+            son eléctricos —una temperatura en °C, un marcador sin unidad— no
+            se pueden convertir y conservan la suya.
         index: posición del canal dentro de la matriz de datos.
+        original_sampling_rate: frecuencia a la que venía este canal en el
+            archivo, en Hz, o None si el formato no la distingue por canal.
 
     **Inmutable a propósito.** `channel_by_name()` y `channels_of_kind()`
     devuelven el canal interno, y siendo mutable se lo podía renombrar desde
@@ -58,12 +63,24 @@ class Channel:
     canal bajo el nombre pedido, que es señal equivocada presentada como si
     fuera la correcta. Corregir la clase detectada de un canal (V4_F) se hace
     construyendo otro, no escribiéndole encima.
+
+    **La frecuencia original se guarda porque el registro tiene una sola.** Un
+    EDF puede traer cada canal a una frecuencia distinta —el registro de prueba
+    de la Sleep-EDF trae tres canales a 100 Hz y cuatro a 1 Hz— y MNE los
+    unifica sobremuestreando, sin avisar. Después de eso la matriz es coherente,
+    pero un EMG de 1 Hz llevado a 100 Hz es señal repetida en escalones, y sin
+    este campo **no queda registro de que lo sea**: el investigador vería una
+    señal de aspecto normal sin forma de saber que su resolución real es cien
+    veces menor. `Recording.sampling_rate` sigue siendo la única frecuencia de
+    la matriz; ésta es de dónde vino cada fila.
+
     """
 
     name: str
     kind: ChannelKind
     unit: str
     index: int
+    original_sampling_rate: float | None = None
 
 
 @dataclass
@@ -73,7 +90,12 @@ class Recording:
     Attributes:
         file_path: archivo del que se cargó el registro.
         channels: lista de canales, en el mismo orden que las filas de `data`.
-        data: matriz de forma (n_canales, n_muestras) en microvoltios.
+        data: matriz de forma (n_canales, n_muestras). Los canales eléctricos
+            están en microvoltios; los que no se pueden convertir conservan su
+            escala nativa, y `Channel.unit` dice cuál es. **Ninguna capa debería
+            asumir que una fila está en µV sin mirar la unidad de su canal**: el
+            pliego pide no limitar por tipo de señal, así que un registro
+            normal trae termómetros y marcadores además de EEG.
         sampling_rate: frecuencia de muestreo en Hz, común a todos los canales.
         start_time: horario de inicio del registro si el archivo lo informa.
             El pliego lo usa en V2_F del histograma para poner el eje en hora
@@ -214,6 +236,32 @@ class Recording:
                 "que no es válida, así que no se puede ubicar ninguna ventana en el tiempo.",
                 details=f"sampling_rate = {self.sampling_rate}, se esperaba un número positivo.",
             )
+
+        # Es opcional, pero si viene tiene que ser un número usable: se muestra
+        # junto al nombre del canal, y un NaN se leería como "nan Hz" en la
+        # lista de canales. Mismo criterio que la frecuencia de la matriz.
+        for canal in self.channels:
+            if canal.original_sampling_rate is None:
+                continue
+            check_finite(
+                canal.original_sampling_rate,
+                error=InvalidRecordingError,
+                message=(
+                    f"El registro '{self.file_path.name}' declara para el canal "
+                    f"'{canal.name}' una frecuencia original que no es válida."
+                ),
+                details="Se esperaba un número finito y positivo, o ninguno.",
+                minimum=0,
+            )
+            if canal.original_sampling_rate <= 0:
+                raise InvalidRecordingError(
+                    f"El registro '{self.file_path.name}' declara para el canal "
+                    f"'{canal.name}' una frecuencia original que no es válida.",
+                    details=(
+                        f"original_sampling_rate = {canal.original_sampling_rate}, "
+                        "se esperaba un número positivo."
+                    ),
+                )
 
         desubicados = [c.name for i, c in enumerate(self.channels) if c.index != i]
         if desubicados:

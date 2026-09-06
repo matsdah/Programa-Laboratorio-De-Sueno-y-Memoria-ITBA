@@ -226,3 +226,52 @@ def stage_code(stage: SleepStage) -> int:
     """
     _check_stage(stage)
     return STAGE_CODES[stage]
+
+
+def stage_from_code(code: int, nomenclature: Nomenclature) -> SleepStage:
+    """Fase que corresponde a un código dentro de una nomenclatura.
+
+    Es la inversa de `stage_code()` y vive al lado suyo a propósito: son las dos
+    mitades del mismo contrato con "Scoring.txt", y separarlas es cómo se
+    desincronizan.
+
+    **Hace falta la nomenclatura porque la tabla no es inyectiva.** El código
+    `2` es S2 en Rechtschaffen y Kales y N2 en AASM, y `1`, `3` y `5` tienen el
+    mismo problema. Un lector que adivinara cargaría la noche entera mal
+    traducida sin ningún error visible, que es exactamente lo que la cabecera
+    del archivo existe para evitar.
+
+    La correspondencia **se deriva** de `stages_of()` y `STAGE_CODES` en vez de
+    escribirse en una tercera tabla: una tabla más es una tabla más para
+    desincronizar. De paso sale gratis que un código válido en una nomenclatura
+    y no en la otra —el `4` de S4, el `6` de MT, que AASM no tiene— se rechace
+    en vez de traducirse a cualquier cosa.
+
+    Raises:
+        InvalidNomenclatureError: si `nomenclature` no es una nomenclatura.
+        InvalidStageError: si el código no corresponde a ninguna fase de esa
+            nomenclatura.
+    """
+    _check_nomenclature(nomenclature)
+    if isinstance(code, bool) or not isinstance(code, int):
+        raise InvalidStageError(
+            "El archivo de scoring tiene un código de fase que no es un número entero.",
+            details=f"code es {type(code).__name__}, se esperaba int.",
+        )
+
+    # UNSCORED no es una fila del histograma y por eso no está en `stages_of()`,
+    # pero sí es un valor que el archivo puede traer: es como se escribe una
+    # ventana que nadie miró todavía.
+    for stage in (*stages_of(nomenclature), SleepStage.UNSCORED):
+        if STAGE_CODES[stage] == code:
+            return stage
+
+    validos = sorted({STAGE_CODES[s] for s in stages_of(nomenclature)})
+    raise InvalidStageError(
+        f"El código {code} no corresponde a ninguna fase de la nomenclatura "
+        f"{nomenclature.value}.",
+        details=(
+            f"Códigos válidos: {', '.join(str(c) for c in validos)}, "
+            f"y {STAGE_CODES[SleepStage.UNSCORED]} para una ventana sin scorear."
+        ),
+    )

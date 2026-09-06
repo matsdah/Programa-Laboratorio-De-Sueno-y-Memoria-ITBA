@@ -94,6 +94,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("channel_by_name", lambda v: registro().channel_by_name(v)),
         ("channels_of_kind", lambda v: registro().channels_of_kind(v)),
         ("get_segment(channel_names=...)", lambda v: registro().get_segment(0, 10, [v])),
+        ("Recording(original_sampling_rate=...)", lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0, v)], np.zeros((1, 10)), 100.0)),
     ],
     "psglab/core/scoring.py": [
         ("Scoring(nomenclature=...)", lambda v: Scoring(3, v)),
@@ -111,6 +112,8 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("convert(target=...)", lambda v: nom.convert(SleepStage.N2, v)),
         ("stage_label", lambda v: nom.stage_label(v)),
         ("stage_code", lambda v: nom.stage_code(v)),
+        ("stage_from_code(code=...)", lambda v: nom.stage_from_code(v, Nomenclature.AASM)),
+        ("stage_from_code(nomenclature=...)", lambda v: nom.stage_from_code(2, v)),
     ],
     "psglab/core/annotations.py": [
         ("add(onset=...)", lambda v: AnnotationSet().add(Annotation("Arousal", v, 10))),
@@ -145,6 +148,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("format_amplitude(value_uv=...)", lambda v: units.format_amplitude(v)),
         ("format_amplitude(decimals=...)", lambda v: units.format_amplitude(1.0, v)),
         ("normalize_unit_name", lambda v: units.normalize_unit_name(v)),
+        ("is_electrical", lambda v: units.is_electrical(v)),
     ],
     "psglab/utils/validation.py": [
         ("check_finite(value=...)", lambda v: validation.check_finite(v, error=InvalidRecordingError, message="m", details="d")),
@@ -208,6 +212,15 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     ("add_label con None", None, lambda v: AnnotationSet().add_label(v)),
     # Guardar algo que no es una anotación reventaba al pedirle `.label`.
     ("add con algo que no es una anotación", "Arousal", lambda v: AnnotationSet().add(v)),
+    # Hito 4. La frecuencia original de un canal se muestra al lado de su
+    # nombre: un NaN se leería como "nan Hz" en la lista de canales, y un cero
+    # afirmaría que el canal no trae ninguna muestra por segundo.
+    ("Channel con frecuencia original NaN", float("nan"),
+     lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0, v)],
+                         np.zeros((1, 10)), 100.0)),
+    ("Channel con frecuencia original cero", 0,
+     lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0, v)],
+                         np.zeros((1, 10)), 100.0)),
 ]
 
 
