@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from psglab.config import WINDOW_SECONDS
 from psglab.core.windows import (
     count_windows,
     sample_to_seconds,
@@ -24,8 +25,8 @@ from psglab.core.windows import (
 
 
 def test_registro_exacto_da_cantidad_exacta_de_ventanas(sampling_rate):
-    """Diez minutos a 256 Hz son exactamente 20 ventanas de 30 segundos."""
-    n_samples = int(600 * sampling_rate)
+    """Veinte ventanas completas dan exactamente veinte ventanas."""
+    n_samples = int(20 * WINDOW_SECONDS * sampling_rate)
     assert count_windows(n_samples, sampling_rate) == 20
 
 
@@ -35,7 +36,7 @@ def test_ultima_ventana_incompleta_se_cuenta_igual(sampling_rate):
     El usuario tiene que poder ver y scorear la última ventana aunque esté
     incompleta; descartarla perdería datos reales del final de la noche.
     """
-    n_samples = int(615 * sampling_rate)  # 20 ventanas y media
+    n_samples = int(20.5 * WINDOW_SECONDS * sampling_rate)  # 20 ventanas y media
     assert count_windows(n_samples, sampling_rate) == 21
 
 
@@ -46,7 +47,7 @@ def test_registro_vacio_no_tiene_ventanas(sampling_rate):
 def test_primera_ventana_arranca_en_la_muestra_cero(sampling_rate):
     start, stop = window_to_samples(0, sampling_rate)
     assert start == 0
-    assert stop == int(30 * sampling_rate)
+    assert stop == int(WINDOW_SECONDS * sampling_rate)
 
 
 def test_ventanas_consecutivas_no_se_solapan_ni_dejan_hueco(sampling_rate):
@@ -90,7 +91,7 @@ def test_los_bordes_no_derivan_con_una_frecuencia_no_redonda():
     """La ventana 960 arranca donde le toca, no donde la deja el acumulado."""
     fs = FRECUENCIA_NO_REDONDA
     start, _ = window_to_samples(960, fs)
-    assert start == int(960 * 30 * fs)
+    assert start == int(960 * WINDOW_SECONDS * fs)
 
 
 def test_las_ventanas_siguen_sin_solaparse_con_una_frecuencia_no_redonda():
@@ -123,33 +124,37 @@ def test_sin_horario_de_inicio_no_hay_hora_de_la_noche():
     assert window_to_clock_time(42, None) is None
 
 
-def test_la_hora_de_la_noche_avanza_treinta_segundos_por_ventana():
-    """Ciento veinte ventanas de 30 s son exactamente una hora."""
+def test_la_hora_de_la_noche_avanza_una_ventana_por_ventana():
+    """La hora del eje se calcula desde el índice, no acumulando."""
     inicio = datetime(2026, 9, 4, 23, 0, 0)
+    una_hora = int(3600 / WINDOW_SECONDS)
     assert window_to_clock_time(0, inicio) == inicio
-    assert window_to_clock_time(120, inicio) == datetime(2026, 9, 5, 0, 0, 0)
+    assert window_to_clock_time(una_hora, inicio) == datetime(2026, 9, 5, 0, 0, 0)
 
 
 # -- Duración real de la ventana --------------------------------------------
 
 
 def test_una_ventana_del_medio_dura_treinta_segundos(sampling_rate):
-    n_samples = int(600 * sampling_rate)
-    assert window_duration(5, n_samples, sampling_rate) == timedelta(seconds=30)
+    n_samples = int(20 * WINDOW_SECONDS * sampling_rate)
+    assert window_duration(5, n_samples, sampling_rate) == timedelta(seconds=WINDOW_SECONDS)
 
 
 def test_la_ultima_ventana_incompleta_dura_lo_que_le_queda(sampling_rate):
-    """Un registro de 615 s corta la ventana 20 a la mitad: dura 15 s, no 30.
+    """Un registro que corta la ventana 20 a la mitad: dura media ventana.
 
-    Informar 30 s falsearía el total de la noche en "Informacion.txt".
+    Informar la ventana entera falsearía el total de la noche en
+    "Informacion.txt".
     """
-    n_samples = int(615 * sampling_rate)
-    assert window_duration(20, n_samples, sampling_rate) == timedelta(seconds=15)
+    n_samples = int(20.5 * WINDOW_SECONDS * sampling_rate)
+    assert window_duration(20, n_samples, sampling_rate) == timedelta(
+        seconds=WINDOW_SECONDS / 2
+    )
 
 
 def test_una_ventana_posterior_al_final_del_registro_dura_cero(sampling_rate):
     """Preguntar por una ventana que no existe no debería romper el programa."""
-    n_samples = int(600 * sampling_rate)
+    n_samples = int(20 * WINDOW_SECONDS * sampling_rate)
     assert window_duration(50, n_samples, sampling_rate) == timedelta(0)
 
 
@@ -207,9 +212,9 @@ def test_la_mitad_de_la_ventana_es_la_fraccion_un_medio():
     Su `OccupancyLine` trabaja en fracción y `ViewerTool` le entrega segundos;
     saltearse esta conversión es lo que haría informar 3000 % de ocupación.
     """
-    assert seconds_to_window_fraction(15.0) == pytest.approx(0.5)
+    assert seconds_to_window_fraction(WINDOW_SECONDS / 2) == pytest.approx(0.5)
     assert seconds_to_window_fraction(0.0) == pytest.approx(0.0)
-    assert seconds_to_window_fraction(30.0) == pytest.approx(1.0)
+    assert seconds_to_window_fraction(WINDOW_SECONDS) == pytest.approx(1.0)
 
 
 def test_la_fraccion_y_los_segundos_son_inversas():
@@ -229,7 +234,7 @@ def test_segundos_y_muestras_son_inversas_con_una_frecuencia_no_redonda():
     """Con 256,125 Hz, que es el caso que rompe las cuentas ingenuas."""
     frecuencia = 256.125
     for ventana in (0, 1, 960):
-        for segundos in (0.0, 12.0, 29.5):
+        for segundos in (0.0, WINDOW_SECONDS * 0.4, WINDOW_SECONDS - 0.5):
             muestra = seconds_to_sample(ventana, segundos, frecuencia)
             vuelta = sample_to_seconds(ventana, muestra, frecuencia)
             assert vuelta == pytest.approx(segundos, abs=1 / frecuencia)
@@ -260,7 +265,10 @@ def test_una_muestra_pedida_al_filo_de_la_ventana_sigue_en_esa_ventana():
     fuera = [
         i
         for i in range(960)
-        if sample_to_window(seconds_to_sample(i, 29.999, frecuencia), frecuencia) != i
+        if sample_to_window(
+            seconds_to_sample(i, WINDOW_SECONDS - 0.001, frecuencia), frecuencia
+        )
+        != i
     ]
     assert not fuera, f"{len(fuera)} ventanas devolvieron una muestra de otra ventana"
 

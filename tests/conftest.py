@@ -12,6 +12,14 @@ que dar un pico en 10 Hz, y eso se puede afirmar en un test.
 import numpy as np
 import pytest
 
+from psglab.config import WINDOW_SECONDS
+
+#: Ventanas que dura la señal sintética. Se multiplica por `WINDOW_SECONDS` en
+#: vez de escribir los 600 segundos a mano: `config.py` promete que cambiar la
+#: duración de la ventana se hace en un solo lugar, y con el 600 escrito acá esa
+#: promesa era falsa.
+VENTANAS_SINTETICAS = 20
+
 
 @pytest.fixture
 def sampling_rate() -> float:
@@ -34,10 +42,12 @@ def synthetic_signal(sampling_rate: float) -> np.ndarray:
 
     El orden coincide con el de la fixture `channel_names`.
 
-    Diez minutos son exactamente 20 ventanas de 30 segundos, un número
-    cómodo para verificar los cálculos a mano.
+    Son exactamente `VENTANAS_SINTETICAS` ventanas completas, un número cómodo
+    para verificar los cálculos a mano. La duración sale de
+    `config.WINDOW_SECONDS`, así que cambiar la ventana del pliego no rompe
+    ningún test.
     """
-    duration_seconds = 600
+    duration_seconds = VENTANAS_SINTETICAS * WINDOW_SECONDS
     n_samples = int(duration_seconds * sampling_rate)
     t = np.arange(n_samples) / sampling_rate
     frequencies = [1.0, 10.0, 0.5, 30.0]

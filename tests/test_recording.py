@@ -15,6 +15,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from conftest import VENTANAS_SINTETICAS
+from psglab.config import WINDOW_SECONDS
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.utils.errors import (
     ChannelNotFoundError,
@@ -55,12 +57,14 @@ def test_la_cantidad_de_canales_es_la_de_la_lista(recording):
 
 
 def test_la_cantidad_de_muestras_sale_de_la_señal(recording, sampling_rate):
-    """Diez minutos a 256 Hz."""
-    assert recording.n_samples == int(600 * sampling_rate)
+    """La señal sintética son veinte ventanas completas."""
+    assert recording.n_samples == int(VENTANAS_SINTETICAS * WINDOW_SECONDS * sampling_rate)
 
 
 def test_la_duracion_son_las_muestras_sobre_la_frecuencia(recording):
-    assert recording.duration_seconds == pytest.approx(600.0)
+    assert recording.duration_seconds == pytest.approx(
+        VENTANAS_SINTETICAS * WINDOW_SECONDS
+    )
 
 
 def test_los_nombres_salen_en_el_orden_de_la_señal(recording, channel_names):

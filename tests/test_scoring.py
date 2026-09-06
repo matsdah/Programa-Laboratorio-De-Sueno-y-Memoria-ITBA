@@ -4,6 +4,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+from conftest import VENTANAS_SINTETICAS
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.scoring import Scoring
 from psglab.utils.errors import InvalidStageError, WindowOutOfRangeError
@@ -11,7 +12,7 @@ from psglab.utils.errors import InvalidStageError, WindowOutOfRangeError
 @pytest.fixture
 def scoring() -> Scoring:
     """Scoring vacío de 20 ventanas en nomenclatura AASM."""
-    return Scoring(n_windows=20, nomenclature=Nomenclature.AASM)
+    return Scoring(n_windows=VENTANAS_SINTETICAS, nomenclature=Nomenclature.AASM)
 
 
 def test_un_scoring_nuevo_arranca_entero_sin_scorear(scoring):
@@ -20,7 +21,7 @@ def test_un_scoring_nuevo_arranca_entero_sin_scorear(scoring):
     Es lo que permite que el histograma tenga el tamaño de la noche completa
     desde el arranque y que se pueda scorear una parte alejada del registro.
     """
-    assert scoring.n_windows == 20
+    assert scoring.n_windows == VENTANAS_SINTETICAS
     assert all(s == SleepStage.UNSCORED for s in scoring.stages())
     assert scoring.scored_windows() == 0
 
@@ -49,7 +50,7 @@ def test_no_se_puede_asignar_una_fase_ajena_a_la_nomenclatura(scoring):
 def test_una_ventana_fuera_de_rango_falla_con_un_error_propio(scoring):
     """Un error del programa, no un IndexError crudo de Python."""
     with pytest.raises(WindowOutOfRangeError):
-        scoring.get(20)
+        scoring.get(VENTANAS_SINTETICAS)
     with pytest.raises(WindowOutOfRangeError):
         scoring.get(-1)
 
@@ -73,7 +74,7 @@ def test_cambiar_de_nomenclatura_conserva_los_arousals(scoring):
 # -- Los bordes del índice --------------------------------------------------
 
 
-@pytest.mark.parametrize("indice", [20, -1, 999])
+@pytest.mark.parametrize("indice", [VENTANAS_SINTETICAS, -1, 999])
 def test_asignar_una_fase_fuera_de_rango_falla(scoring, indice):
     """`get` ya lo verificaba; los dos que escriben, no.
 
@@ -84,7 +85,7 @@ def test_asignar_una_fase_fuera_de_rango_falla(scoring, indice):
         scoring.set_stage(indice, SleepStage.N2)
 
 
-@pytest.mark.parametrize("indice", [20, -1])
+@pytest.mark.parametrize("indice", [VENTANAS_SINTETICAS, -1])
 def test_marcar_un_arousal_fuera_de_rango_falla(scoring, indice):
     with pytest.raises(WindowOutOfRangeError):
         scoring.set_arousal(indice, True)
@@ -219,8 +220,8 @@ def test_el_mensaje_numera_la_ventana_en_base_1(scoring):
     lo fijara: el mensaje podía numerar cualquier cosa.
     """
     with pytest.raises(WindowOutOfRangeError) as excepcion:
-        scoring.get(20)
-    assert "21" in excepcion.value.message
+        scoring.get(VENTANAS_SINTETICAS)
+    assert str(VENTANAS_SINTETICAS + 1) in excepcion.value.message
 
 
 def test_el_scoring_de_una_ventana_no_se_puede_escribir_por_atras(scoring):

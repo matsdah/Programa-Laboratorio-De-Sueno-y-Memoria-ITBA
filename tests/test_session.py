@@ -15,12 +15,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from psglab.config import MAX_SCALE_UV, MIN_SCALE_UV
+from psglab.config import DEFAULT_SCALE_UV, MAX_SCALE_UV, MIN_SCALE_UV
 from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
+
+from conftest import VENTANAS_SINTETICAS
 from psglab.utils.errors import (
     ChannelNotFoundError,
     ScoringMismatchError,
@@ -51,7 +53,7 @@ def session(recording) -> Session:
     """Sesión recién abierta sobre el registro sintético."""
     return Session(
         recording=recording,
-        scoring=Scoring(n_windows=20, nomenclature=Nomenclature.AASM),
+        scoring=Scoring(n_windows=VENTANAS_SINTETICAS, nomenclature=Nomenclature.AASM),
         annotations=AnnotationSet(),
     )
 
@@ -68,19 +70,19 @@ def test_un_scoring_de_otro_registro_no_se_puede_abrir(recording):
     visible**. Acá es donde se juntan por primera vez.
     """
     with pytest.raises(ScoringMismatchError):
-        Session(recording, Scoring(19, Nomenclature.AASM), AnnotationSet())
+        Session(recording, Scoring(VENTANAS_SINTETICAS - 1, Nomenclature.AASM), AnnotationSet())
 
 
 def test_un_scoring_mas_largo_que_el_registro_tampoco(recording):
     """Falla en las dos direcciones, no sólo cuando falta."""
     with pytest.raises(ScoringMismatchError):
-        Session(recording, Scoring(21, Nomenclature.AASM), AnnotationSet())
+        Session(recording, Scoring(VENTANAS_SINTETICAS + 1, Nomenclature.AASM), AnnotationSet())
 
 
 def test_las_tres_piezas_quedan_accesibles(session, recording):
     """Es el único camino por el que las herramientas llegan a lo que hay abierto."""
     assert session.recording is recording
-    assert session.scoring.n_windows == 20
+    assert session.scoring.n_windows == VENTANAS_SINTETICAS
     assert session.annotations.all() == []
 
 
@@ -96,7 +98,7 @@ def test_lo_que_hay_abierto_es_de_solo_lectura(session):
 
 def test_la_sesion_arranca_en_la_primera_ventana(session):
     assert session.current_window == 0
-    assert session.n_windows == 20
+    assert session.n_windows == VENTANAS_SINTETICAS
 
 
 def test_la_cantidad_de_ventanas_sale_del_registro(session):
@@ -110,7 +112,7 @@ def test_se_puede_saltar_a_una_ventana_lejana(session):
     assert session.current_window == 15
 
 
-@pytest.mark.parametrize("indice", [20, 999, -1])
+@pytest.mark.parametrize("indice", [VENTANAS_SINTETICAS, 999, -1])
 def test_saltar_fuera_del_registro_falla(session, indice):
     """El −1 no es paranoia.
 
@@ -137,9 +139,9 @@ def test_en_la_ultima_ventana_avanzar_no_hace_nada(session):
     Quien mantiene apretada la flecha derecha llega al final y se queda ahí; un
     error en el borde convertiría un gesto normal en un fallo.
     """
-    session.go_to_window(19)
+    session.go_to_window(VENTANAS_SINTETICAS - 1)
     session.next_window()
-    assert session.current_window == 19
+    assert session.current_window == VENTANAS_SINTETICAS - 1
 
 
 def test_en_la_primera_ventana_retroceder_no_hace_nada(session):
@@ -202,7 +204,7 @@ def test_las_listas_de_canales_son_copias(session, propiedad):
 
 def test_todos_los_canales_arrancan_con_la_escala_por_defecto(session, channel_names):
     for nombre in channel_names:
-        assert session.scale_uv(nombre) == pytest.approx(100.0)
+        assert session.scale_uv(nombre) == pytest.approx(DEFAULT_SCALE_UV)
 
 
 def test_la_flecha_arriba_hace_que_el_canal_represente_menos_microvoltios(session):
@@ -228,22 +230,22 @@ def test_subir_y_bajar_vuelve_al_punto_de_partida(session):
     """El paso es un factor, así que las dos flechas se cancelan."""
     session.increase_amplitude()
     session.decrease_amplitude()
-    assert session.scale_uv("C3") == pytest.approx(100.0)
+    assert session.scale_uv("C3") == pytest.approx(DEFAULT_SCALE_UV)
 
 
 def test_sin_seleccion_la_amplitud_llega_a_todos_los_visibles(session):
     session.set_visible_channels(["C3", "C4"])
     session.increase_amplitude()
-    assert session.scale_uv("C3") < 100.0
-    assert session.scale_uv("C4") < 100.0
+    assert session.scale_uv("C3") < DEFAULT_SCALE_UV
+    assert session.scale_uv("C4") < DEFAULT_SCALE_UV
 
 
 def test_con_seleccion_la_amplitud_llega_sólo_a_los_seleccionados(session):
     """Es V5_F: sin esto, la selección no significaría nada."""
     session.set_selected_channels(["C4"])
     session.increase_amplitude()
-    assert session.scale_uv("C4") < 100.0
-    assert session.scale_uv("C3") == pytest.approx(100.0)
+    assert session.scale_uv("C4") < DEFAULT_SCALE_UV
+    assert session.scale_uv("C3") == pytest.approx(DEFAULT_SCALE_UV)
 
 
 def test_la_escala_no_baja_del_tope_inferior(session):
@@ -263,7 +265,7 @@ def test_se_puede_fijar_la_escala_de_un_solo_canal(session):
     """V5_F: la referencia de un canal cambia y la de los demás no."""
     session.set_scale_uv("C4", 250.0)
     assert session.scale_uv("C4") == pytest.approx(250.0)
-    assert session.scale_uv("C3") == pytest.approx(100.0)
+    assert session.scale_uv("C3") == pytest.approx(DEFAULT_SCALE_UV)
 
 
 def test_fijar_una_escala_fuera_de_los_topes_la_recorta(session):
@@ -369,8 +371,8 @@ def test_un_indice_fraccionario_no_corre_la_ventana(session):
 
 def test_el_mensaje_de_ventana_numera_en_base_1(session):
     with pytest.raises(WindowOutOfRangeError) as excepcion:
-        session.go_to_window(20)
-    assert "21" in excepcion.value.message
+        session.go_to_window(VENTANAS_SINTETICAS)
+    assert str(VENTANAS_SINTETICAS + 1) in excepcion.value.message
 
 
 def test_un_canal_visible_dos_veces_recibe_el_paso_una_sola_vez(session):
