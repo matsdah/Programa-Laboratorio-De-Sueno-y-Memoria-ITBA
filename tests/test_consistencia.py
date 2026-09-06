@@ -259,6 +259,14 @@ def test_las_cuentas_de_los_readme_de_carpeta_coinciden_con_el_codigo():
         texto = readme.read_text(encoding="utf-8")
         declarado = re.search(r"Pendientes \*\*(\d+) stubs?\*\*", texto)
         if declarado is None:
+            # Antes esto era un `continue`, y ahí estaba el agujero: borrar o
+            # reformular la línea —"Tiene 26 stubs", que es lo que decía
+            # `analysis/README.md`— sacaba esa carpeta del control sin que nada
+            # avisara. Justo la carpeta con más stubs pendientes.
+            problemas.append(
+                f"{ruta_relativa(readme)} no declara sus stubs con la frase que el "
+                "chequeo reconoce: 'Pendientes **N stubs**'"
+            )
             continue
         # El README de la raíz del paquete cuenta la **Parte 1**, así que deja
         # afuera `analysis/`, que es la Parte 2. Los de cada carpeta cuentan su
@@ -316,11 +324,22 @@ def test_lo_que_tests_readme_dice_de_la_suite_es_cierto():
                 f"tests/README.md dice '{cantidad.group(1)}' archivos y son {con_import}"
             )
 
-    # Cada archivo de test tiene que estar nombrado, y los desactivados tienen
-    # que ser exactamente los que el README dice que lo están.
+    # Cada archivo de test tiene que tener **su fila en la tabla**, no una
+    # mención cualquiera: buscar la subcadena en el archivo entero daba verde
+    # aunque la fila no existiera, porque el nombre aparece en el ejemplo de
+    # `python -m pytest tests/test_scoring.py` de la primera sección.
+    en_la_tabla = {
+        nombre
+        for linea in texto.splitlines()
+        if linea.lstrip().startswith("|")
+        for nombre in re.findall(r"`(test_\w+\.py)`", linea)
+    }
     for archivo in archivos:
-        if archivo.stem not in texto:
-            problemas.append(f"tests/README.md no nombra {archivo.name}")
+        if archivo.name not in en_la_tabla:
+            problemas.append(f"tests/README.md no lista {archivo.name} en su tabla")
+    sobrantes = en_la_tabla - {a.name for a in archivos}
+    if sobrantes:
+        problemas.append(f"tests/README.md lista archivos que ya no existen: {sorted(sobrantes)}")
 
     declarados = re.search(r"La llevan \*\*[^*]+\*\*:([^.]*)\.", texto)
     if declarados is None:
@@ -791,6 +810,26 @@ def esta_desactivado(archivo_test: pathlib.Path) -> bool:
         if isinstance(nodo, ast.Expr) and isinstance(nodo.value, ast.Call):
             if any(k.arg == "allow_module_level" for k in nodo.value.keywords):
                 return True
+
+    # Y la tercera forma, que es **la que el propio mensaje de este chequeo
+    # recomienda**: saltear test por test. Sin esto, alguien que siguiera ese
+    # consejo sacaba el archivo del control por completo y volvía el verde por
+    # omisión que el chequeo existe para combatir. Va a pasar en el hito 5, donde
+    # `test_exporters.py` cubre cuatro módulos que no se terminan a la vez.
+    funciones = [
+        n
+        for n in arbol.body
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name.startswith("test_")
+    ]
+    return bool(funciones) and all(_tiene_skip(f) for f in funciones)
+
+
+def _tiene_skip(funcion: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Si la función lleva un `@pytest.mark.skip` (con o sin argumentos)."""
+    for decorador in funcion.decorator_list:
+        nodo = decorador.func if isinstance(decorador, ast.Call) else decorador
+        if isinstance(nodo, ast.Attribute) and nodo.attr in ("skip", "skipif"):
+            return True
     return False
 
 
@@ -935,6 +974,29 @@ def test_las_cuentas_de_tests_del_todo_coinciden_con_la_suite(request: pytest.Fi
             problemas.append(
                 f"TODO.md dice {declarados} tests para tests/{nombre} y la suite recolecta {real}"
             )
+    assert not problemas, "\n".join(problemas)
+
+
+def test_la_tabla_de_cobertura_declara_lo_que_el_test_importa():
+    """Declarar un módulo cubierto sin importarlo cuenta stubs como verificados.
+
+    Ya pasó: `test_exporters.py` figuraba cubriendo `information_txt.py` y
+    `statistics.py` sin importarlos, y esos 9 stubs quedaban contados como
+    testeados mientras nadie exigía un test para ellos. Se corrigió a mano y no
+    se dejó ninguna red; ésta es la red.
+    """
+    problemas: list[str] = []
+    for nombre, modulos in COBERTURA_DE_TESTS.items():
+        archivo = RAIZ / "tests" / nombre
+        if not archivo.exists() or not modulos:
+            continue
+        importados = {m for _, m in modulos_importados(archivo)}
+        for modulo in modulos:
+            esperado = modulo.removesuffix(".py").replace("/", ".")
+            if not any(i == esperado or i.startswith(esperado + ".") for i in importados):
+                problemas.append(
+                    f"tests/{nombre} declara cubrir {modulo} y no lo importa"
+                )
     assert not problemas, "\n".join(problemas)
 
 
