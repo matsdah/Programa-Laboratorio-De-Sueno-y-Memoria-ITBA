@@ -203,6 +203,56 @@ def test_un_registro_vacio_con_frecuencia_corrupta_tambien_falla():
         count_windows(0, 0.0)
 
 
+def test_la_cantidad_de_ventanas_nunca_es_negativa(sampling_rate):
+    """Es lo único que garantiza la guarda de `n_samples <= 0`, y nadie lo pedía.
+
+    Un registro vacío da 0 con guarda y sin ella, así que borrarla dejaba la
+    suite en verde. Donde sí importa es más abajo: con menos muestras que
+    -1 ventana, la fórmula devuelve un número negativo, y ese número va
+    derecho a `Scoring(n_windows=...)`.
+    """
+    por_ventana = int(WINDOW_SECONDS * sampling_rate)
+    assert count_windows(-40 * por_ventana, sampling_rate) == 0
+
+
+@pytest.mark.parametrize(("n_samples", "ventanas"), [(0, 0), (1, 1)])
+def test_los_extremos_de_count_windows(n_samples, ventanas, sampling_rate):
+    """Cero muestras dan cero ventanas; una muestra ya da una.
+
+    Nadie llamaba a `count_windows` con estos dos valores, y el atajo
+    `if n_samples <= 0: return 0` quedaba sin exigir: cambiarlo por `< 0`, por
+    `== 0` o por `<= 1` dejaba la suite en verde. La segunda variante es la que
+    duele: un registro de una sola muestra pasaría a tener cero ventanas y el
+    programa diría que no hay nada que scorear.
+    """
+    assert count_windows(n_samples, sampling_rate) == ventanas
+
+
+def test_una_muestra_mas_que_un_multiplo_exacto_abre_una_ventana(sampling_rate):
+    """El `- 1` de `count_windows` tiene que ser exactamente uno.
+
+    `count_windows` se define como `sample_to_window(n_samples - 1) + 1`. Con
+    `- 2` la cuenta sólo cambia cuando la penúltima muestra cae en la ventana
+    anterior, que es justo este caso: un registro de veinte ventanas más una
+    muestra. Los tests que había —veinte ventanas justas y veinte y media— dan
+    el mismo número con las dos versiones.
+    """
+    por_ventana = int(WINDOW_SECONDS * sampling_rate)
+    assert count_windows(20 * por_ventana + 1, sampling_rate) == 21
+
+
+def test_un_hercio_es_una_frecuencia_valida():
+    """1 Hz no es una frecuencia corrupta: está en el registro de prueba.
+
+    El EDF de la Sleep-EDF trae `Resp oro-nasal`, `EMG submental`,
+    `Temp rectal` y `Event marker` a 1 Hz. Nada exigía que la guarda fuera
+    `<= 0` y no `<= 1`, y con `<= 1` esos cuatro canales harían fallar la
+    apertura del archivo con un error que habla de una frecuencia inválida.
+    """
+    assert count_windows(90, 1.0) == 3
+    assert window_to_samples(1, 1.0) == (30, 60)
+
+
 # -- Las otras unidades: fracción de ventana y segundos ----------------------
 
 
@@ -271,6 +321,20 @@ def test_una_muestra_pedida_al_filo_de_la_ventana_sigue_en_esa_ventana():
         != i
     ]
     assert not fuera, f"{len(fuera)} ventanas devolvieron una muestra de otra ventana"
+
+
+def test_el_recorte_cae_en_la_ultima_muestra_de_la_ventana():
+    """El recorte tiene que dar `stop - 1`, no `stop - 2`.
+
+    Los tests de al lado afirman que la muestra recortada **pertenece** a la
+    ventana, y eso lo cumple cualquier muestra de adentro: con `stop - 2` la
+    suite seguía verde y una anotación marcada en el último instante quedaba
+    una muestra antes de donde el usuario la puso.
+    """
+    for frecuencia in (256.0, 256.125):
+        _, stop = window_to_samples(3, frecuencia)
+        assert seconds_to_sample(3, WINDOW_SECONDS, frecuencia) == stop - 1
+        assert seconds_to_sample(3, 10 * WINDOW_SECONDS, frecuencia) == stop - 1
 
 
 def test_el_redondeo_de_una_muestra_es_hacia_abajo():

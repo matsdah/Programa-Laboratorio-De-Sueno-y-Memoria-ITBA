@@ -159,7 +159,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     módulo, la normalización dejaría de hacer nada y ningún otro test lo notaría.
 - [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
-  - Test: `tests/test_windows.py`, **29 tests en verde**.
+  - Test: `tests/test_windows.py`, **35 tests en verde**.
   - Los bordes se calculan desde el índice de la ventana, nunca acumulando un
     paso redondeado: con una frecuencia no redonda (256,125 Hz en EDF) acumular
     corre la ventana 960 casi tres segundos. Hay tres tests que lo fijan.

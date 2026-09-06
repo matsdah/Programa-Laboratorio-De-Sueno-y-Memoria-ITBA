@@ -88,9 +88,14 @@ def count_windows(
     ventana queda incompleta. Se la cuenta igual, porque el usuario tiene que
     poder scorearla o ver que está incompleta.
     """
-    # Antes del atajo de abajo: un registro vacío con una frecuencia corrupta
+    # Antes de la guarda de abajo: un registro vacío con una frecuencia corrupta
     # sigue siendo un archivo corrupto, y devolver 0 ventanas lo escondería.
     _samples_per_window(sampling_rate, window_seconds)
+    # Lo que garantiza esta guarda es que **la cuenta nunca sea negativa**. No
+    # es un atajo: para `n_samples` menor que menos una ventana, la fórmula de
+    # abajo devuelve un número negativo, y ese número termina en
+    # `Scoring(n_windows=...)`. Un registro vacío ya daba 0 sin ella; una
+    # cantidad de muestras absurda, no.
     if n_samples <= 0:
         return 0
     # Se define en función de `sample_to_window` en vez de redondear hacia
