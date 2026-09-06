@@ -47,13 +47,31 @@ def test_el_signo_negativo_se_conserva():
     assert to_microvolts(-2.5, "mV") == pytest.approx(-2500.0)
 
 
-def test_convertir_delega_en_el_factor():
+def test_convertir_delega_en_el_factor(monkeypatch):
     """No puede haber dos caminos que discrepen.
 
-    `to_microvolts` no vuelve a mirar la tabla: multiplica por lo que devuelve
-    `conversion_factor`.
+    La versión anterior comparaba `to_microvolts(3, "mV")` contra
+    `3 * conversion_factor("mV")`: la **misma función en los dos lados**, así que
+    si la tabla cambiaba cambiaban los dos a la vez y el test no distinguía nada.
+    Reemplazando el factor se comprueba la delegación de verdad.
     """
-    assert to_microvolts(3.0, "mV") == pytest.approx(3.0 * conversion_factor("mV"))
+    monkeypatch.setattr(units, "conversion_factor", lambda unidad: 7.0)
+    assert to_microvolts(3.0, "lo que sea") == pytest.approx(21.0)
+
+
+@pytest.mark.parametrize(
+    ("unidad", "factor"),
+    [("volt", 1e6), ("volts", 1e6), ("millivolt", 1e3), ("millivolts", 1e3),
+     ("microvolt", 1.0), ("microvolts", 1.0)],
+)
+def test_cada_forma_escrita_con_palabras_tiene_su_factor(unidad, factor):
+    """Cuatro claves de la tabla no las tocaba ningún test.
+
+    **BrainVision escribe `Volts`**: con el factor en 1 en vez de 10⁶ la señal
+    quedaría un millón de veces más chica y en pantalla seguiría pareciendo una
+    señal. Es exactamente el fallo que el módulo existe para impedir.
+    """
+    assert conversion_factor(unidad) == pytest.approx(factor)
 
 
 # -- La entrada sucia -------------------------------------------------------
@@ -206,6 +224,12 @@ def test_se_pueden_pedir_decimales():
     assert format_amplitude(12.34, decimals=1) == f"12.3 {MICROVOLT}"
 
 
-def test_el_simbolo_sale_de_la_constante_y_no_de_un_literal():
-    """Si mañana cambia el símbolo, tiene que cambiar en un solo lugar."""
-    assert format_amplitude(1.0).endswith(MICROVOLT)
+def test_el_simbolo_que_ve_el_usuario_es_el_signo_micro():
+    """El test anterior comparaba `MICROVOLT` contra sí mismo.
+
+    Cambiar la constante a `"uV"` dejaba la suite en verde, así que no fijaba
+    nada. Acá se afirma el **punto de código**: el símbolo que ve el
+    investigador es el signo micro U+00B5 seguido de una V mayúscula.
+    """
+    assert MICROVOLT == "µV"
+    assert format_amplitude(1.0) == "1 µV"

@@ -235,3 +235,75 @@ def test_una_clase_sin_anotaciones_no_aparece_en_la_cuenta(anotaciones):
 def test_un_conjunto_vacio_no_cuenta_nada(anotaciones):
     assert anotaciones.count_by_label() == {}
     assert anotaciones.all() == []
+
+
+def test_una_anotacion_completamente_fuera_del_tramo_no_entra(anotaciones):
+    """El agujero más caro que tenía el conjunto de tests.
+
+    Todos los casos de `in_range` tocaban o cruzaban el tramo, así que ninguno
+    distinguía `<` de `!=`. Con `!=`, una anotación en 100..150 consultada con
+    `in_range(1000, 2000)` **entra**: toda anotación de la noche se dibujaría en
+    todas las ventanas.
+    """
+    anotaciones.add(evento(100, 50))
+    assert anotaciones.in_range(1000, 2000) == []
+    assert len(anotaciones.in_range(0, 200)) == 1
+
+
+def test_una_anotacion_posterior_al_tramo_tampoco(anotaciones):
+    """La otra mitad de la comparación, por el mismo motivo."""
+    anotaciones.add(evento(5000, 50))
+    assert anotaciones.in_range(1000, 2000) == []
+
+
+def test_se_puede_borrar_la_primera_anotacion(anotaciones):
+    """Nadie llamaba `remove_at(0)`.
+
+    Con la guarda escrita `0 < index`, la primera anotación de la noche quedaría
+    inalcanzable y la suite no se enteraría.
+    """
+    anotaciones.add(evento(100))
+    anotaciones.add(evento(200))
+    anotaciones.remove_at(0)
+    assert [a.onset_sample for a in anotaciones.all()] == [200]
+
+
+def test_una_anotacion_de_una_sola_muestra_se_acepta(anotaciones):
+    """Es la duración mínima que el mensaje de error promete aceptar.
+
+    El parametrize de duraciones inválidas usa 0 y −50; nunca 1, así que el
+    borde no estaba fijado.
+    """
+    anotaciones.add(evento(100, 1))
+    assert anotaciones.all()[0].duration_samples == 1
+
+
+def test_una_anotacion_en_la_primera_muestra_se_acepta(anotaciones):
+    """Un evento marcado en el punto 0 del registro es legítimo."""
+    anotaciones.add(evento(0, 10))
+    assert anotaciones.all()[0].onset_sample == 0
+
+
+def test_dos_anotaciones_en_la_misma_muestra_conservan_el_orden_de_creacion(anotaciones):
+    """Es el desempate del que depende que `remove_at` señale lo que el usuario ve.
+
+    Con `bisect_left` en vez de `bisect_right` el orden se invierte, y ningún
+    test lo notaba porque los dos casos existentes usaban anotaciones idénticas,
+    indistinguibles por definición.
+    """
+    anotaciones.add(evento(500, label="Arousal"))
+    anotaciones.add(evento(500, label="Spindle"))
+    assert [a.label for a in anotaciones.all()] == ["Arousal", "Spindle"]
+
+
+def test_registrar_dos_veces_una_clase_no_le_cambia_el_color(anotaciones):
+    """El test que había sólo contaba las clases, no miraba el color.
+
+    Sin la guarda, re-registrar una clase le asigna el color siguiente de la
+    paleta y el usuario ve cambiar de color todas sus bandas por haber tecleado
+    dos veces el mismo nombre.
+    """
+    anotaciones.add_label("Apnea")
+    color = anotaciones.color_of("Apnea")
+    anotaciones.add_label("Apnea")
+    assert anotaciones.color_of("Apnea") == color

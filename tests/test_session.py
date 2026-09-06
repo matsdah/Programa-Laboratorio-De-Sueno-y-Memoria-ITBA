@@ -331,3 +331,54 @@ def test_la_sesion_no_necesita_qt(session):
     session.increase_amplitude()
     session.set_active_tool("magnifier")
     assert session.current_window == 10
+
+
+def test_se_puede_saltar_a_la_primera_ventana(session):
+    """Nadie llamaba `go_to_window(0)`.
+
+    Con la guarda escrita `0 < window_index`, la primera ventana quedaría
+    inalcanzable desde el clic sobre el histograma y la suite no se enteraría.
+    """
+    session.go_to_window(10)
+    session.go_to_window(0)
+    assert session.current_window == 0
+
+
+def test_retroceder_desde_la_segunda_llega_a_la_primera(session):
+    """Nadie retrocedía desde la ventana 1.
+
+    Los tests que había retrocedían desde la 2 y desde la 0, así que la guarda
+    podía escribirse `> 1` y la flecha izquierda nunca llegaría al principio de
+    la noche.
+    """
+    session.go_to_window(1)
+    session.previous_window()
+    assert session.current_window == 0
+
+
+def test_un_indice_fraccionario_no_corre_la_ventana(session):
+    """El clic sobre el histograma calcula el índice desde un píxel.
+
+    `x / ancho * n_windows` da un float, y `1.5` atravesaba la guarda de rango:
+    `window_to_samples` devolvía un tramo desplazado media ventana y
+    `scoring.get()` reventaba después con un `TypeError` crudo.
+    """
+    with pytest.raises(WindowOutOfRangeError):
+        session.go_to_window(1.5)
+
+
+def test_el_mensaje_de_ventana_numera_en_base_1(session):
+    with pytest.raises(WindowOutOfRangeError) as excepcion:
+        session.go_to_window(20)
+    assert "21" in excepcion.value.message
+
+
+def test_un_canal_visible_dos_veces_recibe_el_paso_una_sola_vez(session):
+    """Mostrar el mismo canal dos veces es un uso soportado.
+
+    Sin deduplicar, el canal repetido recibía el factor dos veces por pulsación
+    y se escapaba del resto sin que el usuario pudiera entender por qué.
+    """
+    session.set_visible_channels(["C3", "C3", "C4"])
+    session.increase_amplitude()
+    assert session.scale_uv("C3") == pytest.approx(session.scale_uv("C4"))

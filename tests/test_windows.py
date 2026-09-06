@@ -246,3 +246,29 @@ def test_un_evento_anotado_cae_en_la_ventana_de_la_que_salio():
         for segundos in (0.0, 15.0, 29.99):
             muestra = seconds_to_sample(ventana, segundos, frecuencia)
             assert sample_to_window(muestra, frecuencia) == ventana
+
+
+def test_una_muestra_pedida_al_filo_de_la_ventana_sigue_en_esa_ventana():
+    """La promesa textual del módulo, que no se cumplía.
+
+    `floor(i·spw) + floor(off·fs)` puede alcanzar el borde de la ventana
+    siguiente. Medido a 256,125 Hz —una frecuencia real de EDF— sobre ocho
+    horas: 240 de 960 ventanas caían del otro lado. Una anotación marcada al
+    final de la ventana desaparecía del lugar donde el usuario la puso.
+    """
+    frecuencia = 256.125
+    fuera = [
+        i
+        for i in range(960)
+        if sample_to_window(seconds_to_sample(i, 29.999, frecuencia), frecuencia) != i
+    ]
+    assert not fuera, f"{len(fuera)} ventanas devolvieron una muestra de otra ventana"
+
+
+def test_el_redondeo_de_una_muestra_es_hacia_abajo():
+    """Fija el sentido, que ningún test distinguía.
+
+    Con `ceil` en vez de `floor` el resultado se corre una muestra, y la
+    tolerancia de los otros tests —una muestra entera— no lo nota.
+    """
+    assert seconds_to_sample(0, 0.019, 100.0) == 1

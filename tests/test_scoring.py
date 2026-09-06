@@ -190,15 +190,37 @@ def test_las_ventanas_sin_scorear_sobreviven_al_cambio(scoring):
 # -- Lo que se le presta a quien consulta -----------------------------------
 
 
-def test_stages_devuelve_una_copia(scoring):
+def test_stages_devuelve_una_lista_nueva_en_cada_llamada(scoring):
     """El histograma sólo quiere leerla.
 
-    Prestarle la lista interna dejaría que la corrompiera sin pasar por
-    `set_stage`, que es la única guarda de la nomenclatura.
+    La versión anterior de este test mutaba la lista devuelta y comprobaba que
+    el scoring no cambiara. Era **tautológico**: `_scores` guarda `EpochScore` y
+    `stages()` construye una lista de `SleepStage`, así que no puede devolver la
+    interna ni con la implementación más rota. Lo que sí se puede afirmar es que
+    dos llamadas no comparten objeto, que es lo que protege ante un cache futuro.
     """
-    prestada = scoring.stages()
-    prestada[0] = SleepStage.S4
-    assert scoring.get(0).stage == SleepStage.UNSCORED
+    assert scoring.stages() is not scoring.stages()
+
+
+def test_una_ventana_sin_tocar_no_tiene_arousal(scoring):
+    """Nadie miraba el arousal de una ventana recién creada.
+
+    Con el valor por defecto en `True`, `Scoring.txt` escribiría `1` en todas
+    las líneas y V2_F quedaría inservible sin que nada fallara.
+    """
+    assert scoring.get(0).arousal is False
+    assert all(not scoring.get(i).arousal for i in range(scoring.n_windows))
+
+
+def test_el_mensaje_numera_la_ventana_en_base_1(scoring):
+    """La conversión base 0 → base 1 es una regla del proyecto.
+
+    Es el único lugar donde el usuario ve el número, y no había ningún test que
+    lo fijara: el mensaje podía numerar cualquier cosa.
+    """
+    with pytest.raises(WindowOutOfRangeError) as excepcion:
+        scoring.get(20)
+    assert "21" in excepcion.value.message
 
 
 def test_el_scoring_de_una_ventana_no_se_puede_escribir_por_atras(scoring):

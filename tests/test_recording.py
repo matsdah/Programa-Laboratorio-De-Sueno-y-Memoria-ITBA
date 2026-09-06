@@ -184,14 +184,40 @@ def test_pedir_una_lista_vacia_de_canales_no_devuelve_ninguno(recording):
 
 
 def test_una_señal_que_no_es_de_dos_dimensiones_se_rechaza():
-    """Un lector que devuelva un solo canal aplanado tiene un bug."""
-    with pytest.raises(InvalidRecordingError):
+    """Un lector que devuelva un solo canal aplanado tiene un bug.
+
+    La versión anterior de este test **pasaba por el motivo equivocado**: con un
+    solo canal y 1000 muestras aplanadas, quien lo rechazaba era la validación
+    siguiente —"declara 1 canal y la señal trae 1000"— y borrar entera la guarda
+    de `ndim` dejaba la suite en verde. Se afirma el detalle técnico para que sea
+    esa guarda y no otra la que responda.
+    """
+    with pytest.raises(InvalidRecordingError) as excepcion:
         Recording(
             file_path=Path("roto.edf"),
-            channels=[canal("C3", 0)],
+            channels=[canal(f"C{i}", i) for i in range(1000)],
             data=np.zeros(1000),
             sampling_rate=256.0,
         )
+
+    assert "data.ndim = 1" in (excepcion.value.details or "")
+
+
+@pytest.mark.parametrize("frecuencia", [1.0, 0.5])
+def test_una_frecuencia_baja_pero_valida_se_acepta(frecuencia):
+    """El borde inferior no estaba fijado, y no es hipotético.
+
+    El EDF de prueba del hito 0 tiene **cuatro canales a 1 Hz** (respiración,
+    EMG, temperatura y marcador de eventos). Una guarda escrita `<= 1` los
+    rechazaría, y ningún test lo notaba.
+    """
+    r = Recording(
+        file_path=Path("lento.edf"),
+        channels=[canal("Temp", 0)],
+        data=np.zeros((1, 100)),
+        sampling_rate=frecuencia,
+    )
+    assert r.sampling_rate == frecuencia
 
 
 def test_declarar_mas_canales_que_filas_se_rechaza():
@@ -204,7 +230,11 @@ def test_declarar_mas_canales_que_filas_se_rechaza():
             sampling_rate=256.0,
         )
 
-    assert "2" in excepcion.value.message and "1" in excepcion.value.message
+    # Se afirma sobre `details`, que trae los dos números sin ambigüedad: la
+    # versión anterior comprobaba `"1" in mensaje` y se satisfacía con el "1" de
+    # "1000", así que no fijaba nada.
+    assert "len(channels) = 2" in (excepcion.value.details or "")
+    assert "(1, 1000)" in (excepcion.value.details or "")
 
 
 @pytest.mark.parametrize("frecuencia", [0.0, -256.0, float("nan"), float("inf")])

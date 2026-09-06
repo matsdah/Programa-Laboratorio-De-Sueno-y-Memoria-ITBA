@@ -54,8 +54,15 @@ def test_el_mensaje_llega_a_la_representacion_estandar_de_python():
 
     Es lo que termina en un log o en una traza si el error escapa sin que nadie
     lo atrape, y ahí el mensaje en español sigue siendo más útil que un vacío.
+
+    Ojo con lo que este test **no** prueba: `BaseException.__new__` ya guarda los
+    argumentos posicionales, así que `str()` funcionaría igual sin el
+    `super().__init__(message)` del constructor. Lo que sí verifica es que el
+    mensaje viaje entero, sin el `details` pegado ni recortado.
     """
-    assert str(PsgLabError("El registro está incompleto.")) == "El registro está incompleto."
+    error = PsgLabError("El registro está incompleto.", details="EOFError")
+    assert str(error) == "El registro está incompleto."
+    assert "EOFError" not in str(error)
 
 
 def test_todas_las_excepciones_del_modulo_heredan_de_la_base():

@@ -149,7 +149,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
 
 - [x] **`psglab/utils/units.py`** · ~~4 stubs~~ · sostiene la escala en µV de
       V1_P "Visualización" y la banda de V1_F "Herramienta de amplitud"
-  - Test: `tests/test_units.py`, **21 tests en verde**.
+  - Test: `tests/test_units.py`, **27 tests en verde**.
   - La mitad de los tests son de **entrada sucia**, no de aritmética: las
     cabeceras de EDF y BrainVision escriben la unidad de formas variadas, y
     confundir "no reconozco esto" con "esto vale 1" deja la señal mal escalada
@@ -159,7 +159,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     módulo, la normalización dejaría de hacer nada y ningún otro test lo notaría.
 - [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
-  - Test: `tests/test_windows.py`, **27 tests en verde**.
+  - Test: `tests/test_windows.py`, **29 tests en verde**.
   - Los bordes se calculan desde el índice de la ventana, nunca acumulando un
     paso redondeado: con una frecuencia no redonda (256,125 Hz en EDF) acumular
     corre la ventana 960 casi tres segundos. Hay tres tests que lo fijan.
@@ -181,7 +181,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     S3 y S4 caen los dos en N3 y que volver no puede distinguirlos.
 - [x] **`psglab/core/recording.py`** · ~~7 stubs~~ · soporte de V1_F/V2_F/V3_F
       "Importación" y V4_F "Visualización"
-  - Test: `tests/test_recording.py`, **31 tests en verde**, sobre la fixture
+  - Test: `tests/test_recording.py`, **33 tests en verde**, sobre la fixture
     `synthetic_signal` de `conftest.py`.
   - **`__post_init__` rechaza un registro incoherente consigo mismo**: matriz
     que no es 2-D, canales que no coinciden con las filas, frecuencia no
@@ -216,7 +216,7 @@ tiene test:
 de negocio entera funciona sin abrir una ventana.
 
 - [x] **`psglab/core/scoring.py`** · ~~10 stubs~~ · V1_F, V2_F, V3_F "Scoring"
-  - Test: `tests/test_scoring.py`, **23 tests en verde**.
+  - Test: `tests/test_scoring.py`, **25 tests en verde**.
   - Un scoring nuevo arranca entero en `UNSCORED`: el histograma tiene el
     tamaño de la noche desde el principio.
   - `set_stage` acepta `UNSCORED`, que es cómo el usuario **borra** el scoring
@@ -227,7 +227,7 @@ de negocio entera funciona sin abrir una ventana.
   - `stages()` devuelve una copia: prestarle la lista interna al histograma lo
     dejaría corromper el scoring sin pasar por `set_stage`.
 - [x] **`psglab/core/annotations.py`** · ~~11 stubs~~ · V1_F "Anotación de la señal"
-  - Test: `tests/test_annotations.py`, **30 tests en verde**.
+  - Test: `tests/test_annotations.py`, **37 tests en verde**.
   - Las anotaciones se guardan en muestras, no en segundos.
   - **La lista interna se mantiene ordenada por muestra de inicio.** No es una
     optimización: es lo que hace que el índice de `remove_at()` signifique lo
@@ -252,7 +252,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **37 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **42 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `n_windows` sale de `windows.count_windows()` sobre el registro, que es la
     fuente de verdad, y `__init__` eleva `ScoringMismatchError` si el scoring no
