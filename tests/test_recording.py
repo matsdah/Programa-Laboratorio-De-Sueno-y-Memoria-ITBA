@@ -365,3 +365,45 @@ def test_un_registro_valido_se_construye_sin_quejarse(recording):
     assert recording.n_channels == 4
     assert recording.metadata == {}
     assert recording.start_time is not None
+
+
+def test_un_canal_no_se_puede_modificar_desde_afuera(recording):
+    """`Channel` es `frozen` y eso es una regla, no una preferencia de estilo.
+
+    `channel_by_name()` devuelve el canal interno. Cuando era mutable se lo
+    podía renombrar desde afuera, y a partir de ahí el canal **desaparecía**:
+    pedirlo por su nombre original elevaba `ChannelNotFoundError` sobre un
+    registro que sigue teniéndolo. Nada lo exigía; quitar el `frozen=True`
+    dejaba la suite entera en verde.
+    """
+    canal = recording.channel_by_name("C3")
+    with pytest.raises(Exception) as excepcion:
+        canal.name = "OTRO"
+    assert "frozen" in str(excepcion.value).lower() or isinstance(
+        excepcion.value, AttributeError
+    )
+    assert recording.channel_by_name("C3").name == "C3"
+
+
+def test_un_tramo_que_empieza_antes_del_registro_se_rechaza(recording):
+    """Un índice negativo no puede llegar a numpy.
+
+    numpy lee el negativo como "desde el final", así que la señal devuelta
+    sería del final de la noche presentada como si fuera del principio: un
+    resultado plausible y equivocado, que es peor que uno vacío. La guarda
+    admitía volverse `< -1` sin que nada fallara.
+    """
+    with pytest.raises(InvalidRecordingError):
+        recording.get_segment(-1, 100)
+
+
+def test_un_tramo_de_longitud_cero_es_valido_y_sale_vacio(recording):
+    """Pedir de la muestra 100 a la 100 no es un error: es un tramo vacío.
+
+    Fija el sentido de la guarda, que compara con `>` y no con `>=`. Con `>=`
+    este caso pasaría a elevar, y quien llama —el visualizador, en el borde de
+    un registro— recibiría un error donde hoy recibe una matriz sin columnas.
+    """
+    tramo = recording.get_segment(100, 100)
+    assert tramo.shape == (recording.n_channels, 0)
+

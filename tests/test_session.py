@@ -144,6 +144,20 @@ def test_en_la_ultima_ventana_avanzar_no_hace_nada(session):
     assert session.current_window == VENTANAS_SINTETICAS - 1
 
 
+def test_la_flecha_derecha_llega_hasta_la_ultima_ventana(session):
+    """Que no se pase del final no alcanza: tiene que **llegar**.
+
+    El test de al lado empieza en la última ventana y comprueba que no avanza,
+    y ése pasa igual si `next_window` frena una ventana antes. Con
+    `n_windows - 2` en vez de `- 1`, cincuenta pulsaciones de la flecha derecha
+    dejaban al usuario en la ventana 18 de 20, sin forma de ver las dos últimas
+    ni de scorearlas.
+    """
+    for _ in range(VENTANAS_SINTETICAS + 10):
+        session.next_window()
+    assert session.current_window == VENTANAS_SINTETICAS - 1
+
+
 def test_en_la_primera_ventana_retroceder_no_hace_nada(session):
     session.previous_window()
     assert session.current_window == 0

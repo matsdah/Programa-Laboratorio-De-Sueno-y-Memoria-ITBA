@@ -181,7 +181,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     S3 y S4 caen los dos en N3 y que volver no puede distinguirlos.
 - [x] **`psglab/core/recording.py`** · ~~7 stubs~~ · soporte de V1_F/V2_F/V3_F
       "Importación" y V4_F "Visualización"
-  - Test: `tests/test_recording.py`, **33 tests en verde**, sobre la fixture
+  - Test: `tests/test_recording.py`, **36 tests en verde**, sobre la fixture
     `synthetic_signal` de `conftest.py`.
   - **`__post_init__` rechaza un registro incoherente consigo mismo**: matriz
     que no es 2-D, canales que no coinciden con las filas, frecuencia no
@@ -252,7 +252,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **42 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **43 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `n_windows` sale de `windows.count_windows()` sobre el registro, que es la
     fuente de verdad, y `__init__` eleva `ScoringMismatchError` si el scoring no

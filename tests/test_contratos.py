@@ -98,6 +98,38 @@ CASOS = [
 ]
 
 
+#: Las guardas que **tienen que rechazar**, con el valor concreto que no puede
+#: pasar. La tabla de arriba no alcanza: dice qué tipo de error sale *si* se
+#: rechaza, y eso deja verde a un módulo que no rechace nada.
+#:
+#: Se descubrió generando mutantes del árbol de sintaxis: cuatro guardas de tipo
+#: se podían borrar enteras —`if not isinstance(...)` por `if False`— sin que la
+#: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
+#: falla de forma visible, que es lo que las hace caras.
+RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Un canal sin nombre utilizable se aceptaba y reventaba mucho después, en
+    # cualquier lado que pidiera canales por nombre, que es toda la interfaz.
+    ("Recording con un canal sin nombre", None,
+     lambda v: Recording(Path("x.edf"), [Channel(v, ChannelKind.EEG, "µV", 0)],
+                         np.zeros((1, 10)), 100.0)),
+    # `channels_of_kind` compara con `is`, así que la cadena "EEG" devolvía la
+    # lista vacía: "mostrar todos los EEG" (V3_P) afirmaría que no hay ninguno.
+    ("channels_of_kind con una cadena", "EEG",
+     lambda v: registro().channels_of_kind(v)),
+    # Un tramo que empieza antes del registro devolvía señal **del final**,
+    # porque numpy lee el índice negativo como "desde el final".
+    ("get_segment desde antes del registro", -1,
+     lambda v: registro().get_segment(v, 10)),
+    # La nomenclatura como cadena se aceptaba y daba `KeyError: 'AASM'` la
+    # primera vez que alguien asignaba una fase, lejos de donde estaba el bug.
+    ("Scoring con la nomenclatura como cadena", "AASM",
+     lambda v: Scoring(3, v)),
+    # El arousal se guardaba tal cual: "si" terminaría escrito en Scoring.txt.
+    ("set_arousal con una cadena", "si",
+     lambda v: Scoring(3, Nomenclature.AASM).set_arousal(0, v)),
+]
+
+
 @pytest.mark.parametrize(
     ("modulo", "nombre", "llamada", "hostil"),
     CASOS,
@@ -119,6 +151,23 @@ def test_una_entrada_hostil_sale_como_error_del_programa(modulo, nombre, llamada
             f"{nombre} con {hostil!r} elevó {type(error).__name__}, que no hereda de "
             f"PsgLabError y escaparía del except de la interfaz: {error}"
         )
+
+
+@pytest.mark.parametrize(
+    ("nombre", "valor", "llamada"),
+    RECHAZOS_OBLIGATORIOS,
+    ids=[n for n, _, _ in RECHAZOS_OBLIGATORIOS],
+)
+def test_una_guarda_de_tipo_no_se_puede_borrar_sin_que_nada_avise(nombre, valor, llamada):
+    """El complemento del test de arriba: acá el valor **no puede** pasar.
+
+    Aceptar en silencio es la peor de las tres salidas. Un `TypeError` crudo al
+    menos se ve; un valor aceptado sigue viaje y reaparece mucho más lejos,
+    convertido en señal equivocada, en una lista vacía o en una línea rara de
+    `Scoring.txt`.
+    """
+    with pytest.raises(PsgLabError):
+        llamada(valor)
 
 
 def test_la_tabla_cubre_los_modulos_implementados():
