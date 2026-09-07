@@ -103,11 +103,10 @@ ventanas de una noche, vuelve el programa inusable.
 
 ## Estado
 
-Pendientes **10 stubs** en 1 módulo, en el
-[hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz). Es el último hito de
-lógica: depende de que `core/session.py` esté terminado (hito 3).
+Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
+[hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz), el último de la Parte 1.
 
-Al cerrarlo, `python main.py` abre algo usable por primera vez.
+Con él, `python main.py` abre algo usable por primera vez.
 
 **Los widgets de esta capa no llevan tests unitarios**, y por eso se la mantiene
 delgada: dibujar no se puede verificar sin mirar una pantalla, así que todo lo

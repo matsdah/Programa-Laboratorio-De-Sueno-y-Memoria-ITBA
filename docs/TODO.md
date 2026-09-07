@@ -4,8 +4,9 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **12 stubs** (`raise NotImplementedError`) en 2 módulos de la Parte 1.
-**Todos son del hito 6**: es lo único que falta para terminar la Parte 1.
+Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos de la Parte 1:
+**la Parte 1 está terminada**, con los hitos 0 a 7 cerrados. Falta el hito 8,
+que es una lista de comprobación y no código nuevo.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -57,10 +58,10 @@ nada**. Un verde por omisión es peor que un rojo.
 | [3. Sesión](#hito-3-sesión) | — | 0 | ✅ cerrado |
 | [4. Importación](#hito-4-importación) | — | 0 | ✅ cerrado |
 | [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
-| [6. Interfaz](#hito-6-interfaz) | 2 | 12 | ⬜ |
+| [6. Interfaz](#hito-6-interfaz) | — | 0 | ✅ cerrado |
 | [7. Herramientas](#hito-7-herramientas) | — | 0 | ✅ cerrado |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **2** | **12** | |
+| | **0** | **0** | |
 
 ### Los tres cortes que importan
 
@@ -70,6 +71,7 @@ nada**. Un verde por omisión es peor que un rojo.
   —leer un EDF, scorear, exportar los tres archivos— **todavía sin interfaz
   gráfica**. Es el pago concreto de que `core/` no importe `ui/`.
 - **Al cerrar el hito 6** `python main.py` abre algo usable por primera vez.
+  Ya no termina en `NotImplementedError`.
 
 **Los hitos 4 y 5 no dependen de `ui/`.** Una vez cerrado el 3, dos personas
 pueden ir en paralelo: una por 4 y 5, otra por 6.
@@ -257,8 +259,13 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **53 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **60 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
+  - `set_scoring()` se agregó en el hito 6, para V3_F: importar un scoring no
+    es abrir otro registro, así que sustituye adentro en vez de armar otra
+    `Session`. Armar otra devolvía al usuario a la ventana 0 y le tiraba los
+    canales y las amplitudes, y además dejaba a las herramientas ya activadas
+    apuntando a la sesión vieja **sin que nada fallara**.
   - `n_windows` sale de `windows.count_windows()` sobre el registro, que es la
     fuente de verdad, y `__init__` eleva `ScoringMismatchError` si el scoring no
     mide lo mismo. Sin ese chequeo, un scoring importado de otro registro daría
@@ -487,9 +494,17 @@ había previsto leyendo el código.
 
 ## Hito 6: Interfaz
 
-Primera vez que el programa se puede abrir. `ui/` **no lleva tests unitarios**:
-por eso la capa se mantiene delgada y toda la regla vive en `core/`. No es un
-olvido.
+Primera vez que el programa se puede abrir. La capa se mantiene delgada y toda
+la regla vive en `core/`.
+
+> **Acotado en este hito: `ui/` sí lleva algunos tests.** La regla de "sin tests
+> unitarios" se había fijado con la carpeta vacía. Al escribirla se vio que tres
+> piezas **no dibujan nada** y son justo donde algo se rompe callado: las teclas
+> de fase de `shortcuts.py`, las posiciones de `grid.py` y —sobre todo— los tres
+> conversores de `signal_view.py`, el único lugar del programa que traduce entre
+> píxeles, segundos, fracción de ventana y muestras. Confundirlos da números
+> plausibles y equivocados. Ésos se testean, con una `QApplication` sin pantalla.
+> **El dibujo sigue sin testear**, y esa parte de la regla no cambió.
 
 > **Resuelto: `Session` avisa sola.** Gana `add_window_listener()`, y las tres
 > puertas que cambian de ventana avisan desde adentro. El hito 7 volvió urgente
@@ -558,11 +573,22 @@ olvido.
   - `FIXED_SHORTCUTS` es lo que lee el usuario y `ACTIONS` el cableado, separados
     para que cambiar un texto de ayuda no desconecte una tecla; un test exige que
     cubran las mismas teclas.
-- [ ] **`psglab/ui/main_window.py`** · 10 stubs · V4_F "Archivo de salida"
+- [x] **`psglab/ui/main_window.py`** · ~~10 stubs~~ · V4_F "Archivo de salida"
   - Conecta, no implementa. Acá se cablean a mano los callbacks de las
-    herramientas, que no usan señales de Qt.
-- [ ] **`psglab/app.py`** · 2 stubs · infraestructura
+    herramientas, que no usan señales de Qt: `on_changed` lleva los overlays a
+    la pantalla y `on_window_requested` lleva el clic del hipnograma a la
+    sesión. **Se asignan sobre la instancia y nunca sobre la clase**, o quedarían
+    como método ligado y la llamada pasaría un argumento de más.
+  - La barra de herramientas se arma recorriendo `available_tools()`, así que
+    una herramienta nueva aparece sola sin tocar este archivo.
+  - V4_F son **tres** acciones de exportación separadas, no un "exportar todo":
+    el pliego pide poder elegir cuál de los tres archivos se escribe.
+  - `_show_error()` es el único lugar que convierte un `PsgLabError` en un
+    cartel: el mensaje en español arriba y `details` en la parte desplegable.
+- [x] **`psglab/app.py`** · ~~2 stubs~~ · infraestructura
   - Con esto `python main.py` deja de terminar en `NotImplementedError`.
+  - Carga los dos registros —herramientas y lectores— **antes** de construir la
+    ventana: la barra y el filtro del diálogo de apertura se arman recorriéndolos.
 
 ---
 

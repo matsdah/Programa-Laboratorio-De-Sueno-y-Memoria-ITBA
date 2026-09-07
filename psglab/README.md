@@ -89,15 +89,13 @@ cada decisión está en el
 
 ## Estado
 
-Esqueleto **con la capa de negocio terminada**: los 42 módulos del paquete
-importan —51 archivos `.py` contando los ocho `__init__.py`—, los hitos 0 a 3
-están cerrados y con ellos `core/` y `utils/` quedaron completas. El resto de
-los métodos todavía eleva `NotImplementedError`.
+**Parte 1 terminada**: los 42 módulos del paquete importan —51 archivos `.py`
+contando los ocho `__init__.py`— y ninguno de la Parte 1 eleva ya
+`NotImplementedError`. Lo que sigue elevando es `analysis/`, que es la Parte 2.
 
-Pendientes **12 stubs** en 2 módulos de la Parte 1, ordenados por
-dependencias en el [TODO](../docs/TODO.md). `app.py` es el último de la fila
-(hito 6): hasta que se implemente, `python main.py` termina en
-`NotImplementedError`, que es lo esperado.
+Pendientes **0 stubs** en 0 módulos de la Parte 1: **está terminada**, con los
+hitos 0 a 7 del [TODO](../docs/TODO.md) cerrados. `python main.py` abre la
+ventana. Los stubs que quedan son todos de `analysis/`, que es la Parte 2.
 
 Estas piezas **sí** están implementadas, a propósito, y no deben volver a ser
 stubs:

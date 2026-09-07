@@ -8,8 +8,11 @@ Cubre del pliego: ningún ID de funcionalidad. Es infraestructura de arranque;
 sostiene el requisito técnico de "main.py lo más simple posible" (sección 7).
 """
 
+import pyqtgraph as pg
 from PySide6.QtWidgets import QApplication
 
+from psglab.readers.base import load_all_readers
+from psglab.tools.registry import load_all_tools
 from psglab.ui.main_window import MainWindow
 
 
@@ -25,7 +28,24 @@ def create_application(argv: list[str]) -> QApplication:
     Returns:
         La aplicación de Qt lista para usar.
     """
-    raise NotImplementedError("Pendiente: crear la QApplication y su configuración global.")
+    aplicacion = QApplication(argv)
+    aplicacion.setApplicationName("PSGLab")
+    aplicacion.setOrganizationName("Laboratorio de Sueño y Memoria — ITBA")
+    # Los fondos de pyqtgraph se fijan acá, para todo el programa: la señal se
+    # lee mejor oscura sobre claro, y el criterio visual del scoring tiene que
+    # ser el mismo en cualquier computadora del laboratorio.
+    pg.setConfigOption("background", "w")
+    pg.setConfigOption("foreground", "k")
+    # **El suavizado de curvas queda apagado a propósito**, que es el valor por
+    # omisión de pyqtgraph y conviene dejar dicho por qué. Redibujar decenas de
+    # canales a cientos de hercios por cada pulsación de flecha es exactamente
+    # el motivo por el que se eligió pyqtgraph sobre matplotlib
+    # (`docs/ARQUITECTURA.md`), y el antialiasing es lo más caro que se le puede
+    # pedir: media noche son cientos de ventanas y media décima de segundo de
+    # más por ventana ya se siente. Si alguna vez se enciende, medirlo antes con
+    # un registro real de siete canales, no con señal sintética corta.
+    pg.setConfigOption("antialias", False)
+    return aplicacion
 
 
 def create_main_window() -> MainWindow:
@@ -40,4 +60,9 @@ def create_main_window() -> MainWindow:
     Returns:
         La ventana principal, todavía sin mostrar.
     """
-    raise NotImplementedError("Pendiente: construir la ventana principal.")
+    # Los dos registros se pueblan solos recorriendo su paquete. Se los carga
+    # antes de construir la ventana porque la barra de herramientas y el filtro
+    # del diálogo de apertura se arman recorriéndolos.
+    load_all_tools()
+    load_all_readers()
+    return MainWindow()
