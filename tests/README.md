@@ -17,7 +17,7 @@ camino de búsqueda. Con `pytest` directo la recolección falla en los veinticua
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
-## Mientras el proyecto sea un esqueleto
+## Los tests que se apagan, y por qué hoy no hay ninguno
 
 Los tests de los módulos que todavía no están implementados están
 **desactivados**, con esta línea cerca del principio del archivo:
@@ -72,7 +72,6 @@ verde por omisión, que es peor que dar rojo.
 | `test_shortcuts.py` | Los atajos, y que los de fase se deriven de la nomenclatura. |
 | `test_grid.py` | La grilla de fondo: cuántas líneas y dónde caen. |
 | `test_signal_view.py` | Las tres conversiones desde píxeles, que es de donde salen las unidades de las herramientas. |
-| `test_occupancy.py` | La herramienta de ocupación horizontal. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el
@@ -86,8 +85,8 @@ veinte ventanas de 30 segundos**, un número cómodo para verificar las cuentas 
 mano—, con C3 a 1 Hz, C4 a 10 Hz, el EOG a 0,5 Hz y el EMG a 30 Hz, y nombres
 10-20 para que la detección automática de clase tenga qué detectar.
 
-`test_recording.py` es su primer consumidor. `test_readers.py`, cuando se abra
-el hito 4, es el siguiente: no hace falta inventar otra señal.
+`test_recording.py` fue su primer consumidor y `test_readers.py` el siguiente:
+no hizo falta inventar otra señal.
 
 ## `test_consistencia.py` no testea un componente
 
@@ -172,16 +171,17 @@ regla se rompió**, no qué función se llamó.
 El [TODO](../docs/TODO.md) lleva la cuenta. Cada módulo que se implementa
 arrastra su test, y **eso es parte de darlo por terminado**:
 
-- **Reactivar** (borrar el `pytestmark`): ninguno, ya no queda.
-- **Crear**: los que faltan de las herramientas del hito 7.
+**De la Parte 1 no queda ninguno por escribir ni por reactivar.** Los nueve de
+los hitos 1 a 3 —`test_units`, `test_windows`, `test_nomenclature`,
+`test_recording`, `test_errors`, `test_validation`, `test_scoring`,
+`test_annotations` y `test_session`—, los tres del hito 4, `test_exporters` del
+hito 5, los tres de `ui/` del hito 6 y los siete del hito 7 están todos
+corriendo, y `test_exporters` cubre los cuatro exportadores, `statistics.py` e
+`information_txt.py` incluidos.
 
-Los del hito 4 —`test_channel_types`, `test_readers`, `test_scoring_reader`— ya
-existen, y `test_exporters` se reactivó al cerrar el hito 5.
-- **Extender**: `test_exporters` para que cubra de verdad `statistics.py` e
-  `information_txt.py` (5), que hoy no importa.
+Lo que queda es la **Parte 2**: `psglab/analysis/` no tiene ningún test todavía,
+y sus ocho módulos siguen en stubs.
 
-Los nueve de los hitos 1, 2 y 3 —`test_units`, `test_windows`,
-`test_nomenclature`, `test_recording`, `test_errors`, `test_validation`,
-`test_scoring`, `test_annotations` y `test_session`— ya están y corren.
-
-`psglab/ui/` no lleva tests unitarios: es deliberado, no una omisión.
+**De `psglab/ui/` se testea lo que no dibuja** —los atajos, la grilla y las tres
+conversiones desde píxeles—, y el dibujo no. Es deliberado y está explicado en
+[`ui/README.md`](../psglab/ui/README.md#estado).

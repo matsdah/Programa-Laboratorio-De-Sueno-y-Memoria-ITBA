@@ -224,7 +224,7 @@ class Session:
         histograma mueve su indicador. Si la obligación de avisarles viviera en
         `ui/main_window.py`, dependería de que alguien se acuerde de llamarlas
         después de cada `go_to_window()`, `next_window()` y `previous_window()`
-        —en la única capa que no lleva tests unitarios— y un olvido rompería las
+        —en la capa cuyo dibujo no lleva tests— y un olvido rompería las
         tres **sin que nada fallara de forma visible**: las líneas de la ventana
         anterior seguirían dibujadas sobre la siguiente como si midieran algo.
 

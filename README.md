@@ -194,12 +194,13 @@ python -m pytest tests/test_scoring.py::test_el_arousal_es_independiente_de_la_f
 
 Los tests de `core/` y `exporters/` corren sin interfaz gráfica.
 
-Los tests de los componentes que todavía no están implementados están
-desactivados con `pytestmark = pytest.mark.skip(...)` cerca del principio del
-archivo, así que la corrida informa una parte de la suite como `skipped`. **Al
-implementar un componente hay que borrar esa línea del test que le
-corresponde**, o el trabajo queda sin verificar —y el chequeo de consistencia
-hace fallar la suite si el módulo ya está terminado—. Para ver qué se salteó y
+**Hoy no hay ningún test salteado**, pero la convención sigue en pie para la
+Parte 2: los tests de un componente sin implementar se desactivan con
+`pytestmark = pytest.mark.skip(...)` cerca del principio del archivo, y la
+corrida informa esa parte como `skipped`. **Al implementar un componente hay que
+borrar esa línea del test que le corresponde**, o el trabajo queda sin verificar
+—y el chequeo de consistencia hace fallar la suite si el módulo ya está
+terminado—. Para ver qué se salteó y
 por qué:
 
 ```bash

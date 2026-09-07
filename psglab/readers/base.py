@@ -163,7 +163,7 @@ def read_recording(path: Path) -> Recording:
     """Carga un registro eligiendo automáticamente el lector adecuado.
 
     Es la única función que el resto del programa necesita conocer para
-    importar un archivo. El despacho está implementado; lo que falta es el
+    importar un archivo. El despacho y el
     `read()` de cada formato.
 
     Raises:

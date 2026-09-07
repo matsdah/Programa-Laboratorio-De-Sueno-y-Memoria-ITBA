@@ -117,8 +117,8 @@ Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
 estaban implementados antes del hito 4 y a propósito: sostienen el punto de
 extensión y **no deben convertirse en stubs**.
 
-Lo que falta de esta carpeta no es código sino sus tests, `test_readers.py` y
-`test_scoring_reader.py`, que cierran el hito.
+Sus dos tests, `test_readers.py` y `test_scoring_reader.py`, cierran el hito y
+están corriendo.
 
 `available_readers()` devuelve **clases**, no instancias, igual que
 `tools.registry.available_tools()`. Los dos son los puntos de extensión del

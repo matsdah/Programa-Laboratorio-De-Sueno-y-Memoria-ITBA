@@ -28,8 +28,8 @@ más** que dejaban escapar `TypeError`, `KeyError` o `AttributeError` crudos, m�
 del doble de los que había encontrado a mano la auditoría, incluido `stage_code`,
 que alimenta la línea de `Scoring.txt`.
 
-El alcance es `core/` y `utils/`, que son las capas terminadas. `tools/` tiene su
-propio test prometido en el hito 7 y `ui/` no lleva tests unitarios. Las
+El alcance es `core/` y `utils/`, donde vive la regla de negocio. `tools/` tiene
+un test por herramienta, y de `ui/` se testea lo que no dibuja. Las
 excepciones se declaran en `SIN_CONTRATO`, con el motivo: hoy son `windows.py`,
 que documenta que no valida porque quien llama ya validó, y `clamp`, que declara
 la misma precondición.
