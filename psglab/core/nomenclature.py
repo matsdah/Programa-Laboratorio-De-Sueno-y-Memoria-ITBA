@@ -17,6 +17,8 @@ Cubre del pliego: V1_F, V3_F de "Scoring de la señal"; V3_F del histograma.
 from enum import Enum
 from typing import Final
 
+from psglab.utils.errors import InvalidNomenclatureError, InvalidStageError
+
 
 class Nomenclature(Enum):
     """Sistema de clasificación de fases elegido por el usuario."""
@@ -100,14 +102,83 @@ STAGE_CODES: Final[dict[SleepStage, int]] = {
 }
 
 
+#: Cómo se traduce cada fase ajena a la nomenclatura de destino.
+#:
+#: Se escriben las dos direcciones explícitamente en vez de derivar una de la
+#: otra, porque **no son simétricas** y una tabla derivada escondería justamente
+#: eso: S3 y S4 caen los dos en N3, y volver no puede distinguirlos.
+_EQUIVALENCIAS: Final[dict[Nomenclature, dict[SleepStage, SleepStage]]] = {
+    Nomenclature.AASM: {
+        SleepStage.S1: SleepStage.N1,
+        SleepStage.S2: SleepStage.N2,
+        SleepStage.S3: SleepStage.N3,
+        SleepStage.S4: SleepStage.N3,
+        SleepStage.REM: SleepStage.R,
+        # MT no existe en AASM. Se trata como W, que es la convención habitual:
+        # un tramo de movimiento no es sueño.
+        SleepStage.MT: SleepStage.WAKE,
+    },
+    Nomenclature.RK: {
+        SleepStage.N1: SleepStage.S1,
+        SleepStage.N2: SleepStage.S2,
+        # N3 se mapea a S3 porque hay que elegir uno: la información de si era
+        # S3 o S4 se perdió al convertir en la otra dirección.
+        SleepStage.N3: SleepStage.S3,
+        SleepStage.R: SleepStage.REM,
+    },
+}
+
+
+def _check_nomenclature(nomenclature: Nomenclature) -> None:
+    """Rechaza lo que no sea una nomenclatura, con un error del programa.
+
+    Las tablas de este módulo son diccionarios indexados por el enum, así que
+    sin esta guarda un valor equivocado sale como `KeyError` o `TypeError`
+    crudo, atraviesa el `except PsgLabError` de la ventana principal y el
+    investigador ve una traza de Python.
+    """
+    if not isinstance(nomenclature, Nomenclature):
+        raise InvalidNomenclatureError(
+            "Se pidió una nomenclatura de scoring que no existe.",
+            details=(
+                f"nomenclature es {type(nomenclature).__name__}, "
+                "se esperaba Nomenclature."
+            ),
+        )
+
+
+def _check_stage(stage: SleepStage) -> None:
+    """El equivalente para las fases. Mismo motivo que arriba."""
+    if not isinstance(stage, SleepStage):
+        raise InvalidStageError(
+            "Se usó algo que no es una fase de sueño.",
+            details=f"stage es {type(stage).__name__}, se esperaba SleepStage.",
+        )
+
+
 def stages_of(nomenclature: Nomenclature) -> tuple[SleepStage, ...]:
-    """Fases válidas de una nomenclatura, en orden de histograma."""
-    raise NotImplementedError("Pendiente: devolver las fases de la nomenclatura.")
+    """Fases válidas de una nomenclatura, en orden de histograma.
+
+    No incluye `UNSCORED`, que no es una fila del histograma sino la ausencia
+    de una: el pliego (V1_P) pide que lo no anotado quede **en blanco**.
+    """
+    _check_nomenclature(nomenclature)
+    return STAGES_BY_NOMENCLATURE[nomenclature]
 
 
 def is_valid(stage: SleepStage, nomenclature: Nomenclature) -> bool:
-    """Indica si una fase pertenece a la nomenclatura dada."""
-    raise NotImplementedError("Pendiente: verificar la pertenencia de la fase.")
+    """Indica si una fase se le puede asignar a una ventana en esta nomenclatura.
+
+    **`UNSCORED` es válido en todas**, aunque no aparezca en `stages_of()`. Las
+    dos funciones responden preguntas distintas y es acá donde dejan de
+    coincidir: `stages_of()` da las filas del histograma, y "sin scorear" no es
+    una fila; pero sí es un valor asignable, porque es como el usuario **borra**
+    el scoring de una ventana que había marcado por error.
+
+    Si esta función dijera que no, `Scoring.set_stage(UNSCORED)` elevaría
+    `InvalidStageError` y despuntuar una ventana sería imposible.
+    """
+    return stage is SleepStage.UNSCORED or stage in stages_of(nomenclature)
 
 
 def convert(stage: SleepStage, target: Nomenclature) -> SleepStage:
@@ -125,15 +196,82 @@ def convert(stage: SleepStage, target: Nomenclature) -> SleepStage:
 
     Por eso el cambio de nomenclatura sobre un registro ya scoreado debe
     avisarle al usuario antes de aplicarse.
+
+    Una fase que ya pertenece a la nomenclatura pedida se devuelve sin tocar,
+    así que convertir dos veces a lo mismo no cambia nada.
     """
-    raise NotImplementedError("Pendiente: convertir la fase entre nomenclaturas.")
+    _check_stage(stage)
+    if is_valid(stage, target):
+        return stage
+    return _EQUIVALENCIAS[target][stage]
 
 
 def stage_label(stage: SleepStage) -> str:
-    """Etiqueta que se muestra al usuario para una fase."""
-    raise NotImplementedError("Pendiente: devolver la etiqueta de la fase.")
+    """Etiqueta que se muestra al usuario para una fase.
+
+    Es el valor del enum: las etiquetas del pliego ("W", "S1", "REM", "N2") son
+    justamente los nombres con los que se define cada fase, así que no hay una
+    segunda tabla que pueda desincronizarse.
+    """
+    _check_stage(stage)
+    return stage.value
 
 
 def stage_code(stage: SleepStage) -> int:
-    """Código numérico de la fase para "Scoring.txt"."""
-    raise NotImplementedError("Pendiente: devolver el código numérico de la fase.")
+    """Código numérico de la fase para "Scoring.txt".
+
+    La tabla no es inyectiva: S1 y N1 comparten el 1, igual que S2/N2, S3/N3 y
+    REM/R. Codificar está bien; **decodificar exige saber la nomenclatura**, que
+    por eso viaja en la cabecera del propio archivo.
+    """
+    _check_stage(stage)
+    return STAGE_CODES[stage]
+
+
+def stage_from_code(code: int, nomenclature: Nomenclature) -> SleepStage:
+    """Fase que corresponde a un código dentro de una nomenclatura.
+
+    Es la inversa de `stage_code()` y vive al lado suyo a propósito: son las dos
+    mitades del mismo contrato con "Scoring.txt", y separarlas es cómo se
+    desincronizan.
+
+    **Hace falta la nomenclatura porque la tabla no es inyectiva.** El código
+    `2` es S2 en Rechtschaffen y Kales y N2 en AASM, y `1`, `3` y `5` tienen el
+    mismo problema. Un lector que adivinara cargaría la noche entera mal
+    traducida sin ningún error visible, que es exactamente lo que la cabecera
+    del archivo existe para evitar.
+
+    La correspondencia **se deriva** de `stages_of()` y `STAGE_CODES` en vez de
+    escribirse en una tercera tabla: una tabla más es una tabla más para
+    desincronizar. De paso sale gratis que un código válido en una nomenclatura
+    y no en la otra —el `4` de S4, el `6` de MT, que AASM no tiene— se rechace
+    en vez de traducirse a cualquier cosa.
+
+    Raises:
+        InvalidNomenclatureError: si `nomenclature` no es una nomenclatura.
+        InvalidStageError: si el código no corresponde a ninguna fase de esa
+            nomenclatura.
+    """
+    _check_nomenclature(nomenclature)
+    if isinstance(code, bool) or not isinstance(code, int):
+        raise InvalidStageError(
+            "El archivo de scoring tiene un código de fase que no es un número entero.",
+            details=f"code es {type(code).__name__}, se esperaba int.",
+        )
+
+    # UNSCORED no es una fila del histograma y por eso no está en `stages_of()`,
+    # pero sí es un valor que el archivo puede traer: es como se escribe una
+    # ventana que nadie miró todavía.
+    for stage in (*stages_of(nomenclature), SleepStage.UNSCORED):
+        if STAGE_CODES[stage] == code:
+            return stage
+
+    validos = sorted({STAGE_CODES[s] for s in stages_of(nomenclature)})
+    raise InvalidStageError(
+        f"El código {code} no corresponde a ninguna fase de la nomenclatura "
+        f"{nomenclature.value}.",
+        details=(
+            f"Códigos válidos: {', '.join(str(c) for c in validos)}, "
+            f"y {STAGE_CODES[SleepStage.UNSCORED]} para una ventana sin scorear."
+        ),
+    )

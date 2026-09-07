@@ -12,7 +12,7 @@ polisomnografía": los formatos se suman de a uno sin rediseñar nada.
 
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
-| `base.py` | La clase `Reader`, el registro de formatos y `read_recording()`. | Base de V1_F–V3_F de "Importación" |
+| `base.py` | La clase `Reader`, el registro de formatos y `read_recording()`. | Base de V1_F y V2_F de "Importación" |
 | `brainvision.py` | Formato BrainVision (`.vhdr` + `.vmrk` + `.eeg`). | V1_F de "Importación" |
 | `edf.py` | Formato EDF y EDF+. | V2_F de "Importación" |
 | `scoring_reader.py` | Un scoring ya existente, para ver o corregir la fase de cada ventana. | V3_F de "Importación" |
@@ -51,8 +51,14 @@ construye recorriendo el registro (`file_dialog_filter()`).
 Sobrescribilo sólo si tu formato necesita inspeccionar el contenido del archivo
 para decidir.
 
-**No hace falta acordarse de importar el módulo nuevo**: `read_recording()`
-consulta el registro y el paquete se recorre solo.
+**No hace falta acordarse de importar el módulo nuevo**: `load_all_readers()`
+recorre el paquete e importa lo que encuentre, y `read_recording()` y
+`file_dialog_filter()` la llaman antes de consultar el registro.
+
+Eso es lo que hace que agregar un formato no obligue a tocar ningún archivo
+existente, ni siquiera el `__init__.py` de esta carpeta. Es a propósito que ahí
+no haya una lista de importaciones: sería exactamente el archivo que habría que
+editar cada vez.
 
 ## El contrato de `read()`
 
@@ -76,9 +82,14 @@ tipo es. La detección usa el nombre (las posiciones del sistema 10-20 como
 "C3" o "Fz" son EEG; el prefijo "EMG" es EMG) y la unidad declarada.
 
 Es una heurística sobre nombres que escribió una persona, así que va a fallar
-en algún registro. Por eso la clase detectada es un punto de partida que el
-usuario puede corregir desde
-[`ui/channel_selector.py`](../ui/README.md), no una decisión definitiva.
+en algún registro.
+
+**Hoy no se puede corregir a mano, y es una limitación conocida.** `Channel` es
+inmutable (`@dataclass(frozen=True)`) y
+[`ui/channel_selector.py`](../ui/README.md) agrupa por clase pero no reasigna
+ninguna. El daño está acotado: la clase decide cómo se agrupan los canales en el
+selector y qué dice la etiqueta, no cómo se lee ni cómo se dibuja la señal, así
+que un canal mal clasificado se ve y se scorea igual.
 
 ## Por qué MNE-Python
 
@@ -95,19 +106,28 @@ proyecto.
 `*.eeg`. Los tests usan señal sintética generada en el momento, no registros
 reales: ver [`tests/README.md`](../../tests/README.md).
 
-Falta todavía **un registro de prueba en BrainVision y en EDF** para poder
-probar la importación de punta a punta; está anotado en
-[`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt), sección 8.
+**Los dos formatos ya tienen registro de prueba**, conseguidos al cerrar el
+[hito 0](../../docs/TODO.md#hito-0-desbloquear); el detalle está más abajo, en
+"Estado". Lo que sigue faltando es un registro **real del laboratorio**: el de
+BrainVision dura 7,9 segundos y no alcanza para probar la importación de punta a
+punta.
 
 ## Estado
 
-Pendientes **9 stubs**, en el
-[hito 4 del TODO](../../docs/TODO.md#hito-4-importación). Dependen de que
-`core/recording.py` esté terminado (hito 1).
+Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
+[hito 4 del TODO](../../docs/TODO.md#hito-4-importación). Dependían de
+`core/recording.py`, terminado en el hito 1.
 
-De `base.py` sólo falta `file_dialog_filter()`. `can_read()`,
-`register_reader` y `read_recording()` ya están implementados a propósito:
-corren en tiempo de importación y **no deben convertirse en stubs**.
+`can_read()`, `register_reader`, `read_recording()` y `load_all_readers()` ya
+estaban implementados antes del hito 4 y a propósito: sostienen el punto de
+extensión y **no deben convertirse en stubs**.
+
+Sus dos tests, `test_readers.py` y `test_scoring_reader.py`, cierran el hito y
+están corriendo.
+
+`available_readers()` devuelve **clases**, no instancias, igual que
+`tools.registry.available_tools()`. Los dos son los puntos de extensión del
+proyecto y se consumen de la misma forma.
 
 **EDF ya tiene registro de prueba**: la Sleep-EDF Expanded de PhysioNet, abierta
 y con hipnogramas en Rechtschaffen y Kales. Va en `data/`, que el `.gitignore`

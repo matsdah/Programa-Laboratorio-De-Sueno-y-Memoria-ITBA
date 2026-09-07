@@ -7,4 +7,7 @@ la ventana principal, ni ninguna herramienta existente.
 
 Esa es la forma concreta que toma en este proyecto el requisito de
 escalabilidad del pliego (sección 7).
+
+Cubre del pliego: ningún ID propio del paquete. Cada herramienta lo cubre su
+módulo.
 """

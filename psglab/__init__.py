@@ -12,6 +12,9 @@ Subpaquetes:
     exporters  - archivos de salida
     analysis   - Parte 2: procesamiento y métricas de la señal
     utils      - unidades y errores propios
+
+Cubre del pliego: ningún ID. Es el paquete, no un componente: los IDs los
+cubren los módulos de adentro.
 """
 
 __version__ = "0.1.0"

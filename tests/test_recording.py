@@ -1,0 +1,409 @@
+"""Tests del registro polisomnográfico cargado en memoria.
+
+`Recording` es la estructura sobre la que opera todo lo demás, y la producen los
+lectores. Por eso la mitad de estos tests no son sobre lo que el registro
+**hace** sino sobre lo que **no deja construir**: un lector con un bug que
+arme un registro incoherente tiene que fallar ahí y no tres capas más arriba.
+
+Se usa la señal sintética de `conftest.py` —cuatro canales, diez minutos, que
+son exactamente veinte ventanas de 30 segundos— y nunca un registro real.
+"""
+
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from conftest import VENTANAS_SINTETICAS
+from psglab.config import WINDOW_SECONDS
+from psglab.core.recording import Channel, ChannelKind, Recording
+from psglab.utils.errors import (
+    ChannelNotFoundError,
+    DuplicateChannelError,
+    InvalidRecordingError,
+)
+
+#: Clase de cada canal de la fixture `channel_names`, en su mismo orden.
+CLASES = (ChannelKind.EEG, ChannelKind.EEG, ChannelKind.EOG, ChannelKind.EMG)
+
+
+@pytest.fixture
+def recording(synthetic_signal, channel_names, sampling_rate) -> Recording:
+    """Un registro armado con la señal sintética de `conftest.py`."""
+    canales = [
+        Channel(name=nombre, kind=clase, unit="µV", index=i)
+        for i, (nombre, clase) in enumerate(zip(channel_names, CLASES))
+    ]
+    return Recording(
+        file_path=Path("sintetico.edf"),
+        channels=canales,
+        data=synthetic_signal,
+        sampling_rate=sampling_rate,
+        start_time=datetime(2026, 9, 4, 23, 30, 0),
+    )
+
+
+def canal(nombre: str, indice: int) -> Channel:
+    """Un canal mínimo, para los tests que sólo miran la validación."""
+    return Channel(name=nombre, kind=ChannelKind.EEG, unit="µV", index=indice)
+
+
+# -- Lo que el registro sabe de sí mismo ------------------------------------
+
+
+def test_la_cantidad_de_canales_es_la_de_la_lista(recording):
+    assert recording.n_channels == 4
+
+
+def test_la_cantidad_de_muestras_sale_de_la_señal(recording, sampling_rate):
+    """La señal sintética son veinte ventanas completas."""
+    assert recording.n_samples == int(VENTANAS_SINTETICAS * WINDOW_SECONDS * sampling_rate)
+
+
+def test_la_duracion_son_las_muestras_sobre_la_frecuencia(recording):
+    assert recording.duration_seconds == pytest.approx(
+        VENTANAS_SINTETICAS * WINDOW_SECONDS
+    )
+
+
+def test_los_nombres_salen_en_el_orden_de_la_señal(recording, channel_names):
+    """El orden importa: es el de las filas de la matriz."""
+    assert recording.channel_names() == channel_names
+
+
+# -- Buscar canales ---------------------------------------------------------
+
+
+def test_se_busca_un_canal_por_su_nombre(recording):
+    encontrado = recording.channel_by_name("C4")
+    assert encontrado.name == "C4"
+    assert encontrado.index == 1
+
+
+def test_pedir_un_canal_que_no_existe_da_un_error_propio(recording):
+    """No un `StopIteration` ni un `IndexError`: el usuario tiene que entenderlo."""
+    with pytest.raises(ChannelNotFoundError) as excepcion:
+        recording.channel_by_name("Fz")
+
+    assert "Fz" in excepcion.value.message
+    assert "C3" in (excepcion.value.details or "")
+
+
+def test_se_filtran_los_canales_por_clase(recording):
+    """Es lo que permite "mostrar todos los EEG" del selector de canales."""
+    assert [c.name for c in recording.channels_of_kind(ChannelKind.EEG)] == ["C3", "C4"]
+    assert [c.name for c in recording.channels_of_kind(ChannelKind.EOG)] == ["EOG-izq"]
+
+
+def test_una_clase_sin_canales_devuelve_una_lista_vacia(recording):
+    """No es un error: es un registro que no tiene ese tipo de señal."""
+    assert recording.channels_of_kind(ChannelKind.ECG) == []
+
+
+# -- Recortar tramos --------------------------------------------------------
+
+
+def test_un_tramo_trae_todos_los_canales_por_defecto(recording, sampling_rate):
+    tramo = recording.get_segment(0, int(30 * sampling_rate))
+    assert tramo.shape == (4, int(30 * sampling_rate))
+
+
+def test_se_puede_pedir_un_subconjunto_de_canales(recording, sampling_rate):
+    """El visualizador dibuja sólo los canales visibles, no el registro entero."""
+    tramo = recording.get_segment(0, int(30 * sampling_rate), channel_names=["C4"])
+    assert tramo.shape == (1, int(30 * sampling_rate))
+
+
+def test_los_canales_pedidos_salen_en_el_orden_pedido(recording):
+    """Y no en el del registro: el usuario elige cómo apilarlos."""
+    tramo = recording.get_segment(0, 10, channel_names=["EMG-menton", "C3"])
+    esperado = recording.get_segment(0, 10)[[3, 0], :]
+    assert np.array_equal(tramo, esperado)
+
+
+def test_pedir_un_canal_inexistente_en_un_tramo_tambien_falla(recording):
+    with pytest.raises(ChannelNotFoundError):
+        recording.get_segment(0, 10, channel_names=["Fz"])
+
+
+def test_el_tramo_que_se_pasa_del_final_sale_mas_corto(recording):
+    """Es el caso normal de la última ventana, no un error.
+
+    Un registro que no termina en un múltiplo exacto de 30 segundos tiene una
+    última ventana incompleta, y `windows.window_to_samples` devuelve para ella
+    un `stop` posterior al final del registro.
+    """
+    ultimo = recording.n_samples
+    tramo = recording.get_segment(ultimo - 100, ultimo + 5_000)
+    assert tramo.shape == (4, 100)
+
+
+def test_el_tramo_es_el_mismo_dato_y_no_una_copia_alterada(recording, synthetic_signal):
+    """Recortar no puede modificar la señal por el camino."""
+    assert np.array_equal(recording.get_segment(0, 50), synthetic_signal[:, 0:50])
+
+
+def test_un_indice_negativo_no_devuelve_señal_del_final_del_registro(recording):
+    """El bug que más caro salía, porque el resultado era plausible.
+
+    `core/windows.py` documenta que sus conversiones devuelven números negativos
+    en silencio ante un índice de ventana negativo, y numpy interpreta un
+    negativo como "desde el final". Sin esta guarda, pedir la ventana −1 dibujaba
+    el final de la noche como si fuera el principio.
+    """
+    with pytest.raises(InvalidRecordingError):
+        recording.get_segment(-100, -50)
+
+
+def test_un_tramo_que_empieza_despues_de_terminar_se_rechaza(recording):
+    """Devolvía un arreglo vacío, que se lee como "acá no hay señal"."""
+    with pytest.raises(InvalidRecordingError):
+        recording.get_segment(500, 100)
+
+
+def test_el_tramo_devuelto_no_se_puede_modificar(recording):
+    """Escribir en el tramo corrompía el registro entero.
+
+    Y ocurría o no según qué canales hubiera pedido el usuario: sin lista, numpy
+    devuelve un recorte que comparte memoria; con lista, copia. Marcarlo de sólo
+    lectura iguala las dos ramas sin pagar una copia.
+    """
+    tramo = recording.get_segment(0, 50)
+    with pytest.raises(ValueError):
+        tramo[0, 0] = -999.0
+
+    con_canales = recording.get_segment(0, 50, channel_names=["C3"])
+    with pytest.raises(ValueError):
+        con_canales[0, 0] = -999.0
+
+
+def test_pedir_una_lista_vacia_de_canales_no_devuelve_ninguno(recording):
+    """`None` y `[]` no son lo mismo: uno pide todos y el otro ninguno."""
+    assert recording.get_segment(0, 10, channel_names=[]).shape == (0, 10)
+    assert recording.get_segment(0, 10, channel_names=None).shape == (4, 10)
+
+
+# -- Lo que no se deja construir --------------------------------------------
+
+
+def test_una_señal_que_no_es_de_dos_dimensiones_se_rechaza():
+    """Un lector que devuelva un solo canal aplanado tiene un bug.
+
+    La versión anterior de este test **pasaba por el motivo equivocado**: con un
+    solo canal y 1000 muestras aplanadas, quien lo rechazaba era la validación
+    siguiente —"declara 1 canal y la señal trae 1000"— y borrar entera la guarda
+    de `ndim` dejaba la suite en verde. Se afirma el detalle técnico para que sea
+    esa guarda y no otra la que responda.
+    """
+    with pytest.raises(InvalidRecordingError) as excepcion:
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[canal(f"C{i}", i) for i in range(1000)],
+            data=np.zeros(1000),
+            sampling_rate=256.0,
+        )
+
+    assert "data.ndim = 1" in (excepcion.value.details or "")
+
+
+@pytest.mark.parametrize("frecuencia", [1.0, 0.5])
+def test_una_frecuencia_baja_pero_valida_se_acepta(frecuencia):
+    """El borde inferior no estaba fijado, y no es hipotético.
+
+    El EDF de prueba del hito 0 tiene **cuatro canales a 1 Hz** (respiración,
+    EMG, temperatura y marcador de eventos). Una guarda escrita `<= 1` los
+    rechazaría, y ningún test lo notaba.
+    """
+    r = Recording(
+        file_path=Path("lento.edf"),
+        channels=[canal("Temp", 0)],
+        data=np.zeros((1, 100)),
+        sampling_rate=frecuencia,
+    )
+    assert r.sampling_rate == frecuencia
+
+
+def test_declarar_mas_canales_que_filas_se_rechaza():
+    """El error más probable de un lector, y el que peor falla si pasa."""
+    with pytest.raises(InvalidRecordingError) as excepcion:
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[canal("C3", 0), canal("C4", 1)],
+            data=np.zeros((1, 1000)),
+            sampling_rate=256.0,
+        )
+
+    # Se afirma sobre `details`, que trae los dos números sin ambigüedad: la
+    # versión anterior comprobaba `"1" in mensaje` y se satisfacía con el "1" de
+    # "1000", así que no fijaba nada.
+    assert "len(channels) = 2" in (excepcion.value.details or "")
+    assert "(1, 1000)" in (excepcion.value.details or "")
+
+
+@pytest.mark.parametrize("frecuencia", [0.0, -256.0, float("nan"), float("inf")])
+def test_una_frecuencia_de_muestreo_que_no_es_finita_y_positiva_se_rechaza(frecuencia):
+    """Sin frecuencia válida no se puede ubicar ninguna ventana en el tiempo.
+
+    NaN e infinito están en la lista por un motivo concreto: `<= 0` a secas es
+    **falso** para NaN, así que la primera versión de esta validación los dejaba
+    pasar. El NaN reaparecía mucho más lejos, como un `ValueError` de numpy
+    adentro de `core/windows.py` —justo lo que `__post_init__` dice existir para
+    evitar— y el infinito daba una duración de 0 segundos para un registro con
+    muestras.
+    """
+    with pytest.raises(InvalidRecordingError):
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[canal("C3", 0)],
+            data=np.zeros((1, 1000)),
+            sampling_rate=frecuencia,
+        )
+
+
+def test_una_señal_con_valores_enteros_se_rechaza():
+    """Los enteros son las cuentas crudas del conversor del equipo.
+
+    Que lleguen hasta acá significa que el lector no convirtió a microvoltios,
+    que es el fallo que `utils/units.py` existe para impedir: la señal queda
+    escalada por un factor arbitrario y en pantalla sigue pareciendo una señal.
+    """
+    with pytest.raises(InvalidRecordingError):
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[canal("C3", 0)],
+            data=np.zeros((1, 1000), dtype=np.int16),
+            sampling_rate=256.0,
+        )
+
+
+def test_un_registro_sin_ningun_canal_se_rechaza():
+    """No hay nada que mostrar ni que scorear, y las cuentas cerraban igual.
+
+    `len(channels) == data.shape[0]` se cumple con cero de cada uno, así que
+    este registro pasaba la validación entera.
+    """
+    with pytest.raises(InvalidRecordingError):
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[],
+            data=np.zeros((0, 1000)),
+            sampling_rate=256.0,
+        )
+
+
+def test_un_registro_sin_ninguna_muestra_se_rechaza():
+    """Canales sin señal es tan incoherente como señal sin canales.
+
+    Y tiene una consecuencia aguas abajo: sobre un registro así,
+    `windows.count_windows` da cero, y una `Session` tendría `current_window`
+    apuntando a una ventana que no existe. Rechazarlo acá hace ese caso
+    imposible por construcción, en vez de obligar a `Session` a comprobarlo de
+    nuevo.
+    """
+    with pytest.raises(InvalidRecordingError):
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[canal("C3", 0)],
+            data=np.zeros((1, 0)),
+            sampling_rate=256.0,
+        )
+
+
+def test_una_ruta_que_no_es_una_ruta_se_rechaza():
+    """Se valida primero porque todos los demás mensajes usan `file_path.name`.
+
+    Con un `str`, el camino feliz construía sin quejarse y **cualquier otro
+    error de validación** se convertía en un `AttributeError`, que es peor que
+    el error que iba a reportar.
+    """
+    with pytest.raises(InvalidRecordingError):
+        Recording(
+            file_path="roto.edf",
+            channels=[canal("C3", 0)],
+            data=np.zeros((1, 1000)),
+            sampling_rate=256.0,
+        )
+
+
+def test_un_canal_con_la_posicion_equivocada_se_rechaza():
+    """`Channel.index` y la posición en la lista son la misma cosa.
+
+    Si pudieran discrepar habría dos fuentes de verdad, y `get_segment` usa
+    `index` para elegir la fila.
+    """
+    with pytest.raises(InvalidRecordingError) as excepcion:
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[canal("C3", 0), canal("C4", 7)],
+            data=np.zeros((2, 1000)),
+            sampling_rate=256.0,
+        )
+
+    assert "C4" in (excepcion.value.details or "")
+
+
+def test_dos_canales_con_el_mismo_nombre_se_rechazan():
+    """Los canales se piden por nombre en toda la interfaz."""
+    with pytest.raises(DuplicateChannelError) as excepcion:
+        Recording(
+            file_path=Path("roto.edf"),
+            channels=[canal("C3", 0), canal("C3", 1)],
+            data=np.zeros((2, 1000)),
+            sampling_rate=256.0,
+        )
+
+    assert "C3" in (excepcion.value.details or "")
+
+
+def test_un_registro_valido_se_construye_sin_quejarse(recording):
+    """La contracara de los cinco anteriores.
+
+    Sin este test, una validación demasiado estricta pasaría inadvertida: los
+    otros seguirían en verde mientras ningún registro real se pudiera abrir.
+    """
+    assert recording.n_channels == 4
+    assert recording.metadata == {}
+    assert recording.start_time is not None
+
+
+def test_un_canal_no_se_puede_modificar_desde_afuera(recording):
+    """`Channel` es `frozen` y eso es una regla, no una preferencia de estilo.
+
+    `channel_by_name()` devuelve el canal interno. Cuando era mutable se lo
+    podía renombrar desde afuera, y a partir de ahí el canal **desaparecía**:
+    pedirlo por su nombre original elevaba `ChannelNotFoundError` sobre un
+    registro que sigue teniéndolo. Nada lo exigía; quitar el `frozen=True`
+    dejaba la suite entera en verde.
+    """
+    canal = recording.channel_by_name("C3")
+    with pytest.raises(Exception) as excepcion:
+        canal.name = "OTRO"
+    assert "frozen" in str(excepcion.value).lower() or isinstance(
+        excepcion.value, AttributeError
+    )
+    assert recording.channel_by_name("C3").name == "C3"
+
+
+def test_un_tramo_que_empieza_antes_del_registro_se_rechaza(recording):
+    """Un índice negativo no puede llegar a numpy.
+
+    numpy lee el negativo como "desde el final", así que la señal devuelta
+    sería del final de la noche presentada como si fuera del principio: un
+    resultado plausible y equivocado, que es peor que uno vacío. La guarda
+    admitía volverse `< -1` sin que nada fallara.
+    """
+    with pytest.raises(InvalidRecordingError):
+        recording.get_segment(-1, 100)
+
+
+def test_un_tramo_de_longitud_cero_es_valido_y_sale_vacio(recording):
+    """Pedir de la muestra 100 a la 100 no es un error: es un tramo vacío.
+
+    Fija el sentido de la guarda, que compara con `>` y no con `>=`. Con `>=`
+    este caso pasaría a elevar, y quien llama —el visualizador, en el borde de
+    un registro— recibiría un error donde hoy recibe una matriz sin columnas.
+    """
+    tramo = recording.get_segment(100, 100)
+    assert tramo.shape == (recording.n_channels, 0)
+

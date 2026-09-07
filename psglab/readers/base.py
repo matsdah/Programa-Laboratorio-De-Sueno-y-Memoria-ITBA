@@ -18,6 +18,8 @@ produce un `Recording`.
 Cubre del pliego: es la base de V1_F y V2_F de "Importación de archivos".
 """
 
+import importlib
+import pkgutil
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -27,6 +29,10 @@ from psglab.utils.errors import UnsupportedFormatError
 #: Lectores registrados, en orden de registro. Se llena solo a medida que se
 #: importan los módulos de formato.
 _REGISTRY: list[type["Reader"]] = []
+
+#: Si `load_all_readers()` ya recorrió el paquete. Evita releer el directorio
+#: en cada apertura de archivo.
+_REGISTRY_CARGADO: bool = False
 
 
 class Reader(ABC):
@@ -83,9 +89,46 @@ def register_reader(reader_cls: type[Reader]) -> type[Reader]:
     return reader_cls
 
 
-def available_readers() -> list[Reader]:
-    """Todos los lectores registrados, ya instanciados."""
-    return [cls() for cls in _REGISTRY]
+def load_all_readers() -> None:
+    """Importa todos los módulos de formato para que se registren.
+
+    Una clase sólo se registra cuando su módulo se importa, y `__init__.py` no
+    importa ninguno a propósito: mantener ahí una lista de importaciones sería
+    justo el archivo que hay que tocar para agregar un formato, que es lo que
+    este mecanismo evita. Sin esta función el registro quedaba vacío y
+    `read_recording()` no encontraba **ningún** lector nunca.
+
+    Implementada y no pendiente por la misma razón que `register_reader`: si
+    fallara, el punto de extensión de formatos no existiría.
+
+    Llamarla más de una vez no duplica nada ni vuelve a recorrer el paquete: la
+    primera vez deja marcado que ya se hizo. Sin esa marca tampoco habría
+    duplicados —importar un módulo ya importado no vuelve a ejecutar el
+    decorador— pero cada llamada leería el directorio de nuevo, y
+    `read_recording()` la llama en cada apertura de archivo.
+    """
+    global _REGISTRY_CARGADO
+    if _REGISTRY_CARGADO:
+        return
+
+    import psglab.readers
+
+    for module in pkgutil.iter_modules(psglab.readers.__path__):
+        if module.name not in ("base", "channel_types", "scoring_reader"):
+            importlib.import_module(f"psglab.readers.{module.name}")
+    _REGISTRY_CARGADO = True
+
+
+def available_readers() -> list[type[Reader]]:
+    """Todos los lectores registrados, en orden de registro.
+
+    Devuelve las **clases**, igual que `tools.registry.available_tools()`. Los
+    dos son los puntos de extensión del proyecto y conviene que se consuman de
+    la misma forma; antes uno devolvía instancias y el otro clases, y la
+    ventana principal iba a tener que tratarlos distinto sin motivo.
+    """
+    load_all_readers()
+    return list(_REGISTRY)
 
 
 def file_dialog_filter() -> str:
@@ -93,25 +136,45 @@ def file_dialog_filter() -> str:
 
     Se construye a partir de los lectores registrados, así que un formato
     nuevo aparece solo en el diálogo sin tocar la interfaz.
+
+    La primera entrada junta las extensiones de todos los formatos: es la que el
+    diálogo ofrece por defecto y la que sirve el 99 % de las veces, porque el
+    usuario quiere abrir "el registro" sin tener que acordarse de en qué formato
+    se lo exportó el equipo. La última deja ver cualquier archivo, para el caso
+    de una extensión inesperada.
+
+    Devuelve **texto y nada más**: no importa Qt ni lo necesita. `readers/` es
+    una de las cuatro capas que tienen que poder correr sin interfaz gráfica, y
+    `test_las_capas_de_negocio_no_conocen_la_interfaz` lo verifica.
     """
-    raise NotImplementedError("Pendiente: armar el filtro a partir de los lectores.")
+    lectores = available_readers()
+    todas = " ".join(sorted({f"*{ext}" for cls in lectores for ext in cls.extensions}))
+
+    entradas = [f"Todos los formatos soportados ({todas})"] if todas else []
+    entradas += [
+        f"{cls.format_name} ({' '.join(f'*{ext}' for ext in cls.extensions)})"
+        for cls in lectores
+    ]
+    entradas.append("Todos los archivos (*)")
+    return ";;".join(entradas)
 
 
 def read_recording(path: Path) -> Recording:
     """Carga un registro eligiendo automáticamente el lector adecuado.
 
     Es la única función que el resto del programa necesita conocer para
-    importar un archivo. El despacho está implementado; lo que falta es el
+    importar un archivo. El despacho y el
     `read()` de cada formato.
 
     Raises:
         UnsupportedFormatError: si ningún lector registrado maneja el archivo.
     """
-    for reader in available_readers():
+    for reader_cls in available_readers():
+        reader = reader_cls()
         if reader.can_read(path):
             return reader.read(path)
-    conocidas = sorted({ext for cls in _REGISTRY for ext in cls.extensions})
+    known_extensions = sorted({ext for cls in _REGISTRY for ext in cls.extensions})
     raise UnsupportedFormatError(
         f"No se puede abrir '{path.name}': el formato no está soportado.",
-        details=f"Extensiones conocidas: {', '.join(conocidas) or 'ninguna'}",
+        details=f"Extensiones conocidas: {', '.join(known_extensions) or 'ninguna'}",
     )

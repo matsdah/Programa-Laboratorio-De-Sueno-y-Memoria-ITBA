@@ -47,8 +47,17 @@ def export_annotations(
         separator: separador de campos. Por defecto, el de `config`.
         sample_base: índice de la primera muestra del registro. Se suma a las
             posiciones al escribirlas. Por defecto, el de `config`, que es 0.
+
+    `AnnotationSet` ya mantiene su lista ordenada por muestra de inicio, así que
+    el orden sale de recorrerla. No se reordena acá: si algún día dejara de
+    estar ordenada, el que tiene que arreglarse es el conjunto, no cada uno de
+    sus consumidores.
     """
-    raise NotImplementedError("Pendiente: escribir una línea por anotación.")
+    lineas = [
+        format_line(anotacion, separator=separator, sample_base=sample_base)
+        for anotacion in annotations.all()
+    ]
+    path.write_text("\n".join(lineas) + ("\n" if lineas else ""), encoding="utf-8")
 
 
 def format_line(
@@ -62,5 +71,24 @@ def format_line(
     reemplazarlo o escaparlo: si no, el archivo queda ilegible para quien lo
     parsee después. El usuario puede escribir lo que quiera en el nombre de
     una clase nueva.
+
+    **Se reemplaza por un espacio, no se escapa.** Escapar obliga a que todo
+    programa que lea el archivo conozca la convención de escape, y este archivo
+    existe justamente para que lo consuman análisis de terceros. Perder una
+    barra en el nombre de una clase es barato; que una línea tenga cuatro campos
+    rompe el parseo de toda la noche.
+
+    El salto de línea recibe el mismo tratamiento y por el mismo motivo: una
+    etiqueta con un enter adentro partiría la anotación en dos líneas.
     """
-    raise NotImplementedError("Pendiente: componer la línea con sus tres campos.")
+    etiqueta = str(annotation.label)
+    for caracter in (separator, "\n", "\r"):
+        etiqueta = etiqueta.replace(caracter, " ")
+    etiqueta = " ".join(etiqueta.split())
+
+    campos = [
+        etiqueta,
+        str(annotation.onset_sample + sample_base),
+        str(annotation.duration_samples),
+    ]
+    return f" {separator} ".join(campos)

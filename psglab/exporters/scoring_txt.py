@@ -47,7 +47,7 @@ from psglab.config import (
     SCORING_INCLUDES_WINDOW_NUMBER,
     SCORING_SEPARATOR,
 )
-from psglab.core.nomenclature import Nomenclature
+from psglab.core.nomenclature import Nomenclature, stage_code as codigo_de_fase
 from psglab.core.scoring import Scoring
 
 
@@ -56,6 +56,7 @@ def export_scoring(
     path: Path,
     include_window_number: bool = SCORING_INCLUDES_WINDOW_NUMBER,
     include_header: bool = SCORING_INCLUDES_NOMENCLATURE_HEADER,
+    separator: str = SCORING_SEPARATOR,
 ) -> None:
     """Escribe el scoring completo en un archivo de texto.
 
@@ -65,6 +66,11 @@ def export_scoring(
         include_window_number: si cada línea arranca con el número de ventana.
             Por defecto toma el valor de `config`, que es el punto único donde
             se decide el formato.
+        separator: separador entre campos. Se expone acá, y no sólo en
+            `format_line`, para que el exportador tenga la misma superficie de
+            parámetros que `export_annotations`: los dos escriben un archivo del
+            pliego y no hay motivo para que uno deje configurar el separador y
+            el otro no.
         include_header: si el archivo arranca con la línea que declara la
             nomenclatura. Por defecto, el de `config`. La nomenclatura sale de
             `scoring.nomenclature`.
@@ -74,7 +80,22 @@ def export_scoring(
     salteara las ventanas sin scorear, el número de línea dejaría de coincidir
     con el número de ventana y el archivo se volvería ambiguo.
     """
-    raise NotImplementedError("Pendiente: escribir una línea por ventana.")
+    lineas: list[str] = []
+    if include_header:
+        lineas.append(format_header(scoring.nomenclature))
+    for indice in range(scoring.n_windows):
+        ventana = scoring.get(indice)
+        lineas.append(
+            format_line(
+                # Base 1 al exportar, que es como las cuenta el usuario.
+                window_number=indice + 1,
+                stage_code=codigo_de_fase(ventana.stage),
+                arousal=ventana.arousal,
+                include_window_number=include_window_number,
+                separator=separator,
+            )
+        )
+    path.write_text("\n".join(lineas) + "\n", encoding="utf-8")
 
 
 def format_header(
@@ -89,8 +110,13 @@ def format_header(
     fijar el formato exacto en un test sin escribir ningún archivo. Lo que
     escriba acá tiene que poder volver a leerlo
     `readers.scoring_reader.detect_nomenclature()`.
+
+    Se escribe el **nombre corto** del enum —"AASM", "RK"— y no su valor largo.
+    `detect_nomenclature()` acepta los dos, así que el contrato cierra igual,
+    pero el corto es el del ejemplo y el que sobrevive a que alguien edite el
+    archivo a mano.
     """
-    raise NotImplementedError("Pendiente: componer la línea de cabecera.")
+    return f"{prefix} {nomenclature.name}"
 
 
 def format_line(
@@ -108,5 +134,10 @@ def format_line(
 
     Se separa del recorrido para poder testear el formato exacto sin escribir
     ningún archivo.
+
+    El arousal se escribe como 1 o 0, que es lo que muestra el ejemplo del
+    pliego: "2 1" es fase 2 con arousal.
     """
-    raise NotImplementedError("Pendiente: componer la línea con sus campos.")
+    campos = [str(window_number)] if include_window_number else []
+    campos += [str(stage_code), "1" if arousal else "0"]
+    return separator.join(campos)

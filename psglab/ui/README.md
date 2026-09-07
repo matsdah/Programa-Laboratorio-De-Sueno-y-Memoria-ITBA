@@ -13,7 +13,7 @@ registro de 400 es una regla y va en `core/`.
 
 ```
 +--------------------------------------------------------------+
-|  Menú: Archivo | Ver | Herramientas | Análisis | Ayuda        |
+|  Menú: Archivo | Ver | Herramientas | Ayuda   (Análisis: P2)  |
 +--------------------------------------------------------------+
 |  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
 +------------------+-------------------------------------------+
@@ -34,8 +34,8 @@ registro de 400 es una regla y va en `core/`.
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
 | `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. | V4_F de "Archivo de salida" |
-| `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** | V1_P, V2_P, V4_F, V5_F de "Visualización" |
-| `channel_selector.py` | Elegir cuántos y cuáles canales se ven, y corregir la clase detectada. | V3_P, V4_F de "Visualización" |
+| `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
+| `channel_selector.py` | Elegir cuántos y cuáles canales se ven, agrupados por clase. | V3_P, V4_F de "Visualización" |
 | `grid.py` | La grilla de fondo y los tres fondos elegibles. | V1_P, V2_F de "Diseño de la interfaz" |
 | `navigation.py` | Botones de ventana anterior y siguiente, y posición actual. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. | V1_F, V2_F, V3_F de "Scoring" |
@@ -101,20 +101,32 @@ redibujar decenas de canales a cientos de hercios cada vez que el usuario apriet
 una flecha. Medio segundo de demora por ventana, multiplicado por las cientos de
 ventanas de una noche, vuelve el programa inusable.
 
-## Testeo
-
-Esta capa es la que **no** se puede testear sin levantar una ventana, y por eso
-se la mantiene delgada a propósito. Todo lo que valga la pena verificar debería
-poder verificarse desde `core/`, `tools/` o `exporters/`.
-
 ## Estado
 
-Pendientes **43 stubs**, en el
-[hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz). Es el último hito de
-lógica: depende de que `core/session.py` esté terminado (hito 3).
+Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
+[hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz). Después vino el hito 7,
+las herramientas, y queda abierto el 8, que es la lista de comprobación de
+entrega.
 
-Al cerrarlo, `python main.py` abre algo usable por primera vez.
+Con él, `python main.py` abre algo usable por primera vez.
 
-Esta capa **no lleva tests unitarios**, y por eso se la mantiene delgada: todo
-lo que valga la pena verificar debería poder verificarse desde `core/`,
-`tools/` o `exporters/`. No es un olvido del TODO.
+**Los widgets de esta capa no llevan tests unitarios**, y por eso se la mantiene
+delgada: dibujar no se puede verificar sin mirar una pantalla, así que todo lo
+que valga la pena verificar debería poder verificarse desde `core/`, `tools/` o
+`exporters/`. No es un olvido del TODO, y lo que ejercita el resto es
+`test_todos_los_modulos_del_paquete_se_pueden_importar`.
+
+**La regla se acotó en el hito 6, y conviene saber por qué.** Se había fijado con
+la carpeta vacía; al escribirla se vio que hay piezas que **no dibujan nada** y
+que son justo donde algo se rompe en silencio:
+
+- `shortcuts.py` deriva las teclas de fase de la nomenclatura. Una tabla
+  desincronizada se manifiesta como una tecla que no hace nada.
+- `grid.py` calcula posiciones. Acumular 0,5 sesenta veces corre la última línea
+  del borde.
+- Los tres conversores de `signal_view.py` son el **único** lugar del programa
+  que traduce entre píxeles, segundos, fracción de ventana y muestras.
+  Confundirlos produce números plausibles y equivocados.
+
+Ésos se testean, con una `QApplication` sin pantalla cuando hace falta. El resto
+—el dibujo— sigue sin testear, y esa parte de la regla no cambió.

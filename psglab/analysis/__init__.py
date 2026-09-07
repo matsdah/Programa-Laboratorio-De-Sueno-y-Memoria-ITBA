@@ -11,4 +11,7 @@ pueden correr también desde un script del laboratorio sin abrir el programa.
 Funcionalidades futuras (fuera del alcance actual, confirmado con el cliente):
 detección de potencial evocado y acoplamiento de husos de sueño. Cuando se
 retomen, entran como módulos nuevos en este paquete.
+
+Cubre del pliego: ningún ID propio del paquete. Los requisitos de la Parte 2
+los cubren sus módulos, uno por sección.
 """

@@ -1,0 +1,33 @@
+# Dependencias exclusivas de la Parte 2 (módulo de análisis).
+#
+# Están separadas de requirements.txt por una razón concreta y medible: son
+# pesadas, arrastran medio ecosistema científico y **ningún test las importa**.
+# Instalarlas en las seis combinaciones de sistema operativo y versión de Python
+# del CI costaba tiempo y riesgo a cambio de cero verificación.
+#
+# `mne` y `scipy` NO están acá: la Parte 1 también los necesita (mne lee
+# BrainVision y EDF, scipy filtra), así que viven en requirements.txt.
+#
+# Instalar cuando se trabaje en psglab/analysis/:
+#     pip install -r requirements-analysis.txt
+
+-r requirements.txt
+
+mne-connectivity>=0.6   # BSD-3  - conectividad de la señal
+antropy>=0.1.6          # BSD-3  - complejidad (entropías, dimensión fractal)
+
+# El techo de numpy no es un capricho ni lo pide la Parte 1: lo impone esta
+# capa. `antropy` necesita `numba`, que a su vez fija `numpy<2.6` y depende de
+# `llvmlite`. numba y llvmlite son los paquetes que más tardan en publicar
+# ruedas para un Python o un numpy nuevos, así que sin este techo el día que
+# salga numpy 2.6 el resolvedor entra en un retroceso largo —o directamente no
+# resuelve— y el CI se pone rojo sin que nadie haya tocado el código.
+#
+# Cuando numba soporte la versión siguiente, subir el techo acá y en ningún
+# otro lado. requirements.txt queda sin techo a propósito: la Parte 1 no tiene
+# este problema.
+numpy<2.6
+
+# Nota: `yasa` (BSD-3) es el candidato natural para husos, ondas lentas y
+# acoplamiento huso-onda lenta cuando se retomen esas funcionalidades
+# futuras. Hoy están fuera del alcance, así que no se instala.

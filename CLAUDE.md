@@ -9,26 +9,43 @@ Este archivo está en español, como el resto de la documentación del proyecto
 
 ## Estado del proyecto
 
-**Esqueleto.** La estructura está completa y todo importa, pero la lógica no
-está implementada: hay unos 200 `NotImplementedError` repartidos en 39 de los
-49 módulos. `python main.py` termina en `NotImplementedError` en
-`psglab/app.py:25`: es el comportamiento esperado, no un bug.
+**Parte 1 terminada**, con los hitos 0 a 7 cerrados: `python main.py` abre la
+ventana, lee un EDF o un BrainVision, se navega y se scorea con el teclado, las
+seis herramientas andan y los tres archivos de salida se escriben. Queda el
+hito 8, que es una lista de comprobación y no código nuevo.
 
-Los 42 tests están desactivados con `pytestmark = pytest.mark.skip(...)` en la
-primera línea de cada archivo de `tests/`. **Al implementar un componente hay
-que borrar esa línea del test correspondiente**, o el trabajo queda sin
-verificar.
+Lo que sigue elevando `NotImplementedError` es **`psglab/analysis/`, que es la
+Parte 2** y tiene sus propias dependencias, que el CI no instala.
 
-Cuatro piezas están implementadas a propósito y **no deben convertirse en
-`NotImplementedError`**: los decoradores `@register_tool` y `@register_reader`,
-`Reader.can_read`, `read_recording()` y `PsgLabError.__init__`. Son
-infraestructura que corre en tiempo de importación; si fallaran, ningún módulo
-del paquete podría cargarse y los mecanismos enchufables no existirían.
+**Las cuentas del avance viven sólo en [`docs/TODO.md`](docs/TODO.md)** —cuántos
+stubs quedan, en cuántos módulos, qué hito está abierto— y
+`tests/test_consistencia.py` las verifica contra el código en cada corrida. No
+repetirlas acá: a este archivo no lo verifica nadie y se desincroniza.
+
+Hoy no queda ningún test salteado, pero la convención sigue en pie para la
+Parte 2: los tests de un módulo sin implementar se apagan con
+`pytestmark = pytest.mark.skip(...)` cerca del principio del archivo, y **al
+implementar el componente hay que borrar esa línea**, o el trabajo queda sin
+verificar. El chequeo `test_ningun_modulo_terminado_tiene_su_test_salteado`
+hace fallar la suite si alguien se olvida.
+
+**Los módulos de `core/` y `utils/` son el modelo de qué se espera de un módulo
+terminado.** Mirá `windows.py` para ver cómo se documenta lo que un módulo
+**no** valida, y `recording.py` para el criterio opuesto: rechazar al construir
+lo que no se puede arreglar después.
+
+Nada de la Parte 1 **debe volver a ser `NotImplementedError`**, y en particular
+tampoco los decoradores
+`@register_tool` y `@register_reader`, `Reader.can_read`, el despacho de
+`read_recording()` con `load_all_readers()`, los métodos de evento de `Tool` y
+`ViewerTool`, y `psglab/config.py` entero. Las últimas son infraestructura que
+corre en tiempo de importación; si fallaran, ningún módulo del paquete podría
+cargarse y los mecanismos enchufables no existirían.
 
 ## Por dónde seguir
 
 **[`docs/TODO.md`](docs/TODO.md) es la cola de trabajo** y el único documento
-que lleva estado. Ordena los 168 stubs de la Parte 1 en hitos **por
+que lleva estado. Ordena los stubs pendientes de la Parte 1 en hitos **por
 dependencias reales**, no por sección del pliego.
 
 **No empieces un módulo si su hito anterior no está cerrado**: vas a escribir
@@ -41,6 +58,16 @@ sigue siendo cierta y el README de su carpeta también.
 qué falta. Duplicar el avance en los dos lugares garantiza que se
 desincronicen.
 
+Las dos auditorías tampoco: [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (4 de
+septiembre) y
+[`docs/AUDITORIA-2026-09-07.md`](docs/AUDITORIA-2026-09-07.md) (7 de
+septiembre, al cerrarse la Parte 1) son fotos fechadas de lo que se encontró
+revisando el repositorio entero. Antes de abrir un hito conviene
+leer sus bloques "Medido en la auditoría", que están citados dentro del TODO en
+el hito al que le tocan. No son bugs abiertos sino decisiones que ese hito tiene
+que tomar: firmas que no pueden ser correctas en `statistics.py`, `Session` sin
+mecanismo de notificación, `BandOverlay` sin canal al que referir sus 75 µV.
+
 ## Comandos
 
 Preparar el entorno, si todavía no está (el detalle está en `README.md`):
@@ -51,16 +78,39 @@ python -m venv .venv
 pip install -r requirements.txt -r requirements-dev.txt
 ```
 
+Hay un tercer archivo, `requirements-analysis.txt`, con las dos dependencias
+exclusivas de la Parte 2 (`mne-connectivity` y `antropy`). **No instalarlo salvo
+para trabajar en `psglab/analysis/`**: arrastran numba, llvmlite, xarray, pandas
+y scikit-learn, y ningún test las importa. El CI las instala sólo en el job de
+licencias.
+
+En macOS y Linux la activación es `source .venv/bin/activate`, y en Debian,
+Ubuntu y WSL el intérprete se llama `python3`. **Windows y WSL no pueden
+compartir un mismo `.venv`**: el segundo pisa el `pyvenv.cfg` del primero y lo
+deja inservible sin avisar en el momento. El README explica el síntoma y cómo se
+repara sin reinstalar los paquetes.
+
 Desde PowerShell se activa el entorno con ese script. **Desde la herramienta
 Bash el script de activación no aplica**: conviene llamar al intérprete directo,
 `./.venv/Scripts/python.exe -m pytest`.
 
+Esa forma tiene dos ventajas más, que valen también en PowerShell: esquiva la
+Execution Policy —que de fábrica bloquea `Activate.ps1`— y no puede instalar en
+el Python equivocado si la activación falló sin que nadie lo notara. El README
+explica por qué eso último es más caro que el error visible.
+
 **Usar siempre `python -m pytest`, nunca `pytest` a secas.** No hay
 `pyproject.toml` ni instalación editable, así que `psglab` sólo es importable
 porque `python -m` agrega el directorio actual a `sys.path`; `pytest` directo
-falla con `ModuleNotFoundError: No module named 'psglab'` en los cinco archivos.
+falla con `ModuleNotFoundError: No module named 'psglab'` en los archivos que lo
+importan al cargarse, que hoy son casi todos. La cuenta exacta la lleva
+`tests/README.md`, que sí tiene un chequeo que la verifica.
 Agregar un `pyproject.toml` lo resolvería, pero es una decisión de empaquetado
 que nadie tomó todavía.
+
+Hay una segunda razón, independiente del `sys.path`: `python -m` no pasa por los
+lanzadores de `Scripts/`, que quedan rotos si alguien renombra o mueve la carpeta
+del proyecto. El README explica el síntoma y cómo se repara.
 
 ```bash
 python main.py
@@ -75,11 +125,111 @@ En la consola de Windows los acentos de los mensajes salen como mojibake
 todo el texto que ve el usuario está en español y los archivos son UTF-8.
 `$env:PYTHONUTF8=1` lo corrige para esa corrida.
 
-Verificación de licencias, obligatoria antes de un release:
+Verificación de licencias a mano. El CI ya la corre en cada push, así que
+esto sirve para mirar el detalle, no para no olvidarse:
 
 ```bash
-pip-licenses --format=markdown --order=license
+python -m piplicenses --format=markdown --order=license
 ```
+
+Por módulo y no por el comando `pip-licenses`, igual que hace el CI: los
+lanzadores de `Scripts/` llevan grabada la ruta absoluta del intérprete, así que
+dependen de que ese directorio esté en el PATH y de que el entorno no se haya
+movido.
+
+## Lo que se verifica solo
+
+`tests/test_consistencia.py` no testea el programa sino **el repositorio**, y
+corre con `python -m pytest` como cualquier otro test. Conviene saber qué va a
+rechazar antes de dar por terminado un cambio:
+
+- Las **cuatro** cuentas de stubs de `docs/TODO.md` —el resumen del principio,
+  los ítems `· N stubs` de cada módulo, las filas de la tabla de progreso y la
+  fila de totales— tienen que coincidir con el código. **Implementar un stub
+  obliga a actualizar el TODO en el mismo commit.**
+- Todo módulo de `psglab/` lleva `Cubre del pliego:` en su docstring, y sus IDs
+  coinciden con `docs/TRAZABILIDAD.md` **en las dos direcciones**. Los módulos de
+  infraestructura también la llevan, declarando que no cubren ningún ID.
+- Ningún enlace ni ancla de ningún `.md` versionado apunta a la nada, **este
+  archivo incluido**. Renombrar un encabezado rompe los enlaces que lo apuntaban.
+- `docs/EXPLICACION.txt` se mantiene en ASCII, sin acentos.
+- **Cuatro** capas no importan `psglab.ui`, `PySide6` ni `pyqtgraph`: `core/`,
+  `utils/`, `readers/` y `exporters/` (`CAPAS_SIN_INTERFAZ`, en el test). Las dos
+  últimas están en la lista porque de ellas depende el corte del hito 5 —leer un
+  registro, scorearlo y exportar los tres archivos desde un script, sin abrir una
+  ventana—, que es exactamente lo que se pierde si entra Qt.
+- Todas las firmas llevan type hints.
+- Ningún módulo terminado tiene su test salteado.
+- Cada archivo de `tests/` tiene su fila en el diccionario `COBERTURA_DE_TESTS`
+  del propio test, que dice qué módulos cubre. **Agregar un archivo de test
+  obliga a agregar esa fila**; si no, quedaría fuera del chequeo anterior.
+- Cada `README.md` de carpeta declara sus pendientes con la frase literal
+  `Pendientes **N stubs**`, que es obligatoria; el `en M módulos` es opcional y
+  se verifica **sólo si está** —hoy lo omiten `core/`, `utils/` y `analysis/`—.
+  En
+  el hito 1 hubo cuatro commits seguidos que corrigieron el de stubs y ninguno
+  el de módulos, que quedó en 29 cuando ya eran 26.
+- `tests/README.md` también: su tabla tiene que nombrar todos los archivos de
+  test y ninguno que ya no exista, decir cuáles llevan `pytestmark` y en cuántos
+  archivos falla la recolección con `pytest` a secas.
+- Las cuentas de tests de `docs/TODO.md` —`**N tests en verde**`— se comparan
+  contra lo que pytest recolecta de verdad, no contra los `def test_` del
+  archivo: hay `parametrize` y los números no coinciden.
+- Un módulo que importe `config` no puede escribir a mano los números del pliego
+  en el texto que ve el usuario: "30 s", "3 segundos", "0,5 segundos" y "75 µV"
+  salen de la constante. Los docstrings quedan afuera, porque ahí nombrar el
+  número es a propósito.
+- Ningún `.md` versionado repite un párrafo largo dentro de sí mismo, **este
+  archivo incluido**. Explicar lo mismo dos veces en un archivo garantiza que
+  alguien corrija una sola.
+- Todo módulo de la Parte 1 tiene test, figura en `SIN_TEST_PROPIO` —`ui/`
+  entero, `app.py` y `config.py`— o el TODO promete el suyo **por nombre de
+  archivo**. Un módulo nuevo sin ninguna de las tres cosas hace fallar la suite.
+- Todo método público de `core/` y `utils/` que reciba argumentos tiene su fila
+  en `CONTRATOS` de `tests/test_contratos.py`, o figura en `SIN_CONTRATO` con el
+  motivo. Es lo que obliga a verificar que una entrada hostil salga como
+  `PsgLabError` y no como una traza en la cara del investigador.
+- `COBERTURA_DE_TESTS` no puede declarar un módulo que el test no importe.
+  Declararlo sin importarlo ya contó nueve stubs como verificados mientras nadie
+  exigía un test para ellos.
+- Todos los módulos del paquete se pueden importar. Es lo único que ejercita la
+  capa `ui/`.
+
+### El otro test transversal
+
+`tests/test_contratos.py` tampoco cubre un módulo: verifica una promesa que
+cruza todos los implementados. La ventana principal atrapa **una sola** clase,
+`PsgLabError`, así que un `AttributeError` o un `KeyError` crudo la atraviesa y
+el investigador termina viendo una traza de Python. Una auditoría encontró seis
+caminos así, y todos tenían la misma forma: la guarda funcionaba y el `raise`
+era el que explotaba al armar el mensaje.
+
+Son dos tablas porque una sola dejaba un hueco. `CONTRATOS` afirma que lo que se
+rechaza sale como `PsgLabError` —no exige rechazar todo: un 3,5 de escala es un
+número válido—, y `RECHAZOS_OBLIGATORIOS` fija las guardas que **no pueden**
+aceptar. La segunda salió de generar mutantes del árbol de sintaxis: cuatro
+guardas de tipo se podían borrar enteras, cambiando `if not isinstance(...)` por
+`if False`, sin que la suite lo notara.
+
+**Al implementar un módulo hay que agregar una fila por método público**, y hay
+red que lo exige: `test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato`
+recorre `core/` y `utils/` y hace fallar la suite si falta alguna. Las
+excepciones se declaran en `SIN_CONTRATO` **con el motivo** —hoy `windows.py` y
+`clamp`, que documentan que no validan porque quien llama ya validó—, nunca se
+saltean en silencio.
+
+El [workflow de CI](.github/workflows/ci.yml) corre en cada push y cada pull
+request contra `Add` y `Master`: los tests en Windows, macOS y Linux con Python
+3.11 y 3.14 —la única prueba real de que el programa es multiplataforma—, esos
+chequeos de consistencia, y la verificación de licencias, que falla si entra una
+dependencia GPL. Contempla que PySide6 declara una licencia disyuntiva
+(`LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`), así que un chequeo ingenuo de
+"GPL" fallaría contra la dependencia principal del proyecto.
+
+**Sólo dispara en `Add` y `Master`.** Un push a una rama de trabajo no corre
+nada hasta que se abra la pull request, así que en el día a día el único control
+es `python -m pytest` local, y conviene correrlo entero: el chequeo de las
+cuentas de tests se saltea si se le pasa un archivo suelto.
 
 ## Arquitectura
 
@@ -165,7 +315,9 @@ base 1 al mostrarlos y exportarlos; la conversión se hace al mostrar.
   exactamente por eso.
 - **Nunca commitear registros de participantes.** El `.gitignore` ya excluye
   `data/`, `registros/`, `*.edf`, `*.vhdr`, `*.vmrk`, `*.eeg` y los tres
-  archivos de salida.
+  archivos de salida. En `data/` hay registros de prueba locales (un EDF y un
+  BrainVision) que sirven para probar la importación a mano; **ningún test debe
+  leerlos**, por la regla de abajo.
 - Los tests usan **señal sintética generada en el momento** (fixtures en
   `tests/conftest.py`), nunca registros reales. Además de la privacidad, un
   registro sintético tiene resultado conocido de antemano: una onda de 10 Hz
@@ -194,10 +346,17 @@ base 1 al mostrarlos y exportarlos; la conversión se hace al mostrar.
 Los motivos completos están en `docs/ARQUITECTURA.md`. Si alguna decisión se
 revisa, actualizar ese archivo con el motivo del cambio.
 
-## Ambigüedades abiertas del pliego
+## Ambigüedades del pliego
 
-Listadas en `docs/EXPLICACION.txt`, sección 8. La única que ya afecta al
-código: el formato de `Scoring.txt` (el pliego describe tres campos, el ejemplo
-muestra dos). Está parametrizado en `config.SCORING_INCLUDES_WINDOW_NUMBER`,
-hoy `False`. **No hardcodear ninguna de las dos variantes** hasta que el
-cliente confirme.
+**Se cerraron el 4 de septiembre de 2026**, en el hito 0. La lista de qué se
+preguntó y en qué constante vive cada respuesta está en `docs/TODO.md`, hito 0.
+Queda una sola abierta y es de la Parte 2: de dónde salen las impedancias
+(`psglab/analysis/impedance.py`, marcada `PENDIENTE DE DEFINICIÓN CON EL
+CLIENTE`).
+
+Que estén cerradas **no las hardcodea**. Las respuestas viven en
+`psglab/config.py` —`SCORING_INCLUDES_WINDOW_NUMBER`,
+`ANNOTATION_SAMPLE_BASE`, `OCCUPANCY_COUNTS_OVERLAP_ONCE`,
+`SCORING_INCLUDES_NOMENCLATURE_HEADER`— y **revertir cualquiera tiene que
+seguir siendo cambiar una línea**. Un `if` que dé por sentada una de las
+variantes rompe esa propiedad aunque hoy acierte.

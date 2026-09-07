@@ -50,6 +50,19 @@ class ScoringMismatchError(PsgLabError):
     """El archivo de scoring no corresponde al registro abierto."""
 
 
+class InvalidRecordingError(PsgLabError):
+    """El registro que se armó es incoherente consigo mismo.
+
+    No es lo mismo que `UnreadableFileError`, que habla del archivo: acá el
+    archivo se leyó bien y lo que quedó mal es el `Recording` resultante —tantos
+    canales declarados como filas no tiene la matriz, una frecuencia de muestreo
+    que no es positiva, una matriz que no es de dos dimensiones—.
+
+    Existe para que ese error salte **en el lector, que es donde está el bug**, y
+    no tres capas más arriba con una traza de numpy que no dice de dónde vino.
+    """
+
+
 # -- Canales ----------------------------------------------------------------
 
 
@@ -65,6 +78,16 @@ class UnknownUnitError(PsgLabError):
     """La unidad declarada en el archivo no se reconoce."""
 
 
+class InvalidScaleError(PsgLabError):
+    """La escala vertical pedida no es un número con el que se pueda dibujar.
+
+    Los valores fuera de los topes de `config` **no** llegan acá: se recortan en
+    silencio, que es lo que corresponde a alguien apretando una flecha. Esto es
+    para lo que no se puede recortar —NaN, infinito, algo que no es un número—,
+    que suele venir de un autoescalado calculado sobre una señal con huecos.
+    """
+
+
 # -- Scoring y anotaciones --------------------------------------------------
 
 
@@ -76,8 +99,26 @@ class InvalidStageError(PsgLabError):
     """La fase no pertenece a la nomenclatura activa."""
 
 
+class InvalidNomenclatureError(PsgLabError):
+    """Se pidió una nomenclatura de scoring que no existe."""
+
+
 class UnknownAnnotationLabelError(PsgLabError):
     """Se usó una clase de anotación que no está registrada."""
+
+
+class InvalidAnnotationError(PsgLabError):
+    """La anotación está mal formada y no se puede guardar.
+
+    No es lo mismo que `UnknownAnnotationLabelError`, que habla de la **clase**
+    del evento: acá la clase puede estar bien y lo que no cierra es el evento
+    —una posición negativa, una duración que no cubre ninguna muestra, una
+    etiqueta vacía—.
+
+    Existe por el mismo motivo que `InvalidRecordingError`: que el error salte
+    donde está el bug, que es el anotador armando la anotación, y no al
+    exportar `Anotaciones.txt` con una línea que nadie puede interpretar.
+    """
 
 
 # -- Herramientas -----------------------------------------------------------

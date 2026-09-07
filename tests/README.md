@@ -13,18 +13,31 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cinco
-archivos con `ModuleNotFoundError: No module named 'psglab'`.
+camino de búsqueda. Con `pytest` directo la recolección falla en los veinticuatro
+archivos que importan `psglab` al cargarse, con
+`ModuleNotFoundError: No module named 'psglab'`.
 
-## Mientras el proyecto sea un esqueleto
+## Los tests que se apagan, y por qué hoy no hay ninguno
 
-Los 42 tests están **desactivados**, con esta línea al tope de cada archivo:
+Los tests de los módulos que todavía no están implementados están
+**desactivados**, con esta línea cerca del principio del archivo:
 
 ```python
 pytestmark = pytest.mark.skip(reason="Esqueleto: la lógica todavía no está implementada.")
 ```
 
-La corrida informa `42 skipped` y pasa en verde sin haber verificado nada.
+La llevan **los tests de los hitos que todavía no se abrieron**: hoy ninguno.
+El último era el de la ocupación, y el hito 7 lo reactivó, así que **la suite ya
+no informa ningún salteado** en una máquina con los registros de prueba.
+
+**Los números concretos —cuántos se recolectan y cuántos se saltean— no se
+escriben acá**, porque un número a mano en este archivo se desactualiza con el
+primer módulo que se implemente. Ya pasó: decía `42 skipped` mucho después de
+que dejaran de ser 42. Para verlos, la corrida:
+
+```bash
+python -m pytest -rs
+```
 
 **Al implementar un componente hay que borrar esa línea del archivo de test que
 le corresponde.** Si no, el trabajo queda sin verificar y la suite sigue dando
@@ -36,14 +49,44 @@ verde por omisión, que es peor que dar rojo.
 |---|---|
 | `conftest.py` | Fixtures compartidas: señal sintética y nombres de canal. |
 | `test_consistencia.py` | **El repositorio, no un componente.** Ver abajo. |
-| `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
-| `test_nomenclature.py` | Las dos nomenclaturas y la conversión entre ellas. |
+| `test_errors.py` | Que el mensaje y la causa técnica viajen separados, y que un solo `except` las atrape todas. |
+| `test_validation.py` | Que un NaN no atraviese una guarda numérica. |
+| `test_contratos.py` | Que ningún método público escape del `except` de la interfaz. |
+| `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
-| `test_occupancy.py` | La herramienta de ocupación horizontal. |
+| `test_nomenclature.py` | Las dos nomenclaturas, la conversión entre ellas y los códigos de `Scoring.txt`. |
+| `test_recording.py` | El registro en memoria y lo que no deja construir. |
+| `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
+| `test_session.py` | Navegación, canales y amplitud, sin abrir una ventana. |
+| `test_annotations.py` | Los eventos sobre la señal: qué se borra y qué se dibuja. |
+| `test_channel_types.py` | Que cada canal se clasifique solo: EEG, EOG, EMG, ECG u otro. |
+| `test_readers.py` | El despacho por formato, y que la señal de un EDF y un BrainVision salga en la escala correcta. |
+| `test_scoring_reader.py` | Importar un scoring ya hecho sin adivinar con qué nomenclatura se escribió. |
+| `test_registry.py` | El registro de herramientas y su clase base: el punto de extensión. |
+| `test_amplitude_band.py` | La banda de 75 µV, y sobre qué canal se dibuja. |
+| `test_occupancy.py` | La ocupación horizontal: los ejemplos del pliego y el gesto del mouse. |
+| `test_magnifier.py` | La lupa y su contador de picos, que se cuenta sin dibujar nada. |
+| `test_annotator.py` | Anotar un evento, y que los segundos lleguen a la muestra correcta. |
+| `test_overview.py` | El panel de contexto: qué ventanas muestra y qué eventos caen en ellas. |
+| `test_histogram.py` | El hipnograma de la noche y la navegación por clic. |
+| `test_shortcuts.py` | Los atajos, y que los de fase se deriven de la nomenclatura. |
+| `test_grid.py` | La grilla de fondo: cuántas líneas y dónde caen. |
+| `test_signal_view.py` | Las tres conversiones desde píxeles, que es de donde salen las unidades de las herramientas. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el
 motivo por el que `core/` no importa nada de `ui/`.
+
+## Las fixtures, y por qué la señal ya existe
+
+`synthetic_signal` y `channel_names` fijan un contrato que conviene conocer
+antes de escribir un test nuevo: cuatro canales de diez minutos —**exactamente
+veinte ventanas de 30 segundos**, un número cómodo para verificar las cuentas a
+mano—, con C3 a 1 Hz, C4 a 10 Hz, el EOG a 0,5 Hz y el EMG a 30 Hz, y nombres
+10-20 para que la detección automática de clase tenga qué detectar.
+
+`test_recording.py` fue su primer consumidor y `test_readers.py` el siguiente:
+no hizo falta inventar otra señal.
 
 ## `test_consistencia.py` no testea un componente
 
@@ -51,7 +94,18 @@ Es la excepción del directorio: verifica invariantes **del repositorio entero**
 no de un módulo. Que las cuentas del TODO cierren contra el código, que los
 enlaces de la documentación no apunten a la nada, que los IDs del pliego que
 declara cada módulo coincidan con `TRAZABILIDAD.md` en las dos direcciones, que
-`EXPLICACION.txt` siga en ASCII, que `core/` no haya empezado a importar Qt.
+`EXPLICACION.txt` siga en ASCII, que las capas de negocio no hayan empezado a
+importar Qt.
+
+La regla que ordena los IDs, y que es la que más se rompía sola:
+
+> Un módulo nombra un ID en su docstring **si y sólo si** `TRAZABILIDAD.md` se
+> lo asigna a ese archivo.
+
+Un módulo que no cubre ninguno no los nombra —ni siquiera para decir que no los
+cubre, porque el chequeo los lee de esa línea y no distingue una mención de una
+declaración— y a cambio tiene que figurar en la tabla de módulos de
+infraestructura o en una fila de la Parte 2 sin ID.
 
 Existe porque el equipo pasó a ser de tres personas. Con una, revisar eso a mano
 alcanza; con tres, la documentación se desincroniza más rápido de lo que alguien
@@ -117,10 +171,17 @@ regla se rompió**, no qué función se llamó.
 El [TODO](../docs/TODO.md) lleva la cuenta. Cada módulo que se implementa
 arrastra su test, y **eso es parte de darlo por terminado**:
 
-- **Reactivar** (borrar el `pytestmark`): `test_windows` y `test_nomenclature`
-  (hito 1), `test_scoring` (2), `test_exporters` (5), `test_occupancy` (7).
-- **Crear**: `test_units`, `test_recording` (1), `test_annotations` (2),
-  `test_session` (3), `test_channel_types`, `test_readers` (4), y uno por
-  herramienta (7).
+**De la Parte 1 no queda ninguno por escribir ni por reactivar.** Los nueve de
+los hitos 1 a 3 —`test_units`, `test_windows`, `test_nomenclature`,
+`test_recording`, `test_errors`, `test_validation`, `test_scoring`,
+`test_annotations` y `test_session`—, los tres del hito 4, `test_exporters` del
+hito 5, los tres de `ui/` del hito 6 y los siete del hito 7 están todos
+corriendo, y `test_exporters` cubre los cuatro exportadores, `statistics.py` e
+`information_txt.py` incluidos.
 
-`psglab/ui/` no lleva tests unitarios: es deliberado, no una omisión.
+Lo que queda es la **Parte 2**: `psglab/analysis/` no tiene ningún test todavía,
+y sus ocho módulos siguen en stubs.
+
+**De `psglab/ui/` se testea lo que no dibuja** —los atajos, la grilla y las tres
+conversiones desde píxeles—, y el dibujo no. Es deliberado y está explicado en
+[`ui/README.md`](../psglab/ui/README.md#estado).

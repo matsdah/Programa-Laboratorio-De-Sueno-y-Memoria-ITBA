@@ -8,11 +8,19 @@ Nace para resolver las limitaciones de los programas actuales: formatos de impor
 limitados, scoring sólo manual, imposibilidad de anotar la señal, ausencia de métricas,
 compatibilidad únicamente con Windows y precios excesivos.
 
-> **Estado: esqueleto.** La estructura del proyecto está creada, pero la lógica todavía
-> no está implementada. Los módulos declaran su interfaz y elevan `NotImplementedError`.
+> **Estado: la Parte 1 está terminada.** `python main.py` abre el programa:
+> importa registros en EDF y BrainVision, muestra la señal en ventanas de
+> 30 segundos, se navega y se scorea con el teclado, se anotan eventos, están
+> las seis herramientas —lupa, banda de amplitud, ocupación, Übersicht,
+> histograma y anotador— y se exportan los tres archivos de salida. Toda la
+> lógica se testea **sin abrir una ventana**.
 >
-> **Por dónde seguir: [`docs/TODO.md`](docs/TODO.md)**, que ordena los 168 stubs
-> pendientes de la Parte 1 en hitos por dependencias.
+> Falta el **módulo de análisis de bioseñales** (`psglab/analysis/`), que es la
+> Parte 2: esos módulos declaran su interfaz y elevan `NotImplementedError`.
+>
+> **Por dónde seguir: [`docs/TODO.md`](docs/TODO.md)**, que ordena el trabajo en
+> hitos por dependencias y es el único lugar que lleva la cuenta de lo que
+> falta.
 
 ---
 
@@ -24,10 +32,13 @@ Windows, marcá la casilla **"Add Python to PATH"**.
 
 ```bash
 # 1. Ubicate en la carpeta del proyecto
-cd "Lab Del Sueño"
+cd Programa-Laboratorio-De-Sueno-y-Memoria-ITBA
 
 # 2. Creá un entorno virtual (aísla las dependencias del resto de tu computadora)
 python -m venv .venv
+#    En Debian, Ubuntu y WSL el binario se llama python3, no python:
+python3 -m venv .venv
+#    (si eso falla, falta el paquete: sudo apt install python3-venv)
 
 # 3. Activalo
 #    Windows (PowerShell):
@@ -35,14 +46,103 @@ python -m venv .venv
 #    macOS / Linux:
 source .venv/bin/activate
 
-# 4. Instalá las dependencias
+# 4. Comprobá que estás adentro ANTES de instalar: tiene que imprimir la
+#    carpeta .venv del proyecto y no otra ruta.
+python -c "import sys; print(sys.prefix)"
+
+# 5. Instalá las dependencias
 pip install -r requirements.txt
 ```
 
-Para trabajar en la Parte 2 (análisis) o correr los tests, instalá además:
+> **Un `.venv` por sistema operativo.** Si trabajás sobre la misma carpeta
+> desde Windows y desde WSL, no compartas el entorno. Correr
+> `python3 -m venv .venv` desde WSL **sobrescribe el `pyvenv.cfg`** del entorno
+> de Windows y lo deja apuntando al intérprete de Linux. En el momento no avisa
+> nada: el que falla es el comando siguiente, con
+> `did not find executable at '/usr/bin\python.exe'`.
+>
+> Los paquetes ya instalados **no se pierden** —el daño es ese único archivo— y
+> se repara regenerándolo desde Windows, sin reinstalar nada:
+>
+> ```bash
+> python -m venv --upgrade .venv
+> ```
+>
+> Para usar los dos a la vez, dale al de WSL un directorio propio con
+> `python3 -m venv .venv-linux`. El `.gitignore` ya excluye cualquier `.venv*/`.
+
+> **Y uno por versión de Python.** La misma rotura ocurre sin WSL de por medio:
+> instalar otro Python —el instalador nuevo de python.org deja los suyos en
+> `%LOCALAPPDATA%\Python\pythoncore-3.X-64`— y volver a correr
+> `python -m venv .venv` sobre el entorno que ya existe le reescribe el
+> `pyvenv.cfg` apuntando al intérprete nuevo, **sin tocar los paquetes**, que
+> siguen compilados para el viejo.
+>
+> El síntoma no menciona el entorno para nada:
+>
+> ```
+> No module named 'numpy._core._multiarray_umath'
+> ```
+>
+> Se diagnostica mirando `.venv/pyvenv.cfg` —la línea `version` dice una cosa y
+> los `.pyd` de `.venv/Lib/site-packages/numpy/_core/` dicen `cp312`, `cp314`,
+> otra— y se repara sin reinstalar nada, apuntando `home` y `version` de vuelta
+> al intérprete con el que se creó el entorno. Si eso no alcanza:
+>
+> ```bash
+> python -m venv --clear .venv
+> ```
+>
+> y reinstalar los requirements. **Nunca corras `python -m venv` sobre un
+> `.venv` que ya existe** salvo con `--upgrade`, que es lo que sirve para esto.
+
+> **Y uno por ruta.** El entorno tampoco sobrevive a que le renombren o le
+> muevan la carpeta: cada `.exe` de `Scripts/` —`pip`, `pytest`,
+> `pip-licenses`— lleva grabada adentro la ruta absoluta del intérprete. Después
+> de un renombre fallan todos con `Fatal error in launcher: Unable to create
+> process using '...'`, citando la ruta vieja.
+>
+> El `python.exe` del entorno **sí** sigue funcionando, así que `python -m pip` y
+> `python -m pytest` no se enteran y el problema queda latente. Acá se descubrió
+> recién al correr el `pip install` de esta misma sección.
+>
+> No hay nada que rescatar: se borra `.venv` y se rehace con los pasos de arriba.
+
+> **En Windows, `Activate.ps1` falla la primera vez.** Es la Execution Policy de
+> PowerShell, que de fábrica no deja correr ningún script: *"la ejecución de
+> scripts está deshabilitada en este sistema"*. Se arregla dándole permiso a tu
+> usuario —alcanza con eso, no hace falta administrador, y es una sola vez—:
+>
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+> ```
+>
+> **Lo caro no es el error sino lo que viene después.** El error se ve, se
+> ignora, y todo lo demás aparenta funcionar: con el entorno sin activar,
+> `pip install` instala en el Python global y `python main.py` arranca igual. El
+> proyecto no falla hasta mucho más tarde, cuando ya nadie relaciona una cosa con
+> la otra. Por eso el paso 4 existe.
+>
+> Si preferís no tocar la política, **no hace falta activar**. Invocar el
+> intérprete del entorno por su ruta hace exactamente lo mismo, esquiva la
+> política y no puede equivocarse de Python:
+>
+> ```powershell
+> .venv\Scripts\python.exe -m pip install -r requirements.txt
+> .venv\Scripts\python.exe -m pytest
+> ```
+
+Para correr los tests, instalá además las herramientas de desarrollo:
 
 ```bash
 pip install -r requirements-dev.txt
+```
+
+Y sólo si vas a trabajar en la Parte 2 (el módulo de análisis), sus dos
+dependencias propias, que son pesadas y no hacen falta para nada más:
+
+```bash
+pip install -r requirements-analysis.txt
 ```
 
 ## Ejecución
@@ -119,11 +219,14 @@ python -m pytest tests/test_scoring.py::test_el_arousal_es_independiente_de_la_f
 
 Los tests de `core/` y `exporters/` corren sin interfaz gráfica.
 
-Mientras el proyecto sea un esqueleto, todos los tests están desactivados con
-`pytestmark = pytest.mark.skip(...)` en la primera línea de cada archivo, y la
-corrida informa `42 skipped`. **Al implementar un componente hay que borrar esa
-línea del test que le corresponde**, o el trabajo queda sin verificar. Para ver
-qué se salteó y por qué:
+**Hoy no hay ningún test salteado**, pero la convención sigue en pie para la
+Parte 2: los tests de un componente sin implementar se desactivan con
+`pytestmark = pytest.mark.skip(...)` cerca del principio del archivo, y la
+corrida informa esa parte como `skipped`. **Al implementar un componente hay que
+borrar esa línea del test que le corresponde**, o el trabajo queda sin verificar
+—y el chequeo de consistencia hace fallar la suite si el módulo ya está
+terminado—. Para ver qué se salteó y
+por qué:
 
 ```bash
 python -m pytest -rs
