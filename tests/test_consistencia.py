@@ -62,6 +62,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_overview.py": ("psglab/tools/overview.py",),
     "test_histogram.py": ("psglab/tools/histogram.py",),
     "test_shortcuts.py": ("psglab/ui/shortcuts.py",),
+    "test_signal_view.py": ("psglab/ui/signal_view.py",),
     "test_grid.py": ("psglab/ui/grid.py",),
     "test_registry.py": (
         "psglab/tools/registry.py",
@@ -897,7 +898,7 @@ def test_ningun_modulo_terminado_tiene_su_test_salteado():
 #: pantalla —está registrado en su README— y `app.py` es su constructor.
 #: `config.py` son constantes: no hay comportamiento que testear.
 #:
-#: **`shortcuts.py` y `grid.py` salieron de esta lista en el hito 6.** La regla
+#: **`shortcuts.py`, `grid.py` y `signal_view.py` salieron en el hito 6.** La regla
 #: se había fijado con la carpeta vacía; al escribirla se vio que esos dos no
 #: dibujan nada —uno deriva teclas de la nomenclatura y el otro calcula
 #: posiciones— y que son justo donde algo se rompe en silencio.
@@ -906,7 +907,6 @@ SIN_TEST_PROPIO: frozenset[str] = frozenset(
         "psglab/app.py",
         "psglab/config.py",
         "psglab/ui/main_window.py",
-        "psglab/ui/signal_view.py",
         "psglab/ui/navigation.py",
         "psglab/ui/scoring_panel.py",
         "psglab/ui/channel_selector.py",

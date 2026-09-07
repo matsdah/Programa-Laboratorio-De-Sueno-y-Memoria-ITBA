@@ -24,10 +24,34 @@ a la posición en muestras que guarda la anotación.
 
 from collections.abc import Sequence
 
+import numpy as np
 import pyqtgraph as pg
+from PySide6.QtCore import QPointF
 
+from psglab.config import WINDOW_SECONDS
 from psglab.core.session import Session
-from psglab.tools.base import Overlay
+from psglab.core.windows import (
+    seconds_to_sample,
+    seconds_to_window_fraction,
+    window_to_samples,
+)
+from psglab.tools.base import (
+    BandOverlay,
+    CircleOverlay,
+    Overlay,
+    SegmentOverlay,
+    SpanOverlay,
+)
+from psglab.ui.grid import GridBackground
+
+#: Separación vertical entre canales, en unidades del gráfico. Cada canal ocupa
+#: su propio carril y la señal se dibuja dentro de él.
+_ALTO_DE_CARRIL: float = 1.0
+
+#: Qué fracción del carril llena una señal que alcanza justo `scale_uv`. Menos
+#: de la mitad para que dos canales vecinos no se pisen cuando los dos están al
+#: máximo de su escala.
+_LLENADO_DEL_CARRIL: float = 0.45
 
 
 class SignalView(pg.PlotWidget):
@@ -35,11 +59,37 @@ class SignalView(pg.PlotWidget):
 
     def __init__(self) -> None:
         """Crea el visualizador vacío, sin registro."""
-        raise NotImplementedError("Pendiente: construir el widget de visualización.")
+        super().__init__()
+        self._session: Session | None = None
+        self._window_index: int = 0
+        self._curves: dict[str, pg.PlotDataItem] = {}
+        self._labels: list[pg.TextItem] = []
+        self._overlay_items: list[object] = []
+        self._visible: list[str] = []
+
+        item = self.getPlotItem()
+        item.hideButtons()
+        item.setMenuEnabled(False)
+        item.setMouseEnabled(x=False, y=False)
+        item.hideAxis("left")
+        item.setLabel("bottom", "Segundos de la ventana")
+        self.grid = GridBackground(item)
+
+    @property
+    def session(self) -> Session | None:
+        """La sesión que se está dibujando, o None si no hay registro abierto."""
+        return self._session
+
+    @property
+    def window_seconds(self) -> float:
+        """Cuánto dura la ventana que se dibuja. Es la del pliego."""
+        return WINDOW_SECONDS
 
     def set_session(self, session: Session) -> None:
         """Asocia el visualizador a una sesión de trabajo."""
-        raise NotImplementedError("Pendiente: asociar la sesión y preparar las curvas.")
+        self._session = session
+        self.set_visible_channels(session.visible_channels)
+        self.show_window(session.current_window)
 
     def show_window(self, window_index: int) -> None:
         """Dibuja una ventana de 30 segundos.
@@ -47,11 +97,31 @@ class SignalView(pg.PlotWidget):
         Pide a `Recording.get_segment` sólo el tramo necesario: no se copia ni
         se recorre el registro entero, que puede durar ocho horas.
         """
-        raise NotImplementedError("Pendiente: dibujar la ventana pedida.")
+        if self._session is None:
+            return
+        self._window_index = window_index
+        registro = self._session.recording
+        frecuencia = registro.sampling_rate
+        inicio, fin = window_to_samples(window_index, frecuencia)
+
+        self.getPlotItem().setXRange(0.0, self.window_seconds, padding=0)
+        self.grid.redraw(self.window_seconds)
+
+        for posicion, nombre in enumerate(self._visible):
+            tramo = registro.get_segment(inicio, fin, [nombre])[0]
+            tiempos = np.arange(len(tramo)) / frecuencia
+            escala = self._session.scale_uv(nombre)
+            centro = -posicion * _ALTO_DE_CARRIL
+            self._curves[nombre].setData(
+                tiempos, centro + (tramo / escala) * _LLENADO_DEL_CARRIL
+            )
+        self.update_amplitude_scale()
 
     def refresh(self) -> None:
         """Redibuja la ventana actual con la configuración vigente."""
-        raise NotImplementedError("Pendiente: redibujar la ventana actual.")
+        if self._session is None:
+            return
+        self.show_window(self._session.current_window)
 
     # -- Lo que dibujan las herramientas ------------------------------------
 
@@ -65,31 +135,153 @@ class SignalView(pg.PlotWidget):
         La ventana principal la llama cuando una herramienta avisa por
         `Tool.notify_changed()`.
         """
-        raise NotImplementedError("Pendiente: redibujar los overlays de las herramientas.")
+        item = self.getPlotItem()
+        for dibujado in self._overlay_items:
+            item.removeItem(dibujado)
+        self._overlay_items.clear()
+
+        for overlay in overlays:
+            dibujado = self._dibujar_overlay(overlay)
+            if dibujado is not None:
+                item.addItem(dibujado)
+                self._overlay_items.append(dibujado)
+
+    def _dibujar_overlay(self, overlay: Overlay) -> object | None:
+        """Traduce un `Overlay` a algo que pyqtgraph sepa pintar.
+
+        Devuelve `None` para un tipo que esta versión todavía no dibuja, en vez
+        de elevar: una herramienta nueva no puede voltear el visualizador.
+        """
+        if isinstance(overlay, BandOverlay):
+            # La banda va sobre **su** canal, que es el dato que el hito 7
+            # agregó a `BandOverlay`: sin él, 75 µV no tendrían una única
+            # traducción, porque la escala es por canal.
+            centro = self._centro_de_carril(overlay.channel_name)
+            if centro is None:
+                return None
+            media = self._a_carril(overlay.height_uv / 2, overlay.channel_name)
+            base = centro + self._a_carril(overlay.y_center_uv, overlay.channel_name)
+            return pg.LinearRegionItem(
+                values=(base - media, base + media),
+                orientation="horizontal",
+                movable=False,
+            )
+
+        if isinstance(overlay, SpanOverlay):
+            # Ocupa todo el alto de la ventana, como pide el pliego, para que se
+            # vea sin importar qué canales estén visibles.
+            region = pg.LinearRegionItem(
+                values=(overlay.start_seconds, overlay.end_seconds), movable=False
+            )
+            if overlay.color:
+                region.setBrush(pg.mkBrush(overlay.color + "55"))
+            return region
+
+        if isinstance(overlay, SegmentOverlay):
+            referencia = self._visible[0] if self._visible else None
+            return pg.PlotDataItem(
+                [overlay.x1_seconds, overlay.x2_seconds],
+                [
+                    self._a_carril(overlay.y1_uv, referencia),
+                    self._a_carril(overlay.y2_uv, referencia),
+                ],
+            )
+
+        if isinstance(overlay, CircleOverlay):
+            referencia = self._visible[0] if self._visible else None
+            return pg.ScatterPlotItem(
+                [overlay.x_seconds],
+                [self._a_carril(overlay.y_uv, referencia)],
+                symbol="o",
+                brush=None,
+                pen=pg.mkPen(width=2),
+                size=30,
+            )
+        return None
+
+    def _centro_de_carril(self, channel_name: str) -> float | None:
+        """Dónde está dibujado el eje de un canal, o None si no está visible."""
+        if channel_name not in self._visible:
+            return None
+        return -self._visible.index(channel_name) * _ALTO_DE_CARRIL
+
+    def _a_carril(self, microvoltios: float, channel_name: str | None) -> float:
+        """Pasa una altura en µV a unidades del gráfico, con la escala del canal.
+
+        Es la misma cuenta que usa `show_window()` para la señal, y por eso una
+        banda de 75 µV mide en pantalla exactamente lo que miden 75 µV de la
+        onda: es todo el sentido de la herramienta de amplitud.
+        """
+        if self._session is None or channel_name is None:
+            return microvoltios
+        return (microvoltios / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
 
     # -- Canales (V3_P, V4_F) ----------------------------------------------
 
     def set_visible_channels(self, channel_names: list[str]) -> None:
         """Define qué canales se dibujan y en qué orden vertical."""
-        raise NotImplementedError("Pendiente: reconstruir las curvas visibles.")
+        item = self.getPlotItem()
+        for curva in self._curves.values():
+            item.removeItem(curva)
+        for etiqueta in self._labels:
+            item.removeItem(etiqueta)
+        self._curves.clear()
+        self._labels.clear()
+
+        self._visible = list(channel_names)
+        for posicion, nombre in enumerate(self._visible):
+            curva = pg.PlotDataItem()
+            item.addItem(curva)
+            self._curves[nombre] = curva
+
+            etiqueta = pg.TextItem(self.channel_label(nombre), anchor=(0, 0.5))
+            etiqueta.setPos(0.0, -posicion * _ALTO_DE_CARRIL)
+            item.addItem(etiqueta)
+            self._labels.append(etiqueta)
+
+        if self._visible:
+            item.setYRange(
+                -(len(self._visible) - 1) * _ALTO_DE_CARRIL - 0.5, 0.5, padding=0
+            )
+        self.refresh()
 
     def channel_label(self, channel_name: str) -> str:
         """Texto que acompaña al canal: nombre y clase detectada.
 
         Ejemplo: "C3 (EEG)". El pliego pide mostrar la clase junto al nombre
         para saber qué se está viendo (V4_F).
+
+        Sin registro abierto devuelve el nombre solo: la clase la detecta el
+        lector, así que antes de abrir un archivo no hay ninguna que mostrar.
         """
-        raise NotImplementedError("Pendiente: componer el nombre con la clase.")
+        if self._session is None:
+            return channel_name
+        try:
+            canal = self._session.recording.channel_by_name(channel_name)
+        except Exception:  # noqa: BLE001 - un canal que ya no está no rompe el dibujo
+            return channel_name
+        return f"{canal.name} ({canal.kind.value})"
 
     # -- Amplitud (V2_P, V5_F) ---------------------------------------------
 
     def increase_amplitude(self) -> None:
-        """Aumenta la amplitud y actualiza la escala mostrada (flecha Arriba)."""
-        raise NotImplementedError("Pendiente: aumentar la amplitud y redibujar.")
+        """Aumenta la amplitud y actualiza la escala mostrada (flecha Arriba).
+
+        La cuenta la hace `Session`, que es donde vive la regla —incluido que
+        aumentar la amplitud **baje** el número de `scale_uv`—; acá sólo se
+        redibuja.
+        """
+        if self._session is None:
+            return
+        self._session.increase_amplitude()
+        self.refresh()
 
     def decrease_amplitude(self) -> None:
         """Reduce la amplitud y actualiza la escala mostrada (flecha Abajo)."""
-        raise NotImplementedError("Pendiente: reducir la amplitud y redibujar.")
+        if self._session is None:
+            return
+        self._session.decrease_amplitude()
+        self.refresh()
 
     def update_amplitude_scale(self) -> None:
         """Redibuja la escala en µV de la izquierda.
@@ -98,7 +290,11 @@ class SignalView(pg.PlotWidget):
         usuario cambió la ganancia de un solo canal, la referencia de ese
         canal cambia y la de los demás no (V5_F).
         """
-        raise NotImplementedError("Pendiente: redibujar la escala en microvoltios.")
+        if self._session is None:
+            return
+        for etiqueta, nombre in zip(self._labels, self._visible):
+            escala = self._session.scale_uv(nombre)
+            etiqueta.setText(f"{self.channel_label(nombre)} — {escala:.0f} µV")
 
     # -- Coordenadas --------------------------------------------------------
     #
@@ -126,8 +322,14 @@ class SignalView(pg.PlotWidget):
         Es la unidad que reciben los métodos de mouse de `ViewerTool`, así que
         esta conversión es la que aplica la ventana principal antes de avisarle
         a la herramienta activa.
+
+        Se recorta contra los bordes de la ventana: un clic en el margen del
+        gráfico daría un segundo negativo o mayor que 30, y de ahí saldría una
+        muestra fuera del registro.
         """
-        raise NotImplementedError("Pendiente: convertir píxel a segundos de la ventana.")
+        vista = self.getPlotItem().vb
+        segundos = float(vista.mapSceneToView(QPointF(float(x_pixel), 0.0)).x())
+        return min(self.window_seconds, max(0.0, segundos))
 
     def window_fraction_at_pixel(self, x_pixel: float) -> float:
         """Posición dentro de la ventana, de 0 (inicio) a 1 (final).
@@ -135,8 +337,13 @@ class SignalView(pg.PlotWidget):
         La usa el medidor de ocupación, que mide proporciones del ancho y no
         tiempos: con esta unidad el porcentaje sigue siendo correcto aunque el
         usuario redimensione la ventana del programa.
+
+        Es un píxel→segundos y después `core.windows`: la aritmética entre
+        unidades no gráficas vive allá y no se reimplementa acá.
         """
-        raise NotImplementedError("Pendiente: convertir píxel a fracción de la ventana.")
+        return seconds_to_window_fraction(
+            self.seconds_at_pixel(x_pixel), self.window_seconds
+        )
 
     def sample_at_pixel(self, x_pixel: float) -> int:
         """Muestra del registro que cae bajo una coordenada horizontal.
@@ -144,5 +351,17 @@ class SignalView(pg.PlotWidget):
         La usa el anotador, que guarda las posiciones en muestras porque es lo
         que exige "Anotaciones.txt" y lo único que sobrevive a un cambio de
         zoom.
+
+        Igual que la anterior: píxel→segundos y después `core.windows`, que es
+        quien sabe sumar el desplazamiento sobre el borde real de la ventana.
+        Calcularlo como `ventana * 30 * fs` deja la anotación en la ventana de
+        al lado cuando la frecuencia no es redonda.
         """
-        raise NotImplementedError("Pendiente: convertir píxel a muestra.")
+        if self._session is None:
+            return 0
+        return seconds_to_sample(
+            self._window_index,
+            self.seconds_at_pixel(x_pixel),
+            self._session.recording.sampling_rate,
+            self.window_seconds,
+        )

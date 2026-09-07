@@ -103,7 +103,7 @@ ventanas de una noche, vuelve el programa inusable.
 
 ## Estado
 
-Pendientes **37 stubs** en 5 módulos, en el
+Pendientes **24 stubs** en 4 módulos, en el
 [hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz). Es el último hito de
 lógica: depende de que `core/session.py` esté terminado (hito 3).
 

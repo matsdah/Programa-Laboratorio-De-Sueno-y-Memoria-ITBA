@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **39 stubs** (`raise NotImplementedError`) en 6 módulos de la Parte 1.
+Quedan **26 stubs** (`raise NotImplementedError`) en 5 módulos de la Parte 1.
 **Todos son del hito 6**: es lo único que falta para terminar la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
@@ -57,10 +57,10 @@ nada**. Un verde por omisión es peor que un rojo.
 | [3. Sesión](#hito-3-sesión) | — | 0 | ✅ cerrado |
 | [4. Importación](#hito-4-importación) | — | 0 | ✅ cerrado |
 | [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
-| [6. Interfaz](#hito-6-interfaz) | 6 | 39 | ⬜ |
+| [6. Interfaz](#hito-6-interfaz) | 5 | 26 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | — | 0 | ✅ cerrado |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **6** | **39** | |
+| | **5** | **26** | |
 
 ### Los tres cortes que importan
 
@@ -509,11 +509,21 @@ olvido.
   - Las posiciones **se multiplican, no se acumulan**: sumar 0,5 sesenta veces
     corre la última línea del borde, que es el mismo error que `core/windows.py`
     documenta para las ventanas.
-- [ ] **`psglab/ui/signal_view.py`** · 13 stubs · V1_P, V2_P, V4_F, V5_F
+- [x] **`psglab/ui/signal_view.py`** · ~~13 stubs~~ · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Incluye `seconds_at_pixel`, `window_fraction_at_pixel` y `sample_at_pixel`: es el **único**
-    lugar que traduce entre píxeles, segundos, fracción de ventana y muestras.
-    Ver el contrato en `psglab/tools/base.py`.
+  - Test: `tests/test_signal_view.py`, **19 tests en verde**. **El dibujo no se
+    testea**; sí los tres conversores, que es de donde salen las unidades con
+    las que trabajan todas las herramientas.
+  - Los píxeles de los bordes se le **preguntan al `ViewBox`** en vez de
+    escribirse a mano: el gráfico tiene márgenes y ejes, así que el píxel 0 del
+    widget no es el segundo 0 de la ventana.
+  - Los dos conversores derivados son píxel→segundos y después `core.windows`:
+    la aritmética entre unidades no gráficas no se reimplementa acá.
+  - Un píxel fuera del área de dibujo **se recorta**. Sin eso, del margen del
+    gráfico sale una muestra fuera del registro.
+  - La banda de amplitud se dibuja con la escala de **su** canal, que es el dato
+    que el hito 7 le agregó a `BandOverlay`: por eso 75 µV miden en pantalla lo
+    mismo que 75 µV de la onda.
 - [ ] **`psglab/ui/navigation.py`** · 5 stubs · V1_F "Navegación"
 - [ ] **`psglab/ui/channel_selector.py`** · 6 stubs · V3_P, V4_F "Visualización"
 - [ ] **`psglab/ui/scoring_panel.py`** · 3 stubs · V1_F, V2_F, V3_F "Scoring"
