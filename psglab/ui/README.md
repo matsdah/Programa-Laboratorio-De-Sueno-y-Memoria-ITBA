@@ -103,14 +103,29 @@ ventanas de una noche, vuelve el programa inusable.
 
 ## Estado
 
-Pendientes **44 stubs**, en el
+Pendientes **37 stubs** en 5 módulos, en el
 [hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz). Es el último hito de
 lógica: depende de que `core/session.py` esté terminado (hito 3).
 
 Al cerrarlo, `python main.py` abre algo usable por primera vez.
 
-Esta capa **no lleva tests unitarios**, y por eso se la mantiene delgada: es la
-única que no se puede verificar sin levantar una ventana, así que todo lo que
-valga la pena verificar debería poder verificarse desde `core/`, `tools/` o
-`exporters/`. No es un olvido del TODO, y lo único que la ejercita es
+**Los widgets de esta capa no llevan tests unitarios**, y por eso se la mantiene
+delgada: dibujar no se puede verificar sin mirar una pantalla, así que todo lo
+que valga la pena verificar debería poder verificarse desde `core/`, `tools/` o
+`exporters/`. No es un olvido del TODO, y lo que ejercita el resto es
 `test_todos_los_modulos_del_paquete_se_pueden_importar`.
+
+**La regla se acotó en el hito 6, y conviene saber por qué.** Se había fijado con
+la carpeta vacía; al escribirla se vio que hay piezas que **no dibujan nada** y
+que son justo donde algo se rompe en silencio:
+
+- `shortcuts.py` deriva las teclas de fase de la nomenclatura. Una tabla
+  desincronizada se manifiesta como una tecla que no hace nada.
+- `grid.py` calcula posiciones. Acumular 0,5 sesenta veces corre la última línea
+  del borde.
+- Los tres conversores de `signal_view.py` son el **único** lugar del programa
+  que traduce entre píxeles, segundos, fracción de ventana y muestras.
+  Confundirlos produce números plausibles y equivocados.
+
+Ésos se testean, con una `QApplication` sin pantalla cuando hace falta. El resto
+—el dibujo— sigue sin testear, y esa parte de la regla no cambió.

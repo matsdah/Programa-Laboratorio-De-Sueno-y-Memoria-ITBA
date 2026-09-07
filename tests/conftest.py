@@ -9,6 +9,14 @@ antemano el resultado correcto. Si se genera una onda de 10 Hz, la PSD tiene
 que dar un pico en 10 Hz, y eso se puede afirmar en un test.
 """
 
+# **Antes de importar nada de Qt.** El plugin de plataforma se elige al crear la
+# `QApplication`, y "offscreen" es lo que permite que los tests de `ui/` corran
+# sin pantalla: en el CI no hay ninguna, y en una máquina de trabajo evita que
+# la suite abra ventanas por sorpresa.
+import os
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 import numpy as np
 import pytest
 
@@ -64,3 +72,22 @@ def channel_names() -> list[str]:
     "EMG-menton" como EMG por su prefijo.
     """
     return ["C3", "C4", "EOG-izq", "EMG-menton"]
+
+
+@pytest.fixture(scope="session")
+def qt_app():
+    """Una única `QApplication` para toda la suite.
+
+    **`ui/` no lleva tests unitarios de sus widgets**, y eso no cambia: la regla
+    mantiene la capa delgada y empuja la lógica a `core/`. Lo que sí se verifica
+    son las piezas que no dibujan —los conversores entre píxeles y unidades, y
+    la grilla— porque ahí vive el riesgo de confundir unidades que todo el
+    proyecto viene señalando, y porque son las únicas de `ui/` que se pueden
+    afirmar sin mirar una pantalla.
+
+    Es de alcance de sesión porque Qt no admite más de una `QApplication` por
+    proceso, y se reutiliza la que exista para no chocar con nada.
+    """
+    from PySide6.QtWidgets import QApplication
+
+    yield QApplication.instance() or QApplication([])

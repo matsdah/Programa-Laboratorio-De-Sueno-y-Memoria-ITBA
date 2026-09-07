@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los veintiuno
+camino de búsqueda. Con `pytest` directo la recolección falla en los veintitrés
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -69,6 +69,8 @@ verde por omisión, que es peor que dar rojo.
 | `test_annotator.py` | Anotar un evento, y que los segundos lleguen a la muestra correcta. |
 | `test_overview.py` | El panel de contexto: qué ventanas muestra y qué eventos caen en ellas. |
 | `test_histogram.py` | El hipnograma de la noche y la navegación por clic. |
+| `test_shortcuts.py` | Los atajos, y que los de fase se deriven de la nomenclatura. |
+| `test_grid.py` | La grilla de fondo: cuántas líneas y dónde caen. |
 | `test_occupancy.py` | La herramienta de ocupación horizontal. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 

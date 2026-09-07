@@ -17,6 +17,11 @@ import pyqtgraph as pg
 
 from psglab.config import COARSE_GRID_SECONDS, FINE_GRID_SECONDS
 
+#: Las dos plumas de la grilla. La fina es más clara a propósito: el pliego la
+#: llama "discreta", y una grilla que compite con la señal estorba el scoring.
+_PLUMA_VISIBLE = pg.mkPen(color=(160, 160, 160), width=1)
+_PLUMA_FINA = pg.mkPen(color=(220, 220, 220), width=1)
+
 
 def _segundos(valor: float) -> str:
     """Formatea una cantidad de segundos como la escribiría un lector en español.
@@ -54,11 +59,23 @@ class GridBackground:
 
     def __init__(self, plot: pg.PlotItem) -> None:
         """Asocia la grilla al gráfico donde se dibujan las señales."""
-        raise NotImplementedError("Pendiente: guardar la referencia al gráfico.")
+        self._plot = plot
+        self._style = BackgroundStyle.FULL
+        self._lines: list[pg.InfiniteLine] = []
+        #: La última ventana dibujada, para poder redibujar al cambiar de
+        #: fondo sin que quien llama tenga que repetir la duración.
+        self._window_seconds: float | None = None
+
+    @property
+    def style(self) -> BackgroundStyle:
+        """El fondo elegido por el usuario (V2_F)."""
+        return self._style
 
     def set_style(self, style: BackgroundStyle) -> None:
         """Cambia el fondo y redibuja las líneas (V2_F)."""
-        raise NotImplementedError("Pendiente: cambiar el estilo y redibujar.")
+        self._style = style
+        if self._window_seconds is not None:
+            self.redraw(self._window_seconds)
 
     def redraw(
         self,
@@ -78,8 +95,46 @@ class GridBackground:
             fine_seconds: separación de las líneas discretas (0,5 s, que la
                 divide en 60).
         """
-        raise NotImplementedError("Pendiente: dibujar las líneas de la grilla.")
+        self._window_seconds = window_seconds
+        self.clear()
+        if self._style is BackgroundStyle.BLANK:
+            return
+
+        # Las finas van primero para que las visibles queden encima: dibujadas
+        # al revés, una línea de 3 s coincide con una de 0,5 s y la tapa la que
+        # menos se tiene que ver.
+        if self._style is BackgroundStyle.FULL:
+            self._dibujar_serie(window_seconds, fine_seconds, _PLUMA_FINA)
+        self._dibujar_serie(window_seconds, coarse_seconds, _PLUMA_VISIBLE)
+
+    def _dibujar_serie(self, window_seconds: float, cada: float, pluma: object) -> None:
+        """Una línea vertical cada `cada` segundos, sin pasarse del borde.
+
+        Se cuenta con enteros y se multiplica, en vez de ir acumulando: sumar
+        0,5 sesenta veces acumula error de punto flotante y la última línea
+        queda corrida del borde.
+        """
+        if cada <= 0:
+            return
+        cantidad = int(window_seconds / cada)
+        for paso in range(cantidad + 1):
+            posicion = paso * cada
+            if posicion > window_seconds:
+                break
+            linea = pg.InfiniteLine(pos=posicion, angle=90, pen=pluma)
+            self._plot.addItem(linea)
+            self._lines.append(linea)
 
     def clear(self) -> None:
         """Borra todas las líneas de la grilla."""
-        raise NotImplementedError("Pendiente: quitar las líneas del gráfico.")
+        for linea in self._lines:
+            self._plot.removeItem(linea)
+        self._lines.clear()
+
+    def lines(self) -> list[pg.InfiniteLine]:
+        """Las líneas dibujadas ahora mismo.
+
+        Existe para poder afirmar sobre la grilla en un test sin mirar píxeles:
+        cuántas líneas hay y dónde están es lo que define el fondo.
+        """
+        return list(self._lines)
