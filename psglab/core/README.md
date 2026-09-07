@@ -39,6 +39,19 @@ el manejo de amplitudes sin abrir una ventana.
 
 Cuando agregues estado de trabajo nuevo, va acá, no en un widget.
 
+**Se sustituye adentro, no se arma otra.** `set_scoring()` existe porque
+importar un scoring (V3_F) no es abrir otro registro: el usuario sigue parado
+en su ventana, con sus canales y sus amplitudes. Una `Session` nueva los
+perdería, y además dejaría a las herramientas ya activadas apuntando a la
+vieja —guardan la que recibieron en `activate()`—, así que el histograma
+dibujaría el scoring anterior sin que nada fallara.
+
+**`Session` avisa sola cuando cambia de ventana**, por `add_window_listener()`.
+Son callbacks y no señales de Qt, por el mismo motivo que en `tools/base.py`.
+Quien navega no tiene que acordarse de avisarle a nadie: son tres las
+herramientas que dependen de enterarse, y el olvido no fallaba de forma
+visible.
+
 ## `windows.py`: el único lugar donde se convierten unidades de tiempo
 
 El programa habla en varias unidades a la vez: el usuario piensa en **ventanas

@@ -510,3 +510,76 @@ def test_un_aviso_que_no_se_puede_llamar_se_rechaza_al_registrarlo(session):
     de quién lo registró."""
     with pytest.raises(PsgLabError):
         session.add_window_listener(42)
+
+
+# -- Importar un scoring sobre la sesión abierta (V3_F) ---------------------
+
+
+def test_importar_un_scoring_lo_reemplaza(session):
+    from psglab.core.nomenclature import SleepStage
+
+    importado = Scoring(VENTANAS_SINTETICAS, Nomenclature.AASM)
+    importado.set_stage(0, SleepStage.N2)
+
+    session.set_scoring(importado)
+    assert session.scoring is importado
+    assert session.scoring.get(0).stage is SleepStage.N2
+
+
+def test_importar_un_scoring_no_mueve_al_usuario_de_ventana(session):
+    """**Es el motivo por el que el método existe.** Armar otra `Session` lo
+    devolvía a la ventana 0: quien importa un scoring a las tres de la mañana
+    de trabajo estaba parado en alguna ventana, y no en la primera."""
+    session.go_to_window(7)
+    session.set_scoring(Scoring(VENTANAS_SINTETICAS, Nomenclature.AASM))
+    assert session.current_window == 7
+
+
+def test_importar_un_scoring_conserva_los_canales_y_las_amplitudes(
+    session, channel_names
+):
+    """Lo otro que una `Session` nueva tiraba: el usuario se acomodó los
+    canales y las escalas antes de importar."""
+    session.set_visible_channels([channel_names[1]])
+    session.set_selected_channels([channel_names[1]])
+    session.set_scale_uv(channel_names[1], 123.0)
+
+    session.set_scoring(Scoring(VENTANAS_SINTETICAS, Nomenclature.AASM))
+
+    assert session.visible_channels == [channel_names[1]]
+    assert session.selected_channels == [channel_names[1]]
+    assert session.scale_uv(channel_names[1]) == 123.0
+
+
+def test_importar_un_scoring_no_desconecta_los_avisos(session):
+    """Las herramientas se suscribieron al abrir el registro. Si importar
+    reemplazara la sesión, seguirían avisando sobre la vieja."""
+    avisos: list[int] = []
+    session.add_window_listener(avisos.append)
+
+    session.set_scoring(Scoring(VENTANAS_SINTETICAS, Nomenclature.AASM))
+    session.next_window()
+
+    assert avisos == [1]
+
+
+def test_un_scoring_de_otro_registro_no_se_puede_importar(session):
+    """La misma guarda que en `__init__`, y por el mismo motivo: el archivo
+    llega suelto y nada dice que sea de este registro."""
+    with pytest.raises(ScoringMismatchError):
+        session.set_scoring(Scoring(VENTANAS_SINTETICAS + 5, Nomenclature.AASM))
+
+
+def test_un_scoring_rechazado_deja_el_anterior_en_su_lugar(session):
+    """Rechazar a mitad de camino dejaría al usuario sin el scoring que tenía."""
+    antes = session.scoring
+    with pytest.raises(ScoringMismatchError):
+        session.set_scoring(Scoring(1, Nomenclature.AASM))
+    assert session.scoring is antes
+
+
+def test_importar_puede_cambiar_la_nomenclatura(session):
+    """El archivo declara con qué se escribió y tiene prioridad
+    (`readers/scoring_reader.py`), así que la sesión tiene que aceptarlo."""
+    session.set_scoring(Scoring(VENTANAS_SINTETICAS, Nomenclature.RK))
+    assert session.scoring.nomenclature is Nomenclature.RK

@@ -160,6 +160,44 @@ class Session:
         """Anotaciones del registro abierto."""
         return self._annotations
 
+    def set_scoring(self, scoring: Scoring) -> None:
+        """Reemplaza el scoring por uno importado de archivo (V3_F).
+
+        **Por qué existe, en vez de armar otra `Session`.** Importar un scoring
+        no es abrir otro registro: el usuario sigue parado en la misma ventana,
+        con los mismos canales visibles y las amplitudes que se acomodó. Una
+        `Session` nueva los perdería todos, y además dejaría a las herramientas
+        ya activadas apuntando a la sesión vieja —siguen guardando la que
+        recibieron en `activate()`—, así que el histograma dibujaría el scoring
+        anterior sin que nada fallara. Sustituir acá adentro conserva la
+        identidad del objeto y no hay nada que volver a cablear.
+
+        Se hace la misma comprobación que en `__init__`, y por el mismo motivo:
+        el scoring llega suelto y nada garantiza que sea de este registro.
+
+        Raises:
+            ScoringMismatchError: si no es un `Scoring`, o si su cantidad de
+                ventanas no es la del registro abierto.
+        """
+        if not isinstance(scoring, Scoring):
+            raise ScoringMismatchError(
+                "No se pudo importar el scoring con lo que se le pasó.",
+                details=(
+                    f"scoring es {type(scoring).__name__}, se esperaba Scoring."
+                ),
+            )
+        if scoring.n_windows != self.n_windows:
+            raise ScoringMismatchError(
+                f"El scoring es de {scoring.n_windows} ventanas y el registro "
+                f"tiene {self.n_windows}, así que no corresponden al mismo "
+                "archivo.",
+                details=(
+                    f"scoring.n_windows = {scoring.n_windows}, "
+                    f"session.n_windows = {self.n_windows}."
+                ),
+            )
+        self._scoring = scoring
+
     # -- Navegación entre ventanas (V1_F de "Navegación") -------------------
 
     @property
