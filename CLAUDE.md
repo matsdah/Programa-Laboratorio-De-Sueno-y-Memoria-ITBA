@@ -58,8 +58,11 @@ sigue siendo cierta y el README de su carpeta también.
 qué falta. Duplicar el avance en los dos lugares garantiza que se
 desincronicen.
 
-[`docs/AUDITORIA.md`](docs/AUDITORIA.md) tampoco: es la foto fechada de lo que
-se encontró revisando el repositorio entero. Antes de abrir un hito conviene
+Las dos auditorías tampoco: [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (4 de
+septiembre) y
+[`docs/AUDITORIA-2026-09-07.md`](docs/AUDITORIA-2026-09-07.md) (7 de
+septiembre, al cerrarse la Parte 1) son fotos fechadas de lo que se encontró
+revisando el repositorio entero. Antes de abrir un hito conviene
 leer sus bloques "Medido en la auditoría", que están citados dentro del TODO en
 el hito al que le tocan. No son bugs abiertos sino decisiones que ese hito tiene
 que tomar: firmas que no pueden ser correctas en `statistics.py`, `Session` sin

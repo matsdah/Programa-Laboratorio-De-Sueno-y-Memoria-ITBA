@@ -71,6 +71,31 @@ pip install -r requirements.txt
 > Para usar los dos a la vez, dale al de WSL un directorio propio con
 > `python3 -m venv .venv-linux`. El `.gitignore` ya excluye cualquier `.venv*/`.
 
+> **Y uno por versión de Python.** La misma rotura ocurre sin WSL de por medio:
+> instalar otro Python —el instalador nuevo de python.org deja los suyos en
+> `%LOCALAPPDATA%\Python\pythoncore-3.X-64`— y volver a correr
+> `python -m venv .venv` sobre el entorno que ya existe le reescribe el
+> `pyvenv.cfg` apuntando al intérprete nuevo, **sin tocar los paquetes**, que
+> siguen compilados para el viejo.
+>
+> El síntoma no menciona el entorno para nada:
+>
+> ```
+> No module named 'numpy._core._multiarray_umath'
+> ```
+>
+> Se diagnostica mirando `.venv/pyvenv.cfg` —la línea `version` dice una cosa y
+> los `.pyd` de `.venv/Lib/site-packages/numpy/_core/` dicen `cp312`, `cp314`,
+> otra— y se repara sin reinstalar nada, apuntando `home` y `version` de vuelta
+> al intérprete con el que se creó el entorno. Si eso no alcanza:
+>
+> ```bash
+> python -m venv --clear .venv
+> ```
+>
+> y reinstalar los requirements. **Nunca corras `python -m venv` sobre un
+> `.venv` que ya existe** salvo con `--upgrade`, que es lo que sirve para esto.
+
 > **Y uno por ruta.** El entorno tampoco sobrevive a que le renombren o le
 > muevan la carpeta: cada `.exe` de `Scripts/` —`pip`, `pytest`,
 > `pip-licenses`— lleva grabada adentro la ruta absoluta del intérprete. Después
