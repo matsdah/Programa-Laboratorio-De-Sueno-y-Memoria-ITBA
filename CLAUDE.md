@@ -9,36 +9,33 @@ Este archivo está en español, como el resto de la documentación del proyecto
 
 ## Estado del proyecto
 
-**Esqueleto con la capa de negocio terminada**, con los hitos 0 a 3 cerrados:
-`core/` y `utils/` están **completas** —vocabulario de fases, modelo del
-registro, conversiones de tiempo, scoring, anotaciones y sesión—, así que toda
-la lógica de negocio se puede testear sin abrir una ventana. Lo que falta es
-leer archivos, exportarlos y la interfaz.
-`python main.py` termina en `NotImplementedError` dentro de `psglab/app.py`: es
-el comportamiento esperado, no un bug.
+**Parte 1 terminada**, con los hitos 0 a 7 cerrados: `python main.py` abre la
+ventana, lee un EDF o un BrainVision, se navega y se scorea con el teclado, las
+seis herramientas andan y los tres archivos de salida se escriben. Queda el
+hito 8, que es una lista de comprobación y no código nuevo.
+
+Lo que sigue elevando `NotImplementedError` es **`psglab/analysis/`, que es la
+Parte 2** y tiene sus propias dependencias, que el CI no instala.
 
 **Las cuentas del avance viven sólo en [`docs/TODO.md`](docs/TODO.md)** —cuántos
 stubs quedan, en cuántos módulos, qué hito está abierto— y
 `tests/test_consistencia.py` las verifica contra el código en cada corrida. No
 repetirlas acá: a este archivo no lo verifica nadie y se desincroniza.
 
-Los tests de los módulos que todavía no están implementados están apagados con
-`pytestmark = pytest.mark.skip(...)` cerca del principio del archivo. **Al
-implementar un componente hay que borrar esa línea del test correspondiente**, o
-el trabajo queda sin verificar; el chequeo
-`test_ningun_modulo_terminado_tiene_su_test_salteado` hace fallar la suite si
-alguien se olvida.
+Hoy no queda ningún test salteado, pero la convención sigue en pie para la
+Parte 2: los tests de un módulo sin implementar se apagan con
+`pytestmark = pytest.mark.skip(...)` cerca del principio del archivo, y **al
+implementar el componente hay que borrar esa línea**, o el trabajo queda sin
+verificar. El chequeo `test_ningun_modulo_terminado_tiene_su_test_salteado`
+hace fallar la suite si alguien se olvida.
 
-**Los nueve módulos ya cerrados sirven de modelo de qué se espera de un módulo
-terminado**: `core/windows.py`, `core/nomenclature.py`, `core/recording.py`,
-`core/scoring.py`, `core/annotations.py`, `core/session.py`,
-`utils/units.py`, `utils/errors.py` y `utils/validation.py`,
-cada uno con su test corriendo. Mirá `windows.py` para ver cómo se documenta lo
-que un módulo **no** valida, y `recording.py` para el criterio opuesto: rechazar
-al construir lo que no se puede arreglar después.
+**Los módulos de `core/` y `utils/` son el modelo de qué se espera de un módulo
+terminado.** Mirá `windows.py` para ver cómo se documenta lo que un módulo
+**no** valida, y `recording.py` para el criterio opuesto: rechazar al construir
+lo que no se puede arreglar después.
 
-Algunas piezas están implementadas a propósito y **no deben convertirse en
-`NotImplementedError`**: los nueve módulos de arriba, los decoradores
+Nada de la Parte 1 **debe volver a ser `NotImplementedError`**, y en particular
+tampoco los decoradores
 `@register_tool` y `@register_reader`, `Reader.can_read`, el despacho de
 `read_recording()` con `load_all_readers()`, los métodos de evento de `Tool` y
 `ViewerTool`, y `psglab/config.py` entero. Las últimas son infraestructura que

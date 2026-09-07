@@ -8,16 +8,19 @@ Nace para resolver las limitaciones de los programas actuales: formatos de impor
 limitados, scoring sólo manual, imposibilidad de anotar la señal, ausencia de métricas,
 compatibilidad únicamente con Windows y precios excesivos.
 
-> **Estado: la capa de negocio está terminada.** Los hitos 0 a 3 están cerrados,
-> así que ya funcionan el vocabulario de fases, el registro en memoria, las
-> conversiones de tiempo, las unidades, el scoring, las anotaciones y la sesión
-> de trabajo —y todo eso se testea **sin abrir una ventana**. Falta leer
-> archivos, exportarlos y la interfaz gráfica; esos módulos declaran su interfaz
-> y elevan `NotImplementedError`.
+> **Estado: la Parte 1 está terminada.** `python main.py` abre el programa:
+> importa registros en EDF y BrainVision, muestra la señal en ventanas de
+> 30 segundos, se navega y se scorea con el teclado, se anotan eventos, están
+> las seis herramientas —lupa, banda de amplitud, ocupación, Übersicht,
+> histograma y anotador— y se exportan los tres archivos de salida. Toda la
+> lógica se testea **sin abrir una ventana**.
 >
-> **Por dónde seguir: [`docs/TODO.md`](docs/TODO.md)**, que ordena los stubs
-> pendientes de la Parte 1 en hitos por dependencias y es el único lugar que
-> lleva la cuenta de lo que falta.
+> Falta el **módulo de análisis de bioseñales** (`psglab/analysis/`), que es la
+> Parte 2: esos módulos declaran su interfaz y elevan `NotImplementedError`.
+>
+> **Por dónde seguir: [`docs/TODO.md`](docs/TODO.md)**, que ordena el trabajo en
+> hitos por dependencias y es el único lugar que lleva la cuenta de lo que
+> falta.
 
 ---
 
