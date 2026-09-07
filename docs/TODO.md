@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **77 stubs** (`raise NotImplementedError`) en 12 módulos de la Parte 1.
+Quedan **59 stubs** (`raise NotImplementedError`) en 10 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -57,9 +57,9 @@ nada**. Un verde por omisión es peor que un rojo.
 | [4. Importación](#hito-4-importación) | — | 0 | ✅ cerrado |
 | [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
-| [7. Herramientas](#hito-7-herramientas) | 4 | 31 | ⬜ |
+| [7. Herramientas](#hito-7-herramientas) | 2 | 13 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **12** | **77** | |
+| | **10** | **59** | |
 
 ### Los tres cortes que importan
 
@@ -562,10 +562,17 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
   - Borrar una línea compara la altura del clic con la de la línea **en esa
     posición horizontal**, interpolando. Con un rectángulo envolvente, una
     diagonal larga se borraría desde muy lejos de donde está dibujada.
-- [ ] **`psglab/tools/magnifier.py`** · 9 stubs · V1_F, V2_F "Lupa" ·
+- [x] **`psglab/tools/magnifier.py`** · ~~9 stubs~~ · V1_F, V2_F "Lupa" ·
       `ViewerTool`
-  - Test: **crear** `tests/test_magnifier.py` (el contador de picos es
-    testeable sin dibujar nada).
+  - Test: `tests/test_magnifier.py`, **25 tests en verde**. El contador se
+    testea sin dibujar nada, que es el motivo de que la herramienta no herede
+    de `QObject`.
+  - **No dibuja antes de que el mouse entre al visualizador**: un círculo en una
+    posición inventada aparecería al activarla, lejos de donde el usuario mira.
+  - El botón derecho descuenta y **el contador no baja de cero**: una cuenta de
+    picos negativa no significa nada.
+  - Desactivarla **conserva la cuenta**. El usuario apaga la lupa para ver la
+    señal sin el círculo encima y vuelve; reiniciar ahí le perdería el trabajo.
 - [ ] **`psglab/tools/overview.py`** · 6 stubs · V1_F, V2_F, V3_F "Übersicht" ·
       `Tool`
   - Test: **crear** `tests/test_overview.py`. La cantidad de vecinas es
@@ -575,11 +582,20 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
   - Test: **crear** `tests/test_histogram.py`.
   - Su `on_click(x_fraction)` es propio: un clic cae en una ventana de la
     noche, no en un segundo de la ventana actual.
-- [ ] **`psglab/tools/annotator.py`** · 9 stubs · V1_F "Anotación" ·
+- [x] **`psglab/tools/annotator.py`** · ~~9 stubs~~ · V1_F "Anotación" ·
       `ViewerTool`
-  - El índice de los puntos lo fijó el hito 0 en 0: sale de
-    `config.ANNOTATION_SAMPLE_BASE`.
-  - Test: **crear** `tests/test_annotator.py`.
+  - Test: `tests/test_annotator.py`, **18 tests en verde**.
+  - **La conversión a muestras es lo que más importa** y tiene su test: en la
+    ventana 1, el segundo 5 es la muestra 3500. Escribir la cuenta a mano deja
+    la anotación en la ventana de al lado cuando la frecuencia no es redonda, y
+    nada lo hace visible: la banda se dibuja igual, sólo que en otro lado.
+  - **La herramienta no abre ningún diálogo**, porque no conoce Qt. Deja el
+    tramo en `pending_selection_samples` y avisa; la ventana principal pregunta
+    la clase y llama a `create_annotation()`. Es lo que permite testear el gesto
+    entero sin abrir una ventana.
+  - Las anotaciones viven en el `AnnotationSet` de la sesión y no en la
+    herramienta: es el gesto, no el dato. Por eso desactivarla no borra nada,
+    pero sí descarta una selección a medias.
 
 `tools/base.py` y `tools/registry.py` **ya están implementados** y no tienen
 stubs, pero eso no es lo mismo que estar verificados:

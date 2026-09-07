@@ -56,6 +56,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     ),
     "test_scoring_reader.py": ("psglab/readers/scoring_reader.py",),
     "test_amplitude_band.py": ("psglab/tools/amplitude_band.py",),
+    "test_magnifier.py": ("psglab/tools/magnifier.py",),
+    "test_annotator.py": ("psglab/tools/annotator.py",),
     "test_registry.py": (
         "psglab/tools/registry.py",
         "psglab/tools/base.py",

@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los diecisiete
+camino de búsqueda. Con `pytest` directo la recolección falla en los diecinueve
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -65,6 +65,8 @@ verde por omisión, que es peor que dar rojo.
 | `test_registry.py` | El registro de herramientas y su clase base: el punto de extensión. |
 | `test_amplitude_band.py` | La banda de 75 µV, y sobre qué canal se dibuja. |
 | `test_occupancy.py` | La ocupación horizontal: los ejemplos del pliego y el gesto del mouse. |
+| `test_magnifier.py` | La lupa y su contador de picos, que se cuenta sin dibujar nada. |
+| `test_annotator.py` | Anotar un evento, y que los segundos lleguen a la muestra correcta. |
 | `test_occupancy.py` | La herramienta de ocupación horizontal. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 
