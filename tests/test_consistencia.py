@@ -19,7 +19,7 @@ request.
 import ast
 import pathlib
 import re
-import unicodedata as _ud
+import unicodedata
 
 import pytest
 
@@ -181,6 +181,33 @@ def archivos_markdown() -> list[pathlib.Path]:
         p
         for p in RAIZ.rglob("*.md")
         if not any(parte.startswith(".") or parte in generados for parte in p.parts)
+    )
+
+
+def documentos_versionados() -> list[pathlib.Path]:
+    """Los `.md` **y `docs/EXPLICACION.txt`**, que es documentación igual.
+
+    Estaba afuera de todos los chequeos de prosa por ser un `.txt`, y la
+    segunda auditoría lo encontró siendo el **último sobreviviente** de la
+    afirmación de que el programa no abría: la misma frase se corrigió en
+    `CLAUDE.md` y en el `README.md` dos veces, y acá siguió intacta. Es, además,
+    el documento escrito para el cliente.
+    """
+    return [*archivos_markdown(), RAIZ / "docs" / "EXPLICACION.txt"]
+
+
+def sin_acentos(texto: str) -> str:
+    """El texto en minúsculas y sin tildes ni diéresis.
+
+    `EXPLICACION.txt` se escribe en ASCII a propósito —hay un chequeo que lo
+    exige—, así que buscarle "ambigüedad abierta" con diéresis no podía
+    encontrar nada nunca. Comparar normalizado es lo que hace que incluirlo
+    sirva de algo.
+    """
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFD", texto.lower())
+        if unicodedata.category(c) != "Mn"
     )
 
 
@@ -352,12 +379,19 @@ def test_lo_que_tests_readme_dice_de_la_suite_es_cierto():
     # mención cualquiera: buscar la subcadena en el archivo entero daba verde
     # aunque la fila no existiera, porque el nombre aparece en el ejemplo de
     # `python -m pytest tests/test_scoring.py` de la primera sección.
-    en_la_tabla = {
+    # **Lista y no conjunto.** Comparando conjuntos, una fila repetida es
+    # invisible: la segunda auditoría encontró `test_occupancy.py` dos veces,
+    # con descripciones distintas, y borrar la repetida no movió la suite.
+    filas = [
         nombre
         for linea in texto.splitlines()
         if linea.lstrip().startswith("|")
         for nombre in re.findall(r"`(test_\w+\.py)`", linea)
-    }
+    ]
+    repetidas = sorted({n for n in filas if filas.count(n) > 1})
+    if repetidas:
+        problemas.append(f"tests/README.md repite filas en su tabla: {repetidas}")
+    en_la_tabla = set(filas)
     for archivo in archivos:
         if archivo.name not in en_la_tabla:
             problemas.append(f"tests/README.md no lista {archivo.name} en su tabla")
@@ -541,7 +575,7 @@ def test_la_explicacion_se_mantiene_en_ascii():
     culpables = [
         (numero, linea)
         for numero, linea in enumerate(texto.splitlines(), 1)
-        if any(ord(c) > 127 for c in _ud.normalize("NFD", linea))
+        if any(ord(c) > 127 for c in unicodedata.normalize("NFD", linea))
     ]
     assert not culpables, f"líneas con caracteres no ASCII: {culpables[:5]}"
 
@@ -627,9 +661,9 @@ def test_la_marca_de_pendiente_que_citan_los_documentos_existe_en_el_codigo():
         " ".join(f.read_text(encoding="utf-8").split()) for f in modulos_del_paquete()
     )
     faltantes: list[str] = []
-    for md in archivos_markdown():
-        if md.name == "AUDITORIA.md":
-            continue  # Es una foto fechada: cita a propósito lo que estaba mal.
+    for md in documentos_versionados():
+        if md.name.startswith("AUDITORIA"):
+            continue  # Son fotos fechadas: citan a propósito lo que estaba mal.
         for marca in re.findall(r"`(PENDIENTE DE [^`]+)`", md.read_text(encoding="utf-8")):
             # La marca puede venir partida en dos líneas por el ancho del
             # párrafo, así que se compara sin los saltos.
@@ -661,14 +695,13 @@ def test_una_ambiguedad_declarada_abierta_lo_esta_de_verdad():
         for f in modulos_del_paquete()
         if "PENDIENTE DE" in docstring_de(f)
     }
-    prohibidas = ("ambigüedad abierta", "ambigüedades abiertas", "hasta que el cliente confirme")
-    exentos = {"TODO.md", "AUDITORIA.md"}
+    prohibidas = ("ambiguedad abierta", "ambiguedades abiertas", "hasta que el cliente confirme")
     apariciones: list[str] = []
-    for md in archivos_markdown():
-        if md.name in exentos:
+    for md in documentos_versionados():
+        if md.name == "TODO.md" or md.name.startswith("AUDITORIA"):
             continue
         texto = md.read_text(encoding="utf-8")
-        if not any(frase in texto.lower() for frase in prohibidas):
+        if not any(frase in sin_acentos(texto) for frase in prohibidas):
             continue
         nombrados = {f"psglab/{m}" for m in re.findall(r"`(\w+\.py)`", texto)}
         nombrados.update(re.findall(r"`(psglab/[^`]+\.py)`", texto))
@@ -694,7 +727,7 @@ def test_ningun_documento_repite_un_parrafo():
     se repiten con toda razón.
     """
     repetidos: list[str] = []
-    for md in archivos_markdown():
+    for md in documentos_versionados():
         vistos: dict[str, int] = {}
         for bloque in re.split(r"\n\s*\n", md.read_text(encoding="utf-8")):
             normalizado = " ".join(bloque.split())
@@ -1169,13 +1202,32 @@ def test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato():
 
 
 def test_las_exenciones_de_contrato_siguen_existiendo():
-    """Una exención que apunte a algo borrado tapa un módulo nuevo por accidente."""
-    inexistentes = [
-        objetivo
-        for objetivo in SIN_CONTRATO
-        if not (RAIZ / objetivo.split("::")[0]).exists()
-    ]
-    assert not inexistentes, f"SIN_CONTRATO nombra archivos que no existen: {inexistentes}"
+    """Una exención que apunte a algo borrado tapa un módulo nuevo por accidente.
+
+    **Se valida también el símbolo, no sólo el archivo.** La versión anterior
+    cortaba en `::` y miraba nada más el `.py`, así que renombrar `clamp` dejaba
+    la exención en pie apuntando a una función que ya no existe: silenciosa,
+    y lista para eximir a cualquier cosa que algún día se llamara igual.
+    """
+    problemas: list[str] = []
+    for objetivo in SIN_CONTRATO:
+        archivo, _, simbolo = objetivo.partition("::")
+        ruta = RAIZ / archivo
+        if not existe_respetando_mayusculas(ruta):
+            problemas.append(f"{objetivo}: el archivo no existe")
+            continue
+        if not simbolo:
+            continue
+        definidos = {
+            nodo.name
+            for nodo in ast.walk(ast.parse(ruta.read_text(encoding="utf-8")))
+            if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        }
+        if simbolo not in definidos:
+            problemas.append(f"{objetivo}: {archivo} ya no define {simbolo!r}")
+    assert not problemas, "SIN_CONTRATO exime cosas que no existen:\n" + "\n".join(
+        problemas
+    )
 
 
 # -- Que el paquete entero se pueda importar --------------------------------
@@ -1227,3 +1279,91 @@ def test_todos_los_modulos_del_paquete_se_pueden_importar():
         f"el recorrido encontró {encontrados} módulos y en el disco hay {esperados}: "
         "algo cortó la enumeración del paquete"
     )
+
+
+# -- Que las tablas no nombren lo que ya no existe ---------------------------
+
+
+def test_la_trazabilidad_no_nombra_archivos_que_ya_no_existen():
+    """El chequeo inverso, que faltaba.
+
+    `test_cada_modulo_aparece_en_la_trazabilidad` va de módulo a tabla y atrapa
+    el módulo nuevo sin fila. Al revés no había nada: una fila que nombre un
+    archivo renombrado o borrado quedaba invisible, y la tabla existe
+    justamente para responder qué requisitos rompe tocar un archivo. Con la
+    fila apuntando a la nada, esa pregunta se responde mal.
+
+    `COBERTURA_DE_TESTS` y `SIN_CONTRATO` ya tenían su chequeo de existencia;
+    éste le da el mismo trato a la trazabilidad.
+    """
+    trazabilidad = RAIZ / "docs" / "TRAZABILIDAD.md"
+    texto = trazabilidad.read_text(encoding="utf-8")
+    inexistentes = sorted(
+        {
+            citado
+            for linea in texto.splitlines()
+            if linea.lstrip().startswith("|")
+            for citado in re.findall(r"`(psglab/[^`]+\.py|main\.py)`", linea)
+            if not existe_respetando_mayusculas(RAIZ / citado)
+        }
+    )
+    assert not inexistentes, (
+        "docs/TRAZABILIDAD.md nombra en sus tablas archivos que no existen: "
+        f"{inexistentes}"
+    )
+
+
+def test_las_exenciones_de_test_propio_siguen_existiendo():
+    """Lo mismo para `SIN_TEST_PROPIO`.
+
+    Una exención que nombra un archivo borrado no molesta a nadie, y por eso se
+    queda: el día que alguien cree un módulo con ese nombre, arranca exento de
+    tener test sin que nadie lo haya decidido.
+    """
+    inexistentes = sorted(
+        ruta for ruta in SIN_TEST_PROPIO if not existe_respetando_mayusculas(RAIZ / ruta)
+    )
+    assert not inexistentes, (
+        f"SIN_TEST_PROPIO exime archivos que ya no existen: {inexistentes}"
+    )
+
+
+def test_cada_readme_de_carpeta_nombra_sus_archivos():
+    """La tabla "Los archivos" de cada README, en las dos direcciones.
+
+    Es el patrón de `test_cada_modulo_aparece_en_la_trazabilidad` aplicado a los
+    ocho README de `psglab/`. Sin él, un módulo nuevo puede quedar fuera del
+    mapa de su propia carpeta —que es lo primero que lee quien llega— y una fila
+    puede sobrevivir al archivo que describe.
+
+    Vale una **fila de tabla o un encabezado propio**: la raíz del paquete
+    documenta sus dos archivos sueltos con una sección cada uno, y eso es
+    inventario igual. Lo que no cuenta es la mención al pasar en un párrafo,
+    que no pretende serlo.
+    """
+    problemas: list[str] = []
+    for readme in sorted(RAIZ.joinpath("psglab").rglob("README.md")):
+        carpeta = readme.parent
+        propios = sorted(
+            f.name for f in carpeta.glob("*.py") if f.name != "__init__.py"
+        )
+        if not propios:
+            continue
+        inventariados: set[str] = set()
+        for linea in readme.read_text(encoding="utf-8").splitlines():
+            pelada = linea.lstrip()
+            if pelada.startswith("|") or pelada.startswith("#"):
+                inventariados.update(re.findall(r"`([a-z_0-9]+\.py)`", linea))
+        for archivo in propios:
+            if archivo not in inventariados:
+                problemas.append(
+                    f"{ruta_relativa(readme)} no inventaría {archivo}: no lo nombra "
+                    "ni en una fila de tabla ni en un encabezado"
+                )
+        sobrantes = sorted(n for n in inventariados if n not in propios)
+        if sobrantes:
+            problemas.append(
+                f"{ruta_relativa(readme)} inventaría archivos que la carpeta no "
+                f"tiene: {sobrantes}"
+            )
+    assert not problemas, "\n".join(problemas)
