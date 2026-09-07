@@ -164,8 +164,9 @@ class Tool(ABC):
         """El usuario navegó a otra ventana.
 
         No hace nada por defecto: una herramienta sobrescribe este método sólo
-        si le interesa enterarse. El medidor de ocupación lo usa para borrar
-        sus líneas (V5_F) y la Übersicht para redibujarse.
+        si le interesa enterarse. Hoy lo usan tres: el medidor de ocupación
+        para borrar sus líneas (V5_F), la Übersicht para recentrarse y el
+        histograma para mover su indicador.
         """
         return None
 

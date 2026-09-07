@@ -140,10 +140,10 @@ movido.
 corre con `python -m pytest` como cualquier otro test. Conviene saber qué va a
 rechazar antes de dar por terminado un cambio:
 
-- Las **tres** cuentas de stubs de `docs/TODO.md` —el resumen del principio, las
-  filas de la tabla de progreso y la fila de totales— tienen que coincidir con
-  el código. **Implementar un stub obliga a actualizar el TODO en el mismo
-  commit.**
+- Las **cuatro** cuentas de stubs de `docs/TODO.md` —el resumen del principio,
+  los ítems `· N stubs` de cada módulo, las filas de la tabla de progreso y la
+  fila de totales— tienen que coincidir con el código. **Implementar un stub
+  obliga a actualizar el TODO en el mismo commit.**
 - Todo módulo de `psglab/` lleva `Cubre del pliego:` en su docstring, y sus IDs
   coinciden con `docs/TRAZABILIDAD.md` **en las dos direcciones**. Los módulos de
   infraestructura también la llevan, declarando que no cubren ningún ID.
@@ -161,7 +161,9 @@ rechazar antes de dar por terminado un cambio:
   del propio test, que dice qué módulos cubre. **Agregar un archivo de test
   obliga a agregar esa fila**; si no, quedaría fuera del chequeo anterior.
 - Cada `README.md` de carpeta declara sus pendientes con la frase literal
-  `Pendientes **N stubs** en M módulos`, y se verifican **los dos números**. En
+  `Pendientes **N stubs**`, que es obligatoria; el `en M módulos` es opcional y
+  se verifica **sólo si está** —hoy lo omiten `core/`, `utils/` y `analysis/`—.
+  En
   el hito 1 hubo cuatro commits seguidos que corrigieron el de stubs y ninguno
   el de módulos, que quedó en 29 cuando ya eran 26.
 - `tests/README.md` también: su tabla tiene que nombrar todos los archivos de

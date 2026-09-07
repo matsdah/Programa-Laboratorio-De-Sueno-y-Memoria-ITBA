@@ -3,7 +3,7 @@
 Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
     +--------------------------------------------------------------+
-    |  Menú: Archivo | Ver | Herramientas | Análisis | Ayuda        |
+    |  Menú: Archivo | Ver | Herramientas | Ayuda   (Análisis: P2)  |
     +--------------------------------------------------------------+
     |  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
     +------------------+-------------------------------------------+

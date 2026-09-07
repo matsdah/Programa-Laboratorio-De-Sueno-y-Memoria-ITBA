@@ -14,7 +14,7 @@ del pliego (sección 7). El otro punto de extensión es
 | Archivo | Herramienta | Base | Pliego |
 |---|---|---|---|
 | `base.py` | Los dos contratos: `Tool` y `ViewerTool`. | — | Base de las seis |
-| `registry.py` | `@register_tool`, `available_tools()`, `load_all_tools()`. | — | — |
+| `registry.py` | `@register_tool`, `available_tools()`, `get_tool()`, `load_all_tools()`. | — | — |
 | `amplitude_band.py` | Banda de referencia de 75 µV, adaptada a la escala del usuario. | `ViewerTool` | V1_F de "Herramienta de amplitud" |
 | `occupancy.py` | Líneas dibujadas con el mouse y su porcentaje de ocupación horizontal. | `ViewerTool` | V1_F–V5_F de "Ocupación de la página" |
 | `magnifier.py` | Lupa: zoom circular y contador de picos. | `ViewerTool` | V1_F, V2_F de "Herramienta Lupa" |
@@ -103,7 +103,14 @@ La respuesta es que **una herramienta no dibuja: publica qué querría ver**.
 
 ```python
 def overlays(self) -> Sequence[Overlay]:
-    return [BandOverlay(tool_name=self.name, y_center_uv=y, height_uv=75.0)]
+    return [
+        BandOverlay(
+            tool_name=self.name,
+            y_center_uv=y,
+            height_uv=AMPLITUDE_BAND_UV,
+            channel_name=canal,   # obligatorio: la escala es por canal
+        )
+    ]
 ```
 
 Un `Overlay` es un dataclass inmutable con coordenadas en **segundos y
@@ -131,8 +138,9 @@ argumento de más. Vale para `on_changed` y para `on_window_requested`.
 ## `on_window_changed`
 
 Lo hereda todo lo que sea `Tool`. No hace nada por defecto; sobrescribilo sólo
-si a tu herramienta le importa enterarse de que el usuario navegó. El medidor de
-ocupación lo usa para borrar sus líneas (V5_F) y la Übersicht para redibujarse.
+si a tu herramienta le importa enterarse de que el usuario navegó. Hoy lo usan
+**tres**: el medidor de ocupación para borrar sus líneas (V5_F), la Übersicht
+para recentrarse y el histograma para mover su indicador.
 
 ## Las unidades que no son segundos
 
