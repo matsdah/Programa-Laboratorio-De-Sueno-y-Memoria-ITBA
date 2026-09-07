@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **95 stubs** (`raise NotImplementedError`) en 14 módulos de la Parte 1.
+Quedan **90 stubs** (`raise NotImplementedError`) en 13 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -57,9 +57,9 @@ nada**. Un verde por omisión es peor que un rojo.
 | [4. Importación](#hito-4-importación) | — | 0 | ✅ cerrado |
 | [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
-| [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
+| [7. Herramientas](#hito-7-herramientas) | 5 | 44 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **14** | **95** | |
+| | **13** | **90** | |
 
 ### Los tres cortes que importan
 
@@ -526,16 +526,23 @@ Antes de escribir una, leé [`tools/README.md`](../psglab/tools/README.md): el
 sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
 (coordenadas propias del panel).
 
-> **Medido en la auditoría:** `BandOverlay` lleva `y_center_uv` y `height_uv`
-> pero **no lleva canal**, y `Session.scale_uv()` es por canal. Con dos canales
-> a escalas distintas, esos 75 µV no tienen una única traducción a píxeles y
-> `signal_view.py` no tiene con qué elegir. O el overlay dice sobre qué canal
-> va, o la banda se define en coordenadas de pantalla y deja de ser 75 µV.
+> **Resuelto:** `BandOverlay` lleva ahora `channel_name`. La otra salida que
+> planteaba la auditoría —definir la banda en coordenadas de pantalla—
+> contradecía el pliego: en píxeles deja de medir microvoltios, y adaptarse a la
+> amplitud elegida por el usuario es todo el sentido de la herramienta (V1_F).
+> Se agregó antes de que `signal_view.py` exista, que era el momento barato.
 
-- [ ] **`psglab/tools/amplitude_band.py`** · 5 stubs · V1_F "Herramienta de
+- [x] **`psglab/tools/amplitude_band.py`** · ~~5 stubs~~ · V1_F "Herramienta de
       amplitud" · `ViewerTool`
-  - Test: **crear** `tests/test_amplitude_band.py`. Los 75 µV salen de
-    `config.AMPLITUDE_BAND_UV`.
+  - Test: `tests/test_amplitude_band.py`, **23 tests en verde**. Los 75 µV salen
+    de `config.AMPLITUDE_BAND_UV`, y también el texto que ve el usuario en la
+    barra: un literal ahí le mentiría el día que alguien cambie la constante.
+  - **Resuelve el hallazgo de la auditoría sobre `BandOverlay`**, que no llevaba
+    canal. Ver más abajo.
+  - El canal sobre el que va la banda es **el seleccionado**, que es lo que pide
+    el pliego al decir que se adapte a "la amplitud de la señal elegida por el
+    usuario". Sin ninguno seleccionado cae al primero visible, para que la
+    herramienta sirva apenas se abre un registro.
 - [ ] **`psglab/tools/occupancy.py`** · 13 stubs · V1_F–V5_F "Ocupación" ·
       `ViewerTool`
   - V2_F y V4_F: el hito 0 fijó que la superposición se cuenta **dos veces**,

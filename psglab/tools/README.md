@@ -161,7 +161,7 @@ y parametrizado en `config.OCCUPANCY_COUNTS_OVERLAP_ONCE` (hoy `False`). Ver el
 
 ## Estado
 
-Pendientes **49 stubs**, en el
+Pendientes **44 stubs** en 5 módulos, en el
 [hito 7 del TODO](../../docs/TODO.md#hito-7-herramientas). Las seis
 herramientas son independientes entre sí, así que **se pueden repartir**.
 

@@ -55,10 +55,20 @@ class Overlay:
 
 @dataclass(frozen=True)
 class BandOverlay(Overlay):
-    """Banda horizontal de altura fija. La usa la herramienta de amplitud."""
+    """Banda horizontal de altura fija. La usa la herramienta de amplitud.
+
+    **Lleva el canal, y no es un adorno.** `Session.scale_uv()` es por canal, así
+    que con dos canales dibujados a escalas distintas una altura de 75 µV no
+    tiene una única traducción a píxeles: `signal_view.py` no tendría con qué
+    elegir. La alternativa era definir la banda en coordenadas de pantalla, pero
+    entonces dejaría de medir microvoltios y la herramienta perdería su sentido
+    —el pliego pide justamente que la banda **se adapte** a la amplitud elegida
+    por el usuario (V1_F)—.
+    """
 
     y_center_uv: float
     height_uv: float
+    channel_name: str
 
 
 @dataclass(frozen=True)
