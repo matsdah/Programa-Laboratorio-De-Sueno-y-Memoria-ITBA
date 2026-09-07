@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **103 stubs** (`raise NotImplementedError`) en 17 módulos de la Parte 1.
+Quedan **95 stubs** (`raise NotImplementedError`) en 14 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -55,11 +55,11 @@ nada**. Un verde por omisión es peor que un rojo.
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | — | 0 | ✅ cerrado |
 | [3. Sesión](#hito-3-sesión) | — | 0 | ✅ cerrado |
 | [4. Importación](#hito-4-importación) | — | 0 | ✅ cerrado |
-| [5. Exportadores](#hito-5-exportadores) | 3 | 8 | ⬜ |
+| [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **17** | **103** | |
+| | **14** | **95** | |
 
 ### Los tres cortes que importan
 
@@ -437,31 +437,50 @@ había previsto leyendo el código.
     `Informacion.txt` publica las dos rotuladas distinto.
   - `episode_metrics()` tampoco cambia: mide la estructura del sueño, no un
     total publicado.
-- [ ] **`psglab/exporters/scoring_txt.py`** · 3 stubs · V1_F "Archivo de salida"
-  - **Las variantes de formato tienen que seguir siendo alcanzables** cambiando
-    sólo la constante de `config`: el nº de ventana por línea y la cabecera de
-    nomenclatura.
-  - `format_header()` escribe la cabecera que lee
-    `readers/scoring_reader.py::detect_nomenclature()`.
-- [ ] **`psglab/exporters/annotations_txt.py`** · 2 stubs · V2_F "Archivo de
+- [x] **`psglab/exporters/scoring_txt.py`** · ~~3 stubs~~ · V1_F "Archivo de salida"
+  - Los 7 tests que ya estaban escritos en `tests/test_exporters.py` pasaron
+    **sin tocarlos**: eran la especificación del formato, con el ejemplo textual
+    del pliego.
+  - Las dos variantes siguen alcanzables desde `config`, y hay un test por cada
+    una que lo verifica en vez de confiar en que nadie escriba un `if`.
+  - `format_header()` escribe el **nombre corto** del enum: "# AASM", "# RK".
+    `detect_nomenclature()` acepta también el largo, así que el contrato cierra
+    por los dos lados.
+- [x] **`psglab/exporters/annotations_txt.py`** · ~~2 stubs~~ · V2_F "Archivo de
       salida"
-  - El índice de los puntos lo fijó el hito 0 en 0: sale de
-    `config.ANNOTATION_SAMPLE_BASE`, no se escribe a mano.
-- [ ] **`psglab/exporters/information_txt.py`** · 3 stubs · V3_F "Archivo de
+  - El índice de los puntos sale de `config.ANNOTATION_SAMPLE_BASE`, no se
+    escribe a mano.
+  - El separador dentro de una etiqueta **se reemplaza, no se escapa**: escapar
+    obliga a que todo programa que lea el archivo conozca la convención, y este
+    archivo existe para que lo consuman análisis de terceros. Perder una barra
+    en un nombre es barato; una línea de cuatro campos rompe el parseo de la
+    noche entera. El salto de línea recibe el mismo trato.
+- [x] **`psglab/exporters/information_txt.py`** · ~~3 stubs~~ · V3_F "Archivo de
       salida"
   - Las secciones que no correspondan se omiten con una explicación, no con
     ceros.
-  - Test: **extender** `tests/test_exporters.py`, que hoy **no lo importa**.
-    Mismo caso que `statistics.py`.
-- [ ] Test de los cuatro: `tests/test_exporters.py` → **borrar el
-      `pytestmark`** y extenderlo a `statistics`.
-- [ ] **Test de ida y vuelta de la cabecera**, que cruza este hito y el 4:
-      exportar un scoring en AASM, releerlo con `read_scoring()` sin pasarle la
-      nomenclatura, y verificar que sale AASM. Es un contrato entre dos módulos
-      de hitos distintos, del tipo que se rompe en silencio si nadie lo fija.
+  - Publica **las dos** medidas de tiempo rotuladas distinto, que es lo que su
+    docstring pedía: la duración real del registro y el tiempo que abarcan las
+    ventanas.
+  - Agrega una sección de canales que **avisa cuándo un canal venía a otra
+    frecuencia**. Sin eso, un canal de 1 Hz sobremuestreado por MNE se leería
+    como si tuviera la resolución del EEG.
+  - `format_duration()` no cumplía su propio ejemplo en la primera versión: le
+    faltaba el cero adelante de los segundos. Hay un test parametrizado contra
+    el ejemplo del docstring.
+- [x] Test de los cuatro: `tests/test_exporters.py`, **34 tests en verde**, sin
+      `pytestmark`. Con esto la suite baja de 14 salteados a 7: los que quedan
+      son los de `test_occupancy`, del hito 7.
+- [x] **Test de ida y vuelta de la cabecera**, que cruza este hito y el 4:
+      exportar, releer sin pasar la nomenclatura, y verificar que sale la misma.
+      Parametrizado sobre las dos. Se verifica además que las fases y los
+      arousals sobrevivan el viaje, porque que la cabecera vuelva no alcanza.
 
 > **Cerrado el hito 5, el programa hace su trabajo entero desde un script, sin
-> interfaz.** Vale la pena escribir ese script y guardarlo como verificación.
+> interfaz.** Quedó como test y no como script suelto —
+> `test_el_programa_hace_su_trabajo_entero_desde_un_script`— para que corra solo
+> en cada push: lee el EDF real, scorea, exporta los tres archivos y los relee.
+> Se saltea sin `data/`, con el mismo patrón del hito 4.
 
 ---
 

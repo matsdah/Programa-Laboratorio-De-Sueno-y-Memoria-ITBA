@@ -26,9 +26,9 @@ Los tests de los módulos que todavía no están implementados están
 pytestmark = pytest.mark.skip(reason="Esqueleto: la lógica todavía no está implementada.")
 ```
 
-La llevan **los tests de los hitos que todavía no se abrieron**:
-`test_exporters` (hito 5) y `test_occupancy` (7). Los demás corren, porque sus
-módulos están cerrados o —como `test_consistencia.py`— no cubren ninguno.
+La llevan **los tests de los hitos que todavía no se abrieron**: hoy sólo
+`test_occupancy` (7). Los demás corren, porque sus módulos están cerrados o
+—como `test_consistencia.py`— no cubren ninguno.
 
 **Los números concretos —cuántos se recolectan y cuántos se saltean— no se
 escriben acá**, porque un número a mano en este archivo se desactualiza con el
@@ -162,10 +162,11 @@ regla se rompió**, no qué función se llamó.
 El [TODO](../docs/TODO.md) lleva la cuenta. Cada módulo que se implementa
 arrastra su test, y **eso es parte de darlo por terminado**:
 
-- **Reactivar** (borrar el `pytestmark`): `test_exporters` (hito 5),
-  `test_occupancy` (7).
-- **Crear**: `test_channel_types`, `test_readers`, `test_scoring_reader`
-  (hito 4), y uno por herramienta (7).
+- **Reactivar** (borrar el `pytestmark`): `test_occupancy` (7).
+- **Crear**: uno por herramienta (7).
+
+Los del hito 4 —`test_channel_types`, `test_readers`, `test_scoring_reader`— ya
+existen, y `test_exporters` se reactivó al cerrar el hito 5.
 - **Extender**: `test_exporters` para que cubra de verdad `statistics.py` e
   `information_txt.py` (5), que hoy no importa.
 
