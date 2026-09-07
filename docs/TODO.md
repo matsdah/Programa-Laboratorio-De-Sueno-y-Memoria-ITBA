@@ -563,14 +563,22 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
 `tools/base.py` y `tools/registry.py` **ya están implementados** y no tienen
 stubs, pero eso no es lo mismo que estar verificados:
 
-- [ ] **`psglab/tools/registry.py` y `psglab/tools/base.py`** · 0 pendientes ·
-      les falta el test: **crear** `tests/test_registry.py`
-  - Que `@register_tool` eleve `DuplicateToolError` con dos herramientas del
-    mismo nombre, que `get_tool` eleve `UnknownToolError`, que `load_all_tools`
-    encuentre las seis y no se rompa si se la llama dos veces, y que los
-    métodos de evento de `Tool` y `ViewerTool` no hagan nada por defecto en vez
-    de elevar. Es el mecanismo del que dependen las seis herramientas y hoy no
-    lo verifica nada.
+- [x] **`psglab/tools/registry.py` y `psglab/tools/base.py`** · 0 pendientes ·
+      `tests/test_registry.py`, **20 tests en verde**
+  - Va **antes** que las seis herramientas y no después: es el mecanismo del que
+    cuelgan todas, y si estuviera roto el síntoma aparecería en seis lugares y
+    en ninguno se vería la causa.
+  - Quedan fijados el rechazo por nombre repetido, el autodescubrimiento de las
+    seis, que cargar dos veces no duplique, y que los métodos de evento **no
+    hagan nada por defecto** en vez de elevar, que es decisión de
+    `ARQUITECTURA.md`.
+  - También que `on_changed` se asigne **sobre la instancia y no sobre la
+    clase**: en la clase Python lo convertiría en un método ligado y la llamada
+    pasaría `self` de más. Lo advertía un comentario de `base.py` y ahora hay un
+    test que lo sostiene.
+  - Y que sólo sean exclusivas las tres que compiten por el mouse. Marcar
+    exclusivo un panel apagaría al anotador cada vez que el usuario mira el
+    histograma.
 
 ---
 

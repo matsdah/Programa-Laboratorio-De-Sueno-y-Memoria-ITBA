@@ -55,6 +55,10 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
         "psglab/readers/brainvision.py",
     ),
     "test_scoring_reader.py": ("psglab/readers/scoring_reader.py",),
+    "test_registry.py": (
+        "psglab/tools/registry.py",
+        "psglab/tools/base.py",
+    ),
     "test_occupancy.py": ("psglab/tools/occupancy.py",),
     # `information_txt.py` y `statistics.py` **no** figuran acá aunque el TODO
     # los agrupe con los otros dos: `test_exporters.py` ni siquiera los importa.
