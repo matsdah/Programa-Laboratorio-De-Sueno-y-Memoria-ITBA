@@ -319,7 +319,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader`, `read_recording` y `load_all_readers` corren al
     importar. **No convertirlos en stubs.**
-  - Test: `tests/test_readers.py`, **38 tests en verde**, que cubre este módulo
+  - Test: `tests/test_readers.py`, **45 tests en verde**, que cubre este módulo
     y los dos de abajo. El autodescubrimiento y el despacho se testean con un
     lector de mentira, sin ningún archivo real.
 - [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
