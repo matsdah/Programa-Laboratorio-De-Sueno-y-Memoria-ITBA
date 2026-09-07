@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **109 stubs** (`raise NotImplementedError`) en 18 módulos de la Parte 1.
+Quedan **103 stubs** (`raise NotImplementedError`) en 17 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -55,11 +55,11 @@ nada**. Un verde por omisión es peor que un rojo.
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | — | 0 | ✅ cerrado |
 | [3. Sesión](#hito-3-sesión) | — | 0 | ✅ cerrado |
 | [4. Importación](#hito-4-importación) | — | 0 | ✅ cerrado |
-| [5. Exportadores](#hito-5-exportadores) | 4 | 14 | ⬜ |
+| [5. Exportadores](#hito-5-exportadores) | 3 | 8 | ⬜ |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **18** | **109** | |
+| | **17** | **103** | |
 
 ### Los tres cortes que importan
 
@@ -421,12 +421,22 @@ había previsto leyendo el código.
 > alimentan la tabla de tiempos de `Informacion.txt`, así que el error se
 > publica. Cambiar la firma es parte de este hito, no de otro.
 
-- [ ] **`psglab/exporters/statistics.py`** · 6 stubs · alimenta V3_F
+- [x] **`psglab/exporters/statistics.py`** · ~~6 stubs~~ · alimenta V3_F
       "Archivo de salida"
   - No escribe archivos: por eso se puede testear sin tocar el disco.
-  - Test: **extender** `tests/test_exporters.py`, que hoy **no lo importa**.
-    Figuraba como cubierto en `COBERTURA_DE_TESTS` sin estarlo, y eso hacía que
-    nadie exigiera un test para sus 6 stubs.
+  - Test: **falta**, se extiende `tests/test_exporters.py` al reactivarlo.
+  - **`stage_durations_seconds()` cambió de firma**, que era lo que la auditoría
+    pedía: recibe `n_samples` y `sampling_rate` y suma
+    `windows.window_duration()` ventana por ventana. Verificado sobre un
+    registro de 4 ventanas cuya última dura 10 s: la tabla por fase suma
+    exactamente la duración real, y multiplicar la cuenta le habría atribuido
+    20 s de más a la fase de esa ventana.
+  - **`scored_time_seconds()` no se tocó**, y ahí la auditoría se equivocaba: su
+    docstring ya declara que contar ventanas completas es deliberado. Sobre el
+    mismo caso da 120 s contra 100 s de duración real. Son dos magnitudes, y
+    `Informacion.txt` publica las dos rotuladas distinto.
+  - `episode_metrics()` tampoco cambia: mide la estructura del sueño, no un
+    total publicado.
 - [ ] **`psglab/exporters/scoring_txt.py`** · 3 stubs · V1_F "Archivo de salida"
   - **Las variantes de formato tienen que seguir siendo alcanzables** cambiando
     sólo la constante de `config`: el nº de ventana por línea y la cabecera de

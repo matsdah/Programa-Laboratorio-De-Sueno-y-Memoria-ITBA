@@ -99,7 +99,7 @@ python -m pytest tests/test_exporters.py
 
 ## Estado
 
-Pendientes **14 stubs**, en el
+Pendientes **8 stubs** en 3 módulos, en el
 [hito 5 del TODO](../../docs/TODO.md#hito-5-exportadores).
 
 **Ninguno está bloqueado.** `annotations_txt.py` lo estuvo hasta que el
