@@ -141,6 +141,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("increase_amplitude(factor=...)", lambda v: sesion().increase_amplitude(v)),
         ("decrease_amplitude(factor=...)", lambda v: sesion().decrease_amplitude(v)),
         ("set_active_tool", lambda v: sesion().set_active_tool(v)),
+        ("add_window_listener", lambda v: sesion().add_window_listener(v)),
     ],
     "psglab/utils/units.py": [
         ("conversion_factor", lambda v: units.conversion_factor(v)),

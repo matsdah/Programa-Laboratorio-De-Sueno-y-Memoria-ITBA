@@ -13,6 +13,8 @@ Cubre del pliego: V1_F de "Navegación en la señal"; V2_P, V3_P y V5_F de
 donde llega el clic sobre el hipnograma).
 """
 
+from collections.abc import Callable
+
 from psglab.config import (
     AMPLITUDE_STEP_FACTOR,
     DEFAULT_SCALE_UV,
@@ -25,6 +27,7 @@ from psglab.core.scoring import Scoring
 from psglab.core.windows import count_windows
 from psglab.utils.errors import (
     ChannelNotFoundError,
+    PsgLabError,
     InvalidAnnotationError,
     InvalidRecordingError,
     InvalidScaleError,
@@ -117,6 +120,9 @@ class Session:
             nombre: inicial for nombre in recording.channel_names()
         }
         self._active_tool: str | None = None
+        #: A quién avisarle cuando cambia la ventana actual. Ver
+        #: `add_window_listener()`.
+        self._window_listeners: list[Callable[[int], None]] = []
 
     def _check_channels(self, channel_names: list[str]) -> None:
         """Rechaza cualquier nombre que el registro no tenga.
@@ -171,6 +177,55 @@ class Session:
         """
         return count_windows(self._recording.n_samples, self._recording.sampling_rate)
 
+    def add_window_listener(self, callback: Callable[[int], None]) -> None:
+        """Registra a quién avisarle cuando el usuario cambia de ventana.
+
+        **Por qué `Session` avisa en vez de que lo haga la ventana principal.**
+        Hay tres herramientas que dependen de enterarse: el medidor de ocupación
+        borra sus líneas (V5_F de "Ocupación"), la Übersicht se recentra y el
+        histograma mueve su indicador. Si la obligación de avisarles viviera en
+        `ui/main_window.py`, dependería de que alguien se acuerde de llamarlas
+        después de cada `go_to_window()`, `next_window()` y `previous_window()`
+        —en la única capa que no lleva tests unitarios— y un olvido rompería las
+        tres **sin que nada fallara de forma visible**: las líneas de la ventana
+        anterior seguirían dibujadas sobre la siguiente como si midieran algo.
+
+        Es un callback y no una señal de Qt por el mismo motivo que en
+        `tools/base.py`: `core/` no conoce `ui/`, y así esto se testea sin abrir
+        una ventana.
+
+        No hay forma de desuscribirse y no hace falta: una herramienta
+        desactivada ya ignora el aviso, porque lo primero que hace
+        `on_window_changed()` es comprobar que tenga sesión.
+
+        Raises:
+            PsgLabError: si lo que se registra no se puede llamar. Se comprueba
+                acá y no al avisar porque **acá está el bug**: guardado sin
+                mirar, reventaría con un `TypeError` crudo la próxima vez que el
+                usuario apretara una flecha, tres capas más arriba y sin
+                ninguna pista de quién lo registró.
+        """
+        if not callable(callback):
+            raise PsgLabError(
+                "No se pudo preparar la sesión para avisar de los cambios de ventana.",
+                details=(
+                    f"Se registró un aviso de tipo {type(callback).__name__}, "
+                    "que no se puede llamar."
+                ),
+            )
+        self._window_listeners.append(callback)
+
+    def _notify_window_changed(self, window_index: int) -> None:
+        """Avisa a los suscriptos. **Sólo si la ventana cambió de verdad.**
+
+        Llegar al final de la noche con la flecha derecha no es un cambio de
+        ventana, y avisarlo le borraría al usuario las líneas de ocupación que
+        acaba de dibujar sin que él haya ido a ningún lado. Lo mismo vale para
+        un clic del histograma sobre la ventana que ya se está viendo.
+        """
+        for avisar in self._window_listeners:
+            avisar(window_index)
+
     def go_to_window(self, window_index: int) -> None:
         """Salta a una ventana concreta.
 
@@ -199,7 +254,10 @@ class Session:
                     f"n_windows = {self.n_windows}."
                 ),
             )
+        if window_index == self._current_window:
+            return
         self._current_window = window_index
+        self._notify_window_changed(window_index)
 
     def next_window(self) -> None:
         """Avanza una ventana. En la última no hace nada.
@@ -209,11 +267,13 @@ class Session:
         """
         if self._current_window < self.n_windows - 1:
             self._current_window += 1
+            self._notify_window_changed(self._current_window)
 
     def previous_window(self) -> None:
         """Retrocede una ventana. En la primera no hace nada."""
         if self._current_window > 0:
             self._current_window -= 1
+            self._notify_window_changed(self._current_window)
 
     # -- Canales visibles (V3_P, V4_F de "Visualización") -------------------
 

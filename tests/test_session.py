@@ -26,6 +26,7 @@ from conftest import VENTANAS_SINTETICAS
 from psglab.utils.errors import (
     ChannelNotFoundError,
     ScoringMismatchError,
+    PsgLabError,
     WindowOutOfRangeError,
 )
 
@@ -398,3 +399,114 @@ def test_un_canal_visible_dos_veces_recibe_el_paso_una_sola_vez(session):
     session.set_visible_channels(["C3", "C3", "C4"])
     session.increase_amplitude()
     assert session.scale_uv("C3") == pytest.approx(session.scale_uv("C4"))
+
+
+# -- El aviso de cambio de ventana (decisión del hito 6) ---------------------
+
+
+def test_navegar_avisa_a_quien_se_haya_suscripto(session):
+    """**El motivo por el que esto vive en `core/` y no en la ventana principal.**
+
+    Hay tres herramientas que dependen de enterarse: la ocupación borra sus
+    líneas (V5_F), la Übersicht se recentra y el histograma mueve su indicador.
+    Si el aviso viviera en `ui/main_window.py`, dependería de que alguien se
+    acuerde de llamarlas después de cada navegación, en la única capa sin tests,
+    y un olvido rompería las tres sin que nada fallara de forma visible.
+    """
+    avisos: list[int] = []
+    session.add_window_listener(avisos.append)
+
+    session.next_window()
+    assert avisos == [1]
+
+
+def test_avisa_desde_las_tres_puertas_que_cambian_de_ventana(session):
+    """`go_to_window()`, `next_window()` y `previous_window()`.
+
+    Se dispara desde adentro de cada una y no desde quien las llama: ese es el
+    punto de la decisión.
+    """
+    avisos: list[int] = []
+    session.add_window_listener(avisos.append)
+
+    session.next_window()
+    session.previous_window()
+    session.go_to_window(2)
+    assert avisos == [1, 0, 2]
+
+
+def test_el_aviso_lleva_la_ventana_nueva(session):
+    """La herramienta necesita saber a cuál se fue, no sólo que se movió."""
+    avisos: list[int] = []
+    session.add_window_listener(avisos.append)
+    session.go_to_window(2)
+    assert avisos == [2]
+
+
+def test_llegar_al_final_no_es_un_cambio_de_ventana(session):
+    """**Avisar acá le borraría al usuario lo que acaba de dibujar.**
+
+    Quien mantiene apretada la flecha derecha llega a la última y se queda ahí.
+    Si eso contara como cambio, el medidor de ocupación limpiaría sus líneas sin
+    que el usuario se haya movido a ningún lado.
+    """
+    avisos: list[int] = []
+    session.go_to_window(session.n_windows - 1)
+    session.add_window_listener(avisos.append)
+
+    session.next_window()
+    assert avisos == []
+
+
+def test_llegar_al_principio_tampoco(session):
+    avisos: list[int] = []
+    session.add_window_listener(avisos.append)
+    session.previous_window()
+    assert avisos == []
+
+
+def test_ir_a_la_ventana_que_ya_se_esta_viendo_no_avisa(session):
+    """Es el clic del histograma sobre la ventana actual: no hay que borrar
+    nada, porque el usuario no fue a ninguna parte."""
+    avisos: list[int] = []
+    session.go_to_window(1)
+    session.add_window_listener(avisos.append)
+
+    session.go_to_window(1)
+    assert avisos == []
+
+
+def test_se_puede_suscribir_mas_de_uno(session):
+    """Son al menos tres herramientas a la vez."""
+    primero: list[int] = []
+    segundo: list[int] = []
+    session.add_window_listener(primero.append)
+    session.add_window_listener(segundo.append)
+
+    session.next_window()
+    assert primero == segundo == [1]
+
+
+def test_sin_nadie_suscripto_navegar_no_rompe(session):
+    """Es el caso de un test, y el de una sesión recién abierta."""
+    session.next_window()
+    assert session.current_window == 1
+
+
+def test_una_ventana_que_no_existe_no_avisa(session):
+    """El error se eleva antes de tocar el estado, así que tampoco hay que
+    avisar de un cambio que no ocurrió."""
+    avisos: list[int] = []
+    session.add_window_listener(avisos.append)
+
+    with pytest.raises(WindowOutOfRangeError):
+        session.go_to_window(999)
+    assert avisos == []
+
+
+def test_un_aviso_que_no_se_puede_llamar_se_rechaza_al_registrarlo(session):
+    """Guardado sin mirar, reventaría con un TypeError crudo la próxima vez que
+    el usuario apretara una flecha: tres capas más arriba, y sin ninguna pista
+    de quién lo registró."""
+    with pytest.raises(PsgLabError):
+        session.add_window_listener(42)

@@ -257,7 +257,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **43 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **53 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `n_windows` sale de `windows.count_windows()` sobre el registro, que es la
     fuente de verdad, y `__init__` eleva `ScoringMismatchError` si el scoring no
@@ -491,12 +491,16 @@ Primera vez que el programa se puede abrir. `ui/` **no lleva tests unitarios**:
 por eso la capa se mantiene delgada y toda la regla vive en `core/`. No es un
 olvido.
 
-> **Medido en la auditoría:** `Session` **no tiene mecanismo de notificación**
-> —ni callbacks, ni observadores, ni señales—, así que V5_F depende por entero
-> de que `main_window.py` se acuerde de llamar a `Tool.on_window_changed()`
-> después de cada `go_to_window()`, `next_window()` y `previous_window()`.
-> Son 10 stubs y la única capa sin tests: es el peor lugar posible para dejar
-> una obligación que nadie verifica. Decidir acá si `Session` avisa sola.
+> **Resuelto: `Session` avisa sola.** Gana `add_window_listener()`, y las tres
+> puertas que cambian de ventana avisan desde adentro. El hito 7 volvió urgente
+> la decisión: hay **tres** herramientas que dependen de enterarse —la ocupación
+> borra sus líneas (V5_F), la Übersicht se recentra y el histograma mueve su
+> indicador— y dejar esa obligación en la única capa sin tests significaba que
+> un olvido las rompía a las tres sin que nada fallara de forma visible.
+>
+> No avisa cuando la ventana **no cambió**: llegar al final con la flecha
+> derecha, o hacer clic en el histograma sobre la ventana actual, le borraría al
+> usuario las líneas que acaba de dibujar sin que se haya movido a ningún lado.
 
 - [ ] **`psglab/ui/grid.py`** · 4 stubs · V1_P, V2_F "Diseño de la interfaz"
 - [ ] **`psglab/ui/signal_view.py`** · 13 stubs · V1_P, V2_P, V4_F, V5_F
