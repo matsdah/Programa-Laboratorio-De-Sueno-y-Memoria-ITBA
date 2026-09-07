@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **26 stubs** (`raise NotImplementedError`) en 5 módulos de la Parte 1.
+Quedan **12 stubs** (`raise NotImplementedError`) en 2 módulos de la Parte 1.
 **Todos son del hito 6**: es lo único que falta para terminar la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
@@ -57,10 +57,10 @@ nada**. Un verde por omisión es peor que un rojo.
 | [3. Sesión](#hito-3-sesión) | — | 0 | ✅ cerrado |
 | [4. Importación](#hito-4-importación) | — | 0 | ✅ cerrado |
 | [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
-| [6. Interfaz](#hito-6-interfaz) | 5 | 26 | ⬜ |
+| [6. Interfaz](#hito-6-interfaz) | 2 | 12 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | — | 0 | ✅ cerrado |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **5** | **26** | |
+| | **2** | **12** | |
 
 ### Los tres cortes que importan
 
@@ -524,9 +524,30 @@ olvido.
   - La banda de amplitud se dibuja con la escala de **su** canal, que es el dato
     que el hito 7 le agregó a `BandOverlay`: por eso 75 µV miden en pantalla lo
     mismo que 75 µV de la onda.
-- [ ] **`psglab/ui/navigation.py`** · 5 stubs · V1_F "Navegación"
-- [ ] **`psglab/ui/channel_selector.py`** · 6 stubs · V3_P, V4_F "Visualización"
-- [ ] **`psglab/ui/scoring_panel.py`** · 3 stubs · V1_F, V2_F, V3_F "Scoring"
+- [x] **`psglab/ui/navigation.py`** · ~~5 stubs~~ · V1_F "Navegación"
+  - **Es el único lugar donde se suma el 1** para mostrar la ventana en base 1.
+    Adentro son base 0 de punta a punta; convertir al mostrar y no antes evita
+    que la cuenta se corra en algún camino intermedio.
+  - Los botones **piden, no navegan**: emiten la señal y quien la escucha
+    decide. La regla de qué ventana existe sigue en `core/`.
+- [x] **`psglab/ui/channel_selector.py`** · ~~6 stubs~~ · V3_P, V4_F
+      "Visualización"
+  - Agrupa por clase y permite mostrar u ocultar **toda una clase de una vez**,
+    que es el atajo que pide el pliego para los EOG y los EMG.
+  - Los canales se devuelven en el **orden del archivo** y no en el del árbol:
+    el árbol los agrupa por clase, y el visualizador los apila como se grabaron.
+  - Visibilidad y selección son ejes independientes, igual que en `Session`.
+- [x] **`psglab/ui/scoring_panel.py`** · ~~3 stubs~~ · V1_F, V2_F, V3_F
+      "Scoring"
+  - Los botones salen de `stages_of()`, igual que los atajos de teclado y por el
+    mismo motivo.
+  - **Reflejar no es elegir.** Mientras el panel muestra el scoring de la
+    ventana a la que se navegó, los controles no emiten: si lo hicieran, llegar
+    a una ventana ya scoreada la volvería a scorear y llegar a una sin scorear
+    borraría lo que hubiera.
+  - El aviso de que cambiar de nomenclatura pierde información **no se da acá**:
+    el panel emite y la ventana principal decide si pregunta, porque el panel no
+    conoce el scoring.
 - [x] **`psglab/ui/shortcuts.py`** · ~~3 stubs~~ · flechas y teclas de fase
   - Test: `tests/test_shortcuts.py`, **17 tests en verde**. Las dos funciones que
     importan se llaman **sin ninguna `QApplication`**.
