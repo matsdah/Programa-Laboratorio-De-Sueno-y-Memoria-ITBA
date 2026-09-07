@@ -2,11 +2,12 @@
 
 | Archivo | Para qué sirve | Cuándo se toca |
 |---|---|---|
-| [`TODO.md`](TODO.md) | **La cola de trabajo.** Qué falta de la Parte 1, ordenado por dependencias en hitos. Es el único lugar que lleva estado. | Al empezar y al cerrar cada módulo. |
+| [`TODO.md`](TODO.md) | **La cola de trabajo.** Qué falta, ordenado por dependencias en hitos. Es el único lugar que lleva estado. Hoy: cerrada la Parte 1, quedan el hito 8 y la Parte 2. | Al empezar y al cerrar cada módulo. |
 | [`ARQUITECTURA.md`](ARQUITECTURA.md) | **Decisiones de diseño y sus motivos.** Capas, puntos de extensión, licencias, convenciones de código. | Cada vez que se revisa una decisión: hay que anotar el motivo del cambio. |
 | [`TRAZABILIDAD.md`](TRAZABILIDAD.md) | **Requisito del pliego → archivo responsable.** | Cada vez que se agrega una funcionalidad, **en el mismo commit**. |
 | [`EXPLICACION.txt`](EXPLICACION.txt) | Explicación general del programa en texto plano, para quien no lee código. Su sección 8 lista lo que falta definir. | Cuando el cliente cierra una ambigüedad. |
-| [`AUDITORIA.md`](AUDITORIA.md) | **Foto fechada** de las incongruencias que se encontraron revisando el repositorio entero. No lleva estado: lo que falta hacer vive en `TODO.md`. | No se toca. Si hace falta otra revisión, se escribe una nueva. |
+| [`AUDITORIA.md`](AUDITORIA.md) | **Foto fechada** de las incongruencias que se encontraron revisando el repositorio entero, el 4 de septiembre de 2026. No lleva estado: lo que falta hacer vive en `TODO.md`. | No se toca. Si hace falta otra revisión, se escribe una nueva. |
+| [`AUDITORIA-2026-09-07.md`](AUDITORIA-2026-09-07.md) | La segunda, al cerrarse la Parte 1. Fue a buscar la prosa que envejeció en los cuatro hitos que entraron en dos días, que es lo que ningún chequeo puede verificar. | Igual: no se toca. |
 | `mockups/` | Bocetos de la interfaz. | — |
 
 ## Por qué existe `ARQUITECTURA.md`
@@ -58,7 +59,8 @@ resumen para el lector no técnico, en `EXPLICACION.txt`, sección 8.
 **No se listan acá.** Una copia más de esa lista es una copia más para
 desincronizar, y ya pasó: al cerrarse el hito 0, siete README de carpeta
 siguieron pidiendo confirmar lo que el cliente ya había confirmado. Está
-documentado en [`AUDITORIA.md`](AUDITORIA.md).
+documentado en [`AUDITORIA.md`](AUDITORIA.md), y volvió a pasar al cerrarse la
+Parte 1: lo cuenta [`AUDITORIA-2026-09-07.md`](AUDITORIA-2026-09-07.md).
 
 Queda **una sola** genuinamente abierta, y es de la Parte 2: de dónde salen las
 impedancias de los electrodos, si el archivo no las trae. El módulo que la

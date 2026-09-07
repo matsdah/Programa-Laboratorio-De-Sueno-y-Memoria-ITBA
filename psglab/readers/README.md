@@ -82,9 +82,14 @@ tipo es. La detección usa el nombre (las posiciones del sistema 10-20 como
 "C3" o "Fz" son EEG; el prefijo "EMG" es EMG) y la unidad declarada.
 
 Es una heurística sobre nombres que escribió una persona, así que va a fallar
-en algún registro. Por eso la clase detectada es un punto de partida que el
-usuario puede corregir desde
-[`ui/channel_selector.py`](../ui/README.md), no una decisión definitiva.
+en algún registro.
+
+**Hoy no se puede corregir a mano, y es una limitación conocida.** `Channel` es
+inmutable (`@dataclass(frozen=True)`) y
+[`ui/channel_selector.py`](../ui/README.md) agrupa por clase pero no reasigna
+ninguna. El daño está acotado: la clase decide cómo se agrupan los canales en el
+selector y qué dice la etiqueta, no cómo se lee ni cómo se dibuja la señal, así
+que un canal mal clasificado se ve y se scorea igual.
 
 ## Por qué MNE-Python
 
@@ -117,8 +122,8 @@ Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
 estaban implementados antes del hito 4 y a propósito: sostienen el punto de
 extensión y **no deben convertirse en stubs**.
 
-Lo que falta de esta carpeta no es código sino sus tests, `test_readers.py` y
-`test_scoring_reader.py`, que cierran el hito.
+Sus dos tests, `test_readers.py` y `test_scoring_reader.py`, cierran el hito y
+están corriendo.
 
 `available_readers()` devuelve **clases**, no instancias, igual que
 `tools.registry.available_tools()`. Los dos son los puntos de extensión del

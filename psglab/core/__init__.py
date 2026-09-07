@@ -5,7 +5,8 @@ lo que permite testear el modelo, el scoring y las estadísticas sin abrir una
 ventana gráfica, y es la base del testeo recurrente que pide el pliego
 (sección 7).
 
-Sólo depende de la biblioteca estándar y de numpy.
+Sólo depende de la biblioteca estándar, de numpy y de `psglab.utils` y
+`psglab.config`.
 
 Cubre del pliego: ningún ID propio del paquete. Los cubren sus módulos.
 """

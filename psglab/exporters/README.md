@@ -72,10 +72,10 @@ convertir y el problema salta enseguida. Ver el
 ## `Informacion.txt`
 
 Resumen legible del registro y de lo que se hizo sobre él: nombre del archivo,
-duración del registro en horas y en puntos, tiempo scoreado, duración en cada
-fase, métricas de tiempo
-por fase (promedio, desvío estándar y mediana) y lista de anotaciones con
-cantidad y tiempo promedio.
+frecuencia de muestreo, duración del registro en horas y en puntos, listado de
+canales con su clase y su unidad, tiempo abarcado por las ventanas scoreadas,
+duración en cada fase, métricas de tiempo por fase (promedio, desvío estándar y
+mediana) y lista de anotaciones con cantidad y tiempo promedio.
 
 **Las secciones que no correspondan se omiten con una explicación en vez de
 mostrar ceros.** Un archivo que dice "el registro no está scoreado" es más útil
@@ -85,7 +85,12 @@ ninguna ventana en esa fase.
 ## `statistics.py` no escribe archivos
 
 Calcula: cantidad de ventanas y duración por fase, episodios de cada fase y sus
-métricas, resumen de anotaciones y tiempo total de registro. Separarlo del
+métricas, resumen de anotaciones y `scored_time_seconds()`.
+
+**Ese último no es la duración del registro**, y el nombre importa: se llamaba
+`total_recording_time` y con ese nombre `Informacion.txt` imprimía dos números
+distintos que parecían el mismo. El informe lo rotula "Tiempo abarcado por las
+ventanas" por el mismo motivo. Separarlo del
 exportador es lo que permite **testear los números sin escribir en disco** y
 reutilizarlos si mañana hacen falta en pantalla o en un análisis.
 

@@ -79,8 +79,12 @@ cada decisión está en el
 
 ## Convenciones
 
-- Identificadores y nombres de archivo en **inglés**; comentarios, docstrings y
-  todo texto que ve el usuario, en **español**.
+- **La API pública y los nombres de archivo, en inglés**; comentarios,
+  docstrings, documentación y todo texto que ve el usuario, en **español**.
+  Adentro de un módulo —variables locales, funciones privadas, constantes de
+  módulo— se escribe en español, que es el idioma en que se razona el problema:
+  `_linea_debajo()`, `TOLERANCIA_DE_CLIC_UV`. Lo que cruza el borde del módulo
+  no: `read_recording`, `scale_uv`, `on_window_changed`.
 - **Cada módulo abre con un docstring** que dice de qué se ocupa y qué IDs del
   pliego cubre. Esa línea es la que alimenta [`docs/TRAZABILIDAD.md`](../docs/TRAZABILIDAD.md).
 - Type hints en todas las firmas.
@@ -89,7 +93,7 @@ cada decisión está en el
 
 ## Estado
 
-**Parte 1 terminada**: los 42 módulos del paquete importan —51 archivos `.py`
+**Parte 1 terminada**: los 43 módulos del paquete importan —51 archivos `.py`
 contando los ocho `__init__.py`— y ninguno de la Parte 1 eleva ya
 `NotImplementedError`. Lo que sigue elevando es `analysis/`, que es la Parte 2.
 

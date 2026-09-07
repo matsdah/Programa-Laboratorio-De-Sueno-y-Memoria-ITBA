@@ -69,11 +69,11 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
         "psglab/tools/base.py",
     ),
     "test_occupancy.py": ("psglab/tools/occupancy.py",),
-    # `information_txt.py` y `statistics.py` **no** figuran acá aunque el TODO
-    # los agrupe con los otros dos: `test_exporters.py` ni siquiera los importa.
-    # Declararlos cubiertos contaba 9 stubs como verificados y hacía que nadie
-    # exigiera un test para ellos. Se agregan cuando el archivo los cubra de
-    # verdad, que es lo que el hito 5 ya pide.
+    # `information_txt.py` y `statistics.py` estuvieron fuera de esta fila hasta
+    # el hito 5, porque `test_exporters.py` no los importaba y declararlos
+    # cubiertos contaba 9 stubs como verificados mientras nadie exigía un test
+    # para ellos. Entraron cuando el archivo pasó a cubrirlos de verdad, que es
+    # lo que `test_la_tabla_de_cobertura_declara_lo_que_el_test_importa` exige.
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",
@@ -1143,8 +1143,9 @@ def test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato():
     línea de `Scoring.txt`. Dos de ellos, los del constructor de `Session`, no
     los encontró ninguna sonda escrita a mano sino este chequeo.
 
-    Sólo se exige de `core/` y `utils/`: son las capas terminadas. `tools/` tiene
-    su propio test prometido en el hito 7 y `ui/` no lleva tests unitarios.
+    Sólo se exige de `core/` y `utils/`, donde vive la regla de negocio.
+    `tools/` tiene un test por herramienta, y de `ui/` se testea lo que no
+    dibuja.
     """
     declarados = contratos_declarados()
     faltantes: list[str] = []
