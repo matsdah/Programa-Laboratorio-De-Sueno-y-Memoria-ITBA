@@ -54,7 +54,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [1. Cimientos](#hito-1-cimientos) | — | 0 | ✅ cerrado |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | — | 0 | ✅ cerrado |
 | [3. Sesión](#hito-3-sesión) | — | 0 | ✅ cerrado |
-| [4. Importación](#hito-4-importación) | 0 | 0 | ⬜ |
+| [4. Importación](#hito-4-importación) | — | 0 | ✅ cerrado |
 | [5. Exportadores](#hito-5-exportadores) | 4 | 14 | ⬜ |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
@@ -172,7 +172,8 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     `ui/signal_view.py`, que es lo único que conoce el ancho de la pantalla.
 - [x] **`psglab/core/nomenclature.py`** · ~~5 stubs~~ · V3_F "Scoring",
       V3_F "Histograma"
-  - Test: `tests/test_nomenclature.py`, **37 tests en verde**.
+  - Test: `tests/test_nomenclature.py`, **45 tests en verde**. Los ocho
+    últimos son de `stage_from_code()`, que agregó el hito 4.
   - REM va en las dos nomenclaturas. El test ya lo verificaba: no se tocó.
   - `is_valid(UNSCORED, ...)` da **`True`** aunque `stages_of()` no la incluya.
     Es el punto donde las dos funciones dejan de responder lo mismo:
@@ -310,12 +311,15 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader`, `read_recording` y `load_all_readers` corren al
     importar. **No convertirlos en stubs.**
-  - Test: **crear** `tests/test_readers.py`, que cubre este módulo y los dos de
-    abajo. El autodescubrimiento y el despacho se pueden testear con un lector
-    de mentira, sin ningún archivo real.
+  - Test: `tests/test_readers.py`, **38 tests en verde**, que cubre este módulo
+    y los dos de abajo. El autodescubrimiento y el despacho se testean con un
+    lector de mentira, sin ningún archivo real.
 - [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
-  - Test: **falta** `tests/test_readers.py`, que se escribe al cerrar el hito.
-    Verificado a mano contra el registro real: 7 canales, 22,1 h, 100 Hz.
+  - Test: `tests/test_readers.py`. Sobre el registro real: 7 canales, 22,1 h,
+    100 Hz, las clases de los siete y sus frecuencias originales.
+  - **El test que justifica el archivo** compara la amplitud contra el rango
+    físico que declara la cabecera, leyéndola por su cuenta: con el parser del
+    propio lector, un error de offsets se cancelaría solo.
   - **Las tres suposiciones del hito se midieron y dos eran falsas.**
     `MixedSamplingRateError` no se usa: **MNE ya unifica sobremuestreando**, así
     que no hay nada que remuestrear. Y no hay que descartar `EDF Annotations` a
@@ -333,17 +337,18 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
     eleva `UnreadableFileError` mandando al importador de scoring, en vez de
     dejar que `Recording` diga "no tiene ningún canal" y haga creer que el
     archivo del usuario está roto.
-- [ ] **Decidir cómo corre `tests/test_readers.py` en el CI.** Los registros de
-      prueba viven en `data/`, que el `.gitignore` excluye entero y con razón,
-      así que en GitHub Actions **no van a estar**. Saltear el test ahí
-      reintroduce el verde por omisión que este proyecto combate. Las salidas
-      razonables son bajar la Sleep-EDF en un paso del workflow, o partir el
-      test en dos: el despacho y el registro con un lector de mentira, que
-      corren en cualquier lado, y la lectura real, que se saltea con un motivo
-      explícito y visible en `pytest -rs`.
+- [x] **Decidido cómo corre `tests/test_readers.py` en el CI: partido en dos.**
+      El despacho, el registro y el filtro del diálogo se prueban con un lector
+      de mentira y corren en todos lados; la lectura de archivos reales se
+      saltea con un motivo explícito, visible en `pytest -rs`. Bajar la
+      Sleep-EDF en el workflow se descartó: ataría el verde a que PhysioNet esté
+      disponible y metería 48 MB de descarga en un job que tarda segundos.
+      **En esta máquina no se saltea ninguno**, porque `data/` existe: el skip
+      es del CI, no del desarrollo.
 - [x] **`psglab/readers/brainvision.py`** · ~~1 stub~~ · V1_F "Importación"
-  - Test: **falta** `tests/test_readers.py`. Verificado a mano: 32 canales,
-    1000 Hz, 26 detectados como EEG y 13 marcadores del `.vmrk`.
+  - Test: `tests/test_readers.py`. 32 canales, 1000 Hz, 26 detectados como EEG
+    y los 13 marcadores del `.vmrk`. Hay un test que afirma que `FP1` y `FP2`
+    están en la misma escala: es como se encontró el bug del `Codepage`.
   - **La unidad omitida significa µV**, por convención del formato, y MNE la
     aplica. Tratar el campo vacío como "no sé" —lo correcto en EDF— dejaba un
     canal de EEG sin convertir entre sus vecinos.
@@ -356,8 +361,8 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
     canal auxiliar con prefijo puede quedar corrida en un factor. Los canales
     que el programa mide son de voltaje y para ésos la conversión es exacta.
 - [x] **`psglab/readers/scoring_reader.py`** · ~~3 stubs~~ · V3_F "Importación"
-  - Test: **falta** `tests/test_scoring_reader.py`. El archivo lo escribe el
-    propio test, así que no necesita `data/`.
+  - Test: `tests/test_scoring_reader.py`, **29 tests en verde**. El archivo lo
+    escribe el propio test, así que no necesita `data/`.
   - `detect_nomenclature()` lee la cabecera que escribirá
     `exporters/scoring_txt.py::format_header()`. Acepta el nombre corto y el
     largo, sin distinguir mayúsculas: el archivo lo puede haber escrito una
@@ -372,38 +377,37 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 ### Lo que la auditoría dejó medido para este hito
 
-Cuatro cosas que hoy no fallan porque nadie las ejecuta todavía, y que se
-verificaron leyendo el código y el material de prueba. No son bugs abiertos:
-son decisiones que este hito tiene que tomar.
+**Las cuatro quedaron resueltas.** Se anota qué se decidió, y sobre todo qué
+encontró la ejecución real, porque en dos casos difiere de lo que la auditoría
+había previsto leyendo el código.
 
-- [ ] **V3_F es el único ID sin camino desde su propio material de prueba.** El
-      hipnograma de la Sleep-EDF es un `.edf` —un EDF+ de anotaciones—, y
-      `Reader.can_read()` despacha por extensión, así que `read_recording()` se
-      lo entrega al `EdfReader`, que va a intentar leerlo como señal.
-      `read_scoring()` recibe un `Path` pero **no hay nada que enrute hasta
-      ella**. Decidir si el scoring entra por su propio diálogo —lo más
-      probable, porque V3_F es "importar un scoring existente" y no un
-      formato más— o si el despacho tiene que mirar el contenido.
-- [ ] **`Channel` no tiene dónde anotar la frecuencia original.** Si el hito
-      resuelve las frecuencias mixtas remuestreando, el registro pierde el dato
-      de a qué frecuencia venía cada canal, que es justo lo que hay que mostrar
-      para que el investigador sepa qué está mirando. Agregar el campo es
-      barato ahora y caro después: `Channel` es `frozen` y lo construye cada
-      lector.
-- [ ] **Descartar un canal obliga a renumerar `Channel.index`.** El EDF de
-      prueba trae `Event marker`, y un EDF+ trae además `EDF Annotations`.
-      Sacarlos del medio de la lista sin renumerar hace que
-      `Recording.__post_init__` eleve `InvalidRecordingError` hablando de
-      "canales cuya posición declarada no coincide con la fila que ocupan":
-      un mensaje correcto que le hace creer al usuario que su archivo está
-      roto. El lector renumera, o no descarta.
-- [ ] **Los prefijos 10-20 de `channel_types.py` son voraces.** `EEG_POSITIONS`
-      incluye `"t"`, `"c"`, `"f"`, `"p"` y `"o"` sueltos, y ningún patrón de
-      `KIND_PATTERNS` atrapa la temperatura: **`"Temp rectal"`, que está en el
-      registro de prueba, empieza con `"t"` y se clasificaría como EEG**. El
-      parámetro `unit` de `detect_channel_kind()` existe para esto —un canal en
-      °C no es un EEG—, pero hoy nada obliga a usarlo. El test tiene que
-      incluir los siete nombres reales del archivo.
+- [x] **V3_F entra por su propio punto de entrada**, no por el despacho de
+      formatos. `read_scoring()` no es un `Reader` porque no produce un
+      `Recording`, así que no tiene dónde encajar en `read_recording()`.
+      Se resolvió además el síntoma concreto: un EDF **sin ninguna señal** —el
+      hipnograma— eleva `UnreadableFileError` mandando al importador de scoring,
+      en vez de dejar que `Recording` diga "no tiene ningún canal" y le haga
+      creer al investigador que su archivo está roto. El diálogo que lo ofrece
+      se construye en el hito 6.
+- [x] **`Channel.original_sampling_rate` agregado**, con default `None` para
+      no romper ningún constructor existente, y poblado por los dos lectores.
+      Hizo falta por un motivo distinto del previsto: no hubo que remuestrear
+      —MNE unifica solo— pero justamente por eso el dato se perdía sin que nada
+      avisara.
+- [x] **Quedó sin efecto, y no por casualidad.** `EDF Annotations` no hay que
+      descartarlo: **MNE ya lo excluye solo** y lo convierte en
+      `raw.annotations`. Y `Event marker` **no se descarta**, porque es un canal
+      legítimo que el pliego pide mostrar. Como no se saca ninguno, los canales
+      se construyen con `enumerate` sobre la lista que devuelve MNE y los
+      índices son contiguos por construcción.
+- [x] **Resuelto, y la auditoría se había quedado corta.** Era cierto que
+      `"Temp rectal"` salía EEG por el prefijo `"t"`, pero al probar los siete
+      nombres reales apareció el error inverso y más caro: **`"EEG Fpz-Cz"` y
+      `"EEG Pz-Oz"` no coincidían con nada** —empiezan con `"e"`— y caían en
+      OTHER. Son la señal que se scorea.
+      Se compara **token por token** en vez de por prefijo del nombre entero, y
+      el parámetro `unit` por fin se usa, como segunda línea de defensa. Los
+      siete nombres reales están en `tests/test_channel_types.py`.
 
 ---
 
