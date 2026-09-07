@@ -17,6 +17,8 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import pathlib
+
 import numpy as np
 import pytest
 
@@ -107,36 +109,36 @@ RESOLUCION_BV_UV = 0.5
 FRECUENCIA_BV = 250.0
 
 
-@pytest.fixture
-def brainvision_sintetico(tmp_path):
-    """Un BrainVision de verdad, escrito acá mismo, sin datos de nadie.
+def escribir_brainvision(carpeta: pathlib.Path, segundos: float) -> pathlib.Path:
+    """Escribe un BrainVision completo y devuelve la ruta de su `.vhdr`.
 
     **Por qué existe.** Los quince tests que leen el registro de `data/` son los
     únicos que ejercitan el lector de punta a punta, y se saltean en el CI
     porque `data/` está en el `.gitignore`: son registros de participantes. El
-    resultado es que el lector de BrainVision no se ejecuta en ninguna de las
+    resultado era que el lector de BrainVision no se ejecutaba en ninguna de las
     seis combinaciones de sistema y versión de Python que corre el CI.
 
     El formato permite arreglarlo sin pedirle nada a nadie: son tres archivos y
     ninguno es opaco. El `.vhdr` y el `.vmrk` son texto tipo INI y el `.eeg` es
-    un `int16` multiplexado crudo, así que se escriben con `numpy` y `pathlib`.
+    un `int16` multiplexado crudo, así que se escriben con numpy y pathlib.
 
     **La cabecera declara `Codepage=UTF-8` y escribe la unidad en UTF-8 a
     propósito**, porque ahí estuvo un bug real: leerla como latin-1 parte el
     micro en dos caracteres, y con la unidad irreconocible veintitrés canales
     EEG quedaron sin convertir y mal clasificados. Es lo que
-    `readers/brainvision.py::_decodificar_cabecera` arregla, y sin esta fixture
-    nada lo comprueba fuera de una máquina que tenga los registros.
+    `readers/brainvision.py::_decodificar_cabecera` arregla, y sin esto nada lo
+    comprueba fuera de una máquina que tenga los registros.
 
-    Devuelve la ruta del `.vhdr`, que es el archivo que se abre.
+    Es función y no sólo fixture porque la duración importa: los tests del
+    lector alcanzan con tres segundos, y `test_entrega.py` necesita varias
+    ventanas de 30 s para poder scorear y exportar.
     """
-    carpeta = tmp_path / "brainvision"
-    carpeta.mkdir()
+    carpeta.mkdir(parents=True, exist_ok=True)
     canales = [("C3", "µV"), ("EOG-izq", "µV"), ("EMG-menton", "µV")]
-    muestras = int(FRECUENCIA_BV * 3)
+    muestras = int(FRECUENCIA_BV * segundos)
     tiempos = np.arange(muestras) / FRECUENCIA_BV
-    # Frecuencias distintas y conocidas por canal: una escala equivocada se ve
-    # enseguida en el pico de amplitud de cada uno.
+    # Frecuencias distintas y conocidas por canal: una escala aplicada de más se
+    # ve en los tres a la vez, y una permutación de canales, en uno solo.
     microvoltios = np.vstack(
         [
             50.0 * np.sin(2 * np.pi * 10 * tiempos),
@@ -185,3 +187,9 @@ def brainvision_sintetico(tmp_path):
         "\n".join(marcadores) + "\n", encoding="utf-8"
     )
     return vhdr
+
+
+@pytest.fixture
+def brainvision_sintetico(tmp_path) -> pathlib.Path:
+    """Tres segundos de BrainVision sintético: alcanza para el lector."""
+    return escribir_brainvision(tmp_path / "brainvision", segundos=3)

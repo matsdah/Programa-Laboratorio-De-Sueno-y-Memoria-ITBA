@@ -1,0 +1,296 @@
+"""La comprobación de entrega del hito 8, hecha repetible.
+
+El último ítem de la lista pide que **el programa se abra, scoree una noche y
+exporte los tres archivos**. Se había hecho a mano al cerrar el hito 6 y
+funcionó, pero a mano tiene dos problemas: hay que acordarse de los pasos, y
+—el que importó de verdad— se puede hacer mal sin notarlo.
+
+**La corrida de aquel día anotó un evento llamando a la herramienta
+directamente desde el script, no por la interfaz.** Con eso el hueco del hito 9
+no se manifestó: `main_window` nunca llama a `create_annotation()`, así que en
+el programa corriendo no hay forma de anotar. Verificar la pieza en vez del
+camino es exactamente lo que este archivo existe para no volver a hacer.
+
+Por eso todo lo que se afirma acá pasa por `MainWindow`, y lo que hoy no
+funciona está marcado `xfail` apuntando al hito 9: el día que se cierre, la
+suite avisa sola con un `XPASS`.
+
+Corre en cualquier lado, incluido el CI: usa el BrainVision sintético de
+`conftest.py`, no los registros de `data/`.
+"""
+
+from pathlib import Path
+
+import pytest
+
+pytest.importorskip("pyqtgraph")
+
+from psglab.config import (  # noqa: E402
+    ANNOTATIONS_FILENAME,
+    INFORMATION_FILENAME,
+    SCORING_FILENAME,
+    WINDOW_SECONDS,
+)
+from psglab.app import create_main_window  # noqa: E402
+from psglab.core.nomenclature import stages_of  # noqa: E402
+from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
+from psglab.ui.main_window import MainWindow  # noqa: E402
+from psglab.utils.errors import PsgLabError  # noqa: E402
+
+from conftest import escribir_brainvision  # noqa: E402
+
+#: Ventanas del registro de prueba. Cinco alcanzan para scorear una fase
+#: distinta en cada una y que sobre alguna sin scorear.
+VENTANAS = 5
+
+
+@pytest.fixture
+def ventana(qt_app, tmp_path, monkeypatch):
+    """La ventana principal con un registro abierto, como la ve el usuario.
+
+    Los carteles de error se reemplazan por una lista: son modales, y sin nadie
+    que los cierre colgarían la suite. Que la lista quede vacía es una
+    afirmación más de cada test.
+    """
+    carteles: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+    )
+
+    # **Por `create_main_window()`, que es por donde entra `main.py`.** Armar
+    # la `MainWindow` a mano saltea la carga de los dos registros, y entonces
+    # la barra de herramientas y el filtro del diálogo de apertura se arman
+    # vacíos: el test pasaría verificando un programa que el usuario no tiene.
+    principal = create_main_window()
+    vhdr = escribir_brainvision(tmp_path / "registro", segundos=WINDOW_SECONDS * VENTANAS)
+    principal.open_recording(vhdr)
+
+    assert not carteles, f"abrir el registro mostró un error: {carteles}"
+    principal.carteles = carteles
+    return principal
+
+
+# -- Abrir ------------------------------------------------------------------
+
+
+def test_el_programa_abre_un_registro(ventana: MainWindow):
+    sesion = ventana.session
+
+    assert sesion is not None
+    assert sesion.n_windows == VENTANAS
+    assert len(sesion.recording.channels) == 3
+
+
+def test_la_señal_llega_a_la_pantalla(ventana: MainWindow):
+    """Que haya una curva por canal visible. No se mira el dibujo; se mira que
+    el visualizador haya construido algo por cada canal."""
+    assert len(ventana.signal_view._curves) == len(ventana.session.visible_channels)
+
+
+# -- Navegar ----------------------------------------------------------------
+
+
+def test_se_navega_con_las_flechas(ventana: MainWindow):
+    """Los mismos métodos que disparan los atajos de teclado."""
+    ventana.go_to_next_window()
+    ventana.go_to_next_window()
+    assert ventana.session.current_window == 2
+
+    ventana.go_to_previous_window()
+    assert ventana.session.current_window == 1
+
+
+def test_la_barra_de_estado_cuenta_desde_uno(ventana: MainWindow):
+    """Base 0 adentro, base 1 al mostrar. Es la regla que más fácil se pierde
+    entre capas."""
+    ventana.go_to_next_window()
+
+    assert "Ventana 2 de 5" in ventana.statusBar().currentMessage()
+
+
+# -- Scorear ----------------------------------------------------------------
+
+
+def test_se_scorea_la_noche_entera(ventana: MainWindow):
+    sesion = ventana.session
+    fases = list(stages_of(sesion.scoring.nomenclature))
+
+    for indice, fase in enumerate(fases[:VENTANAS]):
+        ventana._go_to_window(indice)
+        ventana.score_current_window(fase)
+
+    scoreadas = [sesion.scoring.get(i).stage for i in range(len(fases[:VENTANAS]))]
+    assert scoreadas == fases[:VENTANAS]
+    assert not ventana.carteles
+
+
+def test_el_arousal_es_aparte_de_la_fase(ventana: MainWindow):
+    sesion = ventana.session
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(sesion.scoring.nomenclature)[0])
+    ventana.toggle_arousal()
+
+    epoca = sesion.scoring.get(0)
+    assert epoca.arousal is True
+    assert epoca.stage is stages_of(sesion.scoring.nomenclature)[0]
+
+
+# -- Exportar ---------------------------------------------------------------
+
+
+def test_se_exportan_los_tres_archivos(ventana: MainWindow, tmp_path: Path):
+    """V4_F: los tres se piden **de a uno**, que es lo que el pliego pide."""
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+
+    salida = tmp_path / "salida"
+    salida.mkdir()
+    for clase, nombre in NOMBRES.items():
+        destino = salida / nombre
+        ventana.export(clase, destino)
+        assert destino.exists(), f"{clase} no escribió {nombre}"
+
+    assert not ventana.carteles
+
+
+def test_el_scoring_exportado_tiene_una_linea_por_ventana(
+    ventana: MainWindow, tmp_path: Path
+):
+    destino = tmp_path / NOMBRES["scoring"]
+    ventana.export("scoring", destino)
+
+    lineas = [
+        linea
+        for linea in destino.read_text(encoding="utf-8").splitlines()
+        if not linea.startswith("#")
+    ]
+    assert len(lineas) == VENTANAS
+
+
+def test_la_informacion_nombra_el_registro(ventana: MainWindow, tmp_path: Path):
+    destino = tmp_path / NOMBRES["information"]
+    ventana.export("information", destino)
+    texto = destino.read_text(encoding="utf-8")
+
+    assert "sintetico.vhdr" in texto
+    for canal in ventana.session.recording.channels:
+        assert canal.name in texto
+
+
+def test_exportar_a_un_lugar_imposible_avisa_sin_romper(
+    ventana: MainWindow, tmp_path: Path
+):
+    """El investigador tiene que ver un cartel, no una traza."""
+    ventana.export("scoring", tmp_path / "no" / "existe" / "Scoring.txt")
+
+    assert ventana.carteles, "escribir en una carpeta inexistente no avisó nada"
+
+
+# -- Anotar: el hueco del hito 9 --------------------------------------------
+
+
+@pytest.mark.xfail(
+    reason=(
+        "hito 9: main_window nunca lee pending_selection_samples ni llama a "
+        "create_annotation(), así que no hay forma de anotar desde la interfaz. "
+        "Cuando se cablee, esto pasa a XPASS y hay que sacarle el xfail."
+    ),
+    strict=True,
+)
+def test_se_puede_anotar_un_evento_desde_la_interfaz(ventana: MainWindow):
+    """**El camino, no la pieza.**
+
+    `AnnotationSet` y `AnnotatorTool` están completos y tienen sus tests en
+    verde; lo que falta es que la ventana pregunte la clase y cree la
+    anotación. Este test arrastra una selección con el mouse igual que el
+    usuario y después mira si quedó algo anotado.
+    """
+    ventana._toggle_tool("annotator", True)
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    desde = caja.left() + (caja.right() - caja.left()) * 0.25
+    hasta = desde + 40
+
+    herramienta = ventana._tools["annotator"]
+    herramienta.on_mouse_press(ventana.signal_view.seconds_at_pixel(desde), 0.0, "left")
+    herramienta.on_mouse_move(ventana.signal_view.seconds_at_pixel(hasta), 0.0)
+    herramienta.on_mouse_release(
+        ventana.signal_view.seconds_at_pixel(hasta), 0.0, "left"
+    )
+
+    assert ventana.session.annotations.all(), "no quedó ninguna anotación"
+
+
+@pytest.mark.xfail(
+    reason="hito 9: sin forma de anotar, Anotaciones.txt sale siempre vacío.",
+    strict=True,
+)
+def test_las_anotaciones_exportadas_no_estan_vacias(
+    ventana: MainWindow, tmp_path: Path
+):
+    ventana._toggle_tool("annotator", True)
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    herramienta = ventana._tools["annotator"]
+    herramienta.on_mouse_press(5.0, 0.0, "left")
+    herramienta.on_mouse_release(8.0, 0.0, "left")
+
+    destino = tmp_path / NOMBRES["annotations"]
+    ventana.export("annotations", destino)
+
+    assert destino.read_text(encoding="utf-8").strip()
+
+
+# -- Que la lista del hito 8 siga siendo cierta -----------------------------
+
+
+def test_ningun_stub_de_la_parte_1():
+    """El segundo ítem del hito 8, como test en vez de como comando a mano."""
+    import ast
+
+    raiz = Path(__file__).resolve().parent.parent / "psglab"
+    con_stubs: list[str] = []
+    for archivo in sorted(raiz.rglob("*.py")):
+        if "analysis" in archivo.parts:
+            continue
+        arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+        if any(
+            isinstance(nodo, ast.Raise)
+            and isinstance(nodo.exc, ast.Call)
+            and getattr(nodo.exc.func, "id", None) == "NotImplementedError"
+            for nodo in ast.walk(arbol)
+        ):
+            con_stubs.append(str(archivo.relative_to(raiz.parent)))
+
+    assert not con_stubs, f"quedan stubs de la Parte 1 en: {con_stubs}"
+
+
+def test_los_tres_nombres_de_salida_salen_de_config():
+    """No se escriben a mano en ningún lado: el pliego los fija y `config.py` es
+    el punto único de verdad."""
+    assert set(NOMBRES) == {"scoring", "annotations", "information"}
+    assert NOMBRES["scoring"] == SCORING_FILENAME
+    assert NOMBRES["annotations"] == ANNOTATIONS_FILENAME
+    assert NOMBRES["information"] == INFORMATION_FILENAME
+
+
+def test_el_programa_se_construye_sin_registro(qt_app):
+    """Abrir el programa y no abrir nada: la ventana tiene que existir igual, y
+    las acciones que necesitan sesión no pueden romper."""
+    ventana = create_main_window()
+
+    assert ventana.session is None
+    ventana.go_to_next_window()
+    ventana.toggle_arousal()
+    ventana.refresh()
+
+
+def test_exportar_sin_registro_no_revienta(qt_app, tmp_path, monkeypatch):
+    carteles: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+    )
+    ventana = create_main_window()
+
+    try:
+        ventana.export("scoring", tmp_path / "Scoring.txt")
+    except PsgLabError as error:  # pragma: no cover - es lo que no debe pasar
+        pytest.fail(f"export() dejó escapar {type(error).__name__}: {error}")

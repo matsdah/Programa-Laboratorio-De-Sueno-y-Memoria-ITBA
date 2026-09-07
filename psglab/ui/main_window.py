@@ -424,6 +424,22 @@ class MainWindow(QMainWindow):
         except PsgLabError as error:
             self._show_error(error)
             return
+        except OSError as error:
+            # **El disco no es un `PsgLabError`.** Los exportadores validan lo
+            # suyo y elevan errores del programa, pero la carpeta que eligió el
+            # usuario puede no existir, estar llena o ser de sólo lectura, y eso
+            # sale como `OSError` crudo. Sin esta rama atraviesa el `except` de
+            # arriba y el investigador ve una traza de Python en vez de un
+            # cartel. Lo encontró `tests/test_entrega.py` exportando a una
+            # carpeta inexistente.
+            self._show_error(
+                PsgLabError(
+                    f"No se pudo escribir «{path.name}». Revisá que la carpeta "
+                    "exista y que tengas permiso para escribir en ella.",
+                    details=f"{type(error).__name__}: {error}",
+                )
+            )
+            return
         self.statusBar().showMessage(f"Se exportó {path.name}", 5000)
 
     def refresh(self) -> None:

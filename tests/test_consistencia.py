@@ -74,6 +74,14 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     # cubiertos contaba 9 stubs como verificados mientras nadie exigía un test
     # para ellos. Entraron cuando el archivo pasó a cubrirlos de verdad, que es
     # lo que `test_la_tabla_de_cobertura_declara_lo_que_el_test_importa` exige.
+    # `test_entrega.py` no cubre un módulo: recorre el camino completo del
+    # usuario por `MainWindow`. Se le declaran los módulos que ejercita de
+    # punta a punta, que son los que dejarían de estar verificados si el
+    # archivo se apagara.
+    "test_entrega.py": (
+        "psglab/app.py",
+        "psglab/ui/main_window.py",
+    ),
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",

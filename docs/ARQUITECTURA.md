@@ -212,14 +212,47 @@ Dos resultados que conviene explicar, porque parecen alarmas y no lo son:
 
 Ninguna dependencia obliga a relicenciar el proyecto.
 
+### Verificación del 7 de septiembre de 2026
+
+La del hito 8. Corrida sobre el entorno completo, **35 paquetes**, Python
+3.12.10:
+
+```bash
+python -m piplicenses --format=markdown --order=license
+```
+
+| Licencia | Paquetes |
+|---|---|
+| MIT y variantes (MIT, MIT License, MIT-CMU) | 11 |
+| BSD y variantes (BSD License, BSD-3-Clause, BSD-2-Clause) | 13 |
+| `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only` | 4 — los de PySide6 |
+| Apache (Apache-2.0, y una disyuntiva con BSD-2-Clause) | 3 |
+| MPL-2.0, sola y combinada con MIT | 2 |
+| Python Software Foundation License | 1 |
+| Combinada permisiva (BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0) | 1 |
+
+**La licencia MIT se sostiene.** No aparece ninguna GPL pura: las cuatro
+disyuntivas son las de PySide6 y se resuelven eligiendo LGPL-3.0, como explica
+el bloque anterior. PyQt5 y PyQt6 siguen ausentes; el único paquete cuyo nombre
+contiene "PyQt" es `pyqtgraph` 0.14.0, que es MIT.
+
+El número de paquetes bajó de 48 a 35 desde la verificación anterior, y no es
+un hallazgo: aquélla se corrió con `requirements-analysis.txt` instalado —que
+arrastra numba, llvmlite, xarray, pandas y scikit-learn— y ésta con el entorno
+de la Parte 1, que es el que usa el día a día. El CI sigue revisando los tres
+requirements juntos en su job de licencias, que es donde importa.
+
 ---
 
 ## Convenciones de código
 
-- **Identificadores y nombres de archivo en inglés**; comentarios, docstrings,
-  documentación y **todo lo que ve el usuario, en español**. Es la convención
-  de open source: no cierra la puerta a contribuidores externos y mantiene el
-  código legible para el equipo del laboratorio.
+- **La API pública y los nombres de archivo, en inglés**; comentarios,
+  docstrings, documentación y **todo lo que ve el usuario, en español**. Lo
+  que cruza el borde de un módulo se nombra en inglés —`read_recording`,
+  `scale_uv`, `on_window_changed`— y el interior se escribe en español, que es
+  el idioma en que se razona el problema: `_linea_debajo()`,
+  `TOLERANCIA_DE_CLIC_UV`. Así no se cierra la puerta a contribuidores
+  externos y el código se lee igual para el equipo del laboratorio.
 - **Cada módulo abre con un docstring** que dice de qué se ocupa y **qué IDs
   del pliego cubre**. Esa línea es la que alimenta `docs/TRAZABILIDAD.md`.
 - **Los errores que ve el usuario heredan de `PsgLabError`** y llevan mensaje
