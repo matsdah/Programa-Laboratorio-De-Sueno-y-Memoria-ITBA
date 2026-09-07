@@ -201,7 +201,11 @@ def test_el_total_puede_pasar_del_cien_por_ciento(herramienta: OccupancyTool):
     """
     herramienta.add_line(OccupancyLine(0.0, 0.0, 1.0, 0.0))
     herramienta.add_line(OccupancyLine(0.0, 0.0, 1.0, 0.0))
-    assert herramienta.total_percentage() == pytest.approx(200.0)
+    # El criterio va explícito: lo que este test afirma es que **sumar sin
+    # descontar** puede pasar del 100 %, no cómo está configurado el programa.
+    # Dependiendo de `config` fallaría al revertir la decisión del hito 0, y por
+    # un motivo que no es el que persigue.
+    assert herramienta.total_percentage(counts_overlap_once=False) == pytest.approx(200.0)
 
 
 def test_la_otra_variante_cuenta_la_zona_compartida_una_sola_vez():

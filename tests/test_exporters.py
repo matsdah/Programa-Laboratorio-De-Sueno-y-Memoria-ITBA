@@ -16,6 +16,7 @@ from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 import psglab.exporters.statistics as stats
+from psglab.config import ANNOTATION_SAMPLE_BASE
 from psglab.exporters.annotations_txt import export_annotations
 from psglab.exporters.information_txt import (
     build_report,
@@ -133,7 +134,10 @@ def test_una_anotacion_tiene_los_tres_campos_del_pliego(tmp_path):
     campos = destino.read_text(encoding="utf-8").strip().split("|")
     assert len(campos) == 3
     assert campos[0].strip() == "Arousal"
-    assert campos[1].strip() == "7680"
+    # La posición se deriva de la base del hito 0 en vez de escribirse a mano:
+    # `annotations_txt.py` promete que cambiarla sigue siendo cambiar una línea
+    # de `config`, y un literal acá rompía esa promesa.
+    assert campos[1].strip() == str(7680 + ANNOTATION_SAMPLE_BASE)
     assert campos[2].strip() == "512"
 
 

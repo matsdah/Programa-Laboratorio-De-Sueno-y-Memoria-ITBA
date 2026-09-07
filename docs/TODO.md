@@ -4,7 +4,8 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **59 stubs** (`raise NotImplementedError`) en 10 módulos de la Parte 1.
+Quedan **46 stubs** (`raise NotImplementedError`) en 8 módulos de la Parte 1.
+**Todos son del hito 6**: es lo único que falta para terminar la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -57,9 +58,9 @@ nada**. Un verde por omisión es peor que un rojo.
 | [4. Importación](#hito-4-importación) | — | 0 | ✅ cerrado |
 | [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
-| [7. Herramientas](#hito-7-herramientas) | 2 | 13 | ⬜ |
+| [7. Herramientas](#hito-7-herramientas) | — | 0 | ✅ cerrado |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **10** | **59** | |
+| | **8** | **46** | |
 
 ### Los tres cortes que importan
 
@@ -573,15 +574,26 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     picos negativa no significa nada.
   - Desactivarla **conserva la cuenta**. El usuario apaga la lupa para ver la
     señal sin el círculo encima y vuelve; reiniciar ahí le perdería el trabajo.
-- [ ] **`psglab/tools/overview.py`** · 6 stubs · V1_F, V2_F, V3_F "Übersicht" ·
-      `Tool`
-  - Test: **crear** `tests/test_overview.py`. La cantidad de vecinas es
-    configurable y asimétrica.
-- [ ] **`psglab/tools/histogram.py`** · 7 stubs · V1_P, V2_F, V3_F, V4_F
+- [x] **`psglab/tools/overview.py`** · ~~6 stubs~~ · V1_F, V2_F, V3_F
+      "Übersicht" · `Tool`
+  - Test: `tests/test_overview.py`, **23 tests en verde**. La cantidad de
+    vecinas es configurable y asimétrica, y se recorta contra los bordes del
+    registro: en la primera ventana no hay anterior.
+  - **`_draw_window()` no dibuja: describe.** `tools/` no conoce Qt, así que
+    arma el dato que la interfaz pinta. Hizo falta agregar `windows()`, porque
+    sin un accesor el panel era de sólo escritura y no había con qué dibujarlo.
+- [x] **`psglab/tools/histogram.py`** · ~~7 stubs~~ · V1_P, V2_F, V3_F, V4_F
       "Histograma" · `Tool`
-  - Test: **crear** `tests/test_histogram.py`.
-  - Su `on_click(x_fraction)` es propio: un clic cae en una ventana de la
-    noche, no en un segundo de la ventana actual.
+  - Test: `tests/test_histogram.py`, **28 tests en verde**.
+  - Su `on_click(x_fraction)` es propio: un clic cae en una ventana de la noche,
+    no en un segundo de la ventana actual. **El borde derecho es el caso que se
+    rompe solo**: `int(1.0 * n)` da una ventana que no existe, así que se
+    recorta.
+  - Pedir el eje en hora real sobre un registro que no informa su horario de
+    inicio **falla en vez de inventarlo**: el investigador leería el eje como si
+    fuera real.
+  - Igual que el Übersicht, hizo falta un accesor —`bars()`— para que la
+    interfaz tenga qué dibujar.
 - [x] **`psglab/tools/annotator.py`** · ~~9 stubs~~ · V1_F "Anotación" ·
       `ViewerTool`
   - Test: `tests/test_annotator.py`, **18 tests en verde**.

@@ -94,7 +94,7 @@ importan —51 archivos `.py` contando los ocho `__init__.py`—, los hitos 0 a 
 están cerrados y con ellos `core/` y `utils/` quedaron completas. El resto de
 los métodos todavía eleva `NotImplementedError`.
 
-Pendientes **59 stubs** en 10 módulos de la Parte 1, ordenados por
+Pendientes **46 stubs** en 8 módulos de la Parte 1, ordenados por
 dependencias en el [TODO](../docs/TODO.md). `app.py` es el último de la fila
 (hito 6): hasta que se implemente, `python main.py` termina en
 `NotImplementedError`, que es lo esperado.

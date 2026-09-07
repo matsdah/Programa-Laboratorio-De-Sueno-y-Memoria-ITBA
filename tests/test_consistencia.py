@@ -29,7 +29,8 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "cero": 0, "un": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
     "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10, "once": 11, "doce": 12,
     "trece": 13, "catorce": 14, "quince": 15, "dieciséis": 16, "diecisiete": 17,
-    "dieciocho": 18, "diecinueve": 19, "veinte": 20,
+    "dieciocho": 18, "diecinueve": 19, "veinte": 20, "veintiuno": 21,
+    "veintidós": 22, "veintitrés": 23, "veinticuatro": 24, "veinticinco": 25,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
@@ -58,6 +59,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_amplitude_band.py": ("psglab/tools/amplitude_band.py",),
     "test_magnifier.py": ("psglab/tools/magnifier.py",),
     "test_annotator.py": ("psglab/tools/annotator.py",),
+    "test_overview.py": ("psglab/tools/overview.py",),
+    "test_histogram.py": ("psglab/tools/histogram.py",),
     "test_registry.py": (
         "psglab/tools/registry.py",
         "psglab/tools/base.py",
