@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **90 stubs** (`raise NotImplementedError`) en 13 módulos de la Parte 1.
+Quedan **77 stubs** (`raise NotImplementedError`) en 12 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -57,9 +57,9 @@ nada**. Un verde por omisión es peor que un rojo.
 | [4. Importación](#hito-4-importación) | — | 0 | ✅ cerrado |
 | [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
-| [7. Herramientas](#hito-7-herramientas) | 5 | 44 | ⬜ |
+| [7. Herramientas](#hito-7-herramientas) | 4 | 31 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **13** | **90** | |
+| | **12** | **77** | |
 
 ### Los tres cortes que importan
 
@@ -543,11 +543,25 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     el pliego al decir que se adapte a "la amplitud de la señal elegida por el
     usuario". Sin ninguno seleccionado cae al primero visible, para que la
     herramienta sirva apenas se abre un registro.
-- [ ] **`psglab/tools/occupancy.py`** · 13 stubs · V1_F–V5_F "Ocupación" ·
+- [x] **`psglab/tools/occupancy.py`** · ~~13 stubs~~ · V1_F–V5_F "Ocupación" ·
       `ViewerTool`
-  - V2_F y V4_F: el hito 0 fijó que la superposición se cuenta **dos veces**,
-    y sale de `config.OCCUPANCY_COUNTS_OVERLAP_ONCE`.
-  - Test: `tests/test_occupancy.py` → **borrar el `pytestmark`**.
+  - Test: `tests/test_occupancy.py`, **29 tests en verde**, sin `pytestmark`.
+    Los 7 que ya estaban escritos —los ejemplos numéricos literales del
+    pliego— pasaron **sin tocarlos**. **Con esto la suite queda sin ningún
+    salteado.**
+  - La superposición se cuenta dos veces, de `config`, y hay un test de cada
+    variante: revertir la decisión del hito 0 sigue siendo cambiar una línea.
+    **El total puede pasar del 100 % y eso es lo buscado.**
+  - **`x` se guarda en fracción y `y` en microvoltios**, y los dos ejes no usan
+    la misma unidad a propósito: pasar `y` a fracción del alto exigiría un canal
+    que `SegmentOverlay` no lleva, y como `y` no entra en la medición sería
+    pagar imprecisión a cambio de nada.
+  - Hay un test que fija la conversión de segundos a fracción: sin ella una
+    línea de 15 segundos informaría 1500 %, que es un número plausible y
+    equivocado.
+  - Borrar una línea compara la altura del clic con la de la línea **en esa
+    posición horizontal**, interpolando. Con un rectángulo envolvente, una
+    diagonal larga se borraría desde muy lejos de donde está dibujada.
 - [ ] **`psglab/tools/magnifier.py`** · 9 stubs · V1_F, V2_F "Lupa" ·
       `ViewerTool`
   - Test: **crear** `tests/test_magnifier.py` (el contador de picos es

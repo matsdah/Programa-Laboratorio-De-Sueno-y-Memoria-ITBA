@@ -26,9 +26,9 @@ Los tests de los módulos que todavía no están implementados están
 pytestmark = pytest.mark.skip(reason="Esqueleto: la lógica todavía no está implementada.")
 ```
 
-La llevan **los tests de los hitos que todavía no se abrieron**: hoy sólo
-`test_occupancy` (7). Los demás corren, porque sus módulos están cerrados o
-—como `test_consistencia.py`— no cubren ninguno.
+La llevan **los tests de los hitos que todavía no se abrieron**: hoy ninguno.
+El último era el de la ocupación, y el hito 7 lo reactivó, así que **la suite ya
+no informa ningún salteado** en una máquina con los registros de prueba.
 
 **Los números concretos —cuántos se recolectan y cuántos se saltean— no se
 escriben acá**, porque un número a mano en este archivo se desactualiza con el
@@ -64,6 +64,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_scoring_reader.py` | Importar un scoring ya hecho sin adivinar con qué nomenclatura se escribió. |
 | `test_registry.py` | El registro de herramientas y su clase base: el punto de extensión. |
 | `test_amplitude_band.py` | La banda de 75 µV, y sobre qué canal se dibuja. |
+| `test_occupancy.py` | La ocupación horizontal: los ejemplos del pliego y el gesto del mouse. |
 | `test_occupancy.py` | La herramienta de ocupación horizontal. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 
@@ -164,8 +165,8 @@ regla se rompió**, no qué función se llamó.
 El [TODO](../docs/TODO.md) lleva la cuenta. Cada módulo que se implementa
 arrastra su test, y **eso es parte de darlo por terminado**:
 
-- **Reactivar** (borrar el `pytestmark`): `test_occupancy` (7).
-- **Crear**: uno por herramienta (7).
+- **Reactivar** (borrar el `pytestmark`): ninguno, ya no queda.
+- **Crear**: los que faltan de las herramientas del hito 7.
 
 Los del hito 4 —`test_channel_types`, `test_readers`, `test_scoring_reader`— ya
 existen, y `test_exporters` se reactivó al cerrar el hito 5.
