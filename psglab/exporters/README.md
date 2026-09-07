@@ -99,7 +99,7 @@ python -m pytest tests/test_exporters.py
 
 ## Estado
 
-Pendientes **14 stubs**, en el
+Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
 [hito 5 del TODO](../../docs/TODO.md#hito-5-exportadores).
 
 **Ninguno está bloqueado.** `annotations_txt.py` lo estuvo hasta que el

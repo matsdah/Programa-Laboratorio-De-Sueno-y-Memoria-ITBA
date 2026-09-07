@@ -14,9 +14,11 @@ from psglab.core.nomenclature import (
     convert,
     is_valid,
     stage_code,
+    stage_from_code,
     stage_label,
     stages_of,
 )
+from psglab.utils.errors import InvalidStageError
 
 def test_rk_incluye_rem():
     """Rechtschaffen y Kales sin REM no sería una nomenclatura válida."""
@@ -186,3 +188,66 @@ def test_todas_las_fases_tienen_codigo_y_etiqueta():
     for fase in SleepStage:
         assert isinstance(stage_code(fase), int)
         assert stage_label(fase)
+
+
+# -- Volver del código a la fase, que es lo que hace el importador -----------
+
+
+@pytest.mark.parametrize("nomenclatura", list(Nomenclature))
+def test_codificar_y_decodificar_devuelve_la_misma_fase(nomenclatura: Nomenclature):
+    """La ida y la vuelta tienen que cerrar para todas las fases de la nomenclatura.
+
+    Es lo que sostiene el ciclo exportar → reimportar de V1_F y V3_F: si una
+    fase no volviera igual, el scoring cambiaría solo al guardarlo y abrirlo.
+    """
+    for fase in stages_of(nomenclatura):
+        assert stage_from_code(stage_code(fase), nomenclatura) is fase
+
+
+def test_el_mismo_codigo_da_fases_distintas_segun_la_nomenclatura():
+    """Es la razón por la que la función pide la nomenclatura y no la adivina.
+
+    La tabla de códigos no es inyectiva: 1, 2, 3 y 5 se comparten entre los dos
+    sistemas.
+    """
+    assert stage_from_code(2, Nomenclature.RK) is SleepStage.S2
+    assert stage_from_code(2, Nomenclature.AASM) is SleepStage.N2
+    assert stage_from_code(5, Nomenclature.RK) is SleepStage.REM
+    assert stage_from_code(5, Nomenclature.AASM) is SleepStage.R
+
+
+def test_la_ventana_sin_scorear_se_decodifica_aunque_no_sea_del_histograma():
+    """`UNSCORED` no está en `stages_of()` porque no es una fila del histograma.
+
+    Pero sí es un valor que el archivo trae, y es como se escribe una ventana
+    que nadie miró todavía.
+    """
+    for nomenclatura in Nomenclature:
+        assert stage_from_code(-1, nomenclatura) is SleepStage.UNSCORED
+
+
+@pytest.mark.parametrize("codigo", [4, 6])
+def test_un_codigo_de_rk_no_se_traduce_en_aasm(codigo: int):
+    """`4` es S4 y `6` es MT: existen en Rechtschaffen y Kales y no en AASM.
+
+    Sale gratis de derivar la tabla inversa de `stages_of()` en vez de
+    escribirla a mano, y evita que un archivo de R&K leído como AASM se traduzca
+    a cualquier cosa.
+    """
+    assert stage_from_code(codigo, Nomenclature.RK) is not None
+    with pytest.raises(InvalidStageError):
+        stage_from_code(codigo, Nomenclature.AASM)
+
+
+def test_un_codigo_que_no_existe_en_ninguna_se_rechaza():
+    for nomenclatura in Nomenclature:
+        with pytest.raises(InvalidStageError):
+            stage_from_code(99, nomenclatura)
+
+
+def test_el_mensaje_del_rechazo_dice_que_codigos_valen():
+    """Tiene que servirle a quien está mirando un archivo que no abre."""
+    with pytest.raises(InvalidStageError) as excepcion:
+        stage_from_code(6, Nomenclature.AASM)
+    assert "AASM" in str(excepcion.value)
+    assert "-1" in str(excepcion.value.details)
