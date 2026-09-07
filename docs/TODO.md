@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **118 stubs** (`raise NotImplementedError`) en 23 módulos de la Parte 1.
+Quedan **109 stubs** (`raise NotImplementedError`) en 18 módulos de la Parte 1.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -54,12 +54,12 @@ nada**. Un verde por omisión es peor que un rojo.
 | [1. Cimientos](#hito-1-cimientos) | — | 0 | ✅ cerrado |
 | [2. Scoring y anotaciones](#hito-2-scoring-y-anotaciones) | — | 0 | ✅ cerrado |
 | [3. Sesión](#hito-3-sesión) | — | 0 | ✅ cerrado |
-| [4. Importación](#hito-4-importación) | 5 | 9 | ⬜ |
+| [4. Importación](#hito-4-importación) | 0 | 0 | ⬜ |
 | [5. Exportadores](#hito-5-exportadores) | 4 | 14 | ⬜ |
 | [6. Interfaz](#hito-6-interfaz) | 8 | 46 | ⬜ |
 | [7. Herramientas](#hito-7-herramientas) | 6 | 49 | ⬜ |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
-| | **23** | **118** | |
+| | **18** | **109** | |
 
 ### Los tres cortes que importan
 
@@ -116,9 +116,12 @@ convertir y el problema salta enseguida.
   leyendo la cabecera: `EEG Fpz-Cz`, `EEG Pz-Oz` y `EOG horizontal` van a
   100 Hz, y `Resp oro-nasal`, `EMG submental`, `Temp rectal` y `Event marker`
   van a 1 Hz. `core/recording.py` exige **una sola** frecuencia para toda la
-  matriz, así que este archivo no entra tal cual en el modelo: es lo primero
-  que hay que resolver en el hito 4, y `MixedSamplingRateError` existe para
-  eso.
+  matriz, y se daba por sentado que había que remuestrear acá.
+  **Medido en el hito 4: no hace falta.** MNE unifica solo, sobremuestreando al
+  máximo, y devuelve una única frecuencia sin avisar. Lo que sí hacía falta era
+  no perder el dato, y por eso el hito agregó `Channel.original_sampling_rate`.
+  `MixedSamplingRateError` **quedó sin usar**: sigue definido para un formato
+  futuro que sí tenga que rechazar, pero ningún lector lo eleva hoy.
 - [x] **BrainVision** — los archivos de prueba de
   [MNE-Python](https://github.com/mne-tools/mne-python/tree/main/mne/io/brainvision/tests/data)
   (BSD-3): tripleta `.vhdr` + `.vmrk` + `.eeg`, 32 canales con nombres 10-20,
@@ -280,12 +283,28 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 ## Hito 4: Importación
 
-- [ ] **`psglab/readers/channel_types.py`** · 3 stubs · V4_F "Visualización"
-  - Test: **crear** `tests/test_channel_types.py`. Los nombres de
-    `conftest.py` ya sirven: `C3` debe dar EEG por 10-20 y `EMG-menton` por
-    prefijo.
-- [ ] **`psglab/readers/base.py`** · 1 stub (`file_dialog_filter`) · base de
+- [x] **`psglab/readers/channel_types.py`** · ~~3 stubs~~ · V4_F "Visualización"
+  - Test: `tests/test_channel_types.py`, **63 tests en verde**. Los siete
+    nombres del registro de prueba van como **texto**, así que corre también en
+    el CI, donde `data/` no existe.
+  - **Tres de los siete fallaban.** La comparación era por prefijo del nombre
+    entero, y así `"Temp rectal"` empieza con `"t"` —que `EEG_POSITIONS` trae
+    suelto— y salía EEG, mientras que `"EEG Fpz-Cz"` empieza con `"e"` y no
+    coincidía con nada: los dos canales de EEG del único registro real, que son
+    la señal que se scorea, caían en OTHER. Ahora se compara **token por
+    token**, así que la posición de `"EEG Fpz-Cz"` es `Fpz` y `"Temp rectal"` no
+    tiene ninguna.
+  - El parámetro `unit` por fin se usa, como **segunda** línea de defensa: una
+    unidad que no es eléctrica degrada a OTHER las clases que sí lo son. No
+    alcanza a RESPIRATORY, o `"Resp oro-nasal"` —que no declara unidad— dejaría
+    esa clase inalcanzable.
+  - `unit=None` significa "el formato no lo dice" y **no veta**; una unidad
+    vacía sí. Confundirlas fue un error real de la primera versión del test.
+- [x] **`psglab/readers/base.py`** · ~~1 stub~~ (`file_dialog_filter`) · base de
       V1_F/V2_F "Importación"
+  - La primera entrada del filtro junta las extensiones de todos los formatos,
+    que es la que el diálogo ofrece por defecto. Devuelve **sólo texto**: no
+    importa Qt, que en `readers/` está prohibido y verificado.
   - V3_F no pasa por acá: lo resuelve `scoring_reader.py`, que lee un scoring
     ya existente y no despacha por formato.
   - El resto del módulo ya está implementado a propósito: `can_read`,
@@ -294,8 +313,26 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - Test: **crear** `tests/test_readers.py`, que cubre este módulo y los dos de
     abajo. El autodescubrimiento y el despacho se pueden testear con un lector
     de mentira, sin ningún archivo real.
-- [ ] **`psglab/readers/edf.py`** · 1 stub · V2_F "Importación"
-  - Test: `tests/test_readers.py`. Necesita el registro de prueba del hito 0.
+- [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
+  - Test: **falta** `tests/test_readers.py`, que se escribe al cerrar el hito.
+    Verificado a mano contra el registro real: 7 canales, 22,1 h, 100 Hz.
+  - **Las tres suposiciones del hito se midieron y dos eran falsas.**
+    `MixedSamplingRateError` no se usa: **MNE ya unifica sobremuestreando**, así
+    que no hay nada que remuestrear. Y no hay que descartar `EDF Annotations` a
+    mano, porque MNE también lo excluye solo.
+  - **MNE devuelve volts**, no la unidad de la cabecera, para los canales cuya
+    unidad reconoce; los demás los deja nativos. La conversión de acá es de
+    volt a microvolt y **no** la que correspondería al archivo: aplicar
+    `conversion_factor("uV")`, que vale 1, dejaría la señal un millón de veces
+    más chica y con autoescala seguiría pareciendo una señal. Comprobado contra
+    el rango físico de la cabecera: ±192 uV declarados, −192 a 170,6 leídos.
+  - La frecuencia original de cada canal se lee de la cabecera a mano. MNE sólo
+    la expone en un atributo privado, y el formato EDF está congelado desde
+    1992: es más estable el parseo propio.
+  - Un EDF **sin ninguna señal** —un hipnograma, que es un EDF+ de anotaciones—
+    eleva `UnreadableFileError` mandando al importador de scoring, en vez de
+    dejar que `Recording` diga "no tiene ningún canal" y haga creer que el
+    archivo del usuario está roto.
 - [ ] **Decidir cómo corre `tests/test_readers.py` en el CI.** Los registros de
       prueba viven en `data/`, que el `.gitignore` excluye entero y con razón,
       así que en GitHub Actions **no van a estar**. Saltear el test ahí
@@ -304,15 +341,34 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
       test en dos: el despacho y el registro con un lector de mentira, que
       corren en cualquier lado, y la lectura real, que se saltea con un motivo
       explícito y visible en `pytest -rs`.
-- [ ] **`psglab/readers/brainvision.py`** · 1 stub · V1_F "Importación"
-  - Test: `tests/test_readers.py`. Necesita el registro de prueba del hito 0.
-  - `read()` devuelve la señal **ya en µV** y con la clase de canal detectada.
-    Ninguna capa posterior lo vuelve a verificar.
-- [ ] **`psglab/readers/scoring_reader.py`** · 3 stubs · V3_F "Importación"
-  - Test: **crear** `tests/test_scoring_reader.py`.
-  - Incluye `detect_nomenclature()`, que lee la cabecera que escribe
-    `exporters/scoring_txt.py::format_header()`. Lo que uno escribe el otro lo
-    tiene que poder volver a leer.
+- [x] **`psglab/readers/brainvision.py`** · ~~1 stub~~ · V1_F "Importación"
+  - Test: **falta** `tests/test_readers.py`. Verificado a mano: 32 canales,
+    1000 Hz, 26 detectados como EEG y 13 marcadores del `.vmrk`.
+  - **La unidad omitida significa µV**, por convención del formato, y MNE la
+    aplica. Tratar el campo vacío como "no sé" —lo correcto en EDF— dejaba un
+    canal de EEG sin convertir entre sus vecinos.
+  - **Hay que respetar el `Codepage=` que declara la cabecera.** Leerla como
+    latin-1 a ciegas convertía la unidad "µV" en dos caracteres, y con eso 23
+    canales de EEG quedaban sin convertir **y** clasificados como OTHER, porque
+    el veto de la unidad se los comía. Costó un ciclo encontrarlo.
+  - Límite conocido: para unidades que no son de voltaje MNE aplica el prefijo
+    SI de forma inconsistente —escaló `µS` y no `uS`— así que la etiqueta de un
+    canal auxiliar con prefijo puede quedar corrida en un factor. Los canales
+    que el programa mide son de voltaje y para ésos la conversión es exacta.
+- [x] **`psglab/readers/scoring_reader.py`** · ~~3 stubs~~ · V3_F "Importación"
+  - Test: **falta** `tests/test_scoring_reader.py`. El archivo lo escribe el
+    propio test, así que no necesita `data/`.
+  - `detect_nomenclature()` lee la cabecera que escribirá
+    `exporters/scoring_txt.py::format_header()`. Acepta el nombre corto y el
+    largo, sin distinguir mayúsculas: el archivo lo puede haber escrito una
+    persona.
+  - **La cabecera gana sobre el parámetro**, y sólo deja de buscarla al llegar
+    a la primera línea de datos: un comentario a mitad del archivo cambiaría la
+    interpretación de las líneas que ya se leyeron.
+  - Hizo falta `nomenclature.stage_from_code()`, la inversa de `stage_code()`
+    que no existía. Vive al lado de su gemela y **deriva** la correspondencia de
+    `stages_of()`: así el código 4 (S4) y el 6 (MT) se rechazan solos en AASM,
+    que no los tiene.
 
 ### Lo que la auditoría dejó medido para este hito
 

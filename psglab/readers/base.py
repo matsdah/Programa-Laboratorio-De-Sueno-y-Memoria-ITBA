@@ -136,8 +136,27 @@ def file_dialog_filter() -> str:
 
     Se construye a partir de los lectores registrados, así que un formato
     nuevo aparece solo en el diálogo sin tocar la interfaz.
+
+    La primera entrada junta las extensiones de todos los formatos: es la que el
+    diálogo ofrece por defecto y la que sirve el 99 % de las veces, porque el
+    usuario quiere abrir "el registro" sin tener que acordarse de en qué formato
+    se lo exportó el equipo. La última deja ver cualquier archivo, para el caso
+    de una extensión inesperada.
+
+    Devuelve **texto y nada más**: no importa Qt ni lo necesita. `readers/` es
+    una de las cuatro capas que tienen que poder correr sin interfaz gráfica, y
+    `test_las_capas_de_negocio_no_conocen_la_interfaz` lo verifica.
     """
-    raise NotImplementedError("Pendiente: armar el filtro a partir de los lectores.")
+    lectores = available_readers()
+    todas = " ".join(sorted({f"*{ext}" for cls in lectores for ext in cls.extensions}))
+
+    entradas = [f"Todos los formatos soportados ({todas})"] if todas else []
+    entradas += [
+        f"{cls.format_name} ({' '.join(f'*{ext}' for ext in cls.extensions)})"
+        for cls in lectores
+    ]
+    entradas.append("Todos los archivos (*)")
+    return ";;".join(entradas)
 
 
 def read_recording(path: Path) -> Recording:

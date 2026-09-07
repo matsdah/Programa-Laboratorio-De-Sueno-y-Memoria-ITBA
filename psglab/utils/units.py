@@ -119,6 +119,31 @@ def conversion_factor(unit: str) -> float:
     return TO_MICROVOLTS[normalizada]
 
 
+def is_electrical(unit: str) -> bool:
+    """Indica si la unidad se puede convertir a microvoltios.
+
+    Es la pregunta que hace cada lector, canal por canal. Un registro de
+    polisomnografía normal trae termómetros y marcadores además de EEG —el
+    pliego pide explícitamente no limitar por tipo de señal— y el de prueba de
+    la Sleep-EDF es un buen ejemplo: de sus siete canales, **tres no son
+    eléctricos**, una temperatura en "DegC" y dos sin unidad declarada.
+
+    **No eleva nunca, y ahí se aparta a propósito de `conversion_factor()`.**
+    Aquélla prefiere fallar a asumir porque su respuesta **escala la señal**, y
+    un factor equivocado produce un scoring incorrecto que nadie nota mirando
+    la pantalla. Ésta no escala nada: sólo decide de qué lado va el canal. Si
+    elevara, cada lector tendría que envolverla en un `try/except` para
+    clasificar sus canales, y el manejo de errores se volvería control de
+    flujo.
+
+    Una unidad que no es texto —el `None` de una cabecera que no trae el
+    campo— es justamente un caso a responder con `False`, no con un error.
+    """
+    if not isinstance(unit, str):
+        return False
+    return normalize_unit_name(unit) in TO_MICROVOLTS
+
+
 def format_amplitude(value_uv: float, decimals: int = 0) -> str:
     """Formatea una amplitud para mostrarla en la escala del visualizador.
 

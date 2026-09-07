@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los doce
+camino de búsqueda. Con `pytest` directo la recolección falla en los trece
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -59,6 +59,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
 | `test_session.py` | Navegación, canales y amplitud, sin abrir una ventana. |
 | `test_annotations.py` | Los eventos sobre la señal: qué se borra y qué se dibuja. |
+| `test_channel_types.py` | Que cada canal se clasifique solo: EEG, EOG, EMG, ECG u otro. |
 | `test_occupancy.py` | La herramienta de ocupación horizontal. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 

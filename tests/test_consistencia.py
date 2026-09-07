@@ -28,6 +28,8 @@ import pytest
 NUMEROS_EN_PALABRAS: dict[str, int] = {
     "cero": 0, "un": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
     "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10, "once": 11, "doce": 12,
+    "trece": 13, "catorce": 14, "quince": 15, "dieciséis": 16, "diecisiete": 17,
+    "dieciocho": 18, "diecinueve": 19, "veinte": 20,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
@@ -46,6 +48,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_session.py": ("psglab/core/session.py",),
     "test_nomenclature.py": ("psglab/core/nomenclature.py",),
     "test_scoring.py": ("psglab/core/scoring.py",),
+    "test_channel_types.py": ("psglab/readers/channel_types.py",),
     "test_occupancy.py": ("psglab/tools/occupancy.py",),
     # `information_txt.py` y `statistics.py` **no** figuran acá aunque el TODO
     # los agrupe con los otros dos: `test_exporters.py` ni siquiera los importa.

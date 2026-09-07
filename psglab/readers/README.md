@@ -109,14 +109,16 @@ punta.
 
 ## Estado
 
-Pendientes **9 stubs**, en el
+Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
 [hito 4 del TODO](../../docs/TODO.md#hito-4-importación). Dependían de
 `core/recording.py`, terminado en el hito 1.
 
-De `base.py` sólo falta `file_dialog_filter()`. `can_read()`,
-`register_reader`, `read_recording()` y `load_all_readers()` ya están
-implementados a propósito: sostienen el punto de extensión y **no deben
-convertirse en stubs**.
+`can_read()`, `register_reader`, `read_recording()` y `load_all_readers()` ya
+estaban implementados antes del hito 4 y a propósito: sostienen el punto de
+extensión y **no deben convertirse en stubs**.
+
+Lo que falta de esta carpeta no es código sino sus tests, `test_readers.py` y
+`test_scoring_reader.py`, que cierran el hito.
 
 `available_readers()` devuelve **clases**, no instancias, igual que
 `tools.registry.available_tools()`. Los dos son los puntos de extensión del
