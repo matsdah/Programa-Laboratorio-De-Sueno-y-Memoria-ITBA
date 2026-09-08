@@ -7,13 +7,14 @@ funcionó, pero a mano tiene dos problemas: hay que acordarse de los pasos, y
 
 **La corrida de aquel día anotó un evento llamando a la herramienta
 directamente desde el script, no por la interfaz.** Con eso el hueco del hito 9
-no se manifestó: `main_window` nunca llama a `create_annotation()`, así que en
-el programa corriendo no hay forma de anotar. Verificar la pieza en vez del
+no se manifestó: `main_window` no llamaba a `create_annotation()`, así que en el
+programa corriendo no había forma de anotar. Verificar la pieza en vez del
 camino es exactamente lo que este archivo existe para no volver a hacer.
 
-Por eso todo lo que se afirma acá pasa por `MainWindow`, y lo que hoy no
-funciona está marcado `xfail` apuntando al hito 9: el día que se cierre, la
-suite avisa sola con un `XPASS`.
+Por eso todo lo que se afirma acá pasa por `MainWindow`, y los gestos de mouse
+se mandan como eventos de Qt al viewport en vez de llamar a la herramienta.
+Los dos tests de anotar nacieron `xfail` con el hueco abierto y se les sacó la
+marca al cablearlo en el hito 9.
 
 Corre en cualquier lado, incluido el CI: usa el BrainVision sintético de
 `conftest.py`, no los registros de `data/`.
@@ -22,6 +23,9 @@ Corre en cualquier lado, incluido el CI: usa el BrainVision sintético de
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import QEvent, QPointF, Qt
+from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QApplication, QInputDialog
 
 pytest.importorskip("pyqtgraph")
 
@@ -37,7 +41,7 @@ from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
 
-from conftest import escribir_brainvision  # noqa: E402
+from conftest import FRECUENCIA_BV, escribir_brainvision  # noqa: E402
 
 #: Ventanas del registro de prueba. Cinco alcanzan para scorear una fase
 #: distinta en cada una y que sobre alguna sin scorear.
@@ -186,57 +190,165 @@ def test_exportar_a_un_lugar_imposible_avisa_sin_romper(
     assert ventana.carteles, "escribir en una carpeta inexistente no avisó nada"
 
 
-# -- Anotar: el hueco del hito 9 --------------------------------------------
+# -- Anotar, por el camino del mouse (V1_F de "Anotación") -------------------
+#
+# Estos dos estuvieron marcados `xfail` mientras duró el hueco del hito 9:
+# `main_window` no leía `pending_selection_samples` ni llamaba a
+# `create_annotation()`, así que se podía arrastrar una selección y no pasaba
+# nada. Se les sacó la marca al cablearlo.
+#
+# **Mandan eventos de Qt de verdad al viewport**, no llaman a la herramienta.
+# Ésa es toda la diferencia: llamando a la herramienta, estos tests pasaban en
+# verde con el programa roto, que fue exactamente lo que ocurrió en el hito 6.
 
 
-@pytest.mark.xfail(
-    reason=(
-        "hito 9: main_window nunca lee pending_selection_samples ni llama a "
-        "create_annotation(), así que no hay forma de anotar desde la interfaz. "
-        "Cuando se cablee, esto pasa a XPASS y hay que sacarle el xfail."
-    ),
-    strict=True,
-)
-def test_se_puede_anotar_un_evento_desde_la_interfaz(ventana: MainWindow):
-    """**El camino, no la pieza.**
+def arrastrar(ventana: MainWindow, desde_x: float, hasta_x: float) -> None:
+    """Presiona, mueve y suelta el botón izquierdo sobre el visualizador."""
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    viewport = ventana.signal_view.viewport()
 
-    `AnnotationSet` y `AnnotatorTool` están completos y tienen sus tests en
-    verde; lo que falta es que la ventana pregunte la clase y cree la
-    anotación. Este test arrastra una selección con el mouse igual que el
-    usuario y después mira si quedó algo anotado.
+    def evento(tipo: QEvent.Type, x: float) -> QMouseEvent:
+        punto = QPointF(float(x), caja.center().y())
+        return QMouseEvent(
+            tipo,
+            punto,
+            punto,
+            punto,
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+
+    aplicacion = QApplication.instance()
+    aplicacion.sendEvent(viewport, evento(QEvent.Type.MouseButtonPress, desde_x))
+    aplicacion.sendEvent(viewport, evento(QEvent.Type.MouseMove, hasta_x))
+    aplicacion.sendEvent(viewport, evento(QEvent.Type.MouseButtonRelease, hasta_x))
+
+
+@pytest.fixture
+def elige_clase(monkeypatch):
+    """Responde el diálogo de clase sin abrirlo.
+
+    Es modal: sin esto la suite se cuelga esperando a alguien que apriete
+    Aceptar. Devuelve una función para fijar qué contesta.
     """
-    ventana._toggle_tool("annotator", True)
-    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
-    desde = caja.left() + (caja.right() - caja.left()) * 0.25
-    hasta = desde + 40
+    respuesta: dict[str, tuple[str, bool]] = {"valor": ("Spindle", True)}
 
-    herramienta = ventana._tools["annotator"]
-    herramienta.on_mouse_press(ventana.signal_view.seconds_at_pixel(desde), 0.0, "left")
-    herramienta.on_mouse_move(ventana.signal_view.seconds_at_pixel(hasta), 0.0)
-    herramienta.on_mouse_release(
-        ventana.signal_view.seconds_at_pixel(hasta), 0.0, "left"
-    )
+    def responder(*_args, **_kwargs) -> tuple[str, bool]:
+        return respuesta["valor"]
 
-    assert ventana.session.annotations.all(), "no quedó ninguna anotación"
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(responder))
+
+    def fijar(clase: str, acepta: bool = True) -> None:
+        respuesta["valor"] = (clase, acepta)
+
+    return fijar
 
 
-@pytest.mark.xfail(
-    reason="hito 9: sin forma de anotar, Anotaciones.txt sale siempre vacío.",
-    strict=True,
-)
-def test_las_anotaciones_exportadas_no_estan_vacias(
-    ventana: MainWindow, tmp_path: Path
+def test_se_puede_anotar_un_evento_desde_la_interfaz(
+    ventana: MainWindow, elige_clase
 ):
-    ventana._toggle_tool("annotator", True)
+    """**El camino, no la pieza.**"""
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
-    herramienta = ventana._tools["annotator"]
-    herramienta.on_mouse_press(5.0, 0.0, "left")
-    herramienta.on_mouse_release(8.0, 0.0, "left")
+    ventana._toggle_tool("annotator", True)
+
+    arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
+
+    anotaciones = ventana.session.annotations.all()
+    assert len(anotaciones) == 1
+    assert anotaciones[0].label == "Spindle"
+    assert anotaciones[0].duration_samples > 0
+    assert not ventana.carteles
+
+
+def test_la_anotacion_cae_en_la_ventana_en_la_que_se_hizo(
+    ventana: MainWindow, elige_clase
+):
+    """El error caro: sin sumar el desplazamiento de la ventana, todas las
+    anotaciones caen al principio del registro."""
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    ventana._toggle_tool("annotator", True)
+    ventana._go_to_window(3)
+
+    arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
+
+    inicio = ventana.session.annotations.all()[0].onset_sample
+    por_ventana = FRECUENCIA_BV * WINDOW_SECONDS
+    assert 3 * por_ventana <= inicio < 4 * por_ventana
+
+
+def test_se_puede_crear_una_clase_nueva_al_vuelo(ventana: MainWindow, elige_clase):
+    """El pliego pide **asignarle o crear** una clase, así que el diálogo es
+    editable y lo que se escriba se registra con su color."""
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    ventana._toggle_tool("annotator", True)
+    elige_clase("Espiga temporal")
+
+    arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
+
+    assert "Espiga temporal" in ventana.session.annotations.labels()
+    assert ventana.session.annotations.all()[0].label == "Espiga temporal"
+
+
+def test_cancelar_el_dialogo_no_anota(ventana: MainWindow, elige_clase):
+    """Quien se arrepiente a mitad del gesto no puede quedarse con un evento
+    que no pidió."""
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    ventana._toggle_tool("annotator", True)
+    elige_clase("Spindle", acepta=False)
+
+    arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
+
+    assert ventana.session.annotations.all() == []
+    assert not ventana.carteles
+
+
+def test_una_clase_vacia_no_anota(ventana: MainWindow, elige_clase):
+    """Aceptar con el campo en blanco es un error de dedo, no una clase."""
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    ventana._toggle_tool("annotator", True)
+    elige_clase("   ")
+
+    arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
+
+    assert ventana.session.annotations.all() == []
+
+
+def test_las_anotaciones_exportadas_no_estan_vacias(
+    ventana: MainWindow, elige_clase, tmp_path: Path
+):
+    """Cierra V2_F de "Archivo de salida", que dependía de esto: sin forma de
+    anotar, `Anotaciones.txt` salía siempre vacío."""
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    ventana._toggle_tool("annotator", True)
+    arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
 
     destino = tmp_path / NOMBRES["annotations"]
     ventana.export("annotations", destino)
 
-    assert destino.read_text(encoding="utf-8").strip()
+    assert "Spindle" in destino.read_text(encoding="utf-8")
+
+
+def test_un_clic_no_borra_la_linea_de_ocupacion_que_estaba_lejos(
+    ventana: MainWindow,
+):
+    """**La consecuencia del bug de unidades, vista por la ventana.**
+
+    La tolerancia de la ocupación son 10 µV. Mientras la `y` llegaba en
+    carriles —de 0 a 1— cualquier clic dentro del rango horizontal de una línea
+    caía dentro de la tolerancia y la borraba en vez de empezar otra.
+    """
+    from psglab.tools.occupancy import OccupancyLine
+
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    ventana._toggle_tool("occupancy", True)
+    herramienta = ventana._tools["occupancy"]
+    herramienta.add_line(OccupancyLine(0.2, 0.0, 0.6, 0.0))
+
+    # Un clic arriba de todo, a cientos de µV de la línea, que está en y = 0.
+    arrastrar(ventana, caja.left() + caja.width() * 0.3, caja.left() + caja.width() * 0.4)
+
+    assert herramienta.lines(), "el clic lejano borró la línea"
 
 
 # -- Que la lista del hito 8 siga siendo cierta -----------------------------

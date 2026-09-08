@@ -31,6 +31,7 @@ from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
+    QInputDialog,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -49,6 +50,7 @@ from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_txt import export_scoring
 from psglab.readers.base import file_dialog_filter, read_recording
 from psglab.readers.scoring_reader import read_scoring
+from psglab.tools.annotator import AnnotatorTool
 from psglab.tools.base import Tool, ViewerTool
 from psglab.tools.histogram import HistogramTool
 from psglab.tools.registry import available_tools
@@ -244,6 +246,12 @@ class MainWindow(QMainWindow):
                 herramienta.on_mouse_press(segundos, y, boton)
             else:
                 herramienta.on_mouse_release(segundos, y, boton)
+                # **Acá se cierra el lazo de V1_F de "Anotación".** La
+                # herramienta deja el tramo pendiente y espera que alguien
+                # pregunte la clase; hasta el hito 9 no lo hacía nadie, así que
+                # se podía arrastrar una selección y no pasaba nada.
+                if isinstance(herramienta, AnnotatorTool):
+                    self._finish_annotation(herramienta)
         return False
 
     def _filtrar_histograma(self, evento: QEvent) -> None:
@@ -259,6 +267,46 @@ class MainWindow(QMainWindow):
         # De escena, igual que `caja`, que es un `sceneBoundingRect()`.
         fraccion = (evento.scenePosition().x() - caja.left()) / caja.width()
         herramienta.on_click(min(1.0, max(0.0, fraccion)))
+
+    def _finish_annotation(self, herramienta: AnnotatorTool) -> None:
+        """Pregunta la clase del evento recién seleccionado y lo anota (V1_F).
+
+        El pliego pide **asignarle o crear una clase**, así que el diálogo es
+        editable: la lista ofrece las que ya existen y el usuario puede escribir
+        una nueva, que se registra con su color antes de anotar.
+
+        Cancelar deja el tramo pendiente sin anotar, que es lo que espera quien
+        se arrepiente a mitad del gesto. No se lo borra: volver a soltar el
+        mouse lo reemplaza.
+        """
+        if self._session is None:
+            return
+        pendiente = herramienta.pending_selection_samples
+        if pendiente is None:
+            return
+        inicio, duracion = pendiente
+
+        clases = self._session.annotations.labels()
+        clase, acepto = QInputDialog.getItem(
+            self,
+            "Anotar evento",
+            "Clase del evento (se puede escribir una nueva):",
+            clases,
+            0,
+            True,
+        )
+        if not acepto or not clase.strip():
+            return
+        clase = clase.strip()
+
+        try:
+            if clase not in clases:
+                herramienta.add_label(clase)
+            herramienta.create_annotation(clase, inicio, duracion)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.statusBar().showMessage(f"Se anotó «{clase}»", 5000)
 
     def _on_tool_changed(self, tool: Tool) -> None:
         """Una herramienta avisó de que cambió lo que quiere mostrar."""
