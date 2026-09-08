@@ -122,7 +122,7 @@ commit.
 | Sección | ID | Requisito | Archivo |
 |---------|----|-----------|---------|
 | Filtración | V1_F | Importar señal cruda y filtrar por tipo de canal | `psglab/analysis/filters.py` |
-| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py` |
+| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir) |
 | Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py` |
 | Rereferenciar | — | Re-referenciar la señal | `psglab/analysis/reference.py` |
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |

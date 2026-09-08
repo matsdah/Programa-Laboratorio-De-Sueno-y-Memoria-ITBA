@@ -943,3 +943,67 @@ def test_cancelar_no_calcula_nada(ventana: MainWindow, elige_opciones):
     ventana.show_complexity_dialog()
 
     assert ventana.metric_panel.channels() == []
+
+
+# -- ICA, por la ventana (V5_F de "Filtración") ------------------------------
+
+
+@pytest.fixture
+def ventana_con_dos_eeg(qt_app, tmp_path, monkeypatch):
+    """Como `ventana`, pero con dos canales EEG.
+
+    La ICA necesita al menos dos: con uno solo el módulo se niega, con razón,
+    porque no hay mezcla que separar. El BrainVision por omisión trae un solo
+    EEG, y derivar no alcanza: `derive()` marca como `OTHER` un canal hecho de
+    dos clases distintas, que es su regla y está bien.
+    """
+    carteles: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+    )
+    principal = create_main_window()
+    vhdr = escribir_brainvision(
+        tmp_path / "dos_eeg",
+        segundos=WINDOW_SECONDS * 2,
+        canales=[("C3", "µV"), ("C4", "µV"), ("EOG-izq", "µV")],
+    )
+    principal.open_recording(vhdr)
+    principal.carteles = carteles
+    return principal
+
+
+def test_con_un_solo_eeg_la_ica_avisa(ventana: MainWindow):
+    """El módulo se niega y acá eso tiene que salir como cartel, no como traza:
+    con un canal no hay mezcla que separar."""
+    ventana.show_ica_dialog()
+
+    assert ventana.carteles
+
+
+def test_ajustar_no_aplica_nada(ventana_con_dos_eeg: MainWindow):
+    """**Ajustar e inspeccionar son dos pasos separados de aplicar**, porque
+    quitar el componente equivocado no se puede deshacer."""
+    antes = ventana_con_dos_eeg.session.recording.data.copy()
+
+    ventana_con_dos_eeg.show_ica_dialog()
+
+    assert ventana_con_dos_eeg.ica_panel.component_count() == 2
+    assert ventana_con_dos_eeg.ica_panel.excluded() == []
+    assert np.array_equal(ventana_con_dos_eeg.session.recording.data, antes)
+    assert not ventana_con_dos_eeg.carteles
+
+
+def test_aplicar_deja_volver_a_la_señal_original(ventana_con_dos_eeg: MainWindow):
+    """**Es la única red contra una exclusión equivocada**, y por eso la ICA
+    pasa por el mismo camino que los demás análisis del menú."""
+    ventana_con_dos_eeg.show_ica_dialog()
+    original = ventana_con_dos_eeg.session.recording.data.copy()
+
+    ventana_con_dos_eeg.ica_panel.set_excluded([0])
+    ventana_con_dos_eeg.ica_panel._aplicar()
+
+    assert not np.array_equal(ventana_con_dos_eeg.session.recording.data, original)
+    assert ventana_con_dos_eeg.accion_señal_original.isEnabled()
+
+    ventana_con_dos_eeg.restore_original_recording()
+    assert np.allclose(ventana_con_dos_eeg.session.recording.data, original)

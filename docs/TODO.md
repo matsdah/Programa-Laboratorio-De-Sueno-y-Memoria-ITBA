@@ -4,8 +4,9 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **11 stubs** (`raise NotImplementedError`) en 3 módulos, **todos de la
-Parte 2**: `psglab/analysis/`.
+Quedan **7 stubs** (`raise NotImplementedError`) en 2 módulos, **todos de la
+Parte 2**: `psglab/analysis/`. Los dos esperan una respuesta externa —el pliego
+y el cliente—, así que **no hay nada que se pueda avanzar sin ella**.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
 se pueden usar desde el programa corriendo, no sólo desde sus módulos, que es la
@@ -74,9 +75,9 @@ nada**. Un verde por omisión es peor que un rojo.
 | [12. Filtración](#hito-12-filtración) | 1 | 3 | ⬜ |
 | [13. PSD](#hito-13-psd) | — | 0 | ✅ cerrado |
 | [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | — | 0 | ✅ cerrado |
-| [15. ICA](#hito-15-ica) | 1 | 4 | ⬜ |
+| [15. ICA](#hito-15-ica) | — | 0 | ✅ cerrado |
 | [16. Impedancia](#hito-16-impedancia) | 1 | 4 | ⬜ |
-| | **3** | **11** | |
+| | **2** | **7** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
 seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta
@@ -1114,20 +1115,47 @@ mostrarse.
 
 ## Hito 15: ICA
 
-- [ ] **`psglab/analysis/ica.py`** · 4 stubs · V5_F de "Filtración"
-  - Depende del adaptador del hito 10 y es el de interfaz más pesada: elegir
-    componentes mirando topografías es una pantalla propia, no una entrada de
-    menú.
-  - **Tres de las cuatro devuelven `Any`** (objetos de MNE), así que lo
-    testeable es el contrato y no el objeto: que la cantidad de componentes sea
-    la pedida, que `exclude=[]` reconstruya el original, y que excluir la
-    componente de un parpadeo sintético baje su potencia **medida por PSD**.
-    Requiere `random_state` fijo: la ICA es estocástica y el orden y el signo
-    de las componentes son indeterminados por construcción.
-  - **Hueco de modelo de datos**: `component_topography()` promete datos para
-    dibujar una topografía, y eso necesita posiciones de electrodo que
-    `Channel` **no lleva**. Hay que decidir de dónde salen.
-  - Test: **crear** `tests/test_ica.py`.
+- [x] **`psglab/analysis/ica.py`** · ~~4 stubs~~ · V5_F de "Filtración"
+  - **El hueco del modelo de datos se resolvió sin tocarlo.**
+    `component_topography()` devuelve **los pesos por canal** del componente,
+    normalizados, que es el dato con el que se reconoce un artefacto: un
+    parpadeo tiene peso alto en los frontales y bajo en los occipitales. Lo que
+    no devuelve es un mapa sobre el cuero cabelludo, porque eso necesitaría las
+    coordenadas de cada electrodo y `Channel` no las lleva. Agregarlas es una
+    decisión sobre el modelo de datos de la Parte 1, no algo para resolver de
+    paso; los pesos alcanzan para lo que la vista existe.
+  - **El test que importa no verifica que MNE devuelva algo, sino que devuelva
+    lo que se puso.** Se mezclan dos fuentes conocidas —alfa de 10 Hz y un
+    parpadeo de 0,3 Hz— con pesos conocidos por canal, y se comprueba que ICA
+    recupere esos pesos con tolerancia 0,15. Después se quita el componente del
+    parpadeo y se mide **por PSD** que su potencia caiga diez veces sin que el
+    alfa se mueva. Sin la segunda mitad, un `apply_ica()` que borrara todo
+    pasaría la primera.
+  - **La semilla es fija** (`RANDOM_STATE`). ICA es estocástica: sin ella el
+    mismo registro da componentes distintos en cada corrida, en otro orden y
+    con otro signo, y un investigador que rehace un análisis tiene que obtener
+    lo mismo. Hay un test que corre la descomposición dos veces.
+  - Ni el **orden** ni el **signo** de los componentes se afirman: son
+    arbitrarios por construcción. Los tests buscan "el componente frontal" en
+    vez de suponer que es el 0, y comparan valores absolutos.
+  - **Se ajusta sobre los EEG y sólo sobre ellos**: meter un termómetro en la
+    descomposición no tiene sentido físico y ensuciaría todos los componentes.
+    `apply_ica()` devuelve el registro entero con el resto intacto.
+  - Test: `tests/test_ica.py`, **29 tests en verde**.
+- [x] **`psglab/ui/ica_panel.py`** · el panel de inspección
+  - Diseñado alrededor de la advertencia del módulo: quitar el componente
+    equivocado modifica la señal de forma irreversible. De ahí salen sus tres
+    reglas: **ninguno viene marcado de fábrica** —sugerir cuál quitar sería
+    adivinar por el usuario—, **nada se aplica solo**, y la topografía se
+    muestra antes de poder marcar nada.
+  - **Base 1 al mostrar, base 0 al devolver**, que es lo que `apply_ica()`
+    espera: equivocar esa conversión quitaría un componente distinto del que el
+    usuario marcó, que es justamente el error irreversible.
+  - Recargar **desmarca lo de antes**: una marca de una descomposición vieja
+    aplicada a otra quitaría un componente que el usuario nunca miró.
+  - Pasa por `_aplicar_analisis()`, el camino único del menú, así que se puede
+    volver a la señal original. Es la única red que hay.
+  - Test: `tests/test_ica_panel.py`, **15 tests en verde**.
 
 ---
 

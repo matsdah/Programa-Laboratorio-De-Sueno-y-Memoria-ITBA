@@ -60,6 +60,7 @@ from psglab.analysis.connectivity import (
     average_connectivity,
     compute_connectivity,
 )
+from psglab.analysis.ica import apply_ica, component_topography, fit_ica
 from psglab.analysis.psd import DEFAULT_BANDS, compute_psd
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
@@ -81,6 +82,7 @@ from psglab.ui.grid import BackgroundStyle
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.connectivity_panel import ConnectivityPanel
+from psglab.ui.ica_panel import IcaPanel
 from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
 from psglab.ui.scoring_panel import ScoringPanel
@@ -122,6 +124,8 @@ class MainWindow(QMainWindow):
         #: El botón de cada herramienta, para poder destildarlo al apagarla.
         self._tool_actions: dict[str, QAction] = {}
         self._active_viewer_tool: ViewerTool | None = None
+        #: La descomposición ICA ajustada, mientras el panel está abierto.
+        self._ica: object | None = None
 
         self._build_layout()
         self._build_menus()
@@ -181,6 +185,13 @@ class MainWindow(QMainWindow):
         self.connectivity_dialog.resize(560, 520)
         QVBoxLayout(self.connectivity_dialog).addWidget(self.connectivity_panel)
 
+        self.ica_panel = IcaPanel()
+        self.ica_panel.on_apply = self._apply_ica
+        self.ica_dialog = QDialog(self)
+        self.ica_dialog.setWindowTitle("Componentes independientes")
+        self.ica_dialog.resize(860, 480)
+        QVBoxLayout(self.ica_dialog).addWidget(self.ica_panel)
+
         self.tool_readout = QLabel("")
         self.statusBar().addPermanentWidget(self.tool_readout)
         self.statusBar().showMessage("Sin registro abierto")
@@ -227,6 +238,8 @@ class MainWindow(QMainWindow):
         analisis.addAction("&Espectro de la ventana…", self.show_psd_dialog)
         analisis.addAction("&Complejidad de la noche…", self.show_complexity_dialog)
         analisis.addAction("Conectividad de la &ventana…", self.show_connectivity_dialog)
+        analisis.addSeparator()
+        analisis.addAction("Componentes &independientes (ICA)…", self.show_ica_dialog)
         analisis.addSeparator()
         self.accion_señal_original = analisis.addAction(
             "&Volver a la señal original", self.restore_original_recording
@@ -933,6 +946,50 @@ class MainWindow(QMainWindow):
         )
         self.connectivity_dialog.show()
         self.connectivity_dialog.raise_()
+
+    def show_ica_dialog(self) -> None:
+        """Ajusta la ICA y abre el panel para inspeccionarla (V5_F).
+
+        **No aplica nada.** Ajustar e inspeccionar son dos pasos separados de
+        aplicar, justamente porque quitar el componente equivocado modifica la
+        señal de forma irreversible. El panel muestra las topografías y espera.
+        """
+        if self._session is None:
+            return
+        try:
+            self._ica = fit_ica(self._session.recording)
+            topografias = [
+                component_topography(self._ica, numero)
+                for numero in range(int(self._ica.n_components_))
+            ]
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.ica_panel.set_components(topografias)
+        self.ica_dialog.show()
+        self.ica_dialog.raise_()
+
+    def _apply_ica(self, exclude: list[int]) -> None:
+        """Reconstruye la señal sin los componentes que el usuario marcó.
+
+        **Pasa por `_aplicar_analisis()`**, que es el camino único del menú
+        Análisis: así se puede volver a la señal original desde el menú, que es
+        la única red que hay contra una exclusión equivocada — y quitar un
+        componente no se puede deshacer sobre los datos ya transformados.
+        """
+        if self._session is None or self._ica is None:
+            return
+        cuantos = len(exclude)
+        que_hizo = (
+            "Se quitó 1 componente independiente"
+            if cuantos == 1
+            else f"Se quitaron {cuantos} componentes independientes"
+        )
+        self._aplicar_analisis(
+            que_hizo, lambda registro: apply_ica(registro, self._ica, exclude)
+        )
+        self.ica_dialog.hide()
 
     def restore_original_recording(self) -> None:
         """Vuelve a la señal tal como se leyó del archivo.
