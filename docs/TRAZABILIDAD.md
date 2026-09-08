@@ -189,6 +189,24 @@ archivo; cuando se retomen, entran como módulos nuevos en `psglab/analysis/`.
 
 ## Puntos del pliego pendientes de definición
 
+### El hueco V2_F–V4_F de "Filtración"
+
+**Los IDs de la sección "Filtración" saltan de V1_F a V5_F.** No hay V2_F, V3_F
+ni V4_F en esta tabla, ni en ningún docstring, ni en ningún otro documento del
+proyecto.
+
+Lo encontró la [primera auditoría](AUDITORIA.md) y sigue sin resolverse. Hay dos
+explicaciones posibles y no se puede elegir entre ellas sin el pliego:
+
+1. La numeración del pliego simplemente salta, y no falta nada.
+2. **Faltan tres requisitos** de filtración que el proyecto nunca registró.
+
+Se anota acá, y no en el TODO, porque el TODO lleva estado y esto es una
+pregunta abierta sobre el alcance. Lo que **sí** está especificado —V1_F,
+filtrar por tipo de canal, y V5_F, ICA— no está en duda: si aparecen los tres,
+son trabajo adicional y no trabajo a rehacer.
+
+
 La lista vive en **[`TODO.md`](TODO.md#hito-0-desbloquear)**, hito 0, con el
 detalle de qué trabajo frena cada una. Acá no se repite: el estado y las
 preguntas abiertas los posee el TODO, y duplicarlos garantizaba —y de hecho
