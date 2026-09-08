@@ -123,7 +123,7 @@ commit.
 |---------|----|-----------|---------|
 | Filtración | V1_F | Importar señal cruda y filtrar por tipo de canal | `psglab/analysis/filters.py` |
 | Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir) |
-| Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py` |
+| Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py`, `psglab/readers/brainvision.py` (las extrae del `.vhdr`), `psglab/ui/impedance_panel.py` (la tabla y el informe) |
 | Rereferenciar | — | Re-referenciar la señal | `psglab/analysis/reference.py` |
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
 | PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py`, `psglab/ui/psd_panel.py` (el dibujo) |

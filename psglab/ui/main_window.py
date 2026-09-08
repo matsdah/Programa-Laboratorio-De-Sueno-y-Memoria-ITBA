@@ -61,6 +61,12 @@ from psglab.analysis.connectivity import (
     compute_connectivity,
 )
 from psglab.analysis.ica import apply_ica, component_topography, fit_ica
+from psglab.analysis.impedance import (
+    DEFAULT_LIMIT_KOHM,
+    impedance_report,
+    load_impedances_from_file,
+    read_impedances,
+)
 from psglab.analysis.psd import DEFAULT_BANDS, compute_psd
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
@@ -83,6 +89,7 @@ from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.connectivity_panel import ConnectivityPanel
 from psglab.ui.ica_panel import IcaPanel
+from psglab.ui.impedance_panel import ImpedancePanel
 from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
 from psglab.ui.scoring_panel import ScoringPanel
@@ -185,6 +192,17 @@ class MainWindow(QMainWindow):
         self.connectivity_dialog.resize(560, 520)
         QVBoxLayout(self.connectivity_dialog).addWidget(self.connectivity_panel)
 
+        self.impedance_panel = ImpedancePanel()
+        self.impedance_panel.on_changed = self._refrescar_informe_de_impedancia
+        self.impedance_panel.boton_archivo.clicked.connect(self.load_impedances_dialog)
+        self.impedance_panel.boton_limpiar.clicked.connect(
+            self._limpiar_impedancias
+        )
+        self.impedance_dialog = QDialog(self)
+        self.impedance_dialog.setWindowTitle("Impedancia de los electrodos")
+        self.impedance_dialog.resize(820, 460)
+        QVBoxLayout(self.impedance_dialog).addWidget(self.impedance_panel)
+
         self.ica_panel = IcaPanel()
         self.ica_panel.on_apply = self._apply_ica
         self.ica_dialog = QDialog(self)
@@ -231,6 +249,12 @@ class MainWindow(QMainWindow):
         # es lo que separa "el módulo existe" de "el investigador puede usarlo",
         # que es la lección que costó el hito 9.
         analisis = self.menuBar().addMenu("&Análisis")
+        # **Arriba de todo y en su propio grupo.** No es un análisis de la
+        # señal sino el control de calidad **previo** a confiar en
+        # cualquiera de los otros: filtrar la señal de un electrodo suelto
+        # da un resultado prolijo y falso, que es peor que uno feo.
+        analisis.addAction("&Impedancia de los electrodos…", self.show_impedance_dialog)
+        analisis.addSeparator()
         analisis.addAction("&Derivar canales…", self.derive_dialog)
         analisis.addAction("&Re-referenciar…", self.rereference_dialog)
         analisis.addAction("Referencia &promedio (EEG)", self.apply_average_reference)
@@ -946,6 +970,71 @@ class MainWindow(QMainWindow):
         )
         self.connectivity_dialog.show()
         self.connectivity_dialog.raise_()
+
+    def show_impedance_dialog(self) -> None:
+        """Abre el control de impedancia (V1_F de "Impedancia").
+
+        Arranca con lo que traiga el archivo. **En un EDF eso es siempre nada**,
+        y no es un fallo: el estándar no tiene ningún campo de impedancia. Ahí
+        el investigador las importa de un archivo del equipo o las escribe.
+        """
+        if self._session is None:
+            return
+        self.impedance_panel.set_channels(
+            self._session.recording.channel_names(),
+            read_impedances(self._session.recording),
+        )
+        self._refrescar_informe_de_impedancia()
+        self.impedance_dialog.show()
+        self.impedance_dialog.raise_()
+
+    def load_impedances_dialog(self) -> None:
+        """Importa las impedancias de un archivo del equipo de adquisición."""
+        if self._session is None:
+            return
+        ruta, _ = QFileDialog.getOpenFileName(
+            self,
+            "Importar impedancias",
+            "",
+            "Archivos de texto (*.txt *.csv);;Todos los archivos (*)",
+        )
+        if not ruta:
+            return
+        try:
+            cargadas = load_impedances_from_file(Path(ruta))
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        # Se conserva lo que ya estaba escrito a mano: el archivo agrega, no
+        # reemplaza. Un laboratorio puede tener medido medio montaje.
+        combinadas = {**self.impedance_panel.values(), **cargadas}
+        self.impedance_panel.set_channels(
+            self._session.recording.channel_names(), combinadas
+        )
+        self._refrescar_informe_de_impedancia()
+
+    def _limpiar_impedancias(self) -> None:
+        """Deja todos los canales sin medir."""
+        self.impedance_panel.clear_all()
+        self._refrescar_informe_de_impedancia()
+
+    def _refrescar_informe_de_impedancia(self) -> None:
+        """Rearma el informe con lo que haya cargado.
+
+        Se le pasa **la lista de canales**, que es lo que le permite distinguir
+        el tercer estado: sin ella, el informe no puede saber cuáles faltan,
+        porque los canales sin medir no están en el diccionario a propósito.
+        """
+        if self._session is None:
+            return
+        self.impedance_panel.set_report(
+            impedance_report(
+                self.impedance_panel.values(),
+                DEFAULT_LIMIT_KOHM,
+                channels=self._session.recording.channel_names(),
+            )
+        )
 
     def show_ica_dialog(self) -> None:
         """Ajusta la ICA y abre el panel para inspeccionarla (V5_F).
