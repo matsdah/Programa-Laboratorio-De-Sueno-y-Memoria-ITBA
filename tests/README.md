@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los treinta y nueve
+camino de búsqueda. Con `pytest` directo la recolección falla en los cuarenta y un
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -82,6 +82,8 @@ verde por omisión, que es peor que dar rojo.
 | `test_connectivity.py` | La conectividad, y la afirmación que justifica el módulo: wPLI separa el volume conduction y la coherencia no. |
 | `test_metric_panel.py` | El panel de métrica por ventana: la base 1 del eje, y que los NaN queden como hueco. |
 | `test_connectivity_panel.py` | El mapa de calor: los nombres de canal en los ejes y la escala de color fija. |
+| `test_filter_panel.py` | El panel de filtros: una fila por clase de canal presente, y la celda vacía que desactiva. |
+| `test_filters.py` | El filtrado, verificado por PSD como razón de atenuación, y el pasa-altos sobre el pasa-bajos que MNE acepta en silencio. |
 | `test_ica.py` | La ICA: que recupere los pesos de dos fuentes mezcladas a propósito, y que quitar el parpadeo no se lleve el alfa. |
 | `test_ica_panel.py` | El panel de inspección: que nada venga marcado, que nada se aplique solo, y la conversión de base. |
 | `test_impedance.py` | El control de impedancia, y la distinción que lo sostiene: "sin medir" no es "0 kΩ". |

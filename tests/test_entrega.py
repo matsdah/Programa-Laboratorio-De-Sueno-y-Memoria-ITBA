@@ -1129,3 +1129,79 @@ def test_un_archivo_mal_formado_avisa_sin_romper(
     ventana_con_impedancias.load_impedances_dialog()
 
     assert ventana_con_impedancias.carteles
+
+
+# -- Filtración, por la ventana (V1_F de "Filtración") -----------------------
+
+
+def test_el_panel_de_filtros_se_arma_con_las_clases_del_registro(ventana: MainWindow):
+    """El camino completo: abrir un archivo, abrir el panel y encontrarlo
+    cargado con los sugeridos de lo que ese registro tiene."""
+    ventana.show_filter_dialog()
+
+    assert ventana.filter_panel.kinds()
+    assert set(ventana.filter_panel.kinds()) == {
+        canal.kind for canal in ventana.session.recording.channels
+    }
+    assert not ventana.carteles
+
+
+def test_abrir_el_panel_no_filtra_nada(ventana: MainWindow):
+    """Un menú que filtre con sólo abrirse le cambiaría la señal a alguien que
+    entró a mirar qué había."""
+    original = np.array(ventana.session.recording.data, copy=True)
+
+    ventana.show_filter_dialog()
+
+    assert np.array_equal(ventana.session.recording.data, original)
+    assert not ventana.accion_señal_original.isEnabled()
+
+
+def test_filtrar_desde_la_ventana_cambia_la_señal(ventana: MainWindow):
+    original = np.array(ventana.session.recording.data, copy=True)
+
+    ventana.show_filter_dialog()
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert not np.array_equal(ventana.session.recording.data, original)
+    assert not ventana.carteles
+
+
+def test_un_filtro_mal_elegido_no_obliga_a_reabrir_el_archivo(ventana: MainWindow):
+    """**Poder deshacer**, que es el requisito que el hito tenía escrito. La
+    misma acción del menú que deshace una derivación deshace un filtro."""
+    original = np.array(ventana.session.recording.data, copy=True)
+
+    ventana.show_filter_dialog()
+    ventana.filter_panel.boton_aplicar.click()
+    assert ventana.accion_señal_original.isEnabled()
+
+    ventana.restore_original_recording()
+
+    assert np.allclose(ventana.session.recording.data, original)
+
+
+def test_un_corte_imposible_avisa_y_no_cambia_la_señal(ventana: MainWindow):
+    """Un pasa-bajos por encima de Nyquist sale como cartel, y la señal que el
+    investigador está mirando sigue siendo la de antes."""
+    original = np.array(ventana.session.recording.data, copy=True)
+    ventana.show_filter_dialog()
+    ventana.filter_panel.tabla.topLevelItem(0).setText(2, "9000")
+
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert ventana.carteles
+    assert np.array_equal(ventana.session.recording.data, original)
+
+
+def test_se_puede_filtrar_despues_de_re_referenciar(ventana: MainWindow):
+    """Se filtra **la señal que se está viendo**, no la original: es el orden
+    en que se trabaja."""
+    ventana.apply_average_reference()
+    re_referenciada = np.array(ventana.session.recording.data, copy=True)
+
+    ventana.show_filter_dialog()
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert not np.array_equal(ventana.session.recording.data, re_referenciada)
+    assert not ventana.carteles
