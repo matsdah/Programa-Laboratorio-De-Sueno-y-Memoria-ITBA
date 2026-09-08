@@ -84,6 +84,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     # punta a punta, que son los que dejarían de estar verificados si el
     # archivo se apagara.
     "test_overview_panel.py": ("psglab/ui/overview_panel.py",),
+    "test_mne_bridge.py": ("psglab/analysis/mne_bridge.py",),
     "test_entrega.py": (
         "psglab/app.py",
         "psglab/ui/main_window.py",

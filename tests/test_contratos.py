@@ -45,6 +45,7 @@ from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
+from psglab.analysis import mne_bridge
 from psglab.core.session import Session
 from psglab.utils import units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
@@ -143,6 +144,12 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("set_active_tool", lambda v: sesion().set_active_tool(v)),
         ("add_window_listener", lambda v: sesion().add_window_listener(v)),
         ("set_scoring", lambda v: sesion().set_scoring(v)),
+    ],
+    "psglab/analysis/mne_bridge.py": [
+        ("to_raw", lambda v: mne_bridge.to_raw(v)),
+        ("from_raw(raw=...)", lambda v: mne_bridge.from_raw(v, registro())),
+        ("from_raw(original=...)", lambda v: mne_bridge.from_raw(object(), v)),
+        ("unidad_de_salida", lambda v: mne_bridge.unidad_de_salida(v)),
     ],
     "psglab/utils/units.py": [
         ("conversion_factor", lambda v: units.conversion_factor(v)),

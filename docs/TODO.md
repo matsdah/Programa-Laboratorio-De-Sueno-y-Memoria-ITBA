@@ -860,54 +860,57 @@ camino muerto. Un hito de la Parte 2 no se cierra con el módulo terminado.
 
 ## Hito 10: Cimientos de la Parte 2
 
-Sin stubs: es la infraestructura que la Parte 2 necesita y que no existe. Se
-hace de una vez y no módulo por módulo.
+Sin stubs: es la infraestructura que la Parte 2 necesita y que no existía. Se
+hizo de una vez y no módulo por módulo.
 
-- [ ] **La maquinaria de cuentas de este archivo**, que excluía la Parte 2.
+- [x] **La maquinaria de cuentas de este archivo**, que excluía la Parte 2.
       `stubs_de_la_parte_1()` filtraba `analysis/`, el regex de la tabla exigía
       un hito de **un solo dígito** —un "hito 10" no matcheaba y sus stubs
       desaparecían de la suma en silencio— y el chequeo de "todo módulo tiene
       test" también la salteaba.
-- [ ] **`analysis` en `CAPAS_SIN_INTERFAZ`.** La regla de que la Parte 2 no
-      importe Qt está escrita en tres documentos y no la verifica nadie. Es una
-      línea, y está anotada como hueco mediano en la segunda auditoría.
-- [ ] **`test_contratos.py` extendido a `analysis/`.** `MainWindow` atrapa una
-      sola clase, y un `ValueError` de scipy o de MNE le llegaría al
-      investigador como traza. La exigencia aparece módulo por módulo, porque
-      los que tienen stubs se saltean.
-- [ ] **Una fixture que devuelva un `Recording`.** No existe ninguna:
-      `synthetic_signal` es un array pelado y **todas** las funciones de
-      `analysis/` reciben un `Recording`. Hoy cada test que necesita uno se lo
-      arma solo.
-- [ ] **`requirements-analysis.txt` en el job de tests del CI.** Hoy sólo lo
-      instala el job de licencias, que no corre pytest. Sin esto,
-      `complexity.py` y `connectivity.py` quedarían como el único código del
-      proyecto sin ejercitar.
-- [ ] **El adaptador `Recording` ↔ `mne.io.Raw`.** No existe y lo necesitan
-      tres módulos. MNE se usa hoy en una sola dirección, `Raw → Recording`, en
-      los dos lectores. **Ojo con la unidad**: `readers/edf.py` fija
-      `_UNIDAD_DE_MNE = "V"` y convierte al leer, porque MNE trabaja en volts y
-      el `Recording` en microvoltios. El viaje de vuelta multiplica por 1e-6 al
-      entrar y por 1e6 al salir, y los canales no eléctricos conservan su unidad
-      nativa.
-
-Y **cuatro decisiones transversales que ningún docstring resuelve**, que se
-toman acá o se toman ocho veces distinto:
-
-- [ ] **Copiar lo que devuelve `get_segment()`.** Es de sólo lectura
-      (`recording.py` pone `writeable = False`) y, sin lista de canales, es una
-      **vista y no una copia**. scipy, MNE y antropy van a querer escribir.
-- [ ] **Qué se hace con la última ventana incompleta.** `window_to_samples()`
-      devuelve un final posterior al registro y `get_segment()` acorta el tramo
-      **en silencio**. Las cinco funciones `*_by_window` la van a recibir y
-      ninguna dice qué hacer. La fixture actual da 20 ventanas exactas, así que
-      **no lo ejercita**: hay que escribir el caso a propósito.
-- [ ] **Las excepciones que faltan.** `utils/errors.py` tiene **una sola** de
-      análisis, `InvalidFilterError`, y 21 de los 26 stubs no declaran ningún
-      `Raises:`. Cada módulo trae la suya al terminarse; `tests/test_errors.py`
-      las cubre solas con `inspect.getmembers`.
-- [ ] **La pregunta del hueco V2_F–V4_F**, escrita en
+- [x] **`analysis` y `tools` en `CAPAS_SIN_INTERFAZ`.** La regla de que no
+      importen Qt estaba escrita en tres documentos y no la verificaba nadie.
+- [x] **`test_contratos.py` extendido a `analysis/`.** Encontró tres fugas en
+      el primer módulo que le tocó: `to_raw`, `from_raw` y `unidad_de_salida`
+      dejaban salir `AttributeError` crudo, que la ventana principal no atrapa.
+      La exigencia aparece módulo por módulo, porque los que tienen stubs se
+      saltean.
+- [x] **`registro_sintetico`**, la fixture que faltaba. Ninguna devolvía un
+      `Recording` y **todas** las funciones de `analysis/` reciben uno.
+      Verificada con Welch: los cuatro canales dan su pico donde la fixture
+      promete.
+- [x] **`requirements-analysis.txt` en el job de tests del CI.** Verificado en
+      seco que resuelve: 14 paquetes, sin conflicto y sin degradar numpy.
+- [x] **El adaptador `Recording` ↔ `mne.io.Raw`**
+      (`psglab/analysis/mne_bridge.py`). No existía y lo necesitan tres
+      módulos: MNE se usaba en una sola dirección, `Raw → Recording`, en los
+      dos lectores.
+  - **La unidad era el problema.** MNE trabaja en volts y el `Recording` en
+    microvoltios, pero **sólo se escala lo eléctrico**: `Channel.unit` es la
+    fuente de verdad, y un termómetro multiplicado por un millón no da un error
+    visible, da una temperatura absurda que alguien lee como señal.
+  - **Copia explícita de los datos**, que resuelve la primera decisión
+    transversal: `get_segment()` devuelve un array de sólo lectura y MNE
+    escribe sobre el buffer que recibe. Sin copiar, filtrar reventaba con un
+    error de numpy tres capas más abajo.
+  - Ida y vuelta devuelve lo mismo, que es la propiedad de la que hereda su
+    corrección todo lo que se apoye acá.
+  - Test: `tests/test_mne_bridge.py`, **14 tests en verde**.
+- [x] **La pregunta del hueco V2_F–V4_F**, escrita en
       [`TRAZABILIDAD.md`](TRAZABILIDAD.md) junto a la de las impedancias.
+
+Dos decisiones transversales **no se toman acá a propósito**, porque tomarlas
+sin nada de qué colgarlas sería especular. Se toman donde se necesitan por
+primera vez y las demás las copian:
+
+- **Qué se hace con la última ventana incompleta** → hito 13, que es el primero
+  que recorre ventanas. `window_to_samples()` devuelve un final posterior al
+  registro y `get_segment()` acorta el tramo **en silencio**; la fixture da 20
+  ventanas exactas, así que hay que escribir el caso a propósito.
+- **Las excepciones que faltan** → cada módulo trae la suya al terminarse.
+  `utils/errors.py` tiene una sola de análisis, `InvalidFilterError`, y 21 de
+  los 26 stubs no declaran ningún `Raises:`. `tests/test_errors.py` las cubre
+  solas con `inspect.getmembers`.
 
 ---
 

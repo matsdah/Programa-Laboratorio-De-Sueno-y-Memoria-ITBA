@@ -137,9 +137,9 @@ commit.
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
 rompe si se toca este archivo**. Estos ocho se rompen hacia todos lados.
 
-Seis de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Siete de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
-`tools/base.py`, `tools/registry.py` y `app.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`tools/base.py`, `tools/registry.py`, `app.py` y `analysis/mne_bridge.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -152,6 +152,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/tools/base.py` | Los contratos `Tool` y `ViewerTool`, y el sistema de coordenadas | Las seis herramientas |
 | `psglab/tools/registry.py` | Registro enchufable de herramientas | La barra de herramientas entera |
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |
+| `psglab/analysis/mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw`, y la escala volts ↔ µV | Filtrado, ICA y re-referenciado |
 
 ---
 
