@@ -49,6 +49,7 @@ from psglab.analysis import (
     complexity,
     connectivity,
     derivation,
+    filters,
     ica,
     impedance,
     mne_bridge,
@@ -171,6 +172,15 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("derive_montage(recording=...)", lambda v: derivation.derive_montage(v, [])),
         ("derive_montage(pairs=...)", lambda v: derivation.derive_montage(registro(), v)),
     ],
+    "psglab/analysis/filters.py": [
+        ("apply_filters(recording=...)", lambda v: filters.apply_filters(v, {})),
+        ("apply_filters(settings=...)", lambda v: filters.apply_filters(registro(), v)),
+        ("settings_for_kinds(recording=...)", lambda v: filters.settings_for_kinds(v, {})),
+        ("settings_for_kinds(by_kind=...)", lambda v: filters.settings_for_kinds(registro(), v)),
+        ("default_for", lambda v: filters.default_for(v)),
+        ("validate(settings=...)", lambda v: filters.validate(v, 256.0)),
+        ("validate(sampling_rate=...)", lambda v: filters.validate(filters.FilterSettings(lowpass_hz=20.0), v)),
+    ],
     "psglab/analysis/impedance.py": [
         ("read_impedances", lambda v: impedance.read_impedances(v)),
         ("load_impedances_from_file", lambda v: impedance.load_impedances_from_file(v)),
@@ -274,6 +284,19 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Hito 12. **La guarda que MNE no hace.** Se midió: con un pasa-altos de 40
+    # y un pasa-bajos de 10, MNE acepta el par, arma una banda eliminada, no
+    # emite ningún aviso y devuelve la señal sin atenuar nada. Borrar esta
+    # guarda deja al investigador convencido de que filtró.
+    ("validate con el pasa-altos por encima del pasa-bajos", 40.0,
+     lambda v: filters.validate(filters.FilterSettings(highpass_hz=v, lowpass_hz=10.0), 256.0)),
+    # Cero es "sin filtro" para MNE, así que aceptarlo es aceptar en silencio
+    # un filtro que no se aplica.
+    ("validate con un corte en cero", 0.0,
+     lambda v: filters.validate(filters.FilterSettings(highpass_hz=v), 256.0)),
+    # `default_for` devuelve una copia. Si devolviera la fila compartida, quien
+    # edite lo que recibió le cambia los valores por defecto al programa entero.
+    ("default_for con una cadena", "EEG", lambda v: filters.default_for(v)),
     # Un canal sin nombre utilizable se aceptaba y reventaba mucho después, en
     # cualquier lado que pidiera canales por nombre, que es toda la interfaz.
     ("Recording con un canal sin nombre", None,

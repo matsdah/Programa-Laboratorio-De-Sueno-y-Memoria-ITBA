@@ -4,8 +4,9 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **3 stubs** (`raise NotImplementedError`) en 1 módulo, `filters.py`,
-que es lo último de la Parte 2.
+Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos. Con el hito 12
+cierra la **Parte 2**, y con ella el proyecto: los diecisiete hitos están
+cerrados y ningún módulo de `psglab/` eleva `NotImplementedError`.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
 se pueden usar desde el programa corriendo, no sólo desde sus módulos, que es la
@@ -71,12 +72,12 @@ nada**. Un verde por omisión es peor que un rojo.
 | [9. Lo que la interfaz no consume](#hito-9-lo-que-la-interfaz-no-consume) | — | 0 | ✅ cerrado |
 | [10. Cimientos de la Parte 2](#hito-10-cimientos-de-la-parte-2) | — | 0 | ✅ cerrado |
 | [11. Derivar y re-referenciar](#hito-11-derivar-y-re-referenciar) | — | 0 | ✅ cerrado |
-| [12. Filtración](#hito-12-filtración) | 1 | 3 | ⬜ |
+| [12. Filtración](#hito-12-filtración) | — | 0 | ✅ cerrado |
 | [13. PSD](#hito-13-psd) | — | 0 | ✅ cerrado |
 | [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | — | 0 | ✅ cerrado |
 | [15. ICA](#hito-15-ica) | — | 0 | ✅ cerrado |
 | [16. Impedancia](#hito-16-impedancia) | — | 0 | ✅ cerrado |
-| | **1** | **3** | |
+| | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
 seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta
@@ -981,17 +982,49 @@ ventana y no existía.
 
 ## Hito 12: Filtración
 
-- [ ] **`psglab/analysis/filters.py`** · 3 stubs · V1_F de "Filtración"
-  - `default_for()` y `validate()` no dependen de nada: la tabla
-    `DEFAULT_FILTERS` ya está escrita y Nyquist es aritmética. Van primero,
-    porque `apply_filters()` se apoya en la segunda.
-  - `apply_filters()` es el primer consumidor del adaptador del hito 10.
-  - **Se verifica por PSD**: un pasabajos sobre 1 Hz + 40 Hz + 50 Hz tiene que
-    dejar la de 1 y bajar las otras dos. Como **razón de atenuación**, no como
-    valores exactos, por el ringing de los bordes.
-  - **Poder deshacer.** Un filtro mal elegido no puede obligar a reabrir el
-    archivo.
-  - Test: **crear** `tests/test_filters.py`.
+- [x] **`psglab/analysis/filters.py`** · ~~3 stubs~~ · V1_F de "Filtración"
+  - **`validate()` rechaza más de lo que rechaza MNE, y eso salió de medir.**
+    Con un pasa-altos de 40 Hz y un pasa-bajos de 10, MNE **acepta el par, arma
+    en silencio una banda eliminada y no emite ningún aviso**. Es una función
+    legítima suya, pero acá los dos números salen de dos campos rotulados
+    "pasa-altos" y "pasa-bajos", así que es un error de tipeo. Con la señal de
+    prueba el resultado volvía **sin atenuar nada**: el investigador cree que
+    filtró y está mirando la señal cruda. Por lo mismo se rechaza el cero, que
+    MNE lee como "sin filtro".
+  - **Y aun así hay un `except` alrededor de MNE**, que no es una guarda de
+    más: la comprobación de Nyquist no alcanza para el notch, porque el notch
+    se arma como una banda y esa banda puede pasarse aunque la frecuencia no.
+    Medido: a 101 Hz de muestreo un notch de 50 Hz está por debajo de Nyquist
+    (50,5) y MNE lo rechaza igual, porque el borde de su banda cae en 50,625.
+  - **Se verifica por PSD y como razón de atenuación**, como decía el plan,
+    pero **con otras frecuencias**: un pasa-bajos de 35 Hz atenúa la componente
+    de 40 Hz apenas **7 veces**, porque cae dentro de su banda de transición
+    —MNE la calcula como un cuarto del corte—. Un test sobre esa pareja estaría
+    midiendo el ancho de la transición de MNE y no que el filtro filtre. Con la
+    componente en 50 Hz la razón es de seis órdenes de magnitud.
+  - **Todo o nada**: se valida el pedido entero antes de tocar un dato. Media
+    señal filtrada y media cruda no se distingue a simple vista de una entera.
+  - **Un canal que no se pidió filtrar vuelve idéntico bit a bit**, y hubo que
+    hacerlo a propósito: el viaje µV → V → µV del puente del hito 10 deja error
+    de punto flotante hasta en las filas que MNE no tocó. Lo encontró el test
+    que afirmaba justamente eso.
+  - **Poder deshacer**: ya estaba, porque el filtrado entra por
+    `_aplicar_analisis()` como todo el menú, y "Volver a la señal original" lo
+    deshace igual que a una derivación.
+  - Ganó una función que el esqueleto no tenía, `settings_for_kinds()`: V1_F
+    pide filtrar **por tipo de canal** y `apply_filters()` recibe filtros por
+    **nombre**, que es la firma general. Traducir de una a la otra es la regla
+    del pliego, así que va en `analysis/` y no en el diálogo.
+  - Test: `tests/test_filters.py`, **41 tests en verde**.
+- [x] **`psglab/ui/filter_panel.py`** · una fila por clase de canal
+  - Sólo aparecen las clases que el registro tiene: ofrecer una fila de ECG en
+    un registro sin ECG le pide al usuario que decida sobre algo que no existe.
+  - **La celda vacía desactiva ese filtro, y es la única forma**, porque el
+    cero está rechazado río abajo.
+  - **Abrir el panel no filtra nada.** Un menú que filtre con sólo abrirse le
+    cambiaría la señal a alguien que entró a mirar qué había.
+  - Test: `tests/test_filter_panel.py`, **15 tests en verde**, más seis por la
+    ventana en `tests/test_entrega.py`.
 
 ---
 

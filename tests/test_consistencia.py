@@ -35,7 +35,13 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "treinta": 30, "treinta y uno": 31, "treinta y un": 31, "treinta y dos": 32, "treinta y tres": 33,
     "treinta y cuatro": 34, "treinta y cinco": 35, "treinta y seis": 36,
     "treinta y siete": 37, "treinta y ocho": 38, "treinta y nueve": 39,
-    "cuarenta": 40,
+    # La tabla se cortaba acá y la suite pasó de 39 a 41 archivos en un solo
+    # hito. La forma apocopada —"cuarenta y un archivos", que es la correcta
+    # delante de un sustantivo masculino— ya estaba prevista para los treinta.
+    "cuarenta": 40, "cuarenta y uno": 41, "cuarenta y un": 41,
+    "cuarenta y dos": 42, "cuarenta y tres": 43, "cuarenta y cuatro": 44,
+    "cuarenta y cinco": 45, "cuarenta y seis": 46, "cuarenta y siete": 47,
+    "cuarenta y ocho": 48, "cuarenta y nueve": 49, "cincuenta": 50,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
@@ -84,6 +90,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     # punta a punta, que son los que dejarían de estar verificados si el
     # archivo se apagara.
     "test_overview_panel.py": ("psglab/ui/overview_panel.py",),
+    "test_filters.py": ("psglab/analysis/filters.py",),
+    "test_filter_panel.py": ("psglab/ui/filter_panel.py",),
     "test_impedance.py": ("psglab/analysis/impedance.py",),
     "test_impedance_panel.py": ("psglab/ui/impedance_panel.py",),
     "test_ica.py": ("psglab/analysis/ica.py",),

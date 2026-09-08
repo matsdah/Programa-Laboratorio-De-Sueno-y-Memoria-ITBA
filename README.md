@@ -15,12 +15,13 @@ compatibilidad únicamente con Windows y precios excesivos.
 > histograma y anotador— y se exportan los tres archivos de salida. Toda la
 > lógica se testea **sin abrir una ventana**.
 >
-> Falta el **módulo de análisis de bioseñales** (`psglab/analysis/`), que es la
-> Parte 2: esos módulos declaran su interfaz y elevan `NotImplementedError`.
+> El **módulo de análisis de bioseñales** (`psglab/analysis/`), que es la
+> Parte 2, también está terminado: filtrado, ICA, impedancia, re-referenciado,
+> derivaciones, PSD, complejidad y conectividad. Necesita dos dependencias
+> aparte, en `requirements-analysis.txt`.
 >
-> **Por dónde seguir: [`docs/TODO.md`](docs/TODO.md)**, que ordena el trabajo en
-> hitos por dependencias y es el único lugar que lleva la cuenta de lo que
-> falta.
+> **[`docs/TODO.md`](docs/TODO.md)** lleva los diecisiete hitos con lo que se
+> decidió en cada uno, y es el único lugar que lleva la cuenta.
 
 ---
 

@@ -93,9 +93,9 @@ cada decisión está en el
 
 ## Estado
 
-**Parte 1 terminada**: los 43 módulos del paquete importan —51 archivos `.py`
-contando los ocho `__init__.py`— y ninguno de la Parte 1 eleva ya
-`NotImplementedError`. Lo que sigue elevando es `analysis/`, que es la Parte 2.
+**Las dos Partes terminadas**: los módulos del paquete importan y **ninguno**
+eleva ya `NotImplementedError`, ni los de la Parte 1 ni los de `analysis/`, que
+es la Parte 2.
 
 Pendientes **0 stubs** en 0 módulos de la Parte 1: **está terminada**, con los
 hitos 0 a 7 del [TODO](../docs/TODO.md) cerrados. `python main.py` abre la

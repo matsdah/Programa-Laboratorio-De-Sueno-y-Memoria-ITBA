@@ -17,7 +17,7 @@ desde un script del laboratorio sin abrir el programa.
 
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
-| `filters.py` | Filtrado de la señal cruda. `FilterSettings`, `apply_filters()`, `default_for(kind)`. | V1_F de "Filtración" |
+| `filters.py` | Filtrado de la señal cruda. `FilterSettings`, `apply_filters()`, `default_for(kind)`, `settings_for_kinds()`. | V1_F de "Filtración" |
 | `ica.py` | Componentes independientes: ajustar, ver topografía y curso temporal, y aplicar excluyendo componentes. | V5_F de "Filtración" |
 | `reference.py` | Re-referenciación, incluida la referencia promedio. | "Rereferenciar" |
 | `derivation.py` | Canales nuevos calculados a partir de los existentes (`derive`, `derive_montage`). | "Derivar" |
@@ -82,8 +82,7 @@ huso-onda lenta. Hoy no se instala, justamente porque está fuera del alcance.
 
 ## Estado
 
-Esta carpeta es la **Parte 2** y queda **fuera del
-[TODO](../../docs/TODO.md)**, que cubre sólo la Parte 1.
-
-Pendientes **3 stubs**. No empezarlos antes de cerrar la Parte 1: dependen de
-`core/recording.py` y de que la importación de archivos funcione.
+**Terminada.** Pendientes **0 stubs**: los ocho módulos están implementados y
+con test propio. El [TODO](../../docs/TODO.md) lleva las dos Partes desde el
+hito 10 —antes cubría sólo la Parte 1, y esta carpeta quedaba afuera— y sus
+hitos 10 a 16 son los de acá.

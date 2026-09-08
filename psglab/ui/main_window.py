@@ -67,6 +67,7 @@ from psglab.analysis.impedance import (
     load_impedances_from_file,
     read_impedances,
 )
+from psglab.analysis.filters import apply_filters, settings_for_kinds
 from psglab.analysis.psd import DEFAULT_BANDS, compute_psd
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
@@ -89,6 +90,7 @@ from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.connectivity_panel import ConnectivityPanel
 from psglab.ui.ica_panel import IcaPanel
+from psglab.ui.filter_panel import FilterPanel
 from psglab.ui.impedance_panel import ImpedancePanel
 from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
@@ -203,6 +205,13 @@ class MainWindow(QMainWindow):
         self.impedance_dialog.resize(820, 460)
         QVBoxLayout(self.impedance_dialog).addWidget(self.impedance_panel)
 
+        self.filter_panel = FilterPanel()
+        self.filter_panel.on_apply = self.apply_filters_from_panel
+        self.filter_dialog = QDialog(self)
+        self.filter_dialog.setWindowTitle("Filtrar la señal")
+        self.filter_dialog.resize(680, 320)
+        QVBoxLayout(self.filter_dialog).addWidget(self.filter_panel)
+
         self.ica_panel = IcaPanel()
         self.ica_panel.on_apply = self._apply_ica
         self.ica_dialog = QDialog(self)
@@ -254,6 +263,7 @@ class MainWindow(QMainWindow):
         # cualquiera de los otros: filtrar la señal de un electrodo suelto
         # da un resultado prolijo y falso, que es peor que uno feo.
         analisis.addAction("&Impedancia de los electrodos…", self.show_impedance_dialog)
+        analisis.addAction("&Filtrar la señal…", self.show_filter_dialog)
         analisis.addSeparator()
         analisis.addAction("&Derivar canales…", self.derive_dialog)
         analisis.addAction("&Re-referenciar…", self.rereference_dialog)
@@ -970,6 +980,38 @@ class MainWindow(QMainWindow):
         )
         self.connectivity_dialog.show()
         self.connectivity_dialog.raise_()
+
+    def show_filter_dialog(self) -> None:
+        """Abre el panel de filtros (V1_F de "Filtración").
+
+        Arranca con los sugeridos de cada clase de canal presente. **Abrirlo no
+        filtra nada**: hay que apretar Aplicar. Un menú que filtre con sólo
+        abrirse le cambiaría la señal a alguien que entró a mirar qué había.
+        """
+        if self._session is None:
+            return
+        self.filter_panel.set_recording(self._session.recording)
+        self.filter_dialog.show()
+        self.filter_dialog.raise_()
+
+    def apply_filters_from_panel(self) -> None:
+        """Aplica lo que el panel tenga escrito.
+
+        Se filtra **la señal que se está viendo**, no la original: así se puede
+        filtrar después de derivar o de re-referenciar, que es el orden en que
+        se trabaja. Y como todo el menú Análisis pasa por `_aplicar_analisis`,
+        "Volver a la señal original" deshace también esto: un filtro mal
+        elegido no obliga a reabrir el archivo.
+        """
+        if self._session is None:
+            return
+        por_clase = self.filter_panel.settings()
+        self._aplicar_analisis(
+            "Se filtró la señal",
+            lambda registro: apply_filters(
+                registro, settings_for_kinds(registro, por_clase)
+            ),
+        )
 
     def show_impedance_dialog(self) -> None:
         """Abre el control de impedancia (V1_F de "Impedancia").

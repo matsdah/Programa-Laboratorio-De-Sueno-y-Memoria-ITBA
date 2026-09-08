@@ -16,8 +16,9 @@ hito 8, que es una lista de comprobación, y el hito 9, que salió de correrla:
 seis requisitos que estaban hechos en `tools/` y que `ui/` no consumía. Los dos
 están cerrados y **la Parte 1 está terminada**.
 
-Lo que sigue elevando `NotImplementedError` es **`psglab/analysis/`, que es la
-Parte 2** y tiene sus propias dependencias, que el CI no instala.
+**La Parte 2 también está terminada**, con los hitos 10 a 16: `psglab/analysis/`
+no eleva `NotImplementedError` en ningún módulo. Tiene dependencias propias que
+el CI instala sólo en algunos jobs; ver "Comandos".
 
 **Las cuentas del avance viven sólo en [`docs/TODO.md`](docs/TODO.md)** —cuántos
 stubs quedan, en cuántos módulos, qué hito está abierto— y
