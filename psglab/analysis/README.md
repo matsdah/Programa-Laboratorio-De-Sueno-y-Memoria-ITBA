@@ -81,5 +81,5 @@ huso-onda lenta. Hoy no se instala, justamente porque está fuera del alcance.
 Esta carpeta es la **Parte 2** y queda **fuera del
 [TODO](../../docs/TODO.md)**, que cubre sólo la Parte 1.
 
-Pendientes **26 stubs**. No empezarlos antes de cerrar la Parte 1: dependen de
+Pendientes **22 stubs**. No empezarlos antes de cerrar la Parte 1: dependen de
 `core/recording.py` y de que la importación de archivos funcione.
