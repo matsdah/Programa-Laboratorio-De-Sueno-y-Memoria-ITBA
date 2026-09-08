@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **22 stubs** (`raise NotImplementedError`) en 6 módulos, **todos de la
+Quedan **19 stubs** (`raise NotImplementedError`) en 5 módulos, **todos de la
 Parte 2**: `psglab/analysis/`.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
@@ -72,11 +72,11 @@ nada**. Un verde por omisión es peor que un rojo.
 | [10. Cimientos de la Parte 2](#hito-10-cimientos-de-la-parte-2) | — | 0 | ⬜ |
 | [11. Derivar y re-referenciar](#hito-11-derivar-y-re-referenciar) | — | 0 | ✅ cerrado |
 | [12. Filtración](#hito-12-filtración) | 1 | 3 | ⬜ |
-| [13. PSD](#hito-13-psd) | 1 | 3 | ⬜ |
+| [13. PSD](#hito-13-psd) | — | 0 | ✅ cerrado |
 | [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | 2 | 8 | ⬜ |
 | [15. ICA](#hito-15-ica) | 1 | 4 | ⬜ |
 | [16. Impedancia](#hito-16-impedancia) | 1 | 4 | ⬜ |
-| | **6** | **22** | |
+| | **5** | **19** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
 seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta
@@ -992,18 +992,43 @@ ventana y no existía.
 
 ## Hito 13: PSD
 
-- [ ] **`psglab/analysis/psd.py`** · 3 stubs · V1_F de "Power Spectral Density"
-  - **Es el caso de test más limpio del proyecto**, y el que `conftest.py` usa
+- [x] **`psglab/analysis/psd.py`** · ~~3 stubs~~ · V1_F de "Power Spectral Density"
+  - **El caso de test más limpio del proyecto**, y el que `conftest.py` usa
     para explicar por qué la señal sintética es mejor que un registro real: una
-    onda de 10 Hz tiene que dar un pico en 10 Hz. La fixture ya trae C3 a 1 Hz,
-    C4 a 10 Hz, el EOG a 0,5 Hz y el EMG a 30 Hz.
-  - `band_power()` no depende de nada: recibe arrays. Va antes que
-    `compute_psd()`.
-  - Es la primera que recorre ventanas, así que **acá se fija la convención de
-    la última ventana incompleta** y las demás la copian.
-  - Trae el primer panel de resultado. Sigue el patrón de `overview_panel.py`:
-    el cálculo separado del pintado.
-  - Test: **crear** `tests/test_psd.py`.
+    onda de 10 Hz da un pico en 10 Hz. Los cuatro canales de la fixture están
+    en frecuencias distintas, así que cada uno es su propio testigo y una
+    permutación de canales se vería.
+  - **La convención de la última ventana incompleta, fijada acá**: una ventana
+    más corta que el segmento de Welch devuelve **NaN**, no un número. Calcular
+    igual daría un valor con otra resolución, indistinguible de los demás en el
+    array y comparable con ellos por error; descartarla desalinearía el array
+    del hipnograma, que es justamente para lo que sirve. NaN conserva el largo y
+    dice que ahí no se midió. La copian `complexity.py` y `connectivity.py`.
+  - **La banda es semiabierta `[desde, hasta)`.** Las convencionales se tocan
+    —delta termina en 4 Hz y theta empieza ahí— y con los dos extremos incluidos
+    ese bin se contaría dos veces, con lo cual las potencias relativas sumarían
+    más de 1 sin que nada fallara.
+  - `WELCH_SEGMENT_SECONDS = 4.0` fija la resolución en 0,25 Hz, que es lo que
+    hace falta para mirar delta desde 0,5 Hz. Con segmentos de 1 s la
+    resolución sería 1 Hz y delta empezaría donde el análisis no puede mirar.
+  - `relative` normaliza contra **toda la PSD calculada** y no contra la suma de
+    las bandas: depende de lo que se midió y no de qué bandas eligió el usuario.
+  - Dos excepciones nuevas: `UnknownPsdMethodError` —Welch y multitaper no dan
+    lo mismo, así que elegir uno en silencio daría un resultado que el usuario
+    no pidió y no puede distinguir del que pidió— e `InvalidBandError`.
+  - Test: `tests/test_psd.py`, **38 tests en verde**.
+- [x] **`psglab/ui/psd_panel.py`** · el panel del espectro
+  - **Acá sí se usa pyqtgraph**, a diferencia del panel de la Übersicht, que se
+    pinta con `QPainter`: un espectro es una curva sobre ejes con escala, y
+    aquél son rectángulos sin sistema de coordenadas.
+  - **El eje de potencia va en logarítmico**, y no es preferencia: la potencia
+    delta de una ventana de sueño lento es de dos a tres órdenes de magnitud
+    mayor que la gamma de la misma ventana.
+  - **Un test encontró que eso se escapaba del panel.** Con el eje logarítmico,
+    `PlotDataItem.getData()` devuelve el log₁₀ de lo que se dibujó, así que una
+    potencia de 1e-6 volvía como -6. El panel guarda ahora la magnitud en su
+    unidad, que es la misma solución que `signal_view.py` usa con los píxeles.
+  - Test: `tests/test_psd_panel.py`, **14 tests en verde**.
 
 ---
 

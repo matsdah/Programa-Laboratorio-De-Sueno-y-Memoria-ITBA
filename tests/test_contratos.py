@@ -45,7 +45,7 @@ from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
-from psglab.analysis import derivation, mne_bridge, reference
+from psglab.analysis import derivation, mne_bridge, psd, reference
 from psglab.core.session import Session
 from psglab.utils import units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
@@ -53,6 +53,10 @@ from psglab.utils.errors import InvalidRecordingError, PsgLabError
 #: Valores que nunca deberían llegar, y que llegan igual: un lector con un bug,
 #: una cabecera que no trae el campo, un parser que se olvidó de convertir.
 HOSTILES = (None, "texto", 3.5, [], {}, object())
+
+#: Un espectro cualquiera, para las filas de `psd.py` que reciben arrays.
+FRECUENCIAS = np.linspace(0.0, 50.0, 51)
+POTENCIAS = np.ones((1, 51))
 
 
 def registro(canales: int = 2, muestras: int = 3000, fs: float = 100.0) -> Recording:
@@ -153,6 +157,17 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("derive(name=...)", lambda v: derivation.derive(registro(), "C0", "C1", v)),
         ("derive_montage(recording=...)", lambda v: derivation.derive_montage(v, [])),
         ("derive_montage(pairs=...)", lambda v: derivation.derive_montage(registro(), v)),
+    ],
+    "psglab/analysis/psd.py": [
+        ("compute_psd(recording=...)", lambda v: psd.compute_psd(v)),
+        ("compute_psd(channels=...)", lambda v: psd.compute_psd(registro(), v)),
+        ("compute_psd(window_index=...)", lambda v: psd.compute_psd(registro(), None, v)),
+        ("compute_psd(method=...)", lambda v: psd.compute_psd(registro(), None, None, v)),
+        ("band_power(band=...)", lambda v: psd.band_power(FRECUENCIAS, POTENCIAS, v)),
+        ("band_power(relative=...)", lambda v: psd.band_power(FRECUENCIAS, POTENCIAS, (1.0, 4.0), v)),
+        ("band_powers_by_window(recording=...)", lambda v: psd.band_powers_by_window(v, ["C0"])),
+        ("band_powers_by_window(channels=...)", lambda v: psd.band_powers_by_window(registro(), v)),
+        ("band_powers_by_window(bands=...)", lambda v: psd.band_powers_by_window(registro(), ["C0"], v)),
     ],
     "psglab/analysis/reference.py": [
         ("rereference(recording=...)", lambda v: reference.rereference(v, ["C0"])),

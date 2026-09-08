@@ -777,3 +777,60 @@ def test_un_analisis_que_falla_no_cambia_la_señal(ventana: MainWindow, elige_ca
 
     assert ventana.carteles
     assert np.allclose(ventana.session.recording.data, antes)
+
+
+# -- El espectro, por la ventana (V1_F de PSD) ------------------------------
+
+
+def test_el_espectro_se_pide_desde_el_menu(ventana: MainWindow, elige_canal):
+    canal = ventana.session.recording.channel_names()[0]
+    elige_canal(canal)
+
+    ventana.show_psd_dialog()
+
+    assert ventana.psd_panel.channels() == [canal]
+    assert not ventana.carteles
+
+
+def test_el_espectro_es_el_de_la_ventana_que_se_esta_mirando(
+    ventana: MainWindow, elige_canal
+):
+    """**De la ventana actual y no del registro entero.** El espectro de las
+    ocho horas promedia el sueño lento con la vigilia y no dice nada de la
+    época que se está scoreando. El título lo deja explícito."""
+    ventana._go_to_window(3)
+    elige_canal(ventana.session.recording.channel_names()[0])
+
+    ventana.show_psd_dialog()
+
+    assert "ventana 4" in ventana.psd_dialog.windowTitle()
+
+
+def test_el_pico_cae_donde_esta_la_onda(ventana: MainWindow, elige_canal):
+    """El BrainVision sintético tiene C3 en 10 Hz: el camino completo —abrir,
+    calcular, dibujar— tiene que llegar con esa frecuencia intacta."""
+    elige_canal("C3")
+
+    ventana.show_psd_dialog()
+
+    frecuencias, potencias = ventana.psd_panel.curve_data("C3")
+    assert frecuencias[int(np.argmax(potencias))] == pytest.approx(10.0, abs=0.3)
+
+
+def test_cancelar_no_abre_nada(ventana: MainWindow, elige_canal):
+    elige_canal("C3", acepta=False)
+
+    ventana.show_psd_dialog()
+
+    assert ventana.psd_panel.channels() == []
+
+
+def test_pedir_el_espectro_de_otra_ventana_reemplaza(ventana: MainWindow, elige_canal):
+    """No puede quedar la curva de la anterior encima."""
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+    elige_canal("EOG-izq")
+    ventana._go_to_window(1)
+    ventana.show_psd_dialog()
+
+    assert ventana.psd_panel.channels() == ["EOG-izq"]
