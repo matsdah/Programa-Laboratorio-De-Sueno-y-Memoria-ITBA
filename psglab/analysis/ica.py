@@ -39,7 +39,7 @@ import numpy as np
 
 from psglab.analysis.mne_bridge import from_raw, to_raw
 from psglab.core.recording import ChannelKind, Recording
-from psglab.utils.errors import InvalidRecordingError
+from psglab.utils.errors import InvalidRecordingError, memoria_suficiente
 
 #: Semilla del algoritmo. Fija a propósito: ver el docstring del módulo.
 RANDOM_STATE: Final[int] = 0
@@ -160,7 +160,8 @@ def fit_ica(recording: Recording, n_components: int | None = None) -> Any:
         verbose="ERROR",
     )
     try:
-        ica.fit(raw, picks=nombres, verbose="ERROR")
+        with memoria_suficiente("calcular la ICA"):
+            ica.fit(raw, picks=nombres, verbose="ERROR")
     except (ValueError, np.linalg.LinAlgError) as error:
         # **Una señal sin variación no se puede descomponer.** Es un caso real
         # —canales planos, un electrodo desconectado toda la noche— y MNE lo
