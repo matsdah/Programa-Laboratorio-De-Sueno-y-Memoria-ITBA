@@ -211,9 +211,16 @@ es asi, porque el programa deja exportar uno solo.
 
 Queda una sola pregunta abierta, y es de la Parte 2:
 
-  - De donde salen las impedancias de los electrodos. Ni EDF ni BrainVision las
-    traen siempre. Puede ser de la cabecera del archivo, de un archivo aparte
-    que exporte el equipo, o cargadas a mano.
+  - Cual de las tres vias de impedancia usa el laboratorio. Las tres estan
+    implementadas -la cabecera del archivo, un archivo aparte que exporte el
+    equipo, y cargarlas a mano-, asi que la respuesta decide que se le ofrece
+    primero al investigador, no que se puede hacer.
+
+    La pregunta se acoto midiendo, en vez de esperando: BrainVision SI las
+    trae, en una tabla de su cabecera y ya en kiloohmios, y EDF NO PUEDE
+    traerlas nunca, porque el estandar no tiene ningun campo para ellas, ni en
+    EDF ni en EDF+. Eso convierte la via del archivo aparte de extra en
+    obligatoria: es la unica disponible para todo registro en EDF.
 
 
 ===============================================================================
