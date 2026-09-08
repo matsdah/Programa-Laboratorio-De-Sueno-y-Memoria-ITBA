@@ -155,3 +155,21 @@ class InvalidBandError(PsgLabError):
     de 12 a 8 Hz no contiene nada, y devolver cero para ella escondería el error
     de tipeo detrás de un resultado plausible.
     """
+
+
+class UnknownMeasureError(PsgLabError):
+    """Se pidió una medida de complejidad que el programa no conoce.
+
+    Sin esta comprobación el módulo aceptaba cualquier cadena y fallaba tarde,
+    con un `KeyError` en vez de un mensaje que diga cuáles hay.
+    """
+
+
+class UnknownConnectivityMethodError(PsgLabError):
+    """Se pidió un método de conectividad que el programa no conoce.
+
+    Importa más que en otros casos: la coherencia común y los métodos basados
+    en la parte imaginaria responden preguntas distintas —los segundos son
+    inmunes al volume conduction y los primeros no—, así que elegir uno por
+    omisión daría un resultado que se interpreta al revés.
+    """

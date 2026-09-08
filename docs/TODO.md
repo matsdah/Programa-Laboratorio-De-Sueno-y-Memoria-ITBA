@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **19 stubs** (`raise NotImplementedError`) en 5 módulos, **todos de la
+Quedan **11 stubs** (`raise NotImplementedError`) en 3 módulos, **todos de la
 Parte 2**: `psglab/analysis/`.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
@@ -73,10 +73,10 @@ nada**. Un verde por omisión es peor que un rojo.
 | [11. Derivar y re-referenciar](#hito-11-derivar-y-re-referenciar) | — | 0 | ✅ cerrado |
 | [12. Filtración](#hito-12-filtración) | 1 | 3 | ⬜ |
 | [13. PSD](#hito-13-psd) | — | 0 | ✅ cerrado |
-| [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | 2 | 8 | ⬜ |
+| [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | — | 0 | ✅ cerrado |
 | [15. ICA](#hito-15-ica) | 1 | 4 | ⬜ |
 | [16. Impedancia](#hito-16-impedancia) | 1 | 4 | ⬜ |
-| | **5** | **19** | |
+| | **3** | **11** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
 seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta
@@ -1038,26 +1038,77 @@ Los dos que traen dependencias nuevas, juntos porque comparten forma: producen
 **un número por ventana**, igual que el scoring, y por eso tienen dónde
 mostrarse.
 
-- [ ] **`psglab/analysis/complexity.py`** · 5 stubs · sección "Complejidad"
-  - Cuatro escalares sobre un array crudo más el recorrido por ventanas.
-    Necesita `antropy`.
-  - **Los valores de referencia salen de la teoría, no de una corrida.** Una
-    rampa monótona da entropía de permutación 0 porque hay un solo patrón
-    ordinal; una señal constante da la complejidad de Lempel-Ziv mínima; para
-    una recta la dimensión fractal de Higuchi es ≈ 1. Afirmar "da 0,8734"
-    contra lo que devolvió la primera corrida no verifica nada.
-  - Falta decidir qué valores admite `measure`: no hay una constante como el
-    `METHODS` de conectividad.
-  - Test: **crear** `tests/test_complexity.py`.
-- [ ] **`psglab/analysis/connectivity.py`** · 3 stubs · sección "Conectividad"
-  - Necesita `mne-connectivity`. `average_connectivity()` no: recibe la matriz.
-  - **El ancla teórica es el propio motivo del módulo**: dos canales idénticos
-    dan coherencia 1 y **wPLI 0**, porque a desfase cero no hay parte
-    imaginaria. Es exactamente lo que el docstring explica sobre volume
-    conduction, y por eso es el test que hay que escribir.
-  - Falta decidir cómo se segmenta el registro en épocas, que es lo que
-    mne-connectivity pide.
-  - Test: **crear** `tests/test_connectivity.py`.
+- [x] **`psglab/analysis/complexity.py`** · ~~5 stubs~~ · sección "Complejidad"
+  - Las cuatro medidas son de antropy, que **expone exactamente los parámetros
+    que las firmas del esqueleto prometían** —incluida la tolerancia de la
+    entropía de muestra, cuyo valor por omisión es 0,2 × desvío estándar, la
+    convención documentada—. Se verificó antes de comprometerse.
+  - **Las anclas teóricas se cumplen exactas**: una rampa monótona da entropía
+    de permutación 0,000000 y una recta da dimensión de Higuchi 1,0000. Las
+    cuatro se verificaron contra la implementación **antes** de escribirlas
+    como tests.
+  - **Dos van normalizadas y dos no.** Lempel-Ziv y la entropía de permutación
+    sí, porque sin normalizar dependen del largo de la ventana y dos registros
+    a frecuencias distintas no se podrían comparar. Higuchi va de 1 a 2 por
+    construcción y normalizarla sería inventarle un techo.
+  - `MEASURES` es la constante que faltaba: sin ella el módulo aceptaba
+    cualquier cadena y fallaba tarde, con un `KeyError`.
+  - **Una señal constante da NaN** en Higuchi y en la entropía de muestra, y es
+    correcto: la dimensión fractal de algo sin variación no está definida. Un
+    canal desconectado es un caso real, así que está documentado que ahí el NaN
+    significa "esta medida no existe para esta señal" y no "faltaron datos".
+  - Test: `tests/test_complexity.py`, **34 tests en verde**.
+- [x] **`psglab/analysis/connectivity.py`** · ~~3 stubs~~ · sección "Conectividad"
+  - **La predicción del plan era falsa y medirla lo mostró.** Se esperaba que
+    dos canales idénticos dieran wPLI 0; dan 0,39. Con señales exactamente
+    iguales la parte imaginaria del espectro cruzado es cero, wPLI **divide por
+    ella**, y lo que sale es ruido numérico.
+  - La afirmación correcta no es sobre un caso degenerado sino sobre el
+    escenario real que el docstring describe: dos electrodos que captan la
+    misma fuente con su propio ruido dan **coherencia 0,74 y wPLI 0,39**, y dos
+    señales con desfase real dan **coherencia 0,79 y wPLI 1,00**. La coherencia
+    no las distingue y wPLI sí, que es exactamente la inmunidad al volume
+    conduction que justifica el módulo. Son dos tests, uno por mitad.
+  - `EPOCH_SECONDS = 5.0` se eligió por resolución y no por tiempo: el costo es
+    plano entre 3 y 10 s, y 5 s dan 0,20 Hz —alcanza para delta desde 0,5 Hz— y
+    seis épocas por ventana para que wPLI promedie sobre algo.
+  - mne-connectivity devuelve sólo el triángulo inferior; el módulo lo refleja,
+    porque promete una matriz simétrica y quien la lea no tiene por qué saber
+    de qué lado quedó cada par.
+  - Test: `tests/test_connectivity.py`, **33 tests en verde**.
+- [x] **`psglab/ui/metric_panel.py`** · una métrica por ventana a lo largo de la
+      noche
+  - **Sirve a los dos módulos**, porque los dos producen esa forma. Es lo que
+    los dos docstrings piden: poder cruzarla con el hipnograma.
+  - **Los NaN se dibujan como hueco y no como cero**, que es lo que hace
+    utilizable la convención de la ventana incompleta: un cero es un valor de
+    complejidad plausible y bajo, indistinguible a ojo de una medición real.
+  - El eje va en **base 1**, como el histograma: desde 0 quedaría desplazado una
+    ventana respecto de él.
+  - Test: `tests/test_metric_panel.py`, **14 tests en verde**.
+- [x] **`psglab/ui/connectivity_panel.py`** · el mapa de calor de la matriz
+  - **La matriz es la salida real del requisito**: mostrar sólo su promedio
+    diría cuánta conectividad hay pero no entre qué canales.
+  - Los ejes llevan **los nombres de los canales**: sin eso el mapa es un cuadro
+    de colores.
+  - **La escala de color es fija de 0 a 1.** Con escala automática, dos ventanas
+    con conectividades muy distintas se verían iguales, y comparar ventanas es
+    justamente lo que el investigador hace.
+  - Test: `tests/test_connectivity_panel.py`, **10 tests en verde**.
+
+> **Lo que costó cada medida, medido** sobre una ventana de 30 s a 256 Hz y
+> extrapolado a las 2650 de un registro real. Es lo que decidió la interfaz:
+>
+>     higuchi_fractal_dimension     0,07 ms/ventana  ->    0,2 s la noche
+>     permutation_entropy           0,14 ms/ventana  ->    0,4 s la noche
+>     lempel_ziv_complexity         1,69 ms/ventana  ->    4,5 s la noche
+>     conectividad (wPLI)           7,10 ms/ventana  ->    0,3 min la noche
+>     sample_entropy              124,31 ms/ventana  ->  5,5 min la noche
+>
+> **Sólo la entropía de muestra es lenta**, así que la respuesta fue acotarla y
+> no montar infraestructura de hilos: `complexity_by_window()` la acepta —es
+> una función de biblioteca y un script puede esperar— y la interfaz no la
+> ofrece para el barrido. La política es de la interfaz, no del módulo.
 
 ---
 

@@ -127,8 +127,8 @@ commit.
 | Rereferenciar | — | Re-referenciar la señal | `psglab/analysis/reference.py` |
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
 | PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py`, `psglab/ui/psd_panel.py` (el dibujo) |
-| Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py` |
-| Conectividad | — | Conectividad de la señal | `psglab/analysis/connectivity.py` |
+| Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py`, `psglab/ui/metric_panel.py` (el dibujo) |
+| Conectividad | — | Conectividad de la señal | `psglab/analysis/connectivity.py`, `psglab/ui/connectivity_panel.py` (la matriz), `psglab/ui/metric_panel.py` (a lo largo de la noche) |
 
 ---
 

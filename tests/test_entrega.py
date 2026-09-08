@@ -834,3 +834,112 @@ def test_pedir_el_espectro_de_otra_ventana_reemplaza(ventana: MainWindow, elige_
     ventana.show_psd_dialog()
 
     assert ventana.psd_panel.channels() == ["EOG-izq"]
+
+
+# -- Complejidad y conectividad, por la ventana (hito 14) --------------------
+
+
+@pytest.fixture
+def elige_opciones(monkeypatch):
+    """Contesta una secuencia de diálogos de `QInputDialog.getItem`.
+
+    Los de complejidad y conectividad preguntan dos cosas seguidas —canal y
+    medida, o banda—, así que hace falta ir devolviendo respuestas distintas.
+    """
+    def responder_con(*respuestas):
+        cola = iter(respuestas)
+        monkeypatch.setattr(
+            QInputDialog, "getItem", staticmethod(lambda *a, **k: next(cola))
+        )
+    return responder_con
+
+
+def test_la_complejidad_recorre_la_noche_desde_el_menu(
+    ventana: MainWindow, elige_opciones
+):
+    elige_opciones(("C3", True), ("permutation_entropy", True))
+
+    ventana.show_complexity_dialog()
+
+    serie = ventana.metric_panel.series("C3")
+    assert len(serie) == VENTANAS
+    assert np.isfinite(serie).all()
+    assert not ventana.carteles
+
+
+def test_el_eje_de_la_metrica_empieza_en_uno(ventana: MainWindow, elige_opciones):
+    """Base 0 adentro, base 1 al mostrar: si empezara en 0, la curva quedaría
+    desplazada una ventana respecto del histograma."""
+    elige_opciones(("C3", True), ("permutation_entropy", True))
+
+    ventana.show_complexity_dialog()
+
+    assert ventana.metric_panel.window_positions("C3")[0] == 1.0
+
+
+def test_la_interfaz_no_ofrece_la_medida_lenta():
+    """**Está medido, no supuesto**: la entropía de muestra tarda 124 ms por
+    ventana contra 0,07–1,7 ms de las otras tres, así que sobre un registro
+    real son más de cinco minutos con la ventana congelada.
+
+    El módulo la acepta igual; la política es de la interfaz.
+    """
+    from psglab.analysis.complexity import MEASURES
+    from psglab.ui.main_window import MEDIDAS_RAPIDAS
+
+    assert "sample_entropy" in MEASURES
+    assert "sample_entropy" not in MEDIDAS_RAPIDAS
+    assert set(MEDIDAS_RAPIDAS) < set(MEASURES)
+
+
+def test_la_conectividad_de_la_ventana_desde_el_menu(
+    ventana: MainWindow, elige_opciones
+):
+    elige_opciones(("Delta", True))
+
+    ventana.show_connectivity_dialog()
+
+    matriz = ventana.connectivity_panel.matrix()
+    assert matriz.shape[0] == len(ventana.session.visible_channels)
+    assert not ventana.carteles
+
+
+def test_el_mapa_lleva_los_nombres_de_los_canales(
+    ventana: MainWindow, elige_opciones
+):
+    elige_opciones(("Delta", True))
+
+    ventana.show_connectivity_dialog()
+
+    assert ventana.connectivity_panel.axis_labels() == ventana.session.visible_channels
+
+
+def test_el_titulo_dice_la_ventana_y_el_promedio(ventana: MainWindow, elige_opciones):
+    ventana._go_to_window(2)
+    elige_opciones(("Delta", True))
+
+    ventana.show_connectivity_dialog()
+
+    titulo = ventana.connectivity_dialog.windowTitle()
+    assert "ventana 3" in titulo
+    assert "promedio" in titulo
+
+
+def test_con_un_solo_canal_visible_avisa_en_vez_de_romper(
+    ventana: MainWindow, elige_opciones
+):
+    """La conectividad se mide entre canales."""
+    ventana.session.set_visible_channels(["C3"])
+    elige_opciones(("Delta", True))
+
+    ventana.show_connectivity_dialog()
+
+    assert ventana.carteles
+
+
+def test_cancelar_no_calcula_nada(ventana: MainWindow, elige_opciones):
+    elige_opciones(("C3", False))
+
+    ventana.show_complexity_dialog()
+
+    assert ventana.metric_panel.channels() == []

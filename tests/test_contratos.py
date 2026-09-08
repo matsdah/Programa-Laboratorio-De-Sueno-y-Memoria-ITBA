@@ -45,7 +45,14 @@ from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
-from psglab.analysis import derivation, mne_bridge, psd, reference
+from psglab.analysis import (
+    complexity,
+    connectivity,
+    derivation,
+    mne_bridge,
+    psd,
+    reference,
+)
 from psglab.core.session import Session
 from psglab.utils import units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
@@ -57,6 +64,10 @@ HOSTILES = (None, "texto", 3.5, [], {}, object())
 #: Un espectro cualquiera, para las filas de `psd.py` que reciben arrays.
 FRECUENCIAS = np.linspace(0.0, 50.0, 51)
 POTENCIAS = np.ones((1, 51))
+
+#: Una señal cualquiera, para las filas de `complexity.py`. Corta a
+#: propósito: la entropía de muestra es O(n²).
+SEÑAL = np.sin(np.linspace(0.0, 20.0, 400))
 
 
 def registro(canales: int = 2, muestras: int = 3000, fs: float = 100.0) -> Recording:
@@ -157,6 +168,31 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("derive(name=...)", lambda v: derivation.derive(registro(), "C0", "C1", v)),
         ("derive_montage(recording=...)", lambda v: derivation.derive_montage(v, [])),
         ("derive_montage(pairs=...)", lambda v: derivation.derive_montage(registro(), v)),
+    ],
+    "psglab/analysis/complexity.py": [
+        ("sample_entropy(signal=...)", lambda v: complexity.sample_entropy(v)),
+        ("sample_entropy(m=...)", lambda v: complexity.sample_entropy(SEÑAL, v)),
+        ("sample_entropy(r=...)", lambda v: complexity.sample_entropy(SEÑAL, 2, v)),
+        ("permutation_entropy(signal=...)", lambda v: complexity.permutation_entropy(v)),
+        ("permutation_entropy(order=...)", lambda v: complexity.permutation_entropy(SEÑAL, v)),
+        ("lempel_ziv_complexity", lambda v: complexity.lempel_ziv_complexity(v)),
+        ("higuchi_fractal_dimension(signal=...)", lambda v: complexity.higuchi_fractal_dimension(v)),
+        ("higuchi_fractal_dimension(k_max=...)", lambda v: complexity.higuchi_fractal_dimension(SEÑAL, v)),
+        ("complexity_by_window(recording=...)", lambda v: complexity.complexity_by_window(v, ["C0"])),
+        ("complexity_by_window(channels=...)", lambda v: complexity.complexity_by_window(registro(), v)),
+        ("complexity_by_window(measure=...)", lambda v: complexity.complexity_by_window(registro(), ["C0"], v)),
+    ],
+    "psglab/analysis/connectivity.py": [
+        ("compute_connectivity(recording=...)", lambda v: connectivity.compute_connectivity(v)),
+        ("compute_connectivity(channels=...)", lambda v: connectivity.compute_connectivity(registro(), v)),
+        ("compute_connectivity(band=...)", lambda v: connectivity.compute_connectivity(registro(), None, v)),
+        ("compute_connectivity(method=...)", lambda v: connectivity.compute_connectivity(registro(), None, (0.5, 4.0), v)),
+        ("compute_connectivity(window_index=...)", lambda v: connectivity.compute_connectivity(registro(), None, (0.5, 4.0), "wpli", v)),
+        ("connectivity_by_window(recording=...)", lambda v: connectivity.connectivity_by_window(v, ["C0", "C1"], (0.5, 4.0))),
+        ("connectivity_by_window(channels=...)", lambda v: connectivity.connectivity_by_window(registro(), v, (0.5, 4.0))),
+        ("connectivity_by_window(band=...)", lambda v: connectivity.connectivity_by_window(registro(), ["C0", "C1"], v)),
+        ("connectivity_by_window(method=...)", lambda v: connectivity.connectivity_by_window(registro(), ["C0", "C1"], (0.5, 4.0), v)),
+        ("average_connectivity", lambda v: connectivity.average_connectivity(v)),
     ],
     "psglab/analysis/psd.py": [
         ("compute_psd(recording=...)", lambda v: psd.compute_psd(v)),
