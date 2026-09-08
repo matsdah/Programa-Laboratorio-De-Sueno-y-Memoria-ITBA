@@ -13,7 +13,7 @@ registro de 400 es una regla y va en `core/`.
 
 ```
 +--------------------------------------------------------------+
-|  Menú: Archivo | Ver | Herramientas | Ayuda   (Análisis: P2)  |
+|  Menú: Archivo | Ver | Herramientas | Análisis | Ayuda        |
 +--------------------------------------------------------------+
 |  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
 +------------------+-------------------------------------------+

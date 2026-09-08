@@ -70,7 +70,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ✅ cerrado |
 | [9. Lo que la interfaz no consume](#hito-9-lo-que-la-interfaz-no-consume) | — | 0 | ✅ cerrado |
 | [10. Cimientos de la Parte 2](#hito-10-cimientos-de-la-parte-2) | — | 0 | ⬜ |
-| [11. Derivar y re-referenciar](#hito-11-derivar-y-re-referenciar) | — | 0 | 🟡 falta la interfaz |
+| [11. Derivar y re-referenciar](#hito-11-derivar-y-re-referenciar) | — | 0 | ✅ cerrado |
 | [12. Filtración](#hito-12-filtración) | 1 | 3 | ⬜ |
 | [13. PSD](#hito-13-psd) | 1 | 3 | ⬜ |
 | [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | 2 | 8 | ⬜ |
@@ -280,7 +280,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **60 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **76 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `set_scoring()` se agregó en el hito 6, para V3_F: importar un scoring no
     es abrir otro registro, así que sustituye adentro en vez de armar otra
@@ -920,9 +920,26 @@ Los dos módulos que **no dependen de nada**: ni de MNE, ni de las bibliotecas
 que faltan, ni de ninguna pieza nueva. Aritmética sobre `Recording`, y por eso
 los primeros: son de resultado exactamente conocido.
 
-**Los dos módulos están terminados y falta la interfaz**, que es lo que cierra
-el hito. Los dos devuelven un `Recording` nuevo y hoy no hay por dónde entre a
-la pantalla: `Session` no sabe recibir otro registro. Eso es lo que sigue.
+**Cerrado con su interfaz**, que es lo que el hito pedía: los dos análisis se
+piden desde el menú Análisis, que hasta acá estaba dibujado en el esquema de la
+ventana y no existía.
+
+- [x] **`Session.set_recording()`**, que no existía y sin el cual ningún
+      análisis podía llegar a la pantalla. Mismo argumento que
+      `set_scoring()` —procesar la señal no es abrir otro archivo—, más el caso
+      que aquél no tenía: **los canales pueden cambiar**. Conserva los visibles
+      que sobreviven, descarta la selección que ya no aplica, y las escalas se
+      conservan por nombre mientras los canales nuevos arrancan con la de
+      fábrica. Rechaza un registro de otra duración, porque el scoring ya hecho
+      dejaría de corresponder.
+- [x] **El menú Análisis**, con derivar, re-referenciar y referencia promedio.
+- [x] **Volver a la señal original**, que es lo que hace reversible el menú
+      entero. Sin eso, un filtro mal elegido obligaría a reabrir el archivo y
+      con él se perdería el scoring que el usuario venía haciendo.
+  - **Un test encontró que el canal derivado se creaba y no se veía.**
+    `set_recording()` conserva los visibles que sobreviven, y un canal nuevo no
+    sobrevive: nace. Mostrarlo es presentación —el usuario acaba de pedirlo— así
+    que la decisión quedó en `ui/` y no en `core/`.
 
 - [x] **`psglab/analysis/derivation.py`** · ~~2 stubs~~ · sección "Derivar"
   - `derive()` es una resta elemento a elemento, y `derive_montage()` se define

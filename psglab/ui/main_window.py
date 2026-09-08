@@ -3,7 +3,7 @@
 Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
     +--------------------------------------------------------------+
-    |  Menú: Archivo | Ver | Herramientas | Ayuda   (Análisis: P2)  |
+    |  Menú: Archivo | Ver | Herramientas | Análisis | Ayuda        |
     +--------------------------------------------------------------+
     |  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
     +------------------+-------------------------------------------+
@@ -26,6 +26,7 @@ funcionalidades de la Parte 1, pero sin implementar ninguna: cada una vive en
 su módulo y acá sólo se las conecta entre sí.
 """
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pyqtgraph as pg
@@ -49,8 +50,11 @@ from psglab.core.nomenclature import (
     stage_label,
     stages_of,
 )
+from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
+from psglab.analysis.derivation import derive, derive_montage
+from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
 from psglab.exporters.annotations_txt import export_annotations
@@ -91,6 +95,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("PSGLab — Laboratorio de Sueño y Memoria, ITBA")
         self._session: Session | None = None
+        #: El registro tal como se leyó, para poder deshacer los análisis.
+        self._registro_original: Recording | None = None
         self._tools: dict[str, Tool] = {}
         #: El botón de cada herramienta, para poder destildarlo al apagarla.
         self._tool_actions: dict[str, QAction] = {}
@@ -166,6 +172,19 @@ class MainWindow(QMainWindow):
         self.accion_eje_en_hora.toggled.connect(self.set_histogram_time_axis)
 
         self.tools_menu = self.menuBar().addMenu("&Herramientas")
+
+        # **El menú de la Parte 2.** Cada análisis entra acá al implementarse:
+        # es lo que separa "el módulo existe" de "el investigador puede usarlo",
+        # que es la lección que costó el hito 9.
+        analisis = self.menuBar().addMenu("&Análisis")
+        analisis.addAction("&Derivar canales…", self.derive_dialog)
+        analisis.addAction("&Re-referenciar…", self.rereference_dialog)
+        analisis.addAction("Referencia &promedio (EEG)", self.apply_average_reference)
+        analisis.addSeparator()
+        self.accion_señal_original = analisis.addAction(
+            "&Volver a la señal original", self.restore_original_recording
+        )
+        self.accion_señal_original.setEnabled(False)
 
         ayuda = self.menuBar().addMenu("A&yuda")
         ayuda.addAction("&Atajos de teclado", self._show_shortcuts)
@@ -496,6 +515,12 @@ class MainWindow(QMainWindow):
         self._deactivate_all_tools()
 
         self._session = sesion
+        # **El registro tal como se leyó.** Los análisis de la Parte 2 devuelven
+        # un registro nuevo, y sin guardar éste un filtro mal elegido obligaría
+        # a reabrir el archivo. Es la regla 1 de `analysis/` vista desde la
+        # interfaz: el usuario tiene que poder volver atrás.
+        self._registro_original = registro
+        self.accion_señal_original.setEnabled(False)
         # Las herramientas se enteran solas de los cambios de ventana: es la
         # decisión del hito 6, y por eso acá no hay que acordarse de avisarles.
         for herramienta in self._tools.values():
@@ -652,6 +677,120 @@ class MainWindow(QMainWindow):
             return
         self._update_histogram_window(self._session.current_window)
         self.refresh()
+
+    # -- Análisis (Parte 2) --------------------------------------------------
+
+    def _aplicar_analisis(
+        self,
+        que_hace: str,
+        calcular: Callable[[Recording], Recording],
+        mostrar: str | None = None,
+    ) -> None:
+        """Corre un análisis y lleva su resultado a la pantalla.
+
+        Es el camino único de todo el menú Análisis: los módulos devuelven un
+        `Recording` nuevo —no tocan el original, que es la regla 1 de la
+        carpeta— y acá se lo entrega a la sesión con `set_recording()`, que
+        conserva la ventana, los canales y las amplitudes.
+
+        Un error del análisis sale como cartel y **no cambia nada**: la señal
+        que el investigador está mirando sigue siendo la de antes.
+
+        Args:
+            mostrar: canal que hay que hacer visible además de los que ya
+                estaban. `Session.set_recording()` conserva los visibles que
+                sobreviven y **un canal nuevo no sobrevive: nace**, así que sin
+                esto una derivación se creaba y no se veía. Mostrarlo es una
+                decisión de presentación —el usuario acaba de pedirlo— y por eso
+                vive acá y no en `core/`.
+        """
+        if self._session is None:
+            return
+        try:
+            procesado = calcular(self._session.recording)
+            self._session.set_recording(procesado)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        if mostrar is not None and mostrar not in self._session.visible_channels:
+            self._session.set_visible_channels(
+                [*self._session.visible_channels, mostrar]
+            )
+        self.signal_view.set_session(self._session)
+        self.channel_selector.set_recording(procesado)
+        self.accion_señal_original.setEnabled(True)
+        self.refresh()
+        self.statusBar().showMessage(que_hace, 5000)
+
+    def _elegir_canal(self, titulo: str, etiqueta: str) -> str | None:
+        """Pregunta un canal de los que hay. `None` si el usuario cancela."""
+        if self._session is None:
+            return None
+        nombres = self._session.recording.channel_names()
+        elegido, acepto = QInputDialog.getItem(self, titulo, etiqueta, nombres, 0, False)
+        return elegido if acepto else None
+
+    def derive_dialog(self) -> None:
+        """Pregunta los dos canales y agrega la derivación (sección "Derivar").
+
+        Se pregunta de a uno y no con un diálogo propio porque son dos listas
+        de lo mismo: un formulario para eso sería más código y no más claro.
+        """
+        if self._session is None:
+            return
+        canal = self._elegir_canal("Derivar", "Canal:")
+        if canal is None:
+            return
+        referencia = self._elegir_canal("Derivar", f"«{canal}» menos:")
+        if referencia is None:
+            return
+        self._aplicar_analisis(
+            f"Se agregó la derivación «{canal}-{referencia}»",
+            lambda registro: derive(registro, canal, referencia),
+            mostrar=f"{canal}-{referencia}",
+        )
+
+    def rereference_dialog(self) -> None:
+        """Pregunta la referencia nueva y re-referencia (sección "Rereferenciar")."""
+        referencia = self._elegir_canal("Re-referenciar", "Referencia nueva:")
+        if referencia is None:
+            return
+        self._aplicar_analisis(
+            f"Se re-referenció a «{referencia}»",
+            lambda registro: rereference(registro, [referencia]),
+        )
+
+    def apply_average_reference(self) -> None:
+        """Re-referencia al promedio de los EEG.
+
+        No pregunta nada: `kind_only=True` es el valor seguro y el que el
+        docstring del módulo defiende. Si el registro no tiene EEG, el módulo se
+        niega y acá eso se convierte en un cartel.
+        """
+        self._aplicar_analisis(
+            "Se re-referenció al promedio de los canales EEG",
+            lambda registro: average_reference(registro),
+        )
+
+    def restore_original_recording(self) -> None:
+        """Vuelve a la señal tal como se leyó del archivo.
+
+        **Es lo que hace reversible todo el menú.** Sin esto, un filtro o una
+        referencia mal elegidos obligarían a cerrar y reabrir el registro,
+        perdiendo el scoring que el usuario venía haciendo.
+        """
+        if self._session is None or self._registro_original is None:
+            return
+        try:
+            self._session.set_recording(self._registro_original)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.signal_view.set_session(self._session)
+        self.channel_selector.set_recording(self._registro_original)
+        self.accion_señal_original.setEnabled(False)
+        self.refresh()
+        self.statusBar().showMessage("Se volvió a la señal original", 5000)
 
     def open_recording_dialog(self) -> None:
         """Ctrl+O. El filtro se arma solo desde los lectores registrados."""

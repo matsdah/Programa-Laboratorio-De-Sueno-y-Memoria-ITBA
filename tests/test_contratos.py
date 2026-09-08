@@ -144,6 +144,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("set_active_tool", lambda v: sesion().set_active_tool(v)),
         ("add_window_listener", lambda v: sesion().add_window_listener(v)),
         ("set_scoring", lambda v: sesion().set_scoring(v)),
+        ("set_recording", lambda v: sesion().set_recording(v)),
     ],
     "psglab/analysis/derivation.py": [
         ("derive(recording=...)", lambda v: derivation.derive(v, "C0", "C1")),
