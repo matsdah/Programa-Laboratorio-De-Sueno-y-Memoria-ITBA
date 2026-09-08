@@ -32,6 +32,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
     QInputDialog,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -53,6 +54,8 @@ from psglab.readers.scoring_reader import read_scoring
 from psglab.tools.annotator import AnnotatorTool
 from psglab.tools.base import Tool, ViewerTool
 from psglab.tools.histogram import HistogramTool
+from psglab.tools.magnifier import MagnifierTool
+from psglab.tools.occupancy import OccupancyTool
 from psglab.tools.registry import available_tools
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.grid import BackgroundStyle
@@ -115,6 +118,11 @@ class MainWindow(QMainWindow):
         columna.addWidget(self.navigation)
         columna.addWidget(self.histogram_view, stretch=1)
         self.setCentralWidget(centro)
+        # Lo que la herramienta activa quiere informar: el porcentaje de la
+        # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
+        # la derecha, permanente, para que no lo pise el mensaje de navegación.
+        self.tool_readout = QLabel("")
+        self.statusBar().addPermanentWidget(self.tool_readout)
         self.statusBar().showMessage("Sin registro abierto")
 
     def _build_menus(self) -> None:
@@ -314,6 +322,43 @@ class MainWindow(QMainWindow):
             self.signal_view.set_overlays(tool.overlays())
         elif isinstance(tool, HistogramTool):
             self._redraw_histogram()
+        self._update_tool_readout()
+
+    def _update_tool_readout(self) -> None:
+        """Escribe en la barra de estado el número que la herramienta calcula.
+
+        **Es lo que faltaba para cerrar V3_F de "Ocupación" y V2_F de la
+        lupa.** Las dos herramientas calculaban bien y nadie las leía: el
+        porcentaje y el contador de picos existían sólo para sus tests.
+
+        No lo dibuja la herramienta porque no conoce Qt, y no puede hacerlo con
+        un `Overlay` porque no hay variante de texto: los overlays son
+        coordenadas de señal, no leyendas. Por eso el número cruza acá.
+
+        El total de ocupación **puede pasar del 100 %** cuando dos líneas se
+        pisan, y es lo buscado: el criterio lo fija
+        `config.OCCUPANCY_COUNTS_OVERLAP_ONCE` y quedó confirmado con el
+        cliente. Se muestra tal cual, sin recortarlo.
+        """
+        herramienta = self._active_viewer_tool
+        if isinstance(herramienta, OccupancyTool):
+            lineas = herramienta.lines()
+            if lineas:
+                # La coma se aplica **al número y no a la frase**: con un
+                # `replace` sobre el texto entero, cualquier punto que se
+                # agregue después al mensaje se convertiría en coma.
+                total = f"{herramienta.total_percentage():.1f}".replace(".", ",")
+                cuantas = f"{len(lineas)} línea" + ("s" if len(lineas) != 1 else "")
+                self.tool_readout.setText(
+                    f"Ocupación: {cuantas} — {total} % del ancho"
+                )
+            else:
+                self.tool_readout.setText("Ocupación: sin líneas")
+            return
+        if isinstance(herramienta, MagnifierTool):
+            self.tool_readout.setText(f"Picos contados: {herramienta.click_count}")
+            return
+        self.tool_readout.setText("")
 
     def _deactivate_all_tools(self) -> None:
         """Apaga las herramientas y destilda sus botones.
@@ -375,6 +420,7 @@ class MainWindow(QMainWindow):
             herramienta.deactivate()
             if herramienta is self._active_viewer_tool:
                 self._active_viewer_tool = None
+        self._update_tool_readout()
 
     # -- Acciones del usuario -----------------------------------------------
 

@@ -406,3 +406,70 @@ def test_exportar_sin_registro_no_revienta(qt_app, tmp_path, monkeypatch):
         ventana.export("scoring", tmp_path / "Scoring.txt")
     except PsgLabError as error:  # pragma: no cover - es lo que no debe pasar
         pytest.fail(f"export() dejó escapar {type(error).__name__}: {error}")
+
+
+# -- Lo que la herramienta calcula y el usuario tiene que ver ----------------
+
+
+def test_la_ocupacion_muestra_su_porcentaje(ventana: MainWindow):
+    """V3_F de "Ocupación". `total_percentage()` calculaba bien desde el hito 7
+    y **no lo leía nadie**: el número existía sólo para sus tests."""
+    from psglab.tools.occupancy import OccupancyLine
+
+    ventana._toggle_tool("occupancy", True)
+    ventana._tools["occupancy"].add_line(OccupancyLine(0.1, 0.0, 0.4, 0.0))
+
+    assert "30,0 %" in ventana.tool_readout.text()
+    assert "1 línea" in ventana.tool_readout.text()
+
+
+def test_sin_lineas_lo_dice_en_vez_de_mostrar_cero(ventana: MainWindow):
+    ventana._toggle_tool("occupancy", True)
+
+    assert "sin líneas" in ventana.tool_readout.text()
+
+
+def test_el_total_puede_pasar_del_cien_por_ciento(ventana: MainWindow):
+    """Confirmado con el cliente: con el criterio del pliego, la zona que dos
+    líneas comparten se cuenta dos veces. **La interfaz tiene que poder
+    mostrarlo sin romperse ni recortarlo.**"""
+    from psglab.tools.occupancy import OccupancyLine
+
+    ventana._toggle_tool("occupancy", True)
+    herramienta = ventana._tools["occupancy"]
+    herramienta.add_line(OccupancyLine(0.0, 0.0, 0.9, 0.0))
+    herramienta.add_line(OccupancyLine(0.1, 0.0, 1.0, 0.0))
+
+    assert "180,0 %" in ventana.tool_readout.text()
+
+
+def test_el_separador_decimal_es_la_coma(ventana: MainWindow):
+    """Es el idioma del programa."""
+    from psglab.tools.occupancy import OccupancyLine
+
+    ventana._toggle_tool("occupancy", True)
+    ventana._tools["occupancy"].add_line(OccupancyLine(0.0, 0.0, 0.335, 0.0))
+
+    texto = ventana.tool_readout.text()
+    assert "," in texto
+    assert "33.5" not in texto
+
+
+def test_la_lupa_muestra_los_picos_contados(ventana: MainWindow):
+    """V2_F de "Lupa": el contador tampoco lo leía nadie."""
+    ventana._toggle_tool("magnifier", True)
+    herramienta = ventana._tools["magnifier"]
+    herramienta.on_mouse_press(5.0, 0.0, "left")
+    herramienta.on_mouse_press(7.0, 0.0, "left")
+
+    assert "Picos contados: 2" in ventana.tool_readout.text()
+
+
+def test_apagar_la_herramienta_limpia_el_cartel(ventana: MainWindow):
+    """Un número viejo al lado de una herramienta apagada es peor que ninguno."""
+    ventana._toggle_tool("magnifier", True)
+    ventana._tools["magnifier"].on_mouse_press(5.0, 0.0, "left")
+    assert ventana.tool_readout.text()
+
+    ventana._toggle_tool("magnifier", False)
+    assert ventana.tool_readout.text() == ""
