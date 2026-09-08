@@ -777,7 +777,13 @@ def test_los_requirements_que_nombra_la_documentacion_existen():
 #: sostienen el modelo; `readers` y `exporters` están acá porque de ellos
 #: depende el corte del hito 5: leer un registro, scorearlo y exportar los tres
 #: archivos desde un script, sin abrir una ventana.
-CAPAS_SIN_INTERFAZ = ("core", "utils", "readers", "exporters")
+#:
+#: **`tools` y `analysis` entraron en el hito 10.** Las dos declaran no conocer
+#: la interfaz —`tools/base.py` explica que por eso `Tool` no hereda de
+#: `QObject`, y `analysis/README.md` lo pone como su regla 2— y ninguna de las
+#: dos lo tenía verificado: la regla estaba escrita en tres documentos y no la
+#: miraba nadie. Lo anotó la segunda auditoría como hueco mediano.
+CAPAS_SIN_INTERFAZ = ("core", "utils", "readers", "exporters", "tools", "analysis")
 
 
 def modulos_importados(archivo: pathlib.Path) -> list[tuple[int, str]]:
@@ -987,7 +993,7 @@ def promesas_de_test_del_todo() -> dict[str, set[str]]:
     return prometidos
 
 
-def test_todo_modulo_de_la_parte_1_tiene_test_o_lo_tiene_prometido():
+def test_todo_modulo_tiene_test_o_lo_tiene_prometido():
     """El pliego pide un test por componente. Faltaba verificar el lado inverso.
 
     Ya estaba verificado que todo archivo de test tuviera su fila en
@@ -1200,7 +1206,12 @@ def test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato():
     faltantes: list[str] = []
     for archivo in modulos_del_paquete():
         relativa = ruta_relativa(archivo)
-        if not any(capa in archivo.parts for capa in ("core", "utils")):
+        # **`analysis` entró en el hito 10.** El argumento es el mismo que para
+        # `core/`: `MainWindow` atrapa una sola clase, así que un `ValueError`
+        # de scipy o de MNE que escape de una función de análisis le llega al
+        # investigador como traza. La exigencia aparece módulo por módulo, no de
+        # golpe, porque los que todavía tienen stubs se saltean abajo.
+        if not any(capa in archivo.parts for capa in ("core", "utils", "analysis")):
             continue
         if contar_stubs(archivo) or relativa in SIN_CONTRATO:
             continue
