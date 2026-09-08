@@ -33,6 +33,9 @@ Cubre del pliego: V1_F de "Importación de archivos".
 
 from pathlib import Path
 
+import math
+from typing import Final
+
 import mne
 import numpy as np
 
@@ -51,6 +54,63 @@ _UNIDAD_POR_DEFECTO = MICROVOLT
 
 #: Los tres archivos del formato. El usuario abre el primero.
 _EXTENSIONES_DEL_TRIO = (".vhdr", ".eeg", ".vmrk")
+
+
+#: Clave de `Recording.metadata` donde quedan las impedancias, en kΩ.
+#:
+#: `core/recording.py` ya anticipaba que `analysis/impedance.py` las buscaría
+#: acá; hasta el hito 16 no las guardaba nadie.
+IMPEDANCE_KEY: Final[str] = "brainvision_impedances"
+
+#: Unidad en la que el `.vhdr` declara las impedancias. Se comprueba en vez de
+#: darla por sentada: el campo `imp_unit` viene por archivo, y leer ohmios como
+#: kiloohmios daría mil veces menos y ningún canal parecería fallar nunca.
+_UNIDAD_DE_IMPEDANCIA: Final[str] = "kOhm"
+
+
+def _impedancias_declaradas(crudo: object, nombres: list[str]) -> dict[str, float]:
+    """Las impedancias que trae la sección `[Comment]` del `.vhdr`, en kΩ.
+
+    **BrainVision sí las trae y EDF no puede.** El `.vhdr` tiene una tabla
+    `Impedance [kOhm] at hh:mm:ss :` con un valor por electrodo, y MNE la
+    parsea a `raw.impedances`. El estándar EDF no tiene ningún campo para
+    esto, ni siquiera en EDF+, así que ahí no hay nada que extraer y por eso
+    este helper vive sólo en este lector.
+
+    Tres cosas que se filtran a propósito:
+
+    - **Los no medidos.** El `.vhdr` los escribe `???` y MNE los entrega como
+      `nan`. Se omiten en vez de guardarlos: "no medido" y "0 kΩ" no son lo
+      mismo, y confundirlos ocultaría un electrodo suelto. Es el contrato que
+      `analysis/impedance.py` documenta.
+    - **`Ref` y `Gnd`**, que MNE incluye y **no son canales del registro**.
+      Dejarlos haría que un informe hablara de canales que el usuario no ve.
+    - **Las unidades que no son kΩ.** Si el archivo declarara otra, se descarta
+      el valor: es preferible no tener el dato a tenerlo mil veces mal.
+
+    El atributo existe sólo mientras vive el `Raw` —MNE avisa que no sobrevive
+    a guardar y volver a leer—, así que hay que copiarlo acá o se pierde.
+    """
+    tabla = getattr(crudo, "impedances", None)
+    if not isinstance(tabla, dict):
+        return {}
+
+    conocidos = set(nombres)
+    medidas: dict[str, float] = {}
+    for canal, datos in tabla.items():
+        if canal not in conocidos or not isinstance(datos, dict):
+            continue
+        valor = datos.get("imp")
+        if datos.get("imp_unit") != _UNIDAD_DE_IMPEDANCIA:
+            continue
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError):
+            continue
+        if math.isnan(numero):
+            continue
+        medidas[canal] = numero
+    return medidas
 
 
 def _decodificar_cabecera(crudo: bytes) -> str:
@@ -190,6 +250,9 @@ class BrainVisionReader(Reader):
                 (float(a["onset"]), float(a["duration"]), str(a["description"]))
                 for a in crudo.annotations
             ]
+        impedancias = _impedancias_declaradas(crudo, list(crudo.ch_names))
+        if impedancias:
+            metadatos["brainvision_impedances"] = impedancias
 
         return Recording(
             file_path=path,

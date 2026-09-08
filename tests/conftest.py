@@ -118,6 +118,7 @@ def escribir_brainvision(
     carpeta: pathlib.Path,
     segundos: float,
     canales: list[tuple[str, str]] | None = None,
+    impedancias: dict[str, float | None] | None = None,
 ) -> pathlib.Path:
     """Escribe un BrainVision completo y devuelve la ruta de su `.vhdr`.
 
@@ -187,6 +188,16 @@ def escribir_brainvision(
     ]
     for numero, (nombre, unidad) in enumerate(canales, start=1):
         cabecera.append(f"Ch{numero}={nombre},,{RESOLUCION_BV_UV},{unidad}")
+    # **La tabla de impedancias vive en `[Comment]`**, que es donde el formato
+    # la pone y donde MNE la busca. `None` se escribe `???`, que es como el
+    # `.vhdr` marca un electrodo que nadie midió: es el caso que separa "sin
+    # medir" de "0 kΩ", y sin poder escribirlo no se podría testear.
+    if impedancias:
+        cabecera += ["", "[Comment]", "", "Impedance [kOhm] at 23:00:00 :"]
+        for nombre, valor in impedancias.items():
+            escrito = "???" if valor is None else f"{valor:g}"
+            cabecera.append(f"{nombre}:{escrito:>12s}")
+
     vhdr = carpeta / "sintetico.vhdr"
     vhdr.write_text("\n".join(cabecera) + "\n", encoding="utf-8")
 
