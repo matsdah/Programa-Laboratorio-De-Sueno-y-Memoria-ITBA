@@ -42,17 +42,18 @@ con el teclado, se anotan eventos sobre la senal, funcionan las seis
 herramientas -lupa, banda de amplitud, ocupacion horizontal, Ubersicht,
 histograma de la noche y anotador- y se escriben los tres archivos de salida.
 
-FALTA LA PARTE 2, el modulo de analisis de bioseniales: densidad espectral,
-complejidad, conectividad, filtrado, ICA, re-referenciado y derivaciones. Esas
-funciones estan declaradas con su firma pero todavia sin escribir, asi que si se
-las pide, el programa avisa que la funcion esta pendiente.
+LA PARTE 2 TAMBIEN ESTA TERMINADA, el modulo de analisis de bioseniales:
+filtrado, ICA, impedancia, re-referenciado, derivaciones, densidad espectral,
+complejidad y conectividad. Todas esas funciones se piden desde el menu
+Analisis. Necesita dos dependencias que no se instalan por defecto; estan en
+requirements-analysis.txt y el README explica cuando hacen falta.
 
 Se trabajo asi a proposito: primero se acuerda la estructura, despues se
 programa. Con eso se evita descubrir a mitad de camino que dos personas
 escribieron lo mismo en dos lugares distintos.
 
-Lo que falta y en que orden hacerlo esta en docs/TODO.md, que es el unico
-documento que lleva la cuenta. El trabajo esta agrupado en hitos: cada hito solo
+Como se llego hasta aca esta en docs/TODO.md, que es el unico documento que
+lleva la cuenta. El trabajo esta agrupado en diecisiete hitos: cada hito solo
 usa cosas que ya estan terminadas en los hitos anteriores.
 
 
