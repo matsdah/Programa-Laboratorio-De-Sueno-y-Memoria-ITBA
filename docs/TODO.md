@@ -1,15 +1,20 @@
-# TODO — Parte 1 (scorer de polisomnografía)
+# TODO — scorer de polisomnografía
 
 La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos de la Parte 1:
-**la Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Los 34 requisitos
-del pliego se pueden usar desde el programa corriendo, no sólo desde sus
-módulos, que es la distinción que este resumen no puede dar y que costó el
-hito 9.
-Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
+Quedan **26 stubs** (`raise NotImplementedError`) en 8 módulos, **todos de la
+Parte 2**: `psglab/analysis/`.
+
+**La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
+se pueden usar desde el programa corriendo, no sólo desde sus módulos, que es la
+distinción que este resumen no puede dar y que costó el hito 9.
+
+Hasta el hito 10 este archivo **excluía la Parte 2 a propósito** y sus cuentas
+la ignoraban activamente. Cerrada la Parte 1, el TODO pasa a ser la cola de la
+Parte 2: era eso o estrenar una segunda fuente de estado, que es justo lo que
+este archivo existe para evitar.
 
 ## Cómo se usa
 
@@ -64,7 +69,14 @@ nada**. Un verde por omisión es peor que un rojo.
 | [7. Herramientas](#hito-7-herramientas) | — | 0 | ✅ cerrado |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ✅ cerrado |
 | [9. Lo que la interfaz no consume](#hito-9-lo-que-la-interfaz-no-consume) | — | 0 | ✅ cerrado |
-| | **0** | **0** | |
+| [10. Cimientos de la Parte 2](#hito-10-cimientos-de-la-parte-2) | — | 0 | ⬜ |
+| [11. Derivar y re-referenciar](#hito-11-derivar-y-re-referenciar) | 2 | 4 | ⬜ |
+| [12. Filtración](#hito-12-filtración) | 1 | 3 | ⬜ |
+| [13. PSD](#hito-13-psd) | 1 | 3 | ⬜ |
+| [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | 2 | 8 | ⬜ |
+| [15. ICA](#hito-15-ica) | 1 | 4 | ⬜ |
+| [16. Impedancia](#hito-16-impedancia) | 1 | 4 | ⬜ |
+| | **8** | **26** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
 seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta
@@ -823,6 +835,211 @@ cerrados porque sus módulos no tenían stubs, y "sin stubs" no es lo mismo que
 > desde el script**, no por la interfaz, así que el hueco no se manifestó. Es el
 > mismo error de método que la auditoría describe para la documentación:
 > verificar la pieza en vez del camino.
+
+---
+
+# Parte 2 — Módulo de análisis de bioseñales
+
+Ocho módulos, 26 stubs, y las firmas y los docstrings ya escritos desde el
+esqueleto. Van **ordenados por dependencias reales**, igual que la Parte 1.
+
+**Cada análisis se lleva hasta la pantalla, no hasta su módulo.** Es la lección
+del [hito 9](#hito-9-lo-que-la-interfaz-no-consume): seis requisitos con sus
+tests en verde que la interfaz no consumía, y `contar_stubs()` no puede ver un
+camino muerto. Un hito de la Parte 2 no se cierra con el módulo terminado.
+
+> **Pregunta abierta con el cliente, anotada antes de empezar.** Los IDs de
+> "Filtración" saltan de **V1_F a V5_F**: no hay V2_F, V3_F ni V4_F en ningún
+> documento ni en ningún docstring. La primera auditoría lo marcó como
+> "requiere consultar el pliego" y sigue sin resolverse. Pueden ser tres
+> requisitos que el proyecto nunca registró. Lo que **sí** está especificado no
+> está en duda, así que el riesgo es trabajo adicional y no trabajo a rehacer;
+> por eso los hitos 11 y 13 van antes que el 12.
+
+---
+
+## Hito 10: Cimientos de la Parte 2
+
+Sin stubs: es la infraestructura que la Parte 2 necesita y que no existe. Se
+hace de una vez y no módulo por módulo.
+
+- [ ] **La maquinaria de cuentas de este archivo**, que excluía la Parte 2.
+      `stubs_de_la_parte_1()` filtraba `analysis/`, el regex de la tabla exigía
+      un hito de **un solo dígito** —un "hito 10" no matcheaba y sus stubs
+      desaparecían de la suma en silencio— y el chequeo de "todo módulo tiene
+      test" también la salteaba.
+- [ ] **`analysis` en `CAPAS_SIN_INTERFAZ`.** La regla de que la Parte 2 no
+      importe Qt está escrita en tres documentos y no la verifica nadie. Es una
+      línea, y está anotada como hueco mediano en la segunda auditoría.
+- [ ] **`test_contratos.py` extendido a `analysis/`.** `MainWindow` atrapa una
+      sola clase, y un `ValueError` de scipy o de MNE le llegaría al
+      investigador como traza. La exigencia aparece módulo por módulo, porque
+      los que tienen stubs se saltean.
+- [ ] **Una fixture que devuelva un `Recording`.** No existe ninguna:
+      `synthetic_signal` es un array pelado y **todas** las funciones de
+      `analysis/` reciben un `Recording`. Hoy cada test que necesita uno se lo
+      arma solo.
+- [ ] **`requirements-analysis.txt` en el job de tests del CI.** Hoy sólo lo
+      instala el job de licencias, que no corre pytest. Sin esto,
+      `complexity.py` y `connectivity.py` quedarían como el único código del
+      proyecto sin ejercitar.
+- [ ] **El adaptador `Recording` ↔ `mne.io.Raw`.** No existe y lo necesitan
+      tres módulos. MNE se usa hoy en una sola dirección, `Raw → Recording`, en
+      los dos lectores. **Ojo con la unidad**: `readers/edf.py` fija
+      `_UNIDAD_DE_MNE = "V"` y convierte al leer, porque MNE trabaja en volts y
+      el `Recording` en microvoltios. El viaje de vuelta multiplica por 1e-6 al
+      entrar y por 1e6 al salir, y los canales no eléctricos conservan su unidad
+      nativa.
+
+Y **cuatro decisiones transversales que ningún docstring resuelve**, que se
+toman acá o se toman ocho veces distinto:
+
+- [ ] **Copiar lo que devuelve `get_segment()`.** Es de sólo lectura
+      (`recording.py` pone `writeable = False`) y, sin lista de canales, es una
+      **vista y no una copia**. scipy, MNE y antropy van a querer escribir.
+- [ ] **Qué se hace con la última ventana incompleta.** `window_to_samples()`
+      devuelve un final posterior al registro y `get_segment()` acorta el tramo
+      **en silencio**. Las cinco funciones `*_by_window` la van a recibir y
+      ninguna dice qué hacer. La fixture actual da 20 ventanas exactas, así que
+      **no lo ejercita**: hay que escribir el caso a propósito.
+- [ ] **Las excepciones que faltan.** `utils/errors.py` tiene **una sola** de
+      análisis, `InvalidFilterError`, y 21 de los 26 stubs no declaran ningún
+      `Raises:`. Cada módulo trae la suya al terminarse; `tests/test_errors.py`
+      las cubre solas con `inspect.getmembers`.
+- [ ] **La pregunta del hueco V2_F–V4_F**, escrita en
+      [`TRAZABILIDAD.md`](TRAZABILIDAD.md) junto a la de las impedancias.
+
+---
+
+## Hito 11: Derivar y re-referenciar
+
+Los dos módulos que **no dependen de nada**: ni de MNE, ni de las bibliotecas
+que faltan, ni de ninguna pieza nueva. Aritmética sobre `Recording`, y por eso
+los primeros: son de resultado exactamente conocido.
+
+- [ ] **`psglab/analysis/derivation.py`** · 2 stubs · sección "Derivar"
+  - `derive()` es una resta elemento a elemento, y `derive_montage()` se define
+    sobre ella. El canal derivado se agrega **al final** y se llama `"A-B"` si
+    no le dan nombre.
+  - Hay que decidir qué `ChannelKind`, qué `unit` y qué
+    `original_sampling_rate` lleva el canal nuevo: el docstring no lo dice.
+  - `Recording.__post_init__` valida que `Channel.index` sea la posición en la
+    lista, y `Channel` es frozen: hay que construir instancias nuevas.
+  - Test: **crear** `tests/test_derivation.py`.
+- [ ] **`psglab/analysis/reference.py`** · 2 stubs · sección "Rereferenciar"
+  - Con un solo canal de referencia, ese canal queda **idénticamente en cero**;
+    con varios se resta el promedio, que es el caso de las mastoides A1+A2.
+  - `average_reference(kind_only=True)` promedia sólo los EEG, y la prueba de
+    que el flag sirve es que meter un EMG a propósito **no** cambie el
+    resultado.
+  - Falta decidir qué pasa con los canales no eléctricos al re-referenciar.
+  - Test: **crear** `tests/test_reference.py`.
+
+---
+
+## Hito 12: Filtración
+
+- [ ] **`psglab/analysis/filters.py`** · 3 stubs · V1_F de "Filtración"
+  - `default_for()` y `validate()` no dependen de nada: la tabla
+    `DEFAULT_FILTERS` ya está escrita y Nyquist es aritmética. Van primero,
+    porque `apply_filters()` se apoya en la segunda.
+  - `apply_filters()` es el primer consumidor del adaptador del hito 10.
+  - **Se verifica por PSD**: un pasabajos sobre 1 Hz + 40 Hz + 50 Hz tiene que
+    dejar la de 1 y bajar las otras dos. Como **razón de atenuación**, no como
+    valores exactos, por el ringing de los bordes.
+  - **Poder deshacer.** Un filtro mal elegido no puede obligar a reabrir el
+    archivo.
+  - Test: **crear** `tests/test_filters.py`.
+
+---
+
+## Hito 13: PSD
+
+- [ ] **`psglab/analysis/psd.py`** · 3 stubs · V1_F de "Power Spectral Density"
+  - **Es el caso de test más limpio del proyecto**, y el que `conftest.py` usa
+    para explicar por qué la señal sintética es mejor que un registro real: una
+    onda de 10 Hz tiene que dar un pico en 10 Hz. La fixture ya trae C3 a 1 Hz,
+    C4 a 10 Hz, el EOG a 0,5 Hz y el EMG a 30 Hz.
+  - `band_power()` no depende de nada: recibe arrays. Va antes que
+    `compute_psd()`.
+  - Es la primera que recorre ventanas, así que **acá se fija la convención de
+    la última ventana incompleta** y las demás la copian.
+  - Trae el primer panel de resultado. Sigue el patrón de `overview_panel.py`:
+    el cálculo separado del pintado.
+  - Test: **crear** `tests/test_psd.py`.
+
+---
+
+## Hito 14: Complejidad y conectividad
+
+Los dos que traen dependencias nuevas, juntos porque comparten forma: producen
+**un número por ventana**, igual que el scoring, y por eso tienen dónde
+mostrarse.
+
+- [ ] **`psglab/analysis/complexity.py`** · 5 stubs · sección "Complejidad"
+  - Cuatro escalares sobre un array crudo más el recorrido por ventanas.
+    Necesita `antropy`.
+  - **Los valores de referencia salen de la teoría, no de una corrida.** Una
+    rampa monótona da entropía de permutación 0 porque hay un solo patrón
+    ordinal; una señal constante da la complejidad de Lempel-Ziv mínima; para
+    una recta la dimensión fractal de Higuchi es ≈ 1. Afirmar "da 0,8734"
+    contra lo que devolvió la primera corrida no verifica nada.
+  - Falta decidir qué valores admite `measure`: no hay una constante como el
+    `METHODS` de conectividad.
+  - Test: **crear** `tests/test_complexity.py`.
+- [ ] **`psglab/analysis/connectivity.py`** · 3 stubs · sección "Conectividad"
+  - Necesita `mne-connectivity`. `average_connectivity()` no: recibe la matriz.
+  - **El ancla teórica es el propio motivo del módulo**: dos canales idénticos
+    dan coherencia 1 y **wPLI 0**, porque a desfase cero no hay parte
+    imaginaria. Es exactamente lo que el docstring explica sobre volume
+    conduction, y por eso es el test que hay que escribir.
+  - Falta decidir cómo se segmenta el registro en épocas, que es lo que
+    mne-connectivity pide.
+  - Test: **crear** `tests/test_connectivity.py`.
+
+---
+
+## Hito 15: ICA
+
+- [ ] **`psglab/analysis/ica.py`** · 4 stubs · V5_F de "Filtración"
+  - Depende del adaptador del hito 10 y es el de interfaz más pesada: elegir
+    componentes mirando topografías es una pantalla propia, no una entrada de
+    menú.
+  - **Tres de las cuatro devuelven `Any`** (objetos de MNE), así que lo
+    testeable es el contrato y no el objeto: que la cantidad de componentes sea
+    la pedida, que `exclude=[]` reconstruya el original, y que excluir la
+    componente de un parpadeo sintético baje su potencia **medida por PSD**.
+    Requiere `random_state` fijo: la ICA es estocástica y el orden y el signo
+    de las componentes son indeterminados por construcción.
+  - **Hueco de modelo de datos**: `component_topography()` promete datos para
+    dibujar una topografía, y eso necesita posiciones de electrodo que
+    `Channel` **no lleva**. Hay que decidir de dónde salen.
+  - Test: **crear** `tests/test_ica.py`.
+
+---
+
+## Hito 16: Impedancia
+
+Último porque es el único que arranca con una decisión del cliente sin cerrar.
+
+- [ ] **`psglab/analysis/impedance.py`** · 4 stubs · V1_F de "Impedancia"
+  - `channels_above_limit()` e `impedance_report()` no dependen de nada:
+    reciben diccionarios. Se pueden hacer desde el principio.
+  - Las otras dos dependen del origen de las impedancias, que sigue abierto. Se
+    implementan **las tres vías** que plantea el docstring, porque no son
+    excluyentes; la marca `PENDIENTE DE DEFINICIÓN CON EL CLIENTE` se saca
+    recién cuando el cliente confirme cuál usa el laboratorio.
+  - **Si elige la vía de la cabecera, el trabajo no es sólo de la Parte 2**: los
+    dos lectores no guardan hoy ninguna clave de impedancia en
+    `Recording.metadata` —sólo `edf_annotations` y `brainvision_markers`—, así
+    que habría que tocar `readers/`.
+  - **Trampa al cerrar**: `psglab/analysis/README.md` tiene una sección
+    "Ambigüedad abierta" que sólo pasa el chequeo porque nombra este módulo. El
+    día que se saque la marca, ese README rompe la suite si no se reescribe en
+    el mismo commit.
+  - Falta decidir si el límite es estricto o inclusivo, y el formato del texto
+    de `impedance_report()`.
+  - Test: **crear** `tests/test_impedance.py`.
 
 ---
 

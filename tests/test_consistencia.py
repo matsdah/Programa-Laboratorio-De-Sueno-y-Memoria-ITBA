@@ -141,11 +141,15 @@ def _nombre_de_excepcion(nodo: ast.Raise) -> str:
     return excepcion.id if isinstance(excepcion, ast.Name) else ""
 
 
-def stubs_de_la_parte_1() -> int:
-    """Stubs pendientes de la Parte 1. `analysis/` es la Parte 2 y no cuenta."""
-    return sum(
-        contar_stubs(f) for f in modulos_del_paquete() if "analysis" not in f.parts
-    )
+def stubs_pendientes() -> int:
+    """Todos los stubs del paquete, de la Parte 1 y de la Parte 2.
+
+    **Antes excluía `analysis/`**, y era deliberado: la Parte 2 estaba fuera del
+    TODO, así que contarla habría hecho fallar la comparación contra un
+    documento que no la nombraba. Cerrada la Parte 1, el TODO pasa a ser la cola
+    de la Parte 2 y ese filtro dejaba sin control justo lo único que falta.
+    """
+    return sum(contar_stubs(f) for f in modulos_del_paquete())
 
 
 def docstring_de(archivo: pathlib.Path) -> str:
@@ -261,15 +265,18 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
     implementa un módulo y no actualiza el TODO, la diferencia salta acá.
     """
     todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
-    en_codigo = stubs_de_la_parte_1()
+    en_codigo = stubs_pendientes()
 
     en_items = sum(int(n) for n in re.findall(r"·\s*(\d+) stubs?", todo))
     assert en_items == en_codigo, (
         f"los ítems del TODO suman {en_items} stubs y en el código hay {en_codigo}"
     )
 
+    # **`\d+` y no `\d`.** Con un solo dígito, la fila de un hito 10 no
+    # matcheaba y sus stubs desaparecían de la suma **en silencio**, que es peor
+    # que fallar: la tabla decía una cosa y el chequeo comparaba otra.
     filas = re.findall(
-        r"\|\s*\[(\d)\.([^\]]*)\]\([^)]*\)\s*\|\s*[\d—-]+\s*\|\s*(\d+)\s*\|", todo
+        r"\|\s*\[(\d+)\.([^\]]*)\]\([^)]*\)\s*\|\s*[\d—-]+\s*\|\s*(\d+)\s*\|", todo
     )
     en_filas = sum(int(fila[2]) for fila in filas)
     assert en_filas == en_codigo, (
@@ -282,11 +289,7 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
     total = re.search(r"\|\s*\|\s*\*\*(\d+)\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|", todo)
     assert total is not None, "no se encontró la fila de totales de la tabla de progreso"
     modulos_declarados, stubs_declarados = int(total.group(1)), int(total.group(2))
-    modulos_reales = sum(
-        1
-        for f in modulos_del_paquete()
-        if "analysis" not in f.parts and contar_stubs(f) > 0
-    )
+    modulos_reales = sum(1 for f in modulos_del_paquete() if contar_stubs(f) > 0)
     assert stubs_declarados == en_codigo, (
         f"la fila de totales dice {stubs_declarados} stubs y en el código hay {en_codigo}"
     )
@@ -1002,8 +1005,7 @@ def test_todo_modulo_de_la_parte_1_tiene_test_o_lo_tiene_prometido():
     huerfanos = [
         ruta_relativa(f)
         for f in modulos_del_paquete()
-        if "analysis" not in f.parts
-        and ruta_relativa(f) not in cubiertos
+        if ruta_relativa(f) not in cubiertos
         and ruta_relativa(f) not in SIN_TEST_PROPIO
         and not prometidos.get(ruta_relativa(f))
     ]
