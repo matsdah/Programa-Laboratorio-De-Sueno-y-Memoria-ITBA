@@ -78,6 +78,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [15. ICA](#hito-15-ica) | — | 0 | ✅ cerrado |
 | [16. Impedancia](#hito-16-impedancia) | — | 0 | ✅ cerrado |
 | [17. Cierre de la Parte 2](#hito-17-cierre-de-la-parte-2) | — | 0 | ✅ cerrado |
+| [18. Escala](#hito-18-escala) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -230,7 +231,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
 tiene test:
 
 - [x] **`psglab/utils/errors.py`** · 0 pendientes · ya tiene su test
-  - Test: `tests/test_errors.py`, **9 tests en verde**.
+  - Test: `tests/test_errors.py`, **14 tests en verde**.
   - Verifica que `PsgLabError` guarde el mensaje y la causa técnica por
     separado, y que las subclases se atrapen con un solo `except PsgLabError`.
     Es la promesa sobre la que se apoya todo el manejo de errores que ve el
@@ -963,7 +964,7 @@ ventana y no existía.
     montaje a medias le muestra al usuario algunos canales derivados y otros
     no, sin nada que le diga cuáles. Sale gratis de que `derive()` no modifique
     su entrada: lo que se descarta es el acumulador.
-  - Test: `tests/test_derivation.py`, **27 tests en verde**.
+  - Test: `tests/test_derivation.py`, **29 tests en verde**.
 - [x] **`psglab/analysis/reference.py`** · ~~2 stubs~~ · sección "Rereferenciar"
   - Con un solo canal de referencia, ese canal queda **idénticamente en cero**;
     con varios se resta el promedio, que es el caso de las mastoides A1+A2.
@@ -1016,7 +1017,7 @@ ventana y no existía.
     pide filtrar **por tipo de canal** y `apply_filters()` recibe filtros por
     **nombre**, que es la firma general. Traducir de una a la otra es la regla
     del pliego, así que va en `analysis/` y no en el diálogo.
-  - Test: `tests/test_filters.py`, **51 tests en verde**.
+  - Test: `tests/test_filters.py`, **53 tests en verde**.
 - [x] **`psglab/ui/filter_panel.py`** · una fila por clase de canal
   - Sólo aparecen las clases que el registro tiene: ofrecer una fila de ECG en
     un registro sin ECG le pide al usuario que decida sobre algo que no existe.
@@ -1346,7 +1347,10 @@ clase.
 Dos cosas quedan con números y sin tocar, porque son trabajo de diseño y cada
 una merece su hito.
 
-- [ ] **La memoria.** La señal vive entera como `float64` en RAM y filtrar llega
+- [x] **La memoria.** *(Atendida en el [hito 18](#hito-18-escala): las copias
+      evitables se sacaron y el `MemoryError` ya sale como cartel. Lo que
+      sigue abierto está anotado allá.)* La señal vive entera como `float64`
+      en RAM y filtrar llegaba
       a tener **cinco copias completas vivas a la vez** —`mne_bridge.py` dos,
       más la que sostiene la ventana principal como "señal original" y la que se
       está viendo—. Medido sobre el registro real: 445 MB por copia, **1337 MB
@@ -1357,7 +1361,9 @@ una merece su hito.
         justo lo que todo el proyecto se esfuerza en evitar.
       - Detalle barato de ahí: `apply_filters()` con todos los filtros
         desactivados paga tres copias completas para no hacer nada.
-- [ ] **Los 21 s de calentamiento de numba.** La primera llamada de complejidad
+- [x] **Los 21 s de calentamiento de numba.** *(Atendidos en el
+      [hito 18](#hito-18-escala): no se pueden eliminar sin hilos, pero ya no
+      parecen un cuelgue.)* La primera llamada de complejidad
       de cada sesión congela la ventana ~21 s compilando, **cualquiera sea la
       medida**. La tabla de costos de `complexity.py` mide sólo el cálculo, y
       `MEDIDAS_RAPIDAS` se eligió justamente para que la ventana no se congele:
@@ -1365,6 +1371,93 @@ una merece su hito.
       - Ya en caliente, sobre las 2650 ventanas reales y un canal: permutación
         1,2 s · Higuchi 0,4 s · Lempel-Ziv 11,6 s · entropía de muestra 128 s
         —esta última es la que ya está fuera del menú, y con razón—.
+
+---
+
+## Hito 18: Escala
+
+Los dos números que el [hito 17](#hito-17-cierre-de-la-parte-2) dejó medidos y
+sin tocar. El problema de fondo no cambia —la señal vive entera en memoria como
+`float64`— pero sí cambia **cuántas veces se la copia para no nada** y, sobre
+todo, **cómo falla cuando no entra**.
+
+### Lo que costaba, y lo que cuesta
+
+Medido sobre `data/SC4001E0-PSG.edf` (22 h, 7 canales, 100 Hz), donde una copia
+son **445 MB**:
+
+| Operación | Antes | Ahora |
+|---|---|---|
+| `apply_filters`, todos los canales | 3,0 copias · 1337 MB | **2,3 · 1019 MB** |
+| `apply_filters`, un canal | 3,0 · 1336 MB | **2,0 · 890 MB** |
+| `apply_filters`, sin ningún filtro activo | 3,0 · 1336 MB | **1,0 · 445 MB** |
+| `derive_montage`, 4 pares | 3,1 · 1399 MB | **2,1 · 954 MB** |
+| `average_reference` | 1,1 | 1,1 |
+
+- [x] **La copia que `from_raw()` hacía de más.** `raw.get_data()` ya devuelve
+      un array fresco e independiente del buffer de MNE —medido: no comparte
+      memoria con `raw._data` y escribirle no lo toca—, así que el
+      `np.array(..., copy=True)` que venía después **duplicaba una copia recién
+      hecha**. Es la que subía el pico de `apply_filters()` de dos a tres.
+- [x] **Filtrar sin filtros costaba tres copias para no cambiar nada.** Abrir el
+      panel, vaciar las celdas y aplicar es una forma legítima de decir "dejala
+      como está", y hacía el viaje entero de ida y vuelta por MNE. Ahora se
+      copia y listo.
+- [x] **`derive_montage()` copiaba el registro una vez por par.** Encadenaba
+      `derive()`, y cada llamada hacía su propio `np.vstack` de la matriz
+      entera, cada vez más grande. Ahora acumula las filas nuevas y arma la
+      matriz **una sola vez**.
+      - **Se conservó poder derivar de una derivación anterior**, que era lo que
+        el encadenado daba gratis y que ningún test cubría. Ahora sí lo cubren
+        dos.
+- [x] **`MemoryError` salía como traza de Python**, y era el único error del
+      programa que rompía la promesa de `utils/errors.py`. No hereda de
+      `PsgLabError`, así que atravesaba el `except` de la ventana principal —los
+      catorce que hay—. Y es el más probable de todos en un registro grande.
+      - `RecordingTooLargeError` y el contextmanager `memoria_suficiente()`, que
+        envuelve las cinco reservas grandes del programa: el puente con MNE en
+        las dos direcciones, el filtrado, el re-referenciado y las derivaciones.
+      - **Atraparlo y seguir es seguro acá**, y no siempre lo es: lo que falla es
+        una sola reserva de numpy, que se libera al fallar, y ninguna función de
+        `analysis/` modifica su entrada. El cartel lo dice: *"El registro sigue
+        abierto y sin cambios"*, y hay un test que lo verifica.
+- [x] **Los 21 s de calentamiento de numba, hechos legibles.** No se pueden
+      eliminar sin meter hilos, que el programa no tiene en ninguna parte. Lo
+      que sí se puede es que **no parezca que se colgó**: cursor de espera y
+      aviso en la barra de estado mientras dura el cálculo.
+      - Es la misma preocupación que llevó a sacar la entropía de muestra del
+        menú (`MEDIDAS_RAPIDAS`), y elegir medidas rápidas no alcanzaba: el
+        calentamiento lo paga la primera llamada de cada sesión, sea cual sea la
+        medida.
+
+### `float32` se evaluó y se descartó, con medición
+
+Habría partido la memoria al medio, y **la decisión fue que no**. El motivo no
+es la precisión —16 bits de ADC entran de sobra en la mantisa de 24— sino que
+**MNE trabaja siempre en `float64`**: al pasarle un array `float32` lo convierte,
+y esa conversión es una copia completa más.
+
+```
+RawArray desde float32: pico 224 MB, queda en float64
+RawArray desde float64: pico  28 MB, queda en float64   (reusa el array)
+```
+
+O sea que `float32` **baja lo que está en reposo y sube el pico**, que es
+justamente donde ocurre el `MemoryError`. Mueve el problema hacia el peor lado.
+Queda anotado en [`ARQUITECTURA.md`](ARQUITECTURA.md) para que no se vuelva a
+proponer sin este número.
+
+### Lo que sigue sin resolverse
+
+- [ ] **La señal sigue entera en memoria, y la ventana principal guarda dos.**
+      El registro original —el que hace posible "Volver a la señal original"— y
+      el que se está viendo. Sobre 32 canales y 8 horas son 1,9 GB cada uno
+      antes de empezar a analizar. Bajarlo de verdad pide otra cosa: leer por
+      tramos, o releer el archivo al deshacer en vez de guardarlo. Las dos son
+      decisiones de diseño con su propio costo.
+- [ ] **Nada corre fuera del hilo de la interfaz.** El cursor de espera avisa,
+      pero la ventana sigue congelada. Un `QThread` para los barridos de la
+      noche es la solución de fondo, y hoy el programa no tiene ninguno.
 
 ---
 

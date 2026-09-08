@@ -23,7 +23,9 @@ from psglab.utils.errors import (
     ChannelNotFoundError,
     InvalidRecordingError,
     PsgLabError,
+    RecordingTooLargeError,
     UnknownUnitError,
+    memoria_suficiente,
 )
 
 
@@ -129,3 +131,55 @@ def test_el_registro_incoherente_tiene_su_propio_error():
     """
     assert issubclass(InvalidRecordingError, PsgLabError)
     assert not issubclass(InvalidRecordingError, errors.UnreadableFileError)
+
+
+# -- Quedarse sin memoria (hito 18) ------------------------------------------
+
+
+def test_un_memory_error_sale_como_error_del_programa():
+    """**`MemoryError` era el único error que rompía la promesa del módulo.**
+
+    No hereda de `PsgLabError`, así que atravesaba el `except` de la ventana
+    principal y le llegaba al investigador como traza de Python. Y no es un
+    caso remoto: la señal vive entera en memoria y una noche de 32 canales a
+    256 Hz son 1,9 GB por copia.
+    """
+    with pytest.raises(RecordingTooLargeError):
+        with memoria_suficiente("filtrar la señal"):
+            raise MemoryError()
+
+
+def test_el_cartel_dice_que_se_estaba_haciendo():
+    """No es lo mismo quedarse sin memoria abriendo el archivo que
+    filtrándolo: en el segundo caso el registro ya está en pantalla."""
+    with pytest.raises(RecordingTooLargeError) as elevado:
+        with memoria_suficiente("calcular la ICA"):
+            raise MemoryError()
+
+    assert "calcular la ICA" in elevado.value.message
+
+
+def test_el_cartel_dice_que_el_registro_sigue_abierto():
+    """Es la mitad accionable del mensaje: el investigador puede seguir
+    trabajando, porque ninguna función de `analysis/` modifica su entrada."""
+    with pytest.raises(RecordingTooLargeError) as elevado:
+        with memoria_suficiente("filtrar la señal"):
+            raise MemoryError()
+
+    assert "sin cambios" in elevado.value.message
+    assert elevado.value.details
+
+
+def test_lo_que_no_es_un_memory_error_pasa_de_largo():
+    """No se traga otros errores: un `ValueError` de MNE tiene que seguir
+    llegando a quien lo sepa traducir."""
+    with pytest.raises(ValueError):
+        with memoria_suficiente("filtrar la señal"):
+            raise ValueError("otra cosa")
+
+
+def test_sin_error_no_hace_nada():
+    with memoria_suficiente("filtrar la señal"):
+        resultado = 2 + 2
+
+    assert resultado == 4

@@ -23,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 
 from psglab.core.recording import Channel, ChannelKind, Recording
-from psglab.utils.errors import InvalidRecordingError
+from psglab.utils.errors import InvalidRecordingError, memoria_suficiente
 from psglab.utils.units import is_electrical
 
 
@@ -42,7 +42,8 @@ def _restar(recording: Recording, referencia: np.ndarray) -> Recording:
     Es el motor de las dos funciones públicas: la única diferencia entre ellas
     es de dónde sale el array de referencia.
     """
-    datos = np.array(recording.data, dtype=float, copy=True)
+    with memoria_suficiente("re-referenciar la señal"):
+        datos = np.array(recording.data, dtype=float, copy=True)
     for canal in recording.channels:
         if is_electrical(canal.unit):
             datos[canal.index] -= referencia

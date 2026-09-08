@@ -232,3 +232,41 @@ def test_un_par_mal_formado_se_rechaza(registro_sintetico: Recording):
 def test_un_montaje_que_no_es_lista_se_rechaza(registro_sintetico: Recording):
     with pytest.raises(InvalidRecordingError):
         derive_montage(registro_sintetico, "C3-C4")
+
+
+# -- Un montaje se arma de una sola vez (hito 18) ----------------------------
+
+
+def test_una_derivacion_puede_partir_de_otra(registro_sintetico: Recording):
+    """**El encadenado, que nadie testeaba y que el hito 18 tuvo que conservar.**
+
+    `derive_montage()` dejó de llamar a `derive()` en cadena —cada llamada
+    copiaba la matriz entera, así que un montaje de N pares copiaba el registro
+    N veces— y pasó a acumular las filas y armar la matriz una sola vez. Eso
+    podía haberse llevado por delante esta propiedad: que un par nombre un
+    canal creado por un par anterior.
+    """
+    montado = derive_montage(
+        registro_sintetico, [("C3", "C4"), ("C3-C4", "EOG-izq")]
+    )
+
+    assert [c.name for c in montado.channels[-2:]] == ["C3-C4", "C3-C4-EOG-izq"]
+
+
+def test_la_derivacion_encadenada_da_el_numero_correcto(
+    registro_sintetico: Recording,
+):
+    """Y que el resultado sea el de la cuenta, no sólo que exista el canal."""
+    montado = derive_montage(
+        registro_sintetico, [("C3", "C4"), ("C3-C4", "EOG-izq")]
+    )
+
+    datos = np.asarray(montado.data)
+    c3 = datos[montado.channel_by_name("C3").index]
+    c4 = datos[montado.channel_by_name("C4").index]
+    eog = datos[montado.channel_by_name("EOG-izq").index]
+
+    assert datos[montado.channel_by_name("C3-C4").index] == pytest.approx(c3 - c4)
+    assert datos[montado.channel_by_name("C3-C4-EOG-izq").index] == pytest.approx(
+        c3 - c4 - eog
+    )

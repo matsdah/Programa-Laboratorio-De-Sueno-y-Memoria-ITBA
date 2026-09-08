@@ -26,13 +26,15 @@ funcionalidades de la Parte 1, pero sin implementar ninguna: cada una vive en
 su módulo y acá sólo se las conecta entre sí.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QFileDialog,
     QInputDialog,
@@ -772,6 +774,37 @@ class MainWindow(QMainWindow):
         self._update_histogram_window(self._session.current_window)
         self.refresh()
 
+    # -- Las esperas largas --------------------------------------------------
+
+    @contextmanager
+    def _trabajando(self, que_hace: str) -> Iterator[None]:
+        """Avisa que el programa está trabajando durante una espera larga.
+
+        **No acorta la espera: la hace legible.** Todo corre en el hilo de la
+        interfaz, así que la ventana queda congelada mientras dura el cálculo, y
+        sin ninguna señal eso se lee como que el programa se colgó. Es la razón
+        por la que `MEDIDAS_RAPIDAS` deja afuera la entropía de muestra.
+
+        Y no alcanzaba con elegir medidas rápidas: el hito 17 midió que **la
+        primera llamada de complejidad de cada sesión se lleva unos 21 s
+        compilando**, cualquiera sea la medida, porque `antropy` arrastra
+        `numba` y el compilado ocurre al primer uso. Esa espera la paga
+        siempre alguien.
+
+        El cursor se pone antes de bloquear y Qt lo aplica en el acto; la barra
+        de estado queda con el aviso hasta que el cálculo termina.
+        """
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self.statusBar().showMessage(f"{que_hace}…")
+        # `processEvents` una sola vez, para que el cursor y el mensaje lleguen
+        # a la pantalla antes de que el hilo se bloquee. No es un bucle de
+        # eventos: no se procesa nada más hasta que el cálculo termina.
+        QApplication.processEvents()
+        try:
+            yield
+        finally:
+            QApplication.restoreOverrideCursor()
+
     # -- Análisis (Parte 2) --------------------------------------------------
 
     def _aplicar_analisis(
@@ -801,7 +834,8 @@ class MainWindow(QMainWindow):
         if self._session is None:
             return
         try:
-            procesado = calcular(self._session.recording)
+            with self._trabajando(que_hace.replace("Se ", "").capitalize()):
+                procesado = calcular(self._session.recording)
             self._session.set_recording(procesado)
         except PsgLabError as error:
             self._show_error(error)
@@ -923,9 +957,10 @@ class MainWindow(QMainWindow):
         if not acepto:
             return
         try:
-            series = complexity_by_window(
-                self._session.recording, [canal], measure=medida
-            )
+            with self._trabajando(f"Calculando {medida} sobre toda la noche"):
+                series = complexity_by_window(
+                    self._session.recording, [canal], measure=medida
+                )
         except PsgLabError as error:
             self._show_error(error)
             return

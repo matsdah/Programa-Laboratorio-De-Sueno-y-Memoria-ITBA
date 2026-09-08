@@ -484,3 +484,49 @@ def test_validar_algo_que_no_son_filtros():
 def test_sugerir_para_algo_que_no_es_una_clase_de_canal():
     with pytest.raises(InvalidFilterError):
         default_for("EEG")
+
+
+# -- Lo que no hace falta hacer (hito 18) ------------------------------------
+
+
+def test_sin_filtros_activos_no_se_pasa_por_mne(monkeypatch):
+    """**Costaba tres copias completas de la señal para no cambiarle nada.**
+
+    El viaje de ida y vuelta por MNE reserva una copia al ir y otra al volver,
+    y sobre el registro real de 22 h eso eran 1337 MB por un pedido que no
+    filtra nada. Es un pedido legítimo —abrir el panel, vaciar las celdas y
+    aplicar es una forma de decir "dejala como está"— así que el atajo importa.
+
+    Se afirma monkeypatcheando `to_raw`: si se lo llegara a llamar, revienta.
+    """
+    def no_deberia_llamarse(*_args, **_kwargs):
+        raise AssertionError("se pasó por MNE sin tener nada que filtrar")
+
+    monkeypatch.setattr("psglab.analysis.filters.to_raw", no_deberia_llamarse)
+    crudo = armar_registro()
+
+    filtrado = apply_filters(crudo, {"C3": FilterSettings()})
+
+    assert np.asarray(filtrado.data) == pytest.approx(np.asarray(crudo.data))
+    assert filtrado is not crudo
+
+
+def test_quedarse_sin_memoria_sale_como_error_del_programa(monkeypatch):
+    """`MemoryError` no hereda de `PsgLabError`, así que atravesaba el `except`
+    de la ventana principal y salía como traza. Es el error más probable de
+    todos en un registro grande: la señal vive entera en memoria.
+
+    **Se falla la reserva de verdad, no la función que la hace.** El primer
+    intento de este test parcheaba `to_raw()` entera y salteaba la guarda, que
+    vive adentro: pasaba el `MemoryError` de largo y el test fallaba con razón.
+    Lo que hay que ejercitar es que la reserva grande esté *envuelta*.
+    """
+    import psglab.analysis.mne_bridge as puente
+
+    def sin_memoria(*_args, **_kwargs):
+        raise MemoryError()
+
+    monkeypatch.setattr(puente.np, "array", sin_memoria)
+
+    with pytest.raises(PsgLabError):
+        apply_filters(armar_registro(), {"C3": FilterSettings(lowpass_hz=20.0)})

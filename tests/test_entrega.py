@@ -1274,3 +1274,102 @@ def test_a_256_hz_el_notch_sigue_estando(ventana: MainWindow):
     ventana.show_filter_dialog()
 
     assert ventana.filter_panel.displayed_value(ChannelKind.EEG, "notch_hz") == "50"
+
+
+# -- Quedarse sin memoria, por la ventana (hito 18) --------------------------
+
+
+def test_sin_memoria_sale_un_cartel_y_no_una_traza(ventana: MainWindow, monkeypatch):
+    """**El único error del programa que llegaba como traza de Python.**
+
+    `_aplicar_analisis()` atrapa `PsgLabError` y nada más, así que un
+    `MemoryError` —que es el más probable de todos en un registro de ocho
+    horas— se le escapaba y salía por la consola. Ahora sale por el mismo
+    cartel que el resto.
+    """
+    import psglab.analysis.mne_bridge as puente
+
+    def sin_memoria(*_args, **_kwargs):
+        raise MemoryError()
+
+    original = np.array(ventana.session.recording.data, copy=True)
+    ventana.show_filter_dialog()
+    monkeypatch.setattr(puente.np, "array", sin_memoria)
+
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert ventana.carteles, "el MemoryError no se convirtió en cartel"
+    assert "memoria" in ventana.carteles[0].lower()
+
+
+def test_sin_memoria_la_señal_queda_como_estaba(ventana: MainWindow, monkeypatch):
+    """La otra mitad del mensaje, y tiene que ser cierta: el cartel promete que
+    el registro sigue abierto y sin cambios.
+
+    **La afirmación del cartel va junto con la de la señal, y no es de más.**
+    La primera versión de este test miraba sólo la señal y pasaba igual con la
+    guarda rota: sin ella el `MemoryError` sale por otro lado, Qt se lo traga, y
+    la señal queda intacta de todos modos. Pasaba por la razón equivocada.
+    """
+    import psglab.analysis.mne_bridge as puente
+
+    original = np.array(ventana.session.recording.data, copy=True)
+    ventana.show_filter_dialog()
+    monkeypatch.setattr(
+        puente.np, "array", lambda *a, **k: (_ for _ in ()).throw(MemoryError())
+    )
+
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert ventana.carteles
+    assert np.array_equal(ventana.session.recording.data, original)
+    assert not ventana.accion_señal_original.isEnabled()
+
+
+# -- Que se note que está trabajando (hito 18) -------------------------------
+
+
+def test_durante_un_analisis_el_cursor_dice_que_esta_trabajando(ventana: MainWindow):
+    """**No acorta la espera: la hace legible.** Todo corre en el hilo de la
+    interfaz, así que la ventana queda congelada mientras dura el cálculo, y sin
+    ninguna señal eso se lee como que el programa se colgó. El hito 17 midió que
+    la primera complejidad de cada sesión se lleva unos 21 s sólo compilando.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+
+    visto: list[object] = []
+
+    def mirar_el_cursor(registro):
+        cursor = QApplication.overrideCursor()
+        visto.append(cursor.shape() if cursor is not None else None)
+        return registro
+
+    ventana._aplicar_analisis("Se hizo algo", mirar_el_cursor)
+
+    assert visto == [Qt.CursorShape.WaitCursor]
+
+
+def test_al_terminar_el_cursor_vuelve(ventana: MainWindow):
+    """Un cursor de espera que no se restaura deja el programa inutilizable a
+    la vista, aunque funcione."""
+    from PySide6.QtWidgets import QApplication
+
+    ventana._aplicar_analisis("Se hizo algo", lambda registro: registro)
+
+    assert QApplication.overrideCursor() is None
+
+
+def test_el_cursor_vuelve_aunque_el_analisis_falle(ventana: MainWindow):
+    """Es lo que hace el `finally`: si un análisis eleva, el cursor no puede
+    quedarse en espera para siempre."""
+    from PySide6.QtWidgets import QApplication
+    from psglab.utils.errors import InvalidRecordingError
+
+    def fallar(_registro):
+        raise InvalidRecordingError("no se pudo")
+
+    ventana._aplicar_analisis("Se hizo algo", fallar)
+
+    assert QApplication.overrideCursor() is None
+    assert ventana.carteles

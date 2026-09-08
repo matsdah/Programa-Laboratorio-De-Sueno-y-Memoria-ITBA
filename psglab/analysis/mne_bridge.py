@@ -33,7 +33,7 @@ from typing import Any
 import numpy as np
 
 from psglab.core.recording import Channel, ChannelKind, Recording
-from psglab.utils.errors import InvalidRecordingError
+from psglab.utils.errors import InvalidRecordingError, memoria_suficiente
 from psglab.utils.units import MICROVOLT, is_electrical
 
 #: Unidad en la que MNE espera y entrega los canales de voltaje. El mismo valor
@@ -115,16 +115,17 @@ def to_raw(recording: Recording) -> Any:
     # lectura —`get_segment()` pone `writeable = False`— y MNE escribe sobre el
     # buffer que recibe. Sin la copia, filtrar reventaría con un error de numpy
     # sobre un array de sólo lectura, tres capas más abajo.
-    datos = np.array(recording.data, dtype=float, copy=True)
-    for canal in recording.channels:
-        datos[canal.index] *= _factor_hacia_mne(canal)
+    with memoria_suficiente("procesar la señal"):
+        datos = np.array(recording.data, dtype=float, copy=True)
+        for canal in recording.channels:
+            datos[canal.index] *= _factor_hacia_mne(canal)
 
-    info = mne.create_info(
-        ch_names=[canal.name for canal in recording.channels],
-        sfreq=recording.sampling_rate,
-        ch_types=[_TIPOS_DE_MNE[canal.kind] for canal in recording.channels],
-    )
-    return mne.io.RawArray(datos, info, verbose="ERROR")
+        info = mne.create_info(
+            ch_names=[canal.name for canal in recording.channels],
+            sfreq=recording.sampling_rate,
+            ch_types=[_TIPOS_DE_MNE[canal.kind] for canal in recording.channels],
+        )
+        return mne.io.RawArray(datos, info, verbose="ERROR")
 
 
 def from_raw(raw: Any, original: Recording) -> Recording:
@@ -172,7 +173,14 @@ def from_raw(raw: Any, original: Recording) -> Recording:
             details=f"canales nuevos: {desconocidos}",
         )
 
-    datos = np.array(raw.get_data(), dtype=float, copy=True)
+    # **Sin copiar de nuevo.** `raw.get_data()` ya devuelve un array fresco e
+    # independiente del buffer interno de MNE —medido: no comparte memoria con
+    # `raw._data` y escribirle no lo toca—, así que el `np.array(..., copy=True)`
+    # que había acá duplicaba una copia recién hecha. En el registro real de
+    # 22 h eran 445 MB de más, y subían el pico de `apply_filters()` de dos
+    # copias a tres.
+    with memoria_suficiente("procesar la señal"):
+        datos = np.asarray(raw.get_data(), dtype=float)
     canales: list[Channel] = []
     for posicion, nombre in enumerate(nombres):
         viejo = conocidos[nombre]

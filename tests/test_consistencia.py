@@ -1197,6 +1197,13 @@ SIN_CONTRATO: dict[str, str] = {
         "antes de llegar acá— y repetir la comprobación en el camino caliente, que se "
         "recorre en cada pulsación de flecha, no aporta nada."
     ),
+    "psglab/utils/errors.py::memoria_suficiente": (
+        "no recibe datos sino el texto que va a aparecer en el cartel, y no lo usa "
+        "para decidir nada: sólo lo interpola en el mensaje del error que arma "
+        "cuando la reserva de memoria falla. No hay valor hostil que pueda "
+        "convertirse en una traza, porque el único camino que lo toca ya está "
+        "elevando un PsgLabError. Los cinco llamadores le pasan una cadena literal."
+    ),
     "psglab/utils/validation.py::clamp": (
         "documenta que un valor no finito es un error de programación y no algo que el "
         "usuario pueda provocar: quien llama tiene que haber pasado antes por "

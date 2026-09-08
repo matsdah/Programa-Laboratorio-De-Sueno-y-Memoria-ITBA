@@ -49,7 +49,11 @@ import numpy as np
 
 from psglab.analysis.mne_bridge import from_raw, to_raw
 from psglab.core.recording import ChannelKind, Recording
-from psglab.utils.errors import InvalidFilterError, InvalidRecordingError
+from psglab.utils.errors import (
+    InvalidFilterError,
+    InvalidRecordingError,
+    memoria_suficiente,
+)
 
 
 @dataclass
@@ -145,6 +149,22 @@ def _frecuencia_de_muestreo(valor: object) -> float:
     return numero
 
 
+def _mismo_registro_con(recording: Recording, datos: np.ndarray) -> Recording:
+    """Un `Recording` nuevo con los mismos canales y otros datos.
+
+    Existe para no armar un `Recording` a mano en dos lugares del módulo y que
+    uno de los dos se olvide de copiar los metadatos.
+    """
+    return Recording(
+        file_path=recording.file_path,
+        channels=list(recording.channels),
+        data=datos,
+        sampling_rate=recording.sampling_rate,
+        start_time=recording.start_time,
+        metadata=dict(recording.metadata),
+    )
+
+
 def apply_filters(
     recording: Recording,
     settings: dict[str, FilterSettings],
@@ -196,16 +216,24 @@ def apply_filters(
         validate(filtros, recording.sampling_rate)
         indices[nombre] = recording.channel_by_name(nombre).index
 
-    # Nada que hacer: se devuelve una copia igual, no el mismo objeto, porque la
-    # promesa de la carpeta es que siempre sale un registro nuevo.
     activos = {
         nombre: filtros
         for nombre, filtros in settings.items()
         if filtros != FilterSettings()
     }
-    raw = to_raw(recording)
+
+    # **Nada que filtrar: se copia y listo, sin pasar por MNE.** Igual sale un
+    # registro nuevo, porque la promesa de la carpeta es ésa, pero el viaje de
+    # ida y vuelta costaba tres copias completas de la señal para no cambiarle
+    # nada —1337 MB sobre el registro real de 22 h—. Es el caso de abrir el
+    # panel, vaciar las celdas y aplicar, que es una forma legítima de decir
+    # "quiero la señal como está".
     if not activos:
-        return from_raw(raw, recording)
+        with memoria_suficiente("copiar la señal"):
+            copia = np.array(recording.data, dtype=float, copy=True)
+        return _mismo_registro_con(recording, copia)
+
+    raw = to_raw(recording)
 
     # Los canales que comparten filtros se pasan juntos: MNE arma el núcleo del
     # filtro una vez por llamada, así que agrupar es la diferencia entre armarlo
@@ -252,10 +280,11 @@ def _filtrar_grupo(
     `PsgLabError`, y le llega al investigador como traza de Python.
     """
     try:
-        if highpass_hz is not None or lowpass_hz is not None:
-            raw.filter(highpass_hz, lowpass_hz, picks=picks, verbose="ERROR")
-        if notch_hz is not None:
-            raw.notch_filter([notch_hz], picks=picks, verbose="ERROR")
+        with memoria_suficiente("filtrar la señal"):
+            if highpass_hz is not None or lowpass_hz is not None:
+                raw.filter(highpass_hz, lowpass_hz, picks=picks, verbose="ERROR")
+            if notch_hz is not None:
+                raw.notch_filter([notch_hz], picks=picks, verbose="ERROR")
     except ValueError as error:
         raise InvalidFilterError(
             "No se pudo aplicar el filtro con esas frecuencias. Suele pasar "

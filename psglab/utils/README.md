@@ -58,6 +58,27 @@ su grupo** y hacerlo heredar de `PsgLabError`. Dos tests de
 `tests/test_errors.py` recorren el módulo entero para que un error nuevo que se
 olvide de heredar haga fallar la suite.
 
+### La excepción que no era del programa
+
+`MemoryError` es de Python y no hereda de `PsgLabError`, así que atravesaba los
+catorce `except` de la ventana principal y le llegaba al investigador como traza
+—el único error del programa que rompía la promesa de arriba, y el más probable
+de todos en un registro grande, porque la señal vive entera en memoria—.
+
+Para eso están `RecordingTooLargeError` y el contextmanager
+`memoria_suficiente()`, que envuelve las cinco reservas grandes de
+`psglab/analysis/`:
+
+```python
+with memoria_suficiente("filtrar la señal"):
+    datos = np.array(recording.data, dtype=float, copy=True)
+```
+
+**Atrapar un `MemoryError` y seguir es seguro en este caso**, y no lo es en
+general: lo que falla es una sola reserva de numpy, que se libera al fallar, y
+ninguna función de `analysis/` modifica su entrada. Por eso el cartel puede
+prometer que el registro sigue abierto y sin cambios.
+
 `PsgLabError.__init__` está implementado y no es un stub: es la base de todas
 las excepciones, y si el constructor fallara ninguna de las clases de abajo
 podría siquiera construirse para ser elevada.

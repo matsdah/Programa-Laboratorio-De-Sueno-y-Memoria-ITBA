@@ -28,7 +28,12 @@ from __future__ import annotations
 import numpy as np
 
 from psglab.core.recording import Channel, ChannelKind, Recording
-from psglab.utils.errors import DuplicateChannelError, InvalidRecordingError
+from psglab.utils.errors import (
+    ChannelNotFoundError,
+    DuplicateChannelError,
+    InvalidRecordingError,
+    memoria_suficiente,
+)
 
 
 def _exigir_registro(recording: Recording) -> None:
@@ -111,12 +116,14 @@ def derive(
     derivado = _canal_derivado(a, b, nombre, len(recording.channels))
     # `np.asarray` porque `data` puede llegar como vista de sólo lectura; la
     # resta produce un array nuevo, así que el original no se toca.
-    fila = np.asarray(recording.data[a.index]) - np.asarray(recording.data[b.index])
+    with memoria_suficiente("derivar los canales"):
+        fila = np.asarray(recording.data[a.index]) - np.asarray(recording.data[b.index])
+        datos = np.vstack([recording.data, fila])
 
     return Recording(
         file_path=recording.file_path,
         channels=[*recording.channels, derivado],
-        data=np.vstack([recording.data, fila]),
+        data=datos,
         sampling_rate=recording.sampling_rate,
         start_time=recording.start_time,
         metadata=dict(recording.metadata),
@@ -148,16 +155,71 @@ def derive_montage(recording: Recording, pairs: list[tuple[str, str]]) -> Record
             details=f"pairs es {type(pairs).__name__}, se esperaba list.",
         )
 
-    # Se construye sobre una variable local y recién al final se devuelve: como
-    # `derive()` no modifica su entrada, si uno de los pares eleva, lo que se
-    # descarta es el acumulador y el registro que recibió el usuario queda
-    # intacto. De ahí sale la atomicidad, sin necesidad de deshacer nada.
-    resultado = recording
+    # **Se acumulan las filas nuevas y se arma la matriz una sola vez.** Antes
+    # esto encadenaba `derive()`, y cada llamada hacía su propio `np.vstack` de
+    # la matriz entera: un montaje de N pares copiaba el registro N veces, cada
+    # una un poco más grande. Sobre el registro real de 22 h, cuatro pares ya
+    # costaban 3,1 copias —1399 MB—, y un montaje de veinte es lo normal.
+    #
+    # La atomicidad se conserva por la misma razón que antes: nada de esto toca
+    # `recording`, y si un par eleva se descarta el acumulador. Y también se
+    # conserva **poder derivar de una derivación anterior**, que es lo que hacía
+    # el encadenado: `canales` crece a medida que se resuelven los pares, y
+    # `_senal_de()` sabe si la fila está en el registro o entre las nuevas.
+    originales = len(recording.channels)
+    canales = list(recording.channels)
+    filas: list[np.ndarray] = []
+
+    def _senal_de(canal: Channel) -> np.ndarray:
+        """La fila de un canal, venga del registro o de un derivado previo."""
+        if canal.index < originales:
+            return np.asarray(recording.data[canal.index])
+        return filas[canal.index - originales]
+
+    def _buscar(nombre: str) -> Channel:
+        """Como `Recording.channel_by_name()`, pero también ve los derivados."""
+        for canal in canales:
+            if canal.name == nombre:
+                return canal
+        raise ChannelNotFoundError(
+            f"El registro no tiene ningún canal llamado '{nombre}'.",
+            details=f"Canales disponibles: {', '.join(c.name for c in canales)}.",
+        )
+
     for par in pairs:
         if not isinstance(par, tuple) or len(par) != 2:
             raise InvalidRecordingError(
                 "Cada entrada del montaje tiene que ser un par (canal, referencia).",
                 details=f"se recibió {par!r}.",
             )
-        resultado = derive(resultado, par[0], par[1])
-    return resultado
+        a, b = _buscar(par[0]), _buscar(par[1])
+        nombre = f"{a.name}-{b.name}"
+        if any(canal.name == nombre for canal in canales):
+            raise DuplicateChannelError(
+                f"El registro ya tiene un canal llamado «{nombre}».",
+                details=(
+                    "Si es la derivación que ya se hizo, no hace falta repetirla; si "
+                    "es otra, hay que darle un nombre distinto con `name`."
+                ),
+            )
+        # `_canal_derivado` es el que rechaza las unidades distintas, así que se
+        # lo llama **antes** de calcular la fila: si va a fallar, que falle sin
+        # haber reservado memoria.
+        derivado = _canal_derivado(a, b, nombre, len(canales))
+        filas.append(_senal_de(a) - _senal_de(b))
+        canales.append(derivado)
+
+    with memoria_suficiente("derivar los canales"):
+        datos = (
+            np.vstack([recording.data, *filas])
+            if filas
+            else np.array(recording.data, dtype=float, copy=True)
+        )
+    return Recording(
+        file_path=recording.file_path,
+        channels=canales,
+        data=datos,
+        sampling_rate=recording.sampling_rate,
+        start_time=recording.start_time,
+        metadata=dict(recording.metadata),
+    )
