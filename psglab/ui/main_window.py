@@ -11,6 +11,8 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
     |  canales         |     Visualizador de la señal (30 s)       |
     |                  |                                           |
     +------------------+-------------------------------------------+
+    |  Übersicht: ventanas vecinas, la actual más oscura            |
+    +--------------------------------------------------------------+
     |  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
     +--------------------------------------------------------------+
     |  Histograma de la noche completa                              |
@@ -31,6 +33,8 @@ from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
+    QInputDialog,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -39,7 +43,12 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.core.annotations import AnnotationSet
-from psglab.core.nomenclature import Nomenclature, SleepStage, stages_of
+from psglab.core.nomenclature import (
+    Nomenclature,
+    SleepStage,
+    stage_label,
+    stages_of,
+)
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
 from psglab.core.windows import count_windows, window_to_clock_time
@@ -49,12 +58,17 @@ from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_txt import export_scoring
 from psglab.readers.base import file_dialog_filter, read_recording
 from psglab.readers.scoring_reader import read_scoring
+from psglab.tools.annotator import AnnotatorTool
 from psglab.tools.base import Tool, ViewerTool
 from psglab.tools.histogram import HistogramTool
+from psglab.tools.magnifier import MagnifierTool
+from psglab.tools.occupancy import OccupancyTool
+from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.grid import BackgroundStyle
 from psglab.ui.navigation import NavigationBar
+from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.scoring_panel import ScoringPanel
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
@@ -96,6 +110,7 @@ class MainWindow(QMainWindow):
         self.channel_selector = ChannelSelector()
         self.scoring_panel = ScoringPanel()
         self.navigation = NavigationBar()
+        self.overview_panel = OverviewPanel()
         self.histogram_view = pg.PlotWidget()
         self.histogram_view.setMaximumHeight(140)
         self.histogram_view.getPlotItem().setMenuEnabled(False)
@@ -109,10 +124,16 @@ class MainWindow(QMainWindow):
         centro = QWidget()
         columna = QVBoxLayout(centro)
         columna.addWidget(arriba, stretch=4)
+        columna.addWidget(self.overview_panel)
         columna.addWidget(self.scoring_panel)
         columna.addWidget(self.navigation)
         columna.addWidget(self.histogram_view, stretch=1)
         self.setCentralWidget(centro)
+        # Lo que la herramienta activa quiere informar: el porcentaje de la
+        # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
+        # la derecha, permanente, para que no lo pise el mensaje de navegación.
+        self.tool_readout = QLabel("")
+        self.statusBar().addPermanentWidget(self.tool_readout)
         self.statusBar().showMessage("Sin registro abierto")
 
     def _build_menus(self) -> None:
@@ -135,6 +156,14 @@ class MainWindow(QMainWindow):
             ver.addAction(
                 estilo.value, lambda _=False, e=estilo: self.signal_view.grid.set_style(e)
             )
+
+        ver.addSeparator()
+        # V2_F del histograma: el pliego pide poder elegir el eje.
+        self.accion_eje_en_hora = ver.addAction(
+            "Histograma en hora real de la noche"
+        )
+        self.accion_eje_en_hora.setCheckable(True)
+        self.accion_eje_en_hora.toggled.connect(self.set_histogram_time_axis)
 
         self.tools_menu = self.menuBar().addMenu("&Herramientas")
 
@@ -228,13 +257,13 @@ class MainWindow(QMainWindow):
         # resuelve con `mapSceneToView()`, así que darle un `position()` sería
         # mezclar dos sistemas que hoy coinciden y no tienen por qué.
         segundos = self.signal_view.seconds_at_pixel(evento.scenePosition().x())
-        # La altura no tiene una conversión única —la escala es por canal— así
-        # que se le pasa la coordenada del gráfico, que es lo que el
-        # visualizador sabe dar. Ninguna de las cuatro herramientas mide con
-        # ella: la ocupación proyecta sobre el eje horizontal y el anotador
-        # marca un tramo de tiempo.
-        vista = self.signal_view.getPlotItem().vb
-        y = float(vista.mapSceneToView(evento.scenePosition()).y())
+        # **En microvoltios, que es lo que `ViewerTool` documenta recibir.**
+        # Hasta el hito 9 acá iba la coordenada cruda del gráfico, con un
+        # comentario que afirmaba que ninguna herramienta usaba la `y`. La usan
+        # tres, y la peor consecuencia era que la ocupación borraba una línea
+        # con cualquier clic, porque comparaba su tolerancia de 10 µV contra un
+        # rango de 0 a 1.
+        y = self.signal_view.microvolts_at_pixel(evento.scenePosition().y())
 
         if evento.type() == QEvent.Type.MouseMove:
             herramienta.on_mouse_move(segundos, y)
@@ -244,6 +273,12 @@ class MainWindow(QMainWindow):
                 herramienta.on_mouse_press(segundos, y, boton)
             else:
                 herramienta.on_mouse_release(segundos, y, boton)
+                # **Acá se cierra el lazo de V1_F de "Anotación".** La
+                # herramienta deja el tramo pendiente y espera que alguien
+                # pregunte la clase; hasta el hito 9 no lo hacía nadie, así que
+                # se podía arrastrar una selección y no pasaba nada.
+                if isinstance(herramienta, AnnotatorTool):
+                    self._finish_annotation(herramienta)
         return False
 
     def _filtrar_histograma(self, evento: QEvent) -> None:
@@ -260,12 +295,117 @@ class MainWindow(QMainWindow):
         fraccion = (evento.scenePosition().x() - caja.left()) / caja.width()
         herramienta.on_click(min(1.0, max(0.0, fraccion)))
 
+    def _finish_annotation(self, herramienta: AnnotatorTool) -> None:
+        """Pregunta la clase del evento recién seleccionado y lo anota (V1_F).
+
+        El pliego pide **asignarle o crear una clase**, así que el diálogo es
+        editable: la lista ofrece las que ya existen y el usuario puede escribir
+        una nueva, que se registra con su color antes de anotar.
+
+        Cancelar deja el tramo pendiente sin anotar, que es lo que espera quien
+        se arrepiente a mitad del gesto. No se lo borra: volver a soltar el
+        mouse lo reemplaza.
+        """
+        if self._session is None:
+            return
+        pendiente = herramienta.pending_selection_samples
+        if pendiente is None:
+            return
+        inicio, duracion = pendiente
+
+        clases = self._session.annotations.labels()
+        clase, acepto = QInputDialog.getItem(
+            self,
+            "Anotar evento",
+            "Clase del evento (se puede escribir una nueva):",
+            clases,
+            0,
+            True,
+        )
+        if not acepto or not clase.strip():
+            return
+        clase = clase.strip()
+
+        try:
+            if clase not in clases:
+                herramienta.add_label(clase)
+            herramienta.create_annotation(clase, inicio, duracion)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        # El panel de contexto marca los eventos que caen en cada ventana
+        # (V3_F), y anotar no mueve de ventana: hay que pedirle que se
+        # rederive o el evento recién creado no aparece hasta la próxima flecha.
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.refresh()
+        self.statusBar().showMessage(f"Se anotó «{clase}»", 5000)
+
     def _on_tool_changed(self, tool: Tool) -> None:
         """Una herramienta avisó de que cambió lo que quiere mostrar."""
         if isinstance(tool, ViewerTool):
             self.signal_view.set_overlays(tool.overlays())
         elif isinstance(tool, HistogramTool):
             self._redraw_histogram()
+        elif isinstance(tool, OverviewTool):
+            self._redraw_overview(tool)
+        self._update_tool_readout()
+
+    def _redraw_overview(self, herramienta: OverviewTool) -> None:
+        """Lleva al panel lo que publica la Übersicht (V1_F, V2_F, V3_F).
+
+        Los colores de las clases de evento se le agregan acá y no los manda la
+        herramienta: viven en `AnnotationSet`, que es de `core/`, y `tools/`
+        publica los nombres de las clases, no cómo se ven.
+
+        El tamaño (V2_F) también viaja en este camino, porque `set_size()`
+        avisa por `on_changed` como cualquier otro cambio.
+        """
+        colores = None
+        if self._session is not None:
+            anotaciones = self._session.annotations
+            colores = {
+                clase: anotaciones.color_of(clase) for clase in anotaciones.labels()
+            }
+        self.overview_panel.set_windows(herramienta.windows(), colores)
+        ancho, alto = herramienta.size_px
+        self.overview_panel.set_panel_size(ancho, alto)
+
+    def _update_tool_readout(self) -> None:
+        """Escribe en la barra de estado el número que la herramienta calcula.
+
+        **Es lo que faltaba para cerrar V3_F de "Ocupación" y V2_F de la
+        lupa.** Las dos herramientas calculaban bien y nadie las leía: el
+        porcentaje y el contador de picos existían sólo para sus tests.
+
+        No lo dibuja la herramienta porque no conoce Qt, y no puede hacerlo con
+        un `Overlay` porque no hay variante de texto: los overlays son
+        coordenadas de señal, no leyendas. Por eso el número cruza acá.
+
+        El total de ocupación **puede pasar del 100 %** cuando dos líneas se
+        pisan, y es lo buscado: el criterio lo fija
+        `config.OCCUPANCY_COUNTS_OVERLAP_ONCE` y quedó confirmado con el
+        cliente. Se muestra tal cual, sin recortarlo.
+        """
+        herramienta = self._active_viewer_tool
+        if isinstance(herramienta, OccupancyTool):
+            lineas = herramienta.lines()
+            if lineas:
+                # La coma se aplica **al número y no a la frase**: con un
+                # `replace` sobre el texto entero, cualquier punto que se
+                # agregue después al mensaje se convertiría en coma.
+                total = f"{herramienta.total_percentage():.1f}".replace(".", ",")
+                cuantas = f"{len(lineas)} línea" + ("s" if len(lineas) != 1 else "")
+                self.tool_readout.setText(
+                    f"Ocupación: {cuantas} — {total} % del ancho"
+                )
+            else:
+                self.tool_readout.setText("Ocupación: sin líneas")
+            return
+        if isinstance(herramienta, MagnifierTool):
+            self.tool_readout.setText(f"Picos contados: {herramienta.click_count}")
+            return
+        self.tool_readout.setText("")
 
     def _deactivate_all_tools(self) -> None:
         """Apaga las herramientas y destilda sus botones.
@@ -327,6 +467,7 @@ class MainWindow(QMainWindow):
             herramienta.deactivate()
             if herramienta is self._active_viewer_tool:
                 self._active_viewer_tool = None
+        self._update_tool_readout()
 
     # -- Acciones del usuario -----------------------------------------------
 
@@ -636,6 +777,65 @@ class MainWindow(QMainWindow):
             connect="finite",
         )
         item.setYRange(0, len(orden) + 0.5, padding=0)
+        # `stage_label()` y no `str(fase)`: el segundo da "SleepStage.WAKE".
+        # Es el mismo nombre que usan el panel de scoring y `Informacion.txt`.
+        item.getAxis("left").setTicks(
+            [[(altura[fase], stage_label(fase)) for fase in orden]]
+        )
+        item.getAxis("bottom").setTicks([self._marcas_del_histograma(len(barras))])
+
+    def _marcas_del_histograma(self, cuantas: int) -> list[tuple[float, str]]:
+        """Las marcas del eje horizontal del hipnograma (V2_F).
+
+        **Faltaba entero.** `set_time_axis()` prendía un booleano que no leía
+        nadie y el eje se dibujaba con los índices crudos de `range()`, o sea
+        base 0 y sin marcas: ni la hora real ni el 1 a VENMAX que pide el
+        pliego.
+
+        Las dos variantes salen del mismo lugar: `core.windows`. La hora real
+        viene de `window_to_clock_time()`, que devuelve `None` si el archivo no
+        informó a qué hora empezó, y ahí se cae al número de ventana en vez de
+        inventar una hora.
+
+        Los números de ventana van en **base 1**, que es la regla del proyecto
+        para todo lo que se muestra.
+        """
+        herramienta = self._tools.get("histogram")
+        if self._session is None or cuantas <= 0:
+            return []
+        en_hora = isinstance(herramienta, HistogramTool) and herramienta.uses_clock_time
+        inicio = self._session.recording.start_time
+
+        # Una decena de marcas alcanza para leer una noche entera sin que se
+        # pisen los textos. Se calcula el paso en vez de fijarlo: un registro de
+        # cinco ventanas y uno de tres mil necesitan cosas distintas.
+        paso = max(1, cuantas // 10)
+        marcas: list[tuple[float, str]] = []
+        for ventana in range(0, cuantas, paso):
+            if en_hora and inicio is not None:
+                hora = window_to_clock_time(ventana, inicio)
+                texto = hora.strftime("%H:%M") if hora is not None else str(ventana + 1)
+            else:
+                texto = str(ventana + 1)
+            marcas.append((float(ventana), texto))
+        return marcas
+
+    def set_histogram_time_axis(self, use_clock_time: bool) -> None:
+        """Cambia el eje del hipnograma entre hora real y número de ventana.
+
+        La herramienta se niega a poner la hora real si el registro no informa
+        a qué hora empezó, y tiene razón: un eje con una hora inventada se lee
+        como si fuera cierta. Acá eso se convierte en un cartel.
+        """
+        herramienta = self._tools.get("histogram")
+        if not isinstance(herramienta, HistogramTool):
+            return
+        try:
+            herramienta.set_time_axis(use_clock_time)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self._redraw_histogram()
 
     def _show_shortcuts(self) -> None:
         nomenclatura = (

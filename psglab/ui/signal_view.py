@@ -188,16 +188,67 @@ class SignalView(pg.PlotWidget):
             )
 
         if isinstance(overlay, CircleOverlay):
-            referencia = self._visible[0] if self._visible else None
-            return pg.ScatterPlotItem(
-                [overlay.x_seconds],
-                [self._a_carril(overlay.y_uv, referencia)],
-                symbol="o",
-                brush=None,
-                pen=pg.mkPen(width=2),
-                size=30,
-            )
+            return self._dibujar_lupa(overlay)
         return None
+
+    def _dibujar_lupa(self, overlay: CircleOverlay) -> object | None:
+        """La lupa: el tramo de señal alrededor del cursor, ampliado (V1_F).
+
+        **Hasta el hito 9 esto era un `ScatterPlotItem` de 30 píxeles**, que
+        descartaba `radius_seconds` y `zoom`: el círculo seguía al mouse y no
+        ampliaba nada. La herramienta publicaba los dos campos y nadie los leía,
+        que es el hallazgo que abrió el hito.
+
+        Ahora se dibuja lo que el pliego pide: el pedazo de onda que cae bajo el
+        cursor, estirado `zoom` veces en los dos ejes alrededor de él. Se estira
+        también en horizontal a propósito —una lupa aumenta las dos
+        dimensiones—, y por eso el tramo ocupa en pantalla `radius * zoom` a
+        cada lado.
+
+        Se dibuja sobre el **primer canal visible**, que es la referencia que ya
+        usan los overlays sin canal propio. Ampliar todos los carriles a la vez
+        los superpondría.
+        """
+        if self._session is None or not self._visible:
+            return None
+        canal = self._visible[0]
+        registro = self._session.recording
+        frecuencia = registro.sampling_rate
+        inicio_ventana, fin_ventana = window_to_samples(self._window_index, frecuencia)
+
+        # El tramo a ampliar, recortado contra los bordes de la ventana: cerca
+        # del comienzo o del final hay menos señal de la que pide el radio.
+        desde = max(0.0, overlay.x_seconds - overlay.radius_seconds)
+        hasta = min(self.window_seconds, overlay.x_seconds + overlay.radius_seconds)
+        primera = inicio_ventana + int(desde * frecuencia)
+        ultima = min(fin_ventana, inicio_ventana + int(hasta * frecuencia))
+        if ultima <= primera:
+            return None
+
+        tramo = registro.get_segment(primera, ultima, [canal])[0]
+        tiempos = desde + np.arange(len(tramo)) / frecuencia
+
+        centro_carril = self._centro_de_carril(canal) or 0.0
+        base = centro_carril + self._a_carril(overlay.y_uv, canal)
+        alturas = centro_carril + self._a_carril_desde_datos(tramo, canal)
+
+        ampliado_x = overlay.x_seconds + (tiempos - overlay.x_seconds) * overlay.zoom
+        ampliado_y = base + (alturas - base) * overlay.zoom
+        return pg.PlotDataItem(
+            ampliado_x, ampliado_y, pen=pg.mkPen(width=2), antialias=False
+        )
+
+    def _a_carril_desde_datos(
+        self, microvoltios: np.ndarray, channel_name: str
+    ) -> np.ndarray:
+        """`_a_carril()` para un array entero, sin recorrerlo en Python.
+
+        Es la misma cuenta que `show_window()`, y por eso la señal ampliada se
+        superpone exactamente con la que ya está dibujada.
+        """
+        if self._session is None:
+            return microvoltios
+        return (microvoltios / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
 
     def _centro_de_carril(self, channel_name: str) -> float | None:
         """Dónde está dibujado el eje de un canal, o None si no está visible."""
@@ -330,6 +381,54 @@ class SignalView(pg.PlotWidget):
         vista = self.getPlotItem().vb
         segundos = float(vista.mapSceneToView(QPointF(float(x_pixel), 0.0)).x())
         return min(self.window_seconds, max(0.0, segundos))
+
+    def microvolts_at_pixel(
+        self, y_pixel: float, channel_name: str | None = None
+    ) -> float:
+        """Microvoltios bajo una coordenada vertical, medidos sobre un canal.
+
+        **Es el cuarto conversor, y faltaba.** `ViewerTool` documenta que
+        recibe la `y` en microvoltios, y hasta el hito 9 la ventana principal le
+        pasaba la coordenada cruda del gráfico —carriles, de 0 a 1— porque un
+        comentario daba por sentado que ninguna herramienta la usaba. La usan
+        tres: la banda de amplitud la toma como centro, la ocupación la guarda
+        en sus líneas y la lupa ubica su círculo con ella.
+
+        El síntoma más caro era de la ocupación: su `TOLERANCIA_DE_CLIC_UV` es
+        de 10 µV y se comparaba contra un rango de 0 a 1, así que **cualquier
+        clic dentro del rango horizontal de una línea la borraba** en vez de
+        empezar otra.
+
+        Es la inversa exacta de `_a_carril()`, que es la cuenta con la que se
+        dibuja la señal, así que ida y vuelta dan el mismo número.
+
+        Args:
+            y_pixel: coordenada vertical en el sistema de la **escena**.
+            channel_name: canal contra el que medir. Sin él, el primero
+                visible, que es la referencia que usan los overlays sin canal.
+
+        Returns:
+            Microvoltios respecto del eje de ese canal. Positivo hacia arriba.
+        """
+        vista = self.getPlotItem().vb
+        y_grafico = float(vista.mapSceneToView(QPointF(0.0, float(y_pixel))).y())
+        canal = channel_name or (self._visible[0] if self._visible else None)
+        if canal is None:
+            return 0.0
+        centro = self._centro_de_carril(canal)
+        if centro is None:
+            return 0.0
+        return self._a_microvoltios(y_grafico - centro, canal)
+
+    def _a_microvoltios(self, carriles: float, channel_name: str | None) -> float:
+        """La inversa de `_a_carril()`. Está al lado suyo a propósito.
+
+        Separarlas garantizaba que alguna de las dos se olvidara del factor de
+        llenado el día que cambiara.
+        """
+        if self._session is None or channel_name is None:
+            return carriles
+        return (carriles / _LLENADO_DEL_CARRIL) * self._session.scale_uv(channel_name)
 
     def window_fraction_at_pixel(self, x_pixel: float) -> float:
         """Posición dentro de la ventana, de 0 (inicio) a 1 (final).
