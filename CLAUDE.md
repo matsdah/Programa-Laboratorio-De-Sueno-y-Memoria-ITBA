@@ -16,9 +16,16 @@ hito 8, que es una lista de comprobación, y el hito 9, que salió de correrla:
 seis requisitos que estaban hechos en `tools/` y que `ui/` no consumía. Los dos
 están cerrados y **la Parte 1 está terminada**.
 
-**La Parte 2 también está terminada**, con los hitos 10 a 16: `psglab/analysis/`
-no eleva `NotImplementedError` en ningún módulo. Tiene dependencias propias que
-el CI instala sólo en algunos jobs; ver "Comandos".
+**La Parte 2 también está terminada**, y se le corrió su lista de cierre:
+`psglab/analysis/` no eleva `NotImplementedError` en ningún módulo, y cada
+análisis se probó sobre un registro real y no sólo sobre señal sintética. Tiene
+dependencias propias que **hay que instalar**; ver "Comandos".
+
+**Correr esa lista es lo que encuentra lo que las cuentas no ven.** Cerrar la
+Parte 1 por ausencia de stubs estuvo mal dos veces y de ahí salió el hito 9;
+cerrar la Parte 2 por lo mismo escondía que los filtros sugeridos no se podían
+aplicar a un registro de 100 Hz. Las dos veces apareció al recorrer los
+requisitos por la ventana, con un archivo de verdad.
 
 **Las cuentas del avance viven sólo en [`docs/TODO.md`](docs/TODO.md)** —cuántos
 stubs quedan, en cuántos módulos, qué hito está abierto— y
@@ -48,14 +55,15 @@ cargarse y los mecanismos enchufables no existirían.
 ## Por dónde seguir
 
 **[`docs/TODO.md`](docs/TODO.md) es la cola de trabajo** y el único documento
-que lleva estado. Ordena los stubs pendientes de la Parte 1 en hitos **por
-dependencias reales**, no por sección del pliego.
+que lleva estado. Ordena el trabajo en hitos **por dependencias reales**, no por
+sección del pliego, y lleva las dos Partes. Hoy no queda ningún stub: lo que
+sigue abierto está anotado al final del último hito.
 
-**No empieces un módulo si su hito anterior no está cerrado**: vas a escribir
-contra firmas que todavía elevan `NotImplementedError` y no vas a poder testear
-nada. Un módulo está terminado cuando además tiene su test corriendo (borrando
-el `pytestmark` si el archivo ya existía), su fila de `docs/TRAZABILIDAD.md`
-sigue siendo cierta y el README de su carpeta también.
+**Un hito no se empieza si el anterior no está cerrado**, por la misma razón de
+siempre: se escribiría contra algo que todavía no se puede testear. Un módulo
+está terminado cuando además tiene su test corriendo (borrando el `pytestmark`
+si el archivo ya existía), su fila de `docs/TRAZABILIDAD.md` sigue siendo cierta
+y el README de su carpeta también.
 
 `docs/TRAZABILIDAD.md` **no lleva estado**: dice dónde va cada requisito, no
 qué falta. Duplicar el avance en los dos lugares garantiza que se
@@ -361,9 +369,11 @@ revisa, actualizar ese archivo con el motivo del cambio.
 
 **Se cerraron el 4 de septiembre de 2026**, en el hito 0. La lista de qué se
 preguntó y en qué constante vive cada respuesta está en `docs/TODO.md`, hito 0.
-Queda una sola abierta y es de la Parte 2: de dónde salen las impedancias
-(`psglab/analysis/impedance.py`, marcada `PENDIENTE DE DEFINICIÓN CON EL
-CLIENTE`).
+Queda una sola abierta y es de la Parte 2: **cuál de las tres vías de
+impedancia usa el laboratorio** (`psglab/analysis/impedance.py`, marcada
+`PENDIENTE DE DEFINICIÓN CON EL CLIENTE`). Las tres están implementadas, así que
+la respuesta decide qué se le ofrece primero al investigador, no qué se puede
+hacer.
 
 Que estén cerradas **no las hardcodea**. Las respuestas viven en
 `psglab/config.py` —`SCORING_INCLUDES_WINDOW_NUMBER`,
