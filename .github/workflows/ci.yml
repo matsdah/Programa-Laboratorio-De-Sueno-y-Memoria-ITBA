@@ -117,9 +117,8 @@ jobs:
           cache: pip
           cache-dependency-path: requirements*.txt
 
-      # Acá sí van las tres: lo que se revisa es la licencia de todo lo que el
-      # producto distribuye, incluida la Parte 2, que el job de tests no
-      # instala.
+      # Las tres, igual que el job de tests: lo que se revisa acá es la
+      # licencia de todo lo que el producto distribuye, incluida la Parte 2.
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip

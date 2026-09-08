@@ -82,10 +82,18 @@ pip install -r requirements.txt -r requirements-dev.txt
 ```
 
 Hay un tercer archivo, `requirements-analysis.txt`, con las dos dependencias
-exclusivas de la Parte 2 (`mne-connectivity` y `antropy`). **No instalarlo salvo
-para trabajar en `psglab/analysis/`**: arrastran numba, llvmlite, xarray, pandas
-y scikit-learn, y ningún test las importa. El CI las instala sólo en el job de
-licencias.
+exclusivas de la Parte 2 (`mne-connectivity` y `antropy`), que arrastran numba,
+llvmlite, xarray, pandas y scikit-learn. **Hay que instalarlo**: desde el hito
+10 hay tests que las importan, así que sin él `test_complexity.py`,
+`test_connectivity.py` y parte de `test_entrega.py` fallan.
+
+```bash
+pip install -r requirements-analysis.txt
+```
+
+Los imports son diferidos a nivel de función, así que la recolección pasa y el
+fallo sale recién al correr el test, con un `ModuleNotFoundError` que no dice
+que falta un requirements. El CI las instala en los dos jobs.
 
 En macOS y Linux la activación es `source .venv/bin/activate`, y en Debian,
 Ubuntu y WSL el intérprete se llama `python3`. **Windows y WSL no pueden

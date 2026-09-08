@@ -1,9 +1,13 @@
 # Dependencias exclusivas de la Parte 2 (módulo de análisis).
 #
-# Están separadas de requirements.txt por una razón concreta y medible: son
-# pesadas, arrastran medio ecosistema científico y **ningún test las importa**.
-# Instalarlas en las seis combinaciones de sistema operativo y versión de Python
-# del CI costaba tiempo y riesgo a cambio de cero verificación.
+# Están separadas de requirements.txt porque son pesadas y arrastran medio
+# ecosistema científico, y porque el techo numpy<2.6 que necesita numba vive acá
+# y no tiene por qué atarle las manos a la Parte 1.
+#
+# **No son opcionales para correr la suite.** Se separaron cuando ningún test
+# las importaba, pero desde el hito 10 test_complexity.py, test_connectivity.py
+# y parte de test_entrega.py sí lo hacen, y sin estas dos fallan. El CI las
+# instala en los dos jobs.
 #
 # `mne` y `scipy` NO están acá: la Parte 1 también los necesita (mne lee
 # BrainVision y EDF, scipy filtra), así que viven en requirements.txt.
