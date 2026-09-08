@@ -119,6 +119,7 @@ def escribir_brainvision(
     segundos: float,
     canales: list[tuple[str, str]] | None = None,
     impedancias: dict[str, float | None] | None = None,
+    frecuencia: float = FRECUENCIA_BV,
 ) -> pathlib.Path:
     """Escribe un BrainVision completo y devuelve la ruta de su `.vhdr`.
 
@@ -142,14 +143,21 @@ def escribir_brainvision(
     Es función y no sólo fixture porque la duración importa: los tests del
     lector alcanzan con tres segundos, y `test_entrega.py` necesita varias
     ventanas de 30 s para poder scorear y exportar.
+
+    **`frecuencia` la agregó el hito 17**, y no es un parámetro de comodidad:
+    los sugeridos de filtrado dependen de dónde cae Nyquist, y el hallazgo que
+    abrió ese hito —el notch de 50 Hz rechazado en un registro de 100— no se
+    puede reproducir sin poder escribir un archivo a 100 Hz. Vale cualquier
+    frecuencia que divida un millón, por el `SamplingInterval` entero de más
+    arriba; 100 Hz da 10000 µs exactos.
     """
     carpeta.mkdir(parents=True, exist_ok=True)
     # Los tres por omisión cubren una clase de señal cada uno, que es lo que
     # necesitan los tests del lector. **Se pueden pedir otros**: la ICA, por
     # ejemplo, necesita dos canales EEG y con uno solo se niega, con razón.
     canales = canales or [("C3", "µV"), ("EOG-izq", "µV"), ("EMG-menton", "µV")]
-    muestras = int(FRECUENCIA_BV * segundos)
-    tiempos = np.arange(muestras) / FRECUENCIA_BV
+    muestras = int(frecuencia * segundos)
+    tiempos = np.arange(muestras) / frecuencia
     # Frecuencias distintas y conocidas por canal: una escala aplicada de más se
     # ve en los tres a la vez, y una permutación de canales, en uno solo.
     # Una frecuencia y una amplitud distintas por canal, cíclicas si se piden
@@ -179,7 +187,7 @@ def escribir_brainvision(
         "DataFormat=BINARY",
         "DataOrientation=MULTIPLEXED",
         f"NumberOfChannels={len(canales)}",
-        f"SamplingInterval={int(1_000_000 / FRECUENCIA_BV)}",
+        f"SamplingInterval={int(1_000_000 / frecuencia)}",
         "",
         "[Binary Infos]",
         "BinaryFormat=INT_16",

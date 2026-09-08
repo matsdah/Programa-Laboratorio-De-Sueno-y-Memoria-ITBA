@@ -37,7 +37,7 @@ registro de 400 es una regla y va en `core/`.
 | `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
 | `channel_selector.py` | Elegir cuántos y cuáles canales se ven, agrupados por clase. | V3_P, V4_F de "Visualización" |
 | `grid.py` | La grilla de fondo y los tres fondos elegibles. | V1_P, V2_F de "Diseño de la interfaz" |
-| `filter_panel.py` | Los filtros de cada clase de canal presente. La celda vacía desactiva ese filtro. | V1_F de "Filtración" |
+| `filter_panel.py` | Los filtros de cada clase de canal presente, sugeridos según la frecuencia del registro. La celda vacía desactiva ese filtro. | V1_F de "Filtración" |
 | `impedance_panel.py` | Tabla editable de impedancias por canal y el informe. La celda sin valor dice "sin medir", no "0". | V1_F de "Impedancia" |
 | `ica_panel.py` | Inspeccionar los componentes de una ICA y elegir cuáles quitar. Ninguno viene marcado. | V5_F de "Filtración" |
 | `metric_panel.py` | Una métrica por ventana a lo largo de la noche, con los NaN como hueco. La usan complejidad y conectividad. | — (Parte 2) |

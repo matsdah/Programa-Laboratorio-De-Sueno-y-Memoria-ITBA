@@ -1205,3 +1205,72 @@ def test_se_puede_filtrar_despues_de_re_referenciar(ventana: MainWindow):
 
     assert not np.array_equal(ventana.session.recording.data, re_referenciada)
     assert not ventana.carteles
+
+
+# -- Un registro de 100 Hz, por la ventana (hallazgo del hito 17) -------------
+
+
+@pytest.fixture
+def ventana_a_100_hz(qt_app, tmp_path, monkeypatch):
+    """Como `ventana`, pero con un registro muestreado a 100 Hz.
+
+    **Es la frecuencia que destapó el hito 17.** El registro real de `data/`
+    está a 100 Hz, y con Nyquist en 50 el notch sugerido de 50 Hz quedaba justo
+    afuera: abrir el panel y apretar Aplicar sin tocar nada terminaba en un
+    cartel de error. Toda la suite usaba 256 Hz, así que nada lo veía.
+    """
+    carteles: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+    )
+    principal = create_main_window()
+    vhdr = escribir_brainvision(
+        tmp_path / "cien_hz", segundos=WINDOW_SECONDS * 2, frecuencia=100.0
+    )
+    principal.open_recording(vhdr)
+    assert not carteles, f"abrir el registro mostró un error: {carteles}"
+    principal.carteles = carteles
+    return principal
+
+
+def test_el_registro_es_de_100_hz(ventana_a_100_hz: MainWindow):
+    """Que la fixture sea lo que dice ser: sin esto los tres de abajo podrían
+    estar pasando por la razón equivocada."""
+    assert ventana_a_100_hz.session.recording.sampling_rate == 100.0
+
+
+def test_aplicar_los_sugeridos_a_100_hz_no_da_ningun_cartel(
+    ventana_a_100_hz: MainWindow,
+):
+    """**El hallazgo del hito 17, por el camino del usuario.** Abrir el panel,
+    no tocar nada y apretar Aplicar, que es lo que hace cualquiera la primera
+    vez. Antes daba `InvalidFilterError`."""
+    original = np.array(ventana_a_100_hz.session.recording.data, copy=True)
+
+    ventana_a_100_hz.show_filter_dialog()
+    ventana_a_100_hz.filter_panel.boton_aplicar.click()
+
+    assert not ventana_a_100_hz.carteles
+    assert not np.array_equal(ventana_a_100_hz.session.recording.data, original)
+
+
+def test_el_notch_no_se_ofrece_a_100_hz(ventana_a_100_hz: MainWindow):
+    """La celda viene vacía porque el registro no contiene 50 Hz, no porque
+    alguien se haya olvidado."""
+    from psglab.core.recording import ChannelKind
+
+    ventana_a_100_hz.show_filter_dialog()
+    panel = ventana_a_100_hz.filter_panel
+
+    assert panel.displayed_value(ChannelKind.EEG, "notch_hz") == ""
+    assert "50" in panel.rotulo.text()
+
+
+def test_a_256_hz_el_notch_sigue_estando(ventana: MainWindow):
+    """La otra mitad: descartar sólo lo que no entra. La fixture normal es de
+    250 Hz, así que el notch de 50 tiene que seguir ofreciéndose."""
+    from psglab.core.recording import ChannelKind
+
+    ventana.show_filter_dialog()
+
+    assert ventana.filter_panel.displayed_value(ChannelKind.EEG, "notch_hz") == "50"

@@ -123,6 +123,28 @@ def _frecuencia(valor: object, rotulo: str) -> float | None:
     return numero
 
 
+def _frecuencia_de_muestreo(valor: object) -> float:
+    """La frecuencia de muestreo como número, o un error que se pueda leer.
+
+    La usan `validate()` y `default_for()`, que desde el hito 17 son las dos
+    que necesitan saber dónde cae Nyquist.
+    """
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        raise InvalidFilterError(
+            "No se puede trabajar con el filtro sin la frecuencia de muestreo "
+            "del registro.",
+            details=f"sampling_rate es {type(valor).__name__}.",
+        )
+    numero = float(valor)
+    if not math.isfinite(numero) or numero <= 0:
+        raise InvalidFilterError(
+            "No se puede trabajar con el filtro sin la frecuencia de muestreo "
+            "del registro.",
+            details=f"sampling_rate = {numero!r}.",
+        )
+    return numero
+
+
 def apply_filters(
     recording: Recording,
     settings: dict[str, FilterSettings],
@@ -296,8 +318,15 @@ def settings_for_kinds(
     }
 
 
-def default_for(kind: ChannelKind) -> FilterSettings:
+def default_for(
+    kind: ChannelKind, sampling_rate: float | None = None
+) -> FilterSettings:
     """Filtros sugeridos para un tipo de canal.
+
+    Args:
+        sampling_rate: la del registro al que se le van a aplicar. Con ella,
+            **los cortes que caen en Nyquist o por encima se descartan**; sin
+            ella se devuelve la fila de la tabla tal cual.
 
     Returns:
         Una **copia**, no la fila de `DEFAULT_FILTERS`. `FilterSettings` es un
@@ -310,13 +339,41 @@ def default_for(kind: ChannelKind) -> FilterSettings:
     Raises:
         InvalidFilterError: si no se le pasa un `ChannelKind`. Sin la guarda
             salía un `KeyError` crudo, que la ventana principal no atrapa.
+            También si la frecuencia de muestreo no es un número positivo.
+
+    **Por qué existe el segundo argumento.** La tabla es la de polisomnografía
+    y no depende del registro, pero **su resultado sí**: en un registro de
+    100 Hz, Nyquist cae en 50 y el notch sugerido es exactamente 50, así que
+    `validate()` lo rechaza y el investigador que abre el panel y aprieta
+    Aplicar recibe un cartel de error sin haber tocado nada. El pasa-bajos de
+    100 Hz del EMG tiene el mismo problema en cualquier registro por debajo de
+    200 Hz. Y 100 Hz no es un caso raro: es lo que usa buena parte del
+    equipamiento clínico. Lo destapó el hito 17 corriendo la Parte 2 sobre un
+    registro real, que es la única forma de encontrarlo.
+
+    **Se descarta, no se recorta, y el motivo es físico.** Por encima de
+    Nyquist el registro **no contiene nada**: un pasa-bajos de 100 Hz sobre una
+    señal muestreada a 100 Hz no filtraría nada aunque MNE pudiera
+    construirlo, porque el muestreo ya limitó la banda. Ofrecerlo es ofrecer
+    una operación vacía. Recortarlo a un valor arbitrario —el 80 % de Nyquist,
+    digamos— sería inventarle al investigador un criterio clínico que nadie
+    eligió, y encima disfrazado de valor por defecto.
     """
     if not isinstance(kind, ChannelKind):
         raise InvalidFilterError(
             "No se pueden sugerir filtros para eso: no es un tipo de canal.",
             details=f"kind es {type(kind).__name__}, se esperaba ChannelKind.",
         )
-    return replace(DEFAULT_FILTERS[kind])
+    sugeridos = replace(DEFAULT_FILTERS[kind])
+    if sampling_rate is None:
+        return sugeridos
+
+    nyquist = _frecuencia_de_muestreo(sampling_rate) / 2
+    for atributo in ("highpass_hz", "lowpass_hz", "notch_hz"):
+        valor = getattr(sugeridos, atributo)
+        if valor is not None and valor >= nyquist:
+            setattr(sugeridos, atributo, None)
+    return sugeridos
 
 
 def validate(settings: FilterSettings, sampling_rate: float) -> None:
@@ -343,19 +400,7 @@ def validate(settings: FilterSettings, sampling_rate: float) -> None:
             "No se puede validar eso: no son filtros.",
             details=f"settings es {type(settings).__name__}, se esperaba FilterSettings.",
         )
-    if isinstance(sampling_rate, bool) or not isinstance(sampling_rate, (int, float)):
-        raise InvalidFilterError(
-            "No se puede validar el filtro sin la frecuencia de muestreo del "
-            "registro.",
-            details=f"sampling_rate es {type(sampling_rate).__name__}.",
-        )
-    frecuencia = float(sampling_rate)
-    if not math.isfinite(frecuencia) or frecuencia <= 0:
-        raise InvalidFilterError(
-            "No se puede validar el filtro sin la frecuencia de muestreo del "
-            "registro.",
-            details=f"sampling_rate = {frecuencia!r}.",
-        )
+    frecuencia = _frecuencia_de_muestreo(sampling_rate)
 
     paso_alto = _frecuencia(settings.highpass_hz, "pasa-altos")
     paso_bajo = _frecuencia(settings.lowpass_hz, "pasa-bajos")

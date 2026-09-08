@@ -64,6 +64,9 @@ class FilterPanel(QWidget):
         """Crea el panel vacío, antes de que haya ningún registro abierto."""
         super().__init__(parent)
         self._clases: list[ChannelKind] = []
+        #: La del registro abierto. Es lo que le permite a `default_for()`
+        #: descartar los cortes que el registro no admite.
+        self._frecuencia: float | None = None
         #: A quién avisarle cuando el usuario pide aplicar.
         self.on_apply: Callable[[], None] | None = None
 
@@ -82,13 +85,13 @@ class FilterPanel(QWidget):
         botones.addWidget(self.boton_aplicar)
 
         columna = QVBoxLayout(self)
-        columna.addWidget(
-            QLabel(
-                "Dejá la celda vacía para desactivar ese filtro. Los valores "
-                "sugeridos son los habituales en polisomnografía, no una "
-                "imposición."
-            )
+        self.rotulo = QLabel(
+            "Dejá la celda vacía para desactivar ese filtro. Los valores "
+            "sugeridos son los habituales en polisomnografía, no una "
+            "imposición."
         )
+        self.rotulo.setWordWrap(True)
+        columna.addWidget(self.rotulo)
         columna.addWidget(self.tabla)
         columna.addLayout(botones)
 
@@ -106,11 +109,40 @@ class FilterPanel(QWidget):
             if canal.kind not in vistas:
                 vistas.append(canal.kind)
         self._clases = vistas
+        self._frecuencia = recording.sampling_rate
+        self._explicar_el_tope()
         self.restore_defaults()
 
     def restore_defaults(self) -> None:
-        """Vuelve a los valores sugeridos para cada clase."""
-        self._reflejar({clase: default_for(clase) for clase in self._clases})
+        """Vuelve a los valores sugeridos para cada clase.
+
+        **Sugeridos para este registro**, no los de la tabla: `default_for()`
+        descarta los cortes que caen en Nyquist o por encima. En un registro de
+        100 Hz eso saca el notch de 50, que si no haría que apretar Aplicar sin
+        tocar nada terminara en un cartel de error.
+        """
+        self._reflejar(
+            {clase: default_for(clase, self._frecuencia) for clase in self._clases}
+        )
+
+    def _explicar_el_tope(self) -> None:
+        """Dice hasta qué frecuencia llega el registro.
+
+        Sin esto, una celda que quedó vacía porque el registro no la admite se
+        lee igual que una que el usuario borró: como un olvido y no como una
+        imposibilidad. Es la misma distinción que el panel de impedancias hace
+        con "sin medir".
+        """
+        if self._frecuencia is None:
+            return
+        self.rotulo.setText(
+            "Dejá la celda vacía para desactivar ese filtro. Los valores "
+            "sugeridos son los habituales en polisomnografía, no una "
+            "imposición.\n"
+            f"Este registro se muestreó a {self._frecuencia:g} Hz, así que la "
+            f"frecuencia más alta que contiene es {self._frecuencia / 2:g} Hz: "
+            "los cortes que no entran vienen vacíos."
+        )
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 
