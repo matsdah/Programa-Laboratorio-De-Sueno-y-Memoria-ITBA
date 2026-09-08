@@ -4,11 +4,11 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos de la Parte 1,
-con los hitos 0 a 7 cerrados. **Pero la Parte 1 no está terminada**: correr la
-lista del hito 8 encontró seis requisitos hechos en `tools/` y sin consumir en
-`ui/`, que son el hito 9. Sin stubs no es lo mismo que conectado, y ésa es
-justamente la medida que este resumen no puede dar.
+Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos de la Parte 1:
+**la Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Los 34 requisitos
+del pliego se pueden usar desde el programa corriendo, no sólo desde sus
+módulos, que es la distinción que este resumen no puede dar y que costó el
+hito 9.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -62,13 +62,14 @@ nada**. Un verde por omisión es peor que un rojo.
 | [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
 | [6. Interfaz](#hito-6-interfaz) | — | 0 | ✅ cerrado |
 | [7. Herramientas](#hito-7-herramientas) | — | 0 | ✅ cerrado |
-| [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ bloqueado por el 9 |
-| [9. Lo que la interfaz no consume](#hito-9-lo-que-la-interfaz-no-consume) | — | 0 | ⬜ |
+| [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ✅ cerrado |
+| [9. Lo que la interfaz no consume](#hito-9-lo-que-la-interfaz-no-consume) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
-**La columna de stubs no mide el hito 9**, y por eso el hito 9 existe: sus seis
-ítems son código escrito que nadie llama. `contar_stubs()` cuenta
-`raise NotImplementedError`, no caminos muertos.
+**La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
+seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta
+`raise NotImplementedError`, no caminos muertos, y con esa medida los hitos 6 y
+7 se dieron por cerrados con la mitad de la interfaz sin conectar.
 
 ### Los tres cortes que importan
 
@@ -715,10 +716,10 @@ stubs, pero eso no es lo mismo que estar verificados:
 
 ## Hito 8: Cierre de la Parte 1
 
-**Bloqueado por el [hito 9](#hito-9-lo-que-la-interfaz-no-consume).** Al correr
-la lista se encontró que seis requisitos del pliego están hechos en `tools/` y
-sin consumir en `ui/`. El ítem de la trazabilidad no se puede tildar hasta que
-eso se cierre, y la Parte 1 no se declara terminada mientras tanto.
+Correr esta lista fue lo que destapó el [hito 9](#hito-9-lo-que-la-interfaz-no-consume):
+seis requisitos hechos en `tools/` y sin consumir en `ui/`. Se cerró primero
+aquél y después éste, que es el orden que corresponde: la lista de comprobación
+no puede tildarse a sí misma.
 
 - [x] **Ningún test salteado por falta de implementación.** ~~Ningún test
       salteado.~~ El ítem decía eso y no se podía cumplir: los quince tests que
@@ -738,12 +739,17 @@ eso se cierre, y la Parte 1 no se declara terminada mientras tanto.
       ```bash
       grep -r "raise NotImplementedError" psglab --include=*.py | grep -v "/analysis/" | wc -l
       ```
-- [ ] **Los 34 requisitos de la Parte 1 de
+- [x] **Los 34 requisitos de la Parte 1 de
       [`TRAZABILIDAD.md`](TRAZABILIDAD.md) están cerrados**, y cada fila apunta
-      al archivo correcto. **Seis no lo están**: son el hito 9.
+      al archivo correcto. Los seis que faltaban fueron el hito 9.
       - Son 34 pares (sección, ID), no 34 cadenas distintas: `V1_F` solo
         aparece en nueve secciones. Los archivos que nombran las filas existen
         todos y los IDs coinciden con los docstrings en las dos direcciones.
+      - **Revisar que la fila apunte al archivo correcto no alcanza**: las seis
+        que faltaban apuntaban al archivo correcto y el requisito no funcionaba
+        igual, porque la otra mitad no existía. Lo que cerró el hito fue
+        recorrer cada requisito **por la ventana**, que es lo que hoy hace
+        `tests/test_entrega.py`.
 - [x] **Las ambigüedades de la Parte 1, documentadas** en `EXPLICACION.txt`
       sección 8. ~~y los módulos que decían "PENDIENTE DE DEFINICIÓN CON EL
       CLIENTE" ya no lo dicen.~~ Acotado a la Parte 1: la única marca que queda
@@ -775,7 +781,7 @@ Ni el TODO ni ningún README lo registraban. Los hitos 6 y 7 se dieron por
 cerrados porque sus módulos no tenían stubs, y "sin stubs" no es lo mismo que
 "conectado": es exactamente el hueco que `contar_stubs()` no puede ver.
 
-- [ ] **`psglab/ui/main_window.py`** · el cableado del anotador · V1_F de
+- [x] **`psglab/ui/main_window.py`** · el cableado del anotador · V1_F de
       "Anotación de la señal"
   - `annotator.py` deja el tramo en `pending_selection_samples` y espera que la
     ventana pregunte la clase y llame a `create_annotation()`. **Nadie la
@@ -783,25 +789,25 @@ cerrados porque sus módulos no tenían stubs, y "sin stubs" no es lo mismo que
     arrastrar una selección y no pasa nada.
   - Arrastra a V2_F de "Archivo de salida": `Anotaciones.txt` se exporta
     siempre vacío, porque no hay forma de crear una anotación.
-- [ ] **Un panel para la Übersicht** · V1_F, V2_F, V3_F de "Übersicht"
+- [x] **Un panel para la Übersicht** · V1_F, V2_F, V3_F de "Übersicht"
   - `OverviewTool` no se menciona en `psglab/ui/`, y ni el layout ni el
     diagrama del README tienen una zona para ella. El modelo está entero
     —`OverviewWindow.is_current`, `set_span()` con `before` y `after`
     independientes— y no lo dibuja nadie. `set_size()` (V2_F) tampoco se llama.
-- [ ] **Mostrar el porcentaje de ocupación** · V3_F de "Ocupación"
+- [x] **Mostrar el porcentaje de ocupación** · V3_F de "Ocupación"
   - `line_percentage()` y `total_percentage()` calculan bien y no los lee
     nadie. El cálculo (V2_F, V4_F) está cerrado; lo que falta es mostrarlo.
-- [ ] **La lupa tiene que ampliar** · V1_F, V2_F de "Lupa"
+- [x] **La lupa tiene que ampliar** · V1_F, V2_F de "Lupa"
   - `MagnifierTool` publica `CircleOverlay(radius_seconds, zoom)` y
     `signal_view._dibujar_overlay()` lo pinta como un `ScatterPlotItem` de
     tamaño fijo, **descartando los dos campos**. El círculo sigue al mouse y no
     amplía nada. El contador de picos (`click_count`) tampoco se muestra.
-- [ ] **El eje del histograma** · V2_F del histograma
+- [x] **El eje del histograma** · V2_F del histograma
   - `set_time_axis()` prende un booleano que nadie lee, y
     `_redraw_histogram()` grafica `range(len(barras))`: índices base 0, sin
     ticks y sin `window_to_clock_time()`. Falta el eje en hora real **y** el de
     1 a VENMAX. De paso viola la regla de base 1 al mostrar.
-- [ ] **La `y` que reciben las herramientas está en la unidad equivocada**
+- [x] **La `y` que reciben las herramientas está en la unidad equivocada**
   - `main_window.eventFilter()` pasa `vista.mapSceneToView(...).y()`, que son
     unidades del gráfico, y `ViewerTool.on_mouse_press` documenta
     **microvoltios**. Después `signal_view._a_carril()` vuelve a dividir por

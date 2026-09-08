@@ -562,3 +562,53 @@ def test_pedir_la_hora_real_sin_hora_de_inicio_avisa(
 
     assert carteles, "pedir la hora real sin hora de inicio no avisó nada"
     assert "hora" in carteles[0].lower()
+
+
+# -- La Übersicht, por la ventana (V1_F, V2_F, V3_F de "Übersicht") ----------
+
+
+def test_el_panel_de_contexto_arranca_encendido(ventana: MainWindow):
+    """Es un panel permanente, no un modo del mouse: `exclusive = False`. Un
+    panel que arranca vacío esperando que alguien adivine que hay que apretar
+    un botón es un hueco en la pantalla."""
+    assert ventana.overview_panel.rectangles(), "la Übersicht arrancó vacía"
+
+
+def test_el_panel_sigue_a_la_navegacion(ventana: MainWindow):
+    """Se recentra sola: `Session` avisa y la herramienta se entera, que es la
+    decisión del hito 6."""
+    ventana._go_to_window(3)
+
+    assert ventana.overview_panel.current_index == 3
+
+
+def test_el_panel_respeta_el_span_asimetrico(ventana: MainWindow):
+    """V3_F: el pliego pide poder mostrar dos antes y una después."""
+    ventana._go_to_window(2)
+    ventana._tools["overview"].set_span(before=2, after=1)
+
+    indices = [v.index for v, _ in ventana.overview_panel.rectangles()]
+    assert indices == [0, 1, 2, 3]
+
+
+def test_el_tamano_del_panel_llega_a_la_pantalla(ventana: MainWindow):
+    """V2_F. `set_size()` existía desde el hito 7 y no lo llamaba nadie."""
+    ventana._tools["overview"].set_size(600, 130)
+
+    assert ventana.overview_panel.height() == 130
+
+
+def test_los_eventos_anotados_aparecen_en_el_panel(
+    ventana: MainWindow, elige_clase
+):
+    """V3_F: ver que hay un huso justo antes sin navegar hasta ahí. Cierra el
+    lazo completo: anotar por el mouse y verlo en el contexto."""
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    ventana._go_to_window(2)
+    ventana._toggle_tool("annotator", True)
+    arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
+
+    con_eventos = [
+        v.index for v, _ in ventana.overview_panel.rectangles() if v.annotation_labels
+    ]
+    assert 2 in con_eventos

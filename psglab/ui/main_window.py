@@ -333,6 +333,12 @@ class MainWindow(QMainWindow):
         except PsgLabError as error:
             self._show_error(error)
             return
+        # El panel de contexto marca los eventos que caen en cada ventana
+        # (V3_F), y anotar no mueve de ventana: hay que pedirle que se
+        # rederive o el evento recién creado no aparece hasta la próxima flecha.
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.refresh()
         self.statusBar().showMessage(f"Se anotó «{clase}»", 5000)
 
     def _on_tool_changed(self, tool: Tool) -> None:

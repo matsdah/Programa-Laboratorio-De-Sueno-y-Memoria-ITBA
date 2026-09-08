@@ -105,11 +105,20 @@ ventanas de una noche, vuelve el programa inusable.
 ## Estado
 
 Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
-[hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz). Después vino el hito 7,
-las herramientas, y queda abierto el 8, que es la lista de comprobación de
-entrega.
+[hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz), y con él `python main.py`
+abrió algo usable por primera vez.
 
-Con él, `python main.py` abre algo usable por primera vez.
+**Pero sin stubs no era lo mismo que conectada.** El
+[hito 9](../../docs/TODO.md#hito-9-lo-que-la-interfaz-no-consume) encontró seis
+requisitos del pliego hechos en `tools/`, con sus tests en verde, que esta capa
+no consumía: no se podía anotar, no había panel de Übersicht, el porcentaje de
+ocupación no se mostraba, la lupa no ampliaba y el eje del histograma no
+existía. Además `main_window` le pasaba a las herramientas la coordenada
+vertical en unidades del gráfico donde `ViewerTool` documenta microvoltios.
+
+La lección quedó en `tests/test_entrega.py`: **los gestos se mandan como
+eventos de Qt al viewport, no llamando a la herramienta.** Llamando a la
+herramienta, los mismos tests pasan en verde con el programa roto.
 
 **Los widgets de esta capa no llevan tests unitarios**, y por eso se la mantiene
 delgada: dibujar no se puede verificar sin mirar una pantalla, así que todo lo
