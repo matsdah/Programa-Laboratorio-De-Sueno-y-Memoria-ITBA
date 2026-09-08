@@ -29,7 +29,9 @@ from psglab.ui.filter_panel import FilterPanel  # noqa: E402
 from psglab.utils.units import MICROVOLT  # noqa: E402
 
 
-def registro(clases: list[tuple[str, ChannelKind]]) -> Recording:
+def registro(
+    clases: list[tuple[str, ChannelKind]], fs: float = 256.0
+) -> Recording:
     """Un registro con los canales pedidos y señal cualquiera."""
     return Recording(
         file_path=Path("filtros.edf"),
@@ -38,7 +40,7 @@ def registro(clases: list[tuple[str, ChannelKind]]) -> Recording:
             for posicion, (nombre, clase) in enumerate(clases)
         ],
         data=np.zeros((len(clases), 512)),
-        sampling_rate=256.0,
+        sampling_rate=fs,
         start_time=datetime(2026, 9, 8, 23, 0, 0),
     )
 
@@ -212,3 +214,45 @@ def test_una_clase_sin_ningun_filtro_no_estorba(panel: FilterPanel):
     por_canal = settings_for_kinds(grabacion, panel.settings())
 
     assert por_canal["C3"] == FilterSettings()
+
+
+# -- Los sugeridos, adaptados al registro (hallazgo del hito 17) --------------
+
+
+def test_en_un_registro_de_100_hz_el_notch_viene_vacio(panel: FilterPanel):
+    """La mitad que se ve del hallazgo: el panel no puede ofrecer un notch de
+    50 Hz en un registro cuyo Nyquist es 50, porque apretar Aplicar sin tocar
+    nada terminaría en un cartel de error."""
+    panel.set_recording(registro([("C3", ChannelKind.EEG)], fs=100.0))
+
+    assert panel.displayed_value(ChannelKind.EEG, "notch_hz") == ""
+    assert panel.settings()[ChannelKind.EEG].notch_hz is None
+
+
+def test_lo_que_si_entra_se_sigue_ofreciendo(panel: FilterPanel):
+    """No se vacía de más."""
+    panel.set_recording(registro([("C3", ChannelKind.EEG)], fs=100.0))
+
+    assert panel.displayed_value(ChannelKind.EEG, "lowpass_hz") == "35"
+
+
+def test_el_panel_dice_hasta_donde_llega_el_registro(panel: FilterPanel):
+    """**Sin esto, una celda vacía por imposibilidad se lee igual que una que
+    el usuario borró**: como un olvido de la pantalla y no del archivo. Es la
+    misma distinción que el panel de impedancias hace con "sin medir"."""
+    panel.set_recording(registro([("C3", ChannelKind.EEG)], fs=100.0))
+
+    assert "100" in panel.rotulo.text()
+    assert "50" in panel.rotulo.text()
+
+
+def test_restaurar_sugeridos_respeta_la_frecuencia(panel: FilterPanel):
+    """El botón vuelve a los sugeridos **de este registro**, no a los de la
+    tabla: si no, restaurar volvería a poner el notch que no se puede aplicar.
+    """
+    panel.set_recording(registro([("C3", ChannelKind.EEG)], fs=100.0))
+    escribir(panel, 0, 3, "50")
+
+    panel.restore_defaults()
+
+    assert panel.settings()[ChannelKind.EEG].notch_hz is None

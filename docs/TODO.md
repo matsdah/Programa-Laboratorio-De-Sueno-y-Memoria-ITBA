@@ -77,6 +77,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | — | 0 | ✅ cerrado |
 | [15. ICA](#hito-15-ica) | — | 0 | ✅ cerrado |
 | [16. Impedancia](#hito-16-impedancia) | — | 0 | ✅ cerrado |
+| [17. Cierre de la Parte 2](#hito-17-cierre-de-la-parte-2) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1015,7 +1016,7 @@ ventana y no existía.
     pide filtrar **por tipo de canal** y `apply_filters()` recibe filtros por
     **nombre**, que es la firma general. Traducir de una a la otra es la regla
     del pliego, así que va en `analysis/` y no en el diálogo.
-  - Test: `tests/test_filters.py`, **41 tests en verde**.
+  - Test: `tests/test_filters.py`, **51 tests en verde**.
 - [x] **`psglab/ui/filter_panel.py`** · una fila por clase de canal
   - Sólo aparecen las clases que el registro tiene: ofrecer una fila de ECG en
     un registro sin ECG le pide al usuario que decida sobre algo que no existe.
@@ -1023,7 +1024,7 @@ ventana y no existía.
     cero está rechazado río abajo.
   - **Abrir el panel no filtra nada.** Un menú que filtre con sólo abrirse le
     cambiaría la señal a alguien que entró a mirar qué había.
-  - Test: `tests/test_filter_panel.py`, **15 tests en verde**, más seis por la
+  - Test: `tests/test_filter_panel.py`, **19 tests en verde**, más seis por la
     ventana en `tests/test_entrega.py`.
 
 ---
@@ -1250,6 +1251,120 @@ mostrarse.
 > [`analysis/README.md`](../psglab/analysis/README.md) —que sólo pasa el
 > chequeo porque nombra este módulo— y la sección 8 de
 > [`EXPLICACION.txt`](EXPLICACION.txt).
+
+---
+
+## Hito 17: Cierre de la Parte 2
+
+La lista equivalente a la del [hito 8](#hito-8-cierre-de-la-parte-1), y por el
+mismo motivo: **la Parte 2 se dio por terminada porque no quedaban stubs, que
+es exactamente la medida que este archivo advierte que no sirve**. La Parte 1
+se dio por cerrada con esa misma medida y estaba mal: el hito 9 fueron seis
+requisitos hechos en `tools/` que `ui/` no consumía.
+
+Correrla destapó lo suyo antes de terminar de escribirse, y es de la misma
+clase.
+
+- [x] **El CI, corrido por primera vez sobre los hitos 16 y 12.**
+      `.github/workflows/ci.yml` dispara con `pull_request` contra `Add` y
+      `Master`, y los PR #19 y #20 estaban apilados sobre ramas de trabajo:
+      **tenían cero checks**. Dos de los cuatro hitos que quedaban sin mergear
+      nunca se habían verificado fuera de una máquina Windows.
+      - Las seis combinaciones en verde, y las licencias también.
+      - **Reapuntar un PR no alcanza para disparar el CI**: `pull_request` corre
+        con `opened`, `synchronize` y `reopened`, y cambiar la base es `edited`.
+        Hay que cerrarlo y reabrirlo.
+- [x] **Ningún stub, y ningún test salteado por falta de implementación.**
+      ```bash
+      grep -r "raise NotImplementedError" psglab --include=*.py | wc -l
+      ./.venv/Scripts/python.exe -m pytest -rs
+      ```
+- [x] **Los requisitos de la Parte 2 de [`TRAZABILIDAD.md`](TRAZABILIDAD.md),
+      recorridos por la ventana.** Los ocho tienen su sección en
+      `tests/test_entrega.py` —el menú Análisis, deshacer, PSD, complejidad y
+      conectividad, ICA, impedancia y filtración—.
+      - **Es la diferencia con el hito 8, y por eso esta lista encontró menos
+        de ese lado**: allá las pruebas de entrega se escribieron al final y
+        destaparon seis huecos de golpe; en la Parte 2 se fueron escribiendo
+        hito por hito, así que el hueco no llegó a acumularse.
+- [x] **Cada análisis, sobre el registro real de `data/`** — 22 h, 7 canales,
+      100 Hz. **Es el ítem que encontró todo lo demás**, y ningún chequeo
+      automático puede sustituirlo: el `.gitignore` excluye los registros de
+      participantes a propósito, así que se corre a mano.
+      - **Filtrar con los valores sugeridos fallaba**, y es el hallazgo del
+        hito. Ver abajo.
+      - Lo demás anda: PSD de la noche 4,6 s · re-referenciar 0,3 s · derivar
+        0,2 s · ICA 4,9 s · conectividad de una ventana 1,4 s.
+      - **Ningún test de `analysis/` tocaba ese registro.** Los quince que lo
+        leen son de lectura, tipado de canal y exportación: la Parte 2 entera
+        se había verificado sobre diez minutos de senoides sintéticas.
+- [x] **Los sugeridos de filtrado, adaptados al registro.** *(El hallazgo, y es
+      de la clase del hito 9: cada mitad correcta y el conjunto sin funcionar.)*
+      - El registro es de 100 Hz, Nyquist cae en 50 y **el notch sugerido es
+        exactamente 50**, así que `validate()` lo rechaza con razón. El
+        investigador abría el panel, veía los valores cargados, apretaba
+        Aplicar sin tocar nada y recibía un cartel de error. El pasa-bajos de
+        100 Hz del EMG tiene el mismo problema por debajo de 200 Hz.
+      - **100 Hz no es un caso raro**: es lo que usa buena parte del
+        equipamiento clínico. Toda la suite usaba 256 Hz, así que nada lo veía.
+      - `default_for()` gana un segundo argumento opcional, la frecuencia de
+        muestreo, y **descarta lo que no entra en vez de recortarlo**. El motivo
+        es físico: por encima de Nyquist el registro no contiene nada, así que
+        el filtro no filtraría nada aunque MNE pudiera construirlo. Recortarlo
+        a un valor arbitrario sería inventarle al investigador un criterio
+        clínico que nadie eligió, disfrazado de valor por defecto.
+      - El panel dice a qué frecuencia se muestreó el registro y hasta dónde
+        llega. Sin eso, **una celda vacía por imposibilidad se lee igual que una
+        que el usuario borró**, que es la misma distinción que el hito 16 hizo
+        con "sin medir".
+      - Ocho tests lo atrapan, en las tres capas, y se los vio fallar antes de
+        darlos por buenos.
+- [x] **La deriva de `requirements-analysis.txt`, en seis archivos.** Decían que
+      **ningún test importa** esas dependencias y que el CI las instala **sólo
+      en el job de licencias**. Las dos mitades son falsas desde el hito 10.
+      - **La consecuencia era cara**: quien siguiera el `README.md` e instalara
+        sólo los dos primeros requirements se comía `ModuleNotFoundError` en
+        `test_complexity.py`, `test_connectivity.py` y parte de
+        `test_entrega.py`. Los imports son diferidos a nivel de función, así que
+        la recolección pasa y el fallo sale recién al ejecutarse el test, sin
+        decir que falta un requirements.
+      - `ci.yml` se contradecía consigo mismo: el comentario del job de
+        licencias decía "que el job de tests no instala" y el job de tests las
+        instala.
+- [x] **Licencias verificadas**, que el pliego pide antes de cada release. El
+      bloque nuevo, fechado, en [`ARQUITECTURA.md`](ARQUITECTURA.md).
+      ```bash
+      python -m piplicenses --format=markdown --order=license
+      ```
+- [x] **[`EXPLICACION.txt`](EXPLICACION.txt), sección 8.** Decía *"Ni EDF ni
+      BrainVision las traen siempre"*. El hito 16 midió algo más fuerte: **EDF
+      no puede traerlas nunca**, porque el estándar no tiene el campo. Es el
+      documento que lee el cliente y la frase le ocultaba media respuesta.
+
+### Lo que este hito midió y no arregló
+
+Dos cosas quedan con números y sin tocar, porque son trabajo de diseño y cada
+una merece su hito.
+
+- [ ] **La memoria.** La señal vive entera como `float64` en RAM y filtrar llega
+      a tener **cinco copias completas vivas a la vez** —`mne_bridge.py` dos,
+      más la que sostiene la ventana principal como "señal original" y la que se
+      está viendo—. Medido sobre el registro real: 445 MB por copia, **1337 MB
+      de pico**. Proyectado a los 32 canales que declara `data/test.vhdr`, un
+      registro de 8 horas daría entre 9 y 37 GB.
+      - Y **`MemoryError` no hereda de `PsgLabError`**, así que atravesaría el
+        `except` de `_aplicar_analisis()` y saldría como traza de Python, que es
+        justo lo que todo el proyecto se esfuerza en evitar.
+      - Detalle barato de ahí: `apply_filters()` con todos los filtros
+        desactivados paga tres copias completas para no hacer nada.
+- [ ] **Los 21 s de calentamiento de numba.** La primera llamada de complejidad
+      de cada sesión congela la ventana ~21 s compilando, **cualquiera sea la
+      medida**. La tabla de costos de `complexity.py` mide sólo el cálculo, y
+      `MEDIDAS_RAPIDAS` se eligió justamente para que la ventana no se congele:
+      el calentamiento la congela igual.
+      - Ya en caliente, sobre las 2650 ventanas reales y un canal: permutación
+        1,2 s · Higuchi 0,4 s · Lempel-Ziv 11,6 s · entropía de muestra 128 s
+        —esta última es la que ya está fuera del menú, y con razón—.
 
 ---
 

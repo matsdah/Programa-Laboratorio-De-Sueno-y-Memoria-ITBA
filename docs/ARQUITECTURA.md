@@ -242,6 +242,37 @@ arrastra numba, llvmlite, xarray, pandas y scikit-learn— y ésta con el entorn
 de la Parte 1, que es el que usa el día a día. El CI sigue revisando los tres
 requirements juntos en su job de licencias, que es donde importa.
 
+### Verificación del 8 de septiembre de 2026
+
+La del hito 17, que cierra la Parte 2. Corrida sobre el entorno **con los tres
+requirements**, que es lo que el producto distribuye: **49 paquetes**, Python
+3.12.10.
+
+```bash
+python -m piplicenses --format=markdown --order=license
+```
+
+| Licencia | Paquetes |
+|---|---|
+| MIT y variantes (MIT, MIT License, MIT-CMU) | 14 |
+| BSD y variantes (BSD License, BSD-3-Clause, BSD-2-Clause, BSD (3-clause)) | 21 |
+| `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only` | 4 — los de PySide6 |
+| Apache (Apache-2.0, Apache Software License, y dos disyuntivas con BSD) | 5 |
+| MPL-2.0, sola y combinada con MIT | 2 |
+| `BSD-2-Clause AND Apache-2.0 WITH LLVM-exception` | 1 — `llvmlite` |
+| `BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0` | 1 |
+| Python Software Foundation License | 1 |
+
+**La licencia MIT se sostiene.** No aparece ninguna GPL pura: las cuatro
+disyuntivas siguen siendo las de PySide6, que se resuelven eligiendo LGPL-3.0.
+
+Los 14 paquetes de diferencia con la verificación anterior son los que arrastra
+`requirements-analysis.txt` —numba, llvmlite, xarray, pandas, scikit-learn y sus
+dependencias—. **Esta vez se corrió con ellos a propósito**: aquélla se hizo con
+el entorno de la Parte 1 porque era el del día a día, y desde el hito 10 dejó de
+serlo. `llvmlite` es el único que aporta una licencia nueva a la tabla, y su
+excepción LLVM sobre Apache-2.0 es permisiva.
+
 ---
 
 ## Convenciones de código

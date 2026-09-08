@@ -398,6 +398,63 @@ def test_los_sugeridos_son_validos_en_un_registro_comun():
         validate(default_for(clase), 256.0)
 
 
+# -- Los sugeridos, adaptados al registro (hallazgo del hito 17) --------------
+
+
+def test_los_sugeridos_de_un_registro_de_100_hz_son_aplicables():
+    """**El hallazgo que abrió el hito 17.**
+
+    Nyquist de un registro de 100 Hz cae en 50, y el notch sugerido es
+    exactamente 50. Antes de este cambio, el investigador abría el panel, veía
+    los valores cargados, apretaba Aplicar sin tocar nada y recibía un cartel
+    de error. Cada mitad era correcta —la tabla es la de polisomnografía y
+    `validate()` rechaza con razón lo que MNE no puede construir— y el conjunto
+    no funcionaba.
+
+    Se encontró corriendo la Parte 2 sobre el registro real de `data/`, que es
+    de 100 Hz. Ningún test lo habría encontrado: todos usaban 256 Hz.
+    """
+    for clase in ChannelKind:
+        validate(default_for(clase, 100.0), 100.0)
+
+
+@pytest.mark.parametrize("fs", [100.0, 128.0, 200.0, 256.0, 512.0])
+def test_los_sugeridos_son_aplicables_a_cualquier_frecuencia(fs: float):
+    """No sólo a 100: la propiedad que se quiere es que **nunca** se ofrezca
+    algo que el programa después rechaza."""
+    for clase in ChannelKind:
+        validate(default_for(clase, fs), fs)
+
+
+def test_el_notch_desaparece_donde_no_entra():
+    """**Se descarta, no se recorta.** Por encima de Nyquist el registro no
+    contiene nada, así que el filtro no filtraría nada aunque se pudiera
+    construir. Moverlo a otra frecuencia sería inventarle al investigador un
+    criterio que nadie eligió: la red eléctrica está en 50 Hz y punto."""
+    assert default_for(ChannelKind.EEG, 100.0).notch_hz is None
+    assert default_for(ChannelKind.EEG, 256.0).notch_hz == DEFAULT_NOTCH_HZ
+
+
+def test_lo_que_si_entra_se_conserva():
+    """No se descarta de más: el pasa-bajos de 35 Hz del EEG entra cómodo en un
+    registro de 100 Hz y tiene que seguir ahí."""
+    sugeridos = default_for(ChannelKind.EEG, 100.0)
+
+    assert sugeridos.highpass_hz == 0.3
+    assert sugeridos.lowpass_hz == 35.0
+
+
+def test_sin_frecuencia_se_comporta_como_antes():
+    """El argumento es opcional a propósito: `DEFAULT_FILTERS` sigue siendo la
+    tabla de polisomnografía, que no depende de ningún registro."""
+    assert default_for(ChannelKind.EEG) == DEFAULT_FILTERS[ChannelKind.EEG]
+
+
+def test_una_frecuencia_de_muestreo_absurda_se_rechaza():
+    with pytest.raises(InvalidFilterError):
+        default_for(ChannelKind.EEG, 0.0)
+
+
 def test_el_emg_no_es_valido_a_baja_frecuencia():
     """La otra cara: los sugeridos son **sugerencias**, y el pasa-bajos de 100 Hz
     del EMG no entra en un registro de 128 Hz. Por eso el diálogo tiene que

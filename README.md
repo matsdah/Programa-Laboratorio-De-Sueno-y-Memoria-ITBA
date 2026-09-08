@@ -139,8 +139,9 @@ Para correr los tests, instalá además las herramientas de desarrollo:
 pip install -r requirements-dev.txt
 ```
 
-Y sólo si vas a trabajar en la Parte 2 (el módulo de análisis), sus dos
-dependencias propias, que son pesadas y no hacen falta para nada más:
+Y las dos dependencias propias de la Parte 2 (el módulo de análisis), que son
+pesadas pero **hacen falta para correr la suite**: sin ellas fallan los tests de
+complejidad y conectividad.
 
 ```bash
 pip install -r requirements-analysis.txt

@@ -2,8 +2,10 @@
 #     pip install -r requirements.txt -r requirements-dev.txt
 #
 # Las dependencias exclusivas de la Parte 2 (módulo de análisis) NO están acá:
-# viven en requirements-analysis.txt, porque son pesadas y ningún test las
-# importa. Con esto el CI corre los tests sin instalarlas seis veces.
+# viven en requirements-analysis.txt, porque son pesadas y porque el techo
+# numpy<2.6 que necesita numba no tiene por qué alcanzar a la Parte 1. Pero hay
+# que instalarlas igual para correr la suite entera: desde el hito 10 hay tests
+# que las importan.
 
 -r requirements.txt
 
