@@ -41,7 +41,12 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.core.annotations import AnnotationSet
-from psglab.core.nomenclature import Nomenclature, SleepStage, stages_of
+from psglab.core.nomenclature import (
+    Nomenclature,
+    SleepStage,
+    stage_label,
+    stages_of,
+)
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
 from psglab.core.windows import count_windows, window_to_clock_time
@@ -145,6 +150,14 @@ class MainWindow(QMainWindow):
             ver.addAction(
                 estilo.value, lambda _=False, e=estilo: self.signal_view.grid.set_style(e)
             )
+
+        ver.addSeparator()
+        # V2_F del histograma: el pliego pide poder elegir el eje.
+        self.accion_eje_en_hora = ver.addAction(
+            "Histograma en hora real de la noche"
+        )
+        self.accion_eje_en_hora.setCheckable(True)
+        self.accion_eje_en_hora.toggled.connect(self.set_histogram_time_axis)
 
         self.tools_menu = self.menuBar().addMenu("&Herramientas")
 
@@ -730,6 +743,65 @@ class MainWindow(QMainWindow):
             connect="finite",
         )
         item.setYRange(0, len(orden) + 0.5, padding=0)
+        # `stage_label()` y no `str(fase)`: el segundo da "SleepStage.WAKE".
+        # Es el mismo nombre que usan el panel de scoring y `Informacion.txt`.
+        item.getAxis("left").setTicks(
+            [[(altura[fase], stage_label(fase)) for fase in orden]]
+        )
+        item.getAxis("bottom").setTicks([self._marcas_del_histograma(len(barras))])
+
+    def _marcas_del_histograma(self, cuantas: int) -> list[tuple[float, str]]:
+        """Las marcas del eje horizontal del hipnograma (V2_F).
+
+        **Faltaba entero.** `set_time_axis()` prendía un booleano que no leía
+        nadie y el eje se dibujaba con los índices crudos de `range()`, o sea
+        base 0 y sin marcas: ni la hora real ni el 1 a VENMAX que pide el
+        pliego.
+
+        Las dos variantes salen del mismo lugar: `core.windows`. La hora real
+        viene de `window_to_clock_time()`, que devuelve `None` si el archivo no
+        informó a qué hora empezó, y ahí se cae al número de ventana en vez de
+        inventar una hora.
+
+        Los números de ventana van en **base 1**, que es la regla del proyecto
+        para todo lo que se muestra.
+        """
+        herramienta = self._tools.get("histogram")
+        if self._session is None or cuantas <= 0:
+            return []
+        en_hora = isinstance(herramienta, HistogramTool) and herramienta.uses_clock_time
+        inicio = self._session.recording.start_time
+
+        # Una decena de marcas alcanza para leer una noche entera sin que se
+        # pisen los textos. Se calcula el paso en vez de fijarlo: un registro de
+        # cinco ventanas y uno de tres mil necesitan cosas distintas.
+        paso = max(1, cuantas // 10)
+        marcas: list[tuple[float, str]] = []
+        for ventana in range(0, cuantas, paso):
+            if en_hora and inicio is not None:
+                hora = window_to_clock_time(ventana, inicio)
+                texto = hora.strftime("%H:%M") if hora is not None else str(ventana + 1)
+            else:
+                texto = str(ventana + 1)
+            marcas.append((float(ventana), texto))
+        return marcas
+
+    def set_histogram_time_axis(self, use_clock_time: bool) -> None:
+        """Cambia el eje del hipnograma entre hora real y número de ventana.
+
+        La herramienta se niega a poner la hora real si el registro no informa
+        a qué hora empezó, y tiene razón: un eje con una hora inventada se lee
+        como si fuera cierta. Acá eso se convierte en un cartel.
+        """
+        herramienta = self._tools.get("histogram")
+        if not isinstance(herramienta, HistogramTool):
+            return
+        try:
+            herramienta.set_time_axis(use_clock_time)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self._redraw_histogram()
 
     def _show_shortcuts(self) -> None:
         nomenclatura = (

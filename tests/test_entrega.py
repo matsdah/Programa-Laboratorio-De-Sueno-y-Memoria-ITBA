@@ -473,3 +473,92 @@ def test_apagar_la_herramienta_limpia_el_cartel(ventana: MainWindow):
 
     ventana._toggle_tool("magnifier", False)
     assert ventana.tool_readout.text() == ""
+
+
+# -- El eje del histograma (V2_F del histograma) -----------------------------
+#
+# Faltaba entero hasta el hito 9: `set_time_axis()` prendía un booleano que no
+# leía nadie, y el eje se dibujaba con los índices crudos de `range()`, o sea
+# base 0 y sin marcas.
+
+
+def marcas_horizontales(ventana: MainWindow) -> list[tuple[float, str]]:
+    return ventana.histogram_view.getPlotItem().getAxis("bottom")._tickLevels[0]
+
+
+def test_el_eje_arranca_numerando_las_ventanas_desde_uno(ventana: MainWindow):
+    """Base 0 adentro, base 1 al mostrar. El eje mostraba base 0."""
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+
+    marcas = marcas_horizontales(ventana)
+    assert marcas, "el eje del histograma no tiene ninguna marca"
+    assert marcas[0] == (0.0, "1")
+
+
+def test_se_puede_pasar_a_la_hora_real_de_la_noche(ventana: MainWindow):
+    """La otra mitad de V2_F. El BrainVision sintético informa su hora de
+    inicio, así que la conversión tiene con qué."""
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+    ventana.accion_eje_en_hora.setChecked(True)
+
+    textos = [texto for _, texto in marcas_horizontales(ventana)]
+    assert all(":" in texto for texto in textos), textos
+
+
+def test_volver_al_numero_de_ventana(ventana: MainWindow):
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+    ventana.accion_eje_en_hora.setChecked(True)
+    ventana.accion_eje_en_hora.setChecked(False)
+
+    assert marcas_horizontales(ventana)[0] == (0.0, "1")
+
+
+def test_las_fases_se_nombran_como_en_el_resto_del_programa(ventana: MainWindow):
+    """`str(fase)` daba "SleepStage.WAKE" en el eje. Es el mismo `stage_label()`
+    que usan el panel de scoring y `Informacion.txt`."""
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+
+    etiquetas = [
+        texto
+        for _, texto in ventana.histogram_view.getPlotItem().getAxis("left")._tickLevels[0]
+    ]
+    assert "W" in etiquetas
+    assert not any(texto.startswith("SleepStage.") for texto in etiquetas)
+
+
+def test_pedir_la_hora_real_sin_hora_de_inicio_avisa(
+    qt_app, tmp_path, monkeypatch
+):
+    """Inventar una hora de comienzo sería peor que negarse: el investigador
+    leería el eje como si fuera real. La herramienta se niega y acá se
+    convierte en cartel."""
+    import numpy as np
+
+    from psglab.core.annotations import AnnotationSet
+    from psglab.core.nomenclature import Nomenclature
+    from psglab.core.recording import Channel, ChannelKind, Recording
+    from psglab.core.scoring import Scoring
+    from psglab.core.session import Session
+
+    carteles: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+    )
+    principal = create_main_window()
+    sin_hora = Recording(
+        file_path=Path("sin_hora.edf"),
+        channels=[Channel("C3", ChannelKind.EEG, "µV", 0)],
+        data=np.zeros((1, int(100.0 * WINDOW_SECONDS * 3))),
+        sampling_rate=100.0,
+    )
+    principal._session = Session(sin_hora, Scoring(3, Nomenclature.AASM), AnnotationSet())
+    principal._activate_panel_tools()
+
+    principal.set_histogram_time_axis(True)
+
+    assert carteles, "pedir la hora real sin hora de inicio no avisó nada"
+    assert "hora" in carteles[0].lower()
