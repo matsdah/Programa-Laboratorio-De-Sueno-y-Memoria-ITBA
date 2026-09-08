@@ -33,6 +33,7 @@ import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QDialog,
     QFileDialog,
     QInputDialog,
     QLabel,
@@ -54,6 +55,7 @@ from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
 from psglab.analysis.derivation import derive, derive_montage
+from psglab.analysis.psd import compute_psd
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
@@ -73,6 +75,7 @@ from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.grid import BackgroundStyle
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
+from psglab.ui.psd_panel import PsdPanel
 from psglab.ui.scoring_panel import ScoringPanel
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
@@ -138,6 +141,16 @@ class MainWindow(QMainWindow):
         # Lo que la herramienta activa quiere informar: el porcentaje de la
         # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
         # la derecha, permanente, para que no lo pise el mensaje de navegación.
+        # El espectro vive en una ventana aparte, que se crea una sola vez y se
+        # muestra u oculta: recrearla en cada pedido perdería su tamaño y su
+        # posición, que el usuario acomoda una vez.
+        self.psd_panel = PsdPanel()
+        self.psd_dialog = QDialog(self)
+        self.psd_dialog.setWindowTitle("Espectro")
+        self.psd_dialog.resize(640, 420)
+        columna_psd = QVBoxLayout(self.psd_dialog)
+        columna_psd.addWidget(self.psd_panel)
+
         self.tool_readout = QLabel("")
         self.statusBar().addPermanentWidget(self.tool_readout)
         self.statusBar().showMessage("Sin registro abierto")
@@ -180,6 +193,8 @@ class MainWindow(QMainWindow):
         analisis.addAction("&Derivar canales…", self.derive_dialog)
         analisis.addAction("&Re-referenciar…", self.rereference_dialog)
         analisis.addAction("Referencia &promedio (EEG)", self.apply_average_reference)
+        analisis.addSeparator()
+        analisis.addAction("&Espectro de la ventana…", self.show_psd_dialog)
         analisis.addSeparator()
         self.accion_señal_original = analisis.addAction(
             "&Volver a la señal original", self.restore_original_recording
@@ -771,6 +786,40 @@ class MainWindow(QMainWindow):
             "Se re-referenció al promedio de los canales EEG",
             lambda registro: average_reference(registro),
         )
+
+    def show_psd_dialog(self) -> None:
+        """Calcula el espectro de la ventana actual y lo muestra (V1_F de PSD).
+
+        **De la ventana actual y no del registro entero**, porque es lo que el
+        investigador está mirando: el espectro de las ocho horas promedia el
+        sueño lento con la vigilia y no dice nada de la época que se está
+        scoreando. El título del panel lleva el número de ventana para que no
+        haya duda de cuál es.
+
+        Se abre en una ventana aparte y no como panel fijo: un espectro se mira
+        cuando hace falta, y la pantalla principal ya tiene la señal, el
+        scoring, la navegación, el histograma y el contexto.
+        """
+        if self._session is None:
+            return
+        canal = self._elegir_canal("Espectro", "Canal:")
+        if canal is None:
+            return
+        ventana = self._session.current_window
+        try:
+            frecuencias, potencias = compute_psd(
+                self._session.recording, channels=[canal], window_index=ventana
+            )
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.psd_panel.set_spectrum(frecuencias, potencias, [canal])
+        self.psd_dialog.setWindowTitle(
+            f"Espectro de «{canal}» — ventana {ventana + 1}"
+        )
+        self.psd_dialog.show()
+        self.psd_dialog.raise_()
 
     def restore_original_recording(self) -> None:
         """Vuelve a la señal tal como se leyó del archivo.

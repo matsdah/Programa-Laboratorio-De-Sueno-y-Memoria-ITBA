@@ -126,7 +126,7 @@ commit.
 | Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py` |
 | Rereferenciar | — | Re-referenciar la señal | `psglab/analysis/reference.py` |
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
-| PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py` |
+| PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py`, `psglab/ui/psd_panel.py` (el dibujo) |
 | Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py` |
 | Conectividad | — | Conectividad de la señal | `psglab/analysis/connectivity.py` |
 

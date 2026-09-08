@@ -137,3 +137,21 @@ class UnknownToolError(PsgLabError):
 
 class InvalidFilterError(PsgLabError):
     """Los parámetros del filtro no son aplicables a este registro."""
+
+
+class UnknownPsdMethodError(PsgLabError):
+    """Se pidió estimar la PSD con un método que el programa no conoce.
+
+    Elegir uno por defecto en silencio le daría al investigador un resultado
+    que no pidió y que no puede distinguir del que pidió: Welch y multitaper no
+    dan lo mismo.
+    """
+
+
+class InvalidBandError(PsgLabError):
+    """La banda de frecuencia no se puede integrar.
+
+    Invertida, con un extremo negativo, o que no es un par de números. Una banda
+    de 12 a 8 Hz no contiene nada, y devolver cero para ella escondería el error
+    de tipeo detrás de un resultado plausible.
+    """

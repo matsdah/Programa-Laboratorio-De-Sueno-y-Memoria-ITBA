@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los veintinueve
+camino de búsqueda. Con `pytest` directo la recolección falla en los treinta y un
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -76,6 +76,8 @@ verde por omisión, que es peor que dar rojo.
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 | `test_mne_bridge.py` | El puente con MNE: que ida y vuelta devuelva lo mismo, y que un termómetro no se escale como si fuera un EEG. |
 | `test_derivation.py` | Las derivaciones: una resta exacta, y qué clase y qué unidad lleva el canal nuevo. |
+| `test_psd.py` | El espectro: que una onda de 10 Hz dé su pico en 10 Hz, y qué pasa con la última ventana incompleta. |
+| `test_psd_panel.py` | El panel del espectro: qué curvas quedan, dónde caen las bandas, y que la potencia no salga en logaritmos. |
 | `test_reference.py` | La re-referenciación: el canal de referencia en cero, y la suma de los EEG en cero. |
 | `test_entrega.py` | La comprobación de entrega: abrir, navegar, scorear y exportar **por la ventana**, no por las piezas. |
 

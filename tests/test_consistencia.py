@@ -32,7 +32,7 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "dieciocho": 18, "diecinueve": 19, "veinte": 20, "veintiuno": 21,
     "veintidós": 22, "veintitrés": 23, "veinticuatro": 24, "veinticinco": 25,
     "veintiséis": 26, "veintisiete": 27, "veintiocho": 28, "veintinueve": 29,
-    "treinta": 30, "treinta y uno": 31, "treinta y dos": 32, "treinta y tres": 33,
+    "treinta": 30, "treinta y uno": 31, "treinta y un": 31, "treinta y dos": 32, "treinta y tres": 33,
     "treinta y cuatro": 34, "treinta y cinco": 35, "treinta y seis": 36,
     "treinta y siete": 37, "treinta y ocho": 38, "treinta y nueve": 39,
     "cuarenta": 40,
@@ -84,6 +84,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     # punta a punta, que son los que dejarían de estar verificados si el
     # archivo se apagara.
     "test_overview_panel.py": ("psglab/ui/overview_panel.py",),
+    "test_psd.py": ("psglab/analysis/psd.py",),
+    "test_psd_panel.py": ("psglab/ui/psd_panel.py",),
     "test_derivation.py": ("psglab/analysis/derivation.py",),
     "test_reference.py": ("psglab/analysis/reference.py",),
     "test_mne_bridge.py": ("psglab/analysis/mne_bridge.py",),
@@ -385,7 +387,11 @@ def test_lo_que_tests_readme_dice_de_la_suite_es_cierto():
 
     # "la recolección falla en los ocho archivos que importan psglab": el número
     # va en palabras y puede quedar partido por un salto de línea.
-    cantidad = re.search(r"en los\s+(\w+)\s+archivos", texto)
+    # **Varias palabras, no una.** En español los números a partir de treinta
+    # y uno se escriben separados, y con `\w+` la frase dejaba de matchear
+    # al pasar de treinta archivos de test: el chequeo se caía con un
+    # mensaje sobre la frase que faltaba, y la frase estaba.
+    cantidad = re.search(r"en los\s+([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+)*?)\s+archivos", texto)
     if cantidad is None:
         problemas.append("tests/README.md ya no dice en cuántos archivos falla la recolección")
     else:
