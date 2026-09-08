@@ -25,6 +25,7 @@ desde un script del laboratorio sin abrir el programa.
 | `psd.py` | Densidad espectral de potencia y potencia por banda, absoluta o relativa. | V1_F de "PSD" |
 | `complexity.py` | Entropía de muestra y de permutación, Lempel-Ziv, dimensión fractal de Higuchi. | "Complejidad" |
 | `connectivity.py` | Conectividad entre canales, por ventana o promediada. | "Conectividad de la señal" |
+| `mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw` en las dos direcciones, y la escala volts ↔ µV. | — (infraestructura) |
 
 Varias funciones vienen en dos sabores: una sobre una ventana concreta
 (`compute_psd`, `compute_connectivity`) y otra sobre el registro entero

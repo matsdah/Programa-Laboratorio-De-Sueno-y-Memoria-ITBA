@@ -84,6 +84,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     # punta a punta, que son los que dejarían de estar verificados si el
     # archivo se apagara.
     "test_overview_panel.py": ("psglab/ui/overview_panel.py",),
+    "test_mne_bridge.py": ("psglab/analysis/mne_bridge.py",),
     "test_entrega.py": (
         "psglab/app.py",
         "psglab/ui/main_window.py",
@@ -141,11 +142,15 @@ def _nombre_de_excepcion(nodo: ast.Raise) -> str:
     return excepcion.id if isinstance(excepcion, ast.Name) else ""
 
 
-def stubs_de_la_parte_1() -> int:
-    """Stubs pendientes de la Parte 1. `analysis/` es la Parte 2 y no cuenta."""
-    return sum(
-        contar_stubs(f) for f in modulos_del_paquete() if "analysis" not in f.parts
-    )
+def stubs_pendientes() -> int:
+    """Todos los stubs del paquete, de la Parte 1 y de la Parte 2.
+
+    **Antes excluía `analysis/`**, y era deliberado: la Parte 2 estaba fuera del
+    TODO, así que contarla habría hecho fallar la comparación contra un
+    documento que no la nombraba. Cerrada la Parte 1, el TODO pasa a ser la cola
+    de la Parte 2 y ese filtro dejaba sin control justo lo único que falta.
+    """
+    return sum(contar_stubs(f) for f in modulos_del_paquete())
 
 
 def docstring_de(archivo: pathlib.Path) -> str:
@@ -261,15 +266,18 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
     implementa un módulo y no actualiza el TODO, la diferencia salta acá.
     """
     todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
-    en_codigo = stubs_de_la_parte_1()
+    en_codigo = stubs_pendientes()
 
     en_items = sum(int(n) for n in re.findall(r"·\s*(\d+) stubs?", todo))
     assert en_items == en_codigo, (
         f"los ítems del TODO suman {en_items} stubs y en el código hay {en_codigo}"
     )
 
+    # **`\d+` y no `\d`.** Con un solo dígito, la fila de un hito 10 no
+    # matcheaba y sus stubs desaparecían de la suma **en silencio**, que es peor
+    # que fallar: la tabla decía una cosa y el chequeo comparaba otra.
     filas = re.findall(
-        r"\|\s*\[(\d)\.([^\]]*)\]\([^)]*\)\s*\|\s*[\d—-]+\s*\|\s*(\d+)\s*\|", todo
+        r"\|\s*\[(\d+)\.([^\]]*)\]\([^)]*\)\s*\|\s*[\d—-]+\s*\|\s*(\d+)\s*\|", todo
     )
     en_filas = sum(int(fila[2]) for fila in filas)
     assert en_filas == en_codigo, (
@@ -282,11 +290,7 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
     total = re.search(r"\|\s*\|\s*\*\*(\d+)\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|", todo)
     assert total is not None, "no se encontró la fila de totales de la tabla de progreso"
     modulos_declarados, stubs_declarados = int(total.group(1)), int(total.group(2))
-    modulos_reales = sum(
-        1
-        for f in modulos_del_paquete()
-        if "analysis" not in f.parts and contar_stubs(f) > 0
-    )
+    modulos_reales = sum(1 for f in modulos_del_paquete() if contar_stubs(f) > 0)
     assert stubs_declarados == en_codigo, (
         f"la fila de totales dice {stubs_declarados} stubs y en el código hay {en_codigo}"
     )
@@ -774,7 +778,13 @@ def test_los_requirements_que_nombra_la_documentacion_existen():
 #: sostienen el modelo; `readers` y `exporters` están acá porque de ellos
 #: depende el corte del hito 5: leer un registro, scorearlo y exportar los tres
 #: archivos desde un script, sin abrir una ventana.
-CAPAS_SIN_INTERFAZ = ("core", "utils", "readers", "exporters")
+#:
+#: **`tools` y `analysis` entraron en el hito 10.** Las dos declaran no conocer
+#: la interfaz —`tools/base.py` explica que por eso `Tool` no hereda de
+#: `QObject`, y `analysis/README.md` lo pone como su regla 2— y ninguna de las
+#: dos lo tenía verificado: la regla estaba escrita en tres documentos y no la
+#: miraba nadie. Lo anotó la segunda auditoría como hueco mediano.
+CAPAS_SIN_INTERFAZ = ("core", "utils", "readers", "exporters", "tools", "analysis")
 
 
 def modulos_importados(archivo: pathlib.Path) -> list[tuple[int, str]]:
@@ -984,7 +994,7 @@ def promesas_de_test_del_todo() -> dict[str, set[str]]:
     return prometidos
 
 
-def test_todo_modulo_de_la_parte_1_tiene_test_o_lo_tiene_prometido():
+def test_todo_modulo_tiene_test_o_lo_tiene_prometido():
     """El pliego pide un test por componente. Faltaba verificar el lado inverso.
 
     Ya estaba verificado que todo archivo de test tuviera su fila en
@@ -1002,8 +1012,7 @@ def test_todo_modulo_de_la_parte_1_tiene_test_o_lo_tiene_prometido():
     huerfanos = [
         ruta_relativa(f)
         for f in modulos_del_paquete()
-        if "analysis" not in f.parts
-        and ruta_relativa(f) not in cubiertos
+        if ruta_relativa(f) not in cubiertos
         and ruta_relativa(f) not in SIN_TEST_PROPIO
         and not prometidos.get(ruta_relativa(f))
     ]
@@ -1198,7 +1207,12 @@ def test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato():
     faltantes: list[str] = []
     for archivo in modulos_del_paquete():
         relativa = ruta_relativa(archivo)
-        if not any(capa in archivo.parts for capa in ("core", "utils")):
+        # **`analysis` entró en el hito 10.** El argumento es el mismo que para
+        # `core/`: `MainWindow` atrapa una sola clase, así que un `ValueError`
+        # de scipy o de MNE que escape de una función de análisis le llega al
+        # investigador como traza. La exigencia aparece módulo por módulo, no de
+        # golpe, porque los que todavía tienen stubs se saltean abajo.
+        if not any(capa in archivo.parts for capa in ("core", "utils", "analysis")):
             continue
         if contar_stubs(archivo) or relativa in SIN_CONTRATO:
             continue

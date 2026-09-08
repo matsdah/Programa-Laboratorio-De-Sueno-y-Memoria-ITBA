@@ -22,7 +22,12 @@ import pathlib
 import numpy as np
 import pytest
 
+from datetime import datetime
+from pathlib import Path
+
 from psglab.config import WINDOW_SECONDS
+from psglab.core.recording import Channel, ChannelKind, Recording
+from psglab.utils.units import MICROVOLT
 
 #: Ventanas que dura la señal sintética. Se multiplica por `WINDOW_SECONDS` en
 #: vez de escribir los 600 segundos a mano: `config.py` promete que cambiar la
@@ -193,3 +198,46 @@ def escribir_brainvision(carpeta: pathlib.Path, segundos: float) -> pathlib.Path
 def brainvision_sintetico(tmp_path) -> pathlib.Path:
     """Tres segundos de BrainVision sintético: alcanza para el lector."""
     return escribir_brainvision(tmp_path / "brainvision", segundos=3)
+
+
+#: Clase de cada canal de `channel_names`, en su mismo orden. Está acá y no en
+#: cada test porque `registro_sintetico` la necesita y hasta el hito 10 cada
+#: archivo se la escribía sola: diez de ellos arman un `Recording` a mano.
+CLASES_SINTETICAS: tuple[ChannelKind, ...] = (
+    ChannelKind.EEG,
+    ChannelKind.EEG,
+    ChannelKind.EOG,
+    ChannelKind.EMG,
+)
+
+
+@pytest.fixture
+def registro_sintetico(
+    synthetic_signal: np.ndarray, channel_names: list[str], sampling_rate: float
+) -> Recording:
+    """Los diez minutos sintéticos, ya envueltos en un `Recording`.
+
+    **Faltaba, y la Parte 2 la necesita entera.** `synthetic_signal` es un array
+    pelado y **todas** las funciones de `psglab/analysis/` reciben un
+    `Recording`, así que sin esto cada test de análisis se lo armaría solo —que
+    es lo que vienen haciendo diez archivos de la Parte 1.
+
+    Trae contenido espectral conocido de antemano, que es lo que hace
+    verificable un test de análisis sin usar un registro real: C3 en 1 Hz, C4 en
+    10 Hz, el EOG en 0,5 Hz y el EMG en 30 Hz, todos de 50 µV. Una PSD de C4
+    tiene que dar su pico en 10 Hz, y eso se puede afirmar.
+
+    Son `VENTANAS_SINTETICAS` ventanas **exactas**: no ejercita la última
+    ventana incompleta, que es un caso aparte y hay que escribirlo a propósito.
+    """
+    canales = [
+        Channel(name=nombre, kind=clase, unit=MICROVOLT, index=posicion)
+        for posicion, (nombre, clase) in enumerate(zip(channel_names, CLASES_SINTETICAS))
+    ]
+    return Recording(
+        file_path=Path("sintetico.edf"),
+        channels=canales,
+        data=synthetic_signal,
+        sampling_rate=sampling_rate,
+        start_time=datetime(2026, 9, 8, 23, 0, 0),
+    )
