@@ -275,6 +275,26 @@ excepción LLVM sobre Apache-2.0 es permisiva.
 
 ---
 
+### `float64` y no `float32` para la señal — es una decisión medida
+
+La señal vive entera en memoria, así que pasarla a `float32` partiría al medio
+lo que ocupa un registro. Se evaluó en el hito 18 y **se descartó**.
+
+El motivo no es la precisión: un conversor de 16 bits entra de sobra en la
+mantisa de 24 de un `float32`. Es que **MNE trabaja siempre en `float64`**, y al
+pasarle un array `float32` lo convierte, lo que cuesta una copia completa más.
+
+```
+RawArray desde float32: pico 224 MB, queda en float64
+RawArray desde float64: pico  28 MB, queda en float64   (reusa el array)
+```
+
+`float32` **baja lo que está en reposo y sube el pico**, que es justamente donde
+ocurre el `MemoryError`. Mueve el problema hacia el peor lado, así que no se
+hace. Si algún día se revisa, hay que volver a medir esto primero.
+
+---
+
 ## Convenciones de código
 
 - **La API pública y los nombres de archivo, en inglés**; comentarios,
