@@ -12,7 +12,8 @@ Este archivo está en español, como el resto de la documentación del proyecto
 **Parte 1 terminada**, con los hitos 0 a 7 cerrados: `python main.py` abre la
 ventana, lee un EDF o un BrainVision, se navega y se scorea con el teclado, las
 seis herramientas andan y los tres archivos de salida se escriben. Queda el
-hito 8, que es una lista de comprobación y no código nuevo.
+hito 8, que es una lista de comprobación, y el hito 9, que salió de correrla:
+seis requisitos que están hechos en `tools/` y que `ui/` no consume.
 
 Lo que sigue elevando `NotImplementedError` es **`psglab/analysis/`, que es la
 Parte 2** y tiene sus propias dependencias, que el CI no instala.

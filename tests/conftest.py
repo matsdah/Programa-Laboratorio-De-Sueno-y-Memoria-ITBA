@@ -17,6 +17,8 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import pathlib
+
 import numpy as np
 import pytest
 
@@ -91,3 +93,103 @@ def qt_app():
     from PySide6.QtWidgets import QApplication
 
     yield QApplication.instance() or QApplication([])
+
+
+#: Resolución del BrainVision sintético: cuántos µV vale una cuenta entera del
+#: `int16` del archivo. Es el campo que el lector tiene que aplicar, y con 0,5
+#: un error de escala se ve enseguida.
+RESOLUCION_BV_UV = 0.5
+
+#: Frecuencia del BrainVision sintético. **No usa la fixture `sampling_rate`, y
+#: el motivo es del formato**: `SamplingInterval` se escribe en microsegundos
+#: enteros, así que sólo son representables las frecuencias que dividen un
+#: millón. Con los 256 Hz de `sampling_rate` el intervalo da 3906,25 µs, se
+#: trunca a 3906 y el archivo termina declarando 256,016 Hz. 250 Hz da 4000 µs
+#: exactos y deja que los tests afirmen la frecuencia sin tolerancia.
+FRECUENCIA_BV = 250.0
+
+
+def escribir_brainvision(carpeta: pathlib.Path, segundos: float) -> pathlib.Path:
+    """Escribe un BrainVision completo y devuelve la ruta de su `.vhdr`.
+
+    **Por qué existe.** Los quince tests que leen el registro de `data/` son los
+    únicos que ejercitan el lector de punta a punta, y se saltean en el CI
+    porque `data/` está en el `.gitignore`: son registros de participantes. El
+    resultado era que el lector de BrainVision no se ejecutaba en ninguna de las
+    seis combinaciones de sistema y versión de Python que corre el CI.
+
+    El formato permite arreglarlo sin pedirle nada a nadie: son tres archivos y
+    ninguno es opaco. El `.vhdr` y el `.vmrk` son texto tipo INI y el `.eeg` es
+    un `int16` multiplexado crudo, así que se escriben con numpy y pathlib.
+
+    **La cabecera declara `Codepage=UTF-8` y escribe la unidad en UTF-8 a
+    propósito**, porque ahí estuvo un bug real: leerla como latin-1 parte el
+    micro en dos caracteres, y con la unidad irreconocible veintitrés canales
+    EEG quedaron sin convertir y mal clasificados. Es lo que
+    `readers/brainvision.py::_decodificar_cabecera` arregla, y sin esto nada lo
+    comprueba fuera de una máquina que tenga los registros.
+
+    Es función y no sólo fixture porque la duración importa: los tests del
+    lector alcanzan con tres segundos, y `test_entrega.py` necesita varias
+    ventanas de 30 s para poder scorear y exportar.
+    """
+    carpeta.mkdir(parents=True, exist_ok=True)
+    canales = [("C3", "µV"), ("EOG-izq", "µV"), ("EMG-menton", "µV")]
+    muestras = int(FRECUENCIA_BV * segundos)
+    tiempos = np.arange(muestras) / FRECUENCIA_BV
+    # Frecuencias distintas y conocidas por canal: una escala aplicada de más se
+    # ve en los tres a la vez, y una permutación de canales, en uno solo.
+    microvoltios = np.vstack(
+        [
+            50.0 * np.sin(2 * np.pi * 10 * tiempos),
+            30.0 * np.sin(2 * np.pi * 1 * tiempos),
+            20.0 * np.sin(2 * np.pi * 30 * tiempos),
+        ]
+    )
+    cuentas = np.round(microvoltios / RESOLUCION_BV_UV).astype("<i2")
+    # MULTIPLEXED es canal por canal dentro de cada instante, así que se
+    # transpone antes de volcar los bytes.
+    (carpeta / "sintetico.eeg").write_bytes(cuentas.T.tobytes(order="C"))
+
+    cabecera = [
+        "Brain Vision Data Exchange Header File Version 1.0",
+        "",
+        "[Common Infos]",
+        "Codepage=UTF-8",
+        "DataFile=sintetico.eeg",
+        "MarkerFile=sintetico.vmrk",
+        "DataFormat=BINARY",
+        "DataOrientation=MULTIPLEXED",
+        f"NumberOfChannels={len(canales)}",
+        f"SamplingInterval={int(1_000_000 / FRECUENCIA_BV)}",
+        "",
+        "[Binary Infos]",
+        "BinaryFormat=INT_16",
+        "",
+        "[Channel Infos]",
+    ]
+    for numero, (nombre, unidad) in enumerate(canales, start=1):
+        cabecera.append(f"Ch{numero}={nombre},,{RESOLUCION_BV_UV},{unidad}")
+    vhdr = carpeta / "sintetico.vhdr"
+    vhdr.write_text("\n".join(cabecera) + "\n", encoding="utf-8")
+
+    marcadores = [
+        "Brain Vision Data Exchange Marker File, Version 1.0",
+        "",
+        "[Common Infos]",
+        "Codepage=UTF-8",
+        "DataFile=sintetico.eeg",
+        "",
+        "[Marker Infos]",
+        "Mk1=New Segment,,1,1,0,20260907130000000000",
+    ]
+    (carpeta / "sintetico.vmrk").write_text(
+        "\n".join(marcadores) + "\n", encoding="utf-8"
+    )
+    return vhdr
+
+
+@pytest.fixture
+def brainvision_sintetico(tmp_path) -> pathlib.Path:
+    """Tres segundos de BrainVision sintético: alcanza para el lector."""
+    return escribir_brainvision(tmp_path / "brainvision", segundos=3)

@@ -4,9 +4,11 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos de la Parte 1:
-**la Parte 1 está terminada**, con los hitos 0 a 7 cerrados. Falta el hito 8,
-que es una lista de comprobación y no código nuevo.
+Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos de la Parte 1,
+con los hitos 0 a 7 cerrados. **Pero la Parte 1 no está terminada**: correr la
+lista del hito 8 encontró seis requisitos hechos en `tools/` y sin consumir en
+`ui/`, que son el hito 9. Sin stubs no es lo mismo que conectado, y ésa es
+justamente la medida que este resumen no puede dar.
 Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
 
 ## Cómo se usa
@@ -60,8 +62,13 @@ nada**. Un verde por omisión es peor que un rojo.
 | [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
 | [6. Interfaz](#hito-6-interfaz) | — | 0 | ✅ cerrado |
 | [7. Herramientas](#hito-7-herramientas) | — | 0 | ✅ cerrado |
-| [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
+| [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ bloqueado por el 9 |
+| [9. Lo que la interfaz no consume](#hito-9-lo-que-la-interfaz-no-consume) | — | 0 | ⬜ |
 | | **0** | **0** | |
+
+**La columna de stubs no mide el hito 9**, y por eso el hito 9 existe: sus seis
+ítems son código escrito que nadie llama. `contar_stubs()` cuenta
+`raise NotImplementedError`, no caminos muertos.
 
 ### Los tres cortes que importan
 
@@ -71,7 +78,8 @@ nada**. Un verde por omisión es peor que un rojo.
   —leer un EDF, scorear, exportar los tres archivos— **todavía sin interfaz
   gráfica**. Es el pago concreto de que `core/` no importe `ui/`.
 - **Al cerrar el hito 6** `python main.py` abre algo usable por primera vez.
-  Ya no termina en `NotImplementedError`.
+  Ya no termina en `NotImplementedError`. Usable no es completo: lo que quedó
+  sin cablear es el [hito 9](#hito-9-lo-que-la-interfaz-no-consume).
 
 **Los hitos 4 y 5 no dependen de `ui/`.** Una vez cerrado el 3, dos personas
 pueden ir en paralelo: una por 4 y 5, otra por 6.
@@ -319,7 +327,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader`, `read_recording` y `load_all_readers` corren al
     importar. **No convertirlos en stubs.**
-  - Test: `tests/test_readers.py`, **38 tests en verde**, que cubre este módulo
+  - Test: `tests/test_readers.py`, **45 tests en verde**, que cubre este módulo
     y los dos de abajo. El autodescubrimiento y el despacho se testean con un
     lector de mentira, sin ningún archivo real.
 - [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
@@ -707,25 +715,108 @@ stubs, pero eso no es lo mismo que estar verificados:
 
 ## Hito 8: Cierre de la Parte 1
 
-- [ ] **Ningún test salteado.** `python -m pytest` no debe informar ningún
-      `skipped`:
+**Bloqueado por el [hito 9](#hito-9-lo-que-la-interfaz-no-consume).** Al correr
+la lista se encontró que seis requisitos del pliego están hechos en `tools/` y
+sin consumir en `ui/`. El ítem de la trazabilidad no se puede tildar hasta que
+eso se cierre, y la Parte 1 no se declara terminada mientras tanto.
+
+- [x] **Ningún test salteado por falta de implementación.** ~~Ningún test
+      salteado.~~ El ítem decía eso y no se podía cumplir: los quince tests que
+      leen el registro real de `data/` se saltean en el CI, y **tienen que
+      hacerlo**, porque el `.gitignore` excluye datos de participantes a
+      propósito. La distinción que importa es la que ya hace
+      `test_ningun_modulo_terminado_tiene_su_test_salteado`: ningún módulo
+      terminado puede tener su test apagado.
       ```bash
       python -m pytest -rs
       ```
-- [ ] **Ningún stub de Parte 1.** Tiene que dar 0:
+      El hito agregó además un BrainVision **sintético** (`conftest.py`,
+      `brainvision_sintetico`), para que el lector se ejercite también donde no
+      hay registros: antes no corría en ninguna de las seis combinaciones del
+      CI.
+- [x] **Ningún stub de Parte 1.** Da 0.
       ```bash
       grep -r "raise NotImplementedError" psglab --include=*.py | grep -v "/analysis/" | wc -l
       ```
-- [ ] **Los 34 IDs de la Parte 1 de [`TRAZABILIDAD.md`](TRAZABILIDAD.md) están
-      cerrados**, y cada fila apunta al archivo correcto.
-- [ ] **Las ambigüedades resueltas quedaron documentadas** en
-      `EXPLICACION.txt` sección 8, y los módulos que decían "PENDIENTE DE
-      DEFINICIÓN CON EL CLIENTE" ya no lo dicen.
-- [ ] **Licencias verificadas**, sin ninguna GPL:
+- [ ] **Los 34 requisitos de la Parte 1 de
+      [`TRAZABILIDAD.md`](TRAZABILIDAD.md) están cerrados**, y cada fila apunta
+      al archivo correcto. **Seis no lo están**: son el hito 9.
+      - Son 34 pares (sección, ID), no 34 cadenas distintas: `V1_F` solo
+        aparece en nueve secciones. Los archivos que nombran las filas existen
+        todos y los IDs coinciden con los docstrings en las dos direcciones.
+- [x] **Las ambigüedades de la Parte 1, documentadas** en `EXPLICACION.txt`
+      sección 8. ~~y los módulos que decían "PENDIENTE DE DEFINICIÓN CON EL
+      CLIENTE" ya no lo dicen.~~ Acotado a la Parte 1: la única marca que queda
+      es la de `psglab/analysis/impedance.py`, que es de la Parte 2 y sigue
+      abierta con razón, así que el ítem entero era intildeable.
+- [x] **Licencias verificadas**, sin ninguna GPL. El resultado quedó como
+      bloque fechado en [`ARQUITECTURA.md`](ARQUITECTURA.md).
       ```bash
-      pip-licenses --format=markdown --order=license
+      python -m piplicenses --format=markdown --order=license
       ```
-- [ ] **El programa se abre, scorea una noche y exporta los tres archivos.**
+      ~~`pip-licenses --format=markdown`~~ era la forma de lanzador, que
+      `CLAUDE.md` y `ARQUITECTURA.md` explican que no hay que usar: depende de
+      que `Scripts/` esté en el PATH y de que nadie haya movido la carpeta.
+- [x] **El programa se abre, scorea una noche y exporta los tres archivos**, y
+      ahora es repetible: `tests/test_entrega.py`. La parte de anotar está
+      marcada `xfail` apuntando al hito 9, así que el día que se cierre, la
+      suite avisa sola.
+
+---
+
+## Hito 9: Lo que la interfaz no consume
+
+Encontrado al correr la lista del hito 8, revisando fila por fila la
+trazabilidad. **La capa `tools/` está completa y testeada, y falta la mitad de
+`ui/` que la consume**: seis requisitos del pliego existen como modelo, tienen
+sus tests en verde, y no hay ningún camino en el programa que los ejecute.
+
+Ni el TODO ni ningún README lo registraban. Los hitos 6 y 7 se dieron por
+cerrados porque sus módulos no tenían stubs, y "sin stubs" no es lo mismo que
+"conectado": es exactamente el hueco que `contar_stubs()` no puede ver.
+
+- [ ] **`psglab/ui/main_window.py`** · el cableado del anotador · V1_F de
+      "Anotación de la señal"
+  - `annotator.py` deja el tramo en `pending_selection_samples` y espera que la
+    ventana pregunte la clase y llame a `create_annotation()`. **Nadie la
+    llama**: cero referencias en `psglab/ui/`. En el programa corriendo se puede
+    arrastrar una selección y no pasa nada.
+  - Arrastra a V2_F de "Archivo de salida": `Anotaciones.txt` se exporta
+    siempre vacío, porque no hay forma de crear una anotación.
+- [ ] **Un panel para la Übersicht** · V1_F, V2_F, V3_F de "Übersicht"
+  - `OverviewTool` no se menciona en `psglab/ui/`, y ni el layout ni el
+    diagrama del README tienen una zona para ella. El modelo está entero
+    —`OverviewWindow.is_current`, `set_span()` con `before` y `after`
+    independientes— y no lo dibuja nadie. `set_size()` (V2_F) tampoco se llama.
+- [ ] **Mostrar el porcentaje de ocupación** · V3_F de "Ocupación"
+  - `line_percentage()` y `total_percentage()` calculan bien y no los lee
+    nadie. El cálculo (V2_F, V4_F) está cerrado; lo que falta es mostrarlo.
+- [ ] **La lupa tiene que ampliar** · V1_F, V2_F de "Lupa"
+  - `MagnifierTool` publica `CircleOverlay(radius_seconds, zoom)` y
+    `signal_view._dibujar_overlay()` lo pinta como un `ScatterPlotItem` de
+    tamaño fijo, **descartando los dos campos**. El círculo sigue al mouse y no
+    amplía nada. El contador de picos (`click_count`) tampoco se muestra.
+- [ ] **El eje del histograma** · V2_F del histograma
+  - `set_time_axis()` prende un booleano que nadie lee, y
+    `_redraw_histogram()` grafica `range(len(barras))`: índices base 0, sin
+    ticks y sin `window_to_clock_time()`. Falta el eje en hora real **y** el de
+    1 a VENMAX. De paso viola la regla de base 1 al mostrar.
+- [ ] **La `y` que reciben las herramientas está en la unidad equivocada**
+  - `main_window.eventFilter()` pasa `vista.mapSceneToView(...).y()`, que son
+    unidades del gráfico, y `ViewerTool.on_mouse_press` documenta
+    **microvoltios**. Después `signal_view._a_carril()` vuelve a dividir por
+    `scale_uv`. Hay un comentario al lado afirmando que ninguna herramienta usa
+    la `y`, y la usan tres: la banda de amplitud, la ocupación y la lupa.
+  - El síntoma peor es de la ocupación: `TOLERANCIA_DE_CLIC_UV = 10.0` se
+    compara contra un rango de carril de 0 a 1, así que **cualquier clic dentro
+    del rango horizontal de una línea la borra** en vez de empezar otra.
+  - No afecta la medición del porcentaje, que proyecta sobre `x`.
+
+> **Cómo se encontró, y por qué no lo vio nadie antes.** La corrida de punta a
+> punta del hito 6 anotó un evento **llamando a la herramienta directamente
+> desde el script**, no por la interfaz, así que el hueco no se manifestó. Es el
+> mismo error de método que la auditoría describe para la documentación:
+> verificar la pieza en vez del camino.
 
 ---
 
