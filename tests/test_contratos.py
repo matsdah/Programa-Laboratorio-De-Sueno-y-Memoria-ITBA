@@ -45,6 +45,17 @@ from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
+from psglab.analysis import (
+    complexity,
+    connectivity,
+    derivation,
+    filters,
+    ica,
+    impedance,
+    mne_bridge,
+    psd,
+    reference,
+)
 from psglab.core.session import Session
 from psglab.utils import units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
@@ -52,6 +63,14 @@ from psglab.utils.errors import InvalidRecordingError, PsgLabError
 #: Valores que nunca deberían llegar, y que llegan igual: un lector con un bug,
 #: una cabecera que no trae el campo, un parser que se olvidó de convertir.
 HOSTILES = (None, "texto", 3.5, [], {}, object())
+
+#: Un espectro cualquiera, para las filas de `psd.py` que reciben arrays.
+FRECUENCIAS = np.linspace(0.0, 50.0, 51)
+POTENCIAS = np.ones((1, 51))
+
+#: Una señal cualquiera, para las filas de `complexity.py`. Corta a
+#: propósito: la entropía de muestra es O(n²).
+SEÑAL = np.sin(np.linspace(0.0, 20.0, 400))
 
 
 def registro(canales: int = 2, muestras: int = 3000, fs: float = 100.0) -> Recording:
@@ -143,6 +162,93 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("set_active_tool", lambda v: sesion().set_active_tool(v)),
         ("add_window_listener", lambda v: sesion().add_window_listener(v)),
         ("set_scoring", lambda v: sesion().set_scoring(v)),
+        ("set_recording", lambda v: sesion().set_recording(v)),
+    ],
+    "psglab/analysis/derivation.py": [
+        ("derive(recording=...)", lambda v: derivation.derive(v, "C0", "C1")),
+        ("derive(channel_a=...)", lambda v: derivation.derive(registro(), v, "C1")),
+        ("derive(channel_b=...)", lambda v: derivation.derive(registro(), "C0", v)),
+        ("derive(name=...)", lambda v: derivation.derive(registro(), "C0", "C1", v)),
+        ("derive_montage(recording=...)", lambda v: derivation.derive_montage(v, [])),
+        ("derive_montage(pairs=...)", lambda v: derivation.derive_montage(registro(), v)),
+    ],
+    "psglab/analysis/filters.py": [
+        ("apply_filters(recording=...)", lambda v: filters.apply_filters(v, {})),
+        ("apply_filters(settings=...)", lambda v: filters.apply_filters(registro(), v)),
+        ("settings_for_kinds(recording=...)", lambda v: filters.settings_for_kinds(v, {})),
+        ("settings_for_kinds(by_kind=...)", lambda v: filters.settings_for_kinds(registro(), v)),
+        ("default_for(kind=...)", lambda v: filters.default_for(v)),
+        ("default_for(sampling_rate=...)", lambda v: filters.default_for(ChannelKind.EEG, v)),
+        ("validate(settings=...)", lambda v: filters.validate(v, 256.0)),
+        ("validate(sampling_rate=...)", lambda v: filters.validate(filters.FilterSettings(lowpass_hz=20.0), v)),
+    ],
+    "psglab/analysis/impedance.py": [
+        ("read_impedances", lambda v: impedance.read_impedances(v)),
+        ("load_impedances_from_file", lambda v: impedance.load_impedances_from_file(v)),
+        ("channels_above_limit(impedances=...)", lambda v: impedance.channels_above_limit(v)),
+        ("channels_above_limit(limit_kohm=...)", lambda v: impedance.channels_above_limit({"C0": 4.0}, v)),
+        ("impedance_report(impedances=...)", lambda v: impedance.impedance_report(v)),
+        ("impedance_report(limit_kohm=...)", lambda v: impedance.impedance_report({"C0": 4.0}, v)),
+        ("impedance_report(channels=...)", lambda v: impedance.impedance_report({"C0": 4.0}, 5.0, v)),
+    ],
+    "psglab/analysis/ica.py": [
+        ("fit_ica(recording=...)", lambda v: ica.fit_ica(v)),
+        ("fit_ica(n_components=...)", lambda v: ica.fit_ica(registro(), v)),
+        ("component_topography(ica=...)", lambda v: ica.component_topography(v, 0)),
+        ("component_topography(component=...)", lambda v: ica.component_topography(object(), v)),
+        ("component_time_course(ica=...)", lambda v: ica.component_time_course(v, 0, registro())),
+        ("component_time_course(recording=...)", lambda v: ica.component_time_course(object(), 0, v)),
+        ("apply_ica(recording=...)", lambda v: ica.apply_ica(v, object(), [])),
+        ("apply_ica(ica=...)", lambda v: ica.apply_ica(registro(), v, [])),
+        ("apply_ica(exclude=...)", lambda v: ica.apply_ica(registro(), object(), v)),
+    ],
+    "psglab/analysis/complexity.py": [
+        ("sample_entropy(signal=...)", lambda v: complexity.sample_entropy(v)),
+        ("sample_entropy(m=...)", lambda v: complexity.sample_entropy(SEÑAL, v)),
+        ("sample_entropy(r=...)", lambda v: complexity.sample_entropy(SEÑAL, 2, v)),
+        ("permutation_entropy(signal=...)", lambda v: complexity.permutation_entropy(v)),
+        ("permutation_entropy(order=...)", lambda v: complexity.permutation_entropy(SEÑAL, v)),
+        ("lempel_ziv_complexity", lambda v: complexity.lempel_ziv_complexity(v)),
+        ("higuchi_fractal_dimension(signal=...)", lambda v: complexity.higuchi_fractal_dimension(v)),
+        ("higuchi_fractal_dimension(k_max=...)", lambda v: complexity.higuchi_fractal_dimension(SEÑAL, v)),
+        ("complexity_by_window(recording=...)", lambda v: complexity.complexity_by_window(v, ["C0"])),
+        ("complexity_by_window(channels=...)", lambda v: complexity.complexity_by_window(registro(), v)),
+        ("complexity_by_window(measure=...)", lambda v: complexity.complexity_by_window(registro(), ["C0"], v)),
+    ],
+    "psglab/analysis/connectivity.py": [
+        ("compute_connectivity(recording=...)", lambda v: connectivity.compute_connectivity(v)),
+        ("compute_connectivity(channels=...)", lambda v: connectivity.compute_connectivity(registro(), v)),
+        ("compute_connectivity(band=...)", lambda v: connectivity.compute_connectivity(registro(), None, v)),
+        ("compute_connectivity(method=...)", lambda v: connectivity.compute_connectivity(registro(), None, (0.5, 4.0), v)),
+        ("compute_connectivity(window_index=...)", lambda v: connectivity.compute_connectivity(registro(), None, (0.5, 4.0), "wpli", v)),
+        ("connectivity_by_window(recording=...)", lambda v: connectivity.connectivity_by_window(v, ["C0", "C1"], (0.5, 4.0))),
+        ("connectivity_by_window(channels=...)", lambda v: connectivity.connectivity_by_window(registro(), v, (0.5, 4.0))),
+        ("connectivity_by_window(band=...)", lambda v: connectivity.connectivity_by_window(registro(), ["C0", "C1"], v)),
+        ("connectivity_by_window(method=...)", lambda v: connectivity.connectivity_by_window(registro(), ["C0", "C1"], (0.5, 4.0), v)),
+        ("average_connectivity", lambda v: connectivity.average_connectivity(v)),
+    ],
+    "psglab/analysis/psd.py": [
+        ("compute_psd(recording=...)", lambda v: psd.compute_psd(v)),
+        ("compute_psd(channels=...)", lambda v: psd.compute_psd(registro(), v)),
+        ("compute_psd(window_index=...)", lambda v: psd.compute_psd(registro(), None, v)),
+        ("compute_psd(method=...)", lambda v: psd.compute_psd(registro(), None, None, v)),
+        ("band_power(band=...)", lambda v: psd.band_power(FRECUENCIAS, POTENCIAS, v)),
+        ("band_power(relative=...)", lambda v: psd.band_power(FRECUENCIAS, POTENCIAS, (1.0, 4.0), v)),
+        ("band_powers_by_window(recording=...)", lambda v: psd.band_powers_by_window(v, ["C0"])),
+        ("band_powers_by_window(channels=...)", lambda v: psd.band_powers_by_window(registro(), v)),
+        ("band_powers_by_window(bands=...)", lambda v: psd.band_powers_by_window(registro(), ["C0"], v)),
+    ],
+    "psglab/analysis/reference.py": [
+        ("rereference(recording=...)", lambda v: reference.rereference(v, ["C0"])),
+        ("rereference(reference_channels=...)", lambda v: reference.rereference(registro(), v)),
+        ("average_reference(recording=...)", lambda v: reference.average_reference(v)),
+        ("average_reference(kind_only=...)", lambda v: reference.average_reference(registro(), v)),
+    ],
+    "psglab/analysis/mne_bridge.py": [
+        ("to_raw", lambda v: mne_bridge.to_raw(v)),
+        ("from_raw(raw=...)", lambda v: mne_bridge.from_raw(v, registro())),
+        ("from_raw(original=...)", lambda v: mne_bridge.from_raw(object(), v)),
+        ("unidad_de_salida", lambda v: mne_bridge.unidad_de_salida(v)),
     ],
     "psglab/utils/units.py": [
         ("conversion_factor", lambda v: units.conversion_factor(v)),
@@ -179,6 +285,19 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Hito 12. **La guarda que MNE no hace.** Se midió: con un pasa-altos de 40
+    # y un pasa-bajos de 10, MNE acepta el par, arma una banda eliminada, no
+    # emite ningún aviso y devuelve la señal sin atenuar nada. Borrar esta
+    # guarda deja al investigador convencido de que filtró.
+    ("validate con el pasa-altos por encima del pasa-bajos", 40.0,
+     lambda v: filters.validate(filters.FilterSettings(highpass_hz=v, lowpass_hz=10.0), 256.0)),
+    # Cero es "sin filtro" para MNE, así que aceptarlo es aceptar en silencio
+    # un filtro que no se aplica.
+    ("validate con un corte en cero", 0.0,
+     lambda v: filters.validate(filters.FilterSettings(highpass_hz=v), 256.0)),
+    # `default_for` devuelve una copia. Si devolviera la fila compartida, quien
+    # edite lo que recibió le cambia los valores por defecto al programa entero.
+    ("default_for con una cadena", "EEG", lambda v: filters.default_for(v)),
     # Un canal sin nombre utilizable se aceptaba y reventaba mucho después, en
     # cualquier lado que pidiera canales por nombre, que es toda la interfaz.
     ("Recording con un canal sin nombre", None,

@@ -86,6 +86,23 @@ class OverviewTool(Tool):
         self._recentrar(window_index)
         self.notify_changed()
 
+    def refresh(self) -> None:
+        """Vuelve a derivar las ventanas sin que el usuario haya navegado.
+
+        Hace falta porque `_ventanas` es una caché y hasta acá sólo la
+        invalidaban navegar, `set_span()` y `set_size()`. **Los eventos
+        anotados también cambian lo que el panel muestra** (V3_F: ver que hay un
+        huso justo antes), y anotar no mueve de ventana: sin esto, el evento
+        recién creado no aparecía hasta la próxima flecha.
+
+        Es la contraparte de `HistogramTool.redraw()`, que existe por el mismo
+        motivo.
+        """
+        if self._session is None:
+            return
+        self._recentrar(self._session.current_window)
+        self.notify_changed()
+
     def windows(self) -> tuple[OverviewWindow, ...]:
         """Las ventanas que el panel tiene que mostrar, en orden.
 

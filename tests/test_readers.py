@@ -40,6 +40,9 @@ from psglab.readers.base import (
 from psglab.readers.brainvision import BrainVisionReader
 from psglab.readers.edf import EdfReader
 from psglab.utils.errors import UnreadableFileError, UnsupportedFormatError
+from psglab.utils.units import MICROVOLT
+
+from conftest import FRECUENCIA_BV, RESOLUCION_BV_UV
 
 RAIZ = Path(__file__).resolve().parent.parent
 DATOS = RAIZ / "data"
@@ -407,3 +410,82 @@ def test_los_marcadores_del_vmrk_se_conservan(brainvision_real: Recording):
     assert len(marcadores) == 13
     inicio, duracion, descripcion = marcadores[0]
     assert isinstance(inicio, float) and isinstance(descripcion, str)
+
+
+# -- Tercera mitad: el BrainVision sintético, que corre en todas partes -------
+#
+# La segunda mitad no corre en el CI, así que hasta acá el lector de
+# BrainVision no se ejecutaba en ninguna de las seis combinaciones de sistema y
+# versión de Python. Estos tests usan la fixture `brainvision_sintetico`, que
+# escribe los tres archivos del formato en el momento: verifican el camino de
+# parseo en todas partes, y **no reemplazan** a los de archivo real, que son los
+# que verifican que sepamos leer lo que no escribimos nosotros.
+
+
+def test_el_brainvision_sintetico_se_lee(brainvision_sintetico: Path):
+    registro = read_recording(brainvision_sintetico)
+
+    assert len(registro.channels) == 3
+    assert registro.sampling_rate == pytest.approx(FRECUENCIA_BV)
+
+
+def test_el_despacho_reconoce_el_vhdr(brainvision_sintetico: Path):
+    """Que el `.vhdr` sea el archivo que se abre, y no el `.eeg` ni el `.vmrk`."""
+    assert BrainVisionReader().can_read(brainvision_sintetico)
+
+
+def test_la_resolucion_del_archivo_se_aplica(brainvision_sintetico: Path):
+    """**Es la cuenta que separa una señal correcta de una 2000 veces más
+    chica.** El archivo guarda enteros y la cabecera dice cuántos µV vale cada
+    cuenta; sin aplicar la resolución, el pico de 50 µV llega como 100.
+    """
+    registro = read_recording(brainvision_sintetico)
+    pico = float(np.max(np.abs(registro.data[0])))
+
+    # El seno se cuantiza a pasos de RESOLUCION_BV_UV, así que el pico queda a
+    # menos de un paso de los 50 µV que se sintetizaron.
+    assert pico == pytest.approx(50.0, abs=RESOLUCION_BV_UV)
+
+
+def test_cada_canal_conserva_su_amplitud(brainvision_sintetico: Path):
+    """Tres amplitudes distintas: una escala aplicada de más o de menos se ve en
+    los tres a la vez, y una permutación de canales, en uno solo."""
+    registro = read_recording(brainvision_sintetico)
+    picos = [float(np.max(np.abs(fila))) for fila in registro.data]
+
+    for medido, esperado in zip(picos, (50.0, 30.0, 20.0)):
+        assert medido == pytest.approx(esperado, abs=RESOLUCION_BV_UV)
+
+
+def test_la_unidad_declarada_en_utf8_se_entiende(brainvision_sintetico: Path):
+    """**El bug que motivó `_decodificar_cabecera()`.**
+
+    La cabecera declara `Codepage=UTF-8` y escribe la unidad en UTF-8. Leída
+    como latin-1, el micro llega partido en dos caracteres, la unidad deja de
+    reconocerse y el canal ni se convierte ni se clasifica. En el registro real
+    eso dejó veintitrés canales EEG afuera, y se descubrió por casualidad
+    porque un canal sin unidad declarada salía mejor que uno con ella.
+    """
+    registro = read_recording(brainvision_sintetico)
+
+    for canal in registro.channels:
+        assert canal.unit == MICROVOLT
+
+
+def test_las_clases_se_detectan_sobre_el_sintetico(brainvision_sintetico: Path):
+    registro = read_recording(brainvision_sintetico)
+    clases = {canal.name: canal.kind for canal in registro.channels}
+
+    assert clases == {
+        "C3": ChannelKind.EEG,
+        "EOG-izq": ChannelKind.EOG,
+        "EMG-menton": ChannelKind.EMG,
+    }
+
+
+def test_el_sintetico_dura_lo_que_dice_su_cabecera(brainvision_sintetico: Path):
+    """`SamplingInterval` está en microsegundos y es fácil equivocarle el
+    factor: con milisegundos, el registro duraría mil veces más."""
+    registro = read_recording(brainvision_sintetico)
+
+    assert registro.n_samples == int(FRECUENCIA_BV * 3)

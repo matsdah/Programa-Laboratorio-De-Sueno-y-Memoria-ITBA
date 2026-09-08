@@ -583,3 +583,157 @@ def test_importar_puede_cambiar_la_nomenclatura(session):
     (`readers/scoring_reader.py`), así que la sesión tiene que aceptarlo."""
     session.set_scoring(Scoring(VENTANAS_SINTETICAS, Nomenclature.RK))
     assert session.scoring.nomenclature is Nomenclature.RK
+
+
+# -- Reemplazar el registro por uno procesado (Parte 2) ---------------------
+
+
+def procesado(base, agregando: str | None = None):
+    """Un registro como el que devuelve un análisis: misma duración, quizá con
+    un canal más."""
+    from psglab.analysis.derivation import derive
+
+    if agregando is None:
+        return Recording(
+            file_path=base.file_path,
+            channels=list(base.channels),
+            data=base.data * 2,
+            sampling_rate=base.sampling_rate,
+        )
+    return derive(base, base.channels[0].name, base.channels[1].name, name=agregando)
+
+
+def test_reemplazar_el_registro_cambia_la_señal(session, recording):
+    nuevo = procesado(recording)
+    session.set_recording(nuevo)
+
+    assert session.recording is nuevo
+
+
+def test_no_mueve_al_usuario_de_ventana(session, recording):
+    """Procesar la señal no es abrir otro archivo: el usuario sigue donde
+    estaba."""
+    session.go_to_window(7)
+    session.set_recording(procesado(recording))
+
+    assert session.current_window == 7
+
+
+def test_conserva_el_scoring_ya_hecho(session, recording):
+    from psglab.core.nomenclature import stages_of
+
+    fase = stages_of(session.scoring.nomenclature)[0]
+    session.scoring.set_stage(3, fase)
+    session.set_recording(procesado(recording))
+
+    assert session.scoring.get(3).stage is fase
+
+
+def test_no_desconecta_los_avisos(session, recording):
+    """Las herramientas se suscribieron al abrir. Si esto reemplazara la
+    sesión, seguirían avisando sobre la vieja."""
+    avisos: list[int] = []
+    session.add_window_listener(avisos.append)
+
+    session.set_recording(procesado(recording))
+    session.next_window()
+
+    assert avisos == [1]
+
+
+def test_conserva_las_amplitudes_de_los_canales_que_siguen(session, recording):
+    nombre = recording.channels[0].name
+    session.set_scale_uv(nombre, 123.0)
+    session.set_recording(procesado(recording))
+
+    assert session.scale_uv(nombre) == 123.0
+
+
+# -- El caso que `set_scoring()` no tenía: los canales cambian --------------
+
+
+def test_un_canal_derivado_aparece_con_la_escala_de_fabrica(session, recording):
+    """Un derivado no hereda la amplitud de nadie."""
+    session.set_recording(procesado(recording, agregando="derivado"))
+
+    assert session.scale_uv("derivado") == DEFAULT_SCALE_UV
+
+
+def test_los_canales_visibles_que_sobreviven_se_conservan(session, recording):
+    nombres = recording.channel_names()
+    session.set_visible_channels([nombres[1]])
+    session.set_recording(procesado(recording, agregando="derivado"))
+
+    assert session.visible_channels == [nombres[1]]
+
+
+def test_si_no_sobrevive_ninguno_se_vuelve_a_mostrar_todo(session, recording):
+    """**Una pantalla vacía después de filtrar se lee como que el filtro borró
+    la señal.** Es peor que mostrar de más."""
+    otro = Recording(
+        file_path=recording.file_path,
+        channels=[
+            Channel(name="renombrado", kind=ChannelKind.EEG, unit="µV", index=0)
+        ],
+        data=recording.data[:1],
+        sampling_rate=recording.sampling_rate,
+    )
+    session.set_visible_channels([recording.channels[0].name])
+
+    session.set_recording(otro)
+
+    assert session.visible_channels == ["renombrado"]
+
+
+def test_una_seleccion_que_ya_no_existe_se_descarta(session, recording):
+    otro = Recording(
+        file_path=recording.file_path,
+        channels=[
+            Channel(name="renombrado", kind=ChannelKind.EEG, unit="µV", index=0)
+        ],
+        data=recording.data[:1],
+        sampling_rate=recording.sampling_rate,
+    )
+    session.set_selected_channels([recording.channels[0].name])
+
+    session.set_recording(otro)
+
+    assert session.selected_channels == []
+
+
+# -- Los rechazos -----------------------------------------------------------
+
+
+def test_un_registro_de_otra_duracion_se_rechaza(session, recording):
+    """Procesar la señal no cambia su duración. Si cambió es que no es el mismo
+    registro, y el scoring ya hecho dejaría de corresponder."""
+    mas_corto = Recording(
+        file_path=recording.file_path,
+        channels=list(recording.channels),
+        data=recording.data[:, : recording.n_samples // 2],
+        sampling_rate=recording.sampling_rate,
+    )
+
+    with pytest.raises(ScoringMismatchError):
+        session.set_recording(mas_corto)
+
+
+def test_un_registro_rechazado_deja_el_anterior_en_su_lugar(session, recording):
+    antes = session.recording
+    mas_corto = Recording(
+        file_path=recording.file_path,
+        channels=list(recording.channels),
+        data=recording.data[:, : recording.n_samples // 2],
+        sampling_rate=recording.sampling_rate,
+    )
+
+    with pytest.raises(ScoringMismatchError):
+        session.set_recording(mas_corto)
+
+    assert session.recording is antes
+
+
+@pytest.mark.parametrize("hostil", [None, "texto", 3.5, [], {}])
+def test_lo_que_no_es_un_registro_se_rechaza(session, hostil):
+    with pytest.raises(PsgLabError):
+        session.set_recording(hostil)

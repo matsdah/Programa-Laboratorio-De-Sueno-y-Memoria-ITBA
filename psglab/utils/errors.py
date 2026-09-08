@@ -12,6 +12,9 @@ Cubre del pliego: ningún ID de funcionalidad. Sostiene el requisito de que el
 programa lo pueda usar un investigador sin experiencia informática (sección 3).
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 
 class PsgLabError(Exception):
     """Error base del programa.
@@ -132,8 +135,99 @@ class UnknownToolError(PsgLabError):
     """Se pidió una herramienta que no está registrada."""
 
 
+class RecordingTooLargeError(PsgLabError):
+    """No entró en memoria lo que hacía falta para procesar el registro.
+
+    **Existe porque `MemoryError` no hereda de `PsgLabError`**, así que
+    atravesaba el `except` de la ventana principal y le llegaba al investigador
+    como traza de Python: el único error del programa que rompía la promesa de
+    `psglab/utils/errors.py`. Y es de los que más probablemente se vea, porque
+    la señal vive entera en memoria.
+
+    El mensaje dice qué se estaba haciendo, porque no es lo mismo quedarse sin
+    memoria abriendo el archivo que filtrándolo: en el segundo caso el registro
+    ya está en pantalla y se puede seguir trabajando sin filtrar.
+    """
+
+
 # -- Análisis ---------------------------------------------------------------
 
 
 class InvalidFilterError(PsgLabError):
     """Los parámetros del filtro no son aplicables a este registro."""
+
+
+class UnknownPsdMethodError(PsgLabError):
+    """Se pidió estimar la PSD con un método que el programa no conoce.
+
+    Elegir uno por defecto en silencio le daría al investigador un resultado
+    que no pidió y que no puede distinguir del que pidió: Welch y multitaper no
+    dan lo mismo.
+    """
+
+
+class InvalidBandError(PsgLabError):
+    """La banda de frecuencia no se puede integrar.
+
+    Invertida, con un extremo negativo, o que no es un par de números. Una banda
+    de 12 a 8 Hz no contiene nada, y devolver cero para ella escondería el error
+    de tipeo detrás de un resultado plausible.
+    """
+
+
+class UnknownMeasureError(PsgLabError):
+    """Se pidió una medida de complejidad que el programa no conoce.
+
+    Sin esta comprobación el módulo aceptaba cualquier cadena y fallaba tarde,
+    con un `KeyError` en vez de un mensaje que diga cuáles hay.
+    """
+
+
+class UnknownConnectivityMethodError(PsgLabError):
+    """Se pidió un método de conectividad que el programa no conoce.
+
+    Importa más que en otros casos: la coherencia común y los métodos basados
+    en la parte imaginaria responden preguntas distintas —los segundos son
+    inmunes al volume conduction y los primeros no—, así que elegir uno por
+    omisión daría un resultado que se interpreta al revés.
+    """
+
+
+# -- Quedarse sin memoria ---------------------------------------------------
+
+
+@contextmanager
+def memoria_suficiente(que_se_estaba_haciendo: str) -> Iterator[None]:
+    """Convierte un `MemoryError` en un error que el investigador pueda leer.
+
+    Se usa alrededor de las asignaciones grandes de `psglab/analysis/`, que son
+    las únicas del programa que reservan una copia completa de la señal. Una
+    noche de 32 canales a 256 Hz son 1,9 GB por copia, y filtrar necesita dos
+    además de la que está en pantalla.
+
+    Args:
+        que_se_estaba_haciendo: en infinitivo y en español, porque va dentro de
+            la frase que ve el usuario: "filtrar la señal", "calcular la ICA".
+
+    Raises:
+        RecordingTooLargeError: en lugar del `MemoryError`, que la ventana
+            principal no atrapa.
+
+    **Atrapar `MemoryError` y seguir es seguro acá**, y no siempre lo es: lo que
+    falla es una sola reserva grande de numpy, que se libera al fallar, así que
+    el proceso queda en el mismo estado que antes de intentarla. El registro que
+    el investigador está viendo sigue intacto —ninguna función de `analysis/`
+    modifica su entrada— y puede seguir trabajando.
+    """
+    try:
+        yield
+    except MemoryError as error:
+        raise RecordingTooLargeError(
+            f"No hay memoria suficiente para {que_se_estaba_haciendo} en esta "
+            "computadora. El registro sigue abierto y sin cambios.",
+            details=(
+                "La señal se procesa entera en memoria y hace falta más de una "
+                "copia a la vez. Puede ayudar cerrar otros programas, o trabajar "
+                "con menos canales a la vez."
+            ),
+        ) from error

@@ -212,14 +212,98 @@ Dos resultados que conviene explicar, porque parecen alarmas y no lo son:
 
 Ninguna dependencia obliga a relicenciar el proyecto.
 
+### Verificación del 7 de septiembre de 2026
+
+La del hito 8. Corrida sobre el entorno completo, **35 paquetes**, Python
+3.12.10:
+
+```bash
+python -m piplicenses --format=markdown --order=license
+```
+
+| Licencia | Paquetes |
+|---|---|
+| MIT y variantes (MIT, MIT License, MIT-CMU) | 11 |
+| BSD y variantes (BSD License, BSD-3-Clause, BSD-2-Clause) | 13 |
+| `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only` | 4 — los de PySide6 |
+| Apache (Apache-2.0, y una disyuntiva con BSD-2-Clause) | 3 |
+| MPL-2.0, sola y combinada con MIT | 2 |
+| Python Software Foundation License | 1 |
+| Combinada permisiva (BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0) | 1 |
+
+**La licencia MIT se sostiene.** No aparece ninguna GPL pura: las cuatro
+disyuntivas son las de PySide6 y se resuelven eligiendo LGPL-3.0, como explica
+el bloque anterior. PyQt5 y PyQt6 siguen ausentes; el único paquete cuyo nombre
+contiene "PyQt" es `pyqtgraph` 0.14.0, que es MIT.
+
+El número de paquetes bajó de 48 a 35 desde la verificación anterior, y no es
+un hallazgo: aquélla se corrió con `requirements-analysis.txt` instalado —que
+arrastra numba, llvmlite, xarray, pandas y scikit-learn— y ésta con el entorno
+de la Parte 1, que es el que usa el día a día. El CI sigue revisando los tres
+requirements juntos en su job de licencias, que es donde importa.
+
+### Verificación del 8 de septiembre de 2026
+
+La del hito 17, que cierra la Parte 2. Corrida sobre el entorno **con los tres
+requirements**, que es lo que el producto distribuye: **49 paquetes**, Python
+3.12.10.
+
+```bash
+python -m piplicenses --format=markdown --order=license
+```
+
+| Licencia | Paquetes |
+|---|---|
+| MIT y variantes (MIT, MIT License, MIT-CMU) | 14 |
+| BSD y variantes (BSD License, BSD-3-Clause, BSD-2-Clause, BSD (3-clause)) | 21 |
+| `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only` | 4 — los de PySide6 |
+| Apache (Apache-2.0, Apache Software License, y dos disyuntivas con BSD) | 5 |
+| MPL-2.0, sola y combinada con MIT | 2 |
+| `BSD-2-Clause AND Apache-2.0 WITH LLVM-exception` | 1 — `llvmlite` |
+| `BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0` | 1 |
+| Python Software Foundation License | 1 |
+
+**La licencia MIT se sostiene.** No aparece ninguna GPL pura: las cuatro
+disyuntivas siguen siendo las de PySide6, que se resuelven eligiendo LGPL-3.0.
+
+Los 14 paquetes de diferencia con la verificación anterior son los que arrastra
+`requirements-analysis.txt` —numba, llvmlite, xarray, pandas, scikit-learn y sus
+dependencias—. **Esta vez se corrió con ellos a propósito**: aquélla se hizo con
+el entorno de la Parte 1 porque era el del día a día, y desde el hito 10 dejó de
+serlo. `llvmlite` es el único que aporta una licencia nueva a la tabla, y su
+excepción LLVM sobre Apache-2.0 es permisiva.
+
+---
+
+### `float64` y no `float32` para la señal — es una decisión medida
+
+La señal vive entera en memoria, así que pasarla a `float32` partiría al medio
+lo que ocupa un registro. Se evaluó en el hito 18 y **se descartó**.
+
+El motivo no es la precisión: un conversor de 16 bits entra de sobra en la
+mantisa de 24 de un `float32`. Es que **MNE trabaja siempre en `float64`**, y al
+pasarle un array `float32` lo convierte, lo que cuesta una copia completa más.
+
+```
+RawArray desde float32: pico 224 MB, queda en float64
+RawArray desde float64: pico  28 MB, queda en float64   (reusa el array)
+```
+
+`float32` **baja lo que está en reposo y sube el pico**, que es justamente donde
+ocurre el `MemoryError`. Mueve el problema hacia el peor lado, así que no se
+hace. Si algún día se revisa, hay que volver a medir esto primero.
+
 ---
 
 ## Convenciones de código
 
-- **Identificadores y nombres de archivo en inglés**; comentarios, docstrings,
-  documentación y **todo lo que ve el usuario, en español**. Es la convención
-  de open source: no cierra la puerta a contribuidores externos y mantiene el
-  código legible para el equipo del laboratorio.
+- **La API pública y los nombres de archivo, en inglés**; comentarios,
+  docstrings, documentación y **todo lo que ve el usuario, en español**. Lo
+  que cruza el borde de un módulo se nombra en inglés —`read_recording`,
+  `scale_uv`, `on_window_changed`— y el interior se escribe en español, que es
+  el idioma en que se razona el problema: `_linea_debajo()`,
+  `TOLERANCIA_DE_CLIC_UV`. Así no se cierra la puerta a contribuidores
+  externos y el código se lee igual para el equipo del laboratorio.
 - **Cada módulo abre con un docstring** que dice de qué se ocupa y **qué IDs
   del pliego cubre**. Esa línea es la que alimenta `docs/TRAZABILIDAD.md`.
 - **Los errores que ve el usuario heredan de `PsgLabError`** y llevan mensaje

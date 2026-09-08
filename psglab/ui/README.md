@@ -13,7 +13,7 @@ registro de 400 es una regla y va en `core/`.
 
 ```
 +--------------------------------------------------------------+
-|  Menú: Archivo | Ver | Herramientas | Ayuda   (Análisis: P2)  |
+|  Menú: Archivo | Ver | Herramientas | Análisis | Ayuda        |
 +--------------------------------------------------------------+
 |  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
 +------------------+-------------------------------------------+
@@ -37,6 +37,13 @@ registro de 400 es una regla y va en `core/`.
 | `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
 | `channel_selector.py` | Elegir cuántos y cuáles canales se ven, agrupados por clase. | V3_P, V4_F de "Visualización" |
 | `grid.py` | La grilla de fondo y los tres fondos elegibles. | V1_P, V2_F de "Diseño de la interfaz" |
+| `filter_panel.py` | Los filtros de cada clase de canal presente, sugeridos según la frecuencia del registro. La celda vacía desactiva ese filtro. | V1_F de "Filtración" |
+| `impedance_panel.py` | Tabla editable de impedancias por canal y el informe. La celda sin valor dice "sin medir", no "0". | V1_F de "Impedancia" |
+| `ica_panel.py` | Inspeccionar los componentes de una ICA y elegir cuáles quitar. Ninguno viene marcado. | V5_F de "Filtración" |
+| `metric_panel.py` | Una métrica por ventana a lo largo de la noche, con los NaN como hueco. La usan complejidad y conectividad. | — (Parte 2) |
+| `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
+| `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas y el eje de potencia en logarítmico. | V1_F de "PSD" |
+| `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. | V1_F, V2_F, V3_F de "Übersicht" |
 | `navigation.py` | Botones de ventana anterior y siguiente, y posición actual. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. | V1_F, V2_F, V3_F de "Scoring" |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
@@ -104,11 +111,20 @@ ventanas de una noche, vuelve el programa inusable.
 ## Estado
 
 Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
-[hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz). Después vino el hito 7,
-las herramientas, y queda abierto el 8, que es la lista de comprobación de
-entrega.
+[hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz), y con él `python main.py`
+abrió algo usable por primera vez.
 
-Con él, `python main.py` abre algo usable por primera vez.
+**Pero sin stubs no era lo mismo que conectada.** El
+[hito 9](../../docs/TODO.md#hito-9-lo-que-la-interfaz-no-consume) encontró seis
+requisitos del pliego hechos en `tools/`, con sus tests en verde, que esta capa
+no consumía: no se podía anotar, no había panel de Übersicht, el porcentaje de
+ocupación no se mostraba, la lupa no ampliaba y el eje del histograma no
+existía. Además `main_window` le pasaba a las herramientas la coordenada
+vertical en unidades del gráfico donde `ViewerTool` documenta microvoltios.
+
+La lección quedó en `tests/test_entrega.py`: **los gestos se mandan como
+eventos de Qt al viewport, no llamando a la herramienta.** Llamando a la
+herramienta, los mismos tests pasan en verde con el programa roto.
 
 **Los widgets de esta capa no llevan tests unitarios**, y por eso se la mantiene
 delgada: dibujar no se puede verificar sin mirar una pantalla, así que todo lo

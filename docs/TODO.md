@@ -1,13 +1,21 @@
-# TODO — Parte 1 (scorer de polisomnografía)
+# TODO — scorer de polisomnografía
 
 La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos de la Parte 1:
-**la Parte 1 está terminada**, con los hitos 0 a 7 cerrados. Falta el hito 8,
-que es una lista de comprobación y no código nuevo.
-Los 26 stubs de `psglab/analysis/` son de la Parte 2 y no entran acá.
+Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos. Con el hito 12
+cierra la **Parte 2**, y con ella el proyecto: los diecisiete hitos están
+cerrados y ningún módulo de `psglab/` eleva `NotImplementedError`.
+
+**La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
+se pueden usar desde el programa corriendo, no sólo desde sus módulos, que es la
+distinción que este resumen no puede dar y que costó el hito 9.
+
+Hasta el hito 10 este archivo **excluía la Parte 2 a propósito** y sus cuentas
+la ignoraban activamente. Cerrada la Parte 1, el TODO pasa a ser la cola de la
+Parte 2: era eso o estrenar una segunda fuente de estado, que es justo lo que
+este archivo existe para evitar.
 
 ## Cómo se usa
 
@@ -60,8 +68,23 @@ nada**. Un verde por omisión es peor que un rojo.
 | [5. Exportadores](#hito-5-exportadores) | — | 0 | ✅ cerrado |
 | [6. Interfaz](#hito-6-interfaz) | — | 0 | ✅ cerrado |
 | [7. Herramientas](#hito-7-herramientas) | — | 0 | ✅ cerrado |
-| [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ⬜ |
+| [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ✅ cerrado |
+| [9. Lo que la interfaz no consume](#hito-9-lo-que-la-interfaz-no-consume) | — | 0 | ✅ cerrado |
+| [10. Cimientos de la Parte 2](#hito-10-cimientos-de-la-parte-2) | — | 0 | ✅ cerrado |
+| [11. Derivar y re-referenciar](#hito-11-derivar-y-re-referenciar) | — | 0 | ✅ cerrado |
+| [12. Filtración](#hito-12-filtración) | — | 0 | ✅ cerrado |
+| [13. PSD](#hito-13-psd) | — | 0 | ✅ cerrado |
+| [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | — | 0 | ✅ cerrado |
+| [15. ICA](#hito-15-ica) | — | 0 | ✅ cerrado |
+| [16. Impedancia](#hito-16-impedancia) | — | 0 | ✅ cerrado |
+| [17. Cierre de la Parte 2](#hito-17-cierre-de-la-parte-2) | — | 0 | ✅ cerrado |
+| [18. Escala](#hito-18-escala) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
+
+**La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
+seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta
+`raise NotImplementedError`, no caminos muertos, y con esa medida los hitos 6 y
+7 se dieron por cerrados con la mitad de la interfaz sin conectar.
 
 ### Los tres cortes que importan
 
@@ -71,7 +94,8 @@ nada**. Un verde por omisión es peor que un rojo.
   —leer un EDF, scorear, exportar los tres archivos— **todavía sin interfaz
   gráfica**. Es el pago concreto de que `core/` no importe `ui/`.
 - **Al cerrar el hito 6** `python main.py` abre algo usable por primera vez.
-  Ya no termina en `NotImplementedError`.
+  Ya no termina en `NotImplementedError`. Usable no es completo: lo que quedó
+  sin cablear es el [hito 9](#hito-9-lo-que-la-interfaz-no-consume).
 
 **Los hitos 4 y 5 no dependen de `ui/`.** Una vez cerrado el 3, dos personas
 pueden ir en paralelo: una por 4 y 5, otra por 6.
@@ -137,8 +161,13 @@ repositorio.
 
 ### Sigue abierta
 
-- [ ] **Origen de las impedancias** (cabecera del archivo, archivo aparte o
-  carga manual). Es de la **Parte 2**, así que no frena nada de este TODO.
+- [ ] **Origen de las impedancias.** La pregunta se acotó al implementar el
+  [hito 16](#hito-16-impedancia): las tres vías están hechas, así que lo único
+  que falta saber es **cuál usa el laboratorio**, y de eso depende qué se le
+  ofrece primero al investigador.
+  - **BrainVision las trae**, en la sección `[Comment]` del `.vhdr` y ya en kΩ.
+  - **EDF no puede**: el estándar no tiene el campo, ni en EDF ni en EDF+. Para
+    esos registros la única vía es el archivo aparte o la carga a mano.
   Ver `analysis/impedance.py`.
 
 ---
@@ -202,7 +231,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
 tiene test:
 
 - [x] **`psglab/utils/errors.py`** · 0 pendientes · ya tiene su test
-  - Test: `tests/test_errors.py`, **9 tests en verde**.
+  - Test: `tests/test_errors.py`, **14 tests en verde**.
   - Verifica que `PsgLabError` guarde el mensaje y la causa técnica por
     separado, y que las subclases se atrapen con un solo `except PsgLabError`.
     Es la promesa sobre la que se apoya todo el manejo de errores que ve el
@@ -259,7 +288,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **60 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **76 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `set_scoring()` se agregó en el hito 6, para V3_F: importar un scoring no
     es abrir otro registro, así que sustituye adentro en vez de armar otra
@@ -319,7 +348,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader`, `read_recording` y `load_all_readers` corren al
     importar. **No convertirlos en stubs.**
-  - Test: `tests/test_readers.py`, **38 tests en verde**, que cubre este módulo
+  - Test: `tests/test_readers.py`, **45 tests en verde**, que cubre este módulo
     y los dos de abajo. El autodescubrimiento y el despacho se testean con un
     lector de mentira, sin ningún archivo real.
 - [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
@@ -526,7 +555,7 @@ la regla vive en `core/`.
     documenta para las ventanas.
 - [x] **`psglab/ui/signal_view.py`** · ~~13 stubs~~ · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Test: `tests/test_signal_view.py`, **19 tests en verde**. **El dibujo no se
+  - Test: `tests/test_signal_view.py`, **32 tests en verde**. **El dibujo no se
     testea**; sí los tres conversores, que es de donde salen las unidades con
     las que trabajan todas las herramientas.
   - Los píxeles de los bordes se le **preguntan al `ViewBox`** en vez de
@@ -707,25 +736,728 @@ stubs, pero eso no es lo mismo que estar verificados:
 
 ## Hito 8: Cierre de la Parte 1
 
-- [ ] **Ningún test salteado.** `python -m pytest` no debe informar ningún
-      `skipped`:
+Correr esta lista fue lo que destapó el [hito 9](#hito-9-lo-que-la-interfaz-no-consume):
+seis requisitos hechos en `tools/` y sin consumir en `ui/`. Se cerró primero
+aquél y después éste, que es el orden que corresponde: la lista de comprobación
+no puede tildarse a sí misma.
+
+- [x] **Ningún test salteado por falta de implementación.** ~~Ningún test
+      salteado.~~ El ítem decía eso y no se podía cumplir: los quince tests que
+      leen el registro real de `data/` se saltean en el CI, y **tienen que
+      hacerlo**, porque el `.gitignore` excluye datos de participantes a
+      propósito. La distinción que importa es la que ya hace
+      `test_ningun_modulo_terminado_tiene_su_test_salteado`: ningún módulo
+      terminado puede tener su test apagado.
       ```bash
       python -m pytest -rs
       ```
-- [ ] **Ningún stub de Parte 1.** Tiene que dar 0:
+      El hito agregó además un BrainVision **sintético** (`conftest.py`,
+      `brainvision_sintetico`), para que el lector se ejercite también donde no
+      hay registros: antes no corría en ninguna de las seis combinaciones del
+      CI.
+- [x] **Ningún stub de Parte 1.** Da 0.
       ```bash
       grep -r "raise NotImplementedError" psglab --include=*.py | grep -v "/analysis/" | wc -l
       ```
-- [ ] **Los 34 IDs de la Parte 1 de [`TRAZABILIDAD.md`](TRAZABILIDAD.md) están
-      cerrados**, y cada fila apunta al archivo correcto.
-- [ ] **Las ambigüedades resueltas quedaron documentadas** en
-      `EXPLICACION.txt` sección 8, y los módulos que decían "PENDIENTE DE
-      DEFINICIÓN CON EL CLIENTE" ya no lo dicen.
-- [ ] **Licencias verificadas**, sin ninguna GPL:
+- [x] **Los 34 requisitos de la Parte 1 de
+      [`TRAZABILIDAD.md`](TRAZABILIDAD.md) están cerrados**, y cada fila apunta
+      al archivo correcto. Los seis que faltaban fueron el hito 9.
+      - Son 34 pares (sección, ID), no 34 cadenas distintas: `V1_F` solo
+        aparece en nueve secciones. Los archivos que nombran las filas existen
+        todos y los IDs coinciden con los docstrings en las dos direcciones.
+      - **Revisar que la fila apunte al archivo correcto no alcanza**: las seis
+        que faltaban apuntaban al archivo correcto y el requisito no funcionaba
+        igual, porque la otra mitad no existía. Lo que cerró el hito fue
+        recorrer cada requisito **por la ventana**, que es lo que hoy hace
+        `tests/test_entrega.py`.
+- [x] **Las ambigüedades de la Parte 1, documentadas** en `EXPLICACION.txt`
+      sección 8. ~~y los módulos que decían "PENDIENTE DE DEFINICIÓN CON EL
+      CLIENTE" ya no lo dicen.~~ Acotado a la Parte 1: la única marca que queda
+      es la de `psglab/analysis/impedance.py`, que es de la Parte 2 y sigue
+      abierta con razón, así que el ítem entero era intildeable.
+- [x] **Licencias verificadas**, sin ninguna GPL. El resultado quedó como
+      bloque fechado en [`ARQUITECTURA.md`](ARQUITECTURA.md).
       ```bash
-      pip-licenses --format=markdown --order=license
+      python -m piplicenses --format=markdown --order=license
       ```
-- [ ] **El programa se abre, scorea una noche y exporta los tres archivos.**
+      ~~`pip-licenses --format=markdown`~~ era la forma de lanzador, que
+      `CLAUDE.md` y `ARQUITECTURA.md` explican que no hay que usar: depende de
+      que `Scripts/` esté en el PATH y de que nadie haya movido la carpeta.
+- [x] **El programa se abre, scorea una noche y exporta los tres archivos**, y
+      ahora es repetible: `tests/test_entrega.py`. La parte de anotar está
+      marcada `xfail` apuntando al hito 9, así que el día que se cierre, la
+      suite avisa sola.
+
+---
+
+## Hito 9: Lo que la interfaz no consume
+
+Encontrado al correr la lista del hito 8, revisando fila por fila la
+trazabilidad. **La capa `tools/` está completa y testeada, y falta la mitad de
+`ui/` que la consume**: seis requisitos del pliego existen como modelo, tienen
+sus tests en verde, y no hay ningún camino en el programa que los ejecute.
+
+Ni el TODO ni ningún README lo registraban. Los hitos 6 y 7 se dieron por
+cerrados porque sus módulos no tenían stubs, y "sin stubs" no es lo mismo que
+"conectado": es exactamente el hueco que `contar_stubs()` no puede ver.
+
+- [x] **`psglab/ui/main_window.py`** · el cableado del anotador · V1_F de
+      "Anotación de la señal"
+  - `annotator.py` deja el tramo en `pending_selection_samples` y espera que la
+    ventana pregunte la clase y llame a `create_annotation()`. **Nadie la
+    llama**: cero referencias en `psglab/ui/`. En el programa corriendo se puede
+    arrastrar una selección y no pasa nada.
+  - Arrastra a V2_F de "Archivo de salida": `Anotaciones.txt` se exporta
+    siempre vacío, porque no hay forma de crear una anotación.
+- [x] **Un panel para la Übersicht** · V1_F, V2_F, V3_F de "Übersicht"
+  - `OverviewTool` no se menciona en `psglab/ui/`, y ni el layout ni el
+    diagrama del README tienen una zona para ella. El modelo está entero
+    —`OverviewWindow.is_current`, `set_span()` con `before` y `after`
+    independientes— y no lo dibuja nadie. `set_size()` (V2_F) tampoco se llama.
+- [x] **Mostrar el porcentaje de ocupación** · V3_F de "Ocupación"
+  - `line_percentage()` y `total_percentage()` calculan bien y no los lee
+    nadie. El cálculo (V2_F, V4_F) está cerrado; lo que falta es mostrarlo.
+- [x] **La lupa tiene que ampliar** · V1_F, V2_F de "Lupa"
+  - `MagnifierTool` publica `CircleOverlay(radius_seconds, zoom)` y
+    `signal_view._dibujar_overlay()` lo pinta como un `ScatterPlotItem` de
+    tamaño fijo, **descartando los dos campos**. El círculo sigue al mouse y no
+    amplía nada. El contador de picos (`click_count`) tampoco se muestra.
+- [x] **El eje del histograma** · V2_F del histograma
+  - `set_time_axis()` prende un booleano que nadie lee, y
+    `_redraw_histogram()` grafica `range(len(barras))`: índices base 0, sin
+    ticks y sin `window_to_clock_time()`. Falta el eje en hora real **y** el de
+    1 a VENMAX. De paso viola la regla de base 1 al mostrar.
+- [x] **La `y` que reciben las herramientas está en la unidad equivocada**
+  - `main_window.eventFilter()` pasa `vista.mapSceneToView(...).y()`, que son
+    unidades del gráfico, y `ViewerTool.on_mouse_press` documenta
+    **microvoltios**. Después `signal_view._a_carril()` vuelve a dividir por
+    `scale_uv`. Hay un comentario al lado afirmando que ninguna herramienta usa
+    la `y`, y la usan tres: la banda de amplitud, la ocupación y la lupa.
+  - El síntoma peor es de la ocupación: `TOLERANCIA_DE_CLIC_UV = 10.0` se
+    compara contra un rango de carril de 0 a 1, así que **cualquier clic dentro
+    del rango horizontal de una línea la borra** en vez de empezar otra.
+  - No afecta la medición del porcentaje, que proyecta sobre `x`.
+
+> **Cómo se encontró, y por qué no lo vio nadie antes.** La corrida de punta a
+> punta del hito 6 anotó un evento **llamando a la herramienta directamente
+> desde el script**, no por la interfaz, así que el hueco no se manifestó. Es el
+> mismo error de método que la auditoría describe para la documentación:
+> verificar la pieza en vez del camino.
+
+---
+
+# Parte 2 — Módulo de análisis de bioseñales
+
+Ocho módulos, 26 stubs, y las firmas y los docstrings ya escritos desde el
+esqueleto. Van **ordenados por dependencias reales**, igual que la Parte 1.
+
+**Cada análisis se lleva hasta la pantalla, no hasta su módulo.** Es la lección
+del [hito 9](#hito-9-lo-que-la-interfaz-no-consume): seis requisitos con sus
+tests en verde que la interfaz no consumía, y `contar_stubs()` no puede ver un
+camino muerto. Un hito de la Parte 2 no se cierra con el módulo terminado.
+
+> **Pregunta abierta con el cliente, anotada antes de empezar.** Los IDs de
+> "Filtración" saltan de **V1_F a V5_F**: no hay V2_F, V3_F ni V4_F en ningún
+> documento ni en ningún docstring. La primera auditoría lo marcó como
+> "requiere consultar el pliego" y sigue sin resolverse. Pueden ser tres
+> requisitos que el proyecto nunca registró. Lo que **sí** está especificado no
+> está en duda, así que el riesgo es trabajo adicional y no trabajo a rehacer;
+> por eso los hitos 11 y 13 van antes que el 12.
+
+---
+
+## Hito 10: Cimientos de la Parte 2
+
+Sin stubs: es la infraestructura que la Parte 2 necesita y que no existía. Se
+hizo de una vez y no módulo por módulo.
+
+- [x] **La maquinaria de cuentas de este archivo**, que excluía la Parte 2.
+      `stubs_de_la_parte_1()` filtraba `analysis/`, el regex de la tabla exigía
+      un hito de **un solo dígito** —un "hito 10" no matcheaba y sus stubs
+      desaparecían de la suma en silencio— y el chequeo de "todo módulo tiene
+      test" también la salteaba.
+- [x] **`analysis` y `tools` en `CAPAS_SIN_INTERFAZ`.** La regla de que no
+      importen Qt estaba escrita en tres documentos y no la verificaba nadie.
+- [x] **`test_contratos.py` extendido a `analysis/`.** Encontró tres fugas en
+      el primer módulo que le tocó: `to_raw`, `from_raw` y `unidad_de_salida`
+      dejaban salir `AttributeError` crudo, que la ventana principal no atrapa.
+      La exigencia aparece módulo por módulo, porque los que tienen stubs se
+      saltean.
+- [x] **`registro_sintetico`**, la fixture que faltaba. Ninguna devolvía un
+      `Recording` y **todas** las funciones de `analysis/` reciben uno.
+      Verificada con Welch: los cuatro canales dan su pico donde la fixture
+      promete.
+- [x] **`requirements-analysis.txt` en el job de tests del CI.** Verificado en
+      seco que resuelve: 14 paquetes, sin conflicto y sin degradar numpy.
+- [x] **El adaptador `Recording` ↔ `mne.io.Raw`**
+      (`psglab/analysis/mne_bridge.py`). No existía y lo necesitan tres
+      módulos: MNE se usaba en una sola dirección, `Raw → Recording`, en los
+      dos lectores.
+  - **La unidad era el problema.** MNE trabaja en volts y el `Recording` en
+    microvoltios, pero **sólo se escala lo eléctrico**: `Channel.unit` es la
+    fuente de verdad, y un termómetro multiplicado por un millón no da un error
+    visible, da una temperatura absurda que alguien lee como señal.
+  - **Copia explícita de los datos**, que resuelve la primera decisión
+    transversal: `get_segment()` devuelve un array de sólo lectura y MNE
+    escribe sobre el buffer que recibe. Sin copiar, filtrar reventaba con un
+    error de numpy tres capas más abajo.
+  - Ida y vuelta devuelve lo mismo, que es la propiedad de la que hereda su
+    corrección todo lo que se apoye acá.
+  - Test: `tests/test_mne_bridge.py`, **14 tests en verde**.
+- [x] **La pregunta del hueco V2_F–V4_F**, escrita en
+      [`TRAZABILIDAD.md`](TRAZABILIDAD.md) junto a la de las impedancias.
+
+Dos decisiones transversales **no se toman acá a propósito**, porque tomarlas
+sin nada de qué colgarlas sería especular. Se toman donde se necesitan por
+primera vez y las demás las copian:
+
+- **Qué se hace con la última ventana incompleta** → hito 13, que es el primero
+  que recorre ventanas. `window_to_samples()` devuelve un final posterior al
+  registro y `get_segment()` acorta el tramo **en silencio**; la fixture da 20
+  ventanas exactas, así que hay que escribir el caso a propósito.
+- **Las excepciones que faltan** → cada módulo trae la suya al terminarse.
+  `utils/errors.py` tiene una sola de análisis, `InvalidFilterError`, y 21 de
+  los 26 stubs no declaran ningún `Raises:`. `tests/test_errors.py` las cubre
+  solas con `inspect.getmembers`.
+
+---
+
+## Hito 11: Derivar y re-referenciar
+
+Los dos módulos que **no dependen de nada**: ni de MNE, ni de las bibliotecas
+que faltan, ni de ninguna pieza nueva. Aritmética sobre `Recording`, y por eso
+los primeros: son de resultado exactamente conocido.
+
+**Cerrado con su interfaz**, que es lo que el hito pedía: los dos análisis se
+piden desde el menú Análisis, que hasta acá estaba dibujado en el esquema de la
+ventana y no existía.
+
+- [x] **`Session.set_recording()`**, que no existía y sin el cual ningún
+      análisis podía llegar a la pantalla. Mismo argumento que
+      `set_scoring()` —procesar la señal no es abrir otro archivo—, más el caso
+      que aquél no tenía: **los canales pueden cambiar**. Conserva los visibles
+      que sobreviven, descarta la selección que ya no aplica, y las escalas se
+      conservan por nombre mientras los canales nuevos arrancan con la de
+      fábrica. Rechaza un registro de otra duración, porque el scoring ya hecho
+      dejaría de corresponder.
+- [x] **El menú Análisis**, con derivar, re-referenciar y referencia promedio.
+- [x] **Volver a la señal original**, que es lo que hace reversible el menú
+      entero. Sin eso, un filtro mal elegido obligaría a reabrir el archivo y
+      con él se perdería el scoring que el usuario venía haciendo.
+  - **Un test encontró que el canal derivado se creaba y no se veía.**
+    `set_recording()` conserva los visibles que sobreviven, y un canal nuevo no
+    sobrevive: nace. Mostrarlo es presentación —el usuario acaba de pedirlo— así
+    que la decisión quedó en `ui/` y no en `core/`.
+
+- [x] **`psglab/analysis/derivation.py`** · ~~2 stubs~~ · sección "Derivar"
+  - `derive()` es una resta elemento a elemento, y `derive_montage()` se define
+    sobre ella. El canal derivado se agrega **al final** y se llama `"A-B"` si
+    no le dan nombre.
+  - **Las tres decisiones que el esqueleto dejaba abiertas**, tomadas y
+    escritas en el docstring del módulo: la **unidad** tiene que coincidir o se
+    rechaza —restar grados de microvoltios da un número plausible que no
+    significa nada, y no falla solo—; la **clase** se hereda si los dos canales
+    la comparten y si no queda en `OTHER`, porque un "C3-EMG" no es ni una ni
+    otra y decir que sí lo haría filtrar con los parámetros equivocados; y la
+    **frecuencia original** se conserva si coinciden y si no queda en `None`.
+  - **`derive_montage()` es atómico**: si un par falla no se aplica ninguno. Un
+    montaje a medias le muestra al usuario algunos canales derivados y otros
+    no, sin nada que le diga cuáles. Sale gratis de que `derive()` no modifique
+    su entrada: lo que se descarta es el acumulador.
+  - Test: `tests/test_derivation.py`, **29 tests en verde**.
+- [x] **`psglab/analysis/reference.py`** · ~~2 stubs~~ · sección "Rereferenciar"
+  - Con un solo canal de referencia, ese canal queda **idénticamente en cero**;
+    con varios se resta el promedio, que es el caso de las mastoides A1+A2.
+  - `average_reference(kind_only=True)` promedia sólo los EEG, y la prueba de
+    que el flag sirve son **dos** tests y no uno: meter un EMG no cambia el
+    resultado, y con `kind_only=False` **sí** lo cambia. Sin el segundo, el
+    flag podría no estar haciendo nada.
+  - **Lo que no es eléctrico no se toca**, que era la decisión pendiente.
+    Restarle a un termómetro un promedio de microvoltios no falla: produce una
+    temperatura falsa. `Channel.unit` es la fuente de verdad, igual que en el
+    resto del programa.
+  - El canal de referencia **se conserva** aunque quede plano: borrarlo en
+    silencio le cambiaría al usuario la lista de canales sin avisarle.
+  - Test: `tests/test_reference.py`, **19 tests en verde**.
+
+---
+
+## Hito 12: Filtración
+
+- [x] **`psglab/analysis/filters.py`** · ~~3 stubs~~ · V1_F de "Filtración"
+  - **`validate()` rechaza más de lo que rechaza MNE, y eso salió de medir.**
+    Con un pasa-altos de 40 Hz y un pasa-bajos de 10, MNE **acepta el par, arma
+    en silencio una banda eliminada y no emite ningún aviso**. Es una función
+    legítima suya, pero acá los dos números salen de dos campos rotulados
+    "pasa-altos" y "pasa-bajos", así que es un error de tipeo. Con la señal de
+    prueba el resultado volvía **sin atenuar nada**: el investigador cree que
+    filtró y está mirando la señal cruda. Por lo mismo se rechaza el cero, que
+    MNE lee como "sin filtro".
+  - **Y aun así hay un `except` alrededor de MNE**, que no es una guarda de
+    más: la comprobación de Nyquist no alcanza para el notch, porque el notch
+    se arma como una banda y esa banda puede pasarse aunque la frecuencia no.
+    Medido: a 101 Hz de muestreo un notch de 50 Hz está por debajo de Nyquist
+    (50,5) y MNE lo rechaza igual, porque el borde de su banda cae en 50,625.
+  - **Se verifica por PSD y como razón de atenuación**, como decía el plan,
+    pero **con otras frecuencias**: un pasa-bajos de 35 Hz atenúa la componente
+    de 40 Hz apenas **7 veces**, porque cae dentro de su banda de transición
+    —MNE la calcula como un cuarto del corte—. Un test sobre esa pareja estaría
+    midiendo el ancho de la transición de MNE y no que el filtro filtre. Con la
+    componente en 50 Hz la razón es de seis órdenes de magnitud.
+  - **Todo o nada**: se valida el pedido entero antes de tocar un dato. Media
+    señal filtrada y media cruda no se distingue a simple vista de una entera.
+  - **Un canal que no se pidió filtrar vuelve idéntico bit a bit**, y hubo que
+    hacerlo a propósito: el viaje µV → V → µV del puente del hito 10 deja error
+    de punto flotante hasta en las filas que MNE no tocó. Lo encontró el test
+    que afirmaba justamente eso.
+  - **Poder deshacer**: ya estaba, porque el filtrado entra por
+    `_aplicar_analisis()` como todo el menú, y "Volver a la señal original" lo
+    deshace igual que a una derivación.
+  - Ganó una función que el esqueleto no tenía, `settings_for_kinds()`: V1_F
+    pide filtrar **por tipo de canal** y `apply_filters()` recibe filtros por
+    **nombre**, que es la firma general. Traducir de una a la otra es la regla
+    del pliego, así que va en `analysis/` y no en el diálogo.
+  - Test: `tests/test_filters.py`, **53 tests en verde**.
+- [x] **`psglab/ui/filter_panel.py`** · una fila por clase de canal
+  - Sólo aparecen las clases que el registro tiene: ofrecer una fila de ECG en
+    un registro sin ECG le pide al usuario que decida sobre algo que no existe.
+  - **La celda vacía desactiva ese filtro, y es la única forma**, porque el
+    cero está rechazado río abajo.
+  - **Abrir el panel no filtra nada.** Un menú que filtre con sólo abrirse le
+    cambiaría la señal a alguien que entró a mirar qué había.
+  - Test: `tests/test_filter_panel.py`, **19 tests en verde**, más seis por la
+    ventana en `tests/test_entrega.py`.
+
+---
+
+## Hito 13: PSD
+
+- [x] **`psglab/analysis/psd.py`** · ~~3 stubs~~ · V1_F de "Power Spectral Density"
+  - **El caso de test más limpio del proyecto**, y el que `conftest.py` usa
+    para explicar por qué la señal sintética es mejor que un registro real: una
+    onda de 10 Hz da un pico en 10 Hz. Los cuatro canales de la fixture están
+    en frecuencias distintas, así que cada uno es su propio testigo y una
+    permutación de canales se vería.
+  - **La convención de la última ventana incompleta, fijada acá**: una ventana
+    más corta que el segmento de Welch devuelve **NaN**, no un número. Calcular
+    igual daría un valor con otra resolución, indistinguible de los demás en el
+    array y comparable con ellos por error; descartarla desalinearía el array
+    del hipnograma, que es justamente para lo que sirve. NaN conserva el largo y
+    dice que ahí no se midió. La copian `complexity.py` y `connectivity.py`.
+  - **La banda es semiabierta `[desde, hasta)`.** Las convencionales se tocan
+    —delta termina en 4 Hz y theta empieza ahí— y con los dos extremos incluidos
+    ese bin se contaría dos veces, con lo cual las potencias relativas sumarían
+    más de 1 sin que nada fallara.
+  - `WELCH_SEGMENT_SECONDS = 4.0` fija la resolución en 0,25 Hz, que es lo que
+    hace falta para mirar delta desde 0,5 Hz. Con segmentos de 1 s la
+    resolución sería 1 Hz y delta empezaría donde el análisis no puede mirar.
+  - `relative` normaliza contra **toda la PSD calculada** y no contra la suma de
+    las bandas: depende de lo que se midió y no de qué bandas eligió el usuario.
+  - Dos excepciones nuevas: `UnknownPsdMethodError` —Welch y multitaper no dan
+    lo mismo, así que elegir uno en silencio daría un resultado que el usuario
+    no pidió y no puede distinguir del que pidió— e `InvalidBandError`.
+  - Test: `tests/test_psd.py`, **38 tests en verde**.
+- [x] **`psglab/ui/psd_panel.py`** · el panel del espectro
+  - **Acá sí se usa pyqtgraph**, a diferencia del panel de la Übersicht, que se
+    pinta con `QPainter`: un espectro es una curva sobre ejes con escala, y
+    aquél son rectángulos sin sistema de coordenadas.
+  - **El eje de potencia va en logarítmico**, y no es preferencia: la potencia
+    delta de una ventana de sueño lento es de dos a tres órdenes de magnitud
+    mayor que la gamma de la misma ventana.
+  - **Un test encontró que eso se escapaba del panel.** Con el eje logarítmico,
+    `PlotDataItem.getData()` devuelve el log₁₀ de lo que se dibujó, así que una
+    potencia de 1e-6 volvía como -6. El panel guarda ahora la magnitud en su
+    unidad, que es la misma solución que `signal_view.py` usa con los píxeles.
+  - Test: `tests/test_psd_panel.py`, **14 tests en verde**.
+
+---
+
+## Hito 14: Complejidad y conectividad
+
+Los dos que traen dependencias nuevas, juntos porque comparten forma: producen
+**un número por ventana**, igual que el scoring, y por eso tienen dónde
+mostrarse.
+
+- [x] **`psglab/analysis/complexity.py`** · ~~5 stubs~~ · sección "Complejidad"
+  - Las cuatro medidas son de antropy, que **expone exactamente los parámetros
+    que las firmas del esqueleto prometían** —incluida la tolerancia de la
+    entropía de muestra, cuyo valor por omisión es 0,2 × desvío estándar, la
+    convención documentada—. Se verificó antes de comprometerse.
+  - **Las anclas teóricas se cumplen exactas**: una rampa monótona da entropía
+    de permutación 0,000000 y una recta da dimensión de Higuchi 1,0000. Las
+    cuatro se verificaron contra la implementación **antes** de escribirlas
+    como tests.
+  - **Dos van normalizadas y dos no.** Lempel-Ziv y la entropía de permutación
+    sí, porque sin normalizar dependen del largo de la ventana y dos registros
+    a frecuencias distintas no se podrían comparar. Higuchi va de 1 a 2 por
+    construcción y normalizarla sería inventarle un techo.
+  - `MEASURES` es la constante que faltaba: sin ella el módulo aceptaba
+    cualquier cadena y fallaba tarde, con un `KeyError`.
+  - **Una señal constante da NaN** en Higuchi y en la entropía de muestra, y es
+    correcto: la dimensión fractal de algo sin variación no está definida. Un
+    canal desconectado es un caso real, así que está documentado que ahí el NaN
+    significa "esta medida no existe para esta señal" y no "faltaron datos".
+  - Test: `tests/test_complexity.py`, **34 tests en verde**.
+- [x] **`psglab/analysis/connectivity.py`** · ~~3 stubs~~ · sección "Conectividad"
+  - **La predicción del plan era falsa y medirla lo mostró.** Se esperaba que
+    dos canales idénticos dieran wPLI 0; dan 0,39. Con señales exactamente
+    iguales la parte imaginaria del espectro cruzado es cero, wPLI **divide por
+    ella**, y lo que sale es ruido numérico.
+  - La afirmación correcta no es sobre un caso degenerado sino sobre el
+    escenario real que el docstring describe: dos electrodos que captan la
+    misma fuente con su propio ruido dan **coherencia 0,74 y wPLI 0,39**, y dos
+    señales con desfase real dan **coherencia 0,79 y wPLI 1,00**. La coherencia
+    no las distingue y wPLI sí, que es exactamente la inmunidad al volume
+    conduction que justifica el módulo. Son dos tests, uno por mitad.
+  - `EPOCH_SECONDS = 5.0` se eligió por resolución y no por tiempo: el costo es
+    plano entre 3 y 10 s, y 5 s dan 0,20 Hz —alcanza para delta desde 0,5 Hz— y
+    seis épocas por ventana para que wPLI promedie sobre algo.
+  - mne-connectivity devuelve sólo el triángulo inferior; el módulo lo refleja,
+    porque promete una matriz simétrica y quien la lea no tiene por qué saber
+    de qué lado quedó cada par.
+  - Test: `tests/test_connectivity.py`, **33 tests en verde**.
+- [x] **`psglab/ui/metric_panel.py`** · una métrica por ventana a lo largo de la
+      noche
+  - **Sirve a los dos módulos**, porque los dos producen esa forma. Es lo que
+    los dos docstrings piden: poder cruzarla con el hipnograma.
+  - **Los NaN se dibujan como hueco y no como cero**, que es lo que hace
+    utilizable la convención de la ventana incompleta: un cero es un valor de
+    complejidad plausible y bajo, indistinguible a ojo de una medición real.
+  - El eje va en **base 1**, como el histograma: desde 0 quedaría desplazado una
+    ventana respecto de él.
+  - Test: `tests/test_metric_panel.py`, **14 tests en verde**.
+- [x] **`psglab/ui/connectivity_panel.py`** · el mapa de calor de la matriz
+  - **La matriz es la salida real del requisito**: mostrar sólo su promedio
+    diría cuánta conectividad hay pero no entre qué canales.
+  - Los ejes llevan **los nombres de los canales**: sin eso el mapa es un cuadro
+    de colores.
+  - **La escala de color es fija de 0 a 1.** Con escala automática, dos ventanas
+    con conectividades muy distintas se verían iguales, y comparar ventanas es
+    justamente lo que el investigador hace.
+  - Test: `tests/test_connectivity_panel.py`, **10 tests en verde**.
+
+> **Lo que costó cada medida, medido** sobre una ventana de 30 s a 256 Hz y
+> extrapolado a las 2650 de un registro real. Es lo que decidió la interfaz:
+>
+>     higuchi_fractal_dimension     0,07 ms/ventana  ->    0,2 s la noche
+>     permutation_entropy           0,14 ms/ventana  ->    0,4 s la noche
+>     lempel_ziv_complexity         1,69 ms/ventana  ->    4,5 s la noche
+>     conectividad (wPLI)           7,10 ms/ventana  ->    0,3 min la noche
+>     sample_entropy              124,31 ms/ventana  ->  5,5 min la noche
+>
+> **Sólo la entropía de muestra es lenta**, así que la respuesta fue acotarla y
+> no montar infraestructura de hilos: `complexity_by_window()` la acepta —es
+> una función de biblioteca y un script puede esperar— y la interfaz no la
+> ofrece para el barrido. La política es de la interfaz, no del módulo.
+
+---
+
+## Hito 15: ICA
+
+- [x] **`psglab/analysis/ica.py`** · ~~4 stubs~~ · V5_F de "Filtración"
+  - **El hueco del modelo de datos se resolvió sin tocarlo.**
+    `component_topography()` devuelve **los pesos por canal** del componente,
+    normalizados, que es el dato con el que se reconoce un artefacto: un
+    parpadeo tiene peso alto en los frontales y bajo en los occipitales. Lo que
+    no devuelve es un mapa sobre el cuero cabelludo, porque eso necesitaría las
+    coordenadas de cada electrodo y `Channel` no las lleva. Agregarlas es una
+    decisión sobre el modelo de datos de la Parte 1, no algo para resolver de
+    paso; los pesos alcanzan para lo que la vista existe.
+  - **El test que importa no verifica que MNE devuelva algo, sino que devuelva
+    lo que se puso.** Se mezclan dos fuentes conocidas —alfa de 10 Hz y un
+    parpadeo de 0,3 Hz— con pesos conocidos por canal, y se comprueba que ICA
+    recupere esos pesos con tolerancia 0,15. Después se quita el componente del
+    parpadeo y se mide **por PSD** que su potencia caiga diez veces sin que el
+    alfa se mueva. Sin la segunda mitad, un `apply_ica()` que borrara todo
+    pasaría la primera.
+  - **La semilla es fija** (`RANDOM_STATE`). ICA es estocástica: sin ella el
+    mismo registro da componentes distintos en cada corrida, en otro orden y
+    con otro signo, y un investigador que rehace un análisis tiene que obtener
+    lo mismo. Hay un test que corre la descomposición dos veces.
+  - Ni el **orden** ni el **signo** de los componentes se afirman: son
+    arbitrarios por construcción. Los tests buscan "el componente frontal" en
+    vez de suponer que es el 0, y comparan valores absolutos.
+  - **Se ajusta sobre los EEG y sólo sobre ellos**: meter un termómetro en la
+    descomposición no tiene sentido físico y ensuciaría todos los componentes.
+    `apply_ica()` devuelve el registro entero con el resto intacto.
+  - Test: `tests/test_ica.py`, **29 tests en verde**.
+- [x] **`psglab/ui/ica_panel.py`** · el panel de inspección
+  - Diseñado alrededor de la advertencia del módulo: quitar el componente
+    equivocado modifica la señal de forma irreversible. De ahí salen sus tres
+    reglas: **ninguno viene marcado de fábrica** —sugerir cuál quitar sería
+    adivinar por el usuario—, **nada se aplica solo**, y la topografía se
+    muestra antes de poder marcar nada.
+  - **Base 1 al mostrar, base 0 al devolver**, que es lo que `apply_ica()`
+    espera: equivocar esa conversión quitaría un componente distinto del que el
+    usuario marcó, que es justamente el error irreversible.
+  - Recargar **desmarca lo de antes**: una marca de una descomposición vieja
+    aplicada a otra quitaría un componente que el usuario nunca miró.
+  - Pasa por `_aplicar_analisis()`, el camino único del menú, así que se puede
+    volver a la señal original. Es la única red que hay.
+  - Test: `tests/test_ica_panel.py`, **15 tests en verde**.
+
+---
+
+## Hito 16: Impedancia
+
+Último porque es el único que arranca con una decisión del cliente sin cerrar.
+
+- [x] **`psglab/analysis/impedance.py`** · ~~4 stubs~~ · V1_F de "Impedancia"
+  - **Media pregunta del cliente quedó respondida midiendo, no preguntando**:
+    **BrainVision sí las trae** —el `.vhdr` tiene una tabla
+    `Impedance [kOhm] at hh:mm:ss :` en su sección `[Comment]`, ya en kΩ, y MNE
+    la parsea en `raw.impedances`— y **EDF no puede traerlas**: el estándar no
+    tiene ningún campo de impedancia, ni en EDF ni en EDF+. Para un EDF
+    `read_impedances()` devuelve `{}` **siempre**, y eso convierte la vía del
+    archivo aparte de extra en obligatoria: es la única disponible para la
+    mitad del material.
+  - **Las tres vías están implementadas**, que era lo decidido. La marca
+    `PENDIENTE DE` **no se saca**: falta saber cuál usa el laboratorio, y eso
+    decide qué se le ofrece primero al usuario, no qué se puede hacer.
+  - **"No medido" no es "0 kΩ", y el módulo entero gira alrededor de eso.** Un
+    electrodo suelto que nadie midió es el caso peligroso, porque cero es el
+    mejor valor posible: si apareciera como cero pasaría por perfecto. El
+    `.vhdr` los escribe `???` y MNE los entrega como `nan`; se omiten.
+  - **El límite es inclusivo**: exactamente 5 kΩ con un límite de 5 kΩ pasa. El
+    límite es el máximo aceptable, no el primer valor rechazado, que es como lo
+    lee cualquiera que escriba "impedancia menor a 5".
+  - **`impedance_report()` ganó un argumento**, y es una decisión de firma como
+    la de `stage_durations_seconds()` en el hito 5: prometía distinguir tres
+    estados y **con el diccionario solo no podía**, porque los canales sin dato
+    se omiten a propósito. `channels` es lo que le permite saber qué falta.
+  - Test: `tests/test_impedance.py`, **48 tests en verde**.
+- [x] **`psglab/readers/brainvision.py`** · guarda las impedancias
+  - Ignoraba la sección `[Comment]` entera. Ahora vuelca lo que MNE parsea a
+    `Recording.metadata`, que es donde `core/recording.py` ya anticipaba que
+    `impedance.py` las buscaría.
+  - Filtra tres cosas: los `nan` de los no medidos, **`Ref` y `Gnd`** —que MNE
+    incluye y no son canales del registro—, y las unidades que no sean kΩ,
+    porque leer ohmios como kiloohmios daría mil veces menos y ningún canal
+    parecería fallar nunca.
+- [x] **`psglab/ui/impedance_panel.py`** · la tabla y el informe
+  - Es donde vive **la tercera vía**: `analysis/` no conoce Qt, así que cargar
+    a mano sólo puede estar acá.
+  - La celda sin valor dice **"sin medir"**, ni "0" ni en blanco: un cero
+    pasaría por el mejor valor posible y una celda vacía se lee como un olvido
+    de la pantalla, no del electrodo.
+  - Importar de un archivo **agrega, no reemplaza**: un laboratorio puede tener
+    medido medio montaje.
+  - Test: `tests/test_impedance_panel.py`, **16 tests en verde**.
+
+> **Lo que sigue abierto, y ahora está mejor planteado.** La pregunta ya no es
+> "de dónde salen" sino **cuál de las tres usa el laboratorio**, y de eso
+> depende únicamente qué se le ofrece primero al investigador. El día que se
+> conteste: sacar la marca `PENDIENTE DE` del docstring, y **reescribir en el
+> mismo commit** la sección "Ambigüedad abierta" de
+> [`analysis/README.md`](../psglab/analysis/README.md) —que sólo pasa el
+> chequeo porque nombra este módulo— y la sección 8 de
+> [`EXPLICACION.txt`](EXPLICACION.txt).
+
+---
+
+## Hito 17: Cierre de la Parte 2
+
+La lista equivalente a la del [hito 8](#hito-8-cierre-de-la-parte-1), y por el
+mismo motivo: **la Parte 2 se dio por terminada porque no quedaban stubs, que
+es exactamente la medida que este archivo advierte que no sirve**. La Parte 1
+se dio por cerrada con esa misma medida y estaba mal: el hito 9 fueron seis
+requisitos hechos en `tools/` que `ui/` no consumía.
+
+Correrla destapó lo suyo antes de terminar de escribirse, y es de la misma
+clase.
+
+- [x] **El CI, corrido por primera vez sobre los hitos 16 y 12.**
+      `.github/workflows/ci.yml` dispara con `pull_request` contra `Add` y
+      `Master`, y los PR #19 y #20 estaban apilados sobre ramas de trabajo:
+      **tenían cero checks**. Dos de los cuatro hitos que quedaban sin mergear
+      nunca se habían verificado fuera de una máquina Windows.
+      - Las seis combinaciones en verde, y las licencias también.
+      - **Reapuntar un PR no alcanza para disparar el CI**: `pull_request` corre
+        con `opened`, `synchronize` y `reopened`, y cambiar la base es `edited`.
+        Hay que cerrarlo y reabrirlo.
+- [x] **Ningún stub, y ningún test salteado por falta de implementación.**
+      ```bash
+      grep -r "raise NotImplementedError" psglab --include=*.py | wc -l
+      ./.venv/Scripts/python.exe -m pytest -rs
+      ```
+- [x] **Los requisitos de la Parte 2 de [`TRAZABILIDAD.md`](TRAZABILIDAD.md),
+      recorridos por la ventana.** Los ocho tienen su sección en
+      `tests/test_entrega.py` —el menú Análisis, deshacer, PSD, complejidad y
+      conectividad, ICA, impedancia y filtración—.
+      - **Es la diferencia con el hito 8, y por eso esta lista encontró menos
+        de ese lado**: allá las pruebas de entrega se escribieron al final y
+        destaparon seis huecos de golpe; en la Parte 2 se fueron escribiendo
+        hito por hito, así que el hueco no llegó a acumularse.
+- [x] **Cada análisis, sobre el registro real de `data/`** — 22 h, 7 canales,
+      100 Hz. **Es el ítem que encontró todo lo demás**, y ningún chequeo
+      automático puede sustituirlo: el `.gitignore` excluye los registros de
+      participantes a propósito, así que se corre a mano.
+      - **Filtrar con los valores sugeridos fallaba**, y es el hallazgo del
+        hito. Ver abajo.
+      - Lo demás anda: PSD de la noche 4,6 s · re-referenciar 0,3 s · derivar
+        0,2 s · ICA 4,9 s · conectividad de una ventana 1,4 s.
+      - **Ningún test de `analysis/` tocaba ese registro.** Los quince que lo
+        leen son de lectura, tipado de canal y exportación: la Parte 2 entera
+        se había verificado sobre diez minutos de senoides sintéticas.
+- [x] **Los sugeridos de filtrado, adaptados al registro.** *(El hallazgo, y es
+      de la clase del hito 9: cada mitad correcta y el conjunto sin funcionar.)*
+      - El registro es de 100 Hz, Nyquist cae en 50 y **el notch sugerido es
+        exactamente 50**, así que `validate()` lo rechaza con razón. El
+        investigador abría el panel, veía los valores cargados, apretaba
+        Aplicar sin tocar nada y recibía un cartel de error. El pasa-bajos de
+        100 Hz del EMG tiene el mismo problema por debajo de 200 Hz.
+      - **100 Hz no es un caso raro**: es lo que usa buena parte del
+        equipamiento clínico. Toda la suite usaba 256 Hz, así que nada lo veía.
+      - `default_for()` gana un segundo argumento opcional, la frecuencia de
+        muestreo, y **descarta lo que no entra en vez de recortarlo**. El motivo
+        es físico: por encima de Nyquist el registro no contiene nada, así que
+        el filtro no filtraría nada aunque MNE pudiera construirlo. Recortarlo
+        a un valor arbitrario sería inventarle al investigador un criterio
+        clínico que nadie eligió, disfrazado de valor por defecto.
+      - El panel dice a qué frecuencia se muestreó el registro y hasta dónde
+        llega. Sin eso, **una celda vacía por imposibilidad se lee igual que una
+        que el usuario borró**, que es la misma distinción que el hito 16 hizo
+        con "sin medir".
+      - Ocho tests lo atrapan, en las tres capas, y se los vio fallar antes de
+        darlos por buenos.
+- [x] **La deriva de `requirements-analysis.txt`, en seis archivos.** Decían que
+      **ningún test importa** esas dependencias y que el CI las instala **sólo
+      en el job de licencias**. Las dos mitades son falsas desde el hito 10.
+      - **La consecuencia era cara**: quien siguiera el `README.md` e instalara
+        sólo los dos primeros requirements se comía `ModuleNotFoundError` en
+        `test_complexity.py`, `test_connectivity.py` y parte de
+        `test_entrega.py`. Los imports son diferidos a nivel de función, así que
+        la recolección pasa y el fallo sale recién al ejecutarse el test, sin
+        decir que falta un requirements.
+      - `ci.yml` se contradecía consigo mismo: el comentario del job de
+        licencias decía "que el job de tests no instala" y el job de tests las
+        instala.
+- [x] **Licencias verificadas**, que el pliego pide antes de cada release. El
+      bloque nuevo, fechado, en [`ARQUITECTURA.md`](ARQUITECTURA.md).
+      ```bash
+      python -m piplicenses --format=markdown --order=license
+      ```
+- [x] **[`EXPLICACION.txt`](EXPLICACION.txt), sección 8.** Decía *"Ni EDF ni
+      BrainVision las traen siempre"*. El hito 16 midió algo más fuerte: **EDF
+      no puede traerlas nunca**, porque el estándar no tiene el campo. Es el
+      documento que lee el cliente y la frase le ocultaba media respuesta.
+
+### Lo que este hito midió y no arregló
+
+Dos cosas quedan con números y sin tocar, porque son trabajo de diseño y cada
+una merece su hito.
+
+- [x] **La memoria.** *(Atendida en el [hito 18](#hito-18-escala): las copias
+      evitables se sacaron y el `MemoryError` ya sale como cartel. Lo que
+      sigue abierto está anotado allá.)* La señal vive entera como `float64`
+      en RAM y filtrar llegaba
+      a tener **cinco copias completas vivas a la vez** —`mne_bridge.py` dos,
+      más la que sostiene la ventana principal como "señal original" y la que se
+      está viendo—. Medido sobre el registro real: 445 MB por copia, **1337 MB
+      de pico**. Proyectado a los 32 canales que declara `data/test.vhdr`, un
+      registro de 8 horas daría entre 9 y 37 GB.
+      - Y **`MemoryError` no hereda de `PsgLabError`**, así que atravesaría el
+        `except` de `_aplicar_analisis()` y saldría como traza de Python, que es
+        justo lo que todo el proyecto se esfuerza en evitar.
+      - Detalle barato de ahí: `apply_filters()` con todos los filtros
+        desactivados paga tres copias completas para no hacer nada.
+- [x] **Los 21 s de calentamiento de numba.** *(Atendidos en el
+      [hito 18](#hito-18-escala): no se pueden eliminar sin hilos, pero ya no
+      parecen un cuelgue.)* La primera llamada de complejidad
+      de cada sesión congela la ventana ~21 s compilando, **cualquiera sea la
+      medida**. La tabla de costos de `complexity.py` mide sólo el cálculo, y
+      `MEDIDAS_RAPIDAS` se eligió justamente para que la ventana no se congele:
+      el calentamiento la congela igual.
+      - Ya en caliente, sobre las 2650 ventanas reales y un canal: permutación
+        1,2 s · Higuchi 0,4 s · Lempel-Ziv 11,6 s · entropía de muestra 128 s
+        —esta última es la que ya está fuera del menú, y con razón—.
+
+---
+
+## Hito 18: Escala
+
+Los dos números que el [hito 17](#hito-17-cierre-de-la-parte-2) dejó medidos y
+sin tocar. El problema de fondo no cambia —la señal vive entera en memoria como
+`float64`— pero sí cambia **cuántas veces se la copia para no nada** y, sobre
+todo, **cómo falla cuando no entra**.
+
+### Lo que costaba, y lo que cuesta
+
+Medido sobre `data/SC4001E0-PSG.edf` (22 h, 7 canales, 100 Hz), donde una copia
+son **445 MB**:
+
+| Operación | Antes | Ahora |
+|---|---|---|
+| `apply_filters`, todos los canales | 3,0 copias · 1337 MB | **2,3 · 1019 MB** |
+| `apply_filters`, un canal | 3,0 · 1336 MB | **2,0 · 890 MB** |
+| `apply_filters`, sin ningún filtro activo | 3,0 · 1336 MB | **1,0 · 445 MB** |
+| `derive_montage`, 4 pares | 3,1 · 1399 MB | **2,1 · 954 MB** |
+| `average_reference` | 1,1 | 1,1 |
+
+- [x] **La copia que `from_raw()` hacía de más.** `raw.get_data()` ya devuelve
+      un array fresco e independiente del buffer de MNE —medido: no comparte
+      memoria con `raw._data` y escribirle no lo toca—, así que el
+      `np.array(..., copy=True)` que venía después **duplicaba una copia recién
+      hecha**. Es la que subía el pico de `apply_filters()` de dos a tres.
+- [x] **Filtrar sin filtros costaba tres copias para no cambiar nada.** Abrir el
+      panel, vaciar las celdas y aplicar es una forma legítima de decir "dejala
+      como está", y hacía el viaje entero de ida y vuelta por MNE. Ahora se
+      copia y listo.
+- [x] **`derive_montage()` copiaba el registro una vez por par.** Encadenaba
+      `derive()`, y cada llamada hacía su propio `np.vstack` de la matriz
+      entera, cada vez más grande. Ahora acumula las filas nuevas y arma la
+      matriz **una sola vez**.
+      - **Se conservó poder derivar de una derivación anterior**, que era lo que
+        el encadenado daba gratis y que ningún test cubría. Ahora sí lo cubren
+        dos.
+- [x] **`MemoryError` salía como traza de Python**, y era el único error del
+      programa que rompía la promesa de `utils/errors.py`. No hereda de
+      `PsgLabError`, así que atravesaba el `except` de la ventana principal —los
+      catorce que hay—. Y es el más probable de todos en un registro grande.
+      - `RecordingTooLargeError` y el contextmanager `memoria_suficiente()`, que
+        envuelve las cinco reservas grandes del programa: el puente con MNE en
+        las dos direcciones, el filtrado, el re-referenciado y las derivaciones.
+      - **Atraparlo y seguir es seguro acá**, y no siempre lo es: lo que falla es
+        una sola reserva de numpy, que se libera al fallar, y ninguna función de
+        `analysis/` modifica su entrada. El cartel lo dice: *"El registro sigue
+        abierto y sin cambios"*, y hay un test que lo verifica.
+- [x] **Los 21 s de calentamiento de numba, hechos legibles.** No se pueden
+      eliminar sin meter hilos, que el programa no tiene en ninguna parte. Lo
+      que sí se puede es que **no parezca que se colgó**: cursor de espera y
+      aviso en la barra de estado mientras dura el cálculo.
+      - Es la misma preocupación que llevó a sacar la entropía de muestra del
+        menú (`MEDIDAS_RAPIDAS`), y elegir medidas rápidas no alcanzaba: el
+        calentamiento lo paga la primera llamada de cada sesión, sea cual sea la
+        medida.
+
+### `float32` se evaluó y se descartó, con medición
+
+Habría partido la memoria al medio, y **la decisión fue que no**. El motivo no
+es la precisión —16 bits de ADC entran de sobra en la mantisa de 24— sino que
+**MNE trabaja siempre en `float64`**: al pasarle un array `float32` lo convierte,
+y esa conversión es una copia completa más.
+
+```
+RawArray desde float32: pico 224 MB, queda en float64
+RawArray desde float64: pico  28 MB, queda en float64   (reusa el array)
+```
+
+O sea que `float32` **baja lo que está en reposo y sube el pico**, que es
+justamente donde ocurre el `MemoryError`. Mueve el problema hacia el peor lado.
+Queda anotado en [`ARQUITECTURA.md`](ARQUITECTURA.md) para que no se vuelva a
+proponer sin este número.
+
+### Lo que sigue sin resolverse
+
+- [ ] **La señal sigue entera en memoria, y la ventana principal guarda dos.**
+      El registro original —el que hace posible "Volver a la señal original"— y
+      el que se está viendo. Sobre 32 canales y 8 horas son 1,9 GB cada uno
+      antes de empezar a analizar. Bajarlo de verdad pide otra cosa: leer por
+      tramos, o releer el archivo al deshacer en vez de guardarlo. Las dos son
+      decisiones de diseño con su propio costo.
+- [ ] **Nada corre fuera del hilo de la interfaz.** El cursor de espera avisa,
+      pero la ventana sigue congelada. Un `QThread` para los barridos de la
+      noche es la solución de fondo, y hoy el programa no tiene ninguno.
 
 ---
 

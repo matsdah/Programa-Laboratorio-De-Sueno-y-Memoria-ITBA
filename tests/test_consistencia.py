@@ -19,7 +19,7 @@ request.
 import ast
 import pathlib
 import re
-import unicodedata as _ud
+import unicodedata
 
 import pytest
 
@@ -31,6 +31,17 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "trece": 13, "catorce": 14, "quince": 15, "dieciséis": 16, "diecisiete": 17,
     "dieciocho": 18, "diecinueve": 19, "veinte": 20, "veintiuno": 21,
     "veintidós": 22, "veintitrés": 23, "veinticuatro": 24, "veinticinco": 25,
+    "veintiséis": 26, "veintisiete": 27, "veintiocho": 28, "veintinueve": 29,
+    "treinta": 30, "treinta y uno": 31, "treinta y un": 31, "treinta y dos": 32, "treinta y tres": 33,
+    "treinta y cuatro": 34, "treinta y cinco": 35, "treinta y seis": 36,
+    "treinta y siete": 37, "treinta y ocho": 38, "treinta y nueve": 39,
+    # La tabla se cortaba acá y la suite pasó de 39 a 41 archivos en un solo
+    # hito. La forma apocopada —"cuarenta y un archivos", que es la correcta
+    # delante de un sustantivo masculino— ya estaba prevista para los treinta.
+    "cuarenta": 40, "cuarenta y uno": 41, "cuarenta y un": 41,
+    "cuarenta y dos": 42, "cuarenta y tres": 43, "cuarenta y cuatro": 44,
+    "cuarenta y cinco": 45, "cuarenta y seis": 46, "cuarenta y siete": 47,
+    "cuarenta y ocho": 48, "cuarenta y nueve": 49, "cincuenta": 50,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
@@ -74,6 +85,30 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     # cubiertos contaba 9 stubs como verificados mientras nadie exigía un test
     # para ellos. Entraron cuando el archivo pasó a cubrirlos de verdad, que es
     # lo que `test_la_tabla_de_cobertura_declara_lo_que_el_test_importa` exige.
+    # `test_entrega.py` no cubre un módulo: recorre el camino completo del
+    # usuario por `MainWindow`. Se le declaran los módulos que ejercita de
+    # punta a punta, que son los que dejarían de estar verificados si el
+    # archivo se apagara.
+    "test_overview_panel.py": ("psglab/ui/overview_panel.py",),
+    "test_filters.py": ("psglab/analysis/filters.py",),
+    "test_filter_panel.py": ("psglab/ui/filter_panel.py",),
+    "test_impedance.py": ("psglab/analysis/impedance.py",),
+    "test_impedance_panel.py": ("psglab/ui/impedance_panel.py",),
+    "test_ica.py": ("psglab/analysis/ica.py",),
+    "test_ica_panel.py": ("psglab/ui/ica_panel.py",),
+    "test_complexity.py": ("psglab/analysis/complexity.py",),
+    "test_connectivity.py": ("psglab/analysis/connectivity.py",),
+    "test_metric_panel.py": ("psglab/ui/metric_panel.py",),
+    "test_connectivity_panel.py": ("psglab/ui/connectivity_panel.py",),
+    "test_psd.py": ("psglab/analysis/psd.py",),
+    "test_psd_panel.py": ("psglab/ui/psd_panel.py",),
+    "test_derivation.py": ("psglab/analysis/derivation.py",),
+    "test_reference.py": ("psglab/analysis/reference.py",),
+    "test_mne_bridge.py": ("psglab/analysis/mne_bridge.py",),
+    "test_entrega.py": (
+        "psglab/app.py",
+        "psglab/ui/main_window.py",
+    ),
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",
@@ -127,11 +162,15 @@ def _nombre_de_excepcion(nodo: ast.Raise) -> str:
     return excepcion.id if isinstance(excepcion, ast.Name) else ""
 
 
-def stubs_de_la_parte_1() -> int:
-    """Stubs pendientes de la Parte 1. `analysis/` es la Parte 2 y no cuenta."""
-    return sum(
-        contar_stubs(f) for f in modulos_del_paquete() if "analysis" not in f.parts
-    )
+def stubs_pendientes() -> int:
+    """Todos los stubs del paquete, de la Parte 1 y de la Parte 2.
+
+    **Antes excluía `analysis/`**, y era deliberado: la Parte 2 estaba fuera del
+    TODO, así que contarla habría hecho fallar la comparación contra un
+    documento que no la nombraba. Cerrada la Parte 1, el TODO pasa a ser la cola
+    de la Parte 2 y ese filtro dejaba sin control justo lo único que falta.
+    """
+    return sum(contar_stubs(f) for f in modulos_del_paquete())
 
 
 def docstring_de(archivo: pathlib.Path) -> str:
@@ -184,6 +223,33 @@ def archivos_markdown() -> list[pathlib.Path]:
     )
 
 
+def documentos_versionados() -> list[pathlib.Path]:
+    """Los `.md` **y `docs/EXPLICACION.txt`**, que es documentación igual.
+
+    Estaba afuera de todos los chequeos de prosa por ser un `.txt`, y la
+    segunda auditoría lo encontró siendo el **último sobreviviente** de la
+    afirmación de que el programa no abría: la misma frase se corrigió en
+    `CLAUDE.md` y en el `README.md` dos veces, y acá siguió intacta. Es, además,
+    el documento escrito para el cliente.
+    """
+    return [*archivos_markdown(), RAIZ / "docs" / "EXPLICACION.txt"]
+
+
+def sin_acentos(texto: str) -> str:
+    """El texto en minúsculas y sin tildes ni diéresis.
+
+    `EXPLICACION.txt` se escribe en ASCII a propósito —hay un chequeo que lo
+    exige—, así que buscarle "ambigüedad abierta" con diéresis no podía
+    encontrar nada nunca. Comparar normalizado es lo que hace que incluirlo
+    sirva de algo.
+    """
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFD", texto.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+
+
 def existe_respetando_mayusculas(destino: pathlib.Path) -> bool:
     """Si el archivo existe **con exactamente esa caja** en el nombre.
 
@@ -220,15 +286,18 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
     implementa un módulo y no actualiza el TODO, la diferencia salta acá.
     """
     todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
-    en_codigo = stubs_de_la_parte_1()
+    en_codigo = stubs_pendientes()
 
     en_items = sum(int(n) for n in re.findall(r"·\s*(\d+) stubs?", todo))
     assert en_items == en_codigo, (
         f"los ítems del TODO suman {en_items} stubs y en el código hay {en_codigo}"
     )
 
+    # **`\d+` y no `\d`.** Con un solo dígito, la fila de un hito 10 no
+    # matcheaba y sus stubs desaparecían de la suma **en silencio**, que es peor
+    # que fallar: la tabla decía una cosa y el chequeo comparaba otra.
     filas = re.findall(
-        r"\|\s*\[(\d)\.([^\]]*)\]\([^)]*\)\s*\|\s*[\d—-]+\s*\|\s*(\d+)\s*\|", todo
+        r"\|\s*\[(\d+)\.([^\]]*)\]\([^)]*\)\s*\|\s*[\d—-]+\s*\|\s*(\d+)\s*\|", todo
     )
     en_filas = sum(int(fila[2]) for fila in filas)
     assert en_filas == en_codigo, (
@@ -241,11 +310,7 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
     total = re.search(r"\|\s*\|\s*\*\*(\d+)\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|", todo)
     assert total is not None, "no se encontró la fila de totales de la tabla de progreso"
     modulos_declarados, stubs_declarados = int(total.group(1)), int(total.group(2))
-    modulos_reales = sum(
-        1
-        for f in modulos_del_paquete()
-        if "analysis" not in f.parts and contar_stubs(f) > 0
-    )
+    modulos_reales = sum(1 for f in modulos_del_paquete() if contar_stubs(f) > 0)
     assert stubs_declarados == en_codigo, (
         f"la fila de totales dice {stubs_declarados} stubs y en el código hay {en_codigo}"
     )
@@ -255,7 +320,11 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
 
     # El texto de arriba del documento repite el número: si se actualiza la
     # tabla y no el párrafo, el primero que lo lea se lleva el dato viejo.
-    parrafo = re.search(r"Quedan \*\*(\d+) stubs\*\*.*?en (\d+) módulos", todo, re.S)
+    # **`módulos?` y no `módulos`.** Con un solo módulo se escribe "en 1
+    # módulo", en singular, y el chequeo se caía diciendo que faltaba el
+    # resumen — que estaba. Es el mismo tropiezo que el de los números de
+    # varias palabras: el castellano flexiona y el regex no lo contemplaba.
+    parrafo = re.search(r"Quedan \*\*(\d+) stubs?\*\*.*?en (\d+) módulos?", todo, re.S)
     assert parrafo is not None, "no se encontró el resumen de stubs al principio del TODO"
     assert int(parrafo.group(1)) == en_codigo, (
         f"el resumen dice {parrafo.group(1)} stubs y en el código hay {en_codigo}"
@@ -263,6 +332,56 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
     assert int(parrafo.group(2)) == modulos_reales, (
         f"el resumen dice {parrafo.group(2)} módulos y hay {modulos_reales}"
     )
+
+
+def test_un_hito_terminado_figura_como_cerrado():
+    """La columna de estado de la tabla de progreso no la miraba nadie.
+
+    **Y estaba mal.** El hito 10 quedó en ⬜ con sus siete ítems tildados y cero
+    stubs: se cerró y nadie tocó la tabla. Los chequeos comparaban las cuentas
+    de stubs, que son números, y el ✅ es texto, así que pasaba.
+
+    La regla es la que cualquiera daría por sentada al leer la tabla: **un hito
+    sin ítems pendientes y sin stubs está cerrado**.
+
+    **La dirección contraria no se exige**, y este mismo chequeo mostró por qué
+    al escribirse: el hito 0 figura cerrado y tiene un ítem sin tildar, que es
+    la pregunta abierta del origen de las impedancias, bajo un encabezado que
+    dice "Sigue abierta". No es trabajo pendiente sino una pregunta al cliente
+    anotada donde corresponde. Un hito puede quedar cerrado con una de ésas
+    colgando.
+    """
+    todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
+
+    # La sección de cada hito, para poder contar sus ítems.
+    secciones: dict[str, str] = {}
+    actual: str | None = None
+    for linea in todo.splitlines():
+        encabezado = re.match(r"^## Hito (\d+):", linea)
+        if encabezado is not None:
+            actual = encabezado.group(1)
+            secciones[actual] = ""
+        elif actual is not None:
+            secciones[actual] += linea + "\n"
+
+    problemas: list[str] = []
+    for numero, nombre, _, stubs, estado in re.findall(
+        r"\|\s*\[(\d+)\.([^\]]*)\]\([^)]*\)\s*\|\s*([\d—-]+)\s*\|\s*(\d+)\s*\|\s*([^|]*)\|",
+        todo,
+    ):
+        cuerpo = secciones.get(numero)
+        if cuerpo is None:
+            continue
+        pendientes = len(re.findall(r"^\s*- \[ \]", cuerpo, re.M))
+        cerrado = "✅" in estado
+        if pendientes == 0 and int(stubs) == 0 and not cerrado:
+            problemas.append(
+                f"el hito {numero} ({nombre.strip()}) no tiene ítems pendientes "
+                "y la tabla no lo da por cerrado"
+            )
+        # Ver el docstring: un hito cerrado puede llevar un ítem sin tildar si
+        # es una pregunta abierta y no trabajo pendiente.
+    assert not problemas, "\n".join(problemas)
 
 
 def test_las_cuentas_de_los_readme_de_carpeta_coinciden_con_el_codigo():
@@ -338,7 +457,11 @@ def test_lo_que_tests_readme_dice_de_la_suite_es_cierto():
 
     # "la recolección falla en los ocho archivos que importan psglab": el número
     # va en palabras y puede quedar partido por un salto de línea.
-    cantidad = re.search(r"en los\s+(\w+)\s+archivos", texto)
+    # **Varias palabras, no una.** En español los números a partir de treinta
+    # y uno se escriben separados, y con `\w+` la frase dejaba de matchear
+    # al pasar de treinta archivos de test: el chequeo se caía con un
+    # mensaje sobre la frase que faltaba, y la frase estaba.
+    cantidad = re.search(r"en los\s+([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+)*?)\s+archivos", texto)
     if cantidad is None:
         problemas.append("tests/README.md ya no dice en cuántos archivos falla la recolección")
     else:
@@ -352,12 +475,19 @@ def test_lo_que_tests_readme_dice_de_la_suite_es_cierto():
     # mención cualquiera: buscar la subcadena en el archivo entero daba verde
     # aunque la fila no existiera, porque el nombre aparece en el ejemplo de
     # `python -m pytest tests/test_scoring.py` de la primera sección.
-    en_la_tabla = {
+    # **Lista y no conjunto.** Comparando conjuntos, una fila repetida es
+    # invisible: la segunda auditoría encontró `test_occupancy.py` dos veces,
+    # con descripciones distintas, y borrar la repetida no movió la suite.
+    filas = [
         nombre
         for linea in texto.splitlines()
         if linea.lstrip().startswith("|")
         for nombre in re.findall(r"`(test_\w+\.py)`", linea)
-    }
+    ]
+    repetidas = sorted({n for n in filas if filas.count(n) > 1})
+    if repetidas:
+        problemas.append(f"tests/README.md repite filas en su tabla: {repetidas}")
+    en_la_tabla = set(filas)
     for archivo in archivos:
         if archivo.name not in en_la_tabla:
             problemas.append(f"tests/README.md no lista {archivo.name} en su tabla")
@@ -541,7 +671,7 @@ def test_la_explicacion_se_mantiene_en_ascii():
     culpables = [
         (numero, linea)
         for numero, linea in enumerate(texto.splitlines(), 1)
-        if any(ord(c) > 127 for c in _ud.normalize("NFD", linea))
+        if any(ord(c) > 127 for c in unicodedata.normalize("NFD", linea))
     ]
     assert not culpables, f"líneas con caracteres no ASCII: {culpables[:5]}"
 
@@ -627,9 +757,9 @@ def test_la_marca_de_pendiente_que_citan_los_documentos_existe_en_el_codigo():
         " ".join(f.read_text(encoding="utf-8").split()) for f in modulos_del_paquete()
     )
     faltantes: list[str] = []
-    for md in archivos_markdown():
-        if md.name == "AUDITORIA.md":
-            continue  # Es una foto fechada: cita a propósito lo que estaba mal.
+    for md in documentos_versionados():
+        if md.name.startswith("AUDITORIA"):
+            continue  # Son fotos fechadas: citan a propósito lo que estaba mal.
         for marca in re.findall(r"`(PENDIENTE DE [^`]+)`", md.read_text(encoding="utf-8")):
             # La marca puede venir partida en dos líneas por el ancho del
             # párrafo, así que se compara sin los saltos.
@@ -661,14 +791,13 @@ def test_una_ambiguedad_declarada_abierta_lo_esta_de_verdad():
         for f in modulos_del_paquete()
         if "PENDIENTE DE" in docstring_de(f)
     }
-    prohibidas = ("ambigüedad abierta", "ambigüedades abiertas", "hasta que el cliente confirme")
-    exentos = {"TODO.md", "AUDITORIA.md"}
+    prohibidas = ("ambiguedad abierta", "ambiguedades abiertas", "hasta que el cliente confirme")
     apariciones: list[str] = []
-    for md in archivos_markdown():
-        if md.name in exentos:
+    for md in documentos_versionados():
+        if md.name == "TODO.md" or md.name.startswith("AUDITORIA"):
             continue
         texto = md.read_text(encoding="utf-8")
-        if not any(frase in texto.lower() for frase in prohibidas):
+        if not any(frase in sin_acentos(texto) for frase in prohibidas):
             continue
         nombrados = {f"psglab/{m}" for m in re.findall(r"`(\w+\.py)`", texto)}
         nombrados.update(re.findall(r"`(psglab/[^`]+\.py)`", texto))
@@ -694,7 +823,7 @@ def test_ningun_documento_repite_un_parrafo():
     se repiten con toda razón.
     """
     repetidos: list[str] = []
-    for md in archivos_markdown():
+    for md in documentos_versionados():
         vistos: dict[str, int] = {}
         for bloque in re.split(r"\n\s*\n", md.read_text(encoding="utf-8")):
             normalizado = " ".join(bloque.split())
@@ -727,7 +856,13 @@ def test_los_requirements_que_nombra_la_documentacion_existen():
 #: sostienen el modelo; `readers` y `exporters` están acá porque de ellos
 #: depende el corte del hito 5: leer un registro, scorearlo y exportar los tres
 #: archivos desde un script, sin abrir una ventana.
-CAPAS_SIN_INTERFAZ = ("core", "utils", "readers", "exporters")
+#:
+#: **`tools` y `analysis` entraron en el hito 10.** Las dos declaran no conocer
+#: la interfaz —`tools/base.py` explica que por eso `Tool` no hereda de
+#: `QObject`, y `analysis/README.md` lo pone como su regla 2— y ninguna de las
+#: dos lo tenía verificado: la regla estaba escrita en tres documentos y no la
+#: miraba nadie. Lo anotó la segunda auditoría como hueco mediano.
+CAPAS_SIN_INTERFAZ = ("core", "utils", "readers", "exporters", "tools", "analysis")
 
 
 def modulos_importados(archivo: pathlib.Path) -> list[tuple[int, str]]:
@@ -937,7 +1072,7 @@ def promesas_de_test_del_todo() -> dict[str, set[str]]:
     return prometidos
 
 
-def test_todo_modulo_de_la_parte_1_tiene_test_o_lo_tiene_prometido():
+def test_todo_modulo_tiene_test_o_lo_tiene_prometido():
     """El pliego pide un test por componente. Faltaba verificar el lado inverso.
 
     Ya estaba verificado que todo archivo de test tuviera su fila en
@@ -955,8 +1090,7 @@ def test_todo_modulo_de_la_parte_1_tiene_test_o_lo_tiene_prometido():
     huerfanos = [
         ruta_relativa(f)
         for f in modulos_del_paquete()
-        if "analysis" not in f.parts
-        and ruta_relativa(f) not in cubiertos
+        if ruta_relativa(f) not in cubiertos
         and ruta_relativa(f) not in SIN_TEST_PROPIO
         and not prometidos.get(ruta_relativa(f))
     ]
@@ -1063,6 +1197,13 @@ SIN_CONTRATO: dict[str, str] = {
         "antes de llegar acá— y repetir la comprobación en el camino caliente, que se "
         "recorre en cada pulsación de flecha, no aporta nada."
     ),
+    "psglab/utils/errors.py::memoria_suficiente": (
+        "no recibe datos sino el texto que va a aparecer en el cartel, y no lo usa "
+        "para decidir nada: sólo lo interpola en el mensaje del error que arma "
+        "cuando la reserva de memoria falla. No hay valor hostil que pueda "
+        "convertirse en una traza, porque el único camino que lo toca ya está "
+        "elevando un PsgLabError. Los cinco llamadores le pasan una cadena literal."
+    ),
     "psglab/utils/validation.py::clamp": (
         "documenta que un valor no finito es un error de programación y no algo que el "
         "usuario pueda provocar: quien llama tiene que haber pasado antes por "
@@ -1151,7 +1292,12 @@ def test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato():
     faltantes: list[str] = []
     for archivo in modulos_del_paquete():
         relativa = ruta_relativa(archivo)
-        if not any(capa in archivo.parts for capa in ("core", "utils")):
+        # **`analysis` entró en el hito 10.** El argumento es el mismo que para
+        # `core/`: `MainWindow` atrapa una sola clase, así que un `ValueError`
+        # de scipy o de MNE que escape de una función de análisis le llega al
+        # investigador como traza. La exigencia aparece módulo por módulo, no de
+        # golpe, porque los que todavía tienen stubs se saltean abajo.
+        if not any(capa in archivo.parts for capa in ("core", "utils", "analysis")):
             continue
         if contar_stubs(archivo) or relativa in SIN_CONTRATO:
             continue
@@ -1169,13 +1315,32 @@ def test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato():
 
 
 def test_las_exenciones_de_contrato_siguen_existiendo():
-    """Una exención que apunte a algo borrado tapa un módulo nuevo por accidente."""
-    inexistentes = [
-        objetivo
-        for objetivo in SIN_CONTRATO
-        if not (RAIZ / objetivo.split("::")[0]).exists()
-    ]
-    assert not inexistentes, f"SIN_CONTRATO nombra archivos que no existen: {inexistentes}"
+    """Una exención que apunte a algo borrado tapa un módulo nuevo por accidente.
+
+    **Se valida también el símbolo, no sólo el archivo.** La versión anterior
+    cortaba en `::` y miraba nada más el `.py`, así que renombrar `clamp` dejaba
+    la exención en pie apuntando a una función que ya no existe: silenciosa,
+    y lista para eximir a cualquier cosa que algún día se llamara igual.
+    """
+    problemas: list[str] = []
+    for objetivo in SIN_CONTRATO:
+        archivo, _, simbolo = objetivo.partition("::")
+        ruta = RAIZ / archivo
+        if not existe_respetando_mayusculas(ruta):
+            problemas.append(f"{objetivo}: el archivo no existe")
+            continue
+        if not simbolo:
+            continue
+        definidos = {
+            nodo.name
+            for nodo in ast.walk(ast.parse(ruta.read_text(encoding="utf-8")))
+            if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        }
+        if simbolo not in definidos:
+            problemas.append(f"{objetivo}: {archivo} ya no define {simbolo!r}")
+    assert not problemas, "SIN_CONTRATO exime cosas que no existen:\n" + "\n".join(
+        problemas
+    )
 
 
 # -- Que el paquete entero se pueda importar --------------------------------
@@ -1227,3 +1392,91 @@ def test_todos_los_modulos_del_paquete_se_pueden_importar():
         f"el recorrido encontró {encontrados} módulos y en el disco hay {esperados}: "
         "algo cortó la enumeración del paquete"
     )
+
+
+# -- Que las tablas no nombren lo que ya no existe ---------------------------
+
+
+def test_la_trazabilidad_no_nombra_archivos_que_ya_no_existen():
+    """El chequeo inverso, que faltaba.
+
+    `test_cada_modulo_aparece_en_la_trazabilidad` va de módulo a tabla y atrapa
+    el módulo nuevo sin fila. Al revés no había nada: una fila que nombre un
+    archivo renombrado o borrado quedaba invisible, y la tabla existe
+    justamente para responder qué requisitos rompe tocar un archivo. Con la
+    fila apuntando a la nada, esa pregunta se responde mal.
+
+    `COBERTURA_DE_TESTS` y `SIN_CONTRATO` ya tenían su chequeo de existencia;
+    éste le da el mismo trato a la trazabilidad.
+    """
+    trazabilidad = RAIZ / "docs" / "TRAZABILIDAD.md"
+    texto = trazabilidad.read_text(encoding="utf-8")
+    inexistentes = sorted(
+        {
+            citado
+            for linea in texto.splitlines()
+            if linea.lstrip().startswith("|")
+            for citado in re.findall(r"`(psglab/[^`]+\.py|main\.py)`", linea)
+            if not existe_respetando_mayusculas(RAIZ / citado)
+        }
+    )
+    assert not inexistentes, (
+        "docs/TRAZABILIDAD.md nombra en sus tablas archivos que no existen: "
+        f"{inexistentes}"
+    )
+
+
+def test_las_exenciones_de_test_propio_siguen_existiendo():
+    """Lo mismo para `SIN_TEST_PROPIO`.
+
+    Una exención que nombra un archivo borrado no molesta a nadie, y por eso se
+    queda: el día que alguien cree un módulo con ese nombre, arranca exento de
+    tener test sin que nadie lo haya decidido.
+    """
+    inexistentes = sorted(
+        ruta for ruta in SIN_TEST_PROPIO if not existe_respetando_mayusculas(RAIZ / ruta)
+    )
+    assert not inexistentes, (
+        f"SIN_TEST_PROPIO exime archivos que ya no existen: {inexistentes}"
+    )
+
+
+def test_cada_readme_de_carpeta_nombra_sus_archivos():
+    """La tabla "Los archivos" de cada README, en las dos direcciones.
+
+    Es el patrón de `test_cada_modulo_aparece_en_la_trazabilidad` aplicado a los
+    ocho README de `psglab/`. Sin él, un módulo nuevo puede quedar fuera del
+    mapa de su propia carpeta —que es lo primero que lee quien llega— y una fila
+    puede sobrevivir al archivo que describe.
+
+    Vale una **fila de tabla o un encabezado propio**: la raíz del paquete
+    documenta sus dos archivos sueltos con una sección cada uno, y eso es
+    inventario igual. Lo que no cuenta es la mención al pasar en un párrafo,
+    que no pretende serlo.
+    """
+    problemas: list[str] = []
+    for readme in sorted(RAIZ.joinpath("psglab").rglob("README.md")):
+        carpeta = readme.parent
+        propios = sorted(
+            f.name for f in carpeta.glob("*.py") if f.name != "__init__.py"
+        )
+        if not propios:
+            continue
+        inventariados: set[str] = set()
+        for linea in readme.read_text(encoding="utf-8").splitlines():
+            pelada = linea.lstrip()
+            if pelada.startswith("|") or pelada.startswith("#"):
+                inventariados.update(re.findall(r"`([a-z_0-9]+\.py)`", linea))
+        for archivo in propios:
+            if archivo not in inventariados:
+                problemas.append(
+                    f"{ruta_relativa(readme)} no inventaría {archivo}: no lo nombra "
+                    "ni en una fila de tabla ni en un encabezado"
+                )
+        sobrantes = sorted(n for n in inventariados if n not in propios)
+        if sobrantes:
+            problemas.append(
+                f"{ruta_relativa(readme)} inventaría archivos que la carpeta no "
+                f"tiene: {sobrantes}"
+            )
+    assert not problemas, "\n".join(problemas)

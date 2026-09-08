@@ -96,9 +96,9 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Ventana anterior, actual y siguiente, con la actual más oscura | `psglab/tools/overview.py` |
-| V2_F | Agrandar el panel con el mouse | `psglab/tools/overview.py` |
-| V3_F | Cantidad configurable y asimétrica de ventanas vecinas | `psglab/tools/overview.py` |
+| V1_F | Ventana anterior, actual y siguiente, con la actual más oscura | `psglab/tools/overview.py`, `psglab/ui/overview_panel.py` (el dibujo) |
+| V2_F | Agrandar el panel con el mouse | `psglab/tools/overview.py`, `psglab/ui/overview_panel.py` (el tamaño) |
+| V3_F | Cantidad configurable y asimétrica de ventanas vecinas | `psglab/tools/overview.py`, `psglab/ui/overview_panel.py` |
 
 ### Anotación de la señal
 
@@ -121,14 +121,14 @@ commit.
 
 | Sección | ID | Requisito | Archivo |
 |---------|----|-----------|---------|
-| Filtración | V1_F | Importar señal cruda y filtrar por tipo de canal | `psglab/analysis/filters.py` |
-| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py` |
-| Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py` |
+| Filtración | V1_F | Importar señal cruda y filtrar por tipo de canal | `psglab/analysis/filters.py`, `psglab/ui/filter_panel.py` (una fila por clase de canal) |
+| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir) |
+| Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py`, `psglab/readers/brainvision.py` (las extrae del `.vhdr`), `psglab/ui/impedance_panel.py` (la tabla y el informe) |
 | Rereferenciar | — | Re-referenciar la señal | `psglab/analysis/reference.py` |
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
-| PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py` |
-| Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py` |
-| Conectividad | — | Conectividad de la señal | `psglab/analysis/connectivity.py` |
+| PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py`, `psglab/ui/psd_panel.py` (el dibujo) |
+| Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py`, `psglab/ui/metric_panel.py` (el dibujo) |
+| Conectividad | — | Conectividad de la señal | `psglab/analysis/connectivity.py`, `psglab/ui/connectivity_panel.py` (la matriz), `psglab/ui/metric_panel.py` (a lo largo de la noche) |
 
 ---
 
@@ -137,9 +137,9 @@ commit.
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
 rompe si se toca este archivo**. Estos ocho se rompen hacia todos lados.
 
-Seis de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Siete de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
-`tools/base.py`, `tools/registry.py` y `app.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`tools/base.py`, `tools/registry.py`, `app.py` y `analysis/mne_bridge.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -152,6 +152,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/tools/base.py` | Los contratos `Tool` y `ViewerTool`, y el sistema de coordenadas | Las seis herramientas |
 | `psglab/tools/registry.py` | Registro enchufable de herramientas | La barra de herramientas entera |
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |
+| `psglab/analysis/mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw`, y la escala volts ↔ µV | Filtrado, ICA y re-referenciado |
 
 ---
 
@@ -188,6 +189,24 @@ archivo; cuando se retomen, entran como módulos nuevos en `psglab/analysis/`.
 ---
 
 ## Puntos del pliego pendientes de definición
+
+### El hueco V2_F–V4_F de "Filtración"
+
+**Los IDs de la sección "Filtración" saltan de V1_F a V5_F.** No hay V2_F, V3_F
+ni V4_F en esta tabla, ni en ningún docstring, ni en ningún otro documento del
+proyecto.
+
+Lo encontró la [primera auditoría](AUDITORIA.md) y sigue sin resolverse. Hay dos
+explicaciones posibles y no se puede elegir entre ellas sin el pliego:
+
+1. La numeración del pliego simplemente salta, y no falta nada.
+2. **Faltan tres requisitos** de filtración que el proyecto nunca registró.
+
+Se anota acá, y no en el TODO, porque el TODO lleva estado y esto es una
+pregunta abierta sobre el alcance. Lo que **sí** está especificado —V1_F,
+filtrar por tipo de canal, y V5_F, ICA— no está en duda: si aparecen los tres,
+son trabajo adicional y no trabajo a rehacer.
+
 
 La lista vive en **[`TODO.md`](TODO.md#hito-0-desbloquear)**, hito 0, con el
 detalle de qué trabajo frena cada una. Acá no se repite: el estado y las

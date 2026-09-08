@@ -3,7 +3,7 @@
 Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
     +--------------------------------------------------------------+
-    |  Menú: Archivo | Ver | Herramientas | Ayuda   (Análisis: P2)  |
+    |  Menú: Archivo | Ver | Herramientas | Análisis | Ayuda        |
     +--------------------------------------------------------------+
     |  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
     +------------------+-------------------------------------------+
@@ -11,6 +11,8 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
     |  canales         |     Visualizador de la señal (30 s)       |
     |                  |                                           |
     +------------------+-------------------------------------------+
+    |  Übersicht: ventanas vecinas, la actual más oscura            |
+    +--------------------------------------------------------------+
     |  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
     +--------------------------------------------------------------+
     |  Histograma de la noche completa                              |
@@ -24,13 +26,19 @@ funcionalidades de la Parte 1, pero sin implementar ninguna: cada una vive en
 su módulo y acá sólo se las conecta entre sí.
 """
 
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
     QFileDialog,
+    QInputDialog,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -39,9 +47,31 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.core.annotations import AnnotationSet
-from psglab.core.nomenclature import Nomenclature, SleepStage, stages_of
+from psglab.core.nomenclature import (
+    Nomenclature,
+    SleepStage,
+    stage_label,
+    stages_of,
+)
+from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
+from psglab.analysis.derivation import derive, derive_montage
+from psglab.analysis.complexity import MEASURES, complexity_by_window
+from psglab.analysis.connectivity import (
+    average_connectivity,
+    compute_connectivity,
+)
+from psglab.analysis.ica import apply_ica, component_topography, fit_ica
+from psglab.analysis.impedance import (
+    DEFAULT_LIMIT_KOHM,
+    impedance_report,
+    load_impedances_from_file,
+    read_impedances,
+)
+from psglab.analysis.filters import apply_filters, settings_for_kinds
+from psglab.analysis.psd import DEFAULT_BANDS, compute_psd
+from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
 from psglab.exporters.annotations_txt import export_annotations
@@ -49,16 +79,38 @@ from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_txt import export_scoring
 from psglab.readers.base import file_dialog_filter, read_recording
 from psglab.readers.scoring_reader import read_scoring
+from psglab.tools.annotator import AnnotatorTool
 from psglab.tools.base import Tool, ViewerTool
 from psglab.tools.histogram import HistogramTool
+from psglab.tools.magnifier import MagnifierTool
+from psglab.tools.occupancy import OccupancyTool
+from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.grid import BackgroundStyle
 from psglab.ui.navigation import NavigationBar
+from psglab.ui.overview_panel import OverviewPanel
+from psglab.ui.connectivity_panel import ConnectivityPanel
+from psglab.ui.ica_panel import IcaPanel
+from psglab.ui.filter_panel import FilterPanel
+from psglab.ui.impedance_panel import ImpedancePanel
+from psglab.ui.metric_panel import MetricPanel
+from psglab.ui.psd_panel import PsdPanel
 from psglab.ui.scoring_panel import ScoringPanel
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
 from psglab.utils.errors import PsgLabError
+
+#: Medidas de complejidad que la interfaz ofrece para recorrer la noche.
+#:
+#: **Son las de `MEASURES` menos la entropía de muestra**, y la exclusión está
+#: medida, no supuesta: sobre una ventana de 30 s a 256 Hz tarda 124 ms contra
+#: 0,07–1,7 ms de las otras tres, así que sobre las 2650 ventanas de un
+#: registro real son más de cinco minutos con la ventana congelada.
+#:
+#: `complexity_by_window()` la acepta igual: es una función de biblioteca y
+#: quien la llama desde un script puede esperar. La política es de la interfaz.
+MEDIDAS_RAPIDAS = tuple(m for m in MEASURES if m != "sample_entropy")
 
 #: Qué botón del mouse llegó, traducido al vocabulario de `ViewerTool`, que no
 #: conoce Qt.
@@ -77,10 +129,14 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("PSGLab — Laboratorio de Sueño y Memoria, ITBA")
         self._session: Session | None = None
+        #: El registro tal como se leyó, para poder deshacer los análisis.
+        self._registro_original: Recording | None = None
         self._tools: dict[str, Tool] = {}
         #: El botón de cada herramienta, para poder destildarlo al apagarla.
         self._tool_actions: dict[str, QAction] = {}
         self._active_viewer_tool: ViewerTool | None = None
+        #: La descomposición ICA ajustada, mientras el panel está abierto.
+        self._ica: object | None = None
 
         self._build_layout()
         self._build_menus()
@@ -96,6 +152,7 @@ class MainWindow(QMainWindow):
         self.channel_selector = ChannelSelector()
         self.scoring_panel = ScoringPanel()
         self.navigation = NavigationBar()
+        self.overview_panel = OverviewPanel()
         self.histogram_view = pg.PlotWidget()
         self.histogram_view.setMaximumHeight(140)
         self.histogram_view.getPlotItem().setMenuEnabled(False)
@@ -109,10 +166,63 @@ class MainWindow(QMainWindow):
         centro = QWidget()
         columna = QVBoxLayout(centro)
         columna.addWidget(arriba, stretch=4)
+        columna.addWidget(self.overview_panel)
         columna.addWidget(self.scoring_panel)
         columna.addWidget(self.navigation)
         columna.addWidget(self.histogram_view, stretch=1)
         self.setCentralWidget(centro)
+        # Lo que la herramienta activa quiere informar: el porcentaje de la
+        # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
+        # la derecha, permanente, para que no lo pise el mensaje de navegación.
+        # El espectro vive en una ventana aparte, que se crea una sola vez y se
+        # muestra u oculta: recrearla en cada pedido perdería su tamaño y su
+        # posición, que el usuario acomoda una vez.
+        self.psd_panel = PsdPanel()
+        self.psd_dialog = QDialog(self)
+        self.psd_dialog.setWindowTitle("Espectro")
+        self.psd_dialog.resize(640, 420)
+        columna_psd = QVBoxLayout(self.psd_dialog)
+        columna_psd.addWidget(self.psd_panel)
+
+        self.metric_panel = MetricPanel()
+        self.metric_dialog = QDialog(self)
+        self.metric_dialog.setWindowTitle("Métrica por ventana")
+        self.metric_dialog.resize(720, 380)
+        QVBoxLayout(self.metric_dialog).addWidget(self.metric_panel)
+
+        self.connectivity_panel = ConnectivityPanel()
+        self.connectivity_dialog = QDialog(self)
+        self.connectivity_dialog.setWindowTitle("Conectividad")
+        self.connectivity_dialog.resize(560, 520)
+        QVBoxLayout(self.connectivity_dialog).addWidget(self.connectivity_panel)
+
+        self.impedance_panel = ImpedancePanel()
+        self.impedance_panel.on_changed = self._refrescar_informe_de_impedancia
+        self.impedance_panel.boton_archivo.clicked.connect(self.load_impedances_dialog)
+        self.impedance_panel.boton_limpiar.clicked.connect(
+            self._limpiar_impedancias
+        )
+        self.impedance_dialog = QDialog(self)
+        self.impedance_dialog.setWindowTitle("Impedancia de los electrodos")
+        self.impedance_dialog.resize(820, 460)
+        QVBoxLayout(self.impedance_dialog).addWidget(self.impedance_panel)
+
+        self.filter_panel = FilterPanel()
+        self.filter_panel.on_apply = self.apply_filters_from_panel
+        self.filter_dialog = QDialog(self)
+        self.filter_dialog.setWindowTitle("Filtrar la señal")
+        self.filter_dialog.resize(680, 320)
+        QVBoxLayout(self.filter_dialog).addWidget(self.filter_panel)
+
+        self.ica_panel = IcaPanel()
+        self.ica_panel.on_apply = self._apply_ica
+        self.ica_dialog = QDialog(self)
+        self.ica_dialog.setWindowTitle("Componentes independientes")
+        self.ica_dialog.resize(860, 480)
+        QVBoxLayout(self.ica_dialog).addWidget(self.ica_panel)
+
+        self.tool_readout = QLabel("")
+        self.statusBar().addPermanentWidget(self.tool_readout)
         self.statusBar().showMessage("Sin registro abierto")
 
     def _build_menus(self) -> None:
@@ -136,7 +246,41 @@ class MainWindow(QMainWindow):
                 estilo.value, lambda _=False, e=estilo: self.signal_view.grid.set_style(e)
             )
 
+        ver.addSeparator()
+        # V2_F del histograma: el pliego pide poder elegir el eje.
+        self.accion_eje_en_hora = ver.addAction(
+            "Histograma en hora real de la noche"
+        )
+        self.accion_eje_en_hora.setCheckable(True)
+        self.accion_eje_en_hora.toggled.connect(self.set_histogram_time_axis)
+
         self.tools_menu = self.menuBar().addMenu("&Herramientas")
+
+        # **El menú de la Parte 2.** Cada análisis entra acá al implementarse:
+        # es lo que separa "el módulo existe" de "el investigador puede usarlo",
+        # que es la lección que costó el hito 9.
+        analisis = self.menuBar().addMenu("&Análisis")
+        # **Arriba de todo y en su propio grupo.** No es un análisis de la
+        # señal sino el control de calidad **previo** a confiar en
+        # cualquiera de los otros: filtrar la señal de un electrodo suelto
+        # da un resultado prolijo y falso, que es peor que uno feo.
+        analisis.addAction("&Impedancia de los electrodos…", self.show_impedance_dialog)
+        analisis.addAction("&Filtrar la señal…", self.show_filter_dialog)
+        analisis.addSeparator()
+        analisis.addAction("&Derivar canales…", self.derive_dialog)
+        analisis.addAction("&Re-referenciar…", self.rereference_dialog)
+        analisis.addAction("Referencia &promedio (EEG)", self.apply_average_reference)
+        analisis.addSeparator()
+        analisis.addAction("&Espectro de la ventana…", self.show_psd_dialog)
+        analisis.addAction("&Complejidad de la noche…", self.show_complexity_dialog)
+        analisis.addAction("Conectividad de la &ventana…", self.show_connectivity_dialog)
+        analisis.addSeparator()
+        analisis.addAction("Componentes &independientes (ICA)…", self.show_ica_dialog)
+        analisis.addSeparator()
+        self.accion_señal_original = analisis.addAction(
+            "&Volver a la señal original", self.restore_original_recording
+        )
+        self.accion_señal_original.setEnabled(False)
 
         ayuda = self.menuBar().addMenu("A&yuda")
         ayuda.addAction("&Atajos de teclado", self._show_shortcuts)
@@ -228,13 +372,13 @@ class MainWindow(QMainWindow):
         # resuelve con `mapSceneToView()`, así que darle un `position()` sería
         # mezclar dos sistemas que hoy coinciden y no tienen por qué.
         segundos = self.signal_view.seconds_at_pixel(evento.scenePosition().x())
-        # La altura no tiene una conversión única —la escala es por canal— así
-        # que se le pasa la coordenada del gráfico, que es lo que el
-        # visualizador sabe dar. Ninguna de las cuatro herramientas mide con
-        # ella: la ocupación proyecta sobre el eje horizontal y el anotador
-        # marca un tramo de tiempo.
-        vista = self.signal_view.getPlotItem().vb
-        y = float(vista.mapSceneToView(evento.scenePosition()).y())
+        # **En microvoltios, que es lo que `ViewerTool` documenta recibir.**
+        # Hasta el hito 9 acá iba la coordenada cruda del gráfico, con un
+        # comentario que afirmaba que ninguna herramienta usaba la `y`. La usan
+        # tres, y la peor consecuencia era que la ocupación borraba una línea
+        # con cualquier clic, porque comparaba su tolerancia de 10 µV contra un
+        # rango de 0 a 1.
+        y = self.signal_view.microvolts_at_pixel(evento.scenePosition().y())
 
         if evento.type() == QEvent.Type.MouseMove:
             herramienta.on_mouse_move(segundos, y)
@@ -244,6 +388,12 @@ class MainWindow(QMainWindow):
                 herramienta.on_mouse_press(segundos, y, boton)
             else:
                 herramienta.on_mouse_release(segundos, y, boton)
+                # **Acá se cierra el lazo de V1_F de "Anotación".** La
+                # herramienta deja el tramo pendiente y espera que alguien
+                # pregunte la clase; hasta el hito 9 no lo hacía nadie, así que
+                # se podía arrastrar una selección y no pasaba nada.
+                if isinstance(herramienta, AnnotatorTool):
+                    self._finish_annotation(herramienta)
         return False
 
     def _filtrar_histograma(self, evento: QEvent) -> None:
@@ -260,12 +410,117 @@ class MainWindow(QMainWindow):
         fraccion = (evento.scenePosition().x() - caja.left()) / caja.width()
         herramienta.on_click(min(1.0, max(0.0, fraccion)))
 
+    def _finish_annotation(self, herramienta: AnnotatorTool) -> None:
+        """Pregunta la clase del evento recién seleccionado y lo anota (V1_F).
+
+        El pliego pide **asignarle o crear una clase**, así que el diálogo es
+        editable: la lista ofrece las que ya existen y el usuario puede escribir
+        una nueva, que se registra con su color antes de anotar.
+
+        Cancelar deja el tramo pendiente sin anotar, que es lo que espera quien
+        se arrepiente a mitad del gesto. No se lo borra: volver a soltar el
+        mouse lo reemplaza.
+        """
+        if self._session is None:
+            return
+        pendiente = herramienta.pending_selection_samples
+        if pendiente is None:
+            return
+        inicio, duracion = pendiente
+
+        clases = self._session.annotations.labels()
+        clase, acepto = QInputDialog.getItem(
+            self,
+            "Anotar evento",
+            "Clase del evento (se puede escribir una nueva):",
+            clases,
+            0,
+            True,
+        )
+        if not acepto or not clase.strip():
+            return
+        clase = clase.strip()
+
+        try:
+            if clase not in clases:
+                herramienta.add_label(clase)
+            herramienta.create_annotation(clase, inicio, duracion)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        # El panel de contexto marca los eventos que caen en cada ventana
+        # (V3_F), y anotar no mueve de ventana: hay que pedirle que se
+        # rederive o el evento recién creado no aparece hasta la próxima flecha.
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.refresh()
+        self.statusBar().showMessage(f"Se anotó «{clase}»", 5000)
+
     def _on_tool_changed(self, tool: Tool) -> None:
         """Una herramienta avisó de que cambió lo que quiere mostrar."""
         if isinstance(tool, ViewerTool):
             self.signal_view.set_overlays(tool.overlays())
         elif isinstance(tool, HistogramTool):
             self._redraw_histogram()
+        elif isinstance(tool, OverviewTool):
+            self._redraw_overview(tool)
+        self._update_tool_readout()
+
+    def _redraw_overview(self, herramienta: OverviewTool) -> None:
+        """Lleva al panel lo que publica la Übersicht (V1_F, V2_F, V3_F).
+
+        Los colores de las clases de evento se le agregan acá y no los manda la
+        herramienta: viven en `AnnotationSet`, que es de `core/`, y `tools/`
+        publica los nombres de las clases, no cómo se ven.
+
+        El tamaño (V2_F) también viaja en este camino, porque `set_size()`
+        avisa por `on_changed` como cualquier otro cambio.
+        """
+        colores = None
+        if self._session is not None:
+            anotaciones = self._session.annotations
+            colores = {
+                clase: anotaciones.color_of(clase) for clase in anotaciones.labels()
+            }
+        self.overview_panel.set_windows(herramienta.windows(), colores)
+        ancho, alto = herramienta.size_px
+        self.overview_panel.set_panel_size(ancho, alto)
+
+    def _update_tool_readout(self) -> None:
+        """Escribe en la barra de estado el número que la herramienta calcula.
+
+        **Es lo que faltaba para cerrar V3_F de "Ocupación" y V2_F de la
+        lupa.** Las dos herramientas calculaban bien y nadie las leía: el
+        porcentaje y el contador de picos existían sólo para sus tests.
+
+        No lo dibuja la herramienta porque no conoce Qt, y no puede hacerlo con
+        un `Overlay` porque no hay variante de texto: los overlays son
+        coordenadas de señal, no leyendas. Por eso el número cruza acá.
+
+        El total de ocupación **puede pasar del 100 %** cuando dos líneas se
+        pisan, y es lo buscado: el criterio lo fija
+        `config.OCCUPANCY_COUNTS_OVERLAP_ONCE` y quedó confirmado con el
+        cliente. Se muestra tal cual, sin recortarlo.
+        """
+        herramienta = self._active_viewer_tool
+        if isinstance(herramienta, OccupancyTool):
+            lineas = herramienta.lines()
+            if lineas:
+                # La coma se aplica **al número y no a la frase**: con un
+                # `replace` sobre el texto entero, cualquier punto que se
+                # agregue después al mensaje se convertiría en coma.
+                total = f"{herramienta.total_percentage():.1f}".replace(".", ",")
+                cuantas = f"{len(lineas)} línea" + ("s" if len(lineas) != 1 else "")
+                self.tool_readout.setText(
+                    f"Ocupación: {cuantas} — {total} % del ancho"
+                )
+            else:
+                self.tool_readout.setText("Ocupación: sin líneas")
+            return
+        if isinstance(herramienta, MagnifierTool):
+            self.tool_readout.setText(f"Picos contados: {herramienta.click_count}")
+            return
+        self.tool_readout.setText("")
 
     def _deactivate_all_tools(self) -> None:
         """Apaga las herramientas y destilda sus botones.
@@ -327,6 +582,7 @@ class MainWindow(QMainWindow):
             herramienta.deactivate()
             if herramienta is self._active_viewer_tool:
                 self._active_viewer_tool = None
+        self._update_tool_readout()
 
     # -- Acciones del usuario -----------------------------------------------
 
@@ -355,6 +611,12 @@ class MainWindow(QMainWindow):
         self._deactivate_all_tools()
 
         self._session = sesion
+        # **El registro tal como se leyó.** Los análisis de la Parte 2 devuelven
+        # un registro nuevo, y sin guardar éste un filtro mal elegido obligaría
+        # a reabrir el archivo. Es la regla 1 de `analysis/` vista desde la
+        # interfaz: el usuario tiene que poder volver atrás.
+        self._registro_original = registro
+        self.accion_señal_original.setEnabled(False)
         # Las herramientas se enteran solas de los cambios de ventana: es la
         # decisión del hito 6, y por eso acá no hay que acordarse de avisarles.
         for herramienta in self._tools.values():
@@ -423,6 +685,22 @@ class MainWindow(QMainWindow):
                 )
         except PsgLabError as error:
             self._show_error(error)
+            return
+        except OSError as error:
+            # **El disco no es un `PsgLabError`.** Los exportadores validan lo
+            # suyo y elevan errores del programa, pero la carpeta que eligió el
+            # usuario puede no existir, estar llena o ser de sólo lectura, y eso
+            # sale como `OSError` crudo. Sin esta rama atraviesa el `except` de
+            # arriba y el investigador ve una traza de Python en vez de un
+            # cartel. Lo encontró `tests/test_entrega.py` exportando a una
+            # carpeta inexistente.
+            self._show_error(
+                PsgLabError(
+                    f"No se pudo escribir «{path.name}». Revisá que la carpeta "
+                    "exista y que tengas permiso para escribir en ella.",
+                    details=f"{type(error).__name__}: {error}",
+                )
+            )
             return
         self.statusBar().showMessage(f"Se exportó {path.name}", 5000)
 
@@ -495,6 +773,409 @@ class MainWindow(QMainWindow):
             return
         self._update_histogram_window(self._session.current_window)
         self.refresh()
+
+    # -- Las esperas largas --------------------------------------------------
+
+    @contextmanager
+    def _trabajando(self, que_hace: str) -> Iterator[None]:
+        """Avisa que el programa está trabajando durante una espera larga.
+
+        **No acorta la espera: la hace legible.** Todo corre en el hilo de la
+        interfaz, así que la ventana queda congelada mientras dura el cálculo, y
+        sin ninguna señal eso se lee como que el programa se colgó. Es la razón
+        por la que `MEDIDAS_RAPIDAS` deja afuera la entropía de muestra.
+
+        Y no alcanzaba con elegir medidas rápidas: el hito 17 midió que **la
+        primera llamada de complejidad de cada sesión se lleva unos 21 s
+        compilando**, cualquiera sea la medida, porque `antropy` arrastra
+        `numba` y el compilado ocurre al primer uso. Esa espera la paga
+        siempre alguien.
+
+        El cursor se pone antes de bloquear y Qt lo aplica en el acto; la barra
+        de estado queda con el aviso hasta que el cálculo termina.
+        """
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self.statusBar().showMessage(f"{que_hace}…")
+        # `processEvents` una sola vez, para que el cursor y el mensaje lleguen
+        # a la pantalla antes de que el hilo se bloquee. No es un bucle de
+        # eventos: no se procesa nada más hasta que el cálculo termina.
+        QApplication.processEvents()
+        try:
+            yield
+        finally:
+            QApplication.restoreOverrideCursor()
+
+    # -- Análisis (Parte 2) --------------------------------------------------
+
+    def _aplicar_analisis(
+        self,
+        que_hace: str,
+        calcular: Callable[[Recording], Recording],
+        mostrar: str | None = None,
+    ) -> None:
+        """Corre un análisis y lleva su resultado a la pantalla.
+
+        Es el camino único de todo el menú Análisis: los módulos devuelven un
+        `Recording` nuevo —no tocan el original, que es la regla 1 de la
+        carpeta— y acá se lo entrega a la sesión con `set_recording()`, que
+        conserva la ventana, los canales y las amplitudes.
+
+        Un error del análisis sale como cartel y **no cambia nada**: la señal
+        que el investigador está mirando sigue siendo la de antes.
+
+        Args:
+            mostrar: canal que hay que hacer visible además de los que ya
+                estaban. `Session.set_recording()` conserva los visibles que
+                sobreviven y **un canal nuevo no sobrevive: nace**, así que sin
+                esto una derivación se creaba y no se veía. Mostrarlo es una
+                decisión de presentación —el usuario acaba de pedirlo— y por eso
+                vive acá y no en `core/`.
+        """
+        if self._session is None:
+            return
+        try:
+            with self._trabajando(que_hace.replace("Se ", "").capitalize()):
+                procesado = calcular(self._session.recording)
+            self._session.set_recording(procesado)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        if mostrar is not None and mostrar not in self._session.visible_channels:
+            self._session.set_visible_channels(
+                [*self._session.visible_channels, mostrar]
+            )
+        self.signal_view.set_session(self._session)
+        self.channel_selector.set_recording(procesado)
+        self.accion_señal_original.setEnabled(True)
+        self.refresh()
+        self.statusBar().showMessage(que_hace, 5000)
+
+    def _elegir_canal(self, titulo: str, etiqueta: str) -> str | None:
+        """Pregunta un canal de los que hay. `None` si el usuario cancela."""
+        if self._session is None:
+            return None
+        nombres = self._session.recording.channel_names()
+        elegido, acepto = QInputDialog.getItem(self, titulo, etiqueta, nombres, 0, False)
+        return elegido if acepto else None
+
+    def derive_dialog(self) -> None:
+        """Pregunta los dos canales y agrega la derivación (sección "Derivar").
+
+        Se pregunta de a uno y no con un diálogo propio porque son dos listas
+        de lo mismo: un formulario para eso sería más código y no más claro.
+        """
+        if self._session is None:
+            return
+        canal = self._elegir_canal("Derivar", "Canal:")
+        if canal is None:
+            return
+        referencia = self._elegir_canal("Derivar", f"«{canal}» menos:")
+        if referencia is None:
+            return
+        self._aplicar_analisis(
+            f"Se agregó la derivación «{canal}-{referencia}»",
+            lambda registro: derive(registro, canal, referencia),
+            mostrar=f"{canal}-{referencia}",
+        )
+
+    def rereference_dialog(self) -> None:
+        """Pregunta la referencia nueva y re-referencia (sección "Rereferenciar")."""
+        referencia = self._elegir_canal("Re-referenciar", "Referencia nueva:")
+        if referencia is None:
+            return
+        self._aplicar_analisis(
+            f"Se re-referenció a «{referencia}»",
+            lambda registro: rereference(registro, [referencia]),
+        )
+
+    def apply_average_reference(self) -> None:
+        """Re-referencia al promedio de los EEG.
+
+        No pregunta nada: `kind_only=True` es el valor seguro y el que el
+        docstring del módulo defiende. Si el registro no tiene EEG, el módulo se
+        niega y acá eso se convierte en un cartel.
+        """
+        self._aplicar_analisis(
+            "Se re-referenció al promedio de los canales EEG",
+            lambda registro: average_reference(registro),
+        )
+
+    def show_psd_dialog(self) -> None:
+        """Calcula el espectro de la ventana actual y lo muestra (V1_F de PSD).
+
+        **De la ventana actual y no del registro entero**, porque es lo que el
+        investigador está mirando: el espectro de las ocho horas promedia el
+        sueño lento con la vigilia y no dice nada de la época que se está
+        scoreando. El título del panel lleva el número de ventana para que no
+        haya duda de cuál es.
+
+        Se abre en una ventana aparte y no como panel fijo: un espectro se mira
+        cuando hace falta, y la pantalla principal ya tiene la señal, el
+        scoring, la navegación, el histograma y el contexto.
+        """
+        if self._session is None:
+            return
+        canal = self._elegir_canal("Espectro", "Canal:")
+        if canal is None:
+            return
+        ventana = self._session.current_window
+        try:
+            frecuencias, potencias = compute_psd(
+                self._session.recording, channels=[canal], window_index=ventana
+            )
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.psd_panel.set_spectrum(frecuencias, potencias, [canal])
+        self.psd_dialog.setWindowTitle(
+            f"Espectro de «{canal}» — ventana {ventana + 1}"
+        )
+        self.psd_dialog.show()
+        self.psd_dialog.raise_()
+
+    def show_complexity_dialog(self) -> None:
+        """Recorre la noche con una medida de complejidad y la grafica.
+
+        **La lista no ofrece la entropía de muestra**, y es una decisión de la
+        interfaz y no del módulo: medida sobre el registro real tarda más de
+        cinco minutos, contra menos de cinco segundos las otras tres. Con la
+        ventana congelada ese rato, el investigador no sabe si el programa
+        está trabajando o se colgó.
+
+        `complexity_by_window()` sí la acepta: es una función de biblioteca y
+        quien la llama desde un script puede esperar. La política es de acá.
+        """
+        if self._session is None:
+            return
+        canal = self._elegir_canal("Complejidad", "Canal:")
+        if canal is None:
+            return
+        medida, acepto = QInputDialog.getItem(
+            self, "Complejidad", "Medida:", list(MEDIDAS_RAPIDAS), 0, False
+        )
+        if not acepto:
+            return
+        try:
+            with self._trabajando(f"Calculando {medida} sobre toda la noche"):
+                series = complexity_by_window(
+                    self._session.recording, [canal], measure=medida
+                )
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.metric_panel.set_metric(medida, series)
+        self.metric_dialog.setWindowTitle(f"{medida} — «{canal}»")
+        self.metric_dialog.show()
+        self.metric_dialog.raise_()
+
+    def show_connectivity_dialog(self) -> None:
+        """Calcula la conectividad de la ventana actual y la muestra.
+
+        **De la ventana actual**, por el mismo motivo que el espectro: la
+        conectividad de las ocho horas promedia el sueño lento con la vigilia,
+        y en sueño lo que interesa es cómo cambia entre fases.
+        """
+        if self._session is None:
+            return
+        canales = self._session.visible_channels
+        if len(canales) < 2:
+            self._show_error(
+                PsgLabError(
+                    "La conectividad se mide entre canales, así que hacen falta "
+                    "al menos dos visibles.",
+                    details=f"canales visibles: {canales}.",
+                )
+            )
+            return
+        banda, acepto = QInputDialog.getItem(
+            self, "Conectividad", "Banda:", list(DEFAULT_BANDS), 0, False
+        )
+        if not acepto:
+            return
+
+        ventana = self._session.current_window
+        try:
+            matriz = compute_connectivity(
+                self._session.recording,
+                channels=canales,
+                band=DEFAULT_BANDS[banda],
+                window_index=ventana,
+            )
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.connectivity_panel.set_matrix(matriz, canales)
+        promedio = average_connectivity(matriz)
+        self.connectivity_dialog.setWindowTitle(
+            f"Conectividad en {banda} — ventana {ventana + 1} — "
+            f"promedio {promedio:.3f}".replace(".", ",", 1)
+        )
+        self.connectivity_dialog.show()
+        self.connectivity_dialog.raise_()
+
+    def show_filter_dialog(self) -> None:
+        """Abre el panel de filtros (V1_F de "Filtración").
+
+        Arranca con los sugeridos de cada clase de canal presente. **Abrirlo no
+        filtra nada**: hay que apretar Aplicar. Un menú que filtre con sólo
+        abrirse le cambiaría la señal a alguien que entró a mirar qué había.
+        """
+        if self._session is None:
+            return
+        self.filter_panel.set_recording(self._session.recording)
+        self.filter_dialog.show()
+        self.filter_dialog.raise_()
+
+    def apply_filters_from_panel(self) -> None:
+        """Aplica lo que el panel tenga escrito.
+
+        Se filtra **la señal que se está viendo**, no la original: así se puede
+        filtrar después de derivar o de re-referenciar, que es el orden en que
+        se trabaja. Y como todo el menú Análisis pasa por `_aplicar_analisis`,
+        "Volver a la señal original" deshace también esto: un filtro mal
+        elegido no obliga a reabrir el archivo.
+        """
+        if self._session is None:
+            return
+        por_clase = self.filter_panel.settings()
+        self._aplicar_analisis(
+            "Se filtró la señal",
+            lambda registro: apply_filters(
+                registro, settings_for_kinds(registro, por_clase)
+            ),
+        )
+
+    def show_impedance_dialog(self) -> None:
+        """Abre el control de impedancia (V1_F de "Impedancia").
+
+        Arranca con lo que traiga el archivo. **En un EDF eso es siempre nada**,
+        y no es un fallo: el estándar no tiene ningún campo de impedancia. Ahí
+        el investigador las importa de un archivo del equipo o las escribe.
+        """
+        if self._session is None:
+            return
+        self.impedance_panel.set_channels(
+            self._session.recording.channel_names(),
+            read_impedances(self._session.recording),
+        )
+        self._refrescar_informe_de_impedancia()
+        self.impedance_dialog.show()
+        self.impedance_dialog.raise_()
+
+    def load_impedances_dialog(self) -> None:
+        """Importa las impedancias de un archivo del equipo de adquisición."""
+        if self._session is None:
+            return
+        ruta, _ = QFileDialog.getOpenFileName(
+            self,
+            "Importar impedancias",
+            "",
+            "Archivos de texto (*.txt *.csv);;Todos los archivos (*)",
+        )
+        if not ruta:
+            return
+        try:
+            cargadas = load_impedances_from_file(Path(ruta))
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        # Se conserva lo que ya estaba escrito a mano: el archivo agrega, no
+        # reemplaza. Un laboratorio puede tener medido medio montaje.
+        combinadas = {**self.impedance_panel.values(), **cargadas}
+        self.impedance_panel.set_channels(
+            self._session.recording.channel_names(), combinadas
+        )
+        self._refrescar_informe_de_impedancia()
+
+    def _limpiar_impedancias(self) -> None:
+        """Deja todos los canales sin medir."""
+        self.impedance_panel.clear_all()
+        self._refrescar_informe_de_impedancia()
+
+    def _refrescar_informe_de_impedancia(self) -> None:
+        """Rearma el informe con lo que haya cargado.
+
+        Se le pasa **la lista de canales**, que es lo que le permite distinguir
+        el tercer estado: sin ella, el informe no puede saber cuáles faltan,
+        porque los canales sin medir no están en el diccionario a propósito.
+        """
+        if self._session is None:
+            return
+        self.impedance_panel.set_report(
+            impedance_report(
+                self.impedance_panel.values(),
+                DEFAULT_LIMIT_KOHM,
+                channels=self._session.recording.channel_names(),
+            )
+        )
+
+    def show_ica_dialog(self) -> None:
+        """Ajusta la ICA y abre el panel para inspeccionarla (V5_F).
+
+        **No aplica nada.** Ajustar e inspeccionar son dos pasos separados de
+        aplicar, justamente porque quitar el componente equivocado modifica la
+        señal de forma irreversible. El panel muestra las topografías y espera.
+        """
+        if self._session is None:
+            return
+        try:
+            self._ica = fit_ica(self._session.recording)
+            topografias = [
+                component_topography(self._ica, numero)
+                for numero in range(int(self._ica.n_components_))
+            ]
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.ica_panel.set_components(topografias)
+        self.ica_dialog.show()
+        self.ica_dialog.raise_()
+
+    def _apply_ica(self, exclude: list[int]) -> None:
+        """Reconstruye la señal sin los componentes que el usuario marcó.
+
+        **Pasa por `_aplicar_analisis()`**, que es el camino único del menú
+        Análisis: así se puede volver a la señal original desde el menú, que es
+        la única red que hay contra una exclusión equivocada — y quitar un
+        componente no se puede deshacer sobre los datos ya transformados.
+        """
+        if self._session is None or self._ica is None:
+            return
+        cuantos = len(exclude)
+        que_hizo = (
+            "Se quitó 1 componente independiente"
+            if cuantos == 1
+            else f"Se quitaron {cuantos} componentes independientes"
+        )
+        self._aplicar_analisis(
+            que_hizo, lambda registro: apply_ica(registro, self._ica, exclude)
+        )
+        self.ica_dialog.hide()
+
+    def restore_original_recording(self) -> None:
+        """Vuelve a la señal tal como se leyó del archivo.
+
+        **Es lo que hace reversible todo el menú.** Sin esto, un filtro o una
+        referencia mal elegidos obligarían a cerrar y reabrir el registro,
+        perdiendo el scoring que el usuario venía haciendo.
+        """
+        if self._session is None or self._registro_original is None:
+            return
+        try:
+            self._session.set_recording(self._registro_original)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.signal_view.set_session(self._session)
+        self.channel_selector.set_recording(self._registro_original)
+        self.accion_señal_original.setEnabled(False)
+        self.refresh()
+        self.statusBar().showMessage("Se volvió a la señal original", 5000)
 
     def open_recording_dialog(self) -> None:
         """Ctrl+O. El filtro se arma solo desde los lectores registrados."""
@@ -620,6 +1301,65 @@ class MainWindow(QMainWindow):
             connect="finite",
         )
         item.setYRange(0, len(orden) + 0.5, padding=0)
+        # `stage_label()` y no `str(fase)`: el segundo da "SleepStage.WAKE".
+        # Es el mismo nombre que usan el panel de scoring y `Informacion.txt`.
+        item.getAxis("left").setTicks(
+            [[(altura[fase], stage_label(fase)) for fase in orden]]
+        )
+        item.getAxis("bottom").setTicks([self._marcas_del_histograma(len(barras))])
+
+    def _marcas_del_histograma(self, cuantas: int) -> list[tuple[float, str]]:
+        """Las marcas del eje horizontal del hipnograma (V2_F).
+
+        **Faltaba entero.** `set_time_axis()` prendía un booleano que no leía
+        nadie y el eje se dibujaba con los índices crudos de `range()`, o sea
+        base 0 y sin marcas: ni la hora real ni el 1 a VENMAX que pide el
+        pliego.
+
+        Las dos variantes salen del mismo lugar: `core.windows`. La hora real
+        viene de `window_to_clock_time()`, que devuelve `None` si el archivo no
+        informó a qué hora empezó, y ahí se cae al número de ventana en vez de
+        inventar una hora.
+
+        Los números de ventana van en **base 1**, que es la regla del proyecto
+        para todo lo que se muestra.
+        """
+        herramienta = self._tools.get("histogram")
+        if self._session is None or cuantas <= 0:
+            return []
+        en_hora = isinstance(herramienta, HistogramTool) and herramienta.uses_clock_time
+        inicio = self._session.recording.start_time
+
+        # Una decena de marcas alcanza para leer una noche entera sin que se
+        # pisen los textos. Se calcula el paso en vez de fijarlo: un registro de
+        # cinco ventanas y uno de tres mil necesitan cosas distintas.
+        paso = max(1, cuantas // 10)
+        marcas: list[tuple[float, str]] = []
+        for ventana in range(0, cuantas, paso):
+            if en_hora and inicio is not None:
+                hora = window_to_clock_time(ventana, inicio)
+                texto = hora.strftime("%H:%M") if hora is not None else str(ventana + 1)
+            else:
+                texto = str(ventana + 1)
+            marcas.append((float(ventana), texto))
+        return marcas
+
+    def set_histogram_time_axis(self, use_clock_time: bool) -> None:
+        """Cambia el eje del hipnograma entre hora real y número de ventana.
+
+        La herramienta se niega a poner la hora real si el registro no informa
+        a qué hora empezó, y tiene razón: un eje con una hora inventada se lee
+        como si fuera cierta. Acá eso se convierte en un cartel.
+        """
+        herramienta = self._tools.get("histogram")
+        if not isinstance(herramienta, HistogramTool):
+            return
+        try:
+            herramienta.set_time_axis(use_clock_time)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self._redraw_histogram()
 
     def _show_shortcuts(self) -> None:
         nomenclatura = (
