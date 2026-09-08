@@ -228,13 +228,13 @@ class MainWindow(QMainWindow):
         # resuelve con `mapSceneToView()`, así que darle un `position()` sería
         # mezclar dos sistemas que hoy coinciden y no tienen por qué.
         segundos = self.signal_view.seconds_at_pixel(evento.scenePosition().x())
-        # La altura no tiene una conversión única —la escala es por canal— así
-        # que se le pasa la coordenada del gráfico, que es lo que el
-        # visualizador sabe dar. Ninguna de las cuatro herramientas mide con
-        # ella: la ocupación proyecta sobre el eje horizontal y el anotador
-        # marca un tramo de tiempo.
-        vista = self.signal_view.getPlotItem().vb
-        y = float(vista.mapSceneToView(evento.scenePosition()).y())
+        # **En microvoltios, que es lo que `ViewerTool` documenta recibir.**
+        # Hasta el hito 9 acá iba la coordenada cruda del gráfico, con un
+        # comentario que afirmaba que ninguna herramienta usaba la `y`. La usan
+        # tres, y la peor consecuencia era que la ocupación borraba una línea
+        # con cualquier clic, porque comparaba su tolerancia de 10 µV contra un
+        # rango de 0 a 1.
+        y = self.signal_view.microvolts_at_pixel(evento.scenePosition().y())
 
         if evento.type() == QEvent.Type.MouseMove:
             herramienta.on_mouse_move(segundos, y)

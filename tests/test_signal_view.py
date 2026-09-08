@@ -21,6 +21,8 @@ es lo que hace exacta la afirmación sin depender de los márgenes del gráfico.
 
 from pathlib import Path
 
+from PySide6.QtCore import QPointF
+
 import numpy as np
 import pytest
 
@@ -230,3 +232,66 @@ def test_cambiar_la_amplitud_sin_registro_no_rompe(qt_app):
     vista = SignalView()
     vista.increase_amplitude()
     vista.decrease_amplitude()
+
+
+# -- El cuarto conversor: píxeles a microvoltios (hito 9) ---------------------
+
+
+def test_la_vertical_sale_en_microvoltios_y_no_en_carriles(vista: SignalView):
+    """**El bug que motivó este conversor.**
+
+    `ViewerTool` documenta recibir la `y` en µV, y la ventana principal le
+    pasaba la coordenada cruda del gráfico, que va de 0 a 1. Con la escala por
+    defecto, medio carril son decenas de µV: si el número que sale de acá
+    estuviera en carriles, sería menor que 1.
+    """
+    caja = vista.getPlotItem().vb.sceneBoundingRect()
+    arriba = caja.top() + caja.height() * 0.1
+
+    assert abs(vista.microvolts_at_pixel(arriba)) > 1.0
+
+
+def test_el_eje_del_canal_es_el_cero(vista: SignalView, sesion: Session):
+    """El µV 0 cae donde está dibujado el eje del canal, no en el borde."""
+    caja = vista.getPlotItem().vb.sceneBoundingRect()
+    # El primer canal se dibuja centrado en el carril 0, que es la coordenada
+    # de gráfico 0. Se pregunta al ViewBox dónde cae ese punto en la escena.
+    eje = vista.getPlotItem().vb.mapViewToScene(QPointF(0.0, 0.0)).y()
+
+    assert vista.microvolts_at_pixel(eje) == pytest.approx(0.0, abs=1e-6)
+    assert caja.top() <= eje <= caja.bottom()
+
+
+def test_ida_y_vuelta_da_lo_mismo(vista: SignalView):
+    """Es la inversa exacta de la cuenta con la que se dibuja la señal. Si no lo
+    fuera, la banda de amplitud no mediría lo que dice medir."""
+    for microvoltios in (0.0, 25.0, -40.0, 75.0):
+        carril = vista._a_carril(microvoltios, "C3")
+        assert vista._a_microvoltios(carril, "C3") == pytest.approx(microvoltios)
+
+
+def test_mas_arriba_es_mas_microvoltios(vista: SignalView):
+    """Trivial de leer y no de garantizar: en la escena la `y` crece hacia
+    abajo, así que un signo de más daría la señal invertida."""
+    caja = vista.getPlotItem().vb.sceneBoundingRect()
+    arriba = vista.microvolts_at_pixel(caja.top() + 10)
+    abajo = vista.microvolts_at_pixel(caja.bottom() - 10)
+
+    assert arriba > abajo
+
+
+def test_la_escala_del_canal_cambia_la_lectura(vista: SignalView, sesion: Session):
+    """Duplicar los µV que representa el carril tiene que duplicar lo que se lee
+    en el mismo píxel: es lo que hace que la ocupación y la lupa sigan a la
+    amplitud que eligió el usuario."""
+    caja = vista.getPlotItem().vb.sceneBoundingRect()
+    punto = caja.top() + caja.height() * 0.2
+
+    antes = vista.microvolts_at_pixel(punto)
+    sesion.set_scale_uv("C3", sesion.scale_uv("C3") * 2)
+    assert vista.microvolts_at_pixel(punto) == pytest.approx(antes * 2)
+
+
+def test_sin_registro_la_vertical_es_cero(qt_app):
+    """El visualizador se construye antes de que haya nada abierto."""
+    assert SignalView().microvolts_at_pixel(100.0) == 0.0

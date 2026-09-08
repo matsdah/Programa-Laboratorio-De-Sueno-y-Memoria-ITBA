@@ -331,6 +331,54 @@ class SignalView(pg.PlotWidget):
         segundos = float(vista.mapSceneToView(QPointF(float(x_pixel), 0.0)).x())
         return min(self.window_seconds, max(0.0, segundos))
 
+    def microvolts_at_pixel(
+        self, y_pixel: float, channel_name: str | None = None
+    ) -> float:
+        """Microvoltios bajo una coordenada vertical, medidos sobre un canal.
+
+        **Es el cuarto conversor, y faltaba.** `ViewerTool` documenta que
+        recibe la `y` en microvoltios, y hasta el hito 9 la ventana principal le
+        pasaba la coordenada cruda del gráfico —carriles, de 0 a 1— porque un
+        comentario daba por sentado que ninguna herramienta la usaba. La usan
+        tres: la banda de amplitud la toma como centro, la ocupación la guarda
+        en sus líneas y la lupa ubica su círculo con ella.
+
+        El síntoma más caro era de la ocupación: su `TOLERANCIA_DE_CLIC_UV` es
+        de 10 µV y se comparaba contra un rango de 0 a 1, así que **cualquier
+        clic dentro del rango horizontal de una línea la borraba** en vez de
+        empezar otra.
+
+        Es la inversa exacta de `_a_carril()`, que es la cuenta con la que se
+        dibuja la señal, así que ida y vuelta dan el mismo número.
+
+        Args:
+            y_pixel: coordenada vertical en el sistema de la **escena**.
+            channel_name: canal contra el que medir. Sin él, el primero
+                visible, que es la referencia que usan los overlays sin canal.
+
+        Returns:
+            Microvoltios respecto del eje de ese canal. Positivo hacia arriba.
+        """
+        vista = self.getPlotItem().vb
+        y_grafico = float(vista.mapSceneToView(QPointF(0.0, float(y_pixel))).y())
+        canal = channel_name or (self._visible[0] if self._visible else None)
+        if canal is None:
+            return 0.0
+        centro = self._centro_de_carril(canal)
+        if centro is None:
+            return 0.0
+        return self._a_microvoltios(y_grafico - centro, canal)
+
+    def _a_microvoltios(self, carriles: float, channel_name: str | None) -> float:
+        """La inversa de `_a_carril()`. Está al lado suyo a propósito.
+
+        Separarlas garantizaba que alguna de las dos se olvidara del factor de
+        llenado el día que cambiara.
+        """
+        if self._session is None or channel_name is None:
+            return carriles
+        return (carriles / _LLENADO_DEL_CARRIL) * self._session.scale_uv(channel_name)
+
     def window_fraction_at_pixel(self, x_pixel: float) -> float:
         """Posición dentro de la ventana, de 0 (inicio) a 1 (final).
 
