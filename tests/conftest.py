@@ -114,7 +114,11 @@ RESOLUCION_BV_UV = 0.5
 FRECUENCIA_BV = 250.0
 
 
-def escribir_brainvision(carpeta: pathlib.Path, segundos: float) -> pathlib.Path:
+def escribir_brainvision(
+    carpeta: pathlib.Path,
+    segundos: float,
+    canales: list[tuple[str, str]] | None = None,
+) -> pathlib.Path:
     """Escribe un BrainVision completo y devuelve la ruta de su `.vhdr`.
 
     **Por qué existe.** Los quince tests que leen el registro de `data/` son los
@@ -139,16 +143,24 @@ def escribir_brainvision(carpeta: pathlib.Path, segundos: float) -> pathlib.Path
     ventanas de 30 s para poder scorear y exportar.
     """
     carpeta.mkdir(parents=True, exist_ok=True)
-    canales = [("C3", "µV"), ("EOG-izq", "µV"), ("EMG-menton", "µV")]
+    # Los tres por omisión cubren una clase de señal cada uno, que es lo que
+    # necesitan los tests del lector. **Se pueden pedir otros**: la ICA, por
+    # ejemplo, necesita dos canales EEG y con uno solo se niega, con razón.
+    canales = canales or [("C3", "µV"), ("EOG-izq", "µV"), ("EMG-menton", "µV")]
     muestras = int(FRECUENCIA_BV * segundos)
     tiempos = np.arange(muestras) / FRECUENCIA_BV
     # Frecuencias distintas y conocidas por canal: una escala aplicada de más se
     # ve en los tres a la vez, y una permutación de canales, en uno solo.
+    # Una frecuencia y una amplitud distintas por canal, cíclicas si se piden
+    # más de tres: lo que importa es que ninguno sea igual a otro, para que una
+    # permutación de canales se vea.
+    formas = [(10.0, 50.0), (1.0, 30.0), (30.0, 20.0), (5.0, 40.0), (0.5, 60.0)]
     microvoltios = np.vstack(
         [
-            50.0 * np.sin(2 * np.pi * 10 * tiempos),
-            30.0 * np.sin(2 * np.pi * 1 * tiempos),
-            20.0 * np.sin(2 * np.pi * 30 * tiempos),
+            amplitud * np.sin(2 * np.pi * frecuencia * tiempos)
+            for frecuencia, amplitud in (
+                formas[posicion % len(formas)] for posicion in range(len(canales))
+            )
         ]
     )
     cuentas = np.round(microvoltios / RESOLUCION_BV_UV).astype("<i2")

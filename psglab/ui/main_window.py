@@ -55,7 +55,13 @@ from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
 from psglab.analysis.derivation import derive, derive_montage
-from psglab.analysis.psd import compute_psd
+from psglab.analysis.complexity import MEASURES, complexity_by_window
+from psglab.analysis.connectivity import (
+    average_connectivity,
+    compute_connectivity,
+)
+from psglab.analysis.ica import apply_ica, component_topography, fit_ica
+from psglab.analysis.psd import DEFAULT_BANDS, compute_psd
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
@@ -75,11 +81,25 @@ from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.grid import BackgroundStyle
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
+from psglab.ui.connectivity_panel import ConnectivityPanel
+from psglab.ui.ica_panel import IcaPanel
+from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
 from psglab.ui.scoring_panel import ScoringPanel
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
 from psglab.utils.errors import PsgLabError
+
+#: Medidas de complejidad que la interfaz ofrece para recorrer la noche.
+#:
+#: **Son las de `MEASURES` menos la entropía de muestra**, y la exclusión está
+#: medida, no supuesta: sobre una ventana de 30 s a 256 Hz tarda 124 ms contra
+#: 0,07–1,7 ms de las otras tres, así que sobre las 2650 ventanas de un
+#: registro real son más de cinco minutos con la ventana congelada.
+#:
+#: `complexity_by_window()` la acepta igual: es una función de biblioteca y
+#: quien la llama desde un script puede esperar. La política es de la interfaz.
+MEDIDAS_RAPIDAS = tuple(m for m in MEASURES if m != "sample_entropy")
 
 #: Qué botón del mouse llegó, traducido al vocabulario de `ViewerTool`, que no
 #: conoce Qt.
@@ -104,6 +124,8 @@ class MainWindow(QMainWindow):
         #: El botón de cada herramienta, para poder destildarlo al apagarla.
         self._tool_actions: dict[str, QAction] = {}
         self._active_viewer_tool: ViewerTool | None = None
+        #: La descomposición ICA ajustada, mientras el panel está abierto.
+        self._ica: object | None = None
 
         self._build_layout()
         self._build_menus()
@@ -151,6 +173,25 @@ class MainWindow(QMainWindow):
         columna_psd = QVBoxLayout(self.psd_dialog)
         columna_psd.addWidget(self.psd_panel)
 
+        self.metric_panel = MetricPanel()
+        self.metric_dialog = QDialog(self)
+        self.metric_dialog.setWindowTitle("Métrica por ventana")
+        self.metric_dialog.resize(720, 380)
+        QVBoxLayout(self.metric_dialog).addWidget(self.metric_panel)
+
+        self.connectivity_panel = ConnectivityPanel()
+        self.connectivity_dialog = QDialog(self)
+        self.connectivity_dialog.setWindowTitle("Conectividad")
+        self.connectivity_dialog.resize(560, 520)
+        QVBoxLayout(self.connectivity_dialog).addWidget(self.connectivity_panel)
+
+        self.ica_panel = IcaPanel()
+        self.ica_panel.on_apply = self._apply_ica
+        self.ica_dialog = QDialog(self)
+        self.ica_dialog.setWindowTitle("Componentes independientes")
+        self.ica_dialog.resize(860, 480)
+        QVBoxLayout(self.ica_dialog).addWidget(self.ica_panel)
+
         self.tool_readout = QLabel("")
         self.statusBar().addPermanentWidget(self.tool_readout)
         self.statusBar().showMessage("Sin registro abierto")
@@ -195,6 +236,10 @@ class MainWindow(QMainWindow):
         analisis.addAction("Referencia &promedio (EEG)", self.apply_average_reference)
         analisis.addSeparator()
         analisis.addAction("&Espectro de la ventana…", self.show_psd_dialog)
+        analisis.addAction("&Complejidad de la noche…", self.show_complexity_dialog)
+        analisis.addAction("Conectividad de la &ventana…", self.show_connectivity_dialog)
+        analisis.addSeparator()
+        analisis.addAction("Componentes &independientes (ICA)…", self.show_ica_dialog)
         analisis.addSeparator()
         self.accion_señal_original = analisis.addAction(
             "&Volver a la señal original", self.restore_original_recording
@@ -820,6 +865,131 @@ class MainWindow(QMainWindow):
         )
         self.psd_dialog.show()
         self.psd_dialog.raise_()
+
+    def show_complexity_dialog(self) -> None:
+        """Recorre la noche con una medida de complejidad y la grafica.
+
+        **La lista no ofrece la entropía de muestra**, y es una decisión de la
+        interfaz y no del módulo: medida sobre el registro real tarda más de
+        cinco minutos, contra menos de cinco segundos las otras tres. Con la
+        ventana congelada ese rato, el investigador no sabe si el programa
+        está trabajando o se colgó.
+
+        `complexity_by_window()` sí la acepta: es una función de biblioteca y
+        quien la llama desde un script puede esperar. La política es de acá.
+        """
+        if self._session is None:
+            return
+        canal = self._elegir_canal("Complejidad", "Canal:")
+        if canal is None:
+            return
+        medida, acepto = QInputDialog.getItem(
+            self, "Complejidad", "Medida:", list(MEDIDAS_RAPIDAS), 0, False
+        )
+        if not acepto:
+            return
+        try:
+            series = complexity_by_window(
+                self._session.recording, [canal], measure=medida
+            )
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.metric_panel.set_metric(medida, series)
+        self.metric_dialog.setWindowTitle(f"{medida} — «{canal}»")
+        self.metric_dialog.show()
+        self.metric_dialog.raise_()
+
+    def show_connectivity_dialog(self) -> None:
+        """Calcula la conectividad de la ventana actual y la muestra.
+
+        **De la ventana actual**, por el mismo motivo que el espectro: la
+        conectividad de las ocho horas promedia el sueño lento con la vigilia,
+        y en sueño lo que interesa es cómo cambia entre fases.
+        """
+        if self._session is None:
+            return
+        canales = self._session.visible_channels
+        if len(canales) < 2:
+            self._show_error(
+                PsgLabError(
+                    "La conectividad se mide entre canales, así que hacen falta "
+                    "al menos dos visibles.",
+                    details=f"canales visibles: {canales}.",
+                )
+            )
+            return
+        banda, acepto = QInputDialog.getItem(
+            self, "Conectividad", "Banda:", list(DEFAULT_BANDS), 0, False
+        )
+        if not acepto:
+            return
+
+        ventana = self._session.current_window
+        try:
+            matriz = compute_connectivity(
+                self._session.recording,
+                channels=canales,
+                band=DEFAULT_BANDS[banda],
+                window_index=ventana,
+            )
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.connectivity_panel.set_matrix(matriz, canales)
+        promedio = average_connectivity(matriz)
+        self.connectivity_dialog.setWindowTitle(
+            f"Conectividad en {banda} — ventana {ventana + 1} — "
+            f"promedio {promedio:.3f}".replace(".", ",", 1)
+        )
+        self.connectivity_dialog.show()
+        self.connectivity_dialog.raise_()
+
+    def show_ica_dialog(self) -> None:
+        """Ajusta la ICA y abre el panel para inspeccionarla (V5_F).
+
+        **No aplica nada.** Ajustar e inspeccionar son dos pasos separados de
+        aplicar, justamente porque quitar el componente equivocado modifica la
+        señal de forma irreversible. El panel muestra las topografías y espera.
+        """
+        if self._session is None:
+            return
+        try:
+            self._ica = fit_ica(self._session.recording)
+            topografias = [
+                component_topography(self._ica, numero)
+                for numero in range(int(self._ica.n_components_))
+            ]
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.ica_panel.set_components(topografias)
+        self.ica_dialog.show()
+        self.ica_dialog.raise_()
+
+    def _apply_ica(self, exclude: list[int]) -> None:
+        """Reconstruye la señal sin los componentes que el usuario marcó.
+
+        **Pasa por `_aplicar_analisis()`**, que es el camino único del menú
+        Análisis: así se puede volver a la señal original desde el menú, que es
+        la única red que hay contra una exclusión equivocada — y quitar un
+        componente no se puede deshacer sobre los datos ya transformados.
+        """
+        if self._session is None or self._ica is None:
+            return
+        cuantos = len(exclude)
+        que_hizo = (
+            "Se quitó 1 componente independiente"
+            if cuantos == 1
+            else f"Se quitaron {cuantos} componentes independientes"
+        )
+        self._aplicar_analisis(
+            que_hizo, lambda registro: apply_ica(registro, self._ica, exclude)
+        )
+        self.ica_dialog.hide()
 
     def restore_original_recording(self) -> None:
         """Vuelve a la señal tal como se leyó del archivo.

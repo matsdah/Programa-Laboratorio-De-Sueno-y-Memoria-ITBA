@@ -122,13 +122,13 @@ commit.
 | Sección | ID | Requisito | Archivo |
 |---------|----|-----------|---------|
 | Filtración | V1_F | Importar señal cruda y filtrar por tipo de canal | `psglab/analysis/filters.py` |
-| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py` |
+| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir) |
 | Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py` |
 | Rereferenciar | — | Re-referenciar la señal | `psglab/analysis/reference.py` |
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
 | PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py`, `psglab/ui/psd_panel.py` (el dibujo) |
-| Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py` |
-| Conectividad | — | Conectividad de la señal | `psglab/analysis/connectivity.py` |
+| Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py`, `psglab/ui/metric_panel.py` (el dibujo) |
+| Conectividad | — | Conectividad de la señal | `psglab/analysis/connectivity.py`, `psglab/ui/connectivity_panel.py` (la matriz), `psglab/ui/metric_panel.py` (a lo largo de la noche) |
 
 ---
 
