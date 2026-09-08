@@ -34,6 +34,7 @@ from psglab.core.recording import Channel, ChannelKind, Recording  # noqa: E402
 from psglab.core.scoring import Scoring  # noqa: E402
 from psglab.core.session import Session  # noqa: E402
 from psglab.core.windows import seconds_to_sample  # noqa: E402
+from psglab.tools.base import CircleOverlay  # noqa: E402
 from psglab.ui.signal_view import SignalView  # noqa: E402
 
 FRECUENCIA = 100.0
@@ -295,3 +296,82 @@ def test_la_escala_del_canal_cambia_la_lectura(vista: SignalView, sesion: Sessio
 def test_sin_registro_la_vertical_es_cero(qt_app):
     """El visualizador se construye antes de que haya nada abierto."""
     assert SignalView().microvolts_at_pixel(100.0) == 0.0
+
+
+# -- La lupa amplía de verdad (V1_F de "Lupa", hito 9) ------------------------
+#
+# Hasta el hito 9 el `CircleOverlay` se dibujaba como un punto de 30 píxeles,
+# **descartando `radius_seconds` y `zoom`**: el círculo seguía al mouse y no
+# ampliaba nada. La herramienta publicaba los dos campos y nadie los leía.
+
+
+def lupa(widget: SignalView, x: float = 15.0, radio: float = 1.0, zoom: float = 4.0):
+    """Dibuja una lupa y devuelve los puntos que quedaron en pantalla."""
+    widget.set_overlays(
+        [
+            CircleOverlay(
+                tool_name="magnifier",
+                x_seconds=x,
+                y_uv=0.0,
+                radius_seconds=radio,
+                zoom=zoom,
+            )
+        ]
+    )
+    return widget._overlay_items[0].getData()
+
+
+def test_la_lupa_dibuja_la_señal_y_no_un_punto(vista: SignalView):
+    x, _ = lupa(vista)
+    assert len(x) > 2, "la lupa sigue dibujando un punto suelto"
+
+
+def test_el_ancho_dibujado_sale_del_radio_y_del_zoom(vista: SignalView):
+    """El tramo de `radius_seconds` a cada lado se estira `zoom` veces. Con el
+    punto de 30 píxeles, este número no dependía de nada."""
+    x, _ = lupa(vista, radio=1.0, zoom=4.0)
+    assert x.max() - x.min() == pytest.approx(8.0, abs=0.1)
+
+
+def test_mas_zoom_amplia_mas(vista: SignalView):
+    x4, y4 = lupa(vista, zoom=4.0)
+    x8, y8 = lupa(vista, zoom=8.0)
+
+    assert (x8.max() - x8.min()) == pytest.approx(2 * (x4.max() - x4.min()), rel=0.02)
+    assert (y8.max() - y8.min()) == pytest.approx(2 * (y4.max() - y4.min()), rel=0.02)
+
+
+def test_un_radio_mas_grande_toma_mas_señal(vista: SignalView):
+    corta, _ = lupa(vista, radio=0.5)
+    larga, _ = lupa(vista, radio=2.0)
+
+    assert len(larga) > len(corta)
+
+
+def test_la_lupa_se_centra_donde_esta_el_mouse(vista: SignalView):
+    """Ampliar alrededor de otro punto movería la señal bajo el cursor."""
+    x, _ = lupa(vista, x=10.0)
+    assert (x.min() + x.max()) / 2 == pytest.approx(10.0, abs=0.1)
+
+
+def test_cerca_del_borde_no_se_sale_de_la_ventana(vista: SignalView):
+    """Al principio de la ventana hay menos señal de la que pide el radio, y
+    pedirla igual saldría del registro."""
+    x, _ = lupa(vista, x=0.2, radio=2.0)
+    assert len(x) > 0
+
+
+def test_sin_registro_la_lupa_no_dibuja_nada(qt_app):
+    widget = SignalView()
+    widget.set_overlays(
+        [
+            CircleOverlay(
+                tool_name="magnifier",
+                x_seconds=1.0,
+                y_uv=0.0,
+                radius_seconds=1.0,
+                zoom=4.0,
+            )
+        ]
+    )
+    assert widget._overlay_items == []

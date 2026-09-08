@@ -188,16 +188,67 @@ class SignalView(pg.PlotWidget):
             )
 
         if isinstance(overlay, CircleOverlay):
-            referencia = self._visible[0] if self._visible else None
-            return pg.ScatterPlotItem(
-                [overlay.x_seconds],
-                [self._a_carril(overlay.y_uv, referencia)],
-                symbol="o",
-                brush=None,
-                pen=pg.mkPen(width=2),
-                size=30,
-            )
+            return self._dibujar_lupa(overlay)
         return None
+
+    def _dibujar_lupa(self, overlay: CircleOverlay) -> object | None:
+        """La lupa: el tramo de señal alrededor del cursor, ampliado (V1_F).
+
+        **Hasta el hito 9 esto era un `ScatterPlotItem` de 30 píxeles**, que
+        descartaba `radius_seconds` y `zoom`: el círculo seguía al mouse y no
+        ampliaba nada. La herramienta publicaba los dos campos y nadie los leía,
+        que es el hallazgo que abrió el hito.
+
+        Ahora se dibuja lo que el pliego pide: el pedazo de onda que cae bajo el
+        cursor, estirado `zoom` veces en los dos ejes alrededor de él. Se estira
+        también en horizontal a propósito —una lupa aumenta las dos
+        dimensiones—, y por eso el tramo ocupa en pantalla `radius * zoom` a
+        cada lado.
+
+        Se dibuja sobre el **primer canal visible**, que es la referencia que ya
+        usan los overlays sin canal propio. Ampliar todos los carriles a la vez
+        los superpondría.
+        """
+        if self._session is None or not self._visible:
+            return None
+        canal = self._visible[0]
+        registro = self._session.recording
+        frecuencia = registro.sampling_rate
+        inicio_ventana, fin_ventana = window_to_samples(self._window_index, frecuencia)
+
+        # El tramo a ampliar, recortado contra los bordes de la ventana: cerca
+        # del comienzo o del final hay menos señal de la que pide el radio.
+        desde = max(0.0, overlay.x_seconds - overlay.radius_seconds)
+        hasta = min(self.window_seconds, overlay.x_seconds + overlay.radius_seconds)
+        primera = inicio_ventana + int(desde * frecuencia)
+        ultima = min(fin_ventana, inicio_ventana + int(hasta * frecuencia))
+        if ultima <= primera:
+            return None
+
+        tramo = registro.get_segment(primera, ultima, [canal])[0]
+        tiempos = desde + np.arange(len(tramo)) / frecuencia
+
+        centro_carril = self._centro_de_carril(canal) or 0.0
+        base = centro_carril + self._a_carril(overlay.y_uv, canal)
+        alturas = centro_carril + self._a_carril_desde_datos(tramo, canal)
+
+        ampliado_x = overlay.x_seconds + (tiempos - overlay.x_seconds) * overlay.zoom
+        ampliado_y = base + (alturas - base) * overlay.zoom
+        return pg.PlotDataItem(
+            ampliado_x, ampliado_y, pen=pg.mkPen(width=2), antialias=False
+        )
+
+    def _a_carril_desde_datos(
+        self, microvoltios: np.ndarray, channel_name: str
+    ) -> np.ndarray:
+        """`_a_carril()` para un array entero, sin recorrerlo en Python.
+
+        Es la misma cuenta que `show_window()`, y por eso la señal ampliada se
+        superpone exactamente con la que ya está dibujada.
+        """
+        if self._session is None:
+            return microvoltios
+        return (microvoltios / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
 
     def _centro_de_carril(self, channel_name: str) -> float | None:
         """Dónde está dibujado el eje de un canal, o None si no está visible."""
