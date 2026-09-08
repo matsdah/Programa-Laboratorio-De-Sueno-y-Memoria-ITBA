@@ -96,9 +96,9 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Ventana anterior, actual y siguiente, con la actual más oscura | `psglab/tools/overview.py` |
-| V2_F | Agrandar el panel con el mouse | `psglab/tools/overview.py` |
-| V3_F | Cantidad configurable y asimétrica de ventanas vecinas | `psglab/tools/overview.py` |
+| V1_F | Ventana anterior, actual y siguiente, con la actual más oscura | `psglab/tools/overview.py`, `psglab/ui/overview_panel.py` (el dibujo) |
+| V2_F | Agrandar el panel con el mouse | `psglab/tools/overview.py`, `psglab/ui/overview_panel.py` (el tamaño) |
+| V3_F | Cantidad configurable y asimétrica de ventanas vecinas | `psglab/tools/overview.py`, `psglab/ui/overview_panel.py` |
 
 ### Anotación de la señal
 

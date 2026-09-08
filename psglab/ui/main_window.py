@@ -11,6 +11,8 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
     |  canales         |     Visualizador de la señal (30 s)       |
     |                  |                                           |
     +------------------+-------------------------------------------+
+    |  Übersicht: ventanas vecinas, la actual más oscura            |
+    +--------------------------------------------------------------+
     |  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
     +--------------------------------------------------------------+
     |  Histograma de la noche completa                              |
@@ -61,10 +63,12 @@ from psglab.tools.base import Tool, ViewerTool
 from psglab.tools.histogram import HistogramTool
 from psglab.tools.magnifier import MagnifierTool
 from psglab.tools.occupancy import OccupancyTool
+from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.grid import BackgroundStyle
 from psglab.ui.navigation import NavigationBar
+from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.scoring_panel import ScoringPanel
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
@@ -106,6 +110,7 @@ class MainWindow(QMainWindow):
         self.channel_selector = ChannelSelector()
         self.scoring_panel = ScoringPanel()
         self.navigation = NavigationBar()
+        self.overview_panel = OverviewPanel()
         self.histogram_view = pg.PlotWidget()
         self.histogram_view.setMaximumHeight(140)
         self.histogram_view.getPlotItem().setMenuEnabled(False)
@@ -119,6 +124,7 @@ class MainWindow(QMainWindow):
         centro = QWidget()
         columna = QVBoxLayout(centro)
         columna.addWidget(arriba, stretch=4)
+        columna.addWidget(self.overview_panel)
         columna.addWidget(self.scoring_panel)
         columna.addWidget(self.navigation)
         columna.addWidget(self.histogram_view, stretch=1)
@@ -335,7 +341,29 @@ class MainWindow(QMainWindow):
             self.signal_view.set_overlays(tool.overlays())
         elif isinstance(tool, HistogramTool):
             self._redraw_histogram()
+        elif isinstance(tool, OverviewTool):
+            self._redraw_overview(tool)
         self._update_tool_readout()
+
+    def _redraw_overview(self, herramienta: OverviewTool) -> None:
+        """Lleva al panel lo que publica la Übersicht (V1_F, V2_F, V3_F).
+
+        Los colores de las clases de evento se le agregan acá y no los manda la
+        herramienta: viven en `AnnotationSet`, que es de `core/`, y `tools/`
+        publica los nombres de las clases, no cómo se ven.
+
+        El tamaño (V2_F) también viaja en este camino, porque `set_size()`
+        avisa por `on_changed` como cualquier otro cambio.
+        """
+        colores = None
+        if self._session is not None:
+            anotaciones = self._session.annotations
+            colores = {
+                clase: anotaciones.color_of(clase) for clase in anotaciones.labels()
+            }
+        self.overview_panel.set_windows(herramienta.windows(), colores)
+        ancho, alto = herramienta.size_px
+        self.overview_panel.set_panel_size(ancho, alto)
 
     def _update_tool_readout(self) -> None:
         """Escribe en la barra de estado el número que la herramienta calcula.

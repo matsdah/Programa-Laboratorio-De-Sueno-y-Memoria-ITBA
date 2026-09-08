@@ -31,6 +31,11 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "trece": 13, "catorce": 14, "quince": 15, "dieciséis": 16, "diecisiete": 17,
     "dieciocho": 18, "diecinueve": 19, "veinte": 20, "veintiuno": 21,
     "veintidós": 22, "veintitrés": 23, "veinticuatro": 24, "veinticinco": 25,
+    "veintiséis": 26, "veintisiete": 27, "veintiocho": 28, "veintinueve": 29,
+    "treinta": 30, "treinta y uno": 31, "treinta y dos": 32, "treinta y tres": 33,
+    "treinta y cuatro": 34, "treinta y cinco": 35, "treinta y seis": 36,
+    "treinta y siete": 37, "treinta y ocho": 38, "treinta y nueve": 39,
+    "cuarenta": 40,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
@@ -78,6 +83,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     # usuario por `MainWindow`. Se le declaran los módulos que ejercita de
     # punta a punta, que son los que dejarían de estar verificados si el
     # archivo se apagara.
+    "test_overview_panel.py": ("psglab/ui/overview_panel.py",),
     "test_entrega.py": (
         "psglab/app.py",
         "psglab/ui/main_window.py",
