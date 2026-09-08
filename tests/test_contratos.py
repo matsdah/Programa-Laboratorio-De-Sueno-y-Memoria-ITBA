@@ -45,7 +45,7 @@ from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
-from psglab.analysis import mne_bridge
+from psglab.analysis import derivation, mne_bridge, reference
 from psglab.core.session import Session
 from psglab.utils import units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
@@ -144,6 +144,21 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("set_active_tool", lambda v: sesion().set_active_tool(v)),
         ("add_window_listener", lambda v: sesion().add_window_listener(v)),
         ("set_scoring", lambda v: sesion().set_scoring(v)),
+        ("set_recording", lambda v: sesion().set_recording(v)),
+    ],
+    "psglab/analysis/derivation.py": [
+        ("derive(recording=...)", lambda v: derivation.derive(v, "C0", "C1")),
+        ("derive(channel_a=...)", lambda v: derivation.derive(registro(), v, "C1")),
+        ("derive(channel_b=...)", lambda v: derivation.derive(registro(), "C0", v)),
+        ("derive(name=...)", lambda v: derivation.derive(registro(), "C0", "C1", v)),
+        ("derive_montage(recording=...)", lambda v: derivation.derive_montage(v, [])),
+        ("derive_montage(pairs=...)", lambda v: derivation.derive_montage(registro(), v)),
+    ],
+    "psglab/analysis/reference.py": [
+        ("rereference(recording=...)", lambda v: reference.rereference(v, ["C0"])),
+        ("rereference(reference_channels=...)", lambda v: reference.rereference(registro(), v)),
+        ("average_reference(recording=...)", lambda v: reference.average_reference(v)),
+        ("average_reference(kind_only=...)", lambda v: reference.average_reference(registro(), v)),
     ],
     "psglab/analysis/mne_bridge.py": [
         ("to_raw", lambda v: mne_bridge.to_raw(v)),

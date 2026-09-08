@@ -4,7 +4,7 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **26 stubs** (`raise NotImplementedError`) en 8 módulos, **todos de la
+Quedan **22 stubs** (`raise NotImplementedError`) en 6 módulos, **todos de la
 Parte 2**: `psglab/analysis/`.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
@@ -70,13 +70,13 @@ nada**. Un verde por omisión es peor que un rojo.
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ✅ cerrado |
 | [9. Lo que la interfaz no consume](#hito-9-lo-que-la-interfaz-no-consume) | — | 0 | ✅ cerrado |
 | [10. Cimientos de la Parte 2](#hito-10-cimientos-de-la-parte-2) | — | 0 | ⬜ |
-| [11. Derivar y re-referenciar](#hito-11-derivar-y-re-referenciar) | 2 | 4 | ⬜ |
+| [11. Derivar y re-referenciar](#hito-11-derivar-y-re-referenciar) | — | 0 | ✅ cerrado |
 | [12. Filtración](#hito-12-filtración) | 1 | 3 | ⬜ |
 | [13. PSD](#hito-13-psd) | 1 | 3 | ⬜ |
 | [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | 2 | 8 | ⬜ |
 | [15. ICA](#hito-15-ica) | 1 | 4 | ⬜ |
 | [16. Impedancia](#hito-16-impedancia) | 1 | 4 | ⬜ |
-| | **8** | **26** | |
+| | **6** | **22** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
 seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta
@@ -280,7 +280,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **60 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **76 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `set_scoring()` se agregó en el hito 6, para V3_F: importar un scoring no
     es abrir otro registro, así que sustituye adentro en vez de armar otra
@@ -920,23 +920,57 @@ Los dos módulos que **no dependen de nada**: ni de MNE, ni de las bibliotecas
 que faltan, ni de ninguna pieza nueva. Aritmética sobre `Recording`, y por eso
 los primeros: son de resultado exactamente conocido.
 
-- [ ] **`psglab/analysis/derivation.py`** · 2 stubs · sección "Derivar"
+**Cerrado con su interfaz**, que es lo que el hito pedía: los dos análisis se
+piden desde el menú Análisis, que hasta acá estaba dibujado en el esquema de la
+ventana y no existía.
+
+- [x] **`Session.set_recording()`**, que no existía y sin el cual ningún
+      análisis podía llegar a la pantalla. Mismo argumento que
+      `set_scoring()` —procesar la señal no es abrir otro archivo—, más el caso
+      que aquél no tenía: **los canales pueden cambiar**. Conserva los visibles
+      que sobreviven, descarta la selección que ya no aplica, y las escalas se
+      conservan por nombre mientras los canales nuevos arrancan con la de
+      fábrica. Rechaza un registro de otra duración, porque el scoring ya hecho
+      dejaría de corresponder.
+- [x] **El menú Análisis**, con derivar, re-referenciar y referencia promedio.
+- [x] **Volver a la señal original**, que es lo que hace reversible el menú
+      entero. Sin eso, un filtro mal elegido obligaría a reabrir el archivo y
+      con él se perdería el scoring que el usuario venía haciendo.
+  - **Un test encontró que el canal derivado se creaba y no se veía.**
+    `set_recording()` conserva los visibles que sobreviven, y un canal nuevo no
+    sobrevive: nace. Mostrarlo es presentación —el usuario acaba de pedirlo— así
+    que la decisión quedó en `ui/` y no en `core/`.
+
+- [x] **`psglab/analysis/derivation.py`** · ~~2 stubs~~ · sección "Derivar"
   - `derive()` es una resta elemento a elemento, y `derive_montage()` se define
     sobre ella. El canal derivado se agrega **al final** y se llama `"A-B"` si
     no le dan nombre.
-  - Hay que decidir qué `ChannelKind`, qué `unit` y qué
-    `original_sampling_rate` lleva el canal nuevo: el docstring no lo dice.
-  - `Recording.__post_init__` valida que `Channel.index` sea la posición en la
-    lista, y `Channel` es frozen: hay que construir instancias nuevas.
-  - Test: **crear** `tests/test_derivation.py`.
-- [ ] **`psglab/analysis/reference.py`** · 2 stubs · sección "Rereferenciar"
+  - **Las tres decisiones que el esqueleto dejaba abiertas**, tomadas y
+    escritas en el docstring del módulo: la **unidad** tiene que coincidir o se
+    rechaza —restar grados de microvoltios da un número plausible que no
+    significa nada, y no falla solo—; la **clase** se hereda si los dos canales
+    la comparten y si no queda en `OTHER`, porque un "C3-EMG" no es ni una ni
+    otra y decir que sí lo haría filtrar con los parámetros equivocados; y la
+    **frecuencia original** se conserva si coinciden y si no queda en `None`.
+  - **`derive_montage()` es atómico**: si un par falla no se aplica ninguno. Un
+    montaje a medias le muestra al usuario algunos canales derivados y otros
+    no, sin nada que le diga cuáles. Sale gratis de que `derive()` no modifique
+    su entrada: lo que se descarta es el acumulador.
+  - Test: `tests/test_derivation.py`, **27 tests en verde**.
+- [x] **`psglab/analysis/reference.py`** · ~~2 stubs~~ · sección "Rereferenciar"
   - Con un solo canal de referencia, ese canal queda **idénticamente en cero**;
     con varios se resta el promedio, que es el caso de las mastoides A1+A2.
   - `average_reference(kind_only=True)` promedia sólo los EEG, y la prueba de
-    que el flag sirve es que meter un EMG a propósito **no** cambie el
-    resultado.
-  - Falta decidir qué pasa con los canales no eléctricos al re-referenciar.
-  - Test: **crear** `tests/test_reference.py`.
+    que el flag sirve son **dos** tests y no uno: meter un EMG no cambia el
+    resultado, y con `kind_only=False` **sí** lo cambia. Sin el segundo, el
+    flag podría no estar haciendo nada.
+  - **Lo que no es eléctrico no se toca**, que era la decisión pendiente.
+    Restarle a un termómetro un promedio de microvoltios no falla: produce una
+    temperatura falsa. `Channel.unit` es la fuente de verdad, igual que en el
+    resto del programa.
+  - El canal de referencia **se conserva** aunque quede plano: borrarlo en
+    silencio le cambiaría al usuario la lista de canales sin avisarle.
+  - Test: `tests/test_reference.py`, **19 tests en verde**.
 
 ---
 

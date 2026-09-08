@@ -198,6 +198,74 @@ class Session:
             )
         self._scoring = scoring
 
+    def set_recording(self, recording: Recording) -> None:
+        """Reemplaza el registro por uno procesado, sin perder la sesión.
+
+        **Es lo que hace usable la Parte 2.** Filtrar, re-referenciar y derivar
+        devuelven un `Recording` nuevo —es la regla 1 de `analysis/`: el
+        original no se toca, para que el usuario pueda comparar y volver
+        atrás—, y sin esto ese registro nuevo no tenía por dónde llegar a la
+        pantalla.
+
+        Vale acá el mismo argumento que en `set_scoring()`: procesar la señal
+        no es abrir otro archivo. El usuario sigue parado en su ventana, y las
+        herramientas activas siguen guardando la sesión que recibieron en
+        `activate()`, así que sustituir adentro conserva la identidad del objeto
+        y no hay nada que volver a cablear.
+
+        **Pero tiene un caso que `set_scoring()` no tenía: los canales pueden
+        cambiar.** Una derivación agrega `C3-A2`, y un montaje podría dejar
+        afuera alguno de los que el usuario tenía visibles. La regla es
+        conservar lo que sobrevive y no inventar:
+
+        - Los **visibles** que sigan existiendo se conservan en su orden. Si no
+          sobrevive ninguno se vuelve a mostrar todo, porque una pantalla vacía
+          después de filtrar se lee como que el filtro borró la señal.
+        - Los **seleccionados** que sigan existiendo se conservan; el resto se
+          descarta en silencio, que es lo mismo que hace `set_visible_channels`
+          con una selección que ya no aplica.
+        - Las **escalas** se conservan por nombre de canal, y los canales nuevos
+          arrancan con la de fábrica. Un derivado hereda la amplitud de nadie.
+
+        Raises:
+            InvalidRecordingError: si no es un `Recording`.
+            ScoringMismatchError: si dura otra cantidad de ventanas. Procesar la
+                señal no cambia su duración, así que si cambió es que el
+                registro no es el mismo, y el scoring que el usuario ya hizo
+                dejaría de corresponder.
+        """
+        if not isinstance(recording, Recording):
+            raise InvalidRecordingError(
+                "No se pudo reemplazar el registro con lo que se le pasó.",
+                details=(
+                    f"recording es {type(recording).__name__}, se esperaba Recording."
+                ),
+            )
+        ventanas = count_windows(recording.n_samples, recording.sampling_rate)
+        if ventanas != self.n_windows:
+            raise ScoringMismatchError(
+                f"El registro procesado dura {ventanas} ventanas y el original "
+                f"{self.n_windows}, así que el scoring ya hecho dejaría de "
+                "corresponder.",
+                details=(
+                    f"count_windows({recording.n_samples}, "
+                    f"{recording.sampling_rate}) = {ventanas}, "
+                    f"session.n_windows = {self.n_windows}."
+                ),
+            )
+
+        nombres = recording.channel_names()
+        sobreviven = [n for n in self._visible_channels if n in nombres]
+        self._visible_channels = sobreviven if sobreviven else list(nombres)
+        self._selected_channels = [
+            n for n in self._selected_channels if n in nombres
+        ]
+        inicial = clamp(DEFAULT_SCALE_UV, MIN_SCALE_UV, MAX_SCALE_UV)
+        self._scales_uv = {
+            nombre: self._scales_uv.get(nombre, inicial) for nombre in nombres
+        }
+        self._recording = recording
+
     # -- Navegación entre ventanas (V1_F de "Navegación") -------------------
 
     @property

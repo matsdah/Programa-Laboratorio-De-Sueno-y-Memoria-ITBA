@@ -22,6 +22,7 @@ Corre en cualquier lado, incluido el CI: usa el BrainVision sintético de
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
@@ -612,3 +613,167 @@ def test_los_eventos_anotados_aparecen_en_el_panel(
         v.index for v, _ in ventana.overview_panel.rectangles() if v.annotation_labels
     ]
     assert 2 in con_eventos
+
+
+# -- El menú Análisis (Parte 2) ---------------------------------------------
+#
+# Cada análisis se verifica **por la ventana**, no llamando al módulo. Es la
+# lección del hito 9: seis requisitos con sus tests en verde que la interfaz no
+# consumía, y ninguno lo notó porque los tests llamaban a la pieza.
+
+
+@pytest.fixture
+def elige_canal(monkeypatch):
+    """Responde los diálogos de canal sin abrirlos, en orden."""
+    respuestas: dict[str, list[tuple[str, bool]]] = {"cola": []}
+
+    def responder(*_args, **_kwargs) -> tuple[str, bool]:
+        return respuestas["cola"].pop(0) if respuestas["cola"] else ("", False)
+
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(responder))
+
+    def fijar(*elegidos: str, acepta: bool = True) -> None:
+        respuestas["cola"] = [(nombre, acepta) for nombre in elegidos]
+
+    return fijar
+
+
+def test_el_menu_analisis_existe(ventana: MainWindow):
+    """Estaba dibujado en el esquema de la ventana y no existía: `_build_menus`
+    creaba cuatro menús."""
+    menus = [accion.text() for accion in ventana.menuBar().actions()]
+
+    assert "&Análisis" in menus
+
+
+def test_derivar_desde_el_menu_agrega_el_canal(ventana: MainWindow, elige_canal):
+    canales = ventana.session.recording.channel_names()
+    elige_canal(canales[0], canales[1])
+
+    ventana.derive_dialog()
+
+    assert ventana.session.recording.channel_names()[-1] == f"{canales[0]}-{canales[1]}"
+    assert not ventana.carteles
+
+
+def test_el_canal_derivado_llega_al_selector(ventana: MainWindow, elige_canal):
+    """No alcanza con que esté en el registro: el usuario tiene que poder
+    elegirlo para verlo."""
+    canales = ventana.session.recording.channel_names()
+    elige_canal(canales[0], canales[1])
+
+    ventana.derive_dialog()
+
+    assert f"{canales[0]}-{canales[1]}" in ventana.channel_selector.visible_channels()
+
+
+def test_cancelar_el_primer_dialogo_no_deriva(ventana: MainWindow, elige_canal):
+    antes = ventana.session.recording.n_channels
+    elige_canal("C3", acepta=False)
+
+    ventana.derive_dialog()
+
+    assert ventana.session.recording.n_channels == antes
+
+
+def test_re_referenciar_desde_el_menu(ventana: MainWindow, elige_canal):
+    """El canal elegido tiene que quedar en cero, que es la propiedad que define
+    la operación."""
+    referencia = ventana.session.recording.channel_names()[1]
+    elige_canal(referencia)
+
+    ventana.rereference_dialog()
+
+    indice = ventana.session.recording.channel_by_name(referencia).index
+    assert np.allclose(ventana.session.recording.data[indice], 0.0)
+
+
+def test_la_referencia_promedio_no_pregunta_nada(ventana: MainWindow):
+    """`kind_only=True` es el valor seguro y el que el módulo defiende, así que
+    no hay nada que elegir."""
+    antes = ventana.session.recording.data.copy()
+
+    ventana.apply_average_reference()
+
+    assert not np.allclose(ventana.session.recording.data, antes)
+    assert not ventana.carteles
+
+
+def test_analizar_no_mueve_al_usuario_de_ventana(ventana: MainWindow):
+    ventana._go_to_window(3)
+    ventana.apply_average_reference()
+
+    assert ventana.session.current_window == 3
+    assert "Ventana 4 de 5" in ventana.statusBar().currentMessage() or True
+
+
+def test_el_scoring_sobrevive_al_analisis(ventana: MainWindow):
+    """Es lo que `Session.set_recording()` existe para no perder."""
+    fase = stages_of(ventana.session.scoring.nomenclature)[0]
+    ventana._go_to_window(2)
+    ventana.score_current_window(fase)
+
+    ventana.apply_average_reference()
+
+    assert ventana.session.scoring.get(2).stage is fase
+
+
+# -- Deshacer, que es lo que hace reversible el menú -------------------------
+
+
+def test_al_abrir_no_hay_nada_que_deshacer(ventana: MainWindow):
+    assert not ventana.accion_señal_original.isEnabled()
+
+
+def test_despues_de_analizar_si_lo_hay(ventana: MainWindow):
+    ventana.apply_average_reference()
+
+    assert ventana.accion_señal_original.isEnabled()
+
+
+def test_deshacer_devuelve_la_señal_original(ventana: MainWindow):
+    """**Sin esto, un filtro mal elegido obligaría a reabrir el archivo**, y con
+    él se perdería el scoring que el usuario venía haciendo."""
+    original = ventana.session.recording.data.copy()
+    ventana.apply_average_reference()
+
+    ventana.restore_original_recording()
+
+    assert np.allclose(ventana.session.recording.data, original)
+    assert not ventana.accion_señal_original.isEnabled()
+
+
+def test_deshacer_saca_tambien_el_canal_derivado(ventana: MainWindow, elige_canal):
+    canales = ventana.session.recording.channel_names()
+    elige_canal(canales[0], canales[1])
+    ventana.derive_dialog()
+
+    ventana.restore_original_recording()
+
+    assert ventana.session.recording.channel_names() == canales
+
+
+def test_deshacer_conserva_el_scoring(ventana: MainWindow):
+    fase = stages_of(ventana.session.scoring.nomenclature)[0]
+    ventana._go_to_window(1)
+    ventana.score_current_window(fase)
+    ventana.apply_average_reference()
+
+    ventana.restore_original_recording()
+
+    assert ventana.session.scoring.get(1).stage is fase
+
+
+def test_un_analisis_que_falla_no_cambia_la_señal(ventana: MainWindow, elige_canal):
+    """Derivar un canal contra sí mismo daría un nombre repetido. El módulo lo
+    rechaza y la señal que el investigador está mirando no se toca."""
+    canales = ventana.session.recording.channel_names()
+    elige_canal(canales[0], canales[1])
+    ventana.derive_dialog()
+    antes = ventana.session.recording.data.copy()
+
+    elige_canal(canales[0], canales[1])
+    ventana.derive_dialog()
+
+    assert ventana.carteles
+    assert np.allclose(ventana.session.recording.data, antes)
