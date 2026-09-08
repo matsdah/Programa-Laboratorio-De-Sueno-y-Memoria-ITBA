@@ -84,6 +84,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     # punta a punta, que son los que dejarían de estar verificados si el
     # archivo se apagara.
     "test_overview_panel.py": ("psglab/ui/overview_panel.py",),
+    "test_impedance.py": ("psglab/analysis/impedance.py",),
+    "test_impedance_panel.py": ("psglab/ui/impedance_panel.py",),
     "test_ica.py": ("psglab/analysis/ica.py",),
     "test_ica_panel.py": ("psglab/ui/ica_panel.py",),
     "test_complexity.py": ("psglab/analysis/complexity.py",),
@@ -310,7 +312,11 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
 
     # El texto de arriba del documento repite el número: si se actualiza la
     # tabla y no el párrafo, el primero que lo lea se lleva el dato viejo.
-    parrafo = re.search(r"Quedan \*\*(\d+) stubs\*\*.*?en (\d+) módulos", todo, re.S)
+    # **`módulos?` y no `módulos`.** Con un solo módulo se escribe "en 1
+    # módulo", en singular, y el chequeo se caía diciendo que faltaba el
+    # resumen — que estaba. Es el mismo tropiezo que el de los números de
+    # varias palabras: el castellano flexiona y el regex no lo contemplaba.
+    parrafo = re.search(r"Quedan \*\*(\d+) stubs?\*\*.*?en (\d+) módulos?", todo, re.S)
     assert parrafo is not None, "no se encontró el resumen de stubs al principio del TODO"
     assert int(parrafo.group(1)) == en_codigo, (
         f"el resumen dice {parrafo.group(1)} stubs y en el código hay {en_codigo}"
@@ -318,6 +324,56 @@ def test_las_cuentas_del_todo_coinciden_con_el_codigo():
     assert int(parrafo.group(2)) == modulos_reales, (
         f"el resumen dice {parrafo.group(2)} módulos y hay {modulos_reales}"
     )
+
+
+def test_un_hito_terminado_figura_como_cerrado():
+    """La columna de estado de la tabla de progreso no la miraba nadie.
+
+    **Y estaba mal.** El hito 10 quedó en ⬜ con sus siete ítems tildados y cero
+    stubs: se cerró y nadie tocó la tabla. Los chequeos comparaban las cuentas
+    de stubs, que son números, y el ✅ es texto, así que pasaba.
+
+    La regla es la que cualquiera daría por sentada al leer la tabla: **un hito
+    sin ítems pendientes y sin stubs está cerrado**.
+
+    **La dirección contraria no se exige**, y este mismo chequeo mostró por qué
+    al escribirse: el hito 0 figura cerrado y tiene un ítem sin tildar, que es
+    la pregunta abierta del origen de las impedancias, bajo un encabezado que
+    dice "Sigue abierta". No es trabajo pendiente sino una pregunta al cliente
+    anotada donde corresponde. Un hito puede quedar cerrado con una de ésas
+    colgando.
+    """
+    todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
+
+    # La sección de cada hito, para poder contar sus ítems.
+    secciones: dict[str, str] = {}
+    actual: str | None = None
+    for linea in todo.splitlines():
+        encabezado = re.match(r"^## Hito (\d+):", linea)
+        if encabezado is not None:
+            actual = encabezado.group(1)
+            secciones[actual] = ""
+        elif actual is not None:
+            secciones[actual] += linea + "\n"
+
+    problemas: list[str] = []
+    for numero, nombre, _, stubs, estado in re.findall(
+        r"\|\s*\[(\d+)\.([^\]]*)\]\([^)]*\)\s*\|\s*([\d—-]+)\s*\|\s*(\d+)\s*\|\s*([^|]*)\|",
+        todo,
+    ):
+        cuerpo = secciones.get(numero)
+        if cuerpo is None:
+            continue
+        pendientes = len(re.findall(r"^\s*- \[ \]", cuerpo, re.M))
+        cerrado = "✅" in estado
+        if pendientes == 0 and int(stubs) == 0 and not cerrado:
+            problemas.append(
+                f"el hito {numero} ({nombre.strip()}) no tiene ítems pendientes "
+                "y la tabla no lo da por cerrado"
+            )
+        # Ver el docstring: un hito cerrado puede llevar un ítem sin tildar si
+        # es una pregunta abierta y no trabajo pendiente.
+    assert not problemas, "\n".join(problemas)
 
 
 def test_las_cuentas_de_los_readme_de_carpeta_coinciden_con_el_codigo():

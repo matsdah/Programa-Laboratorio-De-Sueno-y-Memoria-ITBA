@@ -61,10 +61,14 @@ reescribir los algoritmos con menos horas de revisión encima.
 
 ## Ambigüedad abierta
 
-**Impedancias:** los archivos EDF y BrainVision no siempre las traen. Falta
-definir de dónde salen — de ahí que `impedance.py` tenga tanto
-`read_impedances()` (del registro) como `load_impedances_from_file()` (de un
-archivo aparte). Ver [`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt),
+**Impedancias:** falta saber **cuál de las tres vías usa el laboratorio**. Las
+tres están implementadas en `impedance.py`, así que lo que la respuesta decide
+es qué se le ofrece primero al investigador, no qué se puede hacer.
+
+Lo que sí quedó medido: **BrainVision las trae** —en la sección `[Comment]` del
+`.vhdr`, ya en kΩ— y **EDF no puede**, porque el estándar no tiene el campo. Por
+eso la vía del archivo aparte no es un extra: es la única disponible para todo
+registro en EDF. Ver [`docs/EXPLICACION.txt`](../../docs/EXPLICACION.txt),
 sección 8.
 
 ## Funcionalidades futuras
@@ -81,5 +85,5 @@ huso-onda lenta. Hoy no se instala, justamente porque está fuera del alcance.
 Esta carpeta es la **Parte 2** y queda **fuera del
 [TODO](../../docs/TODO.md)**, que cubre sólo la Parte 1.
 
-Pendientes **7 stubs**. No empezarlos antes de cerrar la Parte 1: dependen de
+Pendientes **3 stubs**. No empezarlos antes de cerrar la Parte 1: dependen de
 `core/recording.py` y de que la importación de archivos funcione.

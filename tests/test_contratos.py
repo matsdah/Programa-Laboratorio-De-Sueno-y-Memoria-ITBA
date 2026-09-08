@@ -50,6 +50,7 @@ from psglab.analysis import (
     connectivity,
     derivation,
     ica,
+    impedance,
     mne_bridge,
     psd,
     reference,
@@ -169,6 +170,15 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("derive(name=...)", lambda v: derivation.derive(registro(), "C0", "C1", v)),
         ("derive_montage(recording=...)", lambda v: derivation.derive_montage(v, [])),
         ("derive_montage(pairs=...)", lambda v: derivation.derive_montage(registro(), v)),
+    ],
+    "psglab/analysis/impedance.py": [
+        ("read_impedances", lambda v: impedance.read_impedances(v)),
+        ("load_impedances_from_file", lambda v: impedance.load_impedances_from_file(v)),
+        ("channels_above_limit(impedances=...)", lambda v: impedance.channels_above_limit(v)),
+        ("channels_above_limit(limit_kohm=...)", lambda v: impedance.channels_above_limit({"C0": 4.0}, v)),
+        ("impedance_report(impedances=...)", lambda v: impedance.impedance_report(v)),
+        ("impedance_report(limit_kohm=...)", lambda v: impedance.impedance_report({"C0": 4.0}, v)),
+        ("impedance_report(channels=...)", lambda v: impedance.impedance_report({"C0": 4.0}, 5.0, v)),
     ],
     "psglab/analysis/ica.py": [
         ("fit_ica(recording=...)", lambda v: ica.fit_ica(v)),

@@ -4,9 +4,8 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **7 stubs** (`raise NotImplementedError`) en 2 módulos, **todos de la
-Parte 2**: `psglab/analysis/`. Los dos esperan una respuesta externa —el pliego
-y el cliente—, así que **no hay nada que se pueda avanzar sin ella**.
+Quedan **3 stubs** (`raise NotImplementedError`) en 1 módulo, `filters.py`,
+que es lo último de la Parte 2.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
 se pueden usar desde el programa corriendo, no sólo desde sus módulos, que es la
@@ -70,14 +69,14 @@ nada**. Un verde por omisión es peor que un rojo.
 | [7. Herramientas](#hito-7-herramientas) | — | 0 | ✅ cerrado |
 | [8. Cierre](#hito-8-cierre-de-la-parte-1) | — | 0 | ✅ cerrado |
 | [9. Lo que la interfaz no consume](#hito-9-lo-que-la-interfaz-no-consume) | — | 0 | ✅ cerrado |
-| [10. Cimientos de la Parte 2](#hito-10-cimientos-de-la-parte-2) | — | 0 | ⬜ |
+| [10. Cimientos de la Parte 2](#hito-10-cimientos-de-la-parte-2) | — | 0 | ✅ cerrado |
 | [11. Derivar y re-referenciar](#hito-11-derivar-y-re-referenciar) | — | 0 | ✅ cerrado |
 | [12. Filtración](#hito-12-filtración) | 1 | 3 | ⬜ |
 | [13. PSD](#hito-13-psd) | — | 0 | ✅ cerrado |
 | [14. Complejidad y conectividad](#hito-14-complejidad-y-conectividad) | — | 0 | ✅ cerrado |
 | [15. ICA](#hito-15-ica) | — | 0 | ✅ cerrado |
-| [16. Impedancia](#hito-16-impedancia) | 1 | 4 | ⬜ |
-| | **2** | **7** | |
+| [16. Impedancia](#hito-16-impedancia) | — | 0 | ✅ cerrado |
+| | **1** | **3** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
 seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta
@@ -159,8 +158,13 @@ repositorio.
 
 ### Sigue abierta
 
-- [ ] **Origen de las impedancias** (cabecera del archivo, archivo aparte o
-  carga manual). Es de la **Parte 2**, así que no frena nada de este TODO.
+- [ ] **Origen de las impedancias.** La pregunta se acotó al implementar el
+  [hito 16](#hito-16-impedancia): las tres vías están hechas, así que lo único
+  que falta saber es **cuál usa el laboratorio**, y de eso depende qué se le
+  ofrece primero al investigador.
+  - **BrainVision las trae**, en la sección `[Comment]` del `.vhdr` y ya en kΩ.
+  - **EDF no puede**: el estándar no tiene el campo, ni en EDF ni en EDF+. Para
+    esos registros la única vía es el archivo aparte o la carga a mano.
   Ver `analysis/impedance.py`.
 
 ---
@@ -1163,24 +1167,56 @@ mostrarse.
 
 Último porque es el único que arranca con una decisión del cliente sin cerrar.
 
-- [ ] **`psglab/analysis/impedance.py`** · 4 stubs · V1_F de "Impedancia"
-  - `channels_above_limit()` e `impedance_report()` no dependen de nada:
-    reciben diccionarios. Se pueden hacer desde el principio.
-  - Las otras dos dependen del origen de las impedancias, que sigue abierto. Se
-    implementan **las tres vías** que plantea el docstring, porque no son
-    excluyentes; la marca `PENDIENTE DE DEFINICIÓN CON EL CLIENTE` se saca
-    recién cuando el cliente confirme cuál usa el laboratorio.
-  - **Si elige la vía de la cabecera, el trabajo no es sólo de la Parte 2**: los
-    dos lectores no guardan hoy ninguna clave de impedancia en
-    `Recording.metadata` —sólo `edf_annotations` y `brainvision_markers`—, así
-    que habría que tocar `readers/`.
-  - **Trampa al cerrar**: `psglab/analysis/README.md` tiene una sección
-    "Ambigüedad abierta" que sólo pasa el chequeo porque nombra este módulo. El
-    día que se saque la marca, ese README rompe la suite si no se reescribe en
-    el mismo commit.
-  - Falta decidir si el límite es estricto o inclusivo, y el formato del texto
-    de `impedance_report()`.
-  - Test: **crear** `tests/test_impedance.py`.
+- [x] **`psglab/analysis/impedance.py`** · ~~4 stubs~~ · V1_F de "Impedancia"
+  - **Media pregunta del cliente quedó respondida midiendo, no preguntando**:
+    **BrainVision sí las trae** —el `.vhdr` tiene una tabla
+    `Impedance [kOhm] at hh:mm:ss :` en su sección `[Comment]`, ya en kΩ, y MNE
+    la parsea en `raw.impedances`— y **EDF no puede traerlas**: el estándar no
+    tiene ningún campo de impedancia, ni en EDF ni en EDF+. Para un EDF
+    `read_impedances()` devuelve `{}` **siempre**, y eso convierte la vía del
+    archivo aparte de extra en obligatoria: es la única disponible para la
+    mitad del material.
+  - **Las tres vías están implementadas**, que era lo decidido. La marca
+    `PENDIENTE DE` **no se saca**: falta saber cuál usa el laboratorio, y eso
+    decide qué se le ofrece primero al usuario, no qué se puede hacer.
+  - **"No medido" no es "0 kΩ", y el módulo entero gira alrededor de eso.** Un
+    electrodo suelto que nadie midió es el caso peligroso, porque cero es el
+    mejor valor posible: si apareciera como cero pasaría por perfecto. El
+    `.vhdr` los escribe `???` y MNE los entrega como `nan`; se omiten.
+  - **El límite es inclusivo**: exactamente 5 kΩ con un límite de 5 kΩ pasa. El
+    límite es el máximo aceptable, no el primer valor rechazado, que es como lo
+    lee cualquiera que escriba "impedancia menor a 5".
+  - **`impedance_report()` ganó un argumento**, y es una decisión de firma como
+    la de `stage_durations_seconds()` en el hito 5: prometía distinguir tres
+    estados y **con el diccionario solo no podía**, porque los canales sin dato
+    se omiten a propósito. `channels` es lo que le permite saber qué falta.
+  - Test: `tests/test_impedance.py`, **48 tests en verde**.
+- [x] **`psglab/readers/brainvision.py`** · guarda las impedancias
+  - Ignoraba la sección `[Comment]` entera. Ahora vuelca lo que MNE parsea a
+    `Recording.metadata`, que es donde `core/recording.py` ya anticipaba que
+    `impedance.py` las buscaría.
+  - Filtra tres cosas: los `nan` de los no medidos, **`Ref` y `Gnd`** —que MNE
+    incluye y no son canales del registro—, y las unidades que no sean kΩ,
+    porque leer ohmios como kiloohmios daría mil veces menos y ningún canal
+    parecería fallar nunca.
+- [x] **`psglab/ui/impedance_panel.py`** · la tabla y el informe
+  - Es donde vive **la tercera vía**: `analysis/` no conoce Qt, así que cargar
+    a mano sólo puede estar acá.
+  - La celda sin valor dice **"sin medir"**, ni "0" ni en blanco: un cero
+    pasaría por el mejor valor posible y una celda vacía se lee como un olvido
+    de la pantalla, no del electrodo.
+  - Importar de un archivo **agrega, no reemplaza**: un laboratorio puede tener
+    medido medio montaje.
+  - Test: `tests/test_impedance_panel.py`, **16 tests en verde**.
+
+> **Lo que sigue abierto, y ahora está mejor planteado.** La pregunta ya no es
+> "de dónde salen" sino **cuál de las tres usa el laboratorio**, y de eso
+> depende únicamente qué se le ofrece primero al investigador. El día que se
+> conteste: sacar la marca `PENDIENTE DE` del docstring, y **reescribir en el
+> mismo commit** la sección "Ambigüedad abierta" de
+> [`analysis/README.md`](../psglab/analysis/README.md) —que sólo pasa el
+> chequeo porque nombra este módulo— y la sección 8 de
+> [`EXPLICACION.txt`](EXPLICACION.txt).
 
 ---
 

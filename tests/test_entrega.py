@@ -26,7 +26,7 @@ import numpy as np
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QApplication, QInputDialog
+from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog
 
 pytest.importorskip("pyqtgraph")
 
@@ -1007,3 +1007,125 @@ def test_aplicar_deja_volver_a_la_señal_original(ventana_con_dos_eeg: MainWindo
 
     ventana_con_dos_eeg.restore_original_recording()
     assert np.allclose(ventana_con_dos_eeg.session.recording.data, original)
+
+
+# -- Impedancia, por la ventana (V1_F de "Impedancia") -----------------------
+
+
+@pytest.fixture
+def ventana_con_impedancias(qt_app, tmp_path, monkeypatch):
+    """Como `ventana`, pero con un BrainVision que trae impedancias.
+
+    Uno medido y bien, uno medido y alto, y uno sin medir: los tres estados
+    que el informe tiene que distinguir.
+    """
+    carteles: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+    )
+    principal = create_main_window()
+    vhdr = escribir_brainvision(
+        tmp_path / "con_impedancias",
+        segundos=WINDOW_SECONDS * 2,
+        canales=[("C3", "µV"), ("C4", "µV"), ("O1", "µV")],
+        impedancias={"C3": 4.2, "C4": 12.5, "O1": None},
+    )
+    principal.open_recording(vhdr)
+    principal.carteles = carteles
+    return principal
+
+
+def test_las_impedancias_del_archivo_llegan_a_la_tabla(
+    ventana_con_impedancias: MainWindow,
+):
+    """**BrainVision sí las trae**, y el camino completo —archivo, lector,
+    módulo, panel— tiene que conservarlas."""
+    ventana_con_impedancias.show_impedance_dialog()
+
+    assert ventana_con_impedancias.impedance_panel.values() == {"C3": 4.2, "C4": 12.5}
+    assert not ventana_con_impedancias.carteles
+
+
+def test_el_que_estaba_sin_medir_se_ve_como_sin_medir(
+    ventana_con_impedancias: MainWindow,
+):
+    """**La distinción que sostiene el módulo**, vista por la ventana."""
+    from psglab.ui.impedance_panel import SIN_MEDIR
+
+    ventana_con_impedancias.show_impedance_dialog()
+    panel = ventana_con_impedancias.impedance_panel
+
+    assert panel.displayed_value("O1") == SIN_MEDIR
+    assert panel.unmeasured() == ["O1"]
+
+
+def test_el_informe_muestra_los_tres_estados(ventana_con_impedancias: MainWindow):
+    ventana_con_impedancias.show_impedance_dialog()
+    informe = ventana_con_impedancias.impedance_panel.report_text
+
+    assert "Por encima del límite" in informe
+    assert "Dentro del límite" in informe
+    assert "Sin medición disponible" in informe
+
+
+def test_editar_a_mano_rehace_el_informe(ventana_con_impedancias: MainWindow):
+    """Es la tercera vía: cargar a mano lo que el archivo no trae."""
+    ventana_con_impedancias.show_impedance_dialog()
+    panel = ventana_con_impedancias.impedance_panel
+    assert "Sin medición disponible" in panel.report_text
+
+    for fila in range(panel.tabla.topLevelItemCount()):
+        entrada = panel.tabla.topLevelItem(fila)
+        if entrada.text(0) == "O1":
+            entrada.setText(1, "3,1")
+
+    assert "Sin medición disponible" not in panel.report_text
+    assert panel.values()["O1"] == 3.1
+
+
+def test_sin_ninguna_impedancia_el_informe_dice_que_hacer(ventana: MainWindow):
+    """**Es el caso de todo EDF**, donde el formato no puede traerlas, y el de
+    un BrainVision sin tabla como el de esta fixture.
+
+    Listar los canales sin medir y callarse dejaría al investigador mirando una
+    lista sin salida.
+    """
+    ventana.show_impedance_dialog()
+
+    assert ventana.impedance_panel.values() == {}
+    assert "No hay ninguna impedancia cargada" in ventana.impedance_panel.report_text
+
+
+def test_importar_de_un_archivo_agrega_sin_reemplazar(
+    ventana_con_impedancias: MainWindow, tmp_path: Path, monkeypatch
+):
+    """Un laboratorio puede tener medido medio montaje: el archivo suma."""
+    archivo = tmp_path / "imp.txt"
+    archivo.write_text("O1 3.1\n", encoding="utf-8")
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(archivo), ""))
+    )
+
+    ventana_con_impedancias.show_impedance_dialog()
+    ventana_con_impedancias.load_impedances_dialog()
+
+    assert ventana_con_impedancias.impedance_panel.values() == {
+        "C3": 4.2,
+        "C4": 12.5,
+        "O1": 3.1,
+    }
+
+
+def test_un_archivo_mal_formado_avisa_sin_romper(
+    ventana_con_impedancias: MainWindow, tmp_path: Path, monkeypatch
+):
+    archivo = tmp_path / "malo.txt"
+    archivo.write_text("C3 cuatro\n", encoding="utf-8")
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(archivo), ""))
+    )
+
+    ventana_con_impedancias.show_impedance_dialog()
+    ventana_con_impedancias.load_impedances_dialog()
+
+    assert ventana_con_impedancias.carteles
