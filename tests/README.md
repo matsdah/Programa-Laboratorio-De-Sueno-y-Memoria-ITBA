@@ -72,7 +72,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_shortcuts.py` | Los atajos, y que los de fase se deriven de la nomenclatura. |
 | `test_grid.py` | La grilla de fondo: cuántas líneas y dónde caen. |
 | `test_overview_panel.py` | El panel de contexto: qué ventanas entran, cuál es la actual y dónde va cada una. |
-| `test_signal_view.py` | Las tres conversiones desde píxeles, que es de donde salen las unidades de las herramientas. |
+| `test_signal_view.py` | Las cuatro conversiones desde píxeles, que es de donde salen las unidades de las herramientas. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 | `test_mne_bridge.py` | El puente con MNE: que ida y vuelta devuelva lo mismo, y que un termómetro no se escale como si fuera un EEG. |
 | `test_derivation.py` | Las derivaciones: una resta exacta, y qué clase y qué unidad lleva el canal nuevo. |
@@ -186,19 +186,36 @@ regla se rompió**, no qué función se llamó.
 ## Estado
 
 El [TODO](../docs/TODO.md) lleva la cuenta. Cada módulo que se implementa
-arrastra su test, y **eso es parte de darlo por terminado**:
+arrastra su test, y **eso es parte de darlo por terminado**.
 
-**De la Parte 1 no queda ninguno por escribir ni por reactivar.** Los nueve de
-los hitos 1 a 3 —`test_units`, `test_windows`, `test_nomenclature`,
-`test_recording`, `test_errors`, `test_validation`, `test_scoring`,
-`test_annotations` y `test_session`—, los tres del hito 4, `test_exporters` del
-hito 5, los tres de `ui/` del hito 6 y los siete del hito 7 están todos
-corriendo, y `test_exporters` cubre los cuatro exportadores, `statistics.py` e
+**No queda ninguno por escribir ni por reactivar, en ninguna de las dos
+Partes.** Todos los módulos de `psglab/` están implementados, ninguno eleva
+`NotImplementedError` y ningún archivo de esta carpeta lleva `pytestmark`.
+
+De la **Parte 1**: los nueve de los hitos 1 a 3 —`test_units`, `test_windows`,
+`test_nomenclature`, `test_recording`, `test_errors`, `test_validation`,
+`test_scoring`, `test_annotations` y `test_session`—, los tres del hito 4,
+`test_exporters` del hito 5, los de `ui/` del hito 6 y los siete del hito 7.
+`test_exporters` cubre los cuatro exportadores, `statistics.py` e
 `information_txt.py` incluidos.
 
-Lo que queda es la **Parte 2**: `psglab/analysis/` no tiene ningún test todavía,
-y sus ocho módulos siguen en stubs.
+De la **Parte 2**: `psglab/analysis/` tiene sus **nueve módulos con su test
+propio** —`test_filters`, `test_ica`, `test_impedance`, `test_psd`,
+`test_complexity`, `test_connectivity`, `test_derivation`, `test_reference` y
+`test_mne_bridge`—, y cada panel que los lleva a la pantalla tiene el suyo. Los
+hitos 10 a 18 son los de esa mitad.
 
-**De `psglab/ui/` se testea lo que no dibuja** —los atajos, la grilla y las tres
-conversiones desde píxeles—, y el dibujo no. Es deliberado y está explicado en
+> Esta sección decía que `analysis/` no tenía ningún test y que sus ocho módulos
+> seguían en stubs. Era falso desde el hito 10 y se contradecía con la tabla de
+> más arriba, en este mismo archivo. Lo encontró la auditoría del 8 de septiembre
+> de 2026: el chequeo automático verifica las dos cantidades que se pueden
+> contar y **la prosa no la mira nadie**, que es justo lo que dice el docstring
+> de `test_lo_que_tests_readme_dice_de_la_suite_es_cierto`.
+
+**De `psglab/ui/` se testea lo que no dibuja**, y el dibujo no. Diez de sus
+catorce módulos tienen test propio: los atajos, la grilla, los **cuatro**
+conversores desde píxeles de `signal_view.py` y los siete paneles. Los otros
+cuatro —`main_window.py`, `navigation.py`, `scoring_panel.py` y
+`channel_selector.py`— figuran en `SIN_TEST_PROPIO`, y al primero lo recorre
+`test_entrega.py` por la ventana. Es deliberado y está explicado en
 [`ui/README.md`](../psglab/ui/README.md#estado).
