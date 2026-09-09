@@ -20,10 +20,16 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
     |  Barra de estado: ventana 42 / 960 - 00:21:00                 |
     +--------------------------------------------------------------+
 
-Cubre del pliego: V4_F de "Archivo de salida" (elegir cuál de los tres
-archivos exportar). Además es el contenedor que reúne todas las demás
-funcionalidades de la Parte 1, pero sin implementar ninguna: cada una vive en
-su módulo y acá sólo se las conecta entre sí.
+Cubre del pliego: V4_F de "Archivo de salida" (elegir cuál de los tres archivos
+exportar), V3_F de "Ocupación de la página" (mostrar el porcentaje), V2_F de
+"Herramienta Lupa" (el contador de picos) y V2_F del "Histograma" (el eje
+horizontal, en hora real o de 1 a VENMAX).
+
+Los tres últimos son **la mitad que el hito 9 cableó acá**, y por eso figuran:
+el cálculo vive en `tools/` y lo que faltaba era llevarlo a la pantalla, así que
+tocar `_update_tool_readout()` o `_marcas_del_histograma()` los rompe. El resto
+sigue siendo lo de siempre: este archivo es el contenedor que reúne las demás
+funcionalidades sin implementar ninguna, y cada una vive en su módulo.
 """
 
 from collections.abc import Callable, Iterator

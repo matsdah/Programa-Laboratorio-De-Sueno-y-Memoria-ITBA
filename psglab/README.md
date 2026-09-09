@@ -98,8 +98,16 @@ eleva ya `NotImplementedError`, ni los de la Parte 1 ni los de `analysis/`, que
 es la Parte 2.
 
 Pendientes **0 stubs** en 0 módulos de la Parte 1: **está terminada**, con los
-hitos 0 a 7 del [TODO](../docs/TODO.md) cerrados. `python main.py` abre la
-ventana. Los stubs que quedan son todos de `analysis/`, que es la Parte 2.
+hitos 0 a 9 del [TODO](../docs/TODO.md) cerrados. `python main.py` abre la
+ventana. La Parte 2 son los hitos 10 a 18 y tampoco deja ninguno.
+
+> Este párrafo decía "hitos 0 a 7" y terminaba con "los stubs que quedan son
+> todos de `analysis/`", que se contradecía con la frase de arriba en la misma
+> sección. Los dos números eran del momento en que se escribió: la Parte 1 no
+> cerró en el hito 7 sino en el 9 —el 8 fue su lista de comprobación y el 9, los
+> seis requisitos que esa lista destapó—, y `analysis/` dejó de tener stubs en el
+> hito 16. El chequeo automático mira la frase `Pendientes **N stubs**`, que era
+> correcta, y no la prosa que la rodea.
 
 Estas piezas **sí** están implementadas, a propósito, y no deben volver a ser
 stubs:
