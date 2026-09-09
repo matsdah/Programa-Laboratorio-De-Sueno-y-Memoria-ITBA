@@ -1637,7 +1637,10 @@ def test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato():
     línea de `Scoring.txt`. Dos de ellos, los del constructor de `Session`, no
     los encontró ninguna sonda escrita a mano sino este chequeo.
 
-    Sólo se exige de `core/` y `utils/`, donde vive la regla de negocio.
+    Se exige de `core/`, `utils/` y `analysis/` —las tres capas donde vive la
+    regla de negocio—; `analysis/` entró en el hito 10, por el mismo argumento
+    que las otras dos. **`readers/`, `tools/` y `exporters/` quedan afuera**, y
+    conviene saberlo: son las capas que reciben rutas y archivos del usuario.
     `tools/` tiene un test por herramienta, y de `ui/` se testea lo que no
     dibuja.
     """

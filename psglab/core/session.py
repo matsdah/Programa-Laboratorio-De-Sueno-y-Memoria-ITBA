@@ -321,12 +321,18 @@ class Session:
         self._window_listeners.append(callback)
 
     def _notify_window_changed(self, window_index: int) -> None:
-        """Avisa a los suscriptos. **Sólo si la ventana cambió de verdad.**
+        """Avisa a los suscriptos.
 
-        Llegar al final de la noche con la flecha derecha no es un cambio de
-        ventana, y avisarlo le borraría al usuario las líneas de ocupación que
-        acaba de dibujar sin que él haya ido a ningún lado. Lo mismo vale para
-        un clic del histograma sobre la ventana que ya se está viendo.
+        **La guarda de "sólo si cambió de verdad" está en los tres llamadores**,
+        no acá: `go_to_window()` vuelve temprano si el índice es el actual, y
+        `next_window()` y `previous_window()` no se mueven en los bordes. Este
+        método avisa siempre que se lo llame.
+
+        La distinción importa porque avisar de más tiene consecuencia: llegar al
+        final de la noche con la flecha derecha no es un cambio de ventana, y
+        avisarlo le borraría al usuario las líneas de ocupación que acaba de
+        dibujar sin que haya ido a ningún lado. Lo mismo vale para un clic del
+        histograma sobre la ventana que ya se está viendo.
         """
         for avisar in self._window_listeners:
             avisar(window_index)

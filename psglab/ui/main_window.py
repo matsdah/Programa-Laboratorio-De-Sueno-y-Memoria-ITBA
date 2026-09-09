@@ -15,6 +15,8 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
     +--------------------------------------------------------------+
     |  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
     +--------------------------------------------------------------+
+    |  Navegación: ← ventana anterior | siguiente →                 |
+    +--------------------------------------------------------------+
     |  Histograma de la noche completa                              |
     +--------------------------------------------------------------+
     |  Barra de estado: ventana 42 / 960 - 00:21:00                 |

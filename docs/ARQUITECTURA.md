@@ -30,10 +30,10 @@ trazabilidad.
                     └────┬────┘
                          │
                     ┌────▼────┐
-          ┌─────────►  core   ◄─────────┐
-          │         └────▲────┘         │
-          │              │              │
-    ┌─────┴─────┐  ┌─────┴─────┐  ┌─────┴──────┐  ┌──────────┐
+          ┌─────────►  core   ◄─────────────────────────┐
+          │         └────▲────┘         │               │
+          │              │              │               │
+    ┌─────┴─────┐  ┌─────┴─────┐  ┌─────┴──────┐  ┌─────┴────┐
     │  readers  │  │  tools    │  │ exporters  │  │ analysis │
     └───────────┘  └─────▲─────┘  └────────────┘  └──────────┘
                          │
@@ -42,8 +42,16 @@ trazabilidad.
                     └─────────┘
 ```
 
-`ui/` es la única capa con **dos** dependencias: `core/` por el modelo y
-`tools/` por las herramientas que muestra. El resto cuelga sólo de `core/`.
+El diagrama muestra de qué **cuelga** cada capa: las cuatro del medio dependen
+sólo de `core/` —y de `utils/` y `config`, que no dependen de nadie—, y `ui/`
+cuelga de `tools/` además de `core/`.
+
+**Pero `ui/` importa de todas**, medido sobre los imports y no sobre la
+intención: `core`, `tools`, `analysis`, `readers`, `exporters`, `utils` y
+`config`. Es lo que corresponde a la capa de arriba —abre archivos, exporta,
+pide análisis— y no rompe ninguna regla, porque las flechas siguen apuntando en
+una sola dirección. Decía que tenía "dos dependencias" y no era cierto; lo que
+importa no es cuántas tiene sino que **ninguna apunte hacia arriba**.
 
 Las flechas apuntan en una sola dirección y **`core/` no importa nada de
 `ui/`**. No es una preferencia estética: es lo que permite testear el modelo,
