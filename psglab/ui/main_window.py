@@ -85,7 +85,7 @@ from psglab.analysis.impedance import (
     read_impedances,
 )
 from psglab.analysis.filters import apply_filters, settings_for_kinds
-from psglab.analysis.psd import DEFAULT_BANDS, compute_psd
+from psglab.analysis.psd import DEFAULT_BANDS, band_power, compute_psd
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
@@ -981,6 +981,25 @@ class MainWindow(QMainWindow):
             return
 
         self.psd_panel.set_spectrum(frecuencias, potencias, [canal])
+        # **La potencia de cada banda, que es la otra mitad de V1_F.** El panel
+        # sombreaba las bandas y nunca decía cuánta potencia tenía cada una;
+        # `band_power()` la calculaba desde el hito 13 y no la leía nadie.
+        # Se pasan las dos: la absoluta y la relativa, que es la que
+        # `analysis/psd.py` documenta como la que permite comparar entre
+        # participantes, porque la absoluta depende del cráneo y la impedancia.
+        self.psd_panel.set_band_powers(
+            {
+                nombre: (
+                    float(np.ravel(band_power(frecuencias, potencias, extremos))[0]),
+                    float(
+                        np.ravel(
+                            band_power(frecuencias, potencias, extremos, relative=True)
+                        )[0]
+                    ),
+                )
+                for nombre, extremos in DEFAULT_BANDS.items()
+            }
+        )
         self.psd_dialog.setWindowTitle(
             f"Espectro de «{canal}» — ventana {ventana + 1}"
         )

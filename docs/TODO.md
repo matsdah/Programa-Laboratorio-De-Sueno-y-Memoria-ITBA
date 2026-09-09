@@ -1086,7 +1086,7 @@ ventana y no existía.
     `PlotDataItem.getData()` devuelve el log₁₀ de lo que se dibujó, así que una
     potencia de 1e-6 volvía como -6. El panel guarda ahora la magnitud en su
     unidad, que es la misma solución que `signal_view.py` usa con los píxeles.
-  - Test: `tests/test_psd_panel.py`, **14 tests en verde**.
+  - Test: `tests/test_psd_panel.py`, **19 tests en verde**.
 
 ---
 

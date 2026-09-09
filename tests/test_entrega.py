@@ -37,6 +37,7 @@ from psglab.config import (  # noqa: E402
     WINDOW_SECONDS,
 )
 from psglab.analysis.ica import apply_ica  # noqa: E402
+from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.nomenclature import stages_of  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
@@ -816,6 +817,45 @@ def test_el_pico_cae_donde_esta_la_onda(ventana: MainWindow, elige_canal):
 
     frecuencias, potencias = ventana.psd_panel.curve_data("C3")
     assert frecuencias[int(np.argmax(potencias))] == pytest.approx(10.0, abs=0.3)
+
+
+def test_la_potencia_por_banda_llega_a_la_pantalla(ventana: MainWindow, elige_canal):
+    """**La otra mitad de V1_F.** El panel sombreaba las bandas y nunca decía
+    cuánta potencia tenía cada una: `band_power()` la calculaba desde el hito 13
+    y `grep -rn band_power psglab/ui/` no devolvía nada."""
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+
+    potencias = ventana.psd_panel.band_powers()
+    assert set(potencias) == set(DEFAULT_BANDS)
+    assert all(absoluta >= 0 for absoluta, _ in potencias.values())
+    assert not ventana.carteles
+
+
+def test_las_relativas_suman_a_lo_sumo_uno(ventana: MainWindow, elige_canal):
+    """`relative` normaliza contra **toda la PSD calculada**, no contra la suma
+    de las bandas, así que las convencionales suman menos de 1: dejan afuera lo
+    que está por encima de gamma y por debajo de delta. Pasarse de 1 sería la
+    señal de que un bin se contó dos veces."""
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+
+    total = sum(relativa for _, relativa in ventana.psd_panel.band_powers().values())
+    assert 0.0 < total <= 1.0
+
+
+def test_la_banda_de_la_onda_se_lleva_la_mayor_parte(ventana: MainWindow, elige_canal):
+    """El BrainVision sintético tiene su onda en una frecuencia conocida, así
+    que la banda que la contiene tiene que dominar. Es lo que hace que la tabla
+    diga algo y no sólo que exista."""
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+
+    potencias = ventana.psd_panel.band_powers()
+    mayor = max(potencias, key=lambda banda: potencias[banda][0])
+    desde, hasta = DEFAULT_BANDS[mayor]
+    # C3 del BrainVision sintético está en 10 Hz, que cae en Alpha.
+    assert desde <= 10.0 < hasta
 
 
 def test_cancelar_no_abre_nada(ventana: MainWindow, elige_canal):
