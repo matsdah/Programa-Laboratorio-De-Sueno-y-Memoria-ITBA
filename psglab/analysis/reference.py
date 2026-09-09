@@ -121,6 +121,19 @@ def average_reference(recording: Recording, kind_only: bool = True) -> Recording
     Con `kind_only=True` la suma de los canales EEG re-referenciados da cero en
     cada muestra, que es la propiedad que define la referencia promedio.
 
+    **Se promedia sobre unos canales y se resta a otros, y hay que decirlo.**
+    `kind_only=True` calcula la referencia con los EEG y **se la resta a todo lo
+    eléctrico**: también al EOG, al EMG y al ECG. No es lo mismo que hace
+    `set_eeg_reference()` de MNE, que toca sólo los canales del tipo pedido.
+
+    Es deliberado y sale de qué significa re-referenciar: la referencia es el
+    punto contra el que se mide, y todos los electrodos del montaje se midieron
+    contra el mismo. Dejar el EOG referenciado a la referencia vieja y el EEG a
+    la nueva daría un registro con dos referencias distintas conviviendo, que es
+    peor que cualquiera de las dos. Lo que no es eléctrico sí queda intacto,
+    porque restarle microvoltios a un termómetro no falla: produce una
+    temperatura falsa.
+
     Raises:
         InvalidRecordingError: si no queda ningún canal para promediar. Con
             `kind_only=True` pasa en un registro sin EEG, y devolver la señal

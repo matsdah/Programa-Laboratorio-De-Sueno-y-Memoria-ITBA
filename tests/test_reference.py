@@ -190,6 +190,39 @@ def test_sin_el_flag_el_emg_si_entra():
     assert not np.allclose(sin.data[:2], con.data[:2])
 
 
+def test_el_promedio_de_los_eeg_se_le_resta_tambien_al_emg():
+    """**Se promedia sobre unos canales y se resta a otros**, y es deliberado.
+
+    `kind_only=True` calcula la referencia con los EEG y se la resta a **todo lo
+    eléctrico**. No es lo que hace `set_eeg_reference()` de MNE, que toca sólo
+    los canales del tipo pedido, y por eso hay que fijarlo acá: documentar el
+    alcance sin testearlo lo deja cambiar en silencio.
+
+    El motivo es qué significa re-referenciar. La referencia es el punto contra
+    el que se mide, y todos los electrodos del montaje se midieron contra el
+    mismo; dejar el EMG con la referencia vieja y el EEG con la nueva daría un
+    registro con dos referencias conviviendo, que es peor que cualquiera de las
+    dos.
+    """
+    con_emg = registro(
+        [
+            ("C3", ChannelKind.EEG, MICROVOLT),
+            ("C4", ChannelKind.EEG, MICROVOLT),
+            ("EMG-menton", ChannelKind.EMG, MICROVOLT),
+        ]
+    )
+    emg = con_emg.channel_by_name("EMG-menton")
+
+    nuevo = average_reference(con_emg)
+
+    assert not np.allclose(nuevo.data[emg.index], con_emg.data[emg.index]), (
+        "el EMG quedó con la referencia vieja mientras el EEG cambiaba"
+    )
+    # Y lo que se le restó es **el promedio de los EEG**, no el suyo propio.
+    promedio = con_emg.data[[0, 1]].mean(axis=0)
+    assert np.allclose(nuevo.data[emg.index], con_emg.data[emg.index] - promedio)
+
+
 def test_el_termometro_tampoco_entra_en_el_promedio(con_termometro: Recording):
     nuevo = average_reference(con_termometro, kind_only=False)
     temperatura = nuevo.channel_by_name("Temp rectal")

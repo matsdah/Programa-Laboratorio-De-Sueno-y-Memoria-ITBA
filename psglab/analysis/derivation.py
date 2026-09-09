@@ -133,6 +133,18 @@ def derive(
 def derive_montage(recording: Recording, pairs: list[tuple[str, str]]) -> Recording:
     """Aplica un montaje completo de una sola vez.
 
+    **Es API de biblioteca y la interfaz no la ofrece**, decidido con el cliente
+    en el hito 19. El menú Análisis deriva de a un par con `derive()`, que es el
+    pedido que el laboratorio hace de verdad; derivar un montaje entero es algo
+    que se escribe en un script, y ahí esta función existe y está testeada. Es
+    el mismo criterio que `complexity.sample_entropy()`, que `MEDIDAS_RAPIDAS`
+    deja fuera del menú sin sacarla del módulo: **la política es de la interfaz,
+    no del módulo.**
+
+    Hasta el hito 19 `ui/main_window.py` la importaba sin llamarla nunca, que es
+    la huella de un cableado empezado y no terminado, y que hacía parecer
+    consumido lo que no lo estaba.
+
     Args:
         pairs: lista de pares (canal, referencia).
 

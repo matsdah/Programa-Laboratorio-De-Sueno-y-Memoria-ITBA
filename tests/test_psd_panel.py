@@ -159,3 +159,56 @@ def test_un_espectro_vacio_no_rompe(panel: PsdPanel):
     panel.set_spectrum(np.array([]), np.empty((0, 0)), [])
 
     assert panel.channels() == []
+
+
+# -- La potencia por banda (hito 19) -----------------------------------------
+#
+# **El sombreado no es la potencia por banda.** El panel marcaba dónde cae cada
+# banda sobre la curva y nunca decía cuánta potencia tenía, mientras
+# `band_power()` la calculaba desde el hito 13 y no la leía nadie. Delta se ve
+# alta a ojo; theta contra sigma, no.
+
+
+def test_arranca_sin_potencias(panel: PsdPanel):
+    assert panel.band_powers() == {}
+    assert panel.tabla.rowCount() == 0
+
+
+def test_las_potencias_que_le_dan_son_las_que_quedan(panel: PsdPanel):
+    panel.set_spectrum(*espectro(), ["C3"])
+    panel.set_band_powers({"Delta": (12.5, 0.62), "Theta": (3.25, 0.16)})
+
+    assert panel.band_powers() == {"Delta": (12.5, 0.62), "Theta": (3.25, 0.16)}
+    assert panel.tabla.rowCount() == 2
+
+
+def test_la_tabla_muestra_la_banda_la_absoluta_y_la_relativa(panel: PsdPanel):
+    """**Van las dos.** La absoluta depende del grosor del cráneo y de la
+    impedancia; la relativa es la que permite comparar entre participantes, y
+    es la que no se veía en ningún lado."""
+    panel.set_spectrum(*espectro(), ["C3"])
+    panel.set_band_powers({"Delta": (12.5, 0.625)})
+
+    fila = [panel.tabla.item(0, columna).text() for columna in range(3)]
+    assert fila[0] == "Delta"
+    assert fila[2] == "62,5", "la relativa tiene que salir como porcentaje"
+
+
+def test_el_separador_decimal_es_la_coma(panel: PsdPanel):
+    """La misma convención que el informe de impedancia y la ocupación."""
+    panel.set_band_powers({"Alpha": (1.5, 0.5)})
+
+    for columna in (1, 2):
+        assert "." not in panel.tabla.item(0, columna).text()
+
+
+def test_pedir_otro_espectro_vacia_las_potencias_viejas(panel: PsdPanel):
+    """**Es el mismo cuidado que con las curvas.** Unas potencias de la ventana
+    anterior debajo del espectro de ésta se leerían como si fueran de ésta."""
+    panel.set_spectrum(*espectro(), ["C3"])
+    panel.set_band_powers({"Delta": (12.5, 0.62)})
+
+    panel.set_spectrum(*espectro(), ["C4"])
+
+    assert panel.band_powers() == {}
+    assert panel.tabla.rowCount() == 0

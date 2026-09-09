@@ -39,6 +39,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QAction
@@ -65,13 +66,18 @@ from psglab.core.nomenclature import (
 from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
-from psglab.analysis.derivation import derive, derive_montage
+from psglab.analysis.derivation import derive
 from psglab.analysis.complexity import MEASURES, complexity_by_window
 from psglab.analysis.connectivity import (
     average_connectivity,
     compute_connectivity,
 )
-from psglab.analysis.ica import apply_ica, component_topography, fit_ica
+from psglab.analysis.ica import (
+    apply_ica,
+    component_time_course,
+    component_topography,
+    fit_ica,
+)
 from psglab.analysis.impedance import (
     DEFAULT_LIMIT_KOHM,
     impedance_report,
@@ -79,7 +85,7 @@ from psglab.analysis.impedance import (
     read_impedances,
 )
 from psglab.analysis.filters import apply_filters, settings_for_kinds
-from psglab.analysis.psd import DEFAULT_BANDS, compute_psd
+from psglab.analysis.psd import DEFAULT_BANDS, band_power, compute_psd
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
@@ -225,6 +231,7 @@ class MainWindow(QMainWindow):
 
         self.ica_panel = IcaPanel()
         self.ica_panel.on_apply = self._apply_ica
+        self.ica_panel.on_component_shown = self._mostrar_curva_del_componente
         self.ica_dialog = QDialog(self)
         self.ica_dialog.setWindowTitle("Componentes independientes")
         self.ica_dialog.resize(860, 480)
@@ -974,6 +981,25 @@ class MainWindow(QMainWindow):
             return
 
         self.psd_panel.set_spectrum(frecuencias, potencias, [canal])
+        # **La potencia de cada banda, que es la otra mitad de V1_F.** El panel
+        # sombreaba las bandas y nunca decía cuánta potencia tenía cada una;
+        # `band_power()` la calculaba desde el hito 13 y no la leía nadie.
+        # Se pasan las dos: la absoluta y la relativa, que es la que
+        # `analysis/psd.py` documenta como la que permite comparar entre
+        # participantes, porque la absoluta depende del cráneo y la impedancia.
+        self.psd_panel.set_band_powers(
+            {
+                nombre: (
+                    float(np.ravel(band_power(frecuencias, potencias, extremos))[0]),
+                    float(
+                        np.ravel(
+                            band_power(frecuencias, potencias, extremos, relative=True)
+                        )[0]
+                    ),
+                )
+                for nombre, extremos in DEFAULT_BANDS.items()
+            }
+        )
         self.psd_dialog.setWindowTitle(
             f"Espectro de «{canal}» — ventana {ventana + 1}"
         )
@@ -1181,6 +1207,33 @@ class MainWindow(QMainWindow):
         self.ica_panel.set_components(topografias)
         self.ica_dialog.show()
         self.ica_dialog.raise_()
+
+    def _mostrar_curva_del_componente(self, component: int) -> None:
+        """Reconstruye la serie del componente elegido y se la da al panel.
+
+        **De la ventana actual**, por el mismo motivo que el espectro y la
+        conectividad: la serie de las ocho horas no se puede mirar, y
+        reconstruirla entera cuesta una copia completa de la señal.
+
+        Es la mitad que faltaba de V5_F: `component_time_course()` existía desde
+        el hito 15 con la promesa, en su propio docstring, de ser "lo que se
+        dibuja debajo de la señal para ver **cuándo** ocurre el artefacto", y
+        hasta el hito 19 no la llamaba nadie.
+        """
+        if self._session is None or self._ica is None:
+            return
+        ventana = self._session.current_window
+        try:
+            valores = component_time_course(
+                self._ica, component, self._session.recording, window_index=ventana
+            )
+        except PsgLabError as error:
+            # El panel ya dibujó la topografía y dejó la curva vacía, así que el
+            # investigador conserva la mitad del criterio que sí se pudo dar.
+            self._show_error(error)
+            return
+        segundos = np.arange(len(valores)) / self._session.recording.sampling_rate
+        self.ica_panel.set_time_course(segundos, valores)
 
     def _apply_ica(self, exclude: list[int]) -> None:
         """Reconstruye la señal sin los componentes que el usuario marcó.

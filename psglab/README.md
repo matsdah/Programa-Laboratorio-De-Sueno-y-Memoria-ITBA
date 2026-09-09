@@ -83,7 +83,7 @@ cada decisión está en el
   docstrings, documentación y todo texto que ve el usuario, en **español**.
   Adentro de un módulo —variables locales, funciones privadas, constantes de
   módulo— se escribe en español, que es el idioma en que se razona el problema:
-  `_linea_debajo()`, `TOLERANCIA_DE_CLIC_UV`. Lo que cruza el borde del módulo
+  `_linea_debajo()`, `TOLERANCIA_DE_CLIC_EN_ESCALAS`. Lo que cruza el borde del módulo
   no: `read_recording`, `scale_uv`, `on_window_changed`.
 - **Cada módulo abre con un docstring** que dice de qué se ocupa y qué IDs del
   pliego cubre. Esa línea es la que alimenta [`docs/TRAZABILIDAD.md`](../docs/TRAZABILIDAD.md).

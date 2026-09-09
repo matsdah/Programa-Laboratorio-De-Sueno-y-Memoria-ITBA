@@ -6,9 +6,14 @@ lleva estado, para que no haya dos fuentes que se desincronicen.
 
 Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos. Con el hito 17
 cierra la **Parte 2**, y el 18 atendió lo que ése había dejado medido y sin
-tocar: los **diecinueve hitos** —del 0 al 18, que son las filas de la tabla de
-progreso— están cerrados y ningún módulo de `psglab/` eleva
+tocar: **los hitos 0 a 18 están cerrados** y ningún módulo de `psglab/` eleva
 `NotImplementedError`.
+
+Con el **[hito 19](#hito-19-lo-que-la-interfaz-no-consumía)** cierran los
+**caminos muertos**, que no son stubs y por eso `contar_stubs()` no los veía:
+tres funciones públicas de `analysis/` que la interfaz no consumía. Son
+**veinte hitos**, del 0 al 19, que son las filas de la tabla de progreso, y
+están todos cerrados.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
 se pueden usar desde el programa corriendo, no sólo desde sus módulos, que es la
@@ -92,6 +97,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [16. Impedancia](#hito-16-impedancia) | — | 0 | ✅ cerrado |
 | [17. Cierre de la Parte 2](#hito-17-cierre-de-la-parte-2) | — | 0 | ✅ cerrado |
 | [18. Escala](#hito-18-escala) | — | 0 | ✅ cerrado |
+| [19. Lo que la interfaz no consumía](#hito-19-lo-que-la-interfaz-no-consumía) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -662,7 +668,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     herramienta sirva apenas se abre un registro.
 - [x] **`psglab/tools/occupancy.py`** · ~~13 stubs~~ · V1_F–V5_F "Ocupación" ·
       `ViewerTool`
-  - Test: `tests/test_occupancy.py`, **29 tests en verde**, sin `pytestmark`.
+  - Test: `tests/test_occupancy.py`, **34 tests en verde**, sin `pytestmark`.
     Los 7 que ya estaban escritos —los ejemplos numéricos literales del
     pliego— pasaron **sin tocarlos**. **Con esto la suite queda sin ningún
     salteado.**
@@ -991,7 +997,7 @@ ventana y no existía.
     resto del programa.
   - El canal de referencia **se conserva** aunque quede plano: borrarlo en
     silencio le cambiaría al usuario la lista de canales sin avisarle.
-  - Test: `tests/test_reference.py`, **19 tests en verde**.
+  - Test: `tests/test_reference.py`, **20 tests en verde**.
 
 ---
 
@@ -1081,7 +1087,7 @@ ventana y no existía.
     `PlotDataItem.getData()` devuelve el log₁₀ de lo que se dibujó, así que una
     potencia de 1e-6 volvía como -6. El panel guarda ahora la magnitud en su
     unidad, que es la misma solución que `signal_view.py` usa con los píxeles.
-  - Test: `tests/test_psd_panel.py`, **14 tests en verde**.
+  - Test: `tests/test_psd_panel.py`, **19 tests en verde**.
 
 ---
 
@@ -1193,7 +1199,7 @@ mostrarse.
   - **Se ajusta sobre los EEG y sólo sobre ellos**: meter un termómetro en la
     descomposición no tiene sentido físico y ensuciaría todos los componentes.
     `apply_ica()` devuelve el registro entero con el resto intacto.
-  - Test: `tests/test_ica.py`, **29 tests en verde**.
+  - Test: `tests/test_ica.py`, **36 tests en verde**.
 - [x] **`psglab/ui/ica_panel.py`** · el panel de inspección
   - Diseñado alrededor de la advertencia del módulo: quitar el componente
     equivocado modifica la señal de forma irreversible. De ahí salen sus tres
@@ -1207,7 +1213,7 @@ mostrarse.
     aplicada a otra quitaría un componente que el usuario nunca miró.
   - Pasa por `_aplicar_analisis()`, el camino único del menú, así que se puede
     volver a la señal original. Es la única red que hay.
-  - Test: `tests/test_ica_panel.py`, **15 tests en verde**.
+  - Test: `tests/test_ica_panel.py`, **20 tests en verde**.
 
 ---
 
@@ -1471,6 +1477,75 @@ proponer sin este número.
 - [ ] **Nada corre fuera del hilo de la interfaz.** El cursor de espera avisa,
       pero la ventana sigue congelada. Un `QThread` para los barridos de la
       noche es la solución de fondo, y hoy el programa no tiene ninguno.
+
+---
+
+## Hito 19: Lo que la interfaz no consumía
+
+**Es el hito 9 otra vez, del lado de la Parte 2.** La auditoría del 8 de
+septiembre de 2026 encontró **tres funciones públicas de `analysis/` que no
+tienen ningún camino desde la ventana**: código correcto, con sus tests en
+verde, que ningún usuario puede ejecutar. Y una decisión de interfaz que un
+comentario difirió "al hito 6" y que nunca se tomó.
+
+La lista de cierre del hito 17 no lo vio, y el motivo es preciso: **recorrió los
+ocho requisitos de `TRAZABILIDAD.md` por la ventana, no las funciones
+públicas**. Un requisito puede estar cubierto a medias —el espectro se dibuja,
+la potencia por banda no se muestra— y la comprobación por requisito lo da por
+bueno. `contar_stubs()` tampoco los ve: no son stubs, son caminos muertos.
+
+### Las cuatro decisiones, y por qué
+
+Se tomaron con el cliente y se anotan acá antes de escribir una línea, que es lo
+que este archivo existe para sostener.
+
+- [x] **`derive_montage()` queda como API de biblioteca**, no va al menú.
+      Está implementado, es atómico, tiene 29 tests y el hito 18 lo optimizó de
+      3,1 a 2,1 copias, pero derivar un montaje entero de una vez es un pedido
+      que todavía nadie hizo desde el programa. Es el mismo criterio que
+      `sample_entropy` y `MEDIDAS_RAPIDAS`: una función de biblioteca que un
+      script del laboratorio puede llamar, y una interfaz que no la ofrece.
+      **Lo que sí se corrige es el import muerto de `ui/main_window.py`**, que
+      es la huella de un cableado que se empezó y no se terminó, y que hacía
+      parecer consumido lo que no lo estaba.
+- [x] **La curva temporal del componente ICA se dibuja.** `component_time_course()`
+      promete en su docstring que "es lo que se dibuja debajo de la señal para
+      ver **cuándo** ocurre el artefacto", y no lo dibujaba nadie. Es la mitad
+      del criterio con el que se reconoce un componente: la topografía dice
+      **dónde** pesa y la curva dice **cuándo** ocurre; con una sola, el
+      investigador decide a ciegas sobre una operación irreversible.
+      **De la ventana actual**, por el mismo motivo que el espectro y la
+      conectividad: la serie de las ocho horas no se puede mirar, y calcularla
+      entera cuesta una copia completa de la señal.
+- [x] **La potencia por banda se muestra.** El panel del espectro **sombreaba**
+      las bandas y nunca decía cuánta potencia tenía cada una, mientras
+      `TRAZABILIDAD.md` asigna a V1_F "PSD por banda de frecuencia elegida".
+      Van las dos: la absoluta y la **relativa**, que es la que el módulo
+      documenta como "la que permite comparar entre participantes" y la que hoy
+      no se veía en ningún lado.
+- [x] **La tolerancia de clic de la ocupación pasa a ser una fracción del
+      carril.** `TOLERANCIA_DE_CLIC_UV = 10.0` era fija en microvoltios y no
+      escala con la amplitud: con la escala en su mínimo cubre 4,5 carriles y
+      **cualquier clic borra la línea** —el síntoma que el hito 9 dice haber
+      corregido—, y con la escala en su máximo la línea es imposible de borrar.
+      El hito 9 arregló la **unidad**; la dependencia de la escala quedó. La
+      decisión que el comentario difería "al hito 6" es ésta, y se toma ahora.
+
+### Lo que además se documenta
+
+Dos decisiones científicas que el código ya tomaba y no tenía escritas. No
+cambian nada; el proyecto escribe sus motivos.
+
+- [x] **`compute_connectivity()` devuelve el valor absoluto**, y para
+      `imaginary_coherence` eso no es una operación nula: la coherencia
+      imaginaria tiene signo y el signo dice cuál canal adelanta a cuál. Se
+      toma el módulo porque la matriz se promete **simétrica**, y hay que
+      decirlo.
+- [x] **`average_reference(kind_only=True)` promedia sólo los EEG pero le resta
+      ese promedio a todo lo eléctrico**, también al EOG, al EMG y al ECG. Es
+      distinto de lo que hace `set_eeg_reference()` de MNE, que toca sólo los
+      canales del tipo pedido. El docstring promete la propiedad del promedio y
+      no dice hasta dónde llega la resta.
 
 ---
 

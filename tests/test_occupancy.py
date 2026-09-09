@@ -15,14 +15,18 @@ from pathlib import Path
 
 import numpy as np
 
-from psglab.config import OCCUPANCY_COUNTS_OVERLAP_ONCE
+from psglab.config import DEFAULT_SCALE_UV, OCCUPANCY_COUNTS_OVERLAP_ONCE
 from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
 from psglab.tools.base import SegmentOverlay
-from psglab.tools.occupancy import OccupancyLine, OccupancyTool
+from psglab.tools.occupancy import (
+    TOLERANCIA_DE_CLIC_EN_ESCALAS,
+    OccupancyLine,
+    OccupancyTool,
+)
 
 
 def test_linea_vertical_ocupa_cero_por_ciento():
@@ -187,6 +191,99 @@ def test_una_diagonal_se_borra_donde_esta_dibujada(herramienta: OccupancyTool):
 
     herramienta.on_mouse_press(15.0, 50.0, "left")
     assert herramienta.lines() == []
+
+
+# -- Que el gesto no dependa de la amplitud (hito 19) -------------------------
+#
+# `TOLERANCIA_DE_CLIC_EN_ESCALAS` es una fracción de `Session.scale_uv()`, que
+# es cuántos microvoltios representa la altura del canal. Antes era un número
+# fijo de microvoltios, y entonces el gesto cambiaba de sentido con la amplitud:
+# con la escala en su mínimo cualquier clic borraba la línea, y con la escala en
+# su máximo la línea era imposible de borrar.
+
+
+def test_a_la_escala_de_fabrica_la_tolerancia_es_la_de_siempre(
+    herramienta: OccupancyTool,
+):
+    """0,10 sobre `DEFAULT_SCALE_UV` da los 10 µV de antes. Es lo que hace que
+    este cambio no altere el gesto que el usuario ya tenía."""
+    assert herramienta._tolerancia_uv() == pytest.approx(
+        TOLERANCIA_DE_CLIC_EN_ESCALAS * DEFAULT_SCALE_UV
+    )
+    assert herramienta._tolerancia_uv() == pytest.approx(10.0)
+
+
+def test_con_la_amplitud_al_maximo_un_clic_lejano_ya_no_borra(
+    herramienta: OccupancyTool, sesion: Session
+):
+    """**El síntoma que el hito 9 dice haber corregido, por el otro lado.**
+
+    Con `scale_uv` en 1 µV, una tolerancia fija de 10 µV vale diez veces la
+    altura del canal, así que cualquier clic dentro del rango horizontal de la
+    línea la borraba en vez de empezar otra.
+    """
+    arrastrar(herramienta, 0.0, 20.0, y=0.0)
+    for nombre in sesion.visible_channels:
+        sesion.set_scale_uv(nombre, 1.0)
+
+    # 5 µV son cinco alturas de canal: lejísimos en pantalla.
+    herramienta.on_mouse_press(10.0, 5.0, "left")
+
+    assert len(herramienta.lines()) == 1, "la línea se borró desde muy lejos"
+
+
+def test_con_la_amplitud_al_minimo_la_linea_se_sigue_pudiendo_borrar(
+    herramienta: OccupancyTool, sesion: Session
+):
+    """El error inverso: con la escala muy alta, 10 µV fijos son una milésima
+    de la altura del canal y la línea se volvía imposible de señalar."""
+    arrastrar(herramienta, 0.0, 20.0, y=0.0)
+    for nombre in sesion.visible_channels:
+        sesion.set_scale_uv(nombre, 10_000.0)
+
+    # 500 µV son un vigésimo de la altura del canal: pegado a la línea.
+    herramienta.on_mouse_press(10.0, 500.0, "left")
+
+    assert herramienta.lines() == [], "la línea no se pudo borrar de tan cerca"
+
+
+def test_la_tolerancia_sigue_al_primer_canal_visible_y_no_a_los_demas():
+    """**El canal de referencia no es una elección libre.**
+
+    La `y` que llega a los métodos de mouse la produce
+    `SignalView.microvolts_at_pixel()`, que sin canal explícito mide contra el
+    primero visible. Si la tolerancia mirara otro canal, los dos números
+    hablarían de escalas distintas y volvería el error de unidades del hito 9.
+    """
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[
+            Channel("C3", ChannelKind.EEG, "µV", 0),
+            Channel("C4", ChannelKind.EEG, "µV", 1),
+        ],
+        data=np.zeros((2, 3000)),
+        sampling_rate=100.0,
+    )
+    sesion = Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
+    tool = OccupancyTool()
+    tool.activate(sesion)
+
+    sesion.set_scale_uv("C3", 200.0)
+    sesion.set_scale_uv("C4", 4_000.0)
+    assert tool._tolerancia_uv() == pytest.approx(20.0)
+
+    # Y al reordenar los visibles, la referencia cambia con ellos.
+    sesion.set_visible_channels(["C4", "C3"])
+    assert tool._tolerancia_uv() == pytest.approx(400.0)
+
+
+def test_sin_sesion_la_tolerancia_cae_en_la_escala_de_fabrica():
+    """Devolver cero dejaría una herramienta en la que nada se puede borrar."""
+    suelta = OccupancyTool()
+
+    assert suelta._tolerancia_uv() == pytest.approx(
+        TOLERANCIA_DE_CLIC_EN_ESCALAS * DEFAULT_SCALE_UV
+    )
 
 
 # -- El total, y que pueda pasar del 100 % -----------------------------------

@@ -142,7 +142,21 @@ def compute_connectivity(
 
     Returns:
         Matriz cuadrada y simétrica de forma (n_canales, n_canales), con la
-        diagonal en cero.
+        diagonal en cero, y **en valor absoluto**.
+
+        Para `coherence`, `pli`, `wpli` y `plv` tomar el módulo no cambia nada:
+        los cuatro son no negativos por definición. **Para
+        `imaginary_coherence` sí**, y conviene saberlo: la coherencia imaginaria
+        tiene signo, y el signo dice cuál de los dos canales adelanta al otro.
+        Acá se pierde.
+
+        Se hace a propósito y el motivo es la promesa de la línea de arriba:
+        mne-connectivity devuelve sólo el triángulo inferior, y esta función
+        entrega una matriz **simétrica** para que quien la lea no tenga que
+        saber de qué lado quedó cada par. Una matriz simétrica no puede llevar
+        un signo que significa dirección: `M[i][j]` y `M[j][i]` tendrían que ser
+        opuestos. Quien necesite la dirección tiene que pedirle el triángulo con
+        signo a mne-connectivity, no a esta función.
 
     Raises:
         UnknownConnectivityMethodError: si el método no es uno de `METHODS`.
@@ -226,6 +240,11 @@ def compute_connectivity(
     # mne-connectivity devuelve sólo el triángulo inferior. La matriz que este
     # módulo promete es **simétrica**, así que se refleja: quien la lea no
     # tiene por qué saber de qué lado quedó cada par.
+    #
+    # El módulo es lo que hace posible reflejar. Para cuatro de los cinco
+    # métodos no cambia nada —son no negativos por definición— pero para
+    # `imcoh` descarta el signo, que codifica dirección. Está en el docstring:
+    # una matriz simétrica no puede llevarlo.
     matriz = np.abs(matriz)
     completa = matriz + matriz.T
     np.fill_diagonal(completa, 0.0)

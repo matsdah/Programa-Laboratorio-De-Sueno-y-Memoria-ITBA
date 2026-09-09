@@ -25,7 +25,14 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QHeaderView,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from psglab.analysis.psd import DEFAULT_BANDS
 
@@ -46,7 +53,7 @@ _COLORES = (
 _ALPHA = "33"
 
 
-class PsdPanel(pg.PlotWidget):
+class PsdPanel(QWidget):
     """Dibuja el espectro de uno o varios canales, con sus bandas."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -62,13 +69,36 @@ class PsdPanel(pg.PlotWidget):
         self._datos: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         self._bandas: list[tuple[str, pg.LinearRegionItem]] = []
 
-        item = self.getPlotItem()
+        self.grafico = pg.PlotWidget()
+        item = self.grafico.getPlotItem()
         item.setLogMode(x=False, y=True)
         item.setLabel("bottom", "Frecuencia", units="Hz")
         item.setLabel("left", "Potencia", units="µV²/Hz")
         item.showGrid(x=True, y=True, alpha=0.3)
         item.addLegend(offset=(-10, 10))
         item.setMenuEnabled(False)
+
+        #: La potencia de cada banda, que es la mitad de V1_F que faltaba.
+        #:
+        #: **El sombreado no es la potencia por banda.** El panel marcaba dónde
+        #: cae cada banda sobre la curva y nunca decía cuánta potencia tenía,
+        #: mientras `band_power()` la calculaba y no la leía nadie. Delta se ve
+        #: alta a ojo; theta contra sigma, no.
+        self._potencias: dict[str, tuple[float, float]] = {}
+        self.tabla = QTableWidget(0, 3)
+        self.tabla.setHorizontalHeaderLabels(["Banda", "µV²", "% del total"])
+        self.tabla.verticalHeader().setVisible(False)
+        self.tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tabla.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.tabla.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self.tabla.setMaximumHeight(190)
+
+        columna = QVBoxLayout(self)
+        columna.setContentsMargins(0, 0, 0, 0)
+        columna.addWidget(self.grafico, stretch=3)
+        columna.addWidget(self.tabla, stretch=1)
 
     # -- Lo que le da la ventana principal ----------------------------------
 
@@ -91,11 +121,15 @@ class PsdPanel(pg.PlotWidget):
         dejar encima la curva de la anterior, que es el error que haría creer
         que el espectro cambió menos de lo que cambió.
         """
-        item = self.getPlotItem()
+        item = self.grafico.getPlotItem()
         for curva in self._curvas.values():
             item.removeItem(curva)
         self._curvas.clear()
         self._datos.clear()
+        # La tabla se vacía con la curva: unas potencias de la ventana anterior
+        # debajo del espectro de ésta se leerían como si fueran de ésta. Quien
+        # dibuje vuelve a llamar a `set_band_powers()` después.
+        self.clear_band_powers()
         for _, region in self._bandas:
             item.removeItem(region)
         self._bandas.clear()
@@ -133,7 +167,53 @@ class PsdPanel(pg.PlotWidget):
         """Deja el panel vacío, como antes del primer cálculo."""
         self.set_spectrum(np.array([]), np.empty((0, 0)), [])
 
+    def set_band_powers(self, powers: dict[str, tuple[float, float]]) -> None:
+        """Llena la tabla con la potencia de cada banda.
+
+        Args:
+            powers: banda → (absoluta en µV², relativa de 0 a 1). Las calcula
+                `analysis.psd.band_power()`; **acá sólo se las muestra**, que es
+                el mismo reparto que `set_spectrum()`.
+
+        **Van las dos, y la relativa es la que faltaba de verdad.** La absoluta
+        depende del grosor del cráneo y de la impedancia, así que no se puede
+        comparar entre participantes; la relativa sí, y es lo que el docstring
+        de `band_power()` documenta como su motivo para existir.
+
+        Los números se muestran con coma decimal, que es la convención del resto
+        del programa, y la potencia en notación científica: entre delta y gamma
+        hay dos o tres órdenes de magnitud, que es lo mismo que obliga al eje
+        logarítmico.
+        """
+        self._potencias = {
+            nombre: (float(absoluta), float(relativa))
+            for nombre, (absoluta, relativa) in powers.items()
+        }
+        self.tabla.setRowCount(len(self._potencias))
+        for fila, (nombre, (absoluta, relativa)) in enumerate(self._potencias.items()):
+            celdas = (
+                nombre,
+                f"{absoluta:.3g}".replace(".", ","),
+                f"{relativa * 100:.1f}".replace(".", ","),
+            )
+            for columna, texto in enumerate(celdas):
+                self.tabla.setItem(fila, columna, QTableWidgetItem(texto))
+
+    def clear_band_powers(self) -> None:
+        """Vacía la tabla de potencias."""
+        self._potencias = {}
+        self.tabla.setRowCount(0)
+
     # -- Lo que se puede afirmar sin mirar ----------------------------------
+
+    def band_powers(self) -> dict[str, tuple[float, float]]:
+        """La potencia de cada banda tal como se la pasaron, sin formatear.
+
+        Mismo motivo que `curve_data()`: lo que se lee de la celda es texto con
+        coma decimal, y quien pregunte por la potencia está pensando en un
+        número.
+        """
+        return dict(self._potencias)
 
     def channels(self) -> list[str]:
         """Los canales que hay dibujados, en orden."""
@@ -168,4 +248,4 @@ class PsdPanel(pg.PlotWidget):
         Lo está, y es lo que hace legible el espectro: en lineal, todo lo que
         no es delta queda aplastado contra el eje.
         """
-        return bool(self.getPlotItem().ctrl.logYCheck.isChecked())
+        return bool(self.grafico.getPlotItem().ctrl.logYCheck.isChecked())

@@ -37,6 +37,7 @@ from psglab.analysis.ica import (
     fit_ica,
 )
 from psglab.analysis.psd import band_power, compute_psd
+from psglab.config import WINDOW_SECONDS
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
 from psglab.utils.units import MICROVOLT
@@ -161,6 +162,73 @@ def test_el_componente_frontal_oscila_a_la_frecuencia_del_parpadeo(
 
     frecuencias, potencias = sp.welch(curso, fs=FS, nperseg=int(FS * 8))
     assert frecuencias[int(np.argmax(potencias))] == pytest.approx(0.3, abs=0.2)
+
+
+# -- Una sola ventana (hito 19) ----------------------------------------------
+#
+# El panel dibuja **la ventana que el investigador está mirando**, igual que el
+# espectro y la conectividad: la serie de las ocho horas no se puede mirar, y
+# reconstruirla entera cuesta una copia completa de la señal.
+
+
+def test_pedir_una_ventana_devuelve_solo_esa_ventana(mezclado: Recording):
+    """La fixture dura 60 s a 256 Hz: dos ventanas de 7680 muestras."""
+    ica = fit_ica(mezclado)
+    frontal = componente_frontal(ica)
+
+    primera = component_time_course(ica, frontal, mezclado, window_index=0)
+
+    assert primera.shape == (int(WINDOW_SECONDS * FS),)
+    assert primera.shape[0] < mezclado.n_samples
+
+
+def test_la_ventana_pedida_es_el_tramo_de_esa_ventana(mezclado: Recording):
+    """**No basta con que mida lo que corresponde: tiene que ser ese tramo.**
+
+    Un recorte del principio para cualquier ventana pasaría el test de largo y
+    le mostraría al investigador el artefacto de otro momento de la noche.
+    """
+    ica = fit_ica(mezclado)
+    frontal = componente_frontal(ica)
+    entera = component_time_course(ica, frontal, mezclado)
+
+    for ventana in (0, 1):
+        desde = int(ventana * WINDOW_SECONDS * FS)
+        trozo = component_time_course(ica, frontal, mezclado, window_index=ventana)
+        esperado = entera[desde : desde + len(trozo)]
+        # No es idéntico bit a bit: reconstruir 30 s no es recortar la
+        # reconstrucción de 60. Lo que tiene que coincidir es la señal.
+        assert np.corrcoef(trozo, esperado)[0, 1] == pytest.approx(1.0, abs=1e-3)
+
+
+def test_las_dos_ventanas_no_son_la_misma(mezclado: Recording):
+    """El parpadeo de 0,3 Hz está en otra fase en cada ventana."""
+    ica = fit_ica(mezclado)
+    frontal = componente_frontal(ica)
+
+    primera = component_time_course(ica, frontal, mezclado, window_index=0)
+    segunda = component_time_course(ica, frontal, mezclado, window_index=1)
+
+    assert not np.allclose(primera, segunda)
+
+
+@pytest.mark.parametrize("ventana", [2, -1, 99])
+def test_una_ventana_que_no_existe_se_rechaza(mezclado: Recording, ventana: int):
+    """Con la ventana −1, numpy cuenta desde el final y devolvería señal del
+    final de la noche presentada como si fuera del principio."""
+    ica = fit_ica(mezclado)
+
+    with pytest.raises(PsgLabError):
+        component_time_course(ica, 0, mezclado, window_index=ventana)
+
+
+def test_sin_ventana_sigue_devolviendo_el_registro_entero(mezclado: Recording):
+    """La firma vieja no cambió de significado: `None` es el registro completo,
+    que es lo que un script del laboratorio sigue pudiendo pedir."""
+    ica = fit_ica(mezclado)
+    curso = component_time_course(ica, 0, mezclado, window_index=None)
+
+    assert curso.shape == (mezclado.n_samples,)
 
 
 # -- Aplicar -----------------------------------------------------------------
