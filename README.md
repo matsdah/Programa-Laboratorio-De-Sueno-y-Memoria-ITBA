@@ -20,8 +20,8 @@ compatibilidad únicamente con Windows y precios excesivos.
 > derivaciones, PSD, complejidad y conectividad. Necesita dos dependencias
 > aparte, en `requirements-analysis.txt`.
 >
-> **[`docs/TODO.md`](docs/TODO.md)** lleva los diecisiete hitos con lo que se
-> decidió en cada uno, y es el único lugar que lleva la cuenta.
+> **[`docs/TODO.md`](docs/TODO.md)** lleva los diecinueve hitos —del 0 al 18—
+> con lo que se decidió en cada uno, y es el único lugar que lleva la cuenta.
 
 ---
 
@@ -236,8 +236,7 @@ python -m pytest -rs
 
 ## Integración continua
 
-Cada push y cada pull request disparan
-[el workflow de GitHub Actions](.github/workflows/ci.yml), que corre:
+[El workflow de GitHub Actions](.github/workflows/ci.yml) corre:
 
 - **Los tests en Windows, macOS y Linux**, con Python 3.11 y 3.14. Es la única
   prueba real de que el programa es multiplataforma, que el pliego exige.
@@ -247,6 +246,20 @@ Cada push y cada pull request disparan
 - **La verificación de licencias**, que falla si entra una dependencia GPL. El
   pliego pide MIT y hasta ahora ese control dependía de que alguien se acordara
   de correrlo.
+
+**Ojo con cuándo dispara: sólo en `Add` y en `Master`.** `ci.yml` filtra los dos
+eventos por rama, así que **un push a tu rama de trabajo no corre nada** hasta
+que abras la pull request contra alguna de esas dos. Mientras tanto el único
+control es el tuyo:
+
+```bash
+python -m pytest
+```
+
+Y si ya tenés la pull request abierta pero apuntando a otro lado, **reapuntarla
+no alcanza**: `pull_request` corre con `opened`, `synchronize` y `reopened`, y
+cambiar la base es `edited`. Hay que cerrarla y reabrirla. Así se descubrió, al
+cerrar la Parte 2, que dos pull requests se habían mergeado con cero checks.
 
 ## Licencia
 

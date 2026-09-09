@@ -4,9 +4,11 @@ La cola de trabajo del proyecto. **Este archivo es el único lugar que dice qué
 está hecho y qué falta**; `TRAZABILIDAD.md` dice *dónde* va cada requisito y no
 lleva estado, para que no haya dos fuentes que se desincronicen.
 
-Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos. Con el hito 12
-cierra la **Parte 2**, y con ella el proyecto: los diecisiete hitos están
-cerrados y ningún módulo de `psglab/` eleva `NotImplementedError`.
+Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos. Con el hito 17
+cierra la **Parte 2**, y el 18 atendió lo que ése había dejado medido y sin
+tocar: los **diecinueve hitos** —del 0 al 18, que son las filas de la tabla de
+progreso— están cerrados y ningún módulo de `psglab/` eleva
+`NotImplementedError`.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
 se pueden usar desde el programa corriendo, no sólo desde sus módulos, que es la
@@ -32,15 +34,26 @@ nada.
 ### Lo que el CI verifica solo
 
 Desde que el equipo es de tres, [el workflow](../.github/workflows/ci.yml) corre
-en cada push y cada pull request: los tests en los tres sistemas operativos, los
-chequeos de consistencia de `tests/test_consistencia.py` y la verificación de
-licencias.
+los tests en los tres sistemas operativos, los chequeos de consistencia de
+`tests/test_consistencia.py` y la verificación de licencias.
 
-Eso quiere decir que **no hace falta acordarse** de que las cuentas de este
-archivo cuadren, ni de que los enlaces no se rompan, ni de borrar el
-`pytestmark` al terminar un módulo: si algo de eso queda mal, el pull request
-falla. Los chequeos corren también con `python -m pytest`, así que conviene
-pasarlos antes de pushear.
+**Pero no corre en cualquier push.** `ci.yml` filtra los dos eventos por rama
+—`branches: [Add, Master]`—, así que un push a una rama de trabajo **no dispara
+nada** hasta que se abra la pull request contra alguna de esas dos. En el día a
+día el único control es `python -m pytest` local, y conviene correrlo entero: el
+chequeo de las cuentas de tests se saltea si se le pasa un archivo suelto.
+
+Esto no es teórico y ya costó caro: el [hito 17](#hito-17-cierre-de-la-parte-2)
+encontró que los PR #19 y #20 estaban apilados sobre ramas de trabajo y **tenían
+cero checks**. Dos de los cuatro hitos que quedaban sin mergear nunca se habían
+verificado fuera de una máquina Windows. Y reapuntar un PR no alcanza para
+disparar el CI: `pull_request` corre con `opened`, `synchronize` y `reopened`, y
+cambiar la base es `edited`; hay que cerrarlo y reabrirlo.
+
+Con la pull request abierta sí quiere decir que **no hace falta acordarse** de
+que las cuentas de este archivo cuadren, ni de que los enlaces no se rompan, ni
+de borrar el `pytestmark` al terminar un módulo: si algo de eso queda mal, el
+pull request falla.
 
 ### Cuándo un ítem está terminado
 

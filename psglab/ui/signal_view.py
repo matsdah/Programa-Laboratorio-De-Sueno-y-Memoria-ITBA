@@ -19,7 +19,10 @@ Cubre del pliego: V1_P, V2_P, V4_F, V5_F de "Visualización de la señal", y la
 mitad de dibujo de V3_P (la elección de qué canales mostrar la resuelve
 `psglab/ui/channel_selector.py`; acá se los dibuja). También V1_F de "Anotación
 de la señal", por `sample_at_pixel()`: es la conversión que traduce el gesto del mouse
-a la posición en muestras que guarda la anotación.
+a la posición en muestras que guarda la anotación; y V1_F de "Herramienta Lupa",
+por `_dibujar_lupa()`, que es lo que **amplía** de verdad el tramo bajo el
+cursor: `MagnifierTool` publica el radio y el zoom, y hasta el hito 9 acá se los
+descartaba y se pintaba un círculo de tamaño fijo.
 """
 
 from collections.abc import Sequence
