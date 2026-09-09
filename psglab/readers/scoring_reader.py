@@ -116,10 +116,16 @@ def read_scoring(
         UnreadableFileError: si alguna línea no respeta el formato esperado, o
             si no hay forma de saber la nomenclatura.
     """
+    # **El archivo se lee una sola vez.** Antes `read_scoring()` llamaba a
+    # `_leer_lineas()` y despues a `detect_nomenclature()` y
+    # `detect_line_format()`, que la llaman de nuevo: tres lecturas del disco
+    # en tres momentos distintos. Si el archivo cambiaba entre ellas, la
+    # nomenclatura y el formato de linea podian no corresponder al contenido
+    # que ya se habia leido.
     lineas = _leer_lineas(path)
     datos = _lineas_con_datos(lineas)
 
-    elegida = detect_nomenclature(path) or nomenclature
+    elegida = _nomenclatura_de(lineas) or nomenclature
     if elegida is None:
         raise UnreadableFileError(
             f"No se sabe con qué nomenclatura se escribió '{path.name}', y adivinarla "
@@ -131,7 +137,7 @@ def read_scoring(
             ),
         )
 
-    lleva_numero = detect_line_format(path)
+    lleva_numero = _lleva_numero_de_ventana(datos)
     scoring = Scoring(n_windows, elegida)
 
     for posicion, (numero_de_linea, linea) in enumerate(datos):
@@ -202,7 +208,17 @@ def detect_nomenclature(path: Path) -> Nomenclature | None:
         del programa es válido, sólo que hay que decirle al lector con qué
         nomenclatura interpretarlo.
     """
-    for linea in _leer_lineas(path):
+    return _nomenclatura_de(_leer_lineas(path))
+
+
+def _nomenclatura_de(lineas: list[str]) -> Nomenclature | None:
+    """Lo mismo que `detect_nomenclature()`, sobre líneas ya leídas.
+
+    Existe para que `read_scoring()` no vuelva a abrir el archivo. La función
+    pública conserva su firma —recibe una ruta— porque es API del módulo y la
+    usa quien todavía no leyó nada.
+    """
+    for linea in lineas:
         if not linea.strip():
             continue
         if not _es_comentario(linea):
@@ -228,7 +244,15 @@ def detect_line_format(path: Path) -> bool:
     Returns:
         True si las líneas empiezan con el número de ventana.
     """
-    datos = _lineas_con_datos(_leer_lineas(path))
+    return _lleva_numero_de_ventana(_lineas_con_datos(_leer_lineas(path)))
+
+
+def _lleva_numero_de_ventana(datos: list[tuple[int, str]]) -> bool:
+    """Lo mismo que `detect_line_format()`, sobre líneas ya leídas.
+
+    Mismo motivo que `_nomenclatura_de()`: que `read_scoring()` lea el archivo
+    una sola vez.
+    """
     if not datos:
         return False
     return len(datos[0][1].split()) >= 3

@@ -21,13 +21,21 @@ registro de 400 es una regla y va en `core/`.
 |  canales         |     Visualizador de la señal (30 s)       |
 |                  |                                           |
 +------------------+-------------------------------------------+
+|  Übersicht: ventanas vecinas, la actual más oscura            |
++--------------------------------------------------------------+
 |  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
++--------------------------------------------------------------+
+|  Navegación: ← ventana anterior | siguiente →                 |
 +--------------------------------------------------------------+
 |  Histograma de la noche completa                              |
 +--------------------------------------------------------------+
 |  Barra de estado: ventana 42 / 960 - 00:21:00                 |
 +--------------------------------------------------------------+
 ```
+
+Es el orden en que los apila `_build_layout()`. El esquema no tenía la Übersicht
+—que agregó el hito 9— ni la barra de navegación, y un diagrama al que le faltan
+filas se lee como si esas piezas no existieran.
 
 ## Los archivos
 
@@ -39,10 +47,10 @@ registro de 400 es una regla y va en `core/`.
 | `grid.py` | La grilla de fondo y los tres fondos elegibles. | V1_P, V2_F de "Diseño de la interfaz" |
 | `filter_panel.py` | Los filtros de cada clase de canal presente, sugeridos según la frecuencia del registro. La celda vacía desactiva ese filtro. | V1_F de "Filtración" |
 | `impedance_panel.py` | Tabla editable de impedancias por canal y el informe. La celda sin valor dice "sin medir", no "0". | V1_F de "Impedancia" |
-| `ica_panel.py` | Inspeccionar los componentes de una ICA y elegir cuáles quitar. Ninguno viene marcado. | V5_F de "Filtración" |
+| `ica_panel.py` | Inspeccionar los componentes de una ICA y elegir cuáles quitar. La topografía dice **dónde** pesa cada uno y la curva temporal **cuándo** ocurre. Ninguno viene marcado. | V5_F de "Filtración" |
 | `metric_panel.py` | Una métrica por ventana a lo largo de la noche, con los NaN como hueco. La usan complejidad y conectividad. | — (Parte 2) |
 | `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
-| `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas y el eje de potencia en logarítmico. | V1_F de "PSD" |
+| `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. | V1_F de "PSD" |
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. | V1_F, V2_F, V3_F de "Übersicht" |
 | `navigation.py` | Botones de ventana anterior y siguiente, y posición actual. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. | V1_F, V2_F, V3_F de "Scoring" |
@@ -140,7 +148,7 @@ que son justo donde algo se rompe en silencio:
   desincronizada se manifiesta como una tecla que no hace nada.
 - `grid.py` calcula posiciones. Acumular 0,5 sesenta veces corre la última línea
   del borde.
-- Los tres conversores de `signal_view.py` son el **único** lugar del programa
+- Los cuatro conversores de `signal_view.py` son el **único** lugar del programa
   que traduce entre píxeles, segundos, fracción de ventana y muestras.
   Confundirlos produce números plausibles y equivocados.
 

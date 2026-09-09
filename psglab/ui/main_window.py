@@ -15,6 +15,8 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
     +--------------------------------------------------------------+
     |  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
     +--------------------------------------------------------------+
+    |  Navegación: ← ventana anterior | siguiente →                 |
+    +--------------------------------------------------------------+
     |  Histograma de la noche completa                              |
     +--------------------------------------------------------------+
     |  Barra de estado: ventana 42 / 960 - 00:21:00                 |
@@ -39,6 +41,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QAction
@@ -65,13 +68,18 @@ from psglab.core.nomenclature import (
 from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
-from psglab.analysis.derivation import derive, derive_montage
+from psglab.analysis.derivation import derive
 from psglab.analysis.complexity import MEASURES, complexity_by_window
 from psglab.analysis.connectivity import (
     average_connectivity,
     compute_connectivity,
 )
-from psglab.analysis.ica import apply_ica, component_topography, fit_ica
+from psglab.analysis.ica import (
+    apply_ica,
+    component_time_course,
+    component_topography,
+    fit_ica,
+)
 from psglab.analysis.impedance import (
     DEFAULT_LIMIT_KOHM,
     impedance_report,
@@ -79,7 +87,7 @@ from psglab.analysis.impedance import (
     read_impedances,
 )
 from psglab.analysis.filters import apply_filters, settings_for_kinds
-from psglab.analysis.psd import DEFAULT_BANDS, compute_psd
+from psglab.analysis.psd import DEFAULT_BANDS, band_power, compute_psd
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
@@ -225,6 +233,7 @@ class MainWindow(QMainWindow):
 
         self.ica_panel = IcaPanel()
         self.ica_panel.on_apply = self._apply_ica
+        self.ica_panel.on_component_shown = self._mostrar_curva_del_componente
         self.ica_dialog = QDialog(self)
         self.ica_dialog.setWindowTitle("Componentes independientes")
         self.ica_dialog.resize(860, 480)
@@ -974,6 +983,25 @@ class MainWindow(QMainWindow):
             return
 
         self.psd_panel.set_spectrum(frecuencias, potencias, [canal])
+        # **La potencia de cada banda, que es la otra mitad de V1_F.** El panel
+        # sombreaba las bandas y nunca decía cuánta potencia tenía cada una;
+        # `band_power()` la calculaba desde el hito 13 y no la leía nadie.
+        # Se pasan las dos: la absoluta y la relativa, que es la que
+        # `analysis/psd.py` documenta como la que permite comparar entre
+        # participantes, porque la absoluta depende del cráneo y la impedancia.
+        self.psd_panel.set_band_powers(
+            {
+                nombre: (
+                    float(np.ravel(band_power(frecuencias, potencias, extremos))[0]),
+                    float(
+                        np.ravel(
+                            band_power(frecuencias, potencias, extremos, relative=True)
+                        )[0]
+                    ),
+                )
+                for nombre, extremos in DEFAULT_BANDS.items()
+            }
+        )
         self.psd_dialog.setWindowTitle(
             f"Espectro de «{canal}» — ventana {ventana + 1}"
         )
@@ -1043,12 +1071,13 @@ class MainWindow(QMainWindow):
 
         ventana = self._session.current_window
         try:
-            matriz = compute_connectivity(
-                self._session.recording,
-                channels=canales,
-                band=DEFAULT_BANDS[banda],
-                window_index=ventana,
-            )
+            with self._trabajando(f"Midiendo la conectividad en {banda}"):
+                matriz = compute_connectivity(
+                    self._session.recording,
+                    channels=canales,
+                    band=DEFAULT_BANDS[banda],
+                    window_index=ventana,
+                )
         except PsgLabError as error:
             self._show_error(error)
             return
@@ -1169,11 +1198,12 @@ class MainWindow(QMainWindow):
         if self._session is None:
             return
         try:
-            self._ica = fit_ica(self._session.recording)
-            topografias = [
-                component_topography(self._ica, numero)
-                for numero in range(int(self._ica.n_components_))
-            ]
+            with self._trabajando("Descomponiendo la señal en componentes"):
+                self._ica = fit_ica(self._session.recording)
+                topografias = [
+                    component_topography(self._ica, numero)
+                    for numero in range(int(self._ica.n_components_))
+                ]
         except PsgLabError as error:
             self._show_error(error)
             return
@@ -1181,6 +1211,33 @@ class MainWindow(QMainWindow):
         self.ica_panel.set_components(topografias)
         self.ica_dialog.show()
         self.ica_dialog.raise_()
+
+    def _mostrar_curva_del_componente(self, component: int) -> None:
+        """Reconstruye la serie del componente elegido y se la da al panel.
+
+        **De la ventana actual**, por el mismo motivo que el espectro y la
+        conectividad: la serie de las ocho horas no se puede mirar, y
+        reconstruirla entera cuesta una copia completa de la señal.
+
+        Es la mitad que faltaba de V5_F: `component_time_course()` existía desde
+        el hito 15 con la promesa, en su propio docstring, de ser "lo que se
+        dibuja debajo de la señal para ver **cuándo** ocurre el artefacto", y
+        hasta el hito 19 no la llamaba nadie.
+        """
+        if self._session is None or self._ica is None:
+            return
+        ventana = self._session.current_window
+        try:
+            valores = component_time_course(
+                self._ica, component, self._session.recording, window_index=ventana
+            )
+        except PsgLabError as error:
+            # El panel ya dibujó la topografía y dejó la curva vacía, así que el
+            # investigador conserva la mitad del criterio que sí se pudo dar.
+            self._show_error(error)
+            return
+        segundos = np.arange(len(valores)) / self._session.recording.sampling_rate
+        self.ica_panel.set_time_course(segundos, valores)
 
     def _apply_ica(self, exclude: list[int]) -> None:
         """Reconstruye la señal sin los componentes que el usuario marcó.
@@ -1275,9 +1332,21 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def _set_arousal(self, arousal: bool) -> None:
+        """Marca o desmarca el arousal de la ventana actual (V2_F).
+
+        **Con su `except`, como los otros catorce.** Una excepción que sale de
+        un slot de Qt no cierra el programa: la imprime en la consola y el
+        usuario no ve nada, que es peor que un cartel. Hoy los datos que llegan
+        acá los arma la propia interfaz, pero eso deja de ser cierto en cuanto
+        un panel se desincroniza del registro después de `set_recording()`.
+        """
         if self._session is None:
             return
-        self._session.scoring.set_arousal(self._session.current_window, arousal)
+        try:
+            self._session.scoring.set_arousal(self._session.current_window, arousal)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
         self.refresh()
 
     def _change_nomenclature(self, nomenclature: Nomenclature) -> None:
@@ -1306,14 +1375,29 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def _set_visible_channels(self, channel_names: list[str]) -> None:
+        """Qué canales se dibujan (V3_P).
+
+        El `except` es el mismo caso que `_set_arousal()`: `set_visible_channels`
+        eleva `ChannelNotFoundError` si el selector nombra un canal que el
+        registro ya no tiene, y desde un slot de Qt eso sale por consola.
+        """
         if self._session is None:
             return
-        self._session.set_visible_channels(channel_names)
+        try:
+            self._session.set_visible_channels(channel_names)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
         self.signal_view.set_visible_channels(channel_names)
 
     def _set_selected_channels(self, channel_names: list[str]) -> None:
-        if self._session is not None:
+        """Sobre qué canales actúan los cambios de amplitud (V5_F)."""
+        if self._session is None:
+            return
+        try:
             self._session.set_selected_channels(channel_names)
+        except PsgLabError as error:
+            self._show_error(error)
 
     def _clock_label(self, window_index: int) -> str | None:
         """La hora real de una ventana, si el registro informa cuándo empezó."""
@@ -1336,6 +1420,18 @@ class MainWindow(QMainWindow):
         ventana; acá se convierte en barras. El orden vertical lo fija
         `stages_of()`, así que cambiar de nomenclatura reordena el eje solo
         (V3_F del histograma).
+
+        **Lo no scoreado queda en blanco, que es lo que pide V1_P.** Se dibuja
+        como `NaN` y no como cero, y ésa es toda la diferencia: `connect="finite"`
+        omite los puntos que no son finitos, así que el trazo se corta y la
+        ventana sin scorear no deja marca.
+
+        Hasta acá se mapeaba a **cero**, con lo cual `connect="finite"` no podía
+        hacer nada —ningún valor era no finito— y lo no anotado se dibujaba como
+        una línea en la base, por debajo de la fase más baja. Un tramo sin mirar
+        se leía como una fase más, que es justo lo que el pliego no quiere: el
+        histograma tiene el tamaño de la noche desde el arranque y hay que poder
+        ver qué falta.
         """
         herramienta = self._tools.get("histogram")
         if not isinstance(herramienta, HistogramTool) or self._session is None:
@@ -1345,12 +1441,15 @@ class MainWindow(QMainWindow):
             return
 
         orden = list(stages_of(self._session.scoring.nomenclature))
-        altura = {fase: len(orden) - posicion for posicion, fase in enumerate(orden)}
+        altura = {fase: float(len(orden) - posicion) for posicion, fase in enumerate(orden)}
         item = self.histogram_view.getPlotItem()
         item.clear()
         item.plot(
             range(len(barras)),
-            [altura.get(fase, 0) for fase in barras],
+            # `nan` para lo que no es una fila del histograma: `UNSCORED` no
+            # tiene altura porque `stages_of()` no la incluye, y ésa es
+            # exactamente la ausencia que hay que dibujar.
+            [altura.get(fase, float("nan")) for fase in barras],
             stepMode="right",
             connect="finite",
         )

@@ -9,7 +9,6 @@ Cubre del pliego: es el soporte de V1_F, V2_F y V3_F de "Importación de
 archivos" y de V4_F de "Visualización de la señal".
 """
 
-import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum

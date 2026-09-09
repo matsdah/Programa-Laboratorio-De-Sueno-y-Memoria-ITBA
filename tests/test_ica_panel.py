@@ -15,6 +15,7 @@ De ahí salen las tres afirmaciones que más importan acá:
   que todo esto trata de evitar.
 """
 
+import numpy as np
 import pytest
 
 pytest.importorskip("pyqtgraph")
@@ -176,3 +177,60 @@ def test_vaciar_lo_deja_como_al_principio(panel: IcaPanel):
     assert panel.component_count() == 0
     assert panel.shown_component() is None
     assert not panel.boton.isEnabled()
+
+
+# -- La curva temporal (hito 19) ---------------------------------------------
+#
+# La topografía dice **dónde** pesa el componente y la curva dice **cuándo**
+# ocurre. Con una sola de las dos, el investigador decide a ciegas sobre una
+# operación que no se puede deshacer. El panel no la calcula: avisa cuál se está
+# mirando y espera que le pasen la curva, que es el mismo reparto de `PsdPanel`.
+
+
+def test_al_arrancar_no_hay_curva(panel: IcaPanel):
+    assert panel.time_course_data() is None
+
+
+def test_la_curva_que_le_dan_es_la_que_queda(panel: IcaPanel):
+    panel.set_components(topografias(2))
+    segundos = np.linspace(0.0, 30.0, 300)
+    valores = np.sin(segundos)
+
+    panel.set_time_course(segundos, valores)
+
+    x, y = panel.time_course_data()
+    assert np.allclose(x, segundos)
+    assert np.allclose(y, valores)
+
+
+def test_elegir_un_componente_pide_su_curva(panel: IcaPanel):
+    """El panel avisa **cuál** se está mirando: reconstruir las fuentes cuesta,
+    y de otro modo se pagarían todas para mirar una."""
+    pedidos: list[int] = []
+    panel.on_component_shown = pedidos.append
+
+    panel.set_components(topografias(3))
+    assert pedidos == [0], "no pidió la curva del que muestra al abrirse"
+
+    panel.lista.setCurrentRow(2)
+    assert pedidos == [0, 2]
+
+
+def test_cambiar_de_componente_borra_la_curva_anterior(panel: IcaPanel):
+    """**Es el mismo cuidado que `set_components()` tiene con las marcas.** Una
+    curva vieja debajo de otra topografía se lee como si fuera de ésta."""
+    panel.set_components(topografias(3))
+    panel.set_time_course(np.linspace(0.0, 30.0, 10), np.zeros(10))
+
+    panel.lista.setCurrentRow(1)
+
+    assert panel.time_course_data() is None
+
+
+def test_vaciar_el_panel_tambien_borra_la_curva(panel: IcaPanel):
+    panel.set_components(topografias(2))
+    panel.set_time_course(np.linspace(0.0, 30.0, 10), np.zeros(10))
+
+    panel.clear_components()
+
+    assert panel.time_course_data() is None

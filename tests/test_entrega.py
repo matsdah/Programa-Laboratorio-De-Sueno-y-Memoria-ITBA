@@ -37,6 +37,7 @@ from psglab.config import (  # noqa: E402
     WINDOW_SECONDS,
 )
 from psglab.analysis.ica import apply_ica  # noqa: E402
+from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.nomenclature import stages_of  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
@@ -488,6 +489,38 @@ def marcas_horizontales(ventana: MainWindow) -> list[tuple[float, str]]:
     return ventana.histogram_view.getPlotItem().getAxis("bottom")._tickLevels[0]
 
 
+def test_lo_no_scoreado_queda_en_blanco(ventana: MainWindow):
+    """**V1_P: "el histograma tiene el tamaño total de la noche desde el
+    arranque, y lo no anotado queda en blanco".**
+
+    Se dibuja como `NaN`, que es lo que `connect="finite"` omite. Se mapeaba a
+    cero, y entonces ese parámetro no podía hacer nada —ningún valor era no
+    finito— y lo no scoreado salía como una línea en la base: un tramo sin
+    mirar se leía como una fase más.
+    """
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+
+    curva = ventana.histogram_view.getPlotItem().listDataItems()[0]
+    _, alturas = curva.getData()
+
+    assert not np.isnan(alturas[0]), "la ventana scoreada tiene que tener altura"
+    sin_scorear = alturas[1:]
+    assert np.all(np.isnan(sin_scorear)), (
+        "las ventanas sin scorear tienen que quedar en blanco, no en la base"
+    )
+
+
+def test_scorear_una_ventana_le_da_altura(ventana: MainWindow):
+    """La otra mitad: el blanco tiene que desaparecer al scorear."""
+    fases = stages_of(ventana.session.scoring.nomenclature)
+    ventana._go_to_window(2)
+    ventana.score_current_window(fases[1])
+
+    _, alturas = ventana.histogram_view.getPlotItem().listDataItems()[0].getData()
+    assert not np.isnan(alturas[2])
+
+
 def test_el_eje_arranca_numerando_las_ventanas_desde_uno(ventana: MainWindow):
     """Base 0 adentro, base 1 al mostrar. El eje mostraba base 0."""
     ventana._go_to_window(0)
@@ -818,6 +851,45 @@ def test_el_pico_cae_donde_esta_la_onda(ventana: MainWindow, elige_canal):
     assert frecuencias[int(np.argmax(potencias))] == pytest.approx(10.0, abs=0.3)
 
 
+def test_la_potencia_por_banda_llega_a_la_pantalla(ventana: MainWindow, elige_canal):
+    """**La otra mitad de V1_F.** El panel sombreaba las bandas y nunca decía
+    cuánta potencia tenía cada una: `band_power()` la calculaba desde el hito 13
+    y `grep -rn band_power psglab/ui/` no devolvía nada."""
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+
+    potencias = ventana.psd_panel.band_powers()
+    assert set(potencias) == set(DEFAULT_BANDS)
+    assert all(absoluta >= 0 for absoluta, _ in potencias.values())
+    assert not ventana.carteles
+
+
+def test_las_relativas_suman_a_lo_sumo_uno(ventana: MainWindow, elige_canal):
+    """`relative` normaliza contra **toda la PSD calculada**, no contra la suma
+    de las bandas, así que las convencionales suman menos de 1: dejan afuera lo
+    que está por encima de gamma y por debajo de delta. Pasarse de 1 sería la
+    señal de que un bin se contó dos veces."""
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+
+    total = sum(relativa for _, relativa in ventana.psd_panel.band_powers().values())
+    assert 0.0 < total <= 1.0
+
+
+def test_la_banda_de_la_onda_se_lleva_la_mayor_parte(ventana: MainWindow, elige_canal):
+    """El BrainVision sintético tiene su onda en una frecuencia conocida, así
+    que la banda que la contiene tiene que dominar. Es lo que hace que la tabla
+    diga algo y no sólo que exista."""
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+
+    potencias = ventana.psd_panel.band_powers()
+    mayor = max(potencias, key=lambda banda: potencias[banda][0])
+    desde, hasta = DEFAULT_BANDS[mayor]
+    # C3 del BrainVision sintético está en 10 Hz, que cae en Alpha.
+    assert desde <= 10.0 < hasta
+
+
 def test_cancelar_no_abre_nada(ventana: MainWindow, elige_canal):
     elige_canal("C3", acepta=False)
 
@@ -991,6 +1063,79 @@ def test_ajustar_no_aplica_nada(ventana_con_dos_eeg: MainWindow):
     assert ventana_con_dos_eeg.ica_panel.component_count() == 2
     assert ventana_con_dos_eeg.ica_panel.excluded() == []
     assert np.array_equal(ventana_con_dos_eeg.session.recording.data, antes)
+    assert not ventana_con_dos_eeg.carteles
+
+
+def test_la_curva_del_componente_llega_a_la_pantalla(ventana_con_dos_eeg: MainWindow):
+    """**La mitad de V5_F que faltaba.** `component_time_course()` existía desde
+    el hito 15 prometiendo en su docstring ser "lo que se dibuja debajo de la
+    señal", y hasta el hito 19 no la llamaba nadie: el panel mostraba sólo la
+    topografía, o sea *dónde* pesa el componente y no *cuándo* ocurre.
+    """
+    ventana_con_dos_eeg.show_ica_dialog()
+
+    curva = ventana_con_dos_eeg.ica_panel.time_course_data()
+    assert curva is not None, "el panel abrió sin curva"
+    segundos, valores = curva
+    assert len(segundos) == len(valores) > 0
+    assert not ventana_con_dos_eeg.carteles
+
+
+def test_la_curva_abarca_una_ventana_y_no_el_registro_entero(
+    ventana_con_dos_eeg: MainWindow,
+):
+    """**De la ventana actual**, por el mismo motivo que el espectro y la
+    conectividad: la serie de las ocho horas no se puede mirar, y reconstruirla
+    entera cuesta una copia completa de la señal."""
+    sesion = ventana_con_dos_eeg.session
+    ventana_con_dos_eeg.show_ica_dialog()
+
+    segundos, valores = ventana_con_dos_eeg.ica_panel.time_course_data()
+    assert segundos[-1] < WINDOW_SECONDS
+    assert len(valores) < sesion.recording.n_samples
+
+
+def test_la_curva_se_pide_para_la_ventana_en_la_que_esta_el_usuario(
+    ventana_con_dos_eeg: MainWindow, monkeypatch
+):
+    """**No se puede afirmar comparando las dos curvas**, y conviene decir por
+    qué: el BrainVision sintético es periódico, así que sus dos ventanas
+    contienen la misma onda y dan, correctamente, la misma serie. Comparar los
+    valores verificaría la señal de prueba y no el cableado.
+
+    Lo que sí se puede afirmar es la costura: qué ventana se pide.
+    """
+    import psglab.ui.main_window as ventana_principal
+
+    pedidas: list[int] = []
+    real = ventana_principal.component_time_course
+
+    def espiar(ica, component, recording, window_index=None):
+        pedidas.append(window_index)
+        return real(ica, component, recording, window_index=window_index)
+
+    monkeypatch.setattr(ventana_principal, "component_time_course", espiar)
+
+    ventana_con_dos_eeg.show_ica_dialog()
+    assert pedidas == [0]
+
+    ventana_con_dos_eeg.go_to_next_window()
+    ventana_con_dos_eeg.ica_panel.lista.setCurrentRow(1)
+
+    assert pedidas == [0, 1], "la curva no siguió a la ventana actual"
+    assert not ventana_con_dos_eeg.carteles
+
+
+def test_elegir_otro_componente_cambia_la_curva(ventana_con_dos_eeg: MainWindow):
+    """Cada componente tiene su serie; mostrar la del anterior debajo de otra
+    topografía se leería como si fuera de ésta."""
+    ventana_con_dos_eeg.show_ica_dialog()
+    _, del_primero = ventana_con_dos_eeg.ica_panel.time_course_data()
+
+    ventana_con_dos_eeg.ica_panel.lista.setCurrentRow(1)
+    _, del_segundo = ventana_con_dos_eeg.ica_panel.time_course_data()
+
+    assert not np.allclose(del_primero, del_segundo)
     assert not ventana_con_dos_eeg.carteles
 
 

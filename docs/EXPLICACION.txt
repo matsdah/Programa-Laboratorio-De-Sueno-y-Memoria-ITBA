@@ -53,8 +53,8 @@ programa. Con eso se evita descubrir a mitad de camino que dos personas
 escribieron lo mismo en dos lugares distintos.
 
 Como se llego hasta aca esta en docs/TODO.md, que es el unico documento que
-lleva la cuenta. El trabajo esta agrupado en diecinueve hitos, del 0 al 18:
-cada hito solo usa cosas que ya estan terminadas en los hitos anteriores.
+lleva la cuenta. El trabajo esta agrupado en veintidos hitos, del 0 al 21: cada
+hito solo usa cosas que ya estan terminadas en los hitos anteriores.
 
 
 -------------------------------------------------------------------------------

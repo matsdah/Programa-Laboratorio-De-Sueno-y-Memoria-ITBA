@@ -24,16 +24,34 @@ de la página".
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from psglab.config import OCCUPANCY_COUNTS_OVERLAP_ONCE
+from psglab.config import DEFAULT_SCALE_UV, OCCUPANCY_COUNTS_OVERLAP_ONCE
 from psglab.core.session import Session
 from psglab.core.windows import seconds_to_window_fraction, window_fraction_to_seconds
 from psglab.tools.base import Overlay, SegmentOverlay, ViewerTool
 from psglab.tools.registry import register_tool
 
-#: Cuan cerca de una linea hay que hacer clic para borrarla, en microvoltios.
-#: Es una afinacion de interfaz y no una regla del pliego: el numero que hace
-#: comodo el gesto se termina de decidir con la ventana abierta, en el hito 6.
-TOLERANCIA_DE_CLIC_UV: float = 10.0
+#: Cuán cerca de una línea hay que hacer clic para borrarla, **como fracción de
+#: la altura del canal de referencia**.
+#:
+#: `Session.scale_uv()` es cuántos microvoltios representa la altura de un
+#: canal, así que 0,10 quiere decir "un décimo de lo que mide el canal en
+#: pantalla". No es una regla del pliego sino una afinación de interfaz, y es la
+#: decisión que un comentario difería "al hito 6" y que se tomó en el 19.
+#:
+#: **Antes era un número fijo de microvoltios, y ése era el problema.** Con
+#: `TOLERANCIA_DE_CLIC_UV = 10.0` el gesto dependía de la amplitud elegida por
+#: el usuario: con la escala en su mínimo (`MIN_SCALE_UV`, 1 µV) diez
+#: microvoltios son diez veces la altura del canal, así que **cualquier clic
+#: dentro del rango horizontal de una línea la borraba** —el mismo síntoma que
+#: el hito 9 dice haber corregido, reapareciendo por el otro lado—; y con la
+#: escala en su máximo (10 000 µV) eran una milésima de la altura y la línea se
+#: volvía imposible de borrar. El hito 9 arregló la **unidad**; la dependencia
+#: de la escala quedó hasta acá.
+#:
+#: 0,10 sobre `DEFAULT_SCALE_UV` da exactamente los 10 µV de antes, así que a la
+#: escala de fábrica el gesto se siente igual que siempre; lo que cambia es que
+#: ahora se siente igual **a cualquier escala**.
+TOLERANCIA_DE_CLIC_EN_ESCALAS: float = 0.10
 
 
 @dataclass(frozen=True)
@@ -272,9 +290,11 @@ class OccupancyTool(ViewerTool):
         diagonal larga se borraría haciendo clic muy lejos de donde está
         dibujada.
 
-        La tolerancia es una afinación de interfaz y no una regla del pliego:
-        ver `TOLERANCIA_DE_CLIC_UV`.
+        La tolerancia es una afinación de interfaz y no una regla del pliego, y
+        **escala con la amplitud**: ver `TOLERANCIA_DE_CLIC_EN_ESCALAS` y
+        `_tolerancia_uv()`.
         """
+        tolerancia = self._tolerancia_uv()
         fraccion = seconds_to_window_fraction(x_seconds)
         candidatas = []
         for linea in self._lineas:
@@ -291,4 +311,24 @@ class OccupancyTool(ViewerTool):
         if not candidatas:
             return None
         distancia, linea = min(candidatas, key=lambda par: par[0])
-        return linea if distancia <= TOLERANCIA_DE_CLIC_UV else None
+        return linea if distancia <= tolerancia else None
+
+    def _tolerancia_uv(self) -> float:
+        """La tolerancia del clic en microvoltios, para la amplitud de ahora.
+
+        **El canal de referencia es el primero visible**, y no es una elección
+        libre: la `y` que llega a los métodos de mouse la produce
+        `SignalView.microvolts_at_pixel()`, que sin canal explícito mide contra
+        ese mismo. Elegir otro acá haría que la tolerancia y la coordenada
+        hablaran de escalas distintas, que es la clase de error que el hito 9
+        pagó caro.
+
+        Sin sesión o sin canales visibles cae a `DEFAULT_SCALE_UV`, que es la
+        escala con la que arranca cualquier canal: no hay contra qué medir y
+        devolver cero volvería imposible borrar una línea.
+        """
+        if self._session is not None:
+            visibles = self._session.visible_channels
+            if visibles:
+                return TOLERANCIA_DE_CLIC_EN_ESCALAS * self._session.scale_uv(visibles[0])
+        return TOLERANCIA_DE_CLIC_EN_ESCALAS * DEFAULT_SCALE_UV

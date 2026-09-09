@@ -91,9 +91,11 @@ número inválido. No lo hace, porque **toda comparación con NaN es falsa**, as
 que el NaN sigue viaje. Y lo que hace después es peor que fallar: una anotación
 con duración NaN se cuenta en el informe y no se dibuja en ninguna ventana.
 
-`check_finite()`, `check_index()` recibe **qué excepción elevar**, porque el error que le sirve
-al investigador depende de qué se estaba haciendo. `clamp()` rechaza lo que no
-puede recortar: `min(max(nan, lo), hi)` devuelve NaN.
+`check_finite()` y `check_index()` reciben **qué excepción elevar**, porque el
+error que le sirve al investigador depende de qué se estaba haciendo: un
+registro incoherente y una anotación mal formada no se explican igual.
+`clamp()` rechaza lo que no puede recortar, que es lo que la forma corta no
+hace: `min(max(nan, lo), hi)` devuelve NaN.
 
 ## Estado
 

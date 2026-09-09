@@ -397,10 +397,13 @@ class SignalView(pg.PlotWidget):
         tres: la banda de amplitud la toma como centro, la ocupación la guarda
         en sus líneas y la lupa ubica su círculo con ella.
 
-        El síntoma más caro era de la ocupación: su `TOLERANCIA_DE_CLIC_UV` es
-        de 10 µV y se comparaba contra un rango de 0 a 1, así que **cualquier
-        clic dentro del rango horizontal de una línea la borraba** en vez de
-        empezar otra.
+        El síntoma más caro era de la ocupación: su tolerancia de clic estaba
+        en microvoltios y se comparaba contra un rango de 0 a 1, así que
+        **cualquier clic dentro del rango horizontal de una línea la borraba**
+        en vez de empezar otra. El hito 19 cerró la otra mitad del mismo
+        problema: esa tolerancia era además un número fijo, así que volvía a
+        romperse con la amplitud subida. Hoy es
+        `occupancy.TOLERANCIA_DE_CLIC_EN_ESCALAS`, una fracción de `scale_uv`.
 
         Es la inversa exacta de `_a_carril()`, que es la cuenta con la que se
         dibuja la señal, así que ida y vuelta dan el mismo número.
