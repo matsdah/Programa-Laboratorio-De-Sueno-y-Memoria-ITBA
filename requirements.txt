@@ -6,6 +6,22 @@
 
 PySide6>=6.6        # LGPL-3.0  - interfaz gráfica (Qt for Python)
 pyqtgraph>=0.13     # MIT       - render rápido de las ondas
-numpy>=1.24         # BSD-3     - base numérica
+numpy>=2.0          # BSD-3     - base numérica
 scipy>=1.11         # BSD-3     - filtros, PSD y estadística
 mne>=1.6            # BSD-3     - lectura de BrainVision, EDF y otros formatos
+
+# El piso de numpy es 2.0 porque el código lo necesita, no por preferencia:
+# `psglab/analysis/psd.py` integra la potencia por banda con `np.trapezoid`, que
+# es el nombre que numpy 2.0 le puso a `np.trapz` al renombrarlo. En la serie
+# 1.x ese atributo **no existe**.
+#
+# Decía `numpy>=1.24`, y eso convertía el archivo en una trampa: `pip` resuelve
+# a la versión más nueva, así que todo el mundo instalaba un numpy 2.x y nada
+# fallaba nunca. Quien respetara el piso declarado —un entorno preexistente del
+# laboratorio, o un `pip install "numpy<2"`— se comía un `AttributeError` en
+# `band_power()`, que es V1_F de "Power Spectral Density".
+#
+# Se eligió subir el piso en vez de resolver el nombre con un alias en `psd.py`:
+# el alias haría que el programa arranque con un numpy que ninguna combinación
+# del CI prueba, y que nadie tiene instalado. El techo de la Parte 2 sigue
+# viviendo en requirements-analysis.txt, con su propio motivo.

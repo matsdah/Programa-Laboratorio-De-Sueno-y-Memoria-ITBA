@@ -82,8 +82,18 @@ def _exigir_ica(ica: Any) -> None:
 
     Sin esto sale un `AttributeError` sobre `.get_components()`, que la ventana
     principal no atrapa.
+
+    Se exige también `ch_names`, que es el atributo con el que `apply_ica()`
+    comprueba que la descomposición sea de este registro y con el que
+    `component_topography()` rotula los pesos. Pedir dos de los tres dejaba pasar
+    un objeto que reventaba más adelante, que es justo lo que esta guarda existe
+    para impedir.
     """
-    if not hasattr(ica, "get_components") or not hasattr(ica, "n_components_"):
+    if (
+        not hasattr(ica, "get_components")
+        or not hasattr(ica, "n_components_")
+        or not hasattr(ica, "ch_names")
+    ):
         raise InvalidRecordingError(
             "Eso no es una descomposición ICA ajustada.",
             details=(
@@ -253,9 +263,18 @@ def apply_ica(recording: Recording, ica: Any, exclude: list[int]) -> Recording:
     prácticamente la original: sirve para comprobar que la descomposición no
     está rompiendo la señal antes de confiarle un componente.
 
+    **La descomposición tiene que ser de este registro**, y acá sólo se puede
+    comprobar la mitad que se ve: que los canales sobre los que se ajustó sigan
+    existiendo. Una ICA ajustada sobre la señal **sin filtrar** y aplicada a la
+    **filtrada** tiene los mismos nombres de canal y esta guarda no la ve; ésa la
+    tiene que impedir quien sostiene la descomposición entre el ajuste y la
+    aplicación, que es la ventana principal (ver `MainWindow._olvidar_ica`).
+    Esto cubre el otro caso: abrir otro registro y aplicarle la ICA del anterior.
+
     Raises:
         InvalidRecordingError: si no es una ICA ajustada, si algún índice de
-            `exclude` no existe, o si no se le pasa un registro.
+            `exclude` no existe, si no se le pasa un registro, o si el registro
+            no tiene los canales sobre los que se ajustó la descomposición.
     """
     _exigir_registro(recording)
     _exigir_ica(ica)
@@ -266,6 +285,18 @@ def apply_ica(recording: Recording, ica: Any, exclude: list[int]) -> Recording:
         )
     for indice in exclude:
         _exigir_componente(ica, indice)
+
+    presentes = set(recording.channel_names())
+    faltantes = [nombre for nombre in ica.ch_names if nombre not in presentes]
+    if faltantes:
+        raise InvalidRecordingError(
+            "Esta descomposición se calculó sobre otros canales, así que no se "
+            "puede aplicar a este registro.",
+            details=(
+                f"la ICA se ajustó sobre {list(ica.ch_names)} y el registro no "
+                f"tiene {faltantes}."
+            ),
+        )
 
     raw = to_raw(recording)
     # `ica.apply` modifica el `Raw` que recibe, y por eso se le pasa el que

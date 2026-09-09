@@ -849,6 +849,46 @@ def test_los_requirements_que_nombra_la_documentacion_existen():
     assert not inexistentes, f"la documentación nombra requirements que no existen: {inexistentes}"
 
 
+#: Atributos de numpy que el paquete usa y en qué versión aparecieron. Cada fila
+#: es un piso que `requirements.txt` no puede declarar por debajo.
+#:
+#: Existe por un `numpy>=1.24` que convivió con `np.trapezoid` sin que nada
+#: fallara: `pip` resuelve a la versión más nueva, así que todo el mundo
+#: instalaba un numpy 2.x. El archivo era una trampa para quien respetara el
+#: piso que declaraba, y ninguna de las seis combinaciones del CI podía verlo.
+#:
+#: **Al usar un atributo de numpy que no existía siempre, agregar acá su fila.**
+APIS_DE_NUMPY: dict[str, tuple[int, int]] = {
+    # numpy 2.0 renombró `trapz` a `trapezoid` y quitó el nombre viejo.
+    "trapezoid": (2, 0),
+}
+
+
+def test_el_piso_de_numpy_alcanza_para_lo_que_el_codigo_usa():
+    """El piso declarado tiene que cubrir cada API de numpy que el paquete usa.
+
+    Es la clase de error que no falla nunca en la máquina de quien lo escribe.
+    `requirements.txt` decía `numpy>=1.24` y `psglab/analysis/psd.py` llamaba a
+    `np.trapezoid`, que no existe antes de numpy 2.0; como `pip` instala la más
+    nueva, el archivo mentía sin consecuencias hasta que alguien respetara el
+    piso que declaraba. Ahí `band_power()` —V1_F de "Power Spectral Density"—
+    revienta con un `AttributeError`.
+    """
+    requisitos = (RAIZ / "requirements.txt").read_text(encoding="utf-8")
+    declarado = re.search(r"^numpy>=(\d+)\.(\d+)", requisitos, re.M)
+    assert declarado is not None, "requirements.txt ya no declara un piso para numpy"
+    piso = (int(declarado.group(1)), int(declarado.group(2)))
+
+    fuente = "\n".join(f.read_text(encoding="utf-8") for f in modulos_del_paquete())
+    problemas = [
+        f"se usa np.{api}, que apareció en numpy {v[0]}.{v[1]}, "
+        f"y requirements.txt declara numpy>={piso[0]}.{piso[1]}"
+        for api, v in APIS_DE_NUMPY.items()
+        if re.search(rf"\bnp\.{api}\b", fuente) and piso < v
+    ]
+    assert not problemas, "\n".join(problemas)
+
+
 # -- Reglas de arquitectura -------------------------------------------------
 
 
