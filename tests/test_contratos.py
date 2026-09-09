@@ -28,11 +28,15 @@ más** que dejaban escapar `TypeError`, `KeyError` o `AttributeError` crudos, m�
 del doble de los que había encontrado a mano la auditoría, incluido `stage_code`,
 que alimenta la línea de `Scoring.txt`.
 
-El alcance es `core/` y `utils/`, donde vive la regla de negocio. `tools/` tiene
-un test por herramienta, y de `ui/` se testea lo que no dibuja. Las
-excepciones se declaran en `SIN_CONTRATO`, con el motivo: hoy son `windows.py`,
-que documenta que no valida porque quien llama ya validó, y `clamp`, que declara
-la misma precondición.
+El alcance son las **tres** capas donde vive la regla de negocio: `core/`,
+`utils/` y `analysis/`. Esta última entró en el hito 10, por el mismo argumento
+que las otras dos: un `ValueError` de scipy o de MNE atraviesa el `except` de la
+ventana igual que uno de `core/`. `readers/`, `tools/` y `exporters/` quedan
+afuera; `tools/` tiene un test por herramienta, y de `ui/` se testea lo que no
+dibuja. Las excepciones se declaran en `SIN_CONTRATO`, con el motivo: hoy son
+`windows.py`, que documenta que no valida porque quien llama ya validó, `clamp`,
+que declara la misma precondición, y `memoria_suficiente`, que no recibe datos
+sino el texto que va a aparecer en el cartel.
 """
 
 from pathlib import Path
