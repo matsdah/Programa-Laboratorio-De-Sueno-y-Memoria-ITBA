@@ -36,6 +36,7 @@ from psglab.config import (  # noqa: E402
     SCORING_FILENAME,
     WINDOW_SECONDS,
 )
+from psglab.analysis.ica import apply_ica  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.nomenclature import stages_of  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
@@ -1007,6 +1008,95 @@ def test_aplicar_deja_volver_a_la_señal_original(ventana_con_dos_eeg: MainWindo
 
     ventana_con_dos_eeg.restore_original_recording()
     assert np.allclose(ventana_con_dos_eeg.session.recording.data, original)
+
+
+# -- Que la ICA no sobreviva a un cambio de señal ----------------------------
+#
+# `fit_ica()` se ajusta sobre la señal que hay en ese momento y el panel se queda
+# abierto esperando que el usuario elija qué quitar. Si entre el ajuste y el
+# "Aplicar" la señal cambia, la matriz de desmezclado deja de corresponder.
+#
+# **Y no falla sola**, que es lo que lo vuelve caro: filtrar no cambia los
+# nombres de los canales, así que MNE acepta el pedido sin protestar y devuelve
+# una señal reconstruida con una descomposición ajena. Plausible, irreversible y
+# equivocada. Son tres caminos y los tres se prueban por la ventana.
+
+
+def test_filtrar_despues_de_ajustar_descarta_la_descomposicion(
+    ventana_con_dos_eeg: MainWindow,
+):
+    """El camino que encontró el bug: ajustar, filtrar, y el panel seguía vivo."""
+    ventana_con_dos_eeg.show_ica_dialog()
+    assert ventana_con_dos_eeg.ica_panel.component_count() == 2
+
+    ventana_con_dos_eeg.show_filter_dialog()
+    ventana_con_dos_eeg.filter_panel.boton_aplicar.click()
+
+    assert ventana_con_dos_eeg._ica is None
+    assert ventana_con_dos_eeg.ica_panel.component_count() == 0
+    assert not ventana_con_dos_eeg.carteles
+
+
+def test_volver_a_la_señal_original_descarta_la_descomposicion(
+    ventana_con_dos_eeg: MainWindow,
+):
+    """Deshacer también cambia la señal: la ICA se ajustó sobre la procesada."""
+    ventana_con_dos_eeg.show_filter_dialog()
+    ventana_con_dos_eeg.filter_panel.boton_aplicar.click()
+    ventana_con_dos_eeg.show_ica_dialog()
+    assert ventana_con_dos_eeg._ica is not None
+
+    ventana_con_dos_eeg.restore_original_recording()
+
+    assert ventana_con_dos_eeg._ica is None
+    assert ventana_con_dos_eeg.ica_panel.component_count() == 0
+
+
+def test_abrir_otro_registro_descarta_la_descomposicion(
+    ventana_con_dos_eeg: MainWindow, tmp_path: Path
+):
+    """Es el mismo motivo por el que abrir un registro suelta las herramientas:
+    lo que quedó guardado es de otra señal y de otros canales."""
+    ventana_con_dos_eeg.show_ica_dialog()
+    assert ventana_con_dos_eeg._ica is not None
+
+    otro = escribir_brainvision(
+        tmp_path / "otro",
+        segundos=WINDOW_SECONDS * 2,
+        canales=[("Fp1", "µV"), ("Fp2", "µV")],
+    )
+    ventana_con_dos_eeg.open_recording(otro)
+
+    assert ventana_con_dos_eeg._ica is None
+    assert ventana_con_dos_eeg.ica_panel.component_count() == 0
+    assert not ventana_con_dos_eeg.carteles
+
+
+def test_aplicar_una_ica_de_otros_canales_avisa_en_vez_de_reconstruir(
+    ventana_con_dos_eeg: MainWindow, tmp_path: Path
+):
+    """La segunda guarda, la del módulo, para cuando la primera no alcanzara.
+
+    `apply_ica()` comprueba que los canales sobre los que se ajustó sigan
+    existiendo. No ve el caso del filtro —ahí los nombres son los mismos— pero sí
+    éste, que es el que deja una señal reconstruida con una mezcla de otra
+    cabeza.
+    """
+    ventana_con_dos_eeg.show_ica_dialog()
+    descomposicion = ventana_con_dos_eeg._ica
+
+    otro = escribir_brainvision(
+        tmp_path / "ajeno",
+        segundos=WINDOW_SECONDS * 2,
+        canales=[("Fp1", "µV"), ("Fp2", "µV")],
+    )
+    ventana_con_dos_eeg.open_recording(otro)
+    antes = np.array(ventana_con_dos_eeg.session.recording.data, copy=True)
+
+    with pytest.raises(PsgLabError):
+        apply_ica(ventana_con_dos_eeg.session.recording, descomposicion, [0])
+
+    assert np.array_equal(ventana_con_dos_eeg.session.recording.data, antes)
 
 
 # -- Impedancia, por la ventana (V1_F de "Impedancia") -----------------------
