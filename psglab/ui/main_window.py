@@ -22,14 +22,17 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
 Cubre del pliego: V4_F de "Archivo de salida" (elegir cuál de los tres archivos
 exportar), V3_F de "Ocupación de la página" (mostrar el porcentaje), V2_F de
-"Herramienta Lupa" (el contador de picos) y V2_F del "Histograma" (el eje
-horizontal, en hora real o de 1 a VENMAX).
+"Herramienta Lupa" (el contador de picos), V2_F del "Histograma" (el eje
+horizontal, en hora real o de 1 a VENMAX) y V5_F de "Filtración" (`_olvidar_ica`,
+que descarta la descomposición cuando la señal deja de ser la suya).
 
-Los tres últimos son **la mitad que el hito 9 cableó acá**, y por eso figuran:
-el cálculo vive en `tools/` y lo que faltaba era llevarlo a la pantalla, así que
-tocar `_update_tool_readout()` o `_marcas_del_histograma()` los rompe. El resto
-sigue siendo lo de siempre: este archivo es el contenedor que reúne las demás
-funcionalidades sin implementar ninguna, y cada una vive en su módulo.
+Los cuatro últimos son **la mitad que vive acá y no en el módulo**: el cálculo
+está en `tools/` y en `analysis/`, y lo que faltaba era llevarlo a la pantalla
+—o, en el caso de la ICA, sostener su ciclo de vida entre el ajuste y el
+"Aplicar"—. Por eso tocar `_update_tool_readout()`, `_marcas_del_histograma()`
+o `_olvidar_ica()` rompe un requisito del pliego. El resto sigue siendo lo de
+siempre: este archivo es el contenedor que reúne las demás funcionalidades sin
+implementar ninguna, y cada una vive en su módulo.
 """
 
 from collections.abc import Callable, Iterator
