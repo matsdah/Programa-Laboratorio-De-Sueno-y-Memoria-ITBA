@@ -140,6 +140,18 @@ Dos de sus tests merecen mención:
   ejercita `psglab/ui/`, porque la interfaz no lleva tests unitarios. Sin él, un
   error de importación en la capa gráfica —una biblioteca de sistema que falta
   en Linux— no aparecería hasta que alguien abriera el programa.
+- **`test_cada_funcion_de_analysis_llega_a_la_ventana`**, del hito 20, cierra el
+  hueco que costó los hitos 9 y 19: una función pública con sus tests en verde
+  que **ningún usuario puede ejecutar**. Mira que el nombre *se use* en
+  `psglab/ui/`, no que se importe: un `from x import y` sin llamada no cuenta, y
+  ésa era justamente la forma del camino muerto. Lo que la interfaz no ofrece a
+  propósito va en `SOLO_BIBLIOTECA` **con su motivo**.
+
+Los otros dos del hito 20 verifican prosa con números adentro, que es lo que el
+resto del archivo no podía mirar: que la cuenta de hitos que declaran cuatro
+documentos sea la de la tabla de progreso, y que lo que dicen del CI coincida
+con las ramas de `ci.yml`. El segundo comprueba **por sección** y no por
+archivo, porque buscando en el documento entero no atrapaba nada.
 
 ## Señal sintética, nunca datos reales
 

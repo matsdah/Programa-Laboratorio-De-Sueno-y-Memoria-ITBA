@@ -29,7 +29,12 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "cero": 0, "un": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
     "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10, "once": 11, "doce": 12,
     "trece": 13, "catorce": 14, "quince": 15, "dieciséis": 16, "diecisiete": 17,
-    "dieciocho": 18, "diecinueve": 19, "veinte": 20, "veintiuno": 21,
+    "dieciocho": 18, "diecinueve": 19, "veinte": 20,
+    # La forma apocopada va delante de un sustantivo masculino —"veintiún
+    # hitos"— igual que "treinta y un" y "cuarenta y un" más abajo. La forma sin
+    # tilde no es un descuido: `docs/EXPLICACION.txt` se escribe en ASCII a
+    # propósito y hay un chequeo que lo exige, así que ahí dice "veintiun".
+    "veintiuno": 21, "veintiún": 21, "veintiun": 21,
     "veintidós": 22, "veintitrés": 23, "veinticuatro": 24, "veinticinco": 25,
     "veintiséis": 26, "veintisiete": 27, "veintiocho": 28, "veintinueve": 29,
     "treinta": 30, "treinta y uno": 31, "treinta y un": 31, "treinta y dos": 32, "treinta y tres": 33,
@@ -886,6 +891,314 @@ def test_el_piso_de_numpy_alcanza_para_lo_que_el_codigo_usa():
         for api, v in APIS_DE_NUMPY.items()
         if re.search(rf"\bnp\.{api}\b", fuente) and piso < v
     ]
+    assert not problemas, "\n".join(problemas)
+
+
+# -- La red que la auditoría dejó pedida ------------------------------------
+#
+# Los tres chequeos de esta sección salen de la auditoría del 8 de septiembre de
+# 2026, y los tres verifican **lo que el resto del archivo declara no poder
+# verificar**: caminos muertos y prosa. Cada uno lleva el número del hallazgo
+# que habría atrapado, para que se entienda por qué existe.
+
+
+#: Funciones públicas de `analysis/` que la interfaz **no** llama, con el
+#: motivo. No es una lista de pendientes: es la frontera entre lo que el
+#: programa ofrece y lo que existe para los scripts del laboratorio.
+#:
+#: Sale del hito 19, que encontró tres funciones sin ningún camino desde la
+#: ventana: `derive_montage()`, `component_time_course()` y `band_power()`. Las
+#: dos últimas se cablearon y la primera quedó como biblioteca, pero nada
+#: impedía que volviera a pasar. **`contar_stubs()` no puede verlo** —no son
+#: stubs— y la lista de cierre del hito 17 tampoco, porque recorrió los ocho
+#: requisitos de `TRAZABILIDAD.md` y no las funciones públicas.
+SOLO_BIBLIOTECA: dict[str, str] = {
+    # Las cuatro medidas se despachan **por nombre** desde
+    # `complexity_by_window(measure=...)`, que la interfaz sí llama; el menú
+    # ofrece tres de ellas por `MEDIDAS_RAPIDAS`. Son alcanzables, sólo que no
+    # por su nombre de función.
+    "psglab/analysis/complexity.py::sample_entropy": (
+        "se despacha por nombre desde complexity_by_window(); la interfaz la "
+        "deja fuera del menú a propósito, porque una noche entera tarda más de "
+        "cinco minutos. Ver MEDIDAS_RAPIDAS."
+    ),
+    "psglab/analysis/complexity.py::permutation_entropy": (
+        "se despacha por nombre desde complexity_by_window(), que el menú sí "
+        "ofrece."
+    ),
+    "psglab/analysis/complexity.py::lempel_ziv_complexity": (
+        "se despacha por nombre desde complexity_by_window(), que el menú sí "
+        "ofrece."
+    ),
+    "psglab/analysis/complexity.py::higuchi_fractal_dimension": (
+        "se despacha por nombre desde complexity_by_window(), que el menú sí "
+        "ofrece."
+    ),
+    "psglab/analysis/derivation.py::derive_montage": (
+        "decidido con el cliente en el hito 19: el menú deriva de a un par con "
+        "derive(), que es el pedido real, y un montaje entero se escribe en un "
+        "script."
+    ),
+    "psglab/analysis/filters.py::validate": (
+        "la llama apply_filters() sobre el pedido entero antes de tocar un solo "
+        "dato; no es una operación que el usuario pida por separado."
+    ),
+    "psglab/analysis/impedance.py::channels_above_limit": (
+        "la llama impedance_report(), que es lo que el panel muestra. Sola "
+        "informa dos estados y el informe distingue tres."
+    ),
+    "psglab/analysis/mne_bridge.py::to_raw": (
+        "infraestructura entre módulos de analysis/, no una operación que el "
+        "usuario pida: la usan el filtrado, la ICA y el re-referenciado."
+    ),
+    "psglab/analysis/mne_bridge.py::from_raw": (
+        "la otra mitad del puente, por el mismo motivo que to_raw()."
+    ),
+    "psglab/analysis/mne_bridge.py::unidad_de_salida": (
+        "la consultan los análisis para no volver a razonar la regla de la "
+        "unidad; no hay nada que mostrar."
+    ),
+    "psglab/analysis/psd.py::band_powers_by_window": (
+        "el hito 19 eligió mostrar la potencia por banda **de la ventana** en "
+        "el panel del espectro, y no el barrido de la noche entera. La función "
+        "queda para un script."
+    ),
+    # **Éste no es una decisión tomada, y por eso se dice así.** Una exención
+    # que disfrace un hueco de decisión es peor que el hueco.
+    "psglab/analysis/connectivity.py::connectivity_by_window": (
+        "hueco conocido y sin decidir: el barrido de conectividad a lo largo de "
+        "la noche no está en el menú, aunque MetricPanel existe y sirve para "
+        "esa forma de dato. Anotado en el hito 20 del TODO."
+    ),
+}
+
+
+def funciones_publicas_de_analysis() -> list[tuple[str, str]]:
+    """Cada función pública de `psglab/analysis/`, como (ruta, nombre)."""
+    encontradas: list[tuple[str, str]] = []
+    for archivo in sorted((RAIZ / "psglab" / "analysis").glob("*.py")):
+        if archivo.name == "__init__.py":
+            continue
+        arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+        for nodo in arbol.body:
+            if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)) and not (
+                nodo.name.startswith("_")
+            ):
+                encontradas.append((ruta_relativa(archivo), nodo.name))
+    return encontradas
+
+
+def nombres_que_usa_la_interfaz() -> set[str]:
+    """Todo identificador que `psglab/ui/` **usa**, no el que sólo importa.
+
+    Es la distinción que hace útil el chequeo: un `from x import y` produce un
+    nodo `alias`, no un `Name`, así que un import sin llamada no cuenta. Es
+    exactamente la forma que tenía el camino muerto de `derive_montage()`, que
+    `ui/main_window.py` importaba y no llamaba, y eso hacía **parecer
+    consumido** lo que no lo estaba.
+    """
+    usados: set[str] = set()
+    for archivo in sorted((RAIZ / "psglab" / "ui").glob("*.py")):
+        for nodo in ast.walk(ast.parse(archivo.read_text(encoding="utf-8"))):
+            if isinstance(nodo, ast.Name):
+                usados.add(nodo.id)
+            elif isinstance(nodo, ast.Attribute):
+                usados.add(nodo.attr)
+    return usados
+
+
+def test_cada_funcion_de_analysis_llega_a_la_ventana():
+    """Ninguna función de `analysis/` puede quedar sin camino en silencio.
+
+    **Es el hito 9 y el 19, hechos automáticos.** Las dos veces pasó lo mismo:
+    código correcto, con sus tests en verde, que ningún usuario podía ejecutar.
+    Las dos veces se encontró a mano, recorriendo requisitos por la ventana, y
+    las dos veces se escapó algo porque un requisito puede estar cubierto a
+    medias —el espectro se dibuja, la potencia por banda no se mostraba— y la
+    comprobación por requisito lo da por bueno.
+
+    Lo que se exige es que el nombre **se use** en `psglab/ui/`, o que figure en
+    `SOLO_BIBLIOTECA` con su motivo. La alternativa es lo que ya falló dos
+    veces: que nadie se dé cuenta.
+    """
+    usados = nombres_que_usa_la_interfaz()
+    huerfanas = [
+        f"{ruta}::{nombre}"
+        for ruta, nombre in funciones_publicas_de_analysis()
+        if nombre not in usados and f"{ruta}::{nombre}" not in SOLO_BIBLIOTECA
+    ]
+    assert not huerfanas, (
+        "estas funciones públicas de analysis/ no las llama nadie desde "
+        "psglab/ui/ y no figuran en SOLO_BIBLIOTECA con su motivo, así que son "
+        f"código que ningún usuario del programa puede ejecutar: {huerfanas}"
+    )
+
+
+def test_las_exenciones_de_biblioteca_siguen_existiendo():
+    """Una exención que apunte a algo borrado o renombrado tapa una función
+    nueva por accidente, igual que en `SIN_CONTRATO`.
+
+    Y una que sobre —la función volvió a la interfaz— es peor: dejaría de
+    verificar justo lo que se acaba de conectar.
+    """
+    reales = {f"{ruta}::{nombre}" for ruta, nombre in funciones_publicas_de_analysis()}
+    usados = nombres_que_usa_la_interfaz()
+
+    inexistentes = sorted(set(SOLO_BIBLIOTECA) - reales)
+    sobrantes = sorted(
+        objetivo
+        for objetivo in SOLO_BIBLIOTECA
+        if objetivo in reales and objetivo.split("::")[1] in usados
+    )
+    assert not inexistentes, f"SOLO_BIBLIOTECA exime funciones que no existen: {inexistentes}"
+    assert not sobrantes, (
+        "estas funciones ya se consumen desde psglab/ui/ y siguen exentas, así "
+        f"que su fila sobra: {sobrantes}"
+    )
+
+
+#: Documentos que declaran **cuántos hitos** tiene el proyecto. Cada uno lo dice
+#: en su propia frase, y las cuatro se desincronizaron a la vez: decían
+#: "diecisiete" con diecinueve filas en la tabla de progreso.
+#:
+#: La convención que este chequeo fija es "el número **y** el rango", porque un
+#: numeral suelto no se puede distinguir de los históricos —"los cuatro hitos
+#: que entraron en dos días"— y el rango además dice desde dónde se cuenta, que
+#: era la ambigüedad de fondo: el hito 0 existe.
+DOCUMENTOS_CON_LA_CUENTA_DE_HITOS: tuple[str, ...] = (
+    "README.md",
+    "docs/TODO.md",
+    "docs/EXPLICACION.txt",
+    "docs/README.md",
+)
+
+
+def hitos_de_la_tabla() -> list[int]:
+    """Los números de hito que tiene la tabla de progreso de `TODO.md`."""
+    todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
+    return [
+        int(n)
+        for n in re.findall(
+            r"\|\s*\[(\d+)\.[^\]]*\]\([^)]*\)\s*\|\s*[\d—-]+\s*\|\s*\d+\s*\|", todo
+        )
+    ]
+
+
+def test_la_cuenta_de_hitos_que_declaran_los_documentos_es_la_de_la_tabla():
+    """Cuatro documentos decían "diecisiete hitos" y la tabla tenía diecinueve.
+
+    Ninguno estaba mal cuando se escribió: la tabla creció y las frases se
+    quedaron. Es prosa con un número adentro, que es justo lo que `TODO.md`
+    verifica de sí mismo para los stubs y no verificaba para esto.
+    """
+    hitos = hitos_de_la_tabla()
+    assert hitos, "no se encontró la tabla de progreso de docs/TODO.md"
+    cuantos, ultimo = len(hitos), max(hitos)
+
+    problemas: list[str] = []
+    for nombre in DOCUMENTOS_CON_LA_CUENTA_DE_HITOS:
+        # Se quitan los asteriscos y se juntan los renglones: la frase puede
+        # venir en negrita y partida por un salto de línea.
+        texto = re.sub(r"\s+", " ", (RAIZ / nombre).read_text(encoding="utf-8").replace("*", ""))
+        declarado = re.search(r"([a-záéíóúñ]+) hitos[^.]{0,40}?del 0 al (\d+)", texto)
+        if declarado is None:
+            problemas.append(
+                f"{nombre} ya no dice cuántos hitos hay con la frase que el "
+                "chequeo reconoce: '<numeral> hitos … del 0 al <n>'"
+            )
+            continue
+        if NUMEROS_EN_PALABRAS.get(declarado.group(1)) != cuantos:
+            problemas.append(
+                f"{nombre} dice '{declarado.group(1)} hitos' y la tabla tiene {cuantos}"
+            )
+        if int(declarado.group(2)) != ultimo:
+            problemas.append(
+                f"{nombre} dice que llegan al {declarado.group(2)} y el último es el {ultimo}"
+            )
+    assert not problemas, "\n".join(problemas)
+
+
+def secciones_que_nombran(archivo: pathlib.Path, aguja: str) -> list[tuple[str, str]]:
+    """Las secciones de un documento que mencionan `aguja`, con su encabezado.
+
+    Una sección va de su encabezado al siguiente del mismo nivel o de uno más
+    alto, que es como se lee un Markdown. Existe para poder afirmar cosas
+    **sobre el tramo que habla de un tema** y no sobre el archivo entero: un
+    documento largo nombra casi cualquier palabra en alguna parte, y eso vuelve
+    inútil la comprobación.
+    """
+    lineas = archivo.read_text(encoding="utf-8").splitlines()
+    encabezados = [
+        (numero, len(m.group(1)), m.group(2).strip())
+        for numero, linea in enumerate(lineas)
+        if (m := re.match(r"^(#{1,6})\s+(.*)$", linea))
+    ]
+
+    encontradas: list[tuple[str, str]] = []
+    for posicion, (arranca, nivel, titulo) in enumerate(encabezados):
+        termina = len(lineas)
+        for siguiente, otro_nivel, _ in encabezados[posicion + 1 :]:
+            if otro_nivel <= nivel:
+                termina = siguiente
+                break
+        cuerpo = "\n".join(lineas[arranca:termina])
+        if aguja in cuerpo:
+            encontradas.append((titulo, cuerpo))
+    return encontradas
+
+
+#: Documentos que explican **cuándo corre el CI**. `docs/AUDITORIA.md` también
+#: lo enlaza y no está acá a propósito: es una foto fechada y no se toca.
+DOCUMENTOS_QUE_DESCRIBEN_EL_CI: tuple[str, ...] = (
+    "README.md",
+    "docs/TODO.md",
+    "CLAUDE.md",
+)
+
+
+def test_lo_que_los_documentos_dicen_del_ci_coincide_con_el_workflow():
+    """`README.md` prometía que "cada push y cada pull request" disparan el CI.
+
+    **No es cosmético.** `ci.yml` filtra los dos eventos por rama, así que un
+    push a una rama de trabajo no corre nada, y el hito 17 documenta lo que eso
+    costó: los PR #19 y #20 se mergearon con cero checks. Quien lea el README y
+    le crea, no corre la suite antes de pushear.
+
+    Lo que se exige es que las ramas se nombren **en la sección que describe el
+    CI**, y no en cualquier parte del documento. La primera versión de este
+    chequeo buscaba en el archivo entero y **no atrapaba nada**: `README.md`
+    nombra `Add` y `Master` en "Cómo contribuir", que habla de otra cosa, así
+    que la afirmación falsa de la sección de CI pasaba igual. Se lo vio fallar
+    con la frase vieja antes de darlo por bueno.
+
+    **Lo que no puede ver**, y conviene saberlo: una sección que nombre las
+    ramas y además afirme otra cosa sigue pasando. Verifica que el dato esté, no
+    que no haya una contradicción al lado.
+    """
+    workflow = (RAIZ / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    ramas = sorted(
+        {
+            rama.strip()
+            for lista in re.findall(r"^\s*branches:\s*\[([^\]]*)\]", workflow, re.M)
+            for rama in lista.split(",")
+            if rama.strip()
+        }
+    )
+    assert ramas, "ci.yml ya no restringe por rama, o cambió de forma"
+
+    problemas: list[str] = []
+    for nombre in DOCUMENTOS_QUE_DESCRIBEN_EL_CI:
+        secciones = secciones_que_nombran(RAIZ / nombre, "workflows/ci.yml")
+        if not secciones:
+            problemas.append(f"{nombre} ya no describe el CI ni enlaza ci.yml")
+            continue
+        for encabezado, cuerpo in secciones:
+            faltan = [rama for rama in ramas if rama not in cuerpo]
+            if faltan:
+                problemas.append(
+                    f"{nombre}, sección {encabezado!r}: describe el CI y no "
+                    f"nombra las ramas en las que dispara: {faltan}"
+                )
     assert not problemas, "\n".join(problemas)
 
 
