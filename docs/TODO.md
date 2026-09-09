@@ -12,8 +12,10 @@ tocar: **los hitos 0 a 18 están cerrados** y ningún módulo de `psglab/` eleva
 Con el **[hito 19](#hito-19-lo-que-la-interfaz-no-consumía)** cierran los
 **caminos muertos**, que no son stubs y por eso `contar_stubs()` no los veía:
 tres funciones públicas de `analysis/` que la interfaz no consumía. Son
-**veinte hitos**, del 0 al 19, que son las filas de la tabla de progreso, y
-están todos cerrados.
+**veintiún hitos**, del 0 al 20, que son las filas de la tabla de progreso, y
+están todos cerrados. El **[hito 20](#hito-20-la-red)** es la red que evita que
+esto vuelva a pasar: tres chequeos automáticos sobre lo que hasta acá se
+encontraba a mano.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
 se pueden usar desde el programa corriendo, no sólo desde sus módulos, que es la
@@ -98,6 +100,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [17. Cierre de la Parte 2](#hito-17-cierre-de-la-parte-2) | — | 0 | ✅ cerrado |
 | [18. Escala](#hito-18-escala) | — | 0 | ✅ cerrado |
 | [19. Lo que la interfaz no consumía](#hito-19-lo-que-la-interfaz-no-consumía) | — | 0 | ✅ cerrado |
+| [20. La red](#hito-20-la-red) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1546,6 +1549,61 @@ cambian nada; el proyecto escribe sus motivos.
       distinto de lo que hace `set_eeg_reference()` de MNE, que toca sólo los
       canales del tipo pedido. El docstring promete la propiedad del promedio y
       no dice hasta dónde llega la resta.
+
+---
+
+## Hito 20: La red
+
+Los tres chequeos que la auditoría del 8 de septiembre de 2026 dejó pedidos, y
+que existen por un motivo que ya se repitió: **cada hallazgo de este proyecto se
+encontró a mano, y las dos veces que se buscó a mano se escapó algo.** El hito 9
+salió de recorrer requisitos por la ventana; el 19, de otra revisión completa.
+Entre uno y otro pasaron diez hitos con el mismo hueco abierto.
+
+`tests/test_consistencia.py` verifica muy bien lo que tiene números —stubs,
+tests recolectados, IDs, enlaces, ASCII, capas sin Qt— y su propio docstring
+declara los dos huecos por los que se cuela todo lo demás: **la prosa sin
+números y el camino muerto**. Estos tres los cierran donde se puede.
+
+- [x] **Toda función pública de `analysis/` llega a la ventana, o figura en
+      `SOLO_BIBLIOTECA` con su motivo.**
+      Habría atrapado los tres hallazgos del hito 19. Lo que mira es que el
+      nombre **se use** en `psglab/ui/`: un `from x import y` produce un nodo
+      `alias` y no un `Name`, así que un import sin llamada no cuenta, que es
+      exactamente la forma que tenía el camino muerto de `derive_montage()`.
+      La tabla arranca con doce filas, y ninguna es un pendiente disfrazado:
+      cuatro son las medidas de complejidad, que se despachan por nombre; tres
+      son el puente con MNE; el resto, funciones que llama otra del mismo
+      módulo, más las dos decisiones del hito 19.
+- [x] **La cuenta de hitos que declaran los documentos es la de la tabla de
+      progreso.** Cuatro decían "diecisiete" con diecinueve filas. La
+      convención que fija el chequeo es **el número y el rango** —"veintiún
+      hitos, del 0 al 20"—, por dos motivos: un numeral suelto no se distingue
+      de los históricos ("los cuatro hitos que entraron en dos días") y el rango
+      dice desde dónde se cuenta, que era la ambigüedad de fondo, porque el
+      hito 0 existe.
+- [x] **Lo que los documentos dicen del CI coincide con `ci.yml`.** `README.md`
+      prometía que "cada push y cada pull request" lo disparan, y el workflow
+      filtra por rama. La comprobación es **por sección** y no por archivo: la
+      primera versión buscaba las ramas en el documento entero y no atrapaba
+      nada, porque `README.md` nombra `Add` y `Master` en "Cómo contribuir",
+      que habla de otra cosa. Se lo vio fallar con la frase vieja antes de
+      darlo por bueno.
+
+### Lo que el primer chequeo encontró al escribirse
+
+- [ ] **El barrido de conectividad a lo largo de la noche no está en el menú.**
+      `connectivity_by_window()` produce una matriz por ventana, `MetricPanel`
+      existe y sirve para esa forma de dato —lo dice su propio docstring— y no
+      hay ningún camino que los junte. Es el mismo hueco que el hito 19 cerró
+      para la curva de la ICA y la potencia por banda, y quedó porque **es una
+      decisión de producto y no se toma escribiendo un chequeo**: hay que saber
+      si el investigador quiere ver la conectividad de la noche entera o le
+      alcanza con la de la ventana.
+
+      Está anotado como tal en `SOLO_BIBLIOTECA`, con esas palabras. Una
+      exención que disfrace un hueco de decisión tomada es peor que el hueco:
+      lo vuelve invisible y encima parece revisado.
 
 ---
 
