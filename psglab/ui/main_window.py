@@ -609,6 +609,9 @@ class MainWindow(QMainWindow):
         # en `activate()`: si no se las suelta, la ocupación seguiría midiendo
         # sobre el registro anterior y el histograma dibujaría su scoring.
         self._deactivate_all_tools()
+        # Y por el mismo motivo, la descomposición ICA del registro anterior: es
+        # de otra señal y de otros canales.
+        self._olvidar_ica()
 
         self._session = sesion
         # **El registro tal como se leyó.** Los análisis de la Parte 2 devuelven
@@ -846,9 +849,43 @@ class MainWindow(QMainWindow):
             )
         self.signal_view.set_session(self._session)
         self.channel_selector.set_recording(procesado)
+        # La señal cambió, así que la descomposición que hubiera dejó de ser de
+        # este registro. Va **después** del `except`: si el análisis falló, la
+        # señal es la de antes y la ICA sigue siendo válida.
+        self._olvidar_ica()
         self.accion_señal_original.setEnabled(True)
         self.refresh()
         self.statusBar().showMessage(que_hace, 5000)
+
+    def _olvidar_ica(self) -> None:
+        """Descarta la descomposición ICA porque la señal dejó de ser la suya.
+
+        **Es la única guarda que hay contra el error más caro del menú Análisis.**
+        `fit_ica()` se ajusta sobre la señal que había en ese momento, y el panel
+        se queda abierto esperando que el usuario elija qué quitar. Si entre el
+        ajuste y el "Aplicar" la señal cambió —se filtró, se derivó, se
+        re-referenció, se volvió a la original, o se abrió otro registro—, la
+        matriz de desmezclado ya no corresponde.
+
+        **Y no falla sola.** Filtrar no cambia los nombres de los canales, así que
+        MNE acepta el pedido sin protestar y devuelve una señal reconstruida con
+        una descomposición ajena. El resultado es plausible, irreversible y
+        equivocado, que es exactamente lo que `analysis/ica.py` dice querer
+        evitar cuando advierte que "el usuario puede no darse cuenta".
+
+        Olvidar es lo correcto y no una molestia: volver a ajustar es un clic, y
+        la alternativa —conservarla y avisar— le pide al investigador que decida
+        sobre algo que no puede ver. `apply_ica()` tiene además su propia guarda
+        para el caso en que los canales sí cambien.
+
+        No hace nada si no hay ninguna descomposición cargada, así que se la
+        puede llamar desde cualquier camino sin preguntar antes.
+        """
+        if self._ica is None:
+            return
+        self._ica = None
+        self.ica_panel.clear_components()
+        self.ica_dialog.hide()
 
     def _elegir_canal(self, titulo: str, etiqueta: str) -> str | None:
         """Pregunta un canal de los que hay. `None` si el usuario cancela."""
@@ -1152,8 +1189,13 @@ class MainWindow(QMainWindow):
             if cuantos == 1
             else f"Se quitaron {cuantos} componentes independientes"
         )
+        # **Se toma la descomposición en una variable local antes de aplicar.**
+        # `_aplicar_analisis()` llama a `_olvidar_ica()` al terminar bien, así que
+        # una lambda que leyera `self._ica` la encontraría en `None` la próxima
+        # vez que alguien la invocara.
+        descomposicion = self._ica
         self._aplicar_analisis(
-            que_hizo, lambda registro: apply_ica(registro, self._ica, exclude)
+            que_hizo, lambda registro: apply_ica(registro, descomposicion, exclude)
         )
         self.ica_dialog.hide()
 
@@ -1173,6 +1215,9 @@ class MainWindow(QMainWindow):
             return
         self.signal_view.set_session(self._session)
         self.channel_selector.set_recording(self._registro_original)
+        # Deshacer también cambia la señal, así que la descomposición que hubiera
+        # se ajustó sobre la procesada y ya no corresponde.
+        self._olvidar_ica()
         self.accion_señal_original.setEnabled(False)
         self.refresh()
         self.statusBar().showMessage("Se volvió a la señal original", 5000)
