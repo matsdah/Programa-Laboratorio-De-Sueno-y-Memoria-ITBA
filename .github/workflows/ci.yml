@@ -24,8 +24,19 @@ on:
 # Un push a una rama con pull request abierto dispara las dos cosas, y las seis
 # combinaciones se corrían por duplicado. La corrida vieja ya no le importa a
 # nadie en cuanto llega una nueva.
+#
+# **El grupo tiene que salir de la rama y no de `github.ref`**, que es lo que
+# decía antes y no deduplicaba nada en el escenario que este comentario
+# describe: para un `push` vale `refs/heads/Add` y para un `pull_request`,
+# `refs/pull/N/merge`. Son grupos distintos, así que las dos corridas seguían
+# hasta el final. Sólo agrupaba pushes sucesivos a la misma rama, que es la
+# mitad del problema.
+#
+# `github.event.pull_request.head.ref` es la rama de origen del PR, y en un
+# `push` no existe, así que cae en `github.ref`: las dos formas de disparar
+# sobre la misma rama comparten grupo.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref }}
   cancel-in-progress: true
 
 # Sólo se lee el repositorio. Nada de este workflow escribe.

@@ -25,3 +25,35 @@ mne>=1.6            # BSD-3     - lectura de BrainVision, EDF y otros formatos
 # el alias haría que el programa arranque con un numpy que ninguna combinación
 # del CI prueba, y que nadie tiene instalado. El techo de la Parte 2 sigue
 # viviendo en requirements-analysis.txt, con su propio motivo.
+
+# ---------------------------------------------------------------------------
+# POR QUÉ ACÁ NO HAY NINGÚN TECHO
+# ---------------------------------------------------------------------------
+#
+# Se evaluó ponerle un tope de versión mayor a PySide6, mne, scipy y pyqtgraph
+# —una auditoría lo anotó como riesgo— y **la decisión fue que no**. Conviene
+# dejar escrito el razonamiento para que no se vuelva a proponer sin él.
+#
+# El `numpy<2.6` de requirements-analysis.txt **no es una protección
+# preventiva**: es una restricción que ya existe río arriba, porque numba la
+# declara. Ponerla acá sólo la hace visible y evita que el resolvedor la
+# descubra a fuerza de retroceder. No hay ninguna equivalente para estas cuatro.
+#
+# Un techo puesto por las dudas cuesta caro y no compra lo que parece:
+#
+#   - Bloquea actualizaciones legítimas, incluidas las de seguridad, hasta que
+#     alguien se acuerde de subirlo.
+#   - No evita la rotura: la esconde. El día que PySide6 7 rompa la interfaz,
+#     preferimos enterarnos por el CI y no meses después, cuando el techo
+#     finalmente se levante y nadie recuerde qué cambió.
+#   - Necesita mantenimiento manual y sin fecha, que es exactamente el tipo de
+#     tarea que este proyecto documenta como la primera en olvidarse.
+#
+# Lo que sí tenemos es la red que lo hace tolerable: el CI resuelve de nuevo en
+# cada corrida sobre **tres sistemas operativos y dos versiones de Python**, así
+# que una release rota aparece en horas y con la traza puesta. El precio
+# aceptado es que el CI pueda ponerse rojo sin que nadie haya tocado el código.
+#
+# **Cuando eso pase, la respuesta no es un techo genérico**: es leer el fallo y
+# o bien adaptarse, o bien agregar un tope **específico con el motivo medido**,
+# que es el estándar que cumple el de numpy.

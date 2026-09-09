@@ -12,7 +12,7 @@ tocar: **los hitos 0 a 18 están cerrados** y ningún módulo de `psglab/` eleva
 Con el **[hito 19](#hito-19-lo-que-la-interfaz-no-consumía)** cierran los
 **caminos muertos**, que no son stubs y por eso `contar_stubs()` no los veía:
 tres funciones públicas de `analysis/` que la interfaz no consumía. Son
-**veintiún hitos**, del 0 al 20, que son las filas de la tabla de progreso, y
+**veintidós hitos**, del 0 al 21, que son las filas de la tabla de progreso, y
 están todos cerrados. El **[hito 20](#hito-20-la-red)** es la red que evita que
 esto vuelva a pasar: tres chequeos automáticos sobre lo que hasta acá se
 encontraba a mano.
@@ -101,6 +101,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [18. Escala](#hito-18-escala) | — | 0 | ✅ cerrado |
 | [19. Lo que la interfaz no consumía](#hito-19-lo-que-la-interfaz-no-consumía) | — | 0 | ✅ cerrado |
 | [20. La red](#hito-20-la-red) | — | 0 | ✅ cerrado |
+| [21. Limpieza](#hito-21-limpieza) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1604,6 +1605,78 @@ números y el camino muerto**. Estos tres los cierran donde se puede.
       Está anotado como tal en `SOLO_BIBLIOTECA`, con esas palabras. Una
       exención que disfrace un hueco de decisión tomada es peor que el hueco:
       lo vuelve invisible y encima parece revisado.
+
+---
+
+## Hito 21: Limpieza
+
+Los quince hallazgos menores de la auditoría del 8 de septiembre de 2026, que
+son los que **ninguno solo justificaba un hito** y juntos sí. Ninguno rompía el
+programa; casi todos eran de la misma clase: algo que dejó de ser cierto y nadie
+volvió a mirar.
+
+### Lo que se veía mal en la pantalla
+
+- [x] **El hipnograma no dejaba en blanco lo no scoreado**, que es lo que pide
+      V1_P. `altura.get(fase, 0)` mapeaba `UNSCORED` a cero, así que se dibujaba
+      como una línea en la base y un tramo sin mirar se leía como una fase más.
+      El `connect="finite"` que ya estaba puesto era **código muerto por
+      construcción**: ningún valor podía ser no finito. Ahora se dibuja `NaN`,
+      que es exactamente lo que ese parámetro omite.
+- [x] **Tres slots sin `except`.** `_set_arousal`, `_set_visible_channels` y
+      `_set_selected_channels` llamaban a `core/` sin atrapar `PsgLabError`, a
+      diferencia de los otros catorce caminos. Desde un slot de Qt eso sale por
+      consola y el usuario no ve nada, que es peor que un cartel.
+- [x] **Dos cálculos largos sin cursor de espera**, con los números del hito 17:
+      ICA 4,9 s y conectividad de una ventana 1,4 s sobre el registro real.
+
+### Lo que estaba escrito de más o de menos
+
+- [x] **La clave de las impedancias, escrita tres veces**, con la constante que
+      existe para eso sin usar. Renombrarla habría cortado el enlace
+      lector–escritor sin que ningún test lo notara.
+- [x] **Cuatro imports muertos**, uno de ellos engañoso:
+      `WindowOutOfRangeError` en `complexity.py` sugería una condición de error
+      que ese módulo no puede producir.
+- [x] **El único `assert` a nivel de módulo del proyecto**, que desaparece con
+      `python -O`. La invariante que sostenía ahora tiene su test.
+- [x] **`MIN_SAMPLES` no es "el equivalente del segmento de Welch"**: uno está
+      en segundos y sube con la frecuencia, el otro es un número fijo de
+      muestras, y por eso los dos módulos no descartan las mismas ventanas.
+- [x] **`[]` significaba cosas opuestas en funciones hermanas.** Ahora `None` es
+      "todos" y la lista vacía se rechaza en las cuatro.
+- [x] **`read_scoring()` leía el archivo tres veces**, en tres momentos
+      distintos.
+- [x] **Siete frases de documentación**: los "tres conversores" que son cuatro,
+      los dos diagramas de la ventana sin la barra de navegación, el docstring
+      que atribuía una guarda al método equivocado, el chequeo de contratos que
+      decía cubrir dos capas y cubre tres, el diagrama de capas con `analysis`
+      suelto —y su texto, que decía que `ui/` tiene "dos dependencias" cuando
+      son siete—, los "ocho módulos" de `analysis/` que son nueve, y la única
+      frase agramatical del repositorio.
+
+### El CI
+
+- [x] **El `concurrency` no deduplicaba lo que su comentario decía.** Agrupaba
+      por `github.ref`, que para un `push` vale `refs/heads/Add` y para un
+      `pull_request` vale `refs/pull/N/merge`: grupos distintos, las dos
+      corridas hasta el final. Ahora sale de la rama de origen.
+- [x] **Los techos de versión, evaluados y descartados**, con el razonamiento
+      escrito en `requirements.txt`. El `numpy<2.6` no es una protección
+      preventiva sino una restricción que numba ya declara río arriba; no hay
+      ninguna equivalente para PySide6, mne, scipy ni pyqtgraph. Un techo por
+      las dudas bloquea actualizaciones de seguridad, necesita mantenimiento sin
+      fecha y **no evita la rotura: la esconde**. La red que lo hace tolerable
+      es el CI resolviendo de nuevo sobre seis combinaciones.
+
+### Lo que este hito no toca
+
+La deuda de diseño sigue anotada donde estaba, en el
+[hito 18](#lo-que-sigue-sin-resolverse): la señal vive entera en memoria y la
+ventana principal guarda dos copias, y nada corre fuera del hilo de la interfaz.
+**No son limpieza.** Leer por tramos, releer el archivo al deshacer o meter un
+`QThread` son decisiones de diseño con su propio costo, y cada una merece su
+hito.
 
 ---
 

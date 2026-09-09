@@ -35,7 +35,10 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     # tilde no es un descuido: `docs/EXPLICACION.txt` se escribe en ASCII a
     # propósito y hay un chequeo que lo exige, así que ahí dice "veintiun".
     "veintiuno": 21, "veintiún": 21, "veintiun": 21,
-    "veintidós": 22, "veintitrés": 23, "veinticuatro": 24, "veinticinco": 25,
+    # Las formas sin tilde son las de `docs/EXPLICACION.txt`, que se escribe en
+    # ASCII a propósito y tiene un chequeo que lo exige.
+    "veintidós": 22, "veintidos": 22, "veintitrés": 23, "veintitres": 23,
+    "veinticuatro": 24, "veinticinco": 25,
     "veintiséis": 26, "veintisiete": 27, "veintiocho": 28, "veintinueve": 29,
     "treinta": 30, "treinta y uno": 31, "treinta y un": 31, "treinta y dos": 32, "treinta y tres": 33,
     "treinta y cuatro": 34, "treinta y cinco": 35, "treinta y seis": 36,
