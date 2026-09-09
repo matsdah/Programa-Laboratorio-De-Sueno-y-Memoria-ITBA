@@ -39,7 +39,12 @@ import numpy as np
 
 from psglab.analysis.mne_bridge import from_raw, to_raw
 from psglab.core.recording import ChannelKind, Recording
-from psglab.utils.errors import InvalidRecordingError, memoria_suficiente
+from psglab.core.windows import count_windows, window_to_samples
+from psglab.utils.errors import (
+    InvalidRecordingError,
+    WindowOutOfRangeError,
+    memoria_suficiente,
+)
 
 #: Semilla del algoritmo. Fija a propósito: ver el docstring del módulo.
 RANDOM_STATE: Final[int] = 0
@@ -222,27 +227,82 @@ def component_topography(ica: Any, component: int) -> dict[str, float]:
     }
 
 
+def _recorte_de_ventana(recording: Recording, window_index: int) -> Recording:
+    """Un `Recording` con una sola ventana de 30 s del original.
+
+    Existe para que `component_time_course()` pueda mirar una ventana sin
+    reconstruir las fuentes de la noche entera. `to_raw()` copia lo que recibe,
+    así que darle el registro completo cuesta una copia completa de la señal
+    —445 MB en el registro real de 22 h— para dibujar 30 segundos.
+
+    Raises:
+        WindowOutOfRangeError: si la ventana no existe en el registro.
+    """
+    total = count_windows(recording.n_samples, recording.sampling_rate)
+    if isinstance(window_index, bool) or not isinstance(window_index, int):
+        raise WindowOutOfRangeError(
+            "El número de ventana tiene que ser un número entero.",
+            details=f"window_index es {type(window_index).__name__}.",
+        )
+    if not 0 <= window_index < total:
+        raise WindowOutOfRangeError(
+            f"El registro tiene {total} ventanas y se pidió la {window_index + 1}.",
+            details=f"window_index = {window_index}, válido de 0 a {total - 1}.",
+        )
+
+    inicio, fin = window_to_samples(window_index, recording.sampling_rate)
+    # `fin` puede pasarse del final en la última ventana; `get_segment` acorta.
+    tramo = recording.get_segment(inicio, min(fin, recording.n_samples))
+    return Recording(
+        file_path=recording.file_path,
+        channels=list(recording.channels),
+        data=np.asarray(tramo),
+        sampling_rate=recording.sampling_rate,
+        start_time=recording.start_time,
+        metadata=dict(recording.metadata),
+    )
+
+
 def component_time_course(
-    ica: Any, component: int, recording: Recording
+    ica: Any,
+    component: int,
+    recording: Recording,
+    window_index: int | None = None,
 ) -> np.ndarray:
     """Serie temporal de un componente, para inspeccionarla junto a la señal.
 
+    Args:
+        window_index: ventana de 30 s a reconstruir. `None` devuelve el registro
+            entero, que es la firma con la que nació.
+
     Returns:
-        Array de una dimensión con un valor por muestra del registro, en las
-        unidades arbitrarias del componente. Es lo que se dibuja debajo de la
-        señal para ver **cuándo** ocurre el artefacto: un parpadeo aparece como
-        picos aislados y el ruido de línea como una oscilación constante.
+        Array de una dimensión con un valor por muestra, en las unidades
+        arbitrarias del componente. Es lo que se dibuja debajo de la señal para
+        ver **cuándo** ocurre el artefacto: un parpadeo aparece como picos
+        aislados y el ruido de línea como una oscilación constante.
+
+    **Por qué ganó el argumento**, que es una decisión de firma como la de
+    `filters.default_for()` en el hito 17: hasta el hito 19 esta función existía
+    y **no la llamaba nadie**, así que su promesa de dibujo no se cumplía. Al
+    cablearla apareció el motivo por el que no alcanzaba con la firma vieja:
+    reconstruir la noche entera cuesta una copia completa de la señal y devuelve
+    millones de puntos que no se pueden mirar. El panel pide **la ventana que el
+    investigador está mirando**, igual que el espectro y la conectividad.
 
     Raises:
         InvalidRecordingError: si no es una ICA ajustada, si el componente no
-            existe, o si el registro no es el que se descompuso.
+            existe, o si no se le pasa un registro.
+        WindowOutOfRangeError: si la ventana no existe en el registro.
     """
     _exigir_ica(ica)
     numero = _exigir_componente(ica, component)
     _exigir_registro(recording)
 
+    tramo = recording if window_index is None else _recorte_de_ventana(
+        recording, window_index
+    )
     # `get_sources()` no acepta `verbose`, a diferencia de `fit` y `apply`.
-    fuentes = ica.get_sources(to_raw(recording))
+    fuentes = ica.get_sources(to_raw(tramo))
     return np.asarray(fuentes.get_data()[numero])
 
 

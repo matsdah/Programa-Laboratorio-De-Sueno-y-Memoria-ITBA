@@ -39,6 +39,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QAction
@@ -71,7 +72,12 @@ from psglab.analysis.connectivity import (
     average_connectivity,
     compute_connectivity,
 )
-from psglab.analysis.ica import apply_ica, component_topography, fit_ica
+from psglab.analysis.ica import (
+    apply_ica,
+    component_time_course,
+    component_topography,
+    fit_ica,
+)
 from psglab.analysis.impedance import (
     DEFAULT_LIMIT_KOHM,
     impedance_report,
@@ -225,6 +231,7 @@ class MainWindow(QMainWindow):
 
         self.ica_panel = IcaPanel()
         self.ica_panel.on_apply = self._apply_ica
+        self.ica_panel.on_component_shown = self._mostrar_curva_del_componente
         self.ica_dialog = QDialog(self)
         self.ica_dialog.setWindowTitle("Componentes independientes")
         self.ica_dialog.resize(860, 480)
@@ -1181,6 +1188,33 @@ class MainWindow(QMainWindow):
         self.ica_panel.set_components(topografias)
         self.ica_dialog.show()
         self.ica_dialog.raise_()
+
+    def _mostrar_curva_del_componente(self, component: int) -> None:
+        """Reconstruye la serie del componente elegido y se la da al panel.
+
+        **De la ventana actual**, por el mismo motivo que el espectro y la
+        conectividad: la serie de las ocho horas no se puede mirar, y
+        reconstruirla entera cuesta una copia completa de la señal.
+
+        Es la mitad que faltaba de V5_F: `component_time_course()` existía desde
+        el hito 15 con la promesa, en su propio docstring, de ser "lo que se
+        dibuja debajo de la señal para ver **cuándo** ocurre el artefacto", y
+        hasta el hito 19 no la llamaba nadie.
+        """
+        if self._session is None or self._ica is None:
+            return
+        ventana = self._session.current_window
+        try:
+            valores = component_time_course(
+                self._ica, component, self._session.recording, window_index=ventana
+            )
+        except PsgLabError as error:
+            # El panel ya dibujó la topografía y dejó la curva vacía, así que el
+            # investigador conserva la mitad del criterio que sí se pudo dar.
+            self._show_error(error)
+            return
+        segundos = np.arange(len(valores)) / self._session.recording.sampling_rate
+        self.ica_panel.set_time_course(segundos, valores)
 
     def _apply_ica(self, exclude: list[int]) -> None:
         """Reconstruye la señal sin los componentes que el usuario marcó.

@@ -51,9 +51,18 @@ class IcaPanel(QWidget):
         """Crea el panel vacío, antes de que haya ninguna descomposición."""
         super().__init__(parent)
         self._topografias: list[dict[str, float]] = []
+        self._curva: tuple[np.ndarray, np.ndarray] | None = None
         #: A quién avisarle cuando el usuario aprieta "Aplicar". Lo cablea la
         #: ventana principal, igual que los callbacks de las herramientas.
         self.on_apply: Callable[[list[int]], None] | None = None
+        #: A quién pedirle la curva temporal del componente que se muestra.
+        #:
+        #: **El panel no la calcula**: reconstruir las fuentes necesita
+        #: `analysis/ica.py` y el registro abierto, y `ui/` no conoce ninguno de
+        #: los dos por su cuenta. Avisa cuál se está mirando y espera que le
+        #: pasen la curva con `set_time_course()`, que es el mismo reparto que
+        #: usa `PsdPanel`: acá se dibuja, el cálculo es de otro.
+        self.on_component_shown: Callable[[int], None] | None = None
 
         self.lista = QListWidget()
         self.lista.currentRowChanged.connect(self._mostrar)
@@ -63,6 +72,19 @@ class IcaPanel(QWidget):
         item.setLabel("left", "Peso en el componente")
         item.setMenuEnabled(False)
         item.showGrid(y=True, alpha=0.3)
+
+        # **La otra mitad del criterio.** La topografía dice *dónde* pesa el
+        # componente y esta curva dice *cuándo* ocurre: un parpadeo son picos
+        # aislados y el ruido de línea una oscilación constante. Con una sola de
+        # las dos, el investigador decide a ciegas sobre una operación que no se
+        # puede deshacer. Hasta el hito 19 `component_time_course()` calculaba
+        # esto y no lo dibujaba nadie.
+        self.curva = pg.PlotWidget()
+        curva = self.curva.getPlotItem()
+        curva.setLabel("left", "Componente")
+        curva.setLabel("bottom", "Segundos de la ventana")
+        curva.setMenuEnabled(False)
+        curva.showGrid(x=True, y=True, alpha=0.3)
 
         self.aviso = QLabel(
             "Quitar un componente no se puede deshacer sobre la señal ya "
@@ -80,9 +102,13 @@ class IcaPanel(QWidget):
         izquierda.addWidget(self.aviso)
         izquierda.addWidget(self.boton)
 
+        derecha = QVBoxLayout()
+        derecha.addWidget(self.grafico, stretch=3)
+        derecha.addWidget(self.curva, stretch=2)
+
         fila = QHBoxLayout(self)
         fila.addLayout(izquierda, stretch=1)
-        fila.addWidget(self.grafico, stretch=2)
+        fila.addLayout(derecha, stretch=2)
 
     # -- Lo que le da la ventana principal ----------------------------------
 
@@ -155,12 +181,49 @@ class IcaPanel(QWidget):
         numero = self.shown_component()
         return dict(self._topografias[numero]) if numero is not None else {}
 
+    def set_time_course(self, seconds: np.ndarray, values: np.ndarray) -> None:
+        """Dibuja la serie temporal del componente que se está mostrando.
+
+        Args:
+            seconds: segundos desde el inicio de la ventana.
+            values: el componente, en sus unidades arbitrarias.
+
+        El eje vertical **no se fija**, a diferencia del de la topografía: ahí la
+        escala es comparable entre componentes porque los pesos vienen
+        normalizados, y acá las unidades son arbitrarias y lo que se lee es la
+        **forma** —picos aislados contra oscilación constante—, no la altura.
+        """
+        item = self.curva.getPlotItem()
+        item.clear()
+        x = np.asarray(seconds, dtype=float)
+        y = np.asarray(values, dtype=float)
+        self._curva = (x, y)
+        item.plot(x, y, pen=pg.mkPen(_COLOR, width=1))
+
+    def clear_time_course(self) -> None:
+        """Deja el gráfico de abajo vacío."""
+        self._curva = None
+        self.curva.getPlotItem().clear()
+
+    def time_course_data(self) -> tuple[np.ndarray, np.ndarray] | None:
+        """La curva dibujada, o None si no hay ninguna.
+
+        Mismo motivo que `topography_bars()`: qué se dibuja se testea.
+        """
+        return self._curva
+
     # -- Adentro -------------------------------------------------------------
 
     def _mostrar(self, fila: int) -> None:
-        """Dibuja la topografía del componente elegido."""
+        """Dibuja la topografía del componente elegido, y pide su curva.
+
+        La curva se pide **al cambiar de componente y no al cargar la lista**:
+        reconstruir las fuentes cuesta, y de otro modo se pagarían todas las de
+        una descomposición para mirar una.
+        """
         item = self.grafico.getPlotItem()
         item.clear()
+        self.clear_time_course()
         if not 0 <= fila < len(self._topografias):
             return
 
@@ -181,6 +244,13 @@ class IcaPanel(QWidget):
         # un componente plano se vería igual de marcado que uno concentrado.
         item.setYRange(-1.05, 1.05, padding=0)
         item.setTitle(f"Componente {fila + 1}")
+
+        # **Al final, y no antes de dibujar la topografía.** Reconstruir las
+        # fuentes puede fallar —un registro que ya no es el del ajuste— y si eso
+        # ocurriera primero, el usuario se quedaría sin ver ni siquiera los
+        # pesos, que es el dato que este panel siempre puede dar.
+        if self.on_component_shown is not None:
+            self.on_component_shown(fila)
 
     def _aplicar(self) -> None:
         """Avisa de qué componentes hay que quitar."""

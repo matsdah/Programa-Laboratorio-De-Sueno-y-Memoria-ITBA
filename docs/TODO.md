@@ -1198,7 +1198,7 @@ mostrarse.
   - **Se ajusta sobre los EEG y sólo sobre ellos**: meter un termómetro en la
     descomposición no tiene sentido físico y ensuciaría todos los componentes.
     `apply_ica()` devuelve el registro entero con el resto intacto.
-  - Test: `tests/test_ica.py`, **29 tests en verde**.
+  - Test: `tests/test_ica.py`, **36 tests en verde**.
 - [x] **`psglab/ui/ica_panel.py`** · el panel de inspección
   - Diseñado alrededor de la advertencia del módulo: quitar el componente
     equivocado modifica la señal de forma irreversible. De ahí salen sus tres
@@ -1212,7 +1212,7 @@ mostrarse.
     aplicada a otra quitaría un componente que el usuario nunca miró.
   - Pasa por `_aplicar_analisis()`, el camino único del menú, así que se puede
     volver a la señal original. Es la única red que hay.
-  - Test: `tests/test_ica_panel.py`, **15 tests en verde**.
+  - Test: `tests/test_ica_panel.py`, **20 tests en verde**.
 
 ---
 
