@@ -72,7 +72,7 @@ commit.
 |----|-----------|---------|
 | V1_F | Dibujar una línea con el mouse | `psglab/tools/occupancy.py` |
 | V2_F | Calcular el porcentaje de ocupación horizontal | `psglab/tools/occupancy.py` |
-| V3_F | Mostrar el porcentaje | `psglab/tools/occupancy.py` |
+| V3_F | Mostrar el porcentaje | `psglab/tools/occupancy.py` (el cálculo), `psglab/ui/main_window.py` (`_update_tool_readout`, que lo muestra) |
 | V4_F | Sumar la distancia horizontal de varias líneas | `psglab/tools/occupancy.py` |
 | V5_F | Borrar una línea con clic o al cambiar de ventana | `psglab/tools/occupancy.py` |
 
@@ -81,7 +81,7 @@ commit.
 | ID | Requisito | Archivo |
 |----|-----------|---------|
 | V1_P | Histograma de la noche completa, con lo no anotado en blanco | `psglab/tools/histogram.py` |
-| V2_F | Eje horizontal en hora real o de 1 a VENMAX | `psglab/tools/histogram.py`, `psglab/core/windows.py` |
+| V2_F | Eje horizontal en hora real o de 1 a VENMAX | `psglab/tools/histogram.py` (la elección), `psglab/core/windows.py` (`window_to_clock_time`), `psglab/ui/main_window.py` (`_marcas_del_histograma`, que dibuja las marcas) |
 | V3_F | Adaptar el histograma a la nomenclatura elegida | `psglab/tools/histogram.py`, `psglab/core/nomenclature.py` |
 | V4_F | Clic en el histograma para ir a esa ventana | `psglab/tools/histogram.py`, `psglab/core/session.py` |
 
@@ -89,8 +89,8 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Círculo de zoom que sigue al mouse | `psglab/tools/magnifier.py` |
-| V2_F | Contador de clics para contar picos | `psglab/tools/magnifier.py` |
+| V1_F | Círculo de zoom que sigue al mouse | `psglab/tools/magnifier.py` (el gesto), `psglab/ui/signal_view.py` (`_dibujar_lupa`, que amplía) |
+| V2_F | Contador de clics para contar picos | `psglab/tools/magnifier.py` (la cuenta), `psglab/ui/main_window.py` (`_update_tool_readout`, que la muestra) |
 
 ### Herramienta Übersicht
 
@@ -122,7 +122,7 @@ commit.
 | Sección | ID | Requisito | Archivo |
 |---------|----|-----------|---------|
 | Filtración | V1_F | Importar señal cruda y filtrar por tipo de canal | `psglab/analysis/filters.py`, `psglab/ui/filter_panel.py` (una fila por clase de canal) |
-| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir) |
+| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir), `psglab/ui/main_window.py` (`_olvidar_ica`, que descarta la descomposición cuando cambia la señal) |
 | Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py`, `psglab/readers/brainvision.py` (las extrae del `.vhdr`), `psglab/ui/impedance_panel.py` (la tabla y el informe) |
 | Rereferenciar | — | Re-referenciar la señal | `psglab/analysis/reference.py` |
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
