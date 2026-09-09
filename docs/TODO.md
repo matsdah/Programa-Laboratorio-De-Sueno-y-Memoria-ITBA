@@ -667,7 +667,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     herramienta sirva apenas se abre un registro.
 - [x] **`psglab/tools/occupancy.py`** · ~~13 stubs~~ · V1_F–V5_F "Ocupación" ·
       `ViewerTool`
-  - Test: `tests/test_occupancy.py`, **29 tests en verde**, sin `pytestmark`.
+  - Test: `tests/test_occupancy.py`, **34 tests en verde**, sin `pytestmark`.
     Los 7 que ya estaban escritos —los ejemplos numéricos literales del
     pliego— pasaron **sin tocarlos**. **Con esto la suite queda sin ningún
     salteado.**

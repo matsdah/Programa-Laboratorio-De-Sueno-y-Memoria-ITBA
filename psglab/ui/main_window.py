@@ -65,7 +65,7 @@ from psglab.core.nomenclature import (
 from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
-from psglab.analysis.derivation import derive, derive_montage
+from psglab.analysis.derivation import derive
 from psglab.analysis.complexity import MEASURES, complexity_by_window
 from psglab.analysis.connectivity import (
     average_connectivity,

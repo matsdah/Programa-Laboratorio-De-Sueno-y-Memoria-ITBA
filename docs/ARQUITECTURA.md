@@ -302,7 +302,7 @@ hace. Si algún día se revisa, hay que volver a medir esto primero.
   que cruza el borde de un módulo se nombra en inglés —`read_recording`,
   `scale_uv`, `on_window_changed`— y el interior se escribe en español, que es
   el idioma en que se razona el problema: `_linea_debajo()`,
-  `TOLERANCIA_DE_CLIC_UV`. Así no se cierra la puerta a contribuidores
+  `TOLERANCIA_DE_CLIC_EN_ESCALAS`. Así no se cierra la puerta a contribuidores
   externos y el código se lee igual para el equipo del laboratorio.
 - **Cada módulo abre con un docstring** que dice de qué se ocupa y **qué IDs
   del pliego cubre**. Esa línea es la que alimenta `docs/TRAZABILIDAD.md`.
