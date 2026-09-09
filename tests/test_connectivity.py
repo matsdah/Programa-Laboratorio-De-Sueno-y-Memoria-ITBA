@@ -305,3 +305,22 @@ def test_lo_que_no_es_un_registro_sale_como_error_del_programa(hostil):
         compute_connectivity(hostil, band=DELTA)
     with pytest.raises(PsgLabError):
         connectivity_by_window(hostil, ["A", "B"], DELTA)
+
+
+def test_la_lista_vacia_de_canales_se_rechaza_en_las_dos(registro_sintetico: Recording):
+    """`connectivity_by_window([])` la trataba como "todos" mientras
+    `compute_connectivity([])` la rechazaba por no llegar a dos canales: la
+    misma lista significaba cosas opuestas en dos funciones hermanas."""
+    with pytest.raises(PsgLabError):
+        compute_connectivity(registro_sintetico, channels=[])
+
+    with pytest.raises(PsgLabError):
+        connectivity_by_window(registro_sintetico, [], band=(0.5, 4.0))
+
+
+def test_none_sigue_midiendo_entre_todos(registro_sintetico: Recording):
+    """La salida que la lista vacia deja abierta."""
+    salida = connectivity_by_window(registro_sintetico, None, band=(0.5, 4.0))
+
+    canales = len(registro_sintetico.channels)
+    assert salida.shape[1:] == (canales, canales)

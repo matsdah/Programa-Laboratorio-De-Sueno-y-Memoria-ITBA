@@ -26,7 +26,6 @@ from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.windows import count_windows
 from psglab.utils.errors import (
-    ChannelNotFoundError,
     PsgLabError,
     InvalidAnnotationError,
     InvalidRecordingError,

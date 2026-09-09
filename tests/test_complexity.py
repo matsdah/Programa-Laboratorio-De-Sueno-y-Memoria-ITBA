@@ -309,3 +309,19 @@ def test_lo_hostil_sale_como_error_del_programa(hostil):
 def test_lo_que_no_es_un_registro_sale_como_error_del_programa(hostil):
     with pytest.raises(PsgLabError):
         complexity_by_window(hostil, ["C4"])
+
+
+def test_measures_y_el_mapa_interno_no_se_pueden_separar():
+    """La invariante que el modulo sostiene con un `assert` a nivel de modulo.
+
+    **Un `assert` desaparece con `python -O`**, y ese era el unico de todo
+    `psglab/`: la unica guarda del proyecto que se apaga con una opcion del
+    interprete. Aca queda verificada pase lo que pase.
+
+    Lo que protege: si alguien agrega una medida a `MEASURES` y se olvida del
+    mapa, el modulo la ofrece y despues falla con un `KeyError`, que es
+    exactamente lo que `UnknownMeasureError` existe para evitar.
+    """
+    from psglab.analysis.complexity import _POR_NOMBRE
+
+    assert set(_POR_NOMBRE) == set(MEASURES)

@@ -420,7 +420,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
     canal auxiliar con prefijo puede quedar corrida en un factor. Los canales
     que el programa mide son de voltaje y para ésos la conversión es exacta.
 - [x] **`psglab/readers/scoring_reader.py`** · ~~3 stubs~~ · V3_F "Importación"
-  - Test: `tests/test_scoring_reader.py`, **29 tests en verde**. El archivo lo
+  - Test: `tests/test_scoring_reader.py`, **30 tests en verde**. El archivo lo
     escribe el propio test, así que no necesita `data/`.
   - `detect_nomenclature()` lee la cabecera que escribirá
     `exporters/scoring_txt.py::format_header()`. Acepta el nombre corto y el
@@ -1078,7 +1078,7 @@ ventana y no existía.
   - Dos excepciones nuevas: `UnknownPsdMethodError` —Welch y multitaper no dan
     lo mismo, así que elegir uno en silencio daría un resultado que el usuario
     no pidió y no puede distinguir del que pidió— e `InvalidBandError`.
-  - Test: `tests/test_psd.py`, **38 tests en verde**.
+  - Test: `tests/test_psd.py`, **40 tests en verde**.
 - [x] **`psglab/ui/psd_panel.py`** · el panel del espectro
   - **Acá sí se usa pyqtgraph**, a diferencia del panel de la Übersicht, que se
     pinta con `QPainter`: un espectro es una curva sobre ejes con escala, y
@@ -1119,7 +1119,7 @@ mostrarse.
     correcto: la dimensión fractal de algo sin variación no está definida. Un
     canal desconectado es un caso real, así que está documentado que ahí el NaN
     significa "esta medida no existe para esta señal" y no "faltaron datos".
-  - Test: `tests/test_complexity.py`, **34 tests en verde**.
+  - Test: `tests/test_complexity.py`, **35 tests en verde**.
 - [x] **`psglab/analysis/connectivity.py`** · ~~3 stubs~~ · sección "Conectividad"
   - **La predicción del plan era falsa y medirla lo mostró.** Se esperaba que
     dos canales idénticos dieran wPLI 0; dan 0,39. Con señales exactamente
@@ -1137,7 +1137,7 @@ mostrarse.
   - mne-connectivity devuelve sólo el triángulo inferior; el módulo lo refleja,
     porque promete una matriz simétrica y quien la lea no tiene por qué saber
     de qué lado quedó cada par.
-  - Test: `tests/test_connectivity.py`, **33 tests en verde**.
+  - Test: `tests/test_connectivity.py`, **35 tests en verde**.
 - [x] **`psglab/ui/metric_panel.py`** · una métrica por ventana a lo largo de la
       noche
   - **Sirve a los dos módulos**, porque los dos producen esa forma. Es lo que

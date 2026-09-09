@@ -300,3 +300,28 @@ def test_un_scoring_leido_se_puede_seguir_editando(escribir):
 
     scoring.set_stage(0, SleepStage.N3)
     assert scoring.get(0).stage is SleepStage.N3
+
+
+def test_el_archivo_se_lee_una_sola_vez(escribir, monkeypatch):
+    """**Tres lecturas del disco en tres momentos distintos.**
+
+    `read_scoring()` llamaba a `_leer_lineas()` y despues a
+    `detect_nomenclature()` y `detect_line_format()`, que la llaman de nuevo. No
+    es solo trabajo repetido: si el archivo cambiaba entre una lectura y otra, la
+    nomenclatura y el formato de linea podian no corresponder al contenido que ya
+    se habia interpretado.
+
+    Las dos funciones publicas siguen recibiendo una ruta, porque son API del
+    modulo y las usa quien todavia no leyo nada.
+    """
+    ruta = escribir("# AASM\n0 0\n2 0\n2 1\n")
+
+    lecturas: list[Path] = []
+    original = Path.read_bytes
+    monkeypatch.setattr(
+        Path, "read_bytes", lambda self: (lecturas.append(self), original(self))[1]
+    )
+
+    read_scoring(ruta, n_windows=3)
+
+    assert len(lecturas) == 1, f"el archivo se leyo {len(lecturas)} veces"

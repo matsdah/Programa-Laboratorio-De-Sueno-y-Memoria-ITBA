@@ -59,11 +59,7 @@ import numpy as np
 
 from psglab.core.recording import Recording
 from psglab.core.windows import count_windows, window_to_samples
-from psglab.utils.errors import (
-    InvalidRecordingError,
-    UnknownMeasureError,
-    WindowOutOfRangeError,
-)
+from psglab.utils.errors import InvalidRecordingError, UnknownMeasureError
 
 #: Medidas que `complexity_by_window()` sabe aplicar.
 #:
@@ -79,10 +75,24 @@ MEASURES: Final[tuple[str, ...]] = (
 
 #: Muestras mínimas para que una medida signifique algo.
 #:
-#: Es el equivalente del segmento de Welch en `psd.py`: por debajo de esto la
-#: ventana devuelve NaN en vez de un número que nadie puede comparar con los
-#: demás. Un segundo a cualquier frecuencia razonable da varios cientos de
-#: muestras, que es el piso para que los patrones de orden 3 tengan sentido.
+#: Cumple el mismo papel que el segmento de Welch en `psd.py` —por debajo de
+#: esto la ventana devuelve NaN en vez de un número que nadie puede comparar con
+#: los demás— pero **no es la misma clase de umbral, y conviene no confundirlos**:
+#: `WELCH_SEGMENT_SECONDS` está en segundos y se traduce a muestras con la
+#: frecuencia del registro, así que sube con ella; éste es un número fijo de
+#: muestras.
+#:
+#: La consecuencia es que los dos módulos no descartan las mismas ventanas. A
+#: 100 Hz la PSD necesita 400 muestras y la complejidad 256, así que hay
+#: ventanas finales cortas donde una mide y la otra devuelve NaN; a 512 Hz la
+#: PSD pide 2048 y ésta sigue pidiendo 256. No es un descuido: lo que hace
+#: significativa a una medida de complejidad es **cuántos puntos** tiene el
+#: patrón, no cuánto tiempo abarcan, mientras que la resolución en frecuencia de
+#: Welch es un tiempo. Los dos arrays siguen teniendo `count_windows()`
+#: elementos, así que se grafican igual contra el hipnograma.
+#:
+#: Un segundo a cualquier frecuencia razonable da varios cientos de muestras,
+#: que es el piso para que los patrones de orden 3 tengan sentido.
 MIN_SAMPLES: Final[int] = 256
 
 

@@ -98,6 +98,17 @@ def _nombres_de_canal(
             "Hay que decir qué canales analizar, con una lista de nombres.",
             details=f"channels es {type(channels).__name__}: {channels!r}.",
         )
+    # **La lista vacía se rechaza, y no es lo mismo que `None`.** `None` dice
+    # "todos"; `[]` dice "ninguno", y sobre ninguno no hay nada que medir. Sin
+    # esta guarda `compute_psd(channels=[])` devolvía en silencio un espectro de
+    # cero canales, y `band_powers_by_window()` hacía lo contrario —tratarla
+    # como "todos"—, así que la misma lista significaba dos cosas opuestas en
+    # funciones hermanas.
+    if not channels:
+        raise InvalidRecordingError(
+            "Hay que decir qué canales analizar: la lista vino vacía.",
+            details="channels = []; para analizarlos todos se pasa None.",
+        )
     return list(channels)
 
 
@@ -302,7 +313,10 @@ def band_powers_by_window(
         InvalidBandError: si alguna banda está mal formada.
     """
     _exigir_registro(recording)
-    nombres = _nombres_de_canal(recording, channels) if channels else recording.channel_names()
+    # Sin el `if channels` de antes: `None` sigue siendo "todos" y `[]` pasa a
+    # rechazarse, que es lo que hace `compute_psd()` y lo que evita que la misma
+    # lista signifique cosas opuestas en las dos.
+    nombres = _nombres_de_canal(recording, channels)
     # Se validan antes de empezar: fallar en la ventana 900 de 960 después de
     # varios minutos de cuenta, por una banda invertida que se sabía desde el
     # principio, sería tiempo tirado.

@@ -321,3 +321,28 @@ def test_lo_que_no_es_un_registro_sale_como_error_del_programa(hostil):
         compute_psd(hostil)
     with pytest.raises(PsgLabError):
         band_powers_by_window(hostil, ["C4"])
+
+
+# -- `None` es "todos" y `[]` es "ninguno" (hito 21) --------------------------
+
+
+def test_la_lista_vacia_de_canales_se_rechaza(registro_sintetico: Recording):
+    """**No es lo mismo que `None`.** `None` dice "todos"; `[]` dice "ninguno", y
+    sobre ninguno no hay nada que medir.
+
+    `compute_psd(channels=[])` devolvia en silencio un espectro de cero canales
+    y `band_powers_by_window()` hacia lo contrario --tratarla como "todos"--,
+    asi que la misma lista significaba cosas opuestas en funciones hermanas.
+    """
+    with pytest.raises(PsgLabError):
+        compute_psd(registro_sintetico, channels=[])
+
+    with pytest.raises(PsgLabError):
+        band_powers_by_window(registro_sintetico, [])
+
+
+def test_none_sigue_significando_todos(registro_sintetico: Recording):
+    """La otra mitad: la salida que la lista vacia deja abierta."""
+    _, potencias = compute_psd(registro_sintetico, channels=None)
+
+    assert potencias.shape[0] == len(registro_sintetico.channels)
