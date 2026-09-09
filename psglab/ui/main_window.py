@@ -1069,12 +1069,13 @@ class MainWindow(QMainWindow):
 
         ventana = self._session.current_window
         try:
-            matriz = compute_connectivity(
-                self._session.recording,
-                channels=canales,
-                band=DEFAULT_BANDS[banda],
-                window_index=ventana,
-            )
+            with self._trabajando(f"Midiendo la conectividad en {banda}"):
+                matriz = compute_connectivity(
+                    self._session.recording,
+                    channels=canales,
+                    band=DEFAULT_BANDS[banda],
+                    window_index=ventana,
+                )
         except PsgLabError as error:
             self._show_error(error)
             return
@@ -1195,11 +1196,12 @@ class MainWindow(QMainWindow):
         if self._session is None:
             return
         try:
-            self._ica = fit_ica(self._session.recording)
-            topografias = [
-                component_topography(self._ica, numero)
-                for numero in range(int(self._ica.n_components_))
-            ]
+            with self._trabajando("Descomponiendo la señal en componentes"):
+                self._ica = fit_ica(self._session.recording)
+                topografias = [
+                    component_topography(self._ica, numero)
+                    for numero in range(int(self._ica.n_components_))
+                ]
         except PsgLabError as error:
             self._show_error(error)
             return
@@ -1328,9 +1330,21 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def _set_arousal(self, arousal: bool) -> None:
+        """Marca o desmarca el arousal de la ventana actual (V2_F).
+
+        **Con su `except`, como los otros catorce.** Una excepción que sale de
+        un slot de Qt no cierra el programa: la imprime en la consola y el
+        usuario no ve nada, que es peor que un cartel. Hoy los datos que llegan
+        acá los arma la propia interfaz, pero eso deja de ser cierto en cuanto
+        un panel se desincroniza del registro después de `set_recording()`.
+        """
         if self._session is None:
             return
-        self._session.scoring.set_arousal(self._session.current_window, arousal)
+        try:
+            self._session.scoring.set_arousal(self._session.current_window, arousal)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
         self.refresh()
 
     def _change_nomenclature(self, nomenclature: Nomenclature) -> None:
@@ -1359,14 +1373,29 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def _set_visible_channels(self, channel_names: list[str]) -> None:
+        """Qué canales se dibujan (V3_P).
+
+        El `except` es el mismo caso que `_set_arousal()`: `set_visible_channels`
+        eleva `ChannelNotFoundError` si el selector nombra un canal que el
+        registro ya no tiene, y desde un slot de Qt eso sale por consola.
+        """
         if self._session is None:
             return
-        self._session.set_visible_channels(channel_names)
+        try:
+            self._session.set_visible_channels(channel_names)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
         self.signal_view.set_visible_channels(channel_names)
 
     def _set_selected_channels(self, channel_names: list[str]) -> None:
-        if self._session is not None:
+        """Sobre qué canales actúan los cambios de amplitud (V5_F)."""
+        if self._session is None:
+            return
+        try:
             self._session.set_selected_channels(channel_names)
+        except PsgLabError as error:
+            self._show_error(error)
 
     def _clock_label(self, window_index: int) -> str | None:
         """La hora real de una ventana, si el registro informa cuándo empezó."""
@@ -1389,6 +1418,18 @@ class MainWindow(QMainWindow):
         ventana; acá se convierte en barras. El orden vertical lo fija
         `stages_of()`, así que cambiar de nomenclatura reordena el eje solo
         (V3_F del histograma).
+
+        **Lo no scoreado queda en blanco, que es lo que pide V1_P.** Se dibuja
+        como `NaN` y no como cero, y ésa es toda la diferencia: `connect="finite"`
+        omite los puntos que no son finitos, así que el trazo se corta y la
+        ventana sin scorear no deja marca.
+
+        Hasta acá se mapeaba a **cero**, con lo cual `connect="finite"` no podía
+        hacer nada —ningún valor era no finito— y lo no anotado se dibujaba como
+        una línea en la base, por debajo de la fase más baja. Un tramo sin mirar
+        se leía como una fase más, que es justo lo que el pliego no quiere: el
+        histograma tiene el tamaño de la noche desde el arranque y hay que poder
+        ver qué falta.
         """
         herramienta = self._tools.get("histogram")
         if not isinstance(herramienta, HistogramTool) or self._session is None:
@@ -1398,12 +1439,15 @@ class MainWindow(QMainWindow):
             return
 
         orden = list(stages_of(self._session.scoring.nomenclature))
-        altura = {fase: len(orden) - posicion for posicion, fase in enumerate(orden)}
+        altura = {fase: float(len(orden) - posicion) for posicion, fase in enumerate(orden)}
         item = self.histogram_view.getPlotItem()
         item.clear()
         item.plot(
             range(len(barras)),
-            [altura.get(fase, 0) for fase in barras],
+            # `nan` para lo que no es una fila del histograma: `UNSCORED` no
+            # tiene altura porque `stages_of()` no la incluye, y ésa es
+            # exactamente la ausencia que hay que dibujar.
+            [altura.get(fase, float("nan")) for fase in barras],
             stepMode="right",
             connect="finite",
         )

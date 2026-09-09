@@ -489,6 +489,38 @@ def marcas_horizontales(ventana: MainWindow) -> list[tuple[float, str]]:
     return ventana.histogram_view.getPlotItem().getAxis("bottom")._tickLevels[0]
 
 
+def test_lo_no_scoreado_queda_en_blanco(ventana: MainWindow):
+    """**V1_P: "el histograma tiene el tamaño total de la noche desde el
+    arranque, y lo no anotado queda en blanco".**
+
+    Se dibuja como `NaN`, que es lo que `connect="finite"` omite. Se mapeaba a
+    cero, y entonces ese parámetro no podía hacer nada —ningún valor era no
+    finito— y lo no scoreado salía como una línea en la base: un tramo sin
+    mirar se leía como una fase más.
+    """
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+
+    curva = ventana.histogram_view.getPlotItem().listDataItems()[0]
+    _, alturas = curva.getData()
+
+    assert not np.isnan(alturas[0]), "la ventana scoreada tiene que tener altura"
+    sin_scorear = alturas[1:]
+    assert np.all(np.isnan(sin_scorear)), (
+        "las ventanas sin scorear tienen que quedar en blanco, no en la base"
+    )
+
+
+def test_scorear_una_ventana_le_da_altura(ventana: MainWindow):
+    """La otra mitad: el blanco tiene que desaparecer al scorear."""
+    fases = stages_of(ventana.session.scoring.nomenclature)
+    ventana._go_to_window(2)
+    ventana.score_current_window(fases[1])
+
+    _, alturas = ventana.histogram_view.getPlotItem().listDataItems()[0].getData()
+    assert not np.isnan(alturas[2])
+
+
 def test_el_eje_arranca_numerando_las_ventanas_desde_uno(ventana: MainWindow):
     """Base 0 adentro, base 1 al mostrar. El eje mostraba base 0."""
     ventana._go_to_window(0)
