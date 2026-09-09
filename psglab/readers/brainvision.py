@@ -252,7 +252,7 @@ class BrainVisionReader(Reader):
             ]
         impedancias = _impedancias_declaradas(crudo, list(crudo.ch_names))
         if impedancias:
-            metadatos["brainvision_impedances"] = impedancias
+            metadatos[IMPEDANCE_KEY] = impedancias
 
         return Recording(
             file_path=path,

@@ -103,7 +103,13 @@ huso-onda lenta. Hoy no se instala, justamente porque está fuera del alcance.
 
 ## Estado
 
-**Terminada.** Pendientes **0 stubs**: los ocho módulos están implementados y
-con test propio. El [TODO](../../docs/TODO.md) lleva las dos Partes desde el
-hito 10 —antes cubría sólo la Parte 1, y esta carpeta quedaba afuera— y sus
-hitos 10 a 16 son los de acá.
+**Terminada.** Pendientes **0 stubs**: los **nueve** módulos están implementados
+y con test propio. El [TODO](../../docs/TODO.md) lleva las dos Partes desde el
+hito 10 —antes cubría sólo la Parte 1, y esta carpeta quedaba afuera— y los
+hitos **10 a 19** la tocan: del 10 al 16 la construyeron, el 17 la cerró, el 18
+le bajó las copias de memoria y el 19 llevó a la pantalla lo que quedaba sin
+camino.
+
+Decía "los ocho módulos", que era la cuenta de los que tenían stubs cuando se
+escribió: `mne_bridge.py` nació ya implementado en el hito 10 y no entraba en
+esa suma, pero es un módulo igual y tiene su test.

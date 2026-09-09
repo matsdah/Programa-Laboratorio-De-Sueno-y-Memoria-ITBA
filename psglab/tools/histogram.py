@@ -23,7 +23,7 @@ from psglab.core.nomenclature import SleepStage
 from psglab.core.session import Session
 from psglab.tools.base import Tool
 from psglab.tools.registry import register_tool
-from psglab.utils.errors import InvalidScaleError, PsgLabError
+from psglab.utils.errors import InvalidScaleError
 from psglab.utils.validation import check_finite
 
 

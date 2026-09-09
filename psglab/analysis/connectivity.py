@@ -275,7 +275,11 @@ def connectivity_by_window(
     # porque el largo de `nombres` se usa **antes** de llamarla: sin esto,
     # `list(channels)` con un número eleva `TypeError` al armar el array de
     # salida, y eso escaparía del `except` de la ventana principal.
-    if channels is None or channels == []:
+    # **`None` es "todos" y `[]` es "ninguno".** Antes `[]` caía en la primera
+    # rama y se convertía en "todos", mientras `compute_connectivity()` la
+    # rechazaba por no llegar a dos canales: la misma lista significaba cosas
+    # opuestas en dos funciones hermanas.
+    if channels is None:
         nombres = recording.channel_names()
     elif isinstance(channels, (list, tuple)) and all(
         isinstance(n, str) for n in channels
@@ -285,6 +289,11 @@ def connectivity_by_window(
         raise InvalidRecordingError(
             "Hay que decir entre qué canales medir, con una lista de nombres.",
             details=f"channels es {type(channels).__name__}: {channels!r}.",
+        )
+    if len(nombres) < 2:
+        raise InvalidRecordingError(
+            "La conectividad se mide entre canales, así que hacen falta al menos dos.",
+            details=f"se pidieron {len(nombres)}: {nombres}.",
         )
     salida = np.full((total, len(nombres), len(nombres)), np.nan)
 

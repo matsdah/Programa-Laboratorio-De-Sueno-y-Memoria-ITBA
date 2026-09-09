@@ -21,13 +21,21 @@ registro de 400 es una regla y va en `core/`.
 |  canales         |     Visualizador de la señal (30 s)       |
 |                  |                                           |
 +------------------+-------------------------------------------+
+|  Übersicht: ventanas vecinas, la actual más oscura            |
++--------------------------------------------------------------+
 |  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
++--------------------------------------------------------------+
+|  Navegación: ← ventana anterior | siguiente →                 |
 +--------------------------------------------------------------+
 |  Histograma de la noche completa                              |
 +--------------------------------------------------------------+
 |  Barra de estado: ventana 42 / 960 - 00:21:00                 |
 +--------------------------------------------------------------+
 ```
+
+Es el orden en que los apila `_build_layout()`. El esquema no tenía la Übersicht
+—que agregó el hito 9— ni la barra de navegación, y un diagrama al que le faltan
+filas se lee como si esas piezas no existieran.
 
 ## Los archivos
 
@@ -140,7 +148,7 @@ que son justo donde algo se rompe en silencio:
   desincronizada se manifiesta como una tecla que no hace nada.
 - `grid.py` calcula posiciones. Acumular 0,5 sesenta veces corre la última línea
   del borde.
-- Los tres conversores de `signal_view.py` son el **único** lugar del programa
+- Los cuatro conversores de `signal_view.py` son el **único** lugar del programa
   que traduce entre píxeles, segundos, fracción de ventana y muestras.
   Confundirlos produce números plausibles y equivocados.
 
