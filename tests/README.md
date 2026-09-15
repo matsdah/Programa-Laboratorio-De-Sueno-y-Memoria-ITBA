@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cuarenta y un
+camino de búsqueda. Con `pytest` directo la recolección falla en los cuarenta y dos
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -90,6 +90,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_impedance_panel.py` | La tabla editable: que la celda sin valor lo diga, y que un cero escrito a mano sí cuente. |
 | `test_reference.py` | La re-referenciación: el canal de referencia en cero, y la suma de los EEG en cero. |
 | `test_entrega.py` | La comprobación de entrega: abrir, navegar, scorear y exportar **por la ventana**, no por las piezas. |
+| `test_main_window_layout.py` | Cómo se llama lo que la ventana hace: la superficie pública que un refactor no puede renombrar en silencio. |
 
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el
 motivo por el que `core/` no importa nada de `ui/`.

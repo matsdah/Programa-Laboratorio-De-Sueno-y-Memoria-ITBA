@@ -47,6 +47,10 @@ FIXED_SHORTCUTS: Final[dict[str, str]] = {
 #: `FIXED_SHORTCUTS` porque aquél es lo que **lee el usuario** en la ayuda y
 #: éste es el cableado: cambiar un texto de ayuda no puede desconectar una
 #: tecla.
+#: Marca con la que este módulo firma los `QShortcut` que crea, para poder
+#: reconocerlos y desinstalarlos al reinstalar. Ver `_quitar_atajos_anteriores`.
+_NOMBRE_DE_ATAJO: Final[str] = "psglab-shortcut"
+
 ACTIONS: Final[dict[str, str]] = {
     "Right": "go_to_next_window",
     "Left": "go_to_previous_window",
@@ -91,7 +95,18 @@ def install_shortcuts(window: QMainWindow, session: Session | None) -> None:
     Las fases se instalan aparte porque dependen de la nomenclatura, que cambia
     en tiempo de ejecución (V3_F de "Scoring"): se vuelven a instalar cuando el
     usuario la cambia.
+
+    **Lo primero que hace es desinstalar los anteriores.** No es una precaución
+    teórica: se la llama tres veces —al construir la ventana, al abrir un
+    registro y al cambiar de nomenclatura— y sin esto cada llamada dejaba vivos
+    los `QShortcut` de la anterior. Dos atajos con la misma tecla colgados de la
+    misma ventana hacen que Qt no dispare ninguno de los dos y escriba
+    "Ambiguous shortcut overload" por consola, así que la tecla `2` dejaba de
+    scorear justo después de cambiar de nomenclatura, que es cuando el usuario
+    más la necesita.
     """
+    _quitar_atajos_anteriores(window)
+
     for tecla, metodo in ACTIONS.items():
         _conectar(window, tecla, metodo)
 
@@ -118,6 +133,34 @@ def _fases_por_tecla(nomenclature: Nomenclature) -> dict[str, SleepStage]:
     return {_tecla_de_fase(fase): fase for fase in stages_of(nomenclature)}
 
 
+def _quitar_atajos_anteriores(window: QMainWindow) -> None:
+    """Desinstala los atajos que puso una llamada anterior.
+
+    Se reconocen por su `objectName`, y no se borran todos los `QShortcut` de la
+    ventana: este módulo es la fuente única de los atajos del programa, pero
+    nada impide que Qt o un widget de terceros cuelgue el suyo, y llevárselo
+    puesto sería un efecto secundario invisible.
+
+    `setParent(None)` antes de `deleteLater()` es lo que hace que el atajo deje
+    de existir **ahora** y no cuando el ciclo de eventos pase por su cola: sin
+    eso, reinstalar y usar la tecla en el mismo gesto seguiría encontrando al
+    viejo, que es justo el caso de cambiar de nomenclatura.
+    """
+    for atajo in window.findChildren(QShortcut):
+        if atajo.objectName() != _NOMBRE_DE_ATAJO:
+            continue
+        atajo.setEnabled(False)
+        atajo.setParent(None)
+        atajo.deleteLater()
+
+
+def _nuevo_atajo(window: QMainWindow, tecla: str) -> QShortcut:
+    """Crea un atajo marcado como nuestro, para poder desinstalarlo después."""
+    atajo = QShortcut(QKeySequence(tecla), window)
+    atajo.setObjectName(_NOMBRE_DE_ATAJO)
+    return atajo
+
+
 def _conectar(window: QMainWindow, tecla: str, metodo: str) -> None:
     """Cuelga un atajo de la ventana y lo conecta a uno de sus métodos.
 
@@ -129,7 +172,7 @@ def _conectar(window: QMainWindow, tecla: str, metodo: str) -> None:
     accion = getattr(window, metodo, None)
     if accion is None:
         return
-    QShortcut(QKeySequence(tecla), window).activated.connect(accion)
+    _nuevo_atajo(window, tecla).activated.connect(accion)
 
 
 def _conectar_fase(window: QMainWindow, tecla: str, stage: SleepStage) -> None:
@@ -137,9 +180,7 @@ def _conectar_fase(window: QMainWindow, tecla: str, stage: SleepStage) -> None:
     accion = getattr(window, "score_current_window", None)
     if accion is None:
         return
-    QShortcut(QKeySequence(tecla), window).activated.connect(
-        lambda fase=stage: accion(fase)
-    )
+    _nuevo_atajo(window, tecla).activated.connect(lambda fase=stage: accion(fase))
 
 
 def shortcuts_help_text(nomenclature: Nomenclature) -> str:

@@ -13,6 +13,7 @@ panel sirva de algo:
 
 import numpy as np
 import pytest
+from PySide6.QtCore import Qt
 
 pytest.importorskip("pyqtgraph")
 
@@ -138,3 +139,32 @@ def test_una_serie_vacia_no_rompe(panel: MetricPanel):
 
     assert panel.channels() == ["C3"]
     assert panel.gap_windows("C3") == []
+# -- Que la curva se vea ----------------------------------------------------
+
+
+def test_todos_los_canales_se_dibujan_con_una_pluma_visible(panel: MetricPanel):
+    """El segundo canal en adelante se pedía con `mkPen(None)`, que es `NoPen`.
+
+    La curva entraba en la leyenda y no se dibujaba, así que pedir la
+    complejidad de tres canales mostraba uno y los otros dos parecían no
+    haberse calculado. Es la clase de fallo que no da error: da un gráfico
+    incompleto que se lee como un resultado.
+    """
+    panel.set_metric("PE", {"C3": serie([0.1, 0.2]), "C4": serie([0.3, 0.4]), "O1": serie([0.5, 0.6])})
+
+    estilos = [
+        panel._curvas[nombre].opts["pen"].style() for nombre in panel.channels()
+    ]
+
+    assert Qt.PenStyle.NoPen not in estilos
+
+
+def test_dos_canales_no_comparten_color(panel: MetricPanel):
+    """Tres curvas del mismo color son tan ilegibles como una sola."""
+    panel.set_metric("PE", {"C3": serie([0.1]), "C4": serie([0.2])})
+
+    colores = [
+        panel._curvas[nombre].opts["pen"].color().name() for nombre in panel.channels()
+    ]
+
+    assert len(set(colores)) == len(colores)

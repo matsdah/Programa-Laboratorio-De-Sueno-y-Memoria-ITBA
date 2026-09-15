@@ -1148,7 +1148,7 @@ mostrarse.
     complejidad plausible y bajo, indistinguible a ojo de una medición real.
   - El eje va en **base 1**, como el histograma: desde 0 quedaría desplazado una
     ventana respecto de él.
-  - Test: `tests/test_metric_panel.py`, **14 tests en verde**.
+  - Test: `tests/test_metric_panel.py`, **16 tests en verde**.
 - [x] **`psglab/ui/connectivity_panel.py`** · el mapa de calor de la matriz
   - **La matriz es la salida real del requisito**: mostrar sólo su promedio
     diría cuánta conectividad hay pero no entre qué canales.

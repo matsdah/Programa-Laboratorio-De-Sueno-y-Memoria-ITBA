@@ -29,8 +29,23 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6.QtWidgets import QWidget
 
-#: Color de la curva. No sale de `config.py` porque el pliego no fija ninguno.
-_COLOR = "#4a90e6"
+#: Colores de las curvas, en orden de canal. No salen de `config.py` porque el
+#: pliego no fija ninguno. Son los mismos seis de `psd_panel.py` y de la paleta
+#: de clases de anotación, para que el mismo canal no cambie de color según el
+#: panel en el que se lo mire.
+#:
+#: **Antes había un solo color** y las curvas de la segunda en adelante se
+#: pedían con `mkPen(None, width=2)`, que en pyqtgraph no es "el color por
+#: defecto" sino `NoPen`: la curva se agregaba a la leyenda y no se dibujaba.
+#: Pedir la complejidad de tres canales mostraba uno.
+_COLORES = (
+    "#4a90e6",
+    "#6cb04a",
+    "#e6c04a",
+    "#e6754a",
+    "#b04ae6",
+    "#4ab0a8",
+)
 
 
 class MetricPanel(pg.PlotWidget):
@@ -84,7 +99,7 @@ class MetricPanel(pg.PlotWidget):
                 # de unir la curva por encima de ellos, que sugeriría una
                 # continuidad que no se midió.
                 connect="finite",
-                pen=pg.mkPen(_COLOR if posicion == 0 else None, width=2),
+                pen=pg.mkPen(_COLORES[posicion % len(_COLORES)], width=2),
                 name=nombre,
             )
             self._curvas[nombre] = curva
