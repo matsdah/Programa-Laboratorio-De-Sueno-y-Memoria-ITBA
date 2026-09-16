@@ -121,13 +121,28 @@ def _escala_de_tiempo(window: "MainWindow") -> None:
     escala.addAction("A&lejar (página × 2)", window.double_timescale)
 
 
+def duration_text(seconds: float) -> str:
+    """Una duración escrita como la leería un investigador: 200 ms, 30 s, 5 min, 1 h.
+
+    **Es el único formateador de duraciones de la interfaz.** Hubo dos —uno acá
+    para el menú y otro en la ventana principal para la barra de estado— y no
+    coincidían: la misma página de 0,2 s era "0,2 s por página" en el menú y
+    "Página: 200 ms" abajo. La ventana de configuración iba a ser el tercero.
+
+    El separador decimal es la coma, como en todo el texto que ve el usuario.
+    """
+    if seconds < 1.0:
+        return f"{seconds * 1000:g} ms".replace(".", ",")
+    if seconds < 60.0:
+        return f"{seconds:g} s".replace(".", ",")
+    if seconds < 3600.0:
+        return f"{seconds / 60:g} min".replace(".", ",")
+    return f"{seconds / 3600:g} h".replace(".", ",")
+
+
 def _pagina(segundos: float) -> str:
     """Cómo se lee una duración de página en el menú."""
-    if segundos < 60.0:
-        return f"{segundos:g} s por página".replace(".", ",")
-    if segundos < 3600.0:
-        return f"{segundos / 60:g} min por página".replace(".", ",")
-    return f"{segundos / 3600:g} h por página".replace(".", ",")
+    return f"{duration_text(segundos)} por página"
 
 
 def _amplitud(window: "MainWindow") -> None:
@@ -246,6 +261,8 @@ def _configuracion(window: "MainWindow") -> None:
     herramienta o un formato de archivo nuevos aparezcan solos.
     """
     configuracion = window.menuBar().addMenu("&Configuración")
+    configuracion.addAction("&Configuración…", window.show_settings_dialog)
+    configuracion.addSeparator()
     esquemas = configuracion.addMenu("Esquema de &color")
     for nombre, esquema in theme.SCHEMES.items():
         esquemas.addAction(nombre, lambda _=False, e=esquema: window.set_color_scheme(e))

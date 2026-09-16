@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta
+camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y un
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -80,6 +80,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_derivation.py` | Las derivaciones: una resta exacta, y qué clase y qué unidad lleva el canal nuevo. |
 | `test_psd.py` | El espectro: que una onda de 10 Hz dé su pico en 10 Hz, y qué pasa con la última ventana incompleta. |
 | `test_psd_panel.py` | El panel del espectro: qué curvas quedan, dónde caen las bandas, y que la potencia no salga en logaritmos. |
+| `test_settings_dialog.py` | La ventana de configuración: que mostrar no sea elegir, y que cada solapa entregue unas preferencias válidas. |
 | `test_complexity.py` | Las cuatro medidas de complejidad, cada una contra su ancla teórica. |
 | `test_connectivity.py` | La conectividad, y la afirmación que justifica el módulo: wPLI separa el volume conduction y la coherencia no. |
 | `test_metric_panel.py` | El panel de métrica por ventana: la base 1 del eje, y que los NaN queden como hueco. |

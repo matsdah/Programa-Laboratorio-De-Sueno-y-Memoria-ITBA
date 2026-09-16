@@ -577,3 +577,36 @@ def test_la_cache_de_envolventes_tiene_tope(
         vista_larga.draw_viewport()
 
     assert len(vista_larga._envolventes) <= tope
+
+
+# -- Los nombres de canal ----------------------------------------------------------
+
+
+@pytest.mark.parametrize("epoca", [0, 1, 2])
+def test_los_nombres_de_canal_se_ven_en_cualquier_epoca(
+    vista: SignalView, sesion: Session, epoca: int
+):
+    """**Regresión de la escala de tiempo libre.**
+
+    Los nombres se creaban en x = 0 y ahí quedaban. Con el eje en segundos
+    absolutos, desde la segunda época el cero queda fuera de la pantalla y los
+    carriles aparecían sin nombre: el investigador no podía saber qué canal
+    estaba mirando. Ningún test lo cubría porque todos miraban la época 0.
+    """
+    sesion.go_to_window(epoca)
+    vista.show_window(epoca)
+    desde, hasta = vista.getPlotItem().vb.viewRange()[0]
+
+    for etiqueta in vista._labels:
+        assert desde <= etiqueta.pos().x() <= hasta
+
+
+def test_los_nombres_de_canal_siguen_a_la_pagina_al_desplazar(
+    vista_larga: SignalView, sesion_larga: Session
+):
+    """Desplazar sin cambiar de época también mueve el origen de la pantalla."""
+    sesion_larga.set_viewport(sesion_larga.viewport.with_span(300.0).panned(1200.0))
+    vista_larga.draw_viewport()
+    desde, hasta = vista_larga.getPlotItem().vb.viewRange()[0]
+
+    assert desde <= vista_larga._labels[0].pos().x() <= hasta

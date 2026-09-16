@@ -50,6 +50,7 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "cuarenta y dos": 42, "cuarenta y tres": 43, "cuarenta y cuatro": 44,
     "cuarenta y cinco": 45, "cuarenta y seis": 46, "cuarenta y siete": 47,
     "cuarenta y ocho": 48, "cuarenta y nueve": 49, "cincuenta": 50,
+    "cincuenta y uno": 51, "cincuenta y un": 51, "cincuenta y dos": 52,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
@@ -112,6 +113,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_connectivity_panel.py": ("psglab/ui/connectivity_panel.py",),
     "test_psd.py": ("psglab/analysis/psd.py",),
     "test_psd_panel.py": ("psglab/ui/psd_panel.py",),
+    "test_settings_dialog.py": ("psglab/ui/settings_dialog.py",),
     "test_derivation.py": ("psglab/analysis/derivation.py",),
     "test_reference.py": ("psglab/analysis/reference.py",),
     "test_mne_bridge.py": ("psglab/analysis/mne_bridge.py",),

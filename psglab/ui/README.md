@@ -62,6 +62,7 @@ conoce las flechas del teclado.
 | `menus.py` | **La barra de menú**: qué acción vive en qué menú. No implementa ninguna: cada una llama a un método de la ventana. | — |
 | `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los cinco esquemas de fábrica. | — |
 | `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. | — |
+| `settings_dialog.py` | **La ventana de configuración**: cinco solapas, todas con algo real detrás. Aplica en el momento y avisa por callbacks. | — |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
 
 ## `main_window.py` conecta, no implementa
