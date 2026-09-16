@@ -38,6 +38,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from psglab.config import AMPLITUDE_PRESETS_UV
 from psglab.exporters import DEFAULT_FILENAMES
 from psglab.ui import theme
 from psglab.ui.grid import BackgroundStyle
@@ -56,6 +57,7 @@ def build_menus(window: "MainWindow") -> None:
     """
     _archivo(window)
     _sesion(window)
+    _amplitud(window)
     _ver(window)
     _montaje(window)
     _filtrar(window)
@@ -90,6 +92,39 @@ def _sesion(window: "MainWindow") -> None:
         sesion.addAction(
             f"Exportar {nombre}…", lambda _=False, k=kind: window._export_dialog(k)
         )
+
+
+def _amplitud(window: "MainWindow") -> None:
+    """Todo lo que cambia el tamaño vertical de la señal.
+
+    **Las entradas hablan de microvoltios por carril y no de "amplitud".** Es
+    deliberado: el número que el programa guarda es cuántos µV representa la
+    altura del carril, así que subirlo **achica** la onda. Un menú que dijera
+    "Amplitud 100" y escribiera 100 haría lo contrario de lo que el usuario
+    espera la mitad de las veces.
+
+    El alcance de todas es el mismo que el de las flechas del teclado: los
+    canales seleccionados, o todos los visibles si no hay ninguno seleccionado.
+    Lo resuelve `Session`, no este menú.
+    """
+    amplitud = window.menuBar().addMenu("A&mplitud")
+    amplitud.addAction("&Ajustar al panel", window.fit_amplitude_to_pane)
+    amplitud.addAction("Ajustar el &desplazamiento", window.center_amplitude_offsets)
+    amplitud.addAction("Desplazamiento a &cero", window.reset_amplitude_offsets)
+    amplitud.addSeparator()
+    for microvoltios in AMPLITUDE_PRESETS_UV:
+        etiqueta = f"{microvoltios:g} µV por carril"
+        amplitud.addAction(
+            etiqueta, lambda _=False, uv=microvoltios: window.set_amplitude_scale(uv)
+        )
+    amplitud.addSeparator()
+    amplitud.addAction("Definida por el &usuario…", window.ask_amplitude_scale)
+    amplitud.addSeparator()
+    # Las mismas dos operaciones que las flechas Arriba y Abajo. Están en el
+    # menú **además** de en el teclado porque el pliego pide las dos vías
+    # (V2_P), y porque un menú es donde se descubre que el atajo existe.
+    amplitud.addAction("Aumentar la amplitud", window.increase_amplitude)
+    amplitud.addAction("Reducir la amplitud", window.decrease_amplitude)
 
 
 def _ver(window: "MainWindow") -> None:

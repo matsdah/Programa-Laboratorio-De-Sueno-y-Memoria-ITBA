@@ -117,9 +117,15 @@ class SignalView(pg.PlotWidget):
             tramo = registro.get_segment(inicio, fin, [nombre])[0]
             tiempos = np.arange(len(tramo)) / frecuencia
             escala = self._session.scale_uv(nombre)
+            # **El desplazamiento se resta antes de escalar**, no después: es
+            # lo que hace que un canal con la línea de base lejos del cero
+            # —un termómetro, un canal de continua corrido— se pueda traer al
+            # centro de su carril sin achicar la señal hasta perderla.
+            desplazamiento = self._session.offset_uv(nombre)
             centro = -posicion * _ALTO_DE_CARRIL
             self._curves[nombre].setData(
-                tiempos, centro + (tramo / escala) * _LLENADO_DEL_CARRIL
+                tiempos,
+                centro + ((tramo - desplazamiento) / escala) * _LLENADO_DEL_CARRIL,
             )
         self.update_amplitude_scale()
 
@@ -299,7 +305,8 @@ class SignalView(pg.PlotWidget):
         """
         if self._session is None or channel_name is None:
             return microvoltios
-        return (microvoltios / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
+        desplazado = microvoltios - self._session.offset_uv(channel_name)
+        return (desplazado / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
 
     # -- Canales (V3_P, V4_F) ----------------------------------------------
 
@@ -490,7 +497,8 @@ class SignalView(pg.PlotWidget):
         """
         if self._session is None or channel_name is None:
             return carriles
-        return (carriles / _LLENADO_DEL_CARRIL) * self._session.scale_uv(channel_name)
+        en_uv = (carriles / _LLENADO_DEL_CARRIL) * self._session.scale_uv(channel_name)
+        return en_uv + self._session.offset_uv(channel_name)
 
     def window_fraction_at_pixel(self, x_pixel: float) -> float:
         """Posición dentro de la ventana, de 0 (inicio) a 1 (final).

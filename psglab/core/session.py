@@ -15,6 +15,8 @@ donde llega el clic sobre el hipnograma).
 
 from collections.abc import Callable
 
+import numpy as np
+
 from psglab.config import (
     AMPLITUDE_STEP_FACTOR,
     DEFAULT_SCALE_UV,
@@ -24,7 +26,7 @@ from psglab.config import (
 from psglab.core.annotations import AnnotationSet
 from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
-from psglab.core.windows import count_windows
+from psglab.core.windows import count_windows, window_to_samples
 from psglab.utils.errors import (
     PsgLabError,
     InvalidAnnotationError,
@@ -117,6 +119,12 @@ class Session:
         inicial = clamp(default_scale_uv, MIN_SCALE_UV, MAX_SCALE_UV)
         self._scales_uv: dict[str, float] = {
             nombre: inicial for nombre in recording.channel_names()
+        }
+        #: Cuántos µV se le restan a cada canal antes de dibujarlo. Arranca en
+        #: cero para todos, que es el comportamiento que el programa tenía
+        #: antes de que el desplazamiento existiera.
+        self._offsets_uv: dict[str, float] = {
+            nombre: 0.0 for nombre in recording.channel_names()
         }
         self._active_tool: str | None = None
         #: A quién avisarle cuando cambia la ventana actual. Ver
@@ -263,6 +271,12 @@ class Session:
         self._scales_uv = {
             nombre: self._scales_uv.get(nombre, inicial) for nombre in nombres
         }
+        # Los desplazamientos se conservan **por nombre**, igual que las
+        # escalas: un canal que sobrevive a un filtrado sigue apoyado donde el
+        # usuario lo dejó.
+        self._offsets_uv = {
+            nombre: self._offsets_uv.get(nombre, 0.0) for nombre in nombres
+        }
         self._recording = recording
 
     # -- Navegación entre ventanas (V1_F de "Navegación") -------------------
@@ -337,18 +351,20 @@ class Session:
         for avisar in self._window_listeners:
             avisar(window_index)
 
-    def go_to_window(self, window_index: int) -> None:
-        """Salta a una ventana concreta.
+    def _check_window(self, window_index: int) -> None:
+        """Rechaza un índice de ventana que no existe en este registro.
 
-        Lo usa el clic sobre el histograma (V4_F del histograma).
+        Está separado porque lo usan tres caminos —`go_to_window()` y los dos
+        ajustes de amplitud, que miden sobre una ventana— y repetir la guarda
+        en cada uno garantiza que tarde o temprano discrepen.
 
         Raises:
-            WindowOutOfRangeError: si el índice cae fuera del registro. Se
-                comprueba también el borde negativo: `core.windows` documenta
-                que sus conversiones devuelven números negativos **en silencio**
-                y nombra a este método como su guarda, así que un índice negativo
-                que pasara de acá terminaría dibujando el final de la noche como
-                si fuera el principio.
+            WindowOutOfRangeError: si no es un entero, o si cae fuera del
+                registro. **Se comprueba también el borde negativo**:
+                `core.windows` documenta que sus conversiones devuelven números
+                negativos en silencio y nombra a esta guarda como su defensa,
+                así que un índice negativo que pasara de acá terminaría
+                dibujando el final de la noche como si fuera el principio.
         """
         check_index(
             window_index,
@@ -365,6 +381,21 @@ class Session:
                     f"n_windows = {self.n_windows}."
                 ),
             )
+
+    def go_to_window(self, window_index: int) -> None:
+        """Salta a una ventana concreta.
+
+        Lo usa el clic sobre el histograma (V4_F del histograma).
+
+        Raises:
+            WindowOutOfRangeError: si el índice cae fuera del registro. Se
+                comprueba también el borde negativo: `core.windows` documenta
+                que sus conversiones devuelven números negativos **en silencio**
+                y nombra a este método como su guarda, así que un índice negativo
+                que pasara de acá terminaría dibujando el final de la noche como
+                si fuera el principio.
+        """
+        self._check_window(window_index)
         if window_index == self._current_window:
             return
         self._current_window = window_index
@@ -537,6 +568,121 @@ class Session:
             details="Se esperaba un número finito.",
         )
         self._scales_uv[channel_name] = clamp(scale_uv, minimum_uv, maximum_uv)
+
+    # -- Desplazamiento vertical --------------------------------------------
+
+    def offset_uv(self, channel_name: str) -> float:
+        """Cuántos microvoltios se le restan a un canal antes de dibujarlo.
+
+        Es el equivalente vertical de la escala, y responde a otra pregunta:
+        `scale_uv` dice **cuánto se agranda** la señal, y esto **dónde se apoya**
+        dentro de su carril.
+
+        Hace falta porque un canal puede tener una línea de base muy lejos del
+        cero —un termómetro marca 36, un canal de continua puede quedar
+        cientos de µV corrido— y entonces se dibuja pegado al borde de su
+        carril o directamente fuera. Antes la única salida era achicar la
+        escala hasta que entrara, y con eso se perdía la señal.
+
+        Arranca en 0,0 para todos los canales, que es exactamente el
+        comportamiento que tenía el programa antes de que esto existiera.
+
+        Raises:
+            ChannelNotFoundError: si el registro no tiene ese canal.
+        """
+        self._recording.channel_by_name(channel_name)
+        return self._offsets_uv.get(channel_name, 0.0)
+
+    def set_offset_uv(self, channel_name: str, offset_uv: float) -> None:
+        """Fija el desplazamiento vertical de un canal.
+
+        **No se recorta**, a diferencia de la escala, y la asimetría es
+        deliberada: un recorte de la escala impide dejar la pantalla
+        inutilizable, pero un offset grande no rompe nada —la señal sale del
+        carril y se la vuelve a traer con «Offset → 0»—, y cuál es el valor
+        razonable depende del canal: para un EEG son decenas de µV y para un
+        termómetro, decenas de miles.
+
+        Raises:
+            ChannelNotFoundError: si el registro no tiene ese canal.
+            InvalidScaleError: si el desplazamiento no es un número finito. Un
+                NaN dejaría el canal sin dibujar y sin ningún cartel.
+        """
+        self._recording.channel_by_name(channel_name)
+        check_finite(
+            offset_uv,
+            error=InvalidScaleError,
+            message=(
+                f"El desplazamiento pedido para el canal '{channel_name}' no es "
+                "un número válido."
+            ),
+            details="Se esperaba un número finito.",
+        )
+        self._offsets_uv[channel_name] = float(offset_uv)
+
+    def reset_offsets(self) -> None:
+        """Devuelve al cero el desplazamiento de los canales bajo amplitud.
+
+        Es «Offset → 0» de la referencia, y es la salida cuando el ajuste
+        automático dejó un canal en un lugar raro. Mismo alcance que las
+        flechas: los seleccionados, o todos los visibles si no hay selección.
+        """
+        for nombre in self._channels_under_amplitude():
+            self._offsets_uv[nombre] = 0.0
+
+    def center_offsets(self, window_index: int | None = None) -> None:
+        """Apoya cada canal en el centro de su carril.
+
+        Es «Ajustar offset». Le da a cada canal el desplazamiento que lleva su
+        promedio a cero **en la ventana que se está mirando**, no en la noche
+        entera: la línea de base de un EEG deriva a lo largo de ocho horas, y
+        centrar contra el promedio global dejaría la ventana actual corrida.
+
+        Args:
+            window_index: qué ventana se usa para medir. Por omisión, la actual.
+
+        Raises:
+            WindowOutOfRangeError: si la ventana pedida no existe.
+        """
+        ventana = self._current_window if window_index is None else window_index
+        self._check_window(ventana)
+        inicio, fin = window_to_samples(ventana, self._recording.sampling_rate)
+        for nombre in self._channels_under_amplitude():
+            tramo = self._recording.get_segment(inicio, fin, [nombre])
+            if tramo.size == 0:
+                continue
+            self._offsets_uv[nombre] = float(np.mean(tramo))
+
+    def fit_to_pane(self, window_index: int | None = None) -> None:
+        """Ajusta la escala de cada canal para que su señal entre en el carril.
+
+        Es «Ajustar al panel». Toma el mayor apartamiento respecto del
+        desplazamiento vigente en la ventana que se mira, y lo convierte en la
+        escala del canal. Un canal plano no cambia de escala: dividir por cero
+        daría infinito y dejaría el canal invisible, y además no hay ninguna
+        escala "correcta" para una línea recta.
+
+        **Se mide después de restar el offset**, no antes: si no, un canal
+        corrido pediría una escala enorme para entrar y la señal quedaría
+        aplastada contra el eje.
+
+        Args:
+            window_index: qué ventana se usa para medir. Por omisión, la actual.
+
+        Raises:
+            WindowOutOfRangeError: si la ventana pedida no existe.
+        """
+        ventana = self._current_window if window_index is None else window_index
+        self._check_window(ventana)
+        inicio, fin = window_to_samples(ventana, self._recording.sampling_rate)
+        for nombre in self._channels_under_amplitude():
+            tramo = self._recording.get_segment(inicio, fin, [nombre])
+            if tramo.size == 0:
+                continue
+            apartamiento = float(np.max(np.abs(tramo - self.offset_uv(nombre))))
+            if apartamiento <= 0.0 or not np.isfinite(apartamiento):
+                continue
+            self.set_scale_uv(nombre, apartamiento)
 
     # -- Herramienta activa -------------------------------------------------
 

@@ -21,6 +21,7 @@ from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
+from psglab.core.windows import window_to_samples
 
 from conftest import VENTANAS_SINTETICAS
 from psglab.utils.errors import (
@@ -737,3 +738,167 @@ def test_un_registro_rechazado_deja_el_anterior_en_su_lugar(session, recording):
 def test_lo_que_no_es_un_registro_se_rechaza(session, hostil):
     with pytest.raises(PsgLabError):
         session.set_recording(hostil)
+
+
+# -- Desplazamiento vertical (menú «Amplitud») -------------------------------
+#
+# Es el equivalente vertical de la escala y responde a otra pregunta: `scale_uv`
+# dice **cuánto se agranda** la señal, y el desplazamiento **dónde se apoya**
+# dentro de su carril. Hace falta porque un canal puede tener la línea de base
+# muy lejos del cero —un termómetro, un canal de continua corrido— y entonces se
+# dibuja pegado al borde o directamente fuera.
+
+
+def test_los_canales_arrancan_sin_desplazamiento(session):
+    """Es exactamente el comportamiento que el programa tenía antes de que el
+    desplazamiento existiera."""
+    assert all(session.offset_uv(n) == 0.0 for n in session.recording.channel_names())
+
+
+def test_el_desplazamiento_se_guarda_por_canal(session):
+    canales = session.recording.channel_names()
+
+    session.set_offset_uv(canales[0], 42.0)
+
+    assert session.offset_uv(canales[0]) == 42.0
+    assert session.offset_uv(canales[1]) == 0.0
+
+
+def test_el_desplazamiento_no_se_recorta(session):
+    """A diferencia de la escala, y es deliberado: cuál es el valor razonable
+    depende del canal —decenas de µV para un EEG, decenas de miles para un
+    termómetro— y un desplazamiento grande no rompe nada, porque «Desplazamiento
+    a cero» lo deshace."""
+    canal = session.recording.channel_names()[0]
+
+    session.set_offset_uv(canal, 500_000.0)
+
+    assert session.offset_uv(canal) == 500_000.0
+
+
+@pytest.mark.parametrize("hostil", [float("nan"), float("inf"), None, "mucho"])
+def test_un_desplazamiento_que_no_es_numero_se_rechaza(session, hostil):
+    """Un NaN dejaría el canal sin dibujar y sin ningún cartel."""
+    with pytest.raises(PsgLabError):
+        session.set_offset_uv(session.recording.channel_names()[0], hostil)
+
+
+def test_volver_el_desplazamiento_a_cero(session):
+    canales = session.recording.channel_names()
+    for nombre in canales:
+        session.set_offset_uv(nombre, 30.0)
+
+    session.reset_offsets()
+
+    assert all(session.offset_uv(n) == 0.0 for n in canales)
+
+
+def test_volver_a_cero_alcanza_solo_a_los_seleccionados(session):
+    """Mismo alcance que las flechas: si hay selección, manda la selección."""
+    canales = session.recording.channel_names()
+    for nombre in canales:
+        session.set_offset_uv(nombre, 30.0)
+    session.set_selected_channels([canales[0]])
+
+    session.reset_offsets()
+
+    assert session.offset_uv(canales[0]) == 0.0
+    assert session.offset_uv(canales[1]) == 30.0
+
+
+def test_centrar_apoya_el_canal_en_su_promedio(session):
+    """El desplazamiento que lleva el promedio de la ventana a cero."""
+    canal = session.recording.channel_names()[0]
+
+    session.center_offsets()
+
+    inicio, fin = window_to_samples(0, session.recording.sampling_rate)
+    esperado = float(np.mean(session.recording.get_segment(inicio, fin, [canal])))
+    assert session.offset_uv(canal) == pytest.approx(esperado)
+
+
+def test_centrar_mide_la_ventana_que_se_esta_mirando(session):
+    """La línea de base de un EEG deriva a lo largo de ocho horas: centrar
+    contra el promedio global dejaría corrida la ventana actual."""
+    canal = session.recording.channel_names()[0]
+    session.center_offsets(window_index=0)
+    en_la_primera = session.offset_uv(canal)
+
+    session.center_offsets(window_index=3)
+
+    assert session.offset_uv(canal) != en_la_primera
+
+
+def test_ajustar_al_panel_saca_la_escala_del_valor_por_omision(session):
+    """Sin esto la operación se vería como si no hiciera nada.
+
+    **No se afirma que dos canales terminen con escalas distintas**: la señal
+    sintética tiene la misma amplitud en los cuatro y sólo cambia la
+    frecuencia, así que con esta fixture terminan iguales y tienen razón en
+    hacerlo. Lo que se mide es el pico, no la forma.
+    """
+    canal = session.recording.channel_names()[0]
+
+    session.fit_to_pane()
+
+    assert session.scale_uv(canal) != DEFAULT_SCALE_UV
+
+
+def test_ajustar_al_panel_deja_la_senal_dentro_del_carril(session):
+    """La escala pasa a ser el mayor apartamiento, así que la señal llena el
+    carril y no lo desborda."""
+    canal = session.recording.channel_names()[0]
+
+    session.fit_to_pane()
+
+    inicio, fin = window_to_samples(0, session.recording.sampling_rate)
+    tramo = session.recording.get_segment(inicio, fin, [canal])
+    pico = float(np.max(np.abs(tramo - session.offset_uv(canal))))
+    assert session.scale_uv(canal) == pytest.approx(pico)
+
+
+def test_ajustar_al_panel_no_deja_invisible_un_canal_plano(session, recording):
+    """Dividir por cero daría infinito y el canal dejaría de dibujarse. Además
+    no hay ninguna escala «correcta» para una línea recta."""
+    plano = Recording(
+        file_path=recording.file_path,
+        channels=list(recording.channels),
+        data=np.zeros_like(recording.data),
+        sampling_rate=recording.sampling_rate,
+    )
+    session.set_recording(plano)
+    antes = session.scale_uv(session.recording.channel_names()[0])
+
+    session.fit_to_pane()
+
+    assert session.scale_uv(session.recording.channel_names()[0]) == antes
+
+
+@pytest.mark.parametrize("hostil", [-1, 10_000, "1", 2.5])
+def test_ajustar_sobre_una_ventana_que_no_existe_se_rechaza(session, hostil):
+    """`None` **no** está en la lista: significa "la ventana actual", que es el
+    uso normal desde el menú."""
+    with pytest.raises(PsgLabError):
+        session.fit_to_pane(hostil)
+
+
+def test_ajustar_sin_decir_la_ventana_usa_la_actual(session):
+    session.go_to_window(2)
+
+    session.fit_to_pane()
+
+    canal = session.recording.channel_names()[0]
+    inicio, fin = window_to_samples(2, session.recording.sampling_rate)
+    tramo = session.recording.get_segment(inicio, fin, [canal])
+    assert session.scale_uv(canal) == pytest.approx(float(np.max(np.abs(tramo))))
+
+
+def test_los_desplazamientos_sobreviven_a_cambiar_el_registro(session, recording):
+    """Igual que las escalas, y por el mismo motivo: un canal que sobrevive a un
+    filtrado sigue apoyado donde el usuario lo dejó."""
+    canal = session.recording.channel_names()[0]
+    session.set_offset_uv(canal, 17.0)
+
+    session.set_recording(recording)
+
+    assert session.offset_uv(canal) == 17.0

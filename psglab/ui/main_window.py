@@ -57,6 +57,7 @@ from PySide6.QtWidgets import (
     QToolBar,
 )
 
+from psglab.config import MAX_SCALE_UV, MIN_SCALE_UV
 from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import (
     Nomenclature,
@@ -685,6 +686,85 @@ class MainWindow(QMainWindow):
             f"Ventana {ventana + 1} de {sesion.n_windows}"
             + (f" — {self._clock_label(ventana)}" if self._clock_label(ventana) else "")
         )
+
+    # -- Amplitud (V2_P, V5_F) ----------------------------------------------
+    #
+    # Las cinco entran por el menú «Amplitud» y todas comparten el alcance que
+    # ya resolvía `Session._channels_under_amplitude()`: los canales
+    # seleccionados, o todos los visibles si no hay ninguno seleccionado. No se
+    # reimplementa acá, que es lo que haría que las flechas y el menú pudieran
+    # discrepar.
+
+    def fit_amplitude_to_pane(self) -> None:
+        """Ajusta la escala para que la señal de cada canal entre en su carril."""
+        if self._session is None:
+            return
+        try:
+            self._session.fit_to_pane()
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.refresh()
+
+    def center_amplitude_offsets(self) -> None:
+        """Apoya cada canal en el centro de su carril."""
+        if self._session is None:
+            return
+        try:
+            self._session.center_offsets()
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.refresh()
+
+    def reset_amplitude_offsets(self) -> None:
+        """Devuelve al cero el desplazamiento vertical de los canales."""
+        if self._session is None:
+            return
+        try:
+            self._session.reset_offsets()
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.refresh()
+
+    def set_amplitude_scale(self, scale_uv: float) -> None:
+        """Le da la misma escala a todos los canales bajo amplitud.
+
+        **El menú habla de µV por carril y no de "amplitud"**, que es el número
+        que `Session` guarda. Decir "amplitud 100" y escribir `scale_uv = 100`
+        haría lo contrario de lo que el usuario espera la mitad de las veces:
+        subir `scale_uv` **achica** la onda, porque es cuántos µV representa la
+        altura del carril.
+        """
+        if self._session is None:
+            return
+        try:
+            for nombre in self._session.visible_channels:
+                if nombre in self._session.selected_channels or not self._session.selected_channels:
+                    self._session.set_scale_uv(nombre, scale_uv)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.refresh()
+
+    def ask_amplitude_scale(self) -> None:
+        """Pregunta la escala y la aplica. Es «Definida por el usuario…»."""
+        if self._session is None:
+            return
+        actual = self._session.scale_uv(self._session.visible_channels[0])
+        valor, aceptado = QInputDialog.getDouble(
+            self,
+            "Amplitud",
+            "Microvoltios por carril:",
+            actual,
+            MIN_SCALE_UV,
+            MAX_SCALE_UV,
+            1,
+        )
+        if not aceptado:
+            return
+        self.set_amplitude_scale(valor)
 
     def restore_default_layout(self) -> None:
         """Vuelve a la disposición de paneles con la que el programa se instala.

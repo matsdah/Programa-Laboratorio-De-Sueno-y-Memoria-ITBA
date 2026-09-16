@@ -87,6 +87,12 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "open_scoring_dialog",
         "export",
         "export_scoring_dialog",
+        # Amplitud.
+        "fit_amplitude_to_pane",
+        "center_amplitude_offsets",
+        "reset_amplitude_offsets",
+        "set_amplitude_scale",
+        "ask_amplitude_scale",
         # Navegación y scoring.
         "go_to_next_window",
         "go_to_previous_window",

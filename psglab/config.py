@@ -60,6 +60,29 @@ AMPLITUDE_STEP_FACTOR: Final[float] = 1.25
 MIN_SCALE_UV: Final[float] = 1.0
 MAX_SCALE_UV: Final[float] = 10_000.0
 
+#: Escalas que ofrece el menú de amplitud, en microvoltios por carril.
+#:
+#: **No las fija el pliego**: están acá porque son de la misma familia que
+#: `MIN_SCALE_UV` y `MAX_SCALE_UV`, y separarlas dejaría los límites de la
+#: amplitud repartidos en dos archivos. La lista cubre de un EEG muy
+#: amplificado a un canal de continua, que es el rango que el pliego pide
+#: soportar al no limitar por tipo de señal.
+#:
+#: **No incluye 75**, que es la banda de amplitud: ofrecerla como escala
+#: invitaría a confundir "la altura del carril representa 75 µV" con "la banda
+#: de referencia mide 75 µV", que son dos cosas distintas.
+AMPLITUDE_PRESETS_UV: Final[tuple[float, ...]] = (
+    5.0,
+    10.0,
+    20.0,
+    50.0,
+    100.0,
+    200.0,
+    500.0,
+    1000.0,
+    2000.0,
+)
+
 # --------------------------------------------------------------------------
 # Herramienta Übersicht (pliego: "Herramienta Übersicht")
 # --------------------------------------------------------------------------

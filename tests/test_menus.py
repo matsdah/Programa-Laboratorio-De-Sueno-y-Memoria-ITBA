@@ -45,7 +45,7 @@ def menu_llamado(ventana: MainWindow, titulo: str) -> QMenu:
 # -- La estructura -----------------------------------------------------------
 
 
-def test_estan_los_nueve_menus(ventana: MainWindow):
+def test_estan_los_diez_menus(ventana: MainWindow):
     """Eran cinco, con «Análisis» de cajón de sastre: nueve entradas
     heterogéneas en un solo menú obligan a leerlo entero cada vez."""
     titulos = [accion.text() for accion in ventana.menuBar().actions()]
@@ -53,6 +53,7 @@ def test_estan_los_nueve_menus(ventana: MainWindow):
     assert titulos == [
         "&Archivo",
         "&Sesión",
+        "A&mplitud",
         "&Ver",
         "&Montaje",
         "&Filtrar",
