@@ -3,7 +3,8 @@
 Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
     +--------------------------------------------------------------+
-    |  Menú: Archivo | Ver | Herramientas | Análisis | Ayuda        |
+    |  Menú: Archivo | Sesión | Ver | Montaje | Filtrar | Analizar   |
+    |        Herramientas | Configuración | Ayuda                   |
     +--------------------------------------------------------------+
     |  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
     +------------------+-------------------------------------------+
@@ -105,7 +106,7 @@ from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
 from psglab.ui import preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
-from psglab.ui.grid import BackgroundStyle
+from psglab.ui.menus import build_menus
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.connectivity_panel import ConnectivityPanel
@@ -249,74 +250,14 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Sin registro abierto")
 
     def _build_menus(self) -> None:
-        """Crea la barra de menú y las acciones."""
-        archivo = self.menuBar().addMenu("&Archivo")
-        archivo.addAction("&Abrir registro…", self.open_recording_dialog)
-        archivo.addAction("&Importar scoring…", self.open_scoring_dialog)
-        archivo.addSeparator()
-        # V4_F pide poder exportar **uno solo** de los tres, así que son tres
-        # acciones y no un único "Exportar todo".
-        for kind, nombre in DEFAULT_FILENAMES.items():
-            archivo.addAction(
-                f"Exportar {nombre}…", lambda _=False, k=kind: self._export_dialog(k)
-            )
-        archivo.addSeparator()
-        archivo.addAction("&Salir", self.close)
+        """Arma la barra de menú.
 
-        ver = self.menuBar().addMenu("&Ver")
-        for estilo in BackgroundStyle:
-            ver.addAction(
-                estilo.value, lambda _=False, e=estilo: self.signal_view.grid.set_style(e)
-            )
-
-        ver.addSeparator()
-        # Los cinco esquemas de fábrica. El menú se arma recorriendo
-        # `theme.SCHEMES`, así que agregar uno no obliga a tocar este archivo,
-        # igual que pasa con las herramientas y con los formatos de archivo.
-        esquemas = ver.addMenu("Esquema de &color")
-        for nombre, esquema in theme.SCHEMES.items():
-            esquemas.addAction(
-                nombre, lambda _=False, e=esquema: self.set_color_scheme(e)
-            )
-
-        ver.addSeparator()
-        # V2_F del histograma: el pliego pide poder elegir el eje.
-        self.accion_eje_en_hora = ver.addAction(
-            "Histograma en hora real de la noche"
-        )
-        self.accion_eje_en_hora.setCheckable(True)
-        self.accion_eje_en_hora.toggled.connect(self.set_histogram_time_axis)
-
-        self.tools_menu = self.menuBar().addMenu("&Herramientas")
-
-        # **El menú de la Parte 2.** Cada análisis entra acá al implementarse:
-        # es lo que separa "el módulo existe" de "el investigador puede usarlo",
-        # que es la lección que costó el hito 9.
-        analisis = self.menuBar().addMenu("&Análisis")
-        # **Arriba de todo y en su propio grupo.** No es un análisis de la
-        # señal sino el control de calidad **previo** a confiar en
-        # cualquiera de los otros: filtrar la señal de un electrodo suelto
-        # da un resultado prolijo y falso, que es peor que uno feo.
-        analisis.addAction("&Impedancia de los electrodos…", self.show_impedance_dialog)
-        analisis.addAction("&Filtrar la señal…", self.show_filter_dialog)
-        analisis.addSeparator()
-        analisis.addAction("&Derivar canales…", self.derive_dialog)
-        analisis.addAction("&Re-referenciar…", self.rereference_dialog)
-        analisis.addAction("Referencia &promedio (EEG)", self.apply_average_reference)
-        analisis.addSeparator()
-        analisis.addAction("&Espectro de la ventana…", self.show_psd_dialog)
-        analisis.addAction("&Complejidad de la noche…", self.show_complexity_dialog)
-        analisis.addAction("Conectividad de la &ventana…", self.show_connectivity_dialog)
-        analisis.addSeparator()
-        analisis.addAction("Componentes &independientes (ICA)…", self.show_ica_dialog)
-        analisis.addSeparator()
-        self.accion_señal_original = analisis.addAction(
-            "&Volver a la señal original", self.restore_original_recording
-        )
-        self.accion_señal_original.setEnabled(False)
-
-        ayuda = self.menuBar().addMenu("A&yuda")
-        ayuda.addAction("&Atajos de teclado", self._show_shortcuts)
+        El contenido vive en `psglab/ui/menus.py`, que además de las acciones
+        deja en la ventana los dos `QAction` que el resto del programa toca
+        —`accion_eje_en_hora` y `accion_señal_original`— y el menú vacío de
+        herramientas que puebla `_build_toolbar()`.
+        """
+        build_menus(self)
 
     def _build_toolbar(self) -> None:
         """Crea la barra de herramientas a partir del registro de herramientas.

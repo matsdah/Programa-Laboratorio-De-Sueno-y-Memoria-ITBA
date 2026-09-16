@@ -13,7 +13,8 @@ registro de 400 es una regla y va en `core/`.
 
 ```
 +--------------------------------------------------------------+
-|  Menú: Archivo | Ver | Herramientas | Análisis | Ayuda        |
+|  Menú: Archivo | Sesión | Ver | Montaje | Filtrar | Analizar   |
+|        Herramientas | Configuración | Ayuda                    |
 +--------------------------------------------------------------+
 |  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
 +------------------+-------------------------------------------+
@@ -54,8 +55,9 @@ filas se lee como si esas piezas no existieran.
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. | V1_F, V2_F, V3_F de "Übersicht" |
 | `navigation.py` | Botones de ventana anterior y siguiente, y posición actual. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. | V1_F, V2_F, V3_F de "Scoring" |
-| `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los cinco esquemas de fábrica. |
-| `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. |
+| `menus.py` | **La barra de menú**: qué acción vive en qué menú. No implementa ninguna: cada una llama a un método de la ventana. | — |
+| `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los cinco esquemas de fábrica. | — |
+| `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. | — |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
 
 ## `main_window.py` conecta, no implementa
@@ -100,8 +102,10 @@ La grilla está separada de `SignalView` porque **cambia por motivos distintos**
 la grilla depende de la preferencia visual del usuario, las curvas dependen de
 los datos.
 
-Tres fondos elegibles (`BackgroundStyle`, V2_F): blanco, sólo las líneas de 3
-segundos, o las dos densidades juntas (3 s y 0,5 s).
+Tres fondos elegibles (`BackgroundStyle`, V2_F): sin líneas, sólo las de 3
+segundos, o las dos densidades juntas (3 s y 0,5 s). **El primero se llamaba
+"fondo blanco"** y dejó de ser cierto cuando el color pasó a depender del
+esquema elegido: lo que esa opción hace es no dibujar ninguna línea.
 
 ## Por qué PySide6 y por qué pyqtgraph
 
@@ -117,6 +121,12 @@ figuras de publicación y demasiado lento para lo que hace este programa:
 redibujar decenas de canales a cientos de hercios cada vez que el usuario aprieta
 una flecha. Medio segundo de demora por ventana, multiplicado por las cientos de
 ventanas de una noche, vuelve el programa inusable.
+
+**Ese umbral se midió en el refactor de la interfaz**, después de usarse como
+supuesto desde el hito 6: el peor caso real —64 canales a 1000 Hz— tarda 92 ms,
+cinco veces por debajo. Las tablas están en
+[`docs/ARQUITECTURA.md`](../../docs/ARQUITECTURA.md). La conclusión práctica es
+que **el dibujo de la ventana de 30 s no hay que optimizarlo**.
 
 ## Estado
 

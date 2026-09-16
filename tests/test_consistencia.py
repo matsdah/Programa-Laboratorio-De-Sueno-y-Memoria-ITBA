@@ -125,6 +125,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_main_window_layout.py": ("psglab/ui/main_window.py",),
     "test_theme.py": ("psglab/ui/theme.py",),
     "test_preferences.py": ("psglab/ui/preferences.py",),
+    "test_menus.py": ("psglab/ui/menus.py",),
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",
