@@ -19,6 +19,7 @@ import numpy as np
 
 from psglab.config import (
     AMPLITUDE_STEP_FACTOR,
+    DEFAULT_VIEW_SECONDS,
     DEFAULT_SCALE_UV,
     MAX_SCALE_UV,
     MIN_SCALE_UV,
@@ -26,9 +27,11 @@ from psglab.config import (
 from psglab.core.annotations import AnnotationSet
 from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
+from psglab.core.viewport import Viewport
 from psglab.core.windows import count_windows, window_to_samples
 from psglab.utils.errors import (
     PsgLabError,
+    InvalidViewportError,
     InvalidAnnotationError,
     InvalidRecordingError,
     InvalidScaleError,
@@ -126,10 +129,19 @@ class Session:
         self._offsets_uv: dict[str, float] = {
             nombre: 0.0 for nombre in recording.channel_names()
         }
+        #: Qué tramo del registro se está mirando. Arranca en una época, que
+        #: es la página que el programa tuvo siempre: abrir un registro da
+        #: exactamente la misma pantalla que antes de que esto existiera.
+        self._viewport = Viewport.clamped(
+            0.0, DEFAULT_VIEW_SECONDS, recording.duration_seconds
+        )
         self._active_tool: str | None = None
         #: A quién avisarle cuando cambia la ventana actual. Ver
         #: `add_window_listener()`.
         self._window_listeners: list[Callable[[int], None]] = []
+        #: A quién avisarle cuando cambia la página visible. Ver
+        #: `add_view_listener()`.
+        self._view_listeners: list[Callable[[Viewport], None]] = []
 
     def _check_channels(self, channel_names: list[str]) -> None:
         """Rechaza cualquier nombre que el registro no tenga.
@@ -278,6 +290,15 @@ class Session:
             nombre: self._offsets_uv.get(nombre, 0.0) for nombre in nombres
         }
         self._recording = recording
+        # **La página se re-recorta y se avisa.** Filtrar o derivar puede
+        # cambiar la duración por debajo de una época sin que `n_windows`
+        # cambie, y una página que se pasa del final dibujaría un tramo que no
+        # existe. Avisar acá además es lo que deja morir la caché de dibujo del
+        # visualizador: hasta ahora eso dependía de que alguien se acordara de
+        # llamar a `set_session()` después, que es la clase de olvido invisible
+        # que `add_window_listener()` existe para impedir.
+        self._viewport = self._viewport.for_duration(recording.duration_seconds)
+        self._notify_view_changed(self._viewport)
 
     # -- Navegación entre ventanas (V1_F de "Navegación") -------------------
 
@@ -683,6 +704,85 @@ class Session:
             if apartamiento <= 0.0 or not np.isfinite(apartamiento):
                 continue
             self.set_scale_uv(nombre, apartamiento)
+
+    # -- Página visible -----------------------------------------------------
+
+    @property
+    def viewport(self) -> Viewport:
+        """El tramo del registro que se está mirando.
+
+        **Devuelve el objeto y no una copia**, a diferencia de
+        `visible_channels`. No es una inconsistencia: una lista prestada se
+        puede reordenar sin pasar por el setter, y un `Viewport` es inmutable,
+        así que la única forma de cambiar la página es `set_viewport()`, que es
+        el único lugar que avisa.
+        """
+        return self._viewport
+
+    def set_viewport(self, viewport: Viewport) -> None:
+        """Reemplaza la página visible y avisa a los suscriptos.
+
+        Es el **único** camino: todo el desplazamiento y el zoom del programa es
+        `session.set_viewport(session.viewport.<transformación>())`.
+
+        **Vuelve temprano si la página es la que ya estaba**, por el mismo
+        motivo que `go_to_window()`: avisar de más le borraría al usuario las
+        líneas de ocupación sin que haya cambiado nada en pantalla.
+
+        Raises:
+            InvalidViewportError: si no es un `Viewport`, o si su duración no es
+                la del registro abierto. Una página armada contra otro archivo
+                dibujaría un tramo que acá no existe.
+        """
+        if not isinstance(viewport, Viewport):
+            raise InvalidViewportError(
+                "No se pudo cambiar la porción de registro que se está mostrando.",
+                details=(
+                    f"Se esperaba un Viewport y se recibió {type(viewport).__name__}."
+                ),
+            )
+        if viewport.duration_seconds != self._recording.duration_seconds:
+            raise InvalidViewportError(
+                "La porción que se pidió mostrar no corresponde a este registro.",
+                details=(
+                    f"El viewport dice que el registro dura "
+                    f"{viewport.duration_seconds} s y dura "
+                    f"{self._recording.duration_seconds} s."
+                ),
+            )
+        if viewport == self._viewport:
+            return
+        self._viewport = viewport
+        self._notify_view_changed(viewport)
+
+    def add_view_listener(self, callback: Callable[[Viewport], None]) -> None:
+        """Registra a quién avisarle cuando cambia la página visible.
+
+        Existe por el mismo argumento que `add_window_listener()` y para el
+        mismo riesgo. Hoy dependen de enterarse dos: el medidor de ocupación,
+        que mide fracciones **de la página** y cuyas líneas dejan de valer
+        cuando la página cambia de ancho, y el visualizador, que cachea la
+        envolvente de lo que dibuja.
+
+        Raises:
+            PsgLabError: si lo que se registra no se puede llamar. Un callback
+                que no es invocable falla recién la próxima vez que el usuario
+                mueve la vista, lejos de donde está el error.
+        """
+        if not callable(callback):
+            raise PsgLabError(
+                "No se pudo registrar quién debe enterarse de los cambios de vista.",
+                details=(
+                    f"Se esperaba algo invocable y se recibió "
+                    f"{type(callback).__name__}."
+                ),
+            )
+        self._view_listeners.append(callback)
+
+    def _notify_view_changed(self, viewport: Viewport) -> None:
+        """Le avisa a todos los suscriptos que la página cambió."""
+        for avisar in self._view_listeners:
+            avisar(viewport)
 
     # -- Herramienta activa -------------------------------------------------
 

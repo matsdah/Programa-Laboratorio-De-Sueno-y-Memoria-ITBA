@@ -15,12 +15,18 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from psglab.config import DEFAULT_SCALE_UV, MAX_SCALE_UV, MIN_SCALE_UV
+from psglab.config import (
+    DEFAULT_SCALE_UV,
+    DEFAULT_VIEW_SECONDS,
+    MAX_SCALE_UV,
+    MIN_SCALE_UV,
+)
 from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
+from psglab.core.viewport import Viewport
 from psglab.core.windows import window_to_samples
 
 from conftest import VENTANAS_SINTETICAS
@@ -902,3 +908,72 @@ def test_los_desplazamientos_sobreviven_a_cambiar_el_registro(session, recording
     session.set_recording(recording)
 
     assert session.offset_uv(canal) == 17.0
+
+
+# -- La página visible -------------------------------------------------------
+#
+# Desde el refactor de la interfaz la página que se mira ya no coincide con la
+# época de scoring. La sesión guarda las dos: `current_window` es lo que se
+# scorea y `viewport` es lo que se ve.
+
+
+def test_la_sesion_arranca_mostrando_una_epoca(session):
+    """Abrir un registro da exactamente la misma pantalla que antes de que la
+    página existiera."""
+    assert session.viewport.start_seconds == 0.0
+    assert session.viewport.span_seconds == pytest.approx(DEFAULT_VIEW_SECONDS)
+
+
+def test_cambiar_la_pagina_avisa(session):
+    avisadas = []
+    session.add_view_listener(avisadas.append)
+
+    session.set_viewport(session.viewport.zoomed(2.0))
+
+    assert len(avisadas) == 1
+    assert avisadas[0].span_seconds == pytest.approx(2 * DEFAULT_VIEW_SECONDS)
+
+
+def test_poner_la_misma_pagina_no_avisa(session):
+    """Avisar de más le borraría al usuario las líneas de ocupación sin que
+    haya cambiado nada en pantalla. Es el mismo criterio que `go_to_window()`."""
+    avisadas = []
+    session.add_view_listener(avisadas.append)
+
+    session.set_viewport(session.viewport)
+
+    assert avisadas == []
+
+
+def test_una_pagina_de_otro_registro_se_rechaza(session):
+    """Dibujaría un tramo que en este archivo no existe."""
+    ajena = Viewport.clamped(0.0, 30.0, session.recording.duration_seconds * 2)
+
+    with pytest.raises(PsgLabError):
+        session.set_viewport(ajena)
+
+
+@pytest.mark.parametrize("hostil", [None, "30", 30.0, []])
+def test_lo_que_no_es_una_pagina_se_rechaza(session, hostil):
+    with pytest.raises(PsgLabError):
+        session.set_viewport(hostil)
+
+
+@pytest.mark.parametrize("hostil", [None, "callback", 3])
+def test_un_oyente_de_vista_que_no_se_puede_llamar_se_rechaza(session, hostil):
+    """Falla recién la próxima vez que el usuario mueve la vista, lejos de
+    donde está el error."""
+    with pytest.raises(PsgLabError):
+        session.add_view_listener(hostil)
+
+
+def test_cambiar_el_registro_recorta_la_pagina_y_avisa(session, recording):
+    """Filtrar puede cambiar la duración sin que `n_windows` cambie, y avisar
+    acá es lo que deja morir la caché de dibujo del visualizador."""
+    avisadas = []
+    session.add_view_listener(avisadas.append)
+
+    session.set_recording(recording)
+
+    assert len(avisadas) == 1
+    assert avisadas[0].duration_seconds == pytest.approx(recording.duration_seconds)

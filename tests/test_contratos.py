@@ -193,6 +193,8 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("decrease_amplitude(factor=...)", lambda v: sesion().decrease_amplitude(v)),
         ("set_active_tool", lambda v: sesion().set_active_tool(v)),
         ("add_window_listener", lambda v: sesion().add_window_listener(v)),
+        ("set_viewport", lambda v: sesion().set_viewport(v)),
+        ("add_view_listener", lambda v: sesion().add_view_listener(v)),
         ("set_scoring", lambda v: sesion().set_scoring(v)),
         ("set_recording", lambda v: sesion().set_recording(v)),
     ],
