@@ -190,3 +190,147 @@ def test_la_carpeta_sale_del_sistema(monkeypatch, tmp_path: Path):
 def test_el_archivo_esta_dentro_de_esa_carpeta():
     assert preferences.preferences_path().parent == preferences.config_dir()
     assert preferences.preferences_path().name == preferences.FILENAME
+
+
+# -- Lo que agregó la ventana de configuración -------------------------------------
+
+
+def test_los_campos_nuevos_arrancan_en_su_valor_de_fabrica():
+    """Sin haber tocado nada, el programa se comporta como antes de la ventana
+    de configuración: página de 30 s, AASM, espectro de Welch en logarítmico."""
+    valores = preferences.Preferences()
+
+    assert valores.font_family is None
+    assert valores.psd_method == "welch"
+    assert valores.psd_log_power is True
+    assert valores.bands() == dict(preferences.DEFAULT_BANDS)
+    assert valores.open_view_seconds == preferences.DEFAULT_VIEW_SECONDS
+    assert valores.nomenclature().name == "AASM"
+
+
+def test_todo_lo_de_la_configuracion_vuelve_igual(archivo: Path):
+    """La ida y vuelta completa, con cada campo nuevo fuera de su valor de
+    fábrica. Si uno no se guardara, este test lo encuentra."""
+    elegidas = (
+        preferences.Preferences()
+        .with_changes(
+            font_family="DejaVu Sans",
+            font_size=13,
+            psd_method="multitaper",
+            psd_log_power=False,
+            open_view_seconds=300.0,
+            open_nomenclature="RK",
+            open_clock_axis=True,
+        )
+        .with_bands({"Lenta": (0.3, 1.0), "Huso": (11.0, 16.0)})
+        .with_annotation_color("Spindle", "#ff8800")
+    )
+
+    preferences.save(elegidas, archivo)
+
+    assert preferences.load(archivo) == elegidas
+
+
+def test_las_bandas_convencionales_se_guardan_como_ninguna(archivo: Path):
+    """Si una versión nueva corrige las bandas de fábrica, la corrección tiene
+    que alcanzar a quien nunca las tocó."""
+    valores = preferences.Preferences().with_bands(dict(preferences.DEFAULT_BANDS))
+
+    assert valores.psd_bands is None
+
+
+def test_una_banda_invertida_se_rechaza_al_construir():
+    """La regla de qué banda es válida es la del análisis, no una copia."""
+    with pytest.raises(InvalidPreferencesError, match="Sigma"):
+        preferences.Preferences().with_bands({"Sigma": (16.0, 12.0)})
+
+
+def test_dos_bandas_no_pueden_llamarse_igual():
+    with pytest.raises(InvalidPreferencesError):
+        preferences.Preferences().with_changes(
+            psd_bands=(("Delta", 0.5, 4.0), ("Delta", 1.0, 3.0))
+        )
+
+
+def test_un_color_de_clase_que_no_se_puede_dibujar_se_rechaza():
+    """Es el mismo error que un esquema con «gris oscuro»: aceptarlo acá
+    termina en una traza al dibujar la anotación."""
+    with pytest.raises(InvalidPreferencesError):
+        preferences.Preferences().with_annotation_color("Spindle", "naranja clarito")
+
+
+def test_cambiar_el_color_de_una_clase_reemplaza_el_anterior():
+    valores = (
+        preferences.Preferences()
+        .with_annotation_color("Spindle", "#ff0000")
+        .with_annotation_color("Spindle", "#00ff00")
+    )
+
+    assert valores.annotation_color("Spindle") == "#00ff00"
+    assert len(valores.annotation_colors) == 1
+
+
+@pytest.mark.parametrize(
+    "campo, valor",
+    [
+        ("font_size", 3),
+        ("font_size", 200),
+        ("font_size", True),
+        ("font_family", ""),
+        ("psd_method", "fourier"),
+        ("psd_log_power", "si"),
+        ("open_view_seconds", 0.0),
+        ("open_view_seconds", float("nan")),
+        ("open_nomenclature", "AASM 2007"),
+        ("open_clock_axis", 1),
+    ],
+)
+def test_un_valor_que_no_se_puede_usar_se_rechaza(campo: str, valor: object):
+    with pytest.raises(InvalidPreferencesError):
+        preferences.Preferences().with_changes(**{campo: valor})
+
+
+def test_cambiar_un_campo_que_no_existe_avisa():
+    """Un error de tipeo en la ventana de configuración no puede crear un
+    campo nuevo en silencio."""
+    with pytest.raises(InvalidPreferencesError) as error:
+        preferences.Preferences().with_changes(tamano_de_letra=12)
+
+    # El nombre va en el detalle técnico, no en el mensaje para el investigador.
+    assert "tamano_de_letra" in error.value.details
+
+
+def test_un_campo_roto_no_arrastra_a_los_demas(archivo: Path):
+    """**Perder la tipografía porque una banda quedó mal escrita sería
+    desproporcionado.** Cada campo nuevo vuelve a su valor de fábrica por
+    separado."""
+    archivo.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "font_size": 14,
+                "psd_bands": [["Sigma", 16.0, 12.0]],
+                "open_view_seconds": "mucho",
+                "annotation_colors": {"Spindle": "#123456"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    leidas = preferences.load(archivo)
+
+    assert leidas.font_size == 14
+    assert leidas.psd_bands is None
+    assert leidas.open_view_seconds == preferences.DEFAULT_VIEW_SECONDS
+    assert leidas.annotation_color("Spindle") == "#123456"
+
+
+def test_un_archivo_de_la_version_anterior_sigue_cargando(archivo: Path):
+    """Un archivo escrito antes de la ventana de configuración no tiene ninguno
+    de los campos nuevos, y no por eso está roto."""
+    archivo.write_text(json.dumps({"version": 1, "scheme_name": "Oscuro"}), encoding="utf-8")
+
+    leidas = preferences.load(archivo)
+
+    assert leidas.scheme() is theme.OSCURO
+    assert leidas == preferences.Preferences(scheme_name="Oscuro")

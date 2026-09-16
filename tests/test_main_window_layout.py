@@ -79,6 +79,9 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "session",
         "refresh",
         "set_color_scheme",
+        # Configuración.
+        "apply_preferences",
+        "current_preferences",
         # Escala de tiempo.
         "set_timescale",
         "halve_timescale",

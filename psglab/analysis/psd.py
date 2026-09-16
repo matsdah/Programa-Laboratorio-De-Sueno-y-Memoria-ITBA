@@ -238,7 +238,7 @@ def band_power(
         InvalidBandError: si la banda está invertida, tiene un extremo negativo
             o no es un par de números.
     """
-    desde, hasta = _validar_banda(band)
+    desde, hasta = validate_band(band)
     frecuencias = np.asarray(frequencies, dtype=float)
     potencias = np.asarray(psd, dtype=float)
 
@@ -261,8 +261,24 @@ def band_power(
     )
 
 
-def _validar_banda(band: tuple[float, float]) -> tuple[float, float]:
-    """Comprueba que la banda se pueda integrar, y devuelve sus extremos."""
+def validate_band(band: tuple[float, float]) -> tuple[float, float]:
+    """Comprueba que la banda se pueda integrar, y devuelve sus extremos.
+
+    **Es pública desde que las bandas las puede escribir el usuario**, en la
+    solapa de espectro de la configuración. La regla de qué banda es válida es
+    de este módulo y no de la ventana: si viviera allá, un script del
+    laboratorio que definiera sus propias bandas no tendría con qué
+    comprobarlas, y las dos copias de la regla terminarían diciendo cosas
+    distintas.
+
+    Returns:
+        Los dos extremos, ya como `float`.
+
+    Raises:
+        InvalidBandError: si no es un par de números, si alguno no es finito,
+            si empieza por debajo de cero, o si no contiene nada porque el
+            primer extremo no es menor que el segundo.
+    """
     try:
         desde, hasta = band
         desde, hasta = float(desde), float(hasta)
@@ -333,7 +349,7 @@ def band_powers_by_window(
             details=f"bands es {type(bands).__name__}: {bands!r}.",
         )
     for banda in definiciones.values():
-        _validar_banda(banda)
+        validate_band(banda)
 
     total = count_windows(recording.n_samples, recording.sampling_rate)
     resultado: dict[str, dict[str, np.ndarray]] = {

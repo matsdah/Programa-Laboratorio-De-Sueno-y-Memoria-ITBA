@@ -79,6 +79,12 @@ class ColorScheme:
         overview_border: borde de las ventanas vecinas.
         overview_current_border: borde de la ventana actual.
         overview_text: número de ventana.
+        ecg_grid: si la grilla es **cuadriculada**, como el papel de un
+            electrocardiograma, en vez de tener sólo líneas verticales. Es la
+            opción "Grilla: Normal / ECG" de la referencia. Va en el esquema y
+            no aparte porque el esquema ECG la trae prendida, y separarlas
+            obligaría a elegir dos cosas para obtener el aspecto que el nombre
+            promete.
 
     **No tiene los colores de las reglas ni del rectángulo del mouse**, que la
     referencia sí trae: todavía no hay nada que los dibuje. Entran con la
@@ -101,6 +107,7 @@ class ColorScheme:
     overview_border: str
     overview_current_border: str
     overview_text: str
+    ecg_grid: bool = False
 
     def color_for_channel(self, position: int) -> str:
         """El color que le toca al canal dibujado en esa posición vertical.
@@ -205,6 +212,7 @@ ECG: Final[ColorScheme] = ColorScheme(
     overview_border="#d09090",
     overview_current_border="#b02020",
     overview_text="#5a1a1a",
+    ecg_grid=True,
 )
 
 #: Los esquemas de fábrica, por nombre. El orden es el que ve el usuario en el
@@ -397,7 +405,7 @@ def _valor_validado(nombre: str, valor: object) -> object:
     """
     if nombre == "signal_palette":
         if not isinstance(valor, (list, tuple)) or not all(
-            isinstance(color, str) for color in valor
+            is_valid_color(color) for color in valor
         ):
             raise UnknownColorSchemeError(
                 "El esquema de color tiene una paleta que no se puede usar.",
@@ -411,16 +419,52 @@ def _valor_validado(nombre: str, valor: object) -> object:
                 details="«vary_signal_colors» tiene que ser verdadero o falso.",
             )
         return valor
-    if nombre == "baseline":
-        if valor is not None and not isinstance(valor, str):
+    if nombre == "name":
+        # Es el único campo de texto que **no** es un color: es lo que ve el
+        # usuario en el menú, así que basta con que haya algo escrito.
+        if not isinstance(valor, str) or not valor.strip():
             raise UnknownColorSchemeError(
-                "El esquema de color tiene una línea de base que no se puede usar.",
-                details="«baseline» tiene que ser un color, o estar vacío.",
+                "El esquema de color no tiene nombre.",
+                details=f"«name» tiene que ser un texto no vacío; es {valor!r}.",
             )
         return valor
-    if not isinstance(valor, str):
+    if nombre == "ecg_grid":
+        if not isinstance(valor, bool):
+            raise UnknownColorSchemeError(
+                "El esquema de color tiene un valor que no se puede usar.",
+                details="«ecg_grid» tiene que ser verdadero o falso.",
+            )
+        return valor
+    if nombre == "baseline":
+        if valor is not None and not is_valid_color(valor):
+            raise UnknownColorSchemeError(
+                "El esquema de color tiene una línea de base que no se puede usar.",
+                details=f"«baseline» tiene que ser un color, o estar vacío; es {valor!r}.",
+            )
+        return valor
+    if not is_valid_color(valor):
         raise UnknownColorSchemeError(
-            f"El esquema de color tiene un valor que no se puede usar en «{nombre}».",
-            details=f"Se esperaba un color y se recibió {type(valor).__name__}.",
+            f"El esquema de color tiene un color que no se puede usar en «{nombre}».",
+            details=f"Se esperaba un color y se recibió {valor!r}.",
         )
     return valor
+
+
+def is_valid_color(value: object) -> bool:
+    """Si un valor se puede usar como color para dibujar.
+
+    **Se pregunta al mismo que va a dibujar**, `pyqtgraph.mkColor()`, en vez de
+    reimplementar su gramática. Comprobar sólo que fuera texto dejaba pasar
+    "gris oscuro" desde un esquema escrito a mano, y el error salía recién al
+    aplicarlo, como `ValueError` crudo y en la cara del investigador.
+
+    No eleva: devuelve falso para cualquier cosa que no sirva, incluido lo que
+    ni siquiera es texto.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        pg.mkColor(value)
+    except (ValueError, TypeError, IndexError, KeyError):
+        return False
+    return True

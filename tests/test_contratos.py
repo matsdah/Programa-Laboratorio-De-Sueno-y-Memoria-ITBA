@@ -267,6 +267,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("average_connectivity", lambda v: connectivity.average_connectivity(v)),
     ],
     "psglab/analysis/psd.py": [
+        ("validate_band", lambda v: psd.validate_band(v)),
         ("compute_psd(recording=...)", lambda v: psd.compute_psd(v)),
         ("compute_psd(channels=...)", lambda v: psd.compute_psd(registro(), v)),
         ("compute_psd(window_index=...)", lambda v: psd.compute_psd(registro(), None, v)),
@@ -324,6 +325,11 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Fase 8 del refactor. **Desde que las bandas las escribe el usuario**, una
+    # banda invertida es lo esperable de un error de tipeo, y aceptarla integra
+    # un rango vacío: la tabla mostraría potencia cero sin ningún aviso.
+    ("validate_band con los extremos invertidos", (12.0, 8.0),
+     lambda v: psd.validate_band(v)),
     # Fase 7 del refactor. **Mientras se arma la ventana el grafico no tiene
     # ancho**, y ese cero llega como cantidad de cubetas. Sin la guarda sale un
     # ZeroDivisionError, que la ventana principal no sabe atrapar.

@@ -240,3 +240,49 @@ def test_algo_que_no_es_un_diccionario_avisa():
 def test_guardar_algo_que_no_es_un_esquema_avisa():
     with pytest.raises(UnknownColorSchemeError):
         theme.scheme_to_dict({"background": "#ffffff"})  # type: ignore[arg-type]
+
+
+# -- Qué cuenta como color ----------------------------------------------------------
+
+
+@pytest.mark.parametrize("color", ["#112233", "#abc", "#11223344", "red", "w"])
+def test_un_color_que_pyqtgraph_sabe_dibujar_es_valido(color: str):
+    assert theme.is_valid_color(color)
+
+
+@pytest.mark.parametrize("color", ["gris oscuro", "", "   ", None, 3, "#12"])
+def test_lo_que_no_se_puede_dibujar_no_es_un_color(color: object):
+    assert not theme.is_valid_color(color)
+
+
+def test_un_esquema_con_un_color_mal_escrito_se_rechaza_al_leerlo():
+    """**El error que llegaba como traza.** Antes sólo se comprobaba que fuera
+    texto, así que «gris oscuro» se cargaba sin quejas y al aplicarlo el
+    investigador veía `ValueError: Unable to convert gris oscuro to QColor`."""
+    datos = theme.scheme_to_dict(theme.OSCURO)
+    datos["background"] = "gris oscuro"
+
+    with pytest.raises(UnknownColorSchemeError, match="background"):
+        theme.scheme_from_dict(datos)
+
+
+def test_una_paleta_con_un_color_mal_escrito_se_rechaza():
+    datos = theme.scheme_to_dict(theme.OSCURO)
+    datos["signal_palette"] = ["#ff0000", "verdecito"]
+
+    with pytest.raises(UnknownColorSchemeError):
+        theme.scheme_from_dict(datos)
+
+
+def test_el_esquema_ecg_trae_la_grilla_cuadriculada():
+    """Es lo que su nombre promete, y separarlo obligaría a elegir dos cosas."""
+    assert theme.ECG.ecg_grid
+    assert not theme.CLARO.ecg_grid
+    assert not theme.OSCURO.ecg_grid
+
+
+def test_un_esquema_guardado_antes_de_la_grilla_ecg_sigue_cargando():
+    datos = theme.scheme_to_dict(theme.OSCURO)
+    del datos["ecg_grid"]
+
+    assert theme.scheme_from_dict(datos) == theme.OSCURO

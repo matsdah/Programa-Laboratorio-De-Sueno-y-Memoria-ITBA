@@ -19,6 +19,13 @@ import pyqtgraph as pg
 from psglab.config import COARSE_GRID_SECONDS, FINE_GRID_SECONDS, MAX_GRID_LINES
 from psglab.ui import theme
 
+#: Cada cuántos carriles va una línea horizontal visible con la grilla ECG.
+#: Cuatro por carril, como los cuadros grandes del papel.
+COARSE_LANE_FRACTION: float = 0.25
+
+#: Y cada cuántos una discreta: cinco por cada visible, como los cuadros chicos.
+FINE_LANE_FRACTION: float = 0.05
+
 
 def _segundos(valor: float) -> str:
     """Formatea una cantidad de segundos como la escribiría un lector en español.
@@ -132,6 +139,15 @@ class GridBackground:
             window_seconds, coarse_seconds, pluma_visible, origin_seconds
         )
 
+        # **La cuadrícula del esquema ECG.** Las líneas horizontales respetan el
+        # mismo estilo de fondo que las verticales —ninguna con "sin líneas",
+        # sólo las visibles con la grilla gruesa—, así que los tres fondos del
+        # pliego siguen siendo tres y el ECG es otra dimensión, no un cuarto.
+        if esquema.ecg_grid:
+            if self._style is BackgroundStyle.FULL:
+                self._dibujar_horizontales(FINE_LANE_FRACTION, pluma_fina)
+            self._dibujar_horizontales(COARSE_LANE_FRACTION, pluma_visible)
+
     def _dibujar_serie(
         self,
         window_seconds: float,
@@ -160,6 +176,33 @@ class GridBackground:
             if posicion > origin_seconds + window_seconds:
                 break
             linea = pg.InfiniteLine(pos=posicion, angle=90, pen=pluma)
+            self._plot.addItem(linea)
+            self._lines.append(linea)
+
+    def _dibujar_horizontales(self, cada: float, pluma: object) -> None:
+        """Una línea horizontal cada `cada` carriles, sobre lo que se ve.
+
+        **En fracciones de carril y no en microvoltios.** Cada canal tiene su
+        propia escala, así que una línea a 50 µV caería a una altura distinta
+        en cada carril y la cuadrícula dejaría de ser una cuadrícula. Como en
+        el papel de un electrocardiograma, lo que importa es que las líneas
+        sean regulares; la amplitud se lee en la escala de cada canal.
+
+        Se dibujan sobre el rango vertical que el gráfico ya tiene fijado, que
+        es el de los canales visibles, y con el mismo techo que las verticales.
+        """
+        abajo, arriba = self._plot.vb.viewRange()[1]
+        if cada <= 0 or arriba <= abajo:
+            return
+        cantidad = int((arriba - abajo) / cada)
+        if cantidad > MAX_GRID_LINES:
+            return
+        primera = math.ceil(abajo / cada)
+        for paso in range(cantidad + 2):
+            posicion = (primera + paso) * cada
+            if posicion > arriba:
+                break
+            linea = pg.InfiniteLine(pos=posicion, angle=0, pen=pluma)
             self._plot.addItem(linea)
             self._lines.append(linea)
 

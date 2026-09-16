@@ -570,7 +570,7 @@ la regla vive en `core/`.
 > usuario las líneas que acaba de dibujar sin que se haya movido a ningún lado.
 
 - [x] **`psglab/ui/grid.py`** · ~~4 stubs~~ · V1_P, V2_F "Diseño de la interfaz"
-  - Test: `tests/test_grid.py`, **13 tests en verde**. No dibuja píxeles:
+  - Test: `tests/test_grid.py`, **18 tests en verde**. No dibuja píxeles:
     calcula posiciones, así que se puede afirmar sobre la grilla sin mirar una
     pantalla.
   - Las posiciones **se multiplican, no se acumulan**: sumar 0,5 sesenta veces
@@ -1079,7 +1079,7 @@ ventana y no existía.
   - Dos excepciones nuevas: `UnknownPsdMethodError` —Welch y multitaper no dan
     lo mismo, así que elegir uno en silencio daría un resultado que el usuario
     no pidió y no puede distinguir del que pidió— e `InvalidBandError`.
-  - Test: `tests/test_psd.py`, **40 tests en verde**.
+  - Test: `tests/test_psd.py`, **50 tests en verde**.
 - [x] **`psglab/ui/psd_panel.py`** · el panel del espectro
   - **Acá sí se usa pyqtgraph**, a diferencia del panel de la Übersicht, que se
     pinta con `QPainter`: un espectro es una curva sobre ejes con escala, y
@@ -1091,7 +1091,7 @@ ventana y no existía.
     `PlotDataItem.getData()` devuelve el log₁₀ de lo que se dibujó, así que una
     potencia de 1e-6 volvía como -6. El panel guarda ahora la magnitud en su
     unidad, que es la misma solución que `signal_view.py` usa con los píxeles.
-  - Test: `tests/test_psd_panel.py`, **19 tests en verde**.
+  - Test: `tests/test_psd_panel.py`, **20 tests en verde**.
 
 ---
 

@@ -212,3 +212,13 @@ def test_pedir_otro_espectro_vacia_las_potencias_viejas(panel: PsdPanel):
 
     assert panel.band_powers() == {}
     assert panel.tabla.rowCount() == 0
+
+
+def test_el_eje_de_potencia_se_puede_pasar_a_lineal(panel: PsdPanel):
+    """Lo pide la solapa de espectro de la configuración. Lo lineal sirve para
+    comparar a ojo cuánto más pesa una banda que otra."""
+    panel.set_log_power(False)
+    assert not panel.uses_log_power
+
+    panel.set_log_power(True)
+    assert panel.uses_log_power

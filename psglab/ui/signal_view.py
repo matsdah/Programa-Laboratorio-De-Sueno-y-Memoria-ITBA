@@ -31,6 +31,7 @@ from collections.abc import Sequence
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QPointF
+from PySide6.QtGui import QFont
 
 from psglab.config import WINDOW_SECONDS
 from psglab.core.decimation import min_max_envelope
@@ -104,6 +105,8 @@ class SignalView(pg.PlotWidget):
         #: `_olvidar_envolventes_si_cambio()`.
         self._registro_de_las_envolventes: object | None = None
         self._visible: list[str] = []
+        #: La tipografía de los nombres de canal, o None para la de pyqtgraph.
+        self._fuente: QFont | None = None
 
         item = self.getPlotItem()
         item.hideButtons()
@@ -331,6 +334,18 @@ class SignalView(pg.PlotWidget):
             return
         self.show_window(self._session.current_window)
 
+    def apply_font(self, font: QFont) -> None:
+        """Cambia la tipografía de los nombres de canal.
+
+        **Hace falta aparte** porque los nombres son ítems de pyqtgraph, que no
+        siguen a la tipografía de la aplicación: cambiarla desde la
+        configuración dejaba los menús con la letra nueva y los carriles con la
+        vieja.
+        """
+        self._fuente = QFont(font)
+        for etiqueta in self._labels:
+            etiqueta.setFont(self._fuente)
+
     def apply_scheme(self) -> None:
         """Vuelve a pintar todo con el esquema de color que esté en uso.
 
@@ -551,6 +566,8 @@ class SignalView(pg.PlotWidget):
             # justo arriba, como en la referencia, y toma el color del canal
             # para que se sepa cuál es sin contar carriles.
             etiqueta = pg.TextItem(self.channel_label(nombre), anchor=(0, 1.0), color=color)
+            if self._fuente is not None:
+                etiqueta.setFont(self._fuente)
             etiqueta.setPos(0.0, centro)
             item.addItem(etiqueta)
             self._labels.append(etiqueta)

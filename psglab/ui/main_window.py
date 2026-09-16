@@ -46,7 +46,7 @@ from pathlib import Path
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QByteArray, QEvent, QObject, Qt
-from PySide6.QtGui import QAction, QCloseEvent
+from PySide6.QtGui import QAction, QCloseEvent, QFont
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -93,7 +93,7 @@ from psglab.analysis.impedance import (
     read_impedances,
 )
 from psglab.analysis.filters import apply_filters, settings_for_kinds
-from psglab.analysis.psd import DEFAULT_BANDS, band_power, compute_psd
+from psglab.analysis.psd import band_power, compute_psd
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
@@ -184,6 +184,14 @@ class MainWindow(QMainWindow):
         self._active_viewer_tool: ViewerTool | None = None
         #: La descomposición ICA ajustada, mientras el panel está abierto.
         self._ica: object | None = None
+        #: Las preferencias vigentes. **Arrancan en los valores de fábrica y no
+        #: se leen del disco acá**: sólo `apply_saved_layout()` las lee, y sólo
+        #: la llama `main.py`. Si el constructor las leyera, la suite de tests
+        #: dependería de lo que cada quien tenga configurado en su máquina.
+        self._preferencias = preferences.Preferences()
+        #: La tipografía con la que arrancó el programa, para poder volver a
+        #: ella cuando el usuario elige «la del sistema».
+        self._fuente_del_sistema = QFont(QApplication.font())
 
         self._build_layout()
         self._build_menus()
@@ -587,8 +595,15 @@ class MainWindow(QMainWindow):
             ventanas = count_windows(registro.n_samples, registro.sampling_rate)
             sesion = Session(
                 registro,
-                Scoring(ventanas, Nomenclature.AASM),
+                # La nomenclatura con que arranca un scoring nuevo. Uno
+                # importado trae la suya y ésta no la pisa.
+                Scoring(ventanas, self._preferencias.nomenclature()),
                 AnnotationSet(),
+            )
+            # La página con que se abre. Se fija antes de dibujar para no
+            # dibujar dos veces.
+            sesion.set_viewport(
+                sesion.viewport.with_span(self._preferencias.open_view_seconds)
             )
         except PsgLabError as error:
             self._show_error(error)
@@ -615,11 +630,18 @@ class MainWindow(QMainWindow):
             sesion.add_window_listener(herramienta.on_window_changed)
             sesion.add_view_listener(herramienta.on_view_changed)
 
+        self._aplicar_colores_de_clase(sesion)
         self.signal_view.set_session(sesion)
         self.channel_selector.set_recording(registro)
         self.scoring_panel.set_nomenclature(sesion.scoring.nomenclature)
         install_shortcuts(self, sesion)
         self._activate_panel_tools()
+        # El eje del histograma en hora real sólo se puede pedir si el archivo
+        # informó cuándo empezó: pedirlo igual sería un cartel de error cada
+        # vez que se abre un registro sin hora, por una preferencia que el
+        # usuario eligió para otros archivos.
+        if self._preferencias.open_clock_axis and registro.start_time is not None:
+            self.accion_eje_en_hora.setChecked(True)
         self.refresh()
 
     def open_scoring(self, path: Path) -> None:
@@ -951,6 +973,11 @@ class MainWindow(QMainWindow):
             guardadas = preferences.load()
         except PsgLabError:
             return
+        # El esquema ya lo aplicó `create_application()`; lo demás de la
+        # ventana de configuración se aplica acá, que es el único lugar donde
+        # las preferencias del disco entran a la ventana.
+        self._preferencias = guardadas
+        self._aplicar_preferencias(guardadas)
         if guardadas.window_state is None:
             return
         self.restoreState(QByteArray.fromBase64(guardadas.window_state.encode("ascii")))
@@ -964,13 +991,9 @@ class MainWindow(QMainWindow):
         anterior, que es un costo aceptable.
         """
         if self._guardar_disposicion_al_cerrar:
-            try:
-                guardadas = preferences.load()
-            except PsgLabError:
-                guardadas = preferences.Preferences()
             estado = bytes(self.saveState().toBase64()).decode("ascii")
             try:
-                preferences.save(guardadas.with_window_state(estado))
+                preferences.save(self._preferencias.with_window_state(estado))
             except PsgLabError:
                 pass
         super().closeEvent(event)
@@ -1009,18 +1032,115 @@ class MainWindow(QMainWindow):
         self.overview_panel.update()
         self._redraw_histogram()
 
-        if not remember:
+        self._preferencias = self._preferencias.with_scheme(scheme)
+        if remember:
+            self._guardar_preferencias()
+
+    def _guardar_preferencias(self) -> None:
+        """Escribe las preferencias vigentes, si esta ventana es la del usuario.
+
+        **Sólo escribe si la ventana la abrió `main.py`**, que es lo que marca
+        `apply_saved_layout()`. Antes cada cambio de esquema leía el archivo,
+        lo modificaba y lo volvía a escribir, sin mirar quién había creado la
+        ventana: un test que eligiera un esquema desde el menú pisaba las
+        preferencias reales de quien corría la suite.
+
+        No eleva: si no se puede escribir, el cambio se aplica igual y el
+        problema sale como cartel.
+        """
+        if not self._guardar_disposicion_al_cerrar:
             return
         try:
-            guardadas = preferences.load()
-        except PsgLabError:
-            # Un archivo roto no puede impedir guardar uno nuevo y sano: se
-            # parte de los valores de fábrica y se lo pisa.
-            guardadas = preferences.Preferences()
-        try:
-            preferences.save(guardadas.with_scheme(scheme))
+            preferences.save(self._preferencias)
         except PsgLabError as error:
             self._show_error(error)
+
+    @property
+    def current_preferences(self) -> preferences.Preferences:
+        """Las preferencias con las que está funcionando la ventana."""
+        return self._preferencias
+
+    def apply_preferences(self, prefs: preferences.Preferences) -> None:
+        """Aplica unas preferencias nuevas a todo el programa y las recuerda.
+
+        Es lo que llama la ventana de configuración en cada cambio. **Aplica
+        todo sin reabrir el registro**: colores, grilla, tipografía, espectro y
+        colores de las clases de evento se ven enseguida. Lo de la solapa
+        «Otras» se guarda para el próximo registro que se abra.
+
+        Muestra un cartel en vez de elevar si lo que llega no son preferencias:
+        esto lo llama un panel, y una traza ahí es lo que el programa promete
+        no mostrar nunca.
+        """
+        if not isinstance(prefs, preferences.Preferences):
+            self._show_error(
+                PsgLabError(
+                    "No se pudo aplicar la configuración.",
+                    details=f"Se recibió {type(prefs).__name__} en vez de preferencias.",
+                )
+            )
+            return
+        esquema = prefs.scheme()
+        if esquema != theme.current():
+            self.set_color_scheme(esquema, remember=False)
+        self._preferencias = prefs
+        self._aplicar_preferencias(prefs)
+        if self._session is not None:
+            self._aplicar_colores_de_clase(self._session)
+            self._repintar_anotaciones()
+        self._guardar_preferencias()
+
+    def _aplicar_preferencias(self, prefs: preferences.Preferences) -> None:
+        """Lo que se aplica enseguida y no depende de un registro abierto."""
+        if prefs.font_family is None and prefs.font_size is None:
+            fuente = QFont(self._fuente_del_sistema)
+        else:
+            fuente = QFont(self._fuente_del_sistema)
+            if prefs.font_family is not None:
+                fuente.setFamily(prefs.font_family)
+            if prefs.font_size is not None:
+                fuente.setPointSize(prefs.font_size)
+        # **Sólo si cambió.** Cambiar la tipografía de la aplicación le avisa a
+        # cada widget de cada ventana abierta, y la configuración se aplica
+        # entera en cada cambio: sin esta guarda, tocar el color de una clase
+        # le pediría al programa entero que volviera a maquetarse.
+        if fuente != QApplication.font():
+            QApplication.setFont(fuente)
+        # Los nombres de canal son ítems de pyqtgraph, que no siguen a la
+        # tipografía de la aplicación: hay que avisarles.
+        self.signal_view.apply_font(fuente)
+        self.psd_panel.set_log_power(prefs.psd_log_power)
+
+    def _aplicar_colores_de_clase(self, sesion: Session) -> None:
+        """Pone en la sesión los colores que el usuario eligió por clase.
+
+        **Una clase con color guardado queda disponible en cualquier
+        registro**, aunque ese registro todavía no la tenga: `add_label()` la
+        registra si no existía. Es lo que el usuario espera de una clase que
+        definió una vez; no cambia ningún archivo de salida, porque los
+        exportadores escriben anotaciones y no clases.
+        """
+        for clase, color in self._preferencias.annotation_colors:
+            try:
+                sesion.annotations.add_label(clase, color)
+            except PsgLabError as error:
+                self._show_error(error)
+                return
+
+    def _repintar_anotaciones(self) -> None:
+        """Vuelve a dibujar lo que muestra el color de una clase."""
+        #  le avisa a la ventana por su callback, que es el que
+        # repinta el panel: no hace falta llamarlo a mano.
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.refresh()
+        # **Sólo si el anotador es el que está dibujando.** El visualizador
+        # muestra lo de una herramienta por vez y quien avisa reemplaza todo:
+        # avisar desde el anotador con la ocupación activa borraba sus líneas
+        # de la pantalla, aunque siguieran medidas.
+        anotador = self._tools.get("annotator")
+        if anotador is not None and anotador is self._active_viewer_tool:
+            anotador.notify_changed()
 
     @property
     def session(self) -> Session | None:
@@ -1250,21 +1370,13 @@ class MainWindow(QMainWindow):
         ventana = self._session.current_window
         try:
             frecuencias, potencias = compute_psd(
-                self._session.recording, channels=[canal], window_index=ventana
+                self._session.recording,
+                channels=[canal],
+                window_index=ventana,
+                method=self._preferencias.psd_method,
             )
-        except PsgLabError as error:
-            self._show_error(error)
-            return
-
-        self.psd_panel.set_spectrum(frecuencias, potencias, [canal])
-        # **La potencia de cada banda, que es la otra mitad de V1_F.** El panel
-        # sombreaba las bandas y nunca decía cuánta potencia tenía cada una;
-        # `band_power()` la calculaba desde el hito 13 y no la leía nadie.
-        # Se pasan las dos: la absoluta y la relativa, que es la que
-        # `analysis/psd.py` documenta como la que permite comparar entre
-        # participantes, porque la absoluta depende del cráneo y la impedancia.
-        self.psd_panel.set_band_powers(
-            {
+            bandas = self._preferencias.bands()
+            potencias_por_banda = {
                 nombre: (
                     float(np.ravel(band_power(frecuencias, potencias, extremos))[0]),
                     float(
@@ -1273,9 +1385,22 @@ class MainWindow(QMainWindow):
                         )[0]
                     ),
                 )
-                for nombre, extremos in DEFAULT_BANDS.items()
+                for nombre, extremos in bandas.items()
             }
-        )
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.psd_panel.set_spectrum(frecuencias, potencias, [canal], bands=bandas)
+        # **La potencia de cada banda, que es la otra mitad de V1_F.** El panel
+        # sombreaba las bandas y nunca decía cuánta potencia tenía cada una;
+        # `band_power()` la calculaba desde el hito 13 y no la leía nadie.
+        # Se pasan las dos: la absoluta y la relativa, que es la que
+        # `analysis/psd.py` documenta como la que permite comparar entre
+        # participantes, porque la absoluta depende del cráneo y la impedancia.
+        # Las bandas son las de la configuración: las convencionales mientras el
+        # usuario no las cambie.
+        self.psd_panel.set_band_powers(potencias_por_banda)
         self.psd_dialog.setWindowTitle(
             f"Espectro de «{canal}» — ventana {ventana + 1}"
         )
@@ -1337,8 +1462,12 @@ class MainWindow(QMainWindow):
                 )
             )
             return
+        # **Las mismas bandas que el espectro.** Dos definiciones distintas de
+        # «sigma» en el mismo programa serían una trampa: el usuario que
+        # corrigió una en la configuración espera verla corregida acá también.
+        bandas = self._preferencias.bands()
         banda, acepto = QInputDialog.getItem(
-            self, "Conectividad", "Banda:", list(DEFAULT_BANDS), 0, False
+            self, "Conectividad", "Banda:", list(bandas), 0, False
         )
         if not acepto:
             return
@@ -1349,7 +1478,7 @@ class MainWindow(QMainWindow):
                 matriz = compute_connectivity(
                     self._session.recording,
                     channels=canales,
-                    band=DEFAULT_BANDS[banda],
+                    band=bandas[banda],
                     window_index=ventana,
                 )
         except PsgLabError as error:
