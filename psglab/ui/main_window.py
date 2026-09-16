@@ -146,6 +146,13 @@ _BOTONES = {
 }
 
 
+#: Cuántas muestras tiene que abarcar una página, sumando los canales visibles,
+#: para que dibujarla muestre el cursor de espera. Veinte millones son unos
+#: 250 ms sobre la máquina de desarrollo: por debajo la espera no se nota, y
+#: mostrar el cursor por un parpadeo es peor que no mostrarlo.
+_MUESTRAS_PARA_AVISAR = 20_000_000
+
+
 def _duracion(segundos: float) -> str:
     """Una duración escrita como la leería un investigador.
 
@@ -733,7 +740,21 @@ class MainWindow(QMainWindow):
         except PsgLabError as error:
             self._show_error(error)
             return
-        self.signal_view.draw_viewport()
+        # **Una página larga se calcula una vez y después vuelve de la caché.**
+        # Sobre el registro de prueba de 22 horas el primer dibujo del registro
+        # entero tarda 444 ms y los siguientes 14 ms; con 32 canales a 1000 Hz
+        # el primero se va a varios segundos. Esa espera no se acorta acá: se
+        # vuelve legible, que es lo que hace el cursor.
+        muestras = (
+            self._session.viewport.span_seconds
+            * self._session.recording.sampling_rate
+            * len(self._session.visible_channels)
+        )
+        if muestras > _MUESTRAS_PARA_AVISAR:
+            with self._trabajando("Dibujando la página"):
+                self.signal_view.draw_viewport()
+        else:
+            self.signal_view.draw_viewport()
         self._actualizar_cartel_de_pagina()
 
     def set_timescale(self, seconds: float) -> None:

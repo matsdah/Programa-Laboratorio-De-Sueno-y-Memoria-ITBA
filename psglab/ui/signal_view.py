@@ -25,6 +25,7 @@ cursor: `MagnifierTool` publica el radio y el zoom, y hasta el hito 9 acá se lo
 descartaba y se pintaba un círculo de tamaño fijo.
 """
 
+from collections import OrderedDict
 from collections.abc import Sequence
 
 import numpy as np
@@ -32,6 +33,7 @@ import pyqtgraph as pg
 from PySide6.QtCore import QPointF
 
 from psglab.config import WINDOW_SECONDS
+from psglab.core.decimation import min_max_envelope
 from psglab.core.session import Session
 from psglab.core.windows import (
     epoch_to_seconds,
@@ -58,6 +60,24 @@ _ALTO_DE_CARRIL: float = 1.0
 #: máximo de su escala.
 _LLENADO_DEL_CARRIL: float = 0.45
 
+#: Por debajo de cuántas muestras por columna de píxeles se dibuja la señal tal
+#: cual. La envolvente emite dos puntos por columna, así que con menos de dos
+#: muestras por columna no achicaría nada: sólo volvería más gruesa la traza.
+_MUESTRAS_POR_COLUMNA: int = 2
+
+#: Ancho mínimo, en columnas, con el que se calcula la envolvente.
+#:
+#: **Existe por el arranque.** Mientras se arma la ventana el gráfico todavía no
+#: tiene ancho, y una envolvente de una columna son dos puntos: la primera
+#: pantalla saldría como una raya. Con este piso sale bien aunque se dibuje
+#: antes de tener tamaño, y pedir más cubetas que píxeles no cuesta nada visible.
+_COLUMNAS_MINIMAS: int = 1000
+
+#: Cuántas envolventes se recuerdan. Con esto ir y volver desplazando la vista
+#: es instantáneo, y la memoria queda acotada: son unos pocos megabytes aunque
+#: la página sea el registro entero.
+_ENVOLVENTES_EN_MEMORIA: int = 64
+
 
 class SignalView(pg.PlotWidget):
     """Panel de visualización de las ondas."""
@@ -73,6 +93,16 @@ class SignalView(pg.PlotWidget):
         self._overlay_items: list[object] = []
         #: La banda que marca la epoca de scoring sobre la pagina visible.
         self._epoca: object | None = None
+        #: Envolventes ya calculadas, de la más vieja a la más nueva. La clave
+        #: es (canal, primera muestra, última muestra, columnas): **no** incluye
+        #: la escala ni el desplazamiento, que se aplican después, así que
+        #: cambiar la amplitud no obliga a recalcular nada.
+        self._envolventes: OrderedDict[
+            tuple[str, int, int, int], tuple[np.ndarray, np.ndarray]
+        ] = OrderedDict()
+        #: El registro del que salieron esas envolventes. Ver
+        #: `_olvidar_envolventes_si_cambio()`.
+        self._registro_de_las_envolventes: object | None = None
         self._visible: list[str] = []
 
         item = self.getPlotItem()
@@ -169,9 +199,20 @@ class SignalView(pg.PlotWidget):
         self.grid.redraw(pagina.span_seconds, origin_seconds=pagina.start_seconds)
         self._marcar_epoca()
 
+        # **Una sola vez y sin lista de canales**, que es lo que devuelve una
+        # vista de `Recording.data` en lugar de una copia. Pedirlo canal por
+        # canal, como antes, hace indexado por lista, que copia: sobre el
+        # registro entero eran cientos de megabytes antes de dibujar un punto.
+        bloque = registro.get_segment(inicio, fin)
+        columnas = self._columnas()
+        self._olvidar_envolventes_si_cambio(registro)
+
         for posicion, nombre in enumerate(self._visible):
-            tramo = registro.get_segment(inicio, fin, [nombre])[0]
-            tiempos = (inicio + np.arange(len(tramo))) / frecuencia
+            fila = registro.channel_by_name(nombre).index
+            indices, tramo = self._muestras_a_dibujar(
+                nombre, inicio, fin, bloque[fila], columnas
+            )
+            tiempos = (inicio + indices) / frecuencia
             escala = self._session.scale_uv(nombre)
             # **El desplazamiento se resta antes de escalar**, no después: es
             # lo que hace que un canal con la línea de base lejos del cero
@@ -184,6 +225,66 @@ class SignalView(pg.PlotWidget):
                 centro + ((tramo - desplazamiento) / escala) * _LLENADO_DEL_CARRIL,
             )
         self.update_amplitude_scale()
+
+    def _columnas(self) -> int:
+        """Cuántas columnas de píxeles tiene el área de dibujo, con un piso.
+
+        Es lo único que `core/decimation.py` no puede saber, y la razón por la
+        que la política de cuánto reducir vive acá y no allá.
+        """
+        ancho = int(self.getPlotItem().vb.width())
+        return max(ancho, _COLUMNAS_MINIMAS)
+
+    def _muestras_a_dibujar(
+        self,
+        channel_name: str,
+        start_sample: int,
+        stop_sample: int,
+        samples: np.ndarray,
+        columns: int,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Qué muestras de un canal se mandan a la pantalla, y en qué posición.
+
+        Returns:
+            Tupla (posiciones dentro del tramo, valores). Con pocas muestras son
+            todas; con muchas, la envolvente mínimo/máximo, que conserva cada
+            pico y tiene el tamaño de la pantalla y no el del registro.
+        """
+        if len(samples) <= _MUESTRAS_POR_COLUMNA * columns:
+            return np.arange(len(samples)), samples
+
+        clave = (channel_name, start_sample, stop_sample, columns)
+        guardada = self._envolventes.get(clave)
+        if guardada is not None:
+            self._envolventes.move_to_end(clave)
+            return guardada
+
+        calculada = min_max_envelope(samples, columns)
+        self._envolventes[clave] = calculada
+        if len(self._envolventes) > _ENVOLVENTES_EN_MEMORIA:
+            self._envolventes.popitem(last=False)
+        return calculada
+
+    def _olvidar_envolventes_si_cambio(self, recording: object) -> None:
+        """Descarta las envolventes si el registro que se dibuja es otro.
+
+        **La caché mentiría sin esto**, y de la peor forma: filtrar la señal
+        devuelve un registro nuevo con los mismos índices de muestra, así que la
+        clave sería la misma y se dibujaría la envolvente de la señal cruda
+        sobre la filtrada, sin ningún aviso.
+
+        Se compara la **identidad** del objeto y no se espera un aviso de la
+        sesión: cualquier camino que cambie el registro —filtrar, derivar,
+        re-referenciar, deshacer, abrir otro archivo— termina en un dibujo, y
+        acá se entera sin que nadie tenga que acordarse de avisarle. Es el
+        olvido que `Session.add_window_listener()` documenta querer impedir.
+
+        Guardar la referencia no alarga la vida del registro viejo más allá del
+        dibujo siguiente, que ocurre inmediatamente después de reemplazarlo.
+        """
+        if recording is not self._registro_de_las_envolventes:
+            self._envolventes.clear()
+            self._registro_de_las_envolventes = recording
 
     def _marcar_epoca(self) -> None:
         """Resalta la época que se va a scorear, sobre la página que se mira.
