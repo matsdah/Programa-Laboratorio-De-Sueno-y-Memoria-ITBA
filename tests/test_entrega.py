@@ -1909,3 +1909,76 @@ def test_aplicar_algo_que_no_son_preferencias_avisa_sin_romper(ventana: MainWind
     ventana.apply_preferences({"font_size": 12})
 
     assert ventana.carteles
+
+
+# -- La ventana de configuración, abierta desde la principal -----------------------
+
+
+def test_la_configuracion_muestra_lo_vigente(ventana: MainWindow):
+    _con(ventana, psd_method="multitaper")
+
+    ventana.show_settings_dialog()
+
+    assert ventana.settings_dialog.preferences == ventana.current_preferences
+    assert ventana.settings_dialog.psd_method.currentData() == "multitaper"
+    ventana.settings_dialog.close()
+
+
+def test_la_configuracion_ofrece_las_clases_del_registro_abierto(ventana: MainWindow):
+    """Incluida una que el usuario creó en esta sesión."""
+    ventana.session.annotations.add_label("Apnea")
+
+    ventana.show_settings_dialog()
+
+    assert "Apnea" in ventana.settings_dialog.annotation_buttons
+    ventana.settings_dialog.close()
+
+
+def test_un_cambio_en_la_configuracion_llega_a_la_ventana(ventana: MainWindow):
+    """**El camino, no la pieza**: la casilla de la ventana de configuración
+    termina cambiando el eje del espectro de la principal."""
+    ventana.show_settings_dialog()
+
+    ventana.settings_dialog.log_power.setChecked(False)
+
+    assert not ventana.current_preferences.psd_log_power
+    assert not ventana.psd_panel.uses_log_power
+    ventana.settings_dialog.close()
+
+
+def test_el_color_elegido_en_la_configuracion_llega_a_la_sesion(ventana: MainWindow):
+    ventana.show_settings_dialog()
+
+    ventana.settings_dialog.annotation_buttons["Spindle"].choose("#ff8800")
+
+    assert ventana.session.annotations.color_of("Spindle") == "#ff8800"
+    ventana.settings_dialog.close()
+
+
+def test_volver_a_abrir_la_configuracion_refleja_lo_cambiado_afuera(
+    ventana: MainWindow,
+):
+    """El menú de esquemas cambia el esquema sin pasar por la configuración:
+    al reabrirla tiene que mostrar el nuevo."""
+    ventana.show_settings_dialog()
+    ventana.settings_dialog.close()
+    anterior = theme.current()
+    try:
+        ventana.set_color_scheme(theme.ECG, remember=False)
+
+        ventana.show_settings_dialog()
+
+        assert ventana.settings_dialog.grid_ecg.isChecked()
+    finally:
+        ventana.settings_dialog.close()
+        ventana.set_color_scheme(anterior, remember=False)
+
+
+def test_la_configuracion_se_abre_sin_registro(qt_app):
+    """Con las clases de fábrica, que es lo que el usuario va a tener."""
+    principal = create_main_window()
+
+    principal.show_settings_dialog()
+
+    assert set(principal.settings_dialog.annotation_buttons) >= {"Spindle"}
+    principal.settings_dialog.close()

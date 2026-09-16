@@ -112,7 +112,7 @@ from psglab.tools.registry import available_tools
 from psglab.ui import preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.docks import build_docks
-from psglab.ui.menus import build_menus
+from psglab.ui.menus import build_menus, duration_text
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.connectivity_panel import ConnectivityPanel
@@ -122,6 +122,7 @@ from psglab.ui.impedance_panel import ImpedancePanel
 from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
 from psglab.ui.scoring_panel import ScoringPanel
+from psglab.ui.settings_dialog import SettingsDialog
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
 from psglab.utils.errors import PsgLabError
@@ -153,21 +154,6 @@ _BOTONES = {
 _MUESTRAS_PARA_AVISAR = 20_000_000
 
 
-def _duracion(segundos: float) -> str:
-    """Una duración escrita como la leería un investigador.
-
-    30 s, 5 min, 1 h. El separador decimal es la coma, como en todo el texto
-    que ve el usuario.
-    """
-    if segundos < 1.0:
-        return f"{segundos * 1000:g} ms".replace(".", ",")
-    if segundos < 60.0:
-        return f"{segundos:g} s".replace(".", ",")
-    if segundos < 3600.0:
-        return f"{segundos / 60:g} min".replace(".", ",")
-    return f"{segundos / 3600:g} h".replace(".", ",")
-
-
 class MainWindow(QMainWindow):
     """Ventana principal del programa."""
 
@@ -192,6 +178,8 @@ class MainWindow(QMainWindow):
         #: La tipografía con la que arrancó el programa, para poder volver a
         #: ella cuando el usuario elige «la del sistema».
         self._fuente_del_sistema = QFont(QApplication.font())
+        #: La ventana de configuración. Se arma la primera vez que se pide.
+        self.settings_dialog: SettingsDialog | None = None
 
         self._build_layout()
         self._build_menus()
@@ -863,7 +851,7 @@ class MainWindow(QMainWindow):
         if pagina.shows_whole_recording:
             self.page_readout.setText("Página: registro entero")
             return
-        self.page_readout.setText(f"Página: {_duracion(pagina.span_seconds)}")
+        self.page_readout.setText(f"Página: {duration_text(pagina.span_seconds)}")
 
     # -- Amplitud (V2_P, V5_F) ----------------------------------------------
     #
@@ -1089,6 +1077,39 @@ class MainWindow(QMainWindow):
             self._aplicar_colores_de_clase(self._session)
             self._repintar_anotaciones()
         self._guardar_preferencias()
+
+    def show_settings_dialog(self) -> None:
+        """Abre la ventana de configuración, mostrando lo que está vigente.
+
+        Se arma una sola vez y se la vuelve a llenar en cada apertura: lo que
+        muestra tiene que ser lo que el programa está usando, que puede haber
+        cambiado desde el menú de esquemas.
+
+        **Es modal pero no bloquea**: se muestra con `show()` y no con
+        `exec()`, así que los cambios se ven detrás mientras se eligen, que es
+        lo que hace útil aplicar en el momento.
+        """
+        colores = self._colores_de_clase_vigentes()
+        if self.settings_dialog is None:
+            self.settings_dialog = SettingsDialog(self._preferencias, colores, self)
+            self.settings_dialog.setModal(True)
+            self.settings_dialog.on_change = self.apply_preferences
+            self.settings_dialog.on_error = self._show_error
+        else:
+            self.settings_dialog.set_preferences(self._preferencias, colores)
+        self.settings_dialog.show()
+        self.settings_dialog.raise_()
+
+    def _colores_de_clase_vigentes(self) -> dict[str, str]:
+        """Las clases de evento que hay para configurar, con su color de hoy.
+
+        Con un registro abierto son las de su sesión, incluidas las que creó el
+        usuario; sin él, las de fábrica, con los colores que tendrían.
+        """
+        conjunto = (
+            self._session.annotations if self._session is not None else AnnotationSet()
+        )
+        return {clase: conjunto.color_of(clase) for clase in conjunto.labels()}
 
     def _aplicar_preferencias(self, prefs: preferences.Preferences) -> None:
         """Lo que se aplica enseguida y no depende de un registro abierto."""

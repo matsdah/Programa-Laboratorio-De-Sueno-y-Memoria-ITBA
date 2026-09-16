@@ -197,3 +197,14 @@ def test_construir_los_menus_no_necesita_saber_de_la_ventana(ventana: MainWindow
     `TYPE_CHECKING`: si lo importara de verdad habría un ciclo, porque
     `main_window.py` importa `build_menus`."""
     assert "MainWindow" not in vars(menus)
+
+
+def test_la_ventana_de_configuracion_se_abre_desde_su_menu(ventana: MainWindow):
+    configuracion = menu_llamado(ventana, "&Configuración")
+    accion = next(a for a in configuracion.actions() if a.text() == "&Configuración…")
+
+    accion.trigger()
+
+    assert ventana.settings_dialog is not None
+    assert ventana.settings_dialog.isVisible()
+    ventana.settings_dialog.close()

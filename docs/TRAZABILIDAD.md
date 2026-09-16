@@ -135,13 +135,13 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos dieciséis se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos diecisiete se rompen hacia todos lados.
 
-Catorce de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Quince de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
 `core/viewport.py`, `core/decimation.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
-`ui/theme.py` y `ui/preferences.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`ui/theme.py`, `ui/preferences.py` y `ui/settings_dialog.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -162,6 +162,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/ui/menus.py` | La barra de menú y qué acción vive en cada uno | Cómo se llega a cada funcionalidad |
 | `psglab/ui/theme.py` | Los esquemas de color: qué color tiene cada cosa que se dibuja | Todo lo que la interfaz pinta |
 | `psglab/ui/preferences.py` | Lo que el programa recuerda entre sesiones | El esquema con el que arranca |
+| `psglab/ui/settings_dialog.py` | La ventana de configuración | Todo lo que el usuario puede elegir y el programa recuerda |
 
 ---
 
