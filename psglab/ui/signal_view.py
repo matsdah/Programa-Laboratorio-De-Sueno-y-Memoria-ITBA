@@ -224,6 +224,14 @@ class SignalView(pg.PlotWidget):
                 tiempos,
                 centro + ((tramo - desplazamiento) / escala) * _LLENADO_DEL_CARRIL,
             )
+        # **Los nombres de canal acompañan a la página.** Se creaban en x = 0 y
+        # ahí quedaban, lo que era correcto mientras el eje empezaba siempre en
+        # cero. Con el eje en segundos absolutos, desde la segunda época en
+        # adelante el cero queda fuera de la pantalla y los nombres
+        # desaparecían: el investigador veía carriles sin saber de qué canal era
+        # cada uno.
+        for etiqueta in self._labels:
+            etiqueta.setPos(pagina.start_seconds, etiqueta.pos().y())
         self.update_amplitude_scale()
 
     def _columnas(self) -> int:
