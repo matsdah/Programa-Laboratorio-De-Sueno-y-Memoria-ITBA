@@ -130,19 +130,50 @@ def test_la_conversion_crece_de_izquierda_a_derecha(vista: SignalView):
 
 
 def test_la_fraccion_va_de_cero_a_uno(vista: SignalView):
-    """Es la unidad del medidor de ocupación, que mide proporciones del ancho."""
+    """Es la unidad del medidor de ocupacion, que mide proporciones del ancho."""
     izquierda, derecha = bordes(vista)
-    assert vista.window_fraction_at_pixel(izquierda) == pytest.approx(0.0, abs=0.01)
-    assert vista.window_fraction_at_pixel(derecha) == pytest.approx(1.0, abs=0.01)
+    assert vista.view_fraction_at_pixel(izquierda) == pytest.approx(0.0, abs=0.01)
+    assert vista.view_fraction_at_pixel(derecha) == pytest.approx(1.0, abs=0.01)
 
 
-def test_la_fraccion_es_los_segundos_divididos_la_ventana(vista: SignalView):
-    """No reimplementa la aritmética: es píxel→segundos y después
-    `core.windows`, que es su único lugar."""
+def test_la_fraccion_es_la_posicion_dentro_de_la_pagina(vista: SignalView):
+    """No reimplementa la aritmetica: es pixel a segundos y despues
+    `core.windows`, que es su unico lugar.
+
+    **Se medía contra `window_seconds`**, los 30 s de la epoca, que con la
+    escala de tiempo libre dejo de ser el ancho de la pantalla. Ahora se mide
+    contra la pagina, que es lo que el medidor de ocupacion necesita: sin esto
+    informaria 30 000 % sobre una pagina de una hora.
+    """
     izquierda, derecha = bordes(vista)
+    pagina = vista.session.viewport if vista.session is not None else None
     for pixel in (izquierda, (izquierda + derecha) / 2, derecha):
-        esperado = vista.seconds_at_pixel(pixel) / vista.window_seconds
-        assert vista.window_fraction_at_pixel(pixel) == pytest.approx(esperado)
+        if pagina is None:
+            esperado = vista.seconds_at_pixel(pixel) / vista.window_seconds
+        else:
+            esperado = (
+                vista.seconds_at_pixel(pixel) - pagina.start_seconds
+            ) / pagina.span_seconds
+        assert vista.view_fraction_at_pixel(pixel) == pytest.approx(esperado)
+
+
+def test_la_fraccion_mide_contra_la_pagina_y_no_contra_la_epoca(
+    vista: SignalView, sesion
+):
+    """Con una pagina de cuatro epocas, el punto medio de la pantalla sigue
+    dando 0,5 aunque este a dos epocas del comienzo.
+
+    Es la diferencia que hace que la ocupacion siga informando un porcentaje
+    que significa algo cuando el usuario cambia de escala.
+    """
+    vista.set_session(sesion)
+    sesion.set_viewport(sesion.viewport.zoomed(4.0))
+    vista.draw_viewport()
+    izquierda, derecha = bordes(vista)
+
+    assert vista.view_fraction_at_pixel((izquierda + derecha) / 2) == pytest.approx(
+        0.5, abs=0.01
+    )
 
 
 def test_la_muestra_incluye_el_desplazamiento_de_la_ventana(

@@ -19,9 +19,9 @@ from psglab.core.session import Session
 from psglab.tools.base import Overlay, SpanOverlay, ViewerTool
 from psglab.tools.registry import register_tool
 from psglab.core.windows import (
-    sample_to_seconds,
-    seconds_to_sample,
-    window_to_samples,
+    sample_to_seconds_absolute,
+    seconds_to_sample_absolute,
+    seconds_to_samples,
 )
 
 
@@ -95,9 +95,13 @@ class AnnotatorTool(ViewerTool):
         self._desde = self._hasta = None
 
         fs = self._session.recording.sampling_rate
-        ventana = self._session.current_window
-        inicio = seconds_to_sample(ventana, desde, fs)
-        fin = seconds_to_sample(ventana, hasta, fs)
+        # **Segundos absolutos.** Antes eran segundos desde el inicio de la
+        # epoca y habia que sumarlos sobre su borde, que es la cuenta que
+        # `seconds_to_sample()` documenta con las 240 de 960 ventanas que
+        # fallaban a 256,125 Hz. Sin borde de epoca en el medio, esa deriva es
+        # estructuralmente imposible: hay un solo redondeo.
+        inicio = seconds_to_sample_absolute(desde, fs)
+        fin = seconds_to_sample_absolute(hasta, fs)
         # Una selección sin ancho no es un evento: el pliego pide marcarlo con
         # una banda, y `AnnotationSet` rechaza la duración cero por lo mismo.
         self._pendiente = (inicio, fin - inicio) if fin > inicio else None
@@ -176,15 +180,24 @@ class AnnotatorTool(ViewerTool):
             return ()
 
         fs = self._session.recording.sampling_rate
-        ventana = self._session.current_window
-        inicio, fin = window_to_samples(ventana, fs)
+        # **El filtro es la pagina visible, no la epoca.** Con una pagina de
+        # cuatro horas, filtrar por la epoca dibujaria solo las bandas de una de
+        # las 480 que hay en pantalla y las otras 479 apareceria vacias aunque
+        # tengan eventos: la herramienta mintiendo sobre lo que hay.
+        pagina = self._session.viewport
+        inicio, fin = seconds_to_samples(
+            pagina.start_seconds,
+            pagina.end_seconds,
+            fs,
+            self._session.recording.n_samples,
+        )
         conjunto = self._session.annotations
 
         bandas = [
             SpanOverlay(
                 tool_name=self.name,
-                start_seconds=sample_to_seconds(ventana, anotacion.onset_sample, fs),
-                end_seconds=sample_to_seconds(ventana, anotacion.end_sample, fs),
+                start_seconds=sample_to_seconds_absolute(anotacion.onset_sample, fs),
+                end_seconds=sample_to_seconds_absolute(anotacion.end_sample, fs),
                 label=anotacion.label,
                 color=anotacion.color or conjunto.color_of(anotacion.label),
             )

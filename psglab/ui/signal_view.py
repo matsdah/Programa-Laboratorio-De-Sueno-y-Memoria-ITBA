@@ -34,9 +34,10 @@ from PySide6.QtCore import QPointF
 from psglab.config import WINDOW_SECONDS
 from psglab.core.session import Session
 from psglab.core.windows import (
-    seconds_to_sample,
-    seconds_to_window_fraction,
-    window_to_samples,
+    epoch_to_seconds,
+    seconds_to_sample_absolute,
+    seconds_to_samples,
+    seconds_to_view_fraction,
 )
 from psglab.tools.base import (
     BandOverlay,
@@ -70,6 +71,8 @@ class SignalView(pg.PlotWidget):
         self._labels: list[pg.TextItem] = []
         self._baselines: list[pg.InfiniteLine] = []
         self._overlay_items: list[object] = []
+        #: La banda que marca la epoca de scoring sobre la pagina visible.
+        self._epoca: object | None = None
         self._visible: list[str] = []
 
         item = self.getPlotItem()
@@ -88,8 +91,26 @@ class SignalView(pg.PlotWidget):
 
     @property
     def window_seconds(self) -> float:
-        """Cuánto dura la ventana que se dibuja. Es la del pliego."""
+        """Cuanto dura la **epoca de scoring**. Es la del pliego.
+
+        **Sigue devolviendo `WINDOW_SECONDS` y no la pagina visible**, aunque
+        desde el refactor las dos ya no coincidan. Distinguirlas por nombre es
+        lo que evita que los tests que la usan como "el ancho de la pantalla"
+        queden mintiendo en silencio: el ancho de la pantalla es
+        `view_span_seconds`.
+        """
         return WINDOW_SECONDS
+
+    @property
+    def view_span_seconds(self) -> float:
+        """Cuanto dura la pagina que se esta mirando.
+
+        Sin sesion devuelve la epoca, que es la pagina con la que el programa
+        arranca.
+        """
+        if self._session is None:
+            return WINDOW_SECONDS
+        return self._session.viewport.span_seconds
 
     def set_session(self, session: Session) -> None:
         """Asocia el visualizador a una sesión de trabajo."""
@@ -98,24 +119,59 @@ class SignalView(pg.PlotWidget):
         self.show_window(session.current_window)
 
     def show_window(self, window_index: int) -> None:
-        """Dibuja una ventana de 30 segundos.
+        """Deja visible la época indicada y redibuja.
 
-        Pide a `Recording.get_segment` sólo el tramo necesario: no se copia ni
-        se recorre el registro entero, que puede durar ocho horas.
+        Conserva el nombre y la firma que tenía cuando la ventana de 30 s era
+        también la página: la llaman `MainWindow.refresh()` y `set_session()`.
+        Lo que cambió es lo que significa. Antes era "dibujá estos 30 s"; ahora
+        es **"ésta es la época actual; asegurate de que se vea"**.
+
+        Mueve la página **lo mínimo**, así que con una página larga la época ya
+        está adentro y la pantalla no se mueve. Es idempotente: si no hace falta
+        moverse, `Session.set_viewport()` vuelve temprano y no avisa a nadie.
+
+        Pide a `Recording.get_segment` sólo el tramo visible: no se copia ni se
+        recorre el registro entero, que puede durar ocho horas.
         """
         if self._session is None:
             return
         self._window_index = window_index
+        inicio, fin = epoch_to_seconds(
+            window_index, self._session.recording.sampling_rate
+        )
+        self._session.set_viewport(self._session.viewport.containing(inicio, fin))
+        self.draw_viewport()
+
+    def draw_viewport(self) -> None:
+        """Dibuja el tramo que dice la sesion que se esta mirando.
+
+        **El eje horizontal esta en segundos absolutos desde el inicio del
+        registro**, y no en segundos desde el inicio de la ventana como hasta el
+        refactor. Es el sistema que comparten la epoca de scoring y la pagina
+        visible, y el unico que le da a un punto de la senal siempre el mismo
+        numero: bajo el contrato anterior, desplazar la vista le cambiaba la
+        coordenada al mismo punto fisico, y un arrastre del mouse que cruzara un
+        desplazamiento automatico producia un tramo corrido, plausible y
+        equivocado.
+        """
+        if self._session is None:
+            return
         registro = self._session.recording
         frecuencia = registro.sampling_rate
-        inicio, fin = window_to_samples(window_index, frecuencia)
+        pagina = self._session.viewport
+        inicio, fin = seconds_to_samples(
+            pagina.start_seconds, pagina.end_seconds, frecuencia, registro.n_samples
+        )
 
-        self.getPlotItem().setXRange(0.0, self.window_seconds, padding=0)
-        self.grid.redraw(self.window_seconds)
+        self.getPlotItem().setXRange(
+            pagina.start_seconds, pagina.end_seconds, padding=0
+        )
+        self.grid.redraw(pagina.span_seconds, origin_seconds=pagina.start_seconds)
+        self._marcar_epoca()
 
         for posicion, nombre in enumerate(self._visible):
             tramo = registro.get_segment(inicio, fin, [nombre])[0]
-            tiempos = np.arange(len(tramo)) / frecuencia
+            tiempos = (inicio + np.arange(len(tramo))) / frecuencia
             escala = self._session.scale_uv(nombre)
             # **El desplazamiento se resta antes de escalar**, no después: es
             # lo que hace que un canal con la línea de base lejos del cero
@@ -128,6 +184,37 @@ class SignalView(pg.PlotWidget):
                 centro + ((tramo - desplazamiento) / escala) * _LLENADO_DEL_CARRIL,
             )
         self.update_amplitude_scale()
+
+    def _marcar_epoca(self) -> None:
+        """Resalta la época que se va a scorear, sobre la página que se mira.
+
+        **Es lo único que le dice al usuario qué hace la tecla `2`** cuando la
+        página muestra cuatrocientas ochenta épocas. Con la página de 30 s la
+        banda coincide con la pantalla entera y no molesta; con una página
+        larga es la referencia que vuelve usable el scoring.
+
+        Los bordes salen de `epoch_to_seconds()` y no de `índice * 30`: con
+        256,125 Hz los dos difieren, y una banda corrida tres segundos le haría
+        scorear al usuario una época distinta de la que está mirando.
+        """
+        item = self.getPlotItem()
+        if self._epoca is not None:
+            item.removeItem(self._epoca)
+            self._epoca = None
+        if self._session is None:
+            return
+
+        inicio, fin = epoch_to_seconds(
+            self._window_index, self._session.recording.sampling_rate
+        )
+        color = pg.mkColor(theme.current().coarse_grid)
+        color.setAlpha(40)
+        self._epoca = pg.LinearRegionItem(
+            values=(inicio, fin), movable=False, brush=pg.mkBrush(color)
+        )
+        # Detrás de todo: marca dónde se scorea, no tapa la señal.
+        self._epoca.setZValue(-20)
+        item.addItem(self._epoca)
 
     def refresh(self) -> None:
         """Redibuja la ventana actual con la configuración vigente."""
@@ -254,19 +341,22 @@ class SignalView(pg.PlotWidget):
         canal = self._visible[0]
         registro = self._session.recording
         frecuencia = registro.sampling_rate
-        inicio_ventana, fin_ventana = window_to_samples(self._window_index, frecuencia)
+        pagina = self._session.viewport
 
-        # El tramo a ampliar, recortado contra los bordes de la ventana: cerca
-        # del comienzo o del final hay menos señal de la que pide el radio.
-        desde = max(0.0, overlay.x_seconds - overlay.radius_seconds)
-        hasta = min(self.window_seconds, overlay.x_seconds + overlay.radius_seconds)
-        primera = inicio_ventana + int(desde * frecuencia)
-        ultima = min(fin_ventana, inicio_ventana + int(hasta * frecuencia))
+        # El tramo a ampliar, recortado contra los bordes de la **pagina**:
+        # cerca del comienzo o del final hay menos senal de la que pide el
+        # radio. Antes se recortaba contra la ventana de 30 s, que con la
+        # escala libre ya no es lo que se esta mirando.
+        desde = max(pagina.start_seconds, overlay.x_seconds - overlay.radius_seconds)
+        hasta = min(pagina.end_seconds, overlay.x_seconds + overlay.radius_seconds)
+        primera, ultima = seconds_to_samples(
+            desde, hasta, frecuencia, registro.n_samples
+        )
         if ultima <= primera:
             return None
 
         tramo = registro.get_segment(primera, ultima, [canal])[0]
-        tiempos = desde + np.arange(len(tramo)) / frecuencia
+        tiempos = (primera + np.arange(len(tramo))) / frecuencia
 
         centro_carril = self._centro_de_carril(canal) or 0.0
         base = centro_carril + self._a_carril(overlay.y_uv, canal)
@@ -434,19 +524,26 @@ class SignalView(pg.PlotWidget):
     # fracciones y el anotador guarda muestras. Ver `psglab/tools/base.py`.
 
     def seconds_at_pixel(self, x_pixel: float) -> float:
-        """Segundos desde el inicio de la ventana bajo una coordenada horizontal.
+        """Segundos **desde el inicio del registro** bajo una coordenada horizontal.
 
-        Es la unidad que reciben los métodos de mouse de `ViewerTool`, así que
-        esta conversión es la que aplica la ventana principal antes de avisarle
+        Es la unidad que reciben los metodos de mouse de `ViewerTool`, asi que
+        esta conversion es la que aplica la ventana principal antes de avisarle
         a la herramienta activa.
 
-        Se recorta contra los bordes de la ventana: un clic en el margen del
-        gráfico daría un segundo negativo o mayor que 30, y de ahí saldría una
-        muestra fuera del registro.
+        **Devolvia segundos desde el inicio de la ventana de 30 s.** Cambio con
+        la escala de tiempo libre, donde esa referencia deja de ser unica: hay
+        una epoca y hay una pagina, y solo el registro es comun a las dos.
+
+        Se recorta contra los bordes de la pagina: un clic en el margen del
+        grafico daria un segundo fuera de lo que se esta mirando, y de ahi
+        saldria una muestra que no corresponde a nada de lo dibujado.
         """
         vista = self.getPlotItem().vb
         segundos = float(vista.mapSceneToView(QPointF(float(x_pixel), 0.0)).x())
-        return min(self.window_seconds, max(0.0, segundos))
+        if self._session is None:
+            return min(self.window_seconds, max(0.0, segundos))
+        pagina = self._session.viewport
+        return min(pagina.end_seconds, max(pagina.start_seconds, segundos))
 
     def microvolts_at_pixel(
         self, y_pixel: float, channel_name: str | None = None
@@ -500,18 +597,28 @@ class SignalView(pg.PlotWidget):
         en_uv = (carriles / _LLENADO_DEL_CARRIL) * self._session.scale_uv(channel_name)
         return en_uv + self._session.offset_uv(channel_name)
 
-    def window_fraction_at_pixel(self, x_pixel: float) -> float:
-        """Posición dentro de la ventana, de 0 (inicio) a 1 (final).
+    def view_fraction_at_pixel(self, x_pixel: float) -> float:
+        """Posicion dentro de la **pagina visible**, de 0 (inicio) a 1 (final).
 
-        La usa el medidor de ocupación, que mide proporciones del ancho y no
+        La usa el medidor de ocupacion, que mide proporciones del ancho y no
         tiempos: con esta unidad el porcentaje sigue siendo correcto aunque el
         usuario redimensione la ventana del programa.
 
-        Es un píxel→segundos y después `core.windows`: la aritmética entre
-        unidades no gráficas vive allá y no se reimplementa acá.
+        **Se llamaba `window_fraction_at_pixel` y media contra los 30 s de la
+        epoca.** Se renombro en vez de cambiarle la semantica en silencio, que
+        habria sido lo peor de los dos mundos: el mismo nombre midiendo contra
+        otra cosa.
+
+        Es un pixel a segundos y despues `core.windows`: la aritmetica entre
+        unidades no graficas vive alla y no se reimplementa aca.
         """
-        return seconds_to_window_fraction(
-            self.seconds_at_pixel(x_pixel), self.window_seconds
+        if self._session is None:
+            return seconds_to_view_fraction(
+                self.seconds_at_pixel(x_pixel), 0.0, self.window_seconds
+            )
+        pagina = self._session.viewport
+        return seconds_to_view_fraction(
+            self.seconds_at_pixel(x_pixel), pagina.start_seconds, pagina.span_seconds
         )
 
     def sample_at_pixel(self, x_pixel: float) -> int:
@@ -528,9 +635,7 @@ class SignalView(pg.PlotWidget):
         """
         if self._session is None:
             return 0
-        return seconds_to_sample(
-            self._window_index,
+        return seconds_to_sample_absolute(
             self.seconds_at_pixel(x_pixel),
             self._session.recording.sampling_rate,
-            self.window_seconds,
         )

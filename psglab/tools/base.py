@@ -43,7 +43,7 @@ class Overlay:
     pantalla.
 
     Las coordenadas van en las unidades que ya documenta `ViewerTool`: `x` en
-    segundos desde el inicio de la ventana, `y` en microvoltios.
+    segundos **desde el inicio del registro**, `y` en microvoltios.
 
     Attributes:
         tool_name: el `name` de la herramienta que lo pidió. Sirve para borrar
@@ -176,27 +176,44 @@ class ViewerTool(Tool):
 
     Las coordenadas que reciben sus métodos son siempre las del visualizador:
 
-        x: segundos desde el inicio de la ventana de 30 segundos
+        x: segundos **desde el inicio del registro**
         y: microvoltios
 
-    **En el programa conviven tres unidades horizontales distintas y hay que
+    **La `x` eran segundos desde el inicio de la ventana de 30 segundos.**
+    Cambió con la escala de tiempo libre, y el motivo es que esa referencia
+    dejó de ser única: ahora hay una **época** de scoring, que sigue durando
+    30 s, y una **página** visible, que puede durar de diez milisegundos al
+    registro entero. Lo único común a las dos es el inicio del registro.
+
+    No es sólo una cuestión de tener un origen. Bajo el contrato anterior el
+    mismo punto físico de la señal cambiaba de número cada vez que el usuario
+    desplazaba la vista, y tanto el anotador como el medidor de ocupación
+    guardan estado **entre** `on_mouse_press` y `on_mouse_release`: un arrastre
+    que cruzara un desplazamiento automático de borde producía un tramo
+    corrido, plausible y equivocado. Con segundos absolutos eso es imposible.
+
+    **En el programa conviven cuatro unidades horizontales distintas y hay que
     convertir explícitamente entre ellas.** Confundirlas no rompe nada de forma
     visible: produce números plausibles y equivocados, que es peor.
 
         Unidad              Rango típico   Quién la produce
         ------------------  -------------  ---------------------------------
         píxeles             0 .. ancho     el evento de Qt
-        segundos            0 .. 30        `SignalView.seconds_at_pixel()`
-        fracción de ventana 0 .. 1         `SignalView.window_fraction_at_pixel()`
+        segundos absolutos  0 .. duración  `SignalView.seconds_at_pixel()`
+        fracción de página  0 .. 1         `SignalView.view_fraction_at_pixel()`
         muestras            0 .. n_samples `SignalView.sample_at_pixel()`
 
-    Los métodos de esta clase reciben **segundos**, ya convertidos por el
-    visualizador. Una herramienta que necesite otra unidad **la pide a
+    Los métodos de esta clase reciben **segundos absolutos**, ya convertidos por
+    el visualizador. Una herramienta que necesite otra unidad **la pide a
     `psglab/core/windows.py`**, que es el único lugar donde se convierte entre
-    unidades: `seconds_to_window_fraction()` para el medidor de ocupación, que
-    trabaja en fracción, y `seconds_to_sample()` para el anotador, que guarda
-    muestras porque es lo que exige "Anotaciones.txt". Ninguna escribe la cuenta
-    a mano.
+    unidades: `seconds_to_view_fraction()` para el medidor de ocupación, que
+    trabaja en fracción de lo que se está mirando, y
+    `seconds_to_sample_absolute()` para el anotador, que guarda muestras porque
+    es lo que exige "Anotaciones.txt". Ninguna escribe la cuenta a mano.
+
+    Quien reciba segundos absolutos y necesite razonar por época pregunta a
+    `seconds_to_epoch_offset()`, **y no escribe `seconds % 30`**: ésa es
+    exactamente la cuenta que `core/windows.py` existe para impedir.
 
     Los tres métodos de mouse no hacen nada por defecto. Cada herramienta
     sobrescribe los que necesita: la banda de amplitud sólo escucha el

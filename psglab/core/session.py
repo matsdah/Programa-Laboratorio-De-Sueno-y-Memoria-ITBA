@@ -28,7 +28,7 @@ from psglab.core.annotations import AnnotationSet
 from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.viewport import Viewport
-from psglab.core.windows import count_windows, window_to_samples
+from psglab.core.windows import count_windows, epoch_to_seconds, window_to_samples
 from psglab.utils.errors import (
     PsgLabError,
     InvalidViewportError,
@@ -372,6 +372,27 @@ class Session:
         for avisar in self._window_listeners:
             avisar(window_index)
 
+    def _seguir_a_la_epoca(self) -> None:
+        """Mueve la página **lo mínimo** para que la época actual entre.
+
+        Es lo que hace que la escala de tiempo libre conviva con el scoring:
+
+        - con una página de 30 s la época nunca entra salvo alineada, así que
+          la página salta a ella y el comportamiento es **el de siempre**;
+        - con una página de cuatro horas la época ya está adentro,
+          `Viewport.containing()` devuelve la misma página, `set_viewport()`
+          vuelve temprano y **la pantalla no se mueve**. Apretar la flecha
+          derecha cuatrocientas ochenta veces recorre las épocas sin sacudir el
+          dibujo.
+
+        No centra la época a propósito: centrar en cada flecha haría saltar la
+        pantalla media página por vez, que es peor que no moverla.
+        """
+        inicio, fin = epoch_to_seconds(
+            self._current_window, self._recording.sampling_rate
+        )
+        self.set_viewport(self._viewport.containing(inicio, fin))
+
     def _check_window(self, window_index: int) -> None:
         """Rechaza un índice de ventana que no existe en este registro.
 
@@ -420,6 +441,7 @@ class Session:
         if window_index == self._current_window:
             return
         self._current_window = window_index
+        self._seguir_a_la_epoca()
         self._notify_window_changed(window_index)
 
     def next_window(self) -> None:
@@ -430,12 +452,14 @@ class Session:
         """
         if self._current_window < self.n_windows - 1:
             self._current_window += 1
+            self._seguir_a_la_epoca()
             self._notify_window_changed(self._current_window)
 
     def previous_window(self) -> None:
         """Retrocede una ventana. En la primera no hace nada."""
         if self._current_window > 0:
             self._current_window -= 1
+            self._seguir_a_la_epoca()
             self._notify_window_changed(self._current_window)
 
     # -- Canales visibles (V3_P, V4_F de "Visualización") -------------------

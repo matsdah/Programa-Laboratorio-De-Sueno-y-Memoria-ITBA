@@ -578,7 +578,7 @@ la regla vive en `core/`.
     documenta para las ventanas.
 - [x] **`psglab/ui/signal_view.py`** · ~~13 stubs~~ · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Test: `tests/test_signal_view.py`, **32 tests en verde**. **El dibujo no se
+  - Test: `tests/test_signal_view.py`, **33 tests en verde**. **El dibujo no se
     testea**; sí los tres conversores, que es de donde salen las unidades con
     las que trabajan todas las herramientas.
   - Los píxeles de los bordes se le **preguntan al `ViewBox`** en vez de
@@ -722,7 +722,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     interfaz tenga qué dibujar.
 - [x] **`psglab/tools/annotator.py`** · ~~9 stubs~~ · V1_F "Anotación" ·
       `ViewerTool`
-  - Test: `tests/test_annotator.py`, **18 tests en verde**.
+  - Test: `tests/test_annotator.py`, **21 tests en verde**.
   - **La conversión a muestras es lo que más importa** y tiene su test: en la
     ventana 1, el segundo 5 es la muestra 3500. Escribir la cuenta a mano deja
     la anotación en la ventana de al lado cuando la frecuencia no es redonda, y
