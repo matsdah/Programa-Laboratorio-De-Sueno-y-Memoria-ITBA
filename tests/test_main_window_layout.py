@@ -36,7 +36,15 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         "accion_señal_original",
         # El menú que se puebla desde el registro de herramientas.
         "tools_menu",
-        # Los widgets del layout central.
+        # Los paneles acoplables, por nombre, y los cuatro de trabajo.
+        "docks",
+        "channels_dock",
+        "overview_dock",
+        "scoring_dock",
+        "histogram_dock",
+        # La barra fija de abajo, que no es un dock a propósito.
+        "navigation_bar",
+        # Los widgets que van adentro de todo eso.
         "signal_view",
         "channel_selector",
         "scoring_panel",
@@ -70,6 +78,8 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "session",
         "refresh",
         "set_color_scheme",
+        "restore_default_layout",
+        "apply_saved_layout",
         # Archivo.
         "open_recording",
         "open_recording_dialog",

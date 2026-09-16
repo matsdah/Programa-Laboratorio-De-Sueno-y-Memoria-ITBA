@@ -75,7 +75,7 @@ def create_application(argv: list[str]) -> QApplication:
     return aplicacion
 
 
-def create_main_window() -> MainWindow:
+def create_main_window(restore_layout: bool = False) -> MainWindow:
     """Crea la ventana principal con todos sus paneles y herramientas.
 
     No hay que enumerar acá ni las herramientas ni los formatos: cada registro
@@ -83,6 +83,13 @@ def create_main_window() -> MainWindow:
     `readers.base.load_all_readers()`, que recorren su paquete e importan lo que
     encuentran. Por eso agregar una herramienta o un formato nuevo no obliga a
     tocar ni este archivo ni `main.py`.
+
+    Args:
+        restore_layout: si se restaura la disposición de paneles que el usuario
+            dejó la última vez, y si se la vuelve a guardar al cerrar. **Lo
+            prende sólo `main.py`.** Por omisión está apagado para que la suite
+            de tests no lea ni escriba el archivo de preferencias de quien la
+            corre, que la volvería dependiente de la máquina.
 
     Returns:
         La ventana principal, todavía sin mostrar.
@@ -92,4 +99,7 @@ def create_main_window() -> MainWindow:
     # del diálogo de apertura se arman recorriéndolos.
     load_all_tools()
     load_all_readers()
-    return MainWindow()
+    ventana = MainWindow()
+    if restore_layout:
+        ventana.apply_saved_layout()
+    return ventana

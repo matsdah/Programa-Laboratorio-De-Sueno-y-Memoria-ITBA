@@ -2,26 +2,27 @@
 
 Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
-    +--------------------------------------------------------------+
+    +---------------------------------------------------------------+
     |  Menú: Archivo | Sesión | Ver | Montaje | Filtrar | Analizar   |
-    |        Herramientas | Configuración | Ayuda                   |
-    +--------------------------------------------------------------+
-    |  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
-    +------------------+-------------------------------------------+
-    |  Selector de     |                                           |
-    |  canales         |     Visualizador de la señal (30 s)       |
-    |                  |                                           |
-    +------------------+-------------------------------------------+
-    |  Übersicht: ventanas vecinas, la actual más oscura            |
-    +--------------------------------------------------------------+
-    |  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
-    +--------------------------------------------------------------+
-    |  Navegación: ← ventana anterior | siguiente →                 |
-    +--------------------------------------------------------------+
-    |  Histograma de la noche completa                              |
-    +--------------------------------------------------------------+
-    |  Barra de estado: ventana 42 / 960 - 00:21:00                 |
-    +--------------------------------------------------------------+
+    |        Herramientas | Configuración | Ayuda                    |
+    +---------------------------------------------------------------+
+    |  Barra de herramientas (lupa, amplitud, ocupación, anotar)     |
+    +----------+-----------------------------------------+----------+
+    | Canales  |                                         | Espectro |
+    |  (dock)  |   Visualizador de la señal (central)    | Métrica  |
+    |          |                                         | ICA...   |
+    |          |                                         | (solapas)|
+    +----------+-----------------------------------------+----------+
+    |  Übersicht | Scoring | Hipnograma  (docks de abajo)            |
+    +---------------------------------------------------------------+
+    |  Navegación: ← ventana anterior | siguiente →   (barra fija)   |
+    +---------------------------------------------------------------+
+    |  Barra de estado: ventana 42 / 960 - 00:21:00                  |
+    +---------------------------------------------------------------+
+
+**La señal es el widget central y todo lo demás es un `QDockWidget`**: se
+mueve, se apila en solapas, se cierra y se saca a otra pantalla. Los seis
+paneles de análisis arrancan ocultos y los abre la acción que los calcula.
 
 Cubre del pliego: V4_F de "Archivo de salida" (elegir cuál de los tres archivos
 exportar), V3_F de "Ocupación de la página" (mostrar el porcentaje), V2_F de
@@ -44,19 +45,16 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QObject, Qt
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QByteArray, QEvent, QObject, Qt
+from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
-    QDialog,
     QFileDialog,
     QInputDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
-    QSplitter,
-    QVBoxLayout,
-    QWidget,
+    QToolBar,
 )
 
 from psglab.core.annotations import AnnotationSet
@@ -106,6 +104,7 @@ from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
 from psglab.ui import preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
+from psglab.ui.docks import build_docks
 from psglab.ui.menus import build_menus
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
@@ -166,85 +165,66 @@ class MainWindow(QMainWindow):
         # preferencias antes de construir nada—, pero la hoja de estilo se
         # aplica sobre la ventana, que recién existe ahora.
         self.setStyleSheet(theme.stylesheet(theme.current()))
+        #: La disposición de fábrica, capturada con todos los paneles y las dos
+        #: barras ya puestos. Es a lo que vuelve «Ver ▸ Restaurar la
+        #: disposición», y tiene que guardarse acá y no antes: `saveState()`
+        #: sólo serializa lo que ya existe.
+        self._layout_por_defecto = self.saveState()
+        #: Si al cerrar se guarda la disposición. Lo prende
+        #: `create_main_window(restore_layout=True)`, que sólo llama `main.py`:
+        #: así la suite de tests no escribe en el archivo de quien la corre.
+        self._guardar_disposicion_al_cerrar = False
 
     # -- Construcción -------------------------------------------------------
 
     def _build_layout(self) -> None:
-        """Crea los paneles y los ubica según el esquema de arriba."""
+        """Crea los paneles y los reparte alrededor de la señal.
+
+        Acá sólo se los construye y se los cablea; **dónde va cada uno lo
+        decide `psglab/ui/docks.py`**, por el mismo motivo por el que el menú se
+        mudó a `menus.py`: la disposición cambia cuando se reorganiza la
+        interfaz, y los paneles cuando cambia lo que el programa hace.
+        """
         self.signal_view = SignalView()
         self.channel_selector = ChannelSelector()
         self.scoring_panel = ScoringPanel()
         self.navigation = NavigationBar()
         self.overview_panel = OverviewPanel()
         self.histogram_view = pg.PlotWidget()
-        self.histogram_view.setMaximumHeight(140)
         self.histogram_view.getPlotItem().setMenuEnabled(False)
         self.histogram_view.getPlotItem().setMouseEnabled(x=False, y=False)
 
-        arriba = QSplitter()
-        arriba.addWidget(self.channel_selector)
-        arriba.addWidget(self.signal_view)
-        arriba.setStretchFactor(1, 4)
-
-        centro = QWidget()
-        columna = QVBoxLayout(centro)
-        columna.addWidget(arriba, stretch=4)
-        columna.addWidget(self.overview_panel)
-        columna.addWidget(self.scoring_panel)
-        columna.addWidget(self.navigation)
-        columna.addWidget(self.histogram_view, stretch=1)
-        self.setCentralWidget(centro)
-        # Lo que la herramienta activa quiere informar: el porcentaje de la
-        # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
-        # la derecha, permanente, para que no lo pise el mensaje de navegación.
-        # El espectro vive en una ventana aparte, que se crea una sola vez y se
-        # muestra u oculta: recrearla en cada pedido perdería su tamaño y su
-        # posición, que el usuario acomoda una vez.
         self.psd_panel = PsdPanel()
-        self.psd_dialog = QDialog(self)
-        self.psd_dialog.setWindowTitle("Espectro")
-        self.psd_dialog.resize(640, 420)
-        columna_psd = QVBoxLayout(self.psd_dialog)
-        columna_psd.addWidget(self.psd_panel)
-
         self.metric_panel = MetricPanel()
-        self.metric_dialog = QDialog(self)
-        self.metric_dialog.setWindowTitle("Métrica por ventana")
-        self.metric_dialog.resize(720, 380)
-        QVBoxLayout(self.metric_dialog).addWidget(self.metric_panel)
-
         self.connectivity_panel = ConnectivityPanel()
-        self.connectivity_dialog = QDialog(self)
-        self.connectivity_dialog.setWindowTitle("Conectividad")
-        self.connectivity_dialog.resize(560, 520)
-        QVBoxLayout(self.connectivity_dialog).addWidget(self.connectivity_panel)
 
         self.impedance_panel = ImpedancePanel()
         self.impedance_panel.on_changed = self._refrescar_informe_de_impedancia
         self.impedance_panel.boton_archivo.clicked.connect(self.load_impedances_dialog)
-        self.impedance_panel.boton_limpiar.clicked.connect(
-            self._limpiar_impedancias
-        )
-        self.impedance_dialog = QDialog(self)
-        self.impedance_dialog.setWindowTitle("Impedancia de los electrodos")
-        self.impedance_dialog.resize(820, 460)
-        QVBoxLayout(self.impedance_dialog).addWidget(self.impedance_panel)
+        self.impedance_panel.boton_limpiar.clicked.connect(self._limpiar_impedancias)
 
         self.filter_panel = FilterPanel()
         self.filter_panel.on_apply = self.apply_filters_from_panel
-        self.filter_dialog = QDialog(self)
-        self.filter_dialog.setWindowTitle("Filtrar la señal")
-        self.filter_dialog.resize(680, 320)
-        QVBoxLayout(self.filter_dialog).addWidget(self.filter_panel)
 
         self.ica_panel = IcaPanel()
         self.ica_panel.on_apply = self._apply_ica
         self.ica_panel.on_component_shown = self._mostrar_curva_del_componente
-        self.ica_dialog = QDialog(self)
-        self.ica_dialog.setWindowTitle("Componentes independientes")
-        self.ica_dialog.resize(860, 480)
-        QVBoxLayout(self.ica_dialog).addWidget(self.ica_panel)
 
+        build_docks(self)
+
+        # **La navegación no es un panel acoplable.** Es la única vía de
+        # navegación con el mouse, así que poder cerrarla dejaría al usuario
+        # sin salida si no conoce las flechas del teclado. Va como barra fija
+        # abajo, que además es donde la pone la referencia.
+        self.navigation_bar = QToolBar("Navegación")
+        self.navigation_bar.setObjectName("barra-de-navegacion")
+        self.navigation_bar.setMovable(False)
+        self.navigation_bar.addWidget(self.navigation)
+        self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self.navigation_bar)
+
+        # Lo que la herramienta activa quiere informar: el porcentaje de la
+        # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
+        # la derecha, permanente, para que no lo pise el mensaje de navegación.
         self.tool_readout = QLabel("")
         self.statusBar().addPermanentWidget(self.tool_readout)
         self.statusBar().showMessage("Sin registro abierto")
@@ -703,6 +683,59 @@ class MainWindow(QMainWindow):
             f"Ventana {ventana + 1} de {sesion.n_windows}"
             + (f" — {self._clock_label(ventana)}" if self._clock_label(ventana) else "")
         )
+
+    def restore_default_layout(self) -> None:
+        """Vuelve a la disposición de paneles con la que el programa se instala.
+
+        Es la salida cuando alguien arrastró un panel a un lugar del que no
+        sabe cómo sacarlo, que con nueve paneles acoplables deja de ser
+        hipotético.
+        """
+        self.restoreState(self._layout_por_defecto)
+
+    def apply_saved_layout(self) -> None:
+        """Restaura la disposición que el usuario dejó la última vez.
+
+        **Sólo la llama `create_main_window(restore_layout=True)`**, que sólo
+        llama `main.py`. Si la llamara el constructor, la suite de tests leería
+        —y después escribiría— el archivo real de quien la corre, y dejaría de
+        ser reproducible.
+
+        Prende además el guardado al cerrar: las dos cosas van juntas, porque
+        restaurar sin guardar haría que la disposición se congelara en la
+        primera que se guardó.
+
+        No eleva: una disposición que no se puede leer se descarta y la ventana
+        abre con la de fábrica.
+        """
+        self._guardar_disposicion_al_cerrar = True
+        try:
+            guardadas = preferences.load()
+        except PsgLabError:
+            return
+        if guardadas.window_state is None:
+            return
+        self.restoreState(QByteArray.fromBase64(guardadas.window_state.encode("ascii")))
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Guarda la disposición antes de cerrar, si corresponde.
+
+        Que no se pueda escribir **no puede impedir cerrar el programa**, así
+        que el error se traga: el usuario ya decidió irse y un cartel en ese
+        momento sólo estorba. La próxima vez abrirá con la disposición
+        anterior, que es un costo aceptable.
+        """
+        if self._guardar_disposicion_al_cerrar:
+            try:
+                guardadas = preferences.load()
+            except PsgLabError:
+                guardadas = preferences.Preferences()
+            estado = bytes(self.saveState().toBase64()).decode("ascii")
+            try:
+                preferences.save(guardadas.with_window_state(estado))
+            except PsgLabError:
+                pass
+        super().closeEvent(event)
 
     def set_color_scheme(self, scheme: theme.ColorScheme, remember: bool = True) -> None:
         """Cambia el esquema de color de todo el programa y lo deja repintado.

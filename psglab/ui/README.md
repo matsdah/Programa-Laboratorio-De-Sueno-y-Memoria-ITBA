@@ -12,31 +12,33 @@ registro de 400 es una regla y va en `core/`.
 ## Distribución de la ventana
 
 ```
-+--------------------------------------------------------------+
++---------------------------------------------------------------+
 |  Menú: Archivo | Sesión | Ver | Montaje | Filtrar | Analizar   |
 |        Herramientas | Configuración | Ayuda                    |
-+--------------------------------------------------------------+
-|  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
-+------------------+-------------------------------------------+
-|  Selector de     |                                           |
-|  canales         |     Visualizador de la señal (30 s)       |
-|                  |                                           |
-+------------------+-------------------------------------------+
-|  Übersicht: ventanas vecinas, la actual más oscura            |
-+--------------------------------------------------------------+
-|  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
-+--------------------------------------------------------------+
-|  Navegación: ← ventana anterior | siguiente →                 |
-+--------------------------------------------------------------+
-|  Histograma de la noche completa                              |
-+--------------------------------------------------------------+
-|  Barra de estado: ventana 42 / 960 - 00:21:00                 |
-+--------------------------------------------------------------+
++---------------------------------------------------------------+
+|  Barra de herramientas (lupa, amplitud, ocupación, anotar)     |
++----------+-----------------------------------------+----------+
+| Canales  |                                         | Espectro |
+|  (dock)  |   Visualizador de la señal (central)    | Métrica  |
+|          |                                         | ICA...   |
+|          |                                         | (solapas)|
++----------+-----------------------------------------+----------+
+|  Übersicht | Scoring | Hipnograma  (docks de abajo)            |
++---------------------------------------------------------------+
+|  Navegación: ← ventana anterior | siguiente →   (barra fija)   |
++---------------------------------------------------------------+
+|  Barra de estado: ventana 42 / 960 - 00:21:00                  |
++---------------------------------------------------------------+
 ```
 
-Es el orden en que los apila `_build_layout()`. El esquema no tenía la Übersicht
-—que agregó el hito 9— ni la barra de navegación, y un diagrama al que le faltan
-filas se lee como si esas piezas no existieran.
+**La señal es el widget central y todo lo demás es un `QDockWidget`**: se mueve,
+se apila en solapas, se cierra y se saca a otra pantalla. La disposición que
+arme el usuario se guarda y vuelve en el arranque siguiente, y «Ver ▸ Restaurar
+la disposición» devuelve la de fábrica.
+
+**La navegación no es un dock**, y es la única excepción: es la única vía de
+navegación con el mouse, así que poder cerrarla dejaría sin salida a quien no
+conoce las flechas del teclado.
 
 ## Los archivos
 
@@ -55,6 +57,7 @@ filas se lee como si esas piezas no existieran.
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. | V1_F, V2_F, V3_F de "Übersicht" |
 | `navigation.py` | Botones de ventana anterior y siguiente, y posición actual. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. | V1_F, V2_F, V3_F de "Scoring" |
+| `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas y arrancan ocultos. | — |
 | `menus.py` | **La barra de menú**: qué acción vive en qué menú. No implementa ninguna: cada una llama a un método de la ventana. | — |
 | `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los cinco esquemas de fábrica. | — |
 | `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. | — |

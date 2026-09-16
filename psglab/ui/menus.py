@@ -102,6 +102,16 @@ def _ver(window: "MainWindow") -> None:
         )
 
     ver.addSeparator()
+    # **El submenú se arma recorriendo los docks**, no con una lista escrita a
+    # mano: un panel nuevo aparece solo. `toggleViewAction()` es la acción que
+    # Qt ya mantiene sincronizada con el estado del panel, así que la tilde
+    # queda bien aunque el usuario lo cierre con la cruz.
+    paneles = ver.addMenu("&Paneles")
+    for dock in window.docks.values():
+        paneles.addAction(dock.toggleViewAction())
+    ver.addAction("&Restaurar la disposición", window.restore_default_layout)
+
+    ver.addSeparator()
     # V2_F del histograma: el pliego pide poder elegir el eje.
     window.accion_eje_en_hora = ver.addAction("Histograma en hora real de la noche")
     window.accion_eje_en_hora.setCheckable(True)
