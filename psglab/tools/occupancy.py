@@ -24,8 +24,14 @@ de la página".
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from psglab.config import DEFAULT_SCALE_UV, OCCUPANCY_COUNTS_OVERLAP_ONCE
+from psglab.config import (
+    DEFAULT_SCALE_UV,
+    OCCUPANCY_CLEARS_ON_PAN,
+    OCCUPANCY_COUNTS_OVERLAP_ONCE,
+    WINDOW_SECONDS,
+)
 from psglab.core.session import Session
+from psglab.core.viewport import Viewport
 from psglab.core.windows import seconds_to_view_fraction, view_fraction_to_seconds
 from psglab.tools.base import Overlay, SegmentOverlay, ViewerTool
 from psglab.tools.registry import register_tool
@@ -109,6 +115,10 @@ class OccupancyTool(ViewerTool):
         self._session: Session | None = None
         self._activa: bool = False
         self._lineas: list[OccupancyLine] = []
+        #: La pagina sobre la que estan ancladas las lineas de arriba. Hace
+        #: falta para poder reanclarlas: una linea vive en fracciones, asi que
+        #: llevarla a la pagina nueva necesita saber de cual viene.
+        self._vista_anterior: Viewport | None = None
         #: La que el usuario está arrastrando ahora mismo. Se dibuja, pero no
         #: cuenta para el total hasta que suelte el botón.
         self._en_curso: OccupancyLine | None = None
@@ -117,6 +127,10 @@ class OccupancyTool(ViewerTool):
         """Activa el modo de dibujo de líneas (V1_F)."""
         self._session = session
         self._activa = True
+        # La página sobre la que van a quedar ancladas las líneas que se
+        # dibujen. Sin esto, el primer cambio de vista no sabría de dónde
+        # traerlas y las borraría.
+        self._vista_anterior = session.viewport
         self.notify_changed()
 
     def deactivate(self) -> None:
@@ -182,12 +196,87 @@ class OccupancyTool(ViewerTool):
         self.notify_changed()
 
     def on_window_changed(self, window_index: int) -> None:
-        """Borra las líneas al cambiar de ventana (V5_F).
+        """Cambiar de época **ya no borra las líneas**.
 
-        Las líneas miden algo de la ventana que se estaba mirando, así que no
-        tienen sentido en la siguiente.
+        Lo hacía, y era correcto cuando la época y la página eran lo mismo: las
+        líneas medían algo de la ventana que se estaba mirando. Con la escala de
+        tiempo libre, cambiar de época puede no mover la página —con cuatro
+        horas en pantalla, la flecha derecha mueve el resaltado y nada más— y
+        borrar ahí destruiría una medición sin que el usuario vea ningún
+        cambio.
+
+        Lo que V5_F pide sigue cumpliéndose, pero por `on_view_changed()`, que
+        es donde ahora vive esa decisión.
         """
-        self.clear()
+        return None
+
+    def on_view_changed(self, viewport: Viewport) -> None:
+        """La página cambió, así que las líneas pueden haber dejado de medir.
+
+        Dos comportamientos según qué cambió, y la diferencia importa:
+
+        **Cambió la escala** —el usuario tocó el zoom—: se borran. Una línea
+        guardada como 0,2 a 0,6 de una página de 30 s no mide nada sobre una de
+        cuatro horas, y dejarla dibujada sería mostrar un porcentaje de algo que
+        ya no se está mirando. Es V5_F, leído sobre lo que ahora es "la página".
+
+        **Sólo se desplazó** —misma escala, otro comienzo—: las líneas se
+        **reanclan**. Cada extremo se pasa a segundos absolutos con la página
+        vieja y vuelve a fracción con la nueva, y se descarta la que quede
+        entera afuera. Borrar acá sería hostil: el usuario corre la vista dos
+        píxeles y pierde la medición.
+
+        El criterio lo fija `config.OCCUPANCY_CLEARS_ON_PAN`, confirmado con el
+        cliente, para que revertirlo siga siendo cambiar una línea.
+        """
+        anterior = self._vista_anterior
+        self._vista_anterior = viewport
+        if anterior is None:
+            return
+
+        cambio_la_escala = anterior.span_seconds != viewport.span_seconds
+        if cambio_la_escala or OCCUPANCY_CLEARS_ON_PAN:
+            self.clear()
+            return
+
+        self._reanclar(anterior, viewport)
+
+    def _reanclar(self, anterior: Viewport, actual: Viewport) -> None:
+        """Pasa las líneas de la página vieja a la nueva, sin moverlas.
+
+        Una línea vive en fracciones de la página, así que con otra página las
+        mismas fracciones caen en otro lugar de la señal. Se la lleva a segundos
+        absolutos y se la trae de vuelta, que es lo que la deja quieta sobre la
+        onda.
+
+        **Las que quedan enteras fuera de la pantalla se descartan**: mantener
+        una línea invisible que igual suma al porcentaje sería peor que
+        perderla, porque el total dejaría de explicarse con lo que se ve.
+        """
+        sobrevivientes: list[OccupancyLine] = []
+        for linea in self._lineas:
+            x1 = view_fraction_to_seconds(
+                linea.x1, anterior.start_seconds, anterior.span_seconds
+            )
+            x2 = view_fraction_to_seconds(
+                linea.x2, anterior.start_seconds, anterior.span_seconds
+            )
+            if max(x1, x2) < actual.start_seconds or min(x1, x2) > actual.end_seconds:
+                continue
+            sobrevivientes.append(
+                OccupancyLine(
+                    x1=seconds_to_view_fraction(
+                        x1, actual.start_seconds, actual.span_seconds
+                    ),
+                    y1=linea.y1,
+                    x2=seconds_to_view_fraction(
+                        x2, actual.start_seconds, actual.span_seconds
+                    ),
+                    y2=linea.y2,
+                )
+            )
+        self._lineas = sobrevivientes
+        self.notify_changed()
 
     def _a_fraccion(self, x_seconds: float) -> float:
         """De segundos absolutos a fracción de la **página visible**.

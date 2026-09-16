@@ -52,6 +52,7 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         "overview_panel",
         "histogram_view",
         "tool_readout",
+        "page_readout",
         # Los seis paneles de análisis y sus contenedores. **El panel y el
         # contenedor son atributos distintos a propósito**: los tests preguntan
         # por el título del contenedor y por el contenido del panel.
@@ -78,6 +79,16 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "session",
         "refresh",
         "set_color_scheme",
+        # Escala de tiempo.
+        "set_timescale",
+        "halve_timescale",
+        "double_timescale",
+        "show_whole_recording",
+        "ask_timescale",
+        "pan_view_left",
+        "pan_view_right",
+        "pan_view_page_left",
+        "pan_view_page_right",
         "restore_default_layout",
         "apply_saved_layout",
         # Archivo.

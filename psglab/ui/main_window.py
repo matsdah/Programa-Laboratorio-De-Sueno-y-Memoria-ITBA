@@ -57,7 +57,13 @@ from PySide6.QtWidgets import (
     QToolBar,
 )
 
-from psglab.config import MAX_SCALE_UV, MIN_SCALE_UV
+from psglab.config import (
+    MAX_SCALE_UV,
+    MIN_SCALE_UV,
+    MIN_VIEW_SECONDS,
+    VIEW_PAN_FRACTION,
+    VIEW_ZOOM_FACTOR,
+)
 from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import (
     Nomenclature,
@@ -138,6 +144,21 @@ _BOTONES = {
     Qt.MouseButton.RightButton: "right",
     Qt.MouseButton.MiddleButton: "middle",
 }
+
+
+def _duracion(segundos: float) -> str:
+    """Una duración escrita como la leería un investigador.
+
+    30 s, 5 min, 1 h. El separador decimal es la coma, como en todo el texto
+    que ve el usuario.
+    """
+    if segundos < 1.0:
+        return f"{segundos * 1000:g} ms".replace(".", ",")
+    if segundos < 60.0:
+        return f"{segundos:g} s".replace(".", ",")
+    if segundos < 3600.0:
+        return f"{segundos / 60:g} min".replace(".", ",")
+    return f"{segundos / 3600:g} h".replace(".", ",")
 
 
 class MainWindow(QMainWindow):
@@ -228,6 +249,10 @@ class MainWindow(QMainWindow):
         # la derecha, permanente, para que no lo pise el mensaje de navegación.
         self.tool_readout = QLabel("")
         self.statusBar().addPermanentWidget(self.tool_readout)
+        #: Cuánto dura la página visible. Va aparte del mensaje de navegación,
+        #: que habla de la época: son dos datos distintos.
+        self.page_readout = QLabel("")
+        self.statusBar().addPermanentWidget(self.page_readout)
         self.statusBar().showMessage("Sin registro abierto")
 
     def _build_menus(self) -> None:
@@ -581,6 +606,7 @@ class MainWindow(QMainWindow):
         # decisión del hito 6, y por eso acá no hay que acordarse de avisarles.
         for herramienta in self._tools.values():
             sesion.add_window_listener(herramienta.on_window_changed)
+            sesion.add_view_listener(herramienta.on_view_changed)
 
         self.signal_view.set_session(sesion)
         self.channel_selector.set_recording(registro)
@@ -686,6 +712,115 @@ class MainWindow(QMainWindow):
             f"Ventana {ventana + 1} de {sesion.n_windows}"
             + (f" — {self._clock_label(ventana)}" if self._clock_label(ventana) else "")
         )
+
+    # -- Escala de tiempo ---------------------------------------------------
+    #
+    # Todas cambian la página visible y ninguna toca la época: el scoring sigue
+    # siendo por ventana de 30 s. Las seis pasan por `Session.set_viewport()`,
+    # que es el único lugar que avisa a las herramientas.
+
+    def _cambiar_pagina(self, nueva: object) -> None:
+        """Aplica una página nueva y redibuja, o avisa si no se puede.
+
+        Está separado porque las seis operaciones de abajo hacen exactamente lo
+        mismo con una transformación distinta, y repetir el `try` en cada una
+        garantiza que alguna se olvide de atraparlo.
+        """
+        if self._session is None:
+            return
+        try:
+            self._session.set_viewport(nueva)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.signal_view.draw_viewport()
+        self._actualizar_cartel_de_pagina()
+
+    def set_timescale(self, seconds: float) -> None:
+        """Le da a la página una duración concreta, conservando el centro."""
+        if self._session is None:
+            return
+        self._cambiar_pagina(self._session.viewport.with_span(seconds))
+
+    def halve_timescale(self) -> None:
+        """Acerca: la página pasa a durar la mitad."""
+        if self._session is None:
+            return
+        self._cambiar_pagina(self._session.viewport.zoomed(1 / VIEW_ZOOM_FACTOR))
+
+    def double_timescale(self) -> None:
+        """Aleja: la página pasa a durar el doble."""
+        if self._session is None:
+            return
+        self._cambiar_pagina(self._session.viewport.zoomed(VIEW_ZOOM_FACTOR))
+
+    def show_whole_recording(self) -> None:
+        """Muestra el registro entero de una vez."""
+        if self._session is None:
+            return
+        self._cambiar_pagina(self._session.viewport.whole_recording())
+
+    def ask_timescale(self) -> None:
+        """Pregunta cuántos segundos por página. Es «Definida por el usuario…»."""
+        if self._session is None:
+            return
+        actual = self._session.viewport.span_seconds
+        valor, aceptado = QInputDialog.getDouble(
+            self,
+            "Escala de tiempo",
+            "Segundos por página:",
+            actual,
+            MIN_VIEW_SECONDS,
+            self._session.recording.duration_seconds,
+            3,
+        )
+        if aceptado:
+            self.set_timescale(valor)
+
+    def pan_view_left(self) -> None:
+        """Desplaza media página hacia atrás."""
+        self._desplazar(-VIEW_PAN_FRACTION)
+
+    def pan_view_right(self) -> None:
+        """Desplaza media página hacia adelante."""
+        self._desplazar(VIEW_PAN_FRACTION)
+
+    def pan_view_page_left(self) -> None:
+        """Desplaza una página entera hacia atrás."""
+        self._desplazar(-1.0)
+
+    def pan_view_page_right(self) -> None:
+        """Desplaza una página entera hacia adelante."""
+        self._desplazar(1.0)
+
+    def _desplazar(self, fraccion_de_pagina: float) -> None:
+        """Mueve la página esa fracción de su propio ancho.
+
+        **En fracciones y no en segundos fijos**: con una página de 200 ms un
+        salto de 15 s la sacaría del registro visible, y con una de cuatro horas
+        no se notaría. Lo que el usuario espera es avanzar "un pedazo de lo que
+        estoy viendo".
+        """
+        if self._session is None:
+            return
+        pagina = self._session.viewport
+        self._cambiar_pagina(pagina.panned(fraccion_de_pagina * pagina.span_seconds))
+
+    def _actualizar_cartel_de_pagina(self) -> None:
+        """Escribe en la barra de estado cuánto dura la página.
+
+        **La barra sigue diciendo "Ventana N de M", que habla de la época.** El
+        cartel de la página es un widget aparte: son dos datos distintos y
+        mezclarlos haría ilegible el único que el pliego pide.
+        """
+        if self._session is None:
+            self.page_readout.setText("")
+            return
+        pagina = self._session.viewport
+        if pagina.shows_whole_recording:
+            self.page_readout.setText("Página: registro entero")
+            return
+        self.page_readout.setText(f"Página: {_duracion(pagina.span_seconds)}")
 
     # -- Amplitud (V2_P, V5_F) ----------------------------------------------
     #

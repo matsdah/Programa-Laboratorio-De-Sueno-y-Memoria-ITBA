@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from psglab.config import AMPLITUDE_PRESETS_UV
+from psglab.config import AMPLITUDE_PRESETS_UV, VIEW_TIMESCALE_PRESETS
 from psglab.exporters import DEFAULT_FILENAMES
 from psglab.ui import theme
 from psglab.ui.grid import BackgroundStyle
@@ -57,6 +57,7 @@ def build_menus(window: "MainWindow") -> None:
     """
     _archivo(window)
     _sesion(window)
+    _escala_de_tiempo(window)
     _amplitud(window)
     _ver(window)
     _montaje(window)
@@ -92,6 +93,41 @@ def _sesion(window: "MainWindow") -> None:
         sesion.addAction(
             f"Exportar {nombre}…", lambda _=False, k=kind: window._export_dialog(k)
         )
+
+
+def _escala_de_tiempo(window: "MainWindow") -> None:
+    """Cuánto registro entra en la pantalla.
+
+    **Es lo único del refactor que separa dos cosas que el programa tenía
+    pegadas**: la época de scoring, que el pliego fija en 30 s y no cambia, y la
+    página visible, que ahora va de diez milisegundos al registro entero.
+
+    Las escalas ofrecidas están acotadas a polisomnografía y no son las
+    veintiocho de un visor universal: veinte de aquéllas no tienen sentido en un
+    registro de sueño, y un menú donde la mayoría no sirve obliga a buscar la
+    que sí. La época aparece en la lista como una más, que es lo que es.
+    """
+    escala = window.menuBar().addMenu("&Escala de tiempo")
+    for segundos in VIEW_TIMESCALE_PRESETS:
+        escala.addAction(
+            _pagina(segundos),
+            lambda _=False, s=segundos: window.set_timescale(s),
+        )
+    escala.addSeparator()
+    escala.addAction("&Registro entero", window.show_whole_recording)
+    escala.addAction("Definida por el &usuario…", window.ask_timescale)
+    escala.addSeparator()
+    escala.addAction("&Acercar (página ÷ 2)", window.halve_timescale)
+    escala.addAction("A&lejar (página × 2)", window.double_timescale)
+
+
+def _pagina(segundos: float) -> str:
+    """Cómo se lee una duración de página en el menú."""
+    if segundos < 60.0:
+        return f"{segundos:g} s por página".replace(".", ",")
+    if segundos < 3600.0:
+        return f"{segundos / 60:g} min por página".replace(".", ",")
+    return f"{segundos / 3600:g} h por página".replace(".", ",")
 
 
 def _amplitud(window: "MainWindow") -> None:

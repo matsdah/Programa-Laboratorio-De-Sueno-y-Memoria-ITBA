@@ -97,6 +97,30 @@ def sesion() -> Session:
 
 
 @pytest.fixture
+def sesion_larga() -> Session:
+    """Diez épocas, para poder cambiar de escala y desplazarse de verdad.
+
+    La fixture `sesion` dura exactamente una época, así que ahí cualquier zoom
+    o desplazamiento se recorta contra el registro y la página no cambia: es la
+    adecuada para todo lo demás y la equivocada para probar la página.
+    """
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("C3", ChannelKind.EEG, "µV", 0)],
+        data=np.zeros((1, 30000)),
+        sampling_rate=100.0,
+    )
+    return Session(registro, Scoring(10, Nomenclature.AASM), AnnotationSet())
+
+
+@pytest.fixture
+def herramienta_larga(sesion_larga: Session) -> OccupancyTool:
+    tool = OccupancyTool()
+    tool.activate(sesion_larga)
+    return tool
+
+
+@pytest.fixture
 def herramienta(sesion: Session) -> OccupancyTool:
     tool = OccupancyTool()
     tool.activate(sesion)
@@ -344,13 +368,71 @@ def test_el_porcentaje_de_una_linea_suelta(herramienta: OccupancyTool):
 # -- El ciclo de vida --------------------------------------------------------
 
 
-def test_cambiar_de_ventana_borra_las_lineas(herramienta: OccupancyTool):
-    """V5_F: las líneas miden algo de la ventana que se estaba mirando, así que
-    no significan nada en la siguiente."""
+def test_cambiar_la_escala_de_tiempo_borra_las_lineas(
+    herramienta_larga: OccupancyTool, sesion_larga: Session
+):
+    """**Es lo que V5_F significa desde la escala de tiempo libre.**
+
+    Una línea guardada como 0,2 a 0,6 de una página de 30 s no mide nada sobre
+    una de cuatro horas: dejarla dibujada sería mostrar un porcentaje de algo
+    que ya no se está mirando.
+    """
+    arrastrar(herramienta_larga, 0.0, 15.0)
+
+    herramienta_larga.on_view_changed(sesion_larga.viewport.zoomed(4.0))
+
+    assert herramienta_larga.lines() == []
+    assert herramienta_larga.total_percentage() == pytest.approx(0.0)
+
+
+def test_cambiar_de_epoca_sin_mover_la_pagina_conserva_las_lineas(
+    herramienta: OccupancyTool,
+):
+    """**Antes borraba, y era correcto cuando época y página eran lo mismo.**
+
+    Con la escala libre dejó de serlo: con cuatro horas en pantalla, la flecha
+    derecha mueve el resaltado de la época y no mueve nada de lo que se ve.
+    Borrar ahí destruiría una medición sin que el usuario vea ningún cambio.
+
+    Este test fija la consecuencia para que nadie la revierta creyendo que es
+    un bug.
+    """
     arrastrar(herramienta, 0.0, 15.0)
+
     herramienta.on_window_changed(1)
-    assert herramienta.lines() == []
-    assert herramienta.total_percentage() == pytest.approx(0.0)
+
+    assert len(herramienta.lines()) == 1
+
+
+def test_desplazar_la_vista_reancla_las_lineas(
+    herramienta_larga: OccupancyTool, sesion_larga: Session
+):
+    """El usuario corre la vista dos píxeles y no puede perder la medición.
+
+    La línea se lleva a segundos absolutos con la página vieja y vuelve a
+    fracción con la nueva, así que queda **quieta sobre la onda**: su fracción
+    cambia justamente para que su posición no cambie.
+    """
+    arrastrar(herramienta_larga, 0.0, 15.0)
+    ancho = herramienta_larga.lines()[0].horizontal_fraction
+
+    herramienta_larga.on_view_changed(sesion_larga.viewport.panned(7.5))
+
+    assert len(herramienta_larga.lines()) == 1
+    assert herramienta_larga.lines()[0].horizontal_fraction == pytest.approx(ancho)
+    assert herramienta_larga.lines()[0].x1 != 0.0
+
+
+def test_una_linea_que_queda_fuera_de_la_pagina_se_descarta(
+    herramienta_larga: OccupancyTool, sesion_larga: Session
+):
+    """Mantener una línea invisible que igual suma al porcentaje sería peor que
+    perderla: el total dejaría de explicarse con lo que se ve."""
+    arrastrar(herramienta_larga, 0.0, 10.0)
+
+    herramienta_larga.on_view_changed(sesion_larga.viewport.panned(270.0))
+
+    assert herramienta_larga.lines() == []
 
 
 def test_desactivarla_conserva_las_lineas(herramienta: OccupancyTool):

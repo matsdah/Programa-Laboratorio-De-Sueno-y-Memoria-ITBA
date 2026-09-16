@@ -41,6 +41,17 @@ FIXED_SHORTCUTS: Final[dict[str, str]] = {
     "A": "Marcar o desmarcar arousal",      # V2_F de "Scoring"
     "Ctrl+O": "Abrir un registro",          # "Importación de archivos"
     "Ctrl+S": "Exportar el scoring",        # V1_F de "Archivo de salida"
+    # La escala de tiempo libre, que el pliego no pide y el refactor agrega.
+    # **Las flechas solas siguen siendo la época**: son V1_F de "Navegación" y
+    # memoria muscular de quien scorea una noche entera. Reasignarlas a
+    # desplazar la vista rompería un requisito del pliego para ganar comodidad.
+    "Shift+Left": "Desplazar media página hacia atrás",
+    "Shift+Right": "Desplazar media página hacia adelante",
+    "Ctrl+Left": "Desplazar una página hacia atrás",
+    "Ctrl+Right": "Desplazar una página hacia adelante",
+    "Ctrl+-": "Alejar: página × 2",
+    "Ctrl++": "Acercar: página ÷ 2",
+    "Ctrl+0": "Mostrar el registro entero",
 }
 
 #: Qué método de la ventana principal ejecuta cada atajo fijo. Está separado de
@@ -59,6 +70,13 @@ ACTIONS: Final[dict[str, str]] = {
     "A": "toggle_arousal",
     "Ctrl+O": "open_recording_dialog",
     "Ctrl+S": "export_scoring_dialog",
+    "Shift+Left": "pan_view_left",
+    "Shift+Right": "pan_view_right",
+    "Ctrl+Left": "pan_view_page_left",
+    "Ctrl+Right": "pan_view_page_right",
+    "Ctrl+-": "double_timescale",
+    "Ctrl++": "halve_timescale",
+    "Ctrl+0": "show_whole_recording",
 }
 
 

@@ -30,6 +30,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from psglab.core.session import Session
+from psglab.core.viewport import Viewport
 
 
 @dataclass(frozen=True)
@@ -161,12 +162,26 @@ class Tool(ABC):
         """Desactiva la herramienta y limpia lo que haya dibujado."""
 
     def on_window_changed(self, window_index: int) -> None:
-        """El usuario navegó a otra ventana.
+        """El usuario navegó a otra época de scoring.
 
         No hace nada por defecto: una herramienta sobrescribe este método sólo
-        si le interesa enterarse. Hoy lo usan tres: el medidor de ocupación
-        para borrar sus líneas (V5_F), la Übersicht para recentrarse y el
-        histograma para mover su indicador.
+        si le interesa enterarse. Hoy lo usan dos: la Übersicht para recentrarse
+        y el histograma para mover su indicador.
+
+        **El medidor de ocupación lo usaba y dejó de usarlo.** Con la escala de
+        tiempo libre, cambiar de época puede no mover la página, y borrarle las
+        líneas al usuario sin que la pantalla haya cambiado sería destruir una
+        medición sin motivo visible. Ahora se entera por `on_view_changed()`.
+        """
+        return None
+
+    def on_view_changed(self, viewport: "Viewport") -> None:
+        """La página visible cambió: se desplazó o cambió la escala de tiempo.
+
+        No hace nada por defecto, igual que `on_window_changed()`. Hoy lo usa
+        una herramienta: el medidor de ocupación, que mide fracciones **de la
+        página** y cuyas líneas dejan de significar lo mismo cuando la página
+        cambia de ancho.
         """
         return None
 
