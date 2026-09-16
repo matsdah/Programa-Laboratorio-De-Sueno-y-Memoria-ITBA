@@ -60,6 +60,7 @@ RAIZ = pathlib.Path(__file__).resolve().parent.parent
 #: Al agregar un archivo de test, agregar acá su fila.
 COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_windows.py": ("psglab/core/windows.py",),
+    "test_viewport.py": ("psglab/core/viewport.py",),
     "test_errors.py": ("psglab/utils/errors.py",),
     "test_validation.py": ("psglab/utils/validation.py",),
     "test_units.py": ("psglab/utils/units.py",),
@@ -117,6 +118,18 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
         "psglab/app.py",
         "psglab/ui/main_window.py",
     ),
+    # Cubre el mismo módulo que `test_entrega.py` y no se superpone con él:
+    # aquél verifica que la ventana **haga** lo que el pliego pide, y éste
+    # **cómo se llama** lo que hace. Son dos archivos porque el segundo tiene
+    # que fallar cuando alguien renombra un panel, que es lo que el refactor de
+    # la interfaz vuelve probable.
+    "test_main_window_layout.py": ("psglab/ui/main_window.py",),
+    "test_theme.py": ("psglab/ui/theme.py",),
+    "test_preferences.py": ("psglab/ui/preferences.py",),
+    "test_menus.py": ("psglab/ui/menus.py",),
+    "test_docks.py": ("psglab/ui/docks.py",),
+    "test_icons.py": ("psglab/ui/icons.py",),
+    "test_navigation.py": ("psglab/ui/navigation.py",),
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",
@@ -1398,7 +1411,6 @@ SIN_TEST_PROPIO: frozenset[str] = frozenset(
         "psglab/app.py",
         "psglab/config.py",
         "psglab/ui/main_window.py",
-        "psglab/ui/navigation.py",
         "psglab/ui/scoring_panel.py",
         "psglab/ui/channel_selector.py",
     }

@@ -60,6 +60,29 @@ AMPLITUDE_STEP_FACTOR: Final[float] = 1.25
 MIN_SCALE_UV: Final[float] = 1.0
 MAX_SCALE_UV: Final[float] = 10_000.0
 
+#: Escalas que ofrece el menú de amplitud, en microvoltios por carril.
+#:
+#: **No las fija el pliego**: están acá porque son de la misma familia que
+#: `MIN_SCALE_UV` y `MAX_SCALE_UV`, y separarlas dejaría los límites de la
+#: amplitud repartidos en dos archivos. La lista cubre de un EEG muy
+#: amplificado a un canal de continua, que es el rango que el pliego pide
+#: soportar al no limitar por tipo de señal.
+#:
+#: **No incluye 75**, que es la banda de amplitud: ofrecerla como escala
+#: invitaría a confundir "la altura del carril representa 75 µV" con "la banda
+#: de referencia mide 75 µV", que son dos cosas distintas.
+AMPLITUDE_PRESETS_UV: Final[tuple[float, ...]] = (
+    5.0,
+    10.0,
+    20.0,
+    50.0,
+    100.0,
+    200.0,
+    500.0,
+    1000.0,
+    2000.0,
+)
+
 # --------------------------------------------------------------------------
 # Herramienta Übersicht (pliego: "Herramienta Übersicht")
 # --------------------------------------------------------------------------
@@ -137,3 +160,76 @@ SCORING_INCLUDES_NOMENCLATURE_HEADER: Final[bool] = True
 #: puede descartarla mirando este carácter, que es la convención de comentario
 #: más difundida en archivos de texto.
 SCORING_HEADER_PREFIX: Final[str] = "#"
+
+
+# --------------------------------------------------------------------------
+# Escala de tiempo libre (refactor de la interfaz)
+# --------------------------------------------------------------------------
+#
+# El pliego fija la ventana de scoring en 30 s y eso no cambia: sigue siendo la
+# unidad de `Scoring`, la base de `count_windows()`, del histograma y de la
+# Übersicht. Lo que se desacopla es **la página visible**, que pasa a poder
+# durar desde milisegundos hasta el registro entero.
+#
+# Son dos nociones distintas y conviene el vocabulario: **época** es la unidad
+# de scoring, de 30 s; **página** es lo que se está mirando.
+
+#: Página mínima, en segundos. Confirmado con el cliente: 10 ms.
+#:
+#: Por debajo de esto se dibujan menos muestras que columnas de píxeles y
+#: pyqtgraph interpola líneas rectas entre muestras. En un EEG eso **se lee
+#: como señal que no existe**: el investigador vería una recta y podría creer
+#: que el canal está plano. A 1000 Hz son diez muestras en pantalla; a 100 Hz,
+#: una sola, que ya es el límite de lo honesto.
+MIN_VIEW_SECONDS: Final[float] = 0.010
+
+#: Con qué página arranca una sesión. **Es la época del pliego**, así que al
+#: abrir un registro la pantalla es exactamente la de siempre y nadie se
+#: encuentra el programa cambiado sin haberlo pedido.
+DEFAULT_VIEW_SECONDS: Final[float] = WINDOW_SECONDS
+
+#: Cuánto multiplica o divide la página cada pulsación de "escala ×2" y "÷2".
+VIEW_ZOOM_FACTOR: Final[float] = 2.0
+
+#: Cuánto se desplaza la página con Shift+←/→, como fracción de la página.
+VIEW_PAN_FRACTION: Final[float] = 0.5
+
+#: Las páginas que ofrece el desplegable, en segundos. Confirmado con el
+#: cliente: **acotadas a polisomnografía** y no las veintiocho de un visor
+#: universal, que va de microsegundos a 48 horas.
+#:
+#: Cubren desde un huso —que dura uno o dos segundos— hasta la noche completa,
+#: pasando por la época de 30 s, que es la escala de trabajo. Veinte de las
+#: veintiocho de la referencia no tienen sentido en un registro de sueño, y un
+#: menú donde la mayoría de las entradas no sirven obliga a buscar la que sí.
+VIEW_TIMESCALE_PRESETS: Final[tuple[float, ...]] = (
+    0.2,
+    1.0,
+    5.0,
+    10.0,
+    WINDOW_SECONDS,
+    60.0,
+    300.0,
+    1800.0,
+    3600.0,
+)
+
+#: Techo de líneas de grilla y de marcas de época por serie.
+#:
+#: Sin él, una página de cuatro horas le pide 28 800 `InfiniteLine` a
+#: `ui/grid.py`: no es lento, es una pantalla negra de líneas.
+MAX_GRID_LINES: Final[int] = 400
+
+#: Por encima de esta página no se dibujan los bordes de cada época, sólo la
+#: banda de la época actual. Diez épocas es donde las marcas dejan de ubicar y
+#: empiezan a ser ruido.
+EPOCH_MARKS_MAX_SECONDS: Final[float] = 10 * WINDOW_SECONDS
+
+#: Si desplazar la vista **borra** las líneas de ocupación o las **reancla**.
+#:
+#: Confirmado con el cliente: se reanclan. V5_F pide que cambiar de ventana las
+#: borre, y se escribió cuando época y página eran lo mismo; con la página
+#: libre, cambiar la **escala** sigue borrándolas —una línea de 0,2 a 0,6 de
+#: una página de 30 s no mide nada sobre una de cuatro horas— pero desplazar
+#: dos píxeles no puede destruir una medición.
+OCCUPANCY_CLEARS_ON_PAN: Final[bool] = False

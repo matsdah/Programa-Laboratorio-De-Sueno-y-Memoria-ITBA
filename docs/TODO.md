@@ -311,7 +311,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **76 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **108 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `set_scoring()` se agregó en el hito 6, para V3_F: importar un scoring no
     es abrir otro registro, así que sustituye adentro en vez de armar otra
@@ -1148,7 +1148,7 @@ mostrarse.
     complejidad plausible y bajo, indistinguible a ojo de una medición real.
   - El eje va en **base 1**, como el histograma: desde 0 quedaría desplazado una
     ventana respecto de él.
-  - Test: `tests/test_metric_panel.py`, **14 tests en verde**.
+  - Test: `tests/test_metric_panel.py`, **16 tests en verde**.
 - [x] **`psglab/ui/connectivity_panel.py`** · el mapa de calor de la matriz
   - **La matriz es la salida real del requisito**: mostrar sólo su promedio
     diría cuánta conectividad hay pero no entre qué canales.

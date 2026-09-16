@@ -16,11 +16,7 @@ from enum import Enum
 import pyqtgraph as pg
 
 from psglab.config import COARSE_GRID_SECONDS, FINE_GRID_SECONDS
-
-#: Las dos plumas de la grilla. La fina es más clara a propósito: el pliego la
-#: llama "discreta", y una grilla que compite con la señal estorba el scoring.
-_PLUMA_VISIBLE = pg.mkPen(color=(160, 160, 160), width=1)
-_PLUMA_FINA = pg.mkPen(color=(220, 220, 220), width=1)
+from psglab.ui import theme
 
 
 def _segundos(valor: float) -> str:
@@ -41,7 +37,11 @@ class BackgroundStyle(Enum):
     seguiría prometiéndole al usuario la separación vieja.
     """
 
-    BLANK = "Fondo blanco"
+    # **Se llamaba "Fondo blanco"**, y dejó de ser cierto cuando el fondo pasó
+    # a depender del esquema de color: sobre el esquema oscuro esta opción da un
+    # fondo gris, no blanco. Lo que la opción hace es no dibujar ninguna línea,
+    # y eso es lo que ahora dice.
+    BLANK = "Sin líneas"
     COARSE = f"Líneas cada {_segundos(COARSE_GRID_SECONDS)} segundos"
     FULL = (
         f"Líneas cada {_segundos(COARSE_GRID_SECONDS)} "
@@ -100,12 +100,19 @@ class GridBackground:
         if self._style is BackgroundStyle.BLANK:
             return
 
+        # Los colores se leen **en cada redibujo** y no se guardan: así cambiar
+        # de esquema y pedir un redibujo alcanza para que la grilla cambie, sin
+        # que este objeto tenga que enterarse de nada.
+        esquema = theme.current()
+        pluma_fina = pg.mkPen(color=esquema.fine_grid, width=1)
+        pluma_visible = pg.mkPen(color=esquema.coarse_grid, width=1)
+
         # Las finas van primero para que las visibles queden encima: dibujadas
         # al revés, una línea de 3 s coincide con una de 0,5 s y la tapa la que
         # menos se tiene que ver.
         if self._style is BackgroundStyle.FULL:
-            self._dibujar_serie(window_seconds, fine_seconds, _PLUMA_FINA)
-        self._dibujar_serie(window_seconds, coarse_seconds, _PLUMA_VISIBLE)
+            self._dibujar_serie(window_seconds, fine_seconds, pluma_fina)
+        self._dibujar_serie(window_seconds, coarse_seconds, pluma_visible)
 
     def _dibujar_serie(self, window_seconds: float, cada: float, pluma: object) -> None:
         """Una línea vertical cada `cada` segundos, sin pasarse del borde.

@@ -45,6 +45,7 @@ from psglab.tools.base import (
     SegmentOverlay,
     SpanOverlay,
 )
+from psglab.ui import theme
 from psglab.ui.grid import GridBackground
 
 #: Separación vertical entre canales, en unidades del gráfico. Cada canal ocupa
@@ -67,6 +68,7 @@ class SignalView(pg.PlotWidget):
         self._window_index: int = 0
         self._curves: dict[str, pg.PlotDataItem] = {}
         self._labels: list[pg.TextItem] = []
+        self._baselines: list[pg.InfiniteLine] = []
         self._overlay_items: list[object] = []
         self._visible: list[str] = []
 
@@ -77,6 +79,7 @@ class SignalView(pg.PlotWidget):
         item.hideAxis("left")
         item.setLabel("bottom", "Segundos de la ventana")
         self.grid = GridBackground(item)
+        self.apply_scheme()
 
     @property
     def session(self) -> Session | None:
@@ -114,9 +117,15 @@ class SignalView(pg.PlotWidget):
             tramo = registro.get_segment(inicio, fin, [nombre])[0]
             tiempos = np.arange(len(tramo)) / frecuencia
             escala = self._session.scale_uv(nombre)
+            # **El desplazamiento se resta antes de escalar**, no después: es
+            # lo que hace que un canal con la línea de base lejos del cero
+            # —un termómetro, un canal de continua corrido— se pueda traer al
+            # centro de su carril sin achicar la señal hasta perderla.
+            desplazamiento = self._session.offset_uv(nombre)
             centro = -posicion * _ALTO_DE_CARRIL
             self._curves[nombre].setData(
-                tiempos, centro + (tramo / escala) * _LLENADO_DEL_CARRIL
+                tiempos,
+                centro + ((tramo - desplazamiento) / escala) * _LLENADO_DEL_CARRIL,
             )
         self.update_amplitude_scale()
 
@@ -125,6 +134,34 @@ class SignalView(pg.PlotWidget):
         if self._session is None:
             return
         self.show_window(self._session.current_window)
+
+    def apply_scheme(self) -> None:
+        """Vuelve a pintar todo con el esquema de color que esté en uso.
+
+        Se la llama al construir el visualizador y cada vez que el usuario
+        elige otro esquema. Hace falta un método explícito porque
+        `pg.setConfigOption()` sólo alcanza a los `PlotWidget` que se creen
+        después: los que ya existen se quedan con el fondo con el que nacieron.
+
+        Las curvas se vuelven a crear en vez de repintarse porque la pluma de un
+        `PlotDataItem` no se cambia sin volver a pedirla, y rehacerlas es más
+        corto que recorrerlas —son unas pocas decenas, y esto ocurre cuando el
+        usuario elige un esquema, no en el camino caliente de la flecha—.
+        """
+        esquema = theme.current()
+        self.setBackground(esquema.background)
+
+        item = self.getPlotItem()
+        pluma = pg.mkPen(esquema.foreground)
+        for nombre_de_eje in ("bottom", "left", "top", "right"):
+            eje = item.getAxis(nombre_de_eje)
+            eje.setPen(pluma)
+            eje.setTextPen(pluma)
+
+        # Sin canales no hay nada que rehacer, y forzar un redibujo acá dejaría
+        # la grilla dibujada sobre un visualizador vacío, que hoy no la tiene.
+        if self._visible:
+            self.set_visible_channels(self._visible)
 
     # -- Lo que dibujan las herramientas ------------------------------------
 
@@ -268,7 +305,8 @@ class SignalView(pg.PlotWidget):
         """
         if self._session is None or channel_name is None:
             return microvoltios
-        return (microvoltios / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
+        desplazado = microvoltios - self._session.offset_uv(channel_name)
+        return (desplazado / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
 
     # -- Canales (V3_P, V4_F) ----------------------------------------------
 
@@ -282,14 +320,39 @@ class SignalView(pg.PlotWidget):
         self._curves.clear()
         self._labels.clear()
 
+        for linea in self._baselines:
+            item.removeItem(linea)
+        self._baselines.clear()
+
+        esquema = theme.current()
         self._visible = list(channel_names)
         for posicion, nombre in enumerate(self._visible):
-            curva = pg.PlotDataItem()
+            color = esquema.color_for_channel(posicion)
+            centro = -posicion * _ALTO_DE_CARRIL
+
+            # La línea de cero va primero para que quede **debajo** de la señal:
+            # dibujada después, un canal plano se confundiría con su propia
+            # referencia.
+            if esquema.baseline is not None:
+                base = pg.InfiniteLine(
+                    pos=centro, angle=0, pen=pg.mkPen(esquema.baseline, width=1)
+                )
+                item.addItem(base)
+                self._baselines.append(base)
+
+            # **Antes no se pedía ninguna pluma**, así que pyqtgraph usaba la
+            # suya: todos los canales salían del mismo gris claro y con ocho
+            # apilados no se distinguía uno de otro.
+            curva = pg.PlotDataItem(pen=pg.mkPen(color, width=1))
             item.addItem(curva)
             self._curves[nombre] = curva
 
-            etiqueta = pg.TextItem(self.channel_label(nombre), anchor=(0, 0.5))
-            etiqueta.setPos(0.0, -posicion * _ALTO_DE_CARRIL)
+            # El ancla cambió de `0.5` a `1.0`: la etiqueta se dibujaba centrada
+            # sobre el eje del canal, o sea encima de la señal. Ahora se apoya
+            # justo arriba, como en la referencia, y toma el color del canal
+            # para que se sepa cuál es sin contar carriles.
+            etiqueta = pg.TextItem(self.channel_label(nombre), anchor=(0, 1.0), color=color)
+            etiqueta.setPos(0.0, centro)
             item.addItem(etiqueta)
             self._labels.append(etiqueta)
 
@@ -434,7 +497,8 @@ class SignalView(pg.PlotWidget):
         """
         if self._session is None or channel_name is None:
             return carriles
-        return (carriles / _LLENADO_DEL_CARRIL) * self._session.scale_uv(channel_name)
+        en_uv = (carriles / _LLENADO_DEL_CARRIL) * self._session.scale_uv(channel_name)
+        return en_uv + self._session.offset_uv(channel_name)
 
     def window_fraction_at_pixel(self, x_pixel: float) -> float:
         """Posición dentro de la ventana, de 0 (inicio) a 1 (final).

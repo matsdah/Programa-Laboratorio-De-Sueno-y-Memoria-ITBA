@@ -672,12 +672,41 @@ def elige_canal(monkeypatch):
     return fijar
 
 
-def test_el_menu_analisis_existe(ventana: MainWindow):
-    """Estaba dibujado en el esquema de la ventana y no existía: `_build_menus`
-    creaba cuatro menús."""
-    menus = [accion.text() for accion in ventana.menuBar().actions()]
+def test_cada_analisis_tiene_camino_desde_la_barra_de_menu(ventana: MainWindow):
+    """Antes se llamaba `test_el_menu_analisis_existe` y miraba que hubiera un
+    menú llamado "&Análisis". Ese menú se repartió en el refactor de la interfaz
+    —el montaje, el filtrado y la medición son tres familias distintas— así que
+    afirmar sobre su nombre dejó de decir nada.
 
-    assert "&Análisis" in menus
+    **Lo que ese test protegía sigue protegido, y mejor**: que cada análisis de
+    la Parte 2 sea alcanzable desde la ventana. Es la lección del hito 9, y
+    ahora se verifica por la acción y no por el rótulo del menú que la contiene.
+    """
+    acciones = {
+        accion.text()
+        for menu in ventana.menuBar().actions()
+        if menu.menu() is not None
+        for accion in menu.menu().actions()
+    }
+
+    faltantes = [
+        esperada
+        for esperada in (
+            "&Impedancia de los electrodos…",
+            "&Filtros por clase de canal…",
+            "Componentes &independientes (ICA)…",
+            "&Derivar canales…",
+            "&Re-referenciar…",
+            "Referencia &promedio (EEG)",
+            "&Espectro de la ventana…",
+            "&Complejidad de la noche…",
+            "Conectividad de la &ventana…",
+            "&Volver a la señal original",
+        )
+        if esperada not in acciones
+    ]
+
+    assert faltantes == []
 
 
 def test_derivar_desde_el_menu_agrega_el_canal(ventana: MainWindow, elige_canal):

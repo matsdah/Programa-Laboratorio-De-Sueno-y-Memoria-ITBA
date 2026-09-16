@@ -61,6 +61,7 @@ from psglab.analysis import (
     reference,
 )
 from psglab.core.session import Session
+from psglab.core.viewport import Viewport
 from psglab.utils import units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
 
@@ -108,6 +109,11 @@ def anotaciones() -> AnnotationSet:
 #:
 #: **Al agregar un método público a un módulo implementado hay que agregar su
 #: fila**, o `test_consistencia.py` hace fallar la suite.
+def pagina() -> Viewport:
+    """Una página de una época sobre una hora de registro."""
+    return Viewport.clamped(0.0, 30.0, 3600.0)
+
+
 CONTRATOS: dict[str, list[tuple[str, object]]] = {
     "psglab/core/recording.py": [
         ("Recording(data=...)", lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0)], v, 100.0)),
@@ -151,6 +157,23 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("in_range(start_sample=...)", lambda v: anotaciones().in_range(v, 100)),
         ("in_range(stop_sample=...)", lambda v: anotaciones().in_range(0, v)),
     ],
+    "psglab/core/viewport.py": [
+        ("Viewport(start=...)", lambda v: Viewport(v, 30.0, 3600.0)),
+        ("Viewport(span=...)", lambda v: Viewport(0.0, v, 3600.0)),
+        ("Viewport(duration=...)", lambda v: Viewport(0.0, 30.0, v)),
+        ("Viewport.clamped(start=...)", lambda v: Viewport.clamped(v, 30.0, 3600.0)),
+        ("Viewport.clamped(span=...)", lambda v: Viewport.clamped(0.0, v, 3600.0)),
+        ("Viewport.clamped(duration=...)", lambda v: Viewport.clamped(0.0, 30.0, v)),
+        ("with_span", lambda v: pagina().with_span(v)),
+        ("with_start", lambda v: pagina().with_start(v)),
+        ("with_center", lambda v: pagina().with_center(v)),
+        ("zoomed", lambda v: pagina().zoomed(v)),
+        ("panned", lambda v: pagina().panned(v)),
+        ("for_duration", lambda v: pagina().for_duration(v)),
+        ("containing(start=...)", lambda v: pagina().containing(v, 10.0)),
+        ("containing(end=...)", lambda v: pagina().containing(0.0, v)),
+        ("replaced", lambda v: pagina().replaced(span_seconds=v)),
+    ],
     "psglab/core/session.py": [
         ("Session(recording=...)", lambda v: Session(v, Scoring(1, Nomenclature.AASM), AnnotationSet())),
         ("Session(scoring=...)", lambda v: Session(registro(), v, AnnotationSet())),
@@ -159,12 +182,19 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("go_to_window", lambda v: sesion().go_to_window(v)),
         ("scale_uv", lambda v: sesion().scale_uv(v)),
         ("set_scale_uv(scale=...)", lambda v: sesion().set_scale_uv("C0", v)),
+        ("offset_uv", lambda v: sesion().offset_uv(v)),
+        ("set_offset_uv(channel=...)", lambda v: sesion().set_offset_uv(v, 0.0)),
+        ("set_offset_uv(offset=...)", lambda v: sesion().set_offset_uv("C0", v)),
+        ("center_offsets", lambda v: sesion().center_offsets(v)),
+        ("fit_to_pane", lambda v: sesion().fit_to_pane(v)),
         ("set_visible_channels", lambda v: sesion().set_visible_channels([v])),
         ("set_selected_channels", lambda v: sesion().set_selected_channels([v])),
         ("increase_amplitude(factor=...)", lambda v: sesion().increase_amplitude(v)),
         ("decrease_amplitude(factor=...)", lambda v: sesion().decrease_amplitude(v)),
         ("set_active_tool", lambda v: sesion().set_active_tool(v)),
         ("add_window_listener", lambda v: sesion().add_window_listener(v)),
+        ("set_viewport", lambda v: sesion().set_viewport(v)),
+        ("add_view_listener", lambda v: sesion().add_view_listener(v)),
         ("set_scoring", lambda v: sesion().set_scoring(v)),
         ("set_recording", lambda v: sesion().set_recording(v)),
     ],

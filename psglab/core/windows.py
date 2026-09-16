@@ -70,11 +70,26 @@ def _samples_per_window(sampling_rate: float, window_seconds: float) -> float:
             como un `ValueError` de numpy al convertir a entero. El mismo
             descuido estaba copiado en `core/recording.py`.
     """
+    _check_sampling_rate(sampling_rate)
+    return window_seconds * sampling_rate
+
+
+def _check_sampling_rate(sampling_rate: float) -> None:
+    """Rechaza una frecuencia con la que no se puede convertir nada.
+
+    Estaba adentro de `_samples_per_window()`, que era el único lugar del módulo
+    que miraba la frecuencia. **Dejó de serlo** con las conversiones absolutas
+    de la página libre, que no pasan por las ventanas: sin extraerla, aquéllas
+    habrían devuelto `inf` o `nan` en silencio con una frecuencia corrupta, que
+    es justo lo que el docstring del módulo promete que no pasa.
+
+    Raises:
+        ZeroDivisionError: si la frecuencia no es un número finito y positivo.
+    """
     if not math.isfinite(sampling_rate) or sampling_rate <= 0:
         raise ZeroDivisionError(
             f"la frecuencia de muestreo tiene que ser finita y positiva, y es {sampling_rate}"
         )
-    return window_seconds * sampling_rate
 
 
 def count_windows(
@@ -257,3 +272,155 @@ def window_duration(
     if last_sample <= start:
         return timedelta(0)
     return timedelta(seconds=(last_sample - start) / sampling_rate)
+
+
+# -- Escala de tiempo libre --------------------------------------------------
+#
+# Las siete de abajo son las conversiones que necesita la **página visible**,
+# que desde el refactor de la interfaz ya no coincide con la época de scoring.
+#
+# Todas trabajan en **segundos absolutos desde el inicio del registro**, que es
+# el sistema que las dos nociones comparten. El contrato de coordenadas de
+# `ViewerTool` pasó a ser ése, y con eso desaparece la conversión más delicada
+# del módulo: `seconds_to_sample()` existe porque sumar un offset sobre el borde
+# de una época se escapa a la siguiente —240 de 960 ventanas fallaban a
+# 256,125 Hz— y sin borde de época en la cuenta esa deriva es imposible.
+
+
+def seconds_to_sample_absolute(seconds: float, sampling_rate: float) -> int:
+    """De segundos desde el inicio del registro a la muestra que les toca.
+
+    Es lo que usa el anotador con la página libre. Como no hay borde de época
+    sobre el que sumar, **la deriva que documenta `seconds_to_sample()` no puede
+    existir**: no hay dos redondeos que discrepen, hay uno.
+
+    Raises:
+        ZeroDivisionError: si la frecuencia no es finita y positiva.
+    """
+    _check_sampling_rate(sampling_rate)
+    return int(seconds * sampling_rate)
+
+
+def sample_to_seconds_absolute(sample: int, sampling_rate: float) -> float:
+    """La inversa: en qué segundo del registro cae una muestra.
+
+    La usa el anotador para dibujar una anotación ya guardada.
+
+    Raises:
+        ZeroDivisionError: si la frecuencia no es finita y positiva.
+    """
+    _check_sampling_rate(sampling_rate)
+    return sample / sampling_rate
+
+
+def seconds_to_samples(
+    start_seconds: float,
+    end_seconds: float,
+    sampling_rate: float,
+    n_samples: int,
+) -> tuple[int, int]:
+    """Rango de muestras de un tramo, recortado contra el registro.
+
+    Es el `window_to_samples()` de la página libre: lo que el visualizador le
+    pide a `Recording.get_segment()` para dibujar lo que se está mirando.
+
+    **Recorta contra `[0, n_samples]` a propósito.** `get_segment()` rechaza un
+    `start_sample` negativo porque numpy lo leería como "desde el final" y
+    devolvería señal del amanecer presentada como si fuera del principio. Con la
+    página libre eso deja de ser hipotético: desplazarse hacia atrás en el
+    primer minuto produce comienzos negativos todo el tiempo.
+
+    Returns:
+        Tupla (primera muestra incluida, primera muestra excluida), con
+        `inicio <= fin` garantizado.
+
+    Raises:
+        ZeroDivisionError: si la frecuencia no es finita y positiva.
+    """
+    _check_sampling_rate(sampling_rate)
+    inicio = max(0, min(int(start_seconds * sampling_rate), n_samples))
+    fin = max(inicio, min(int(end_seconds * sampling_rate), n_samples))
+    return inicio, fin
+
+
+def seconds_to_view_fraction(
+    seconds: float,
+    view_start_seconds: float,
+    view_span_seconds: float,
+) -> float:
+    """De segundos absolutos a fracción de la página visible (0 a 1).
+
+    Reemplaza a `seconds_to_window_fraction()` en el medidor de ocupación: el
+    ancho contra el que se mide ya no son los 30 s del pliego sino la página,
+    que el usuario elige. Sin esta función la ocupación informaría **30 000 %**
+    sobre una página de una hora, que es el mismo error que su docstring viene
+    señalando, dos órdenes de magnitud más arriba.
+
+    Recibe los dos números y no un `Viewport` para que este módulo no dependa de
+    `core/viewport.py`: la flecha va en la otra dirección.
+
+    Raises:
+        ZeroDivisionError: si la página no tiene ancho. `Viewport` la rechaza al
+            construirse, así que llegar acá con un cero es un error de quien
+            llama y no del usuario.
+    """
+    return (seconds - view_start_seconds) / view_span_seconds
+
+
+def view_fraction_to_seconds(
+    fraction: float,
+    view_start_seconds: float,
+    view_span_seconds: float,
+) -> float:
+    """La inversa de `seconds_to_view_fraction()`."""
+    return view_start_seconds + fraction * view_span_seconds
+
+
+def epoch_to_seconds(
+    window_index: int,
+    sampling_rate: float,
+    window_seconds: float = WINDOW_SECONDS,
+) -> tuple[float, float]:
+    """Los segundos absolutos que abarca una época de scoring.
+
+    Lo necesitan el visualizador, para resaltar la época actual sobre una página
+    que puede mostrar 480, y `Session`, para saber si la época ya está dentro de
+    la página y no mover la pantalla al navegar.
+
+    **Sale de `window_to_samples()` dividido por la frecuencia, y no de
+    `window_index * window_seconds`.** Con 256,125 Hz los dos difieren, y el
+    resaltado tiene que caer exactamente sobre las muestras que `Scoring`
+    scorea: una banda corrida tres segundos le haría scorear al usuario una
+    época distinta de la que está mirando.
+
+    Returns:
+        Tupla (primer segundo incluido, primer segundo excluido).
+
+    Raises:
+        ZeroDivisionError: si la frecuencia no es finita y positiva.
+    """
+    inicio, fin = window_to_samples(window_index, sampling_rate, window_seconds)
+    return inicio / sampling_rate, fin / sampling_rate
+
+
+def seconds_to_epoch_offset(
+    seconds: float,
+    sampling_rate: float,
+    window_seconds: float = WINDOW_SECONDS,
+) -> tuple[int, float]:
+    """En qué época cae un segundo absoluto, y a qué altura de ella.
+
+    Es el puente de vuelta: cualquiera que reciba segundos absolutos y necesite
+    hablar en términos de la época pregunta acá **y no escribe `seconds % 30`**,
+    que es exactamente la cuenta que este módulo entero existe para impedir.
+
+    Returns:
+        Tupla (índice de época base 0, segundos desde su inicio).
+
+    Raises:
+        ZeroDivisionError: si la frecuencia no es finita y positiva.
+    """
+    muestra = seconds_to_sample_absolute(seconds, sampling_rate)
+    epoca = sample_to_window(muestra, sampling_rate, window_seconds)
+    inicio, _ = window_to_samples(epoca, sampling_rate, window_seconds)
+    return epoca, (muestra - inicio) / sampling_rate

@@ -12,30 +12,33 @@ registro de 400 es una regla y va en `core/`.
 ## Distribución de la ventana
 
 ```
-+--------------------------------------------------------------+
-|  Menú: Archivo | Ver | Herramientas | Análisis | Ayuda        |
-+--------------------------------------------------------------+
-|  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
-+------------------+-------------------------------------------+
-|  Selector de     |                                           |
-|  canales         |     Visualizador de la señal (30 s)       |
-|                  |                                           |
-+------------------+-------------------------------------------+
-|  Übersicht: ventanas vecinas, la actual más oscura            |
-+--------------------------------------------------------------+
-|  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
-+--------------------------------------------------------------+
-|  Navegación: ← ventana anterior | siguiente →                 |
-+--------------------------------------------------------------+
-|  Histograma de la noche completa                              |
-+--------------------------------------------------------------+
-|  Barra de estado: ventana 42 / 960 - 00:21:00                 |
-+--------------------------------------------------------------+
++---------------------------------------------------------------+
+|  Menú: Archivo | Sesión | Ver | Montaje | Filtrar | Analizar   |
+|        Herramientas | Configuración | Ayuda                    |
++---------------------------------------------------------------+
+|  Barra de herramientas (lupa, amplitud, ocupación, anotar)     |
++----------+-----------------------------------------+----------+
+| Canales  |                                         | Espectro |
+|  (dock)  |   Visualizador de la señal (central)    | Métrica  |
+|          |                                         | ICA...   |
+|          |                                         | (solapas)|
++----------+-----------------------------------------+----------+
+|  Übersicht | Scoring | Hipnograma  (docks de abajo)            |
++---------------------------------------------------------------+
+|  Navegación: ← ventana anterior | siguiente →   (barra fija)   |
++---------------------------------------------------------------+
+|  Barra de estado: ventana 42 / 960 - 00:21:00                  |
++---------------------------------------------------------------+
 ```
 
-Es el orden en que los apila `_build_layout()`. El esquema no tenía la Übersicht
-—que agregó el hito 9— ni la barra de navegación, y un diagrama al que le faltan
-filas se lee como si esas piezas no existieran.
+**La señal es el widget central y todo lo demás es un `QDockWidget`**: se mueve,
+se apila en solapas, se cierra y se saca a otra pantalla. La disposición que
+arme el usuario se guarda y vuelve en el arranque siguiente, y «Ver ▸ Restaurar
+la disposición» devuelve la de fábrica.
+
+**La navegación no es un dock**, y es la única excepción: es la única vía de
+navegación con el mouse, así que poder cerrarla dejaría sin salida a quien no
+conoce las flechas del teclado.
 
 ## Los archivos
 
@@ -52,8 +55,13 @@ filas se lee como si esas piezas no existieran.
 | `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
 | `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. | V1_F de "PSD" |
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. | V1_F, V2_F, V3_F de "Übersicht" |
-| `navigation.py` | Botones de ventana anterior y siguiente, y posición actual. | V1_F de "Navegación" |
+| `navigation.py` | La barra inferior: saltos a la primera y la última ventana, control de amplitud, y una franja que muestra dónde cae la ventana en la noche y deja saltar con un clic. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. | V1_F, V2_F, V3_F de "Scoring" |
+| `icons.py` | Los iconos de la barra, dibujados con `QPainterPath`. **No hay ningún archivo de icono en el repositorio**, y es una decisión de licencia. | — |
+| `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas y arrancan ocultos. | — |
+| `menus.py` | **La barra de menú**: qué acción vive en qué menú. No implementa ninguna: cada una llama a un método de la ventana. | — |
+| `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los cinco esquemas de fábrica. | — |
+| `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. | — |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
 
 ## `main_window.py` conecta, no implementa
@@ -98,8 +106,10 @@ La grilla está separada de `SignalView` porque **cambia por motivos distintos**
 la grilla depende de la preferencia visual del usuario, las curvas dependen de
 los datos.
 
-Tres fondos elegibles (`BackgroundStyle`, V2_F): blanco, sólo las líneas de 3
-segundos, o las dos densidades juntas (3 s y 0,5 s).
+Tres fondos elegibles (`BackgroundStyle`, V2_F): sin líneas, sólo las de 3
+segundos, o las dos densidades juntas (3 s y 0,5 s). **El primero se llamaba
+"fondo blanco"** y dejó de ser cierto cuando el color pasó a depender del
+esquema elegido: lo que esa opción hace es no dibujar ninguna línea.
 
 ## Por qué PySide6 y por qué pyqtgraph
 
@@ -115,6 +125,12 @@ figuras de publicación y demasiado lento para lo que hace este programa:
 redibujar decenas de canales a cientos de hercios cada vez que el usuario aprieta
 una flecha. Medio segundo de demora por ventana, multiplicado por las cientos de
 ventanas de una noche, vuelve el programa inusable.
+
+**Ese umbral se midió en el refactor de la interfaz**, después de usarse como
+supuesto desde el hito 6: el peor caso real —64 canales a 1000 Hz— tarda 92 ms,
+cinco veces por debajo. Las tablas están en
+[`docs/ARQUITECTURA.md`](../../docs/ARQUITECTURA.md). La conclusión práctica es
+que **el dibujo de la ventana de 30 s no hay que optimizarlo**.
 
 ## Estado
 
@@ -151,6 +167,12 @@ que son justo donde algo se rompe en silencio:
 - Los cuatro conversores de `signal_view.py` son el **único** lugar del programa
   que traduce entre píxeles, segundos, fracción de ventana y muestras.
   Confundirlos produce números plausibles y equivocados.
+
+**Se volvió a acotar con el refactor de la interfaz**, y por el mismo criterio:
+`theme.py` y `preferences.py` tampoco dibujan. El primero es un valor inmutable
+con una regla de ciclado, y el segundo es leer y escribir un archivo —donde lo
+que importa no es el color sino que **un archivo roto no impida arrancar**—.
+Los dos se testean sin `QApplication`.
 
 Ésos se testean, con una `QApplication` sin pantalla cuando hace falta. El resto
 —el dibujo— sigue sin testear, y esa parte de la regla no cambió.

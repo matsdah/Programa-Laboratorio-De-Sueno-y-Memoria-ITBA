@@ -303,6 +303,55 @@ hace. Si algún día se revisa, hay que volver a medir esto primero.
 
 ---
 
+### Cuánto tarda dibujar la señal — medido el 15 de septiembre de 2026
+
+La justificación de pyqtgraph decía "medio segundo de demora por ventana vuelve
+el programa inusable", y ese umbral se usó durante todo el proyecto **sin que
+nadie midiera contra qué**. Se midió al abrir el refactor de la interfaz, porque
+la escala de tiempo libre se diseñaba a ciegas sin este número.
+
+`SignalView.show_window()` sobre señal sintética, ventana de 1600 × 900,
+promedio de doce redibujos después del primero:
+
+| Canales | 100 Hz | 256 Hz | 1000 Hz |
+|---|---|---|---|
+| 4 | 17,6 ms | 20,2 ms | 47,8 ms |
+| 8 | 18,8 ms | 40,0 ms | 51,0 ms |
+| 16 | 19,7 ms | 47,5 ms | 58,2 ms |
+| 32 | 22,8 ms | 56,4 ms | 69,9 ms |
+| 64 | 28,3 ms | 56,8 ms | 92,2 ms |
+
+**El dibujo de una ventana no es un cuello de botella.** El peor caso —64
+canales a 1000 Hz, más de lo que usa el laboratorio— tarda 92 ms, cinco veces
+por debajo del umbral. La decisión de pyqtgraph se sostiene con margen, y
+**ninguna optimización del dibujo de la ventana de 30 s está justificada hoy**.
+
+Lo que sí es un problema aparece al soltar la escala de tiempo. Con la página
+libre, "registro entero" son ocho horas a 1000 Hz, o sea **28,8 millones de
+muestras por canal**:
+
+| Puntos por curva | `setData` de una curva |
+|---|---|
+| 3 000 (una ventana a 100 Hz) | 0,4 ms |
+| 300 000 | 0,8 ms |
+| 1 000 000 | 3,0 ms |
+| 3 000 000 | 10,2 ms |
+
+El tiempo crece linealmente y sería tolerable. **El que no lo es es la
+memoria**: una pantalla de 32 canales sin decimar son **6,9 GB** de `float64`,
+que no es lento sino imposible. Por eso la decimación no es una optimización
+sino un requisito de la escala libre, y por eso es min/max por columna de
+píxeles y no un submuestreo: en polisomnografía el pico *es* el dato.
+
+Dos advertencias sobre estos números, para quien los vuelva a medir:
+
+- Se tomaron con `QT_QPA_PLATFORM=offscreen`. El costo de composición real de
+  la pantalla no está incluido, así que son **un piso, no un techo**.
+- `setData` de pyqtgraph es perezoso: parte del trabajo se difiere al repintado.
+  La segunda tabla mide entregar los datos, no verlos.
+
+---
+
 ## Convenciones de código
 
 - **La API pública y los nombres de archivo, en inglés**; comentarios,

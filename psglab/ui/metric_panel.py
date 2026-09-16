@@ -29,8 +29,22 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6.QtWidgets import QWidget
 
-#: Color de la curva. No sale de `config.py` porque el pliego no fija ninguno.
-_COLOR = "#4a90e6"
+from psglab.ui import theme
+
+
+def _color_de_serie(posicion: int) -> str:
+    """El color que le toca a la serie dibujada en esa posición.
+
+    Sale del esquema de color en uso, así que el mismo canal se ve del mismo
+    color acá y en el visualizador.
+
+    **Antes había un solo color** y las curvas de la segunda en adelante se
+    pedían con `mkPen(None, width=2)`, que en pyqtgraph no es "el color por
+    omisión" sino `NoPen`: la curva se agregaba a la leyenda y no se dibujaba.
+    Pedir la complejidad de tres canales mostraba uno, y los otros dos parecían
+    no haberse calculado.
+    """
+    return theme.current().color_for_channel(posicion)
 
 
 class MetricPanel(pg.PlotWidget):
@@ -84,7 +98,7 @@ class MetricPanel(pg.PlotWidget):
                 # de unir la curva por encima de ellos, que sugeriría una
                 # continuidad que no se midió.
                 connect="finite",
-                pen=pg.mkPen(_COLOR if posicion == 0 else None, width=2),
+                pen=pg.mkPen(_color_de_serie(posicion), width=2),
                 name=nombre,
             )
             self._curvas[nombre] = curva

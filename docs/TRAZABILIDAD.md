@@ -135,11 +135,13 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos ocho se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos catorce se rompen hacia todos lados.
 
-Siete de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Trece de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
-`tools/base.py`, `tools/registry.py`, `app.py` y `analysis/mne_bridge.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
+`core/viewport.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
+`ui/theme.py` y `ui/preferences.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -153,6 +155,12 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/tools/registry.py` | Registro enchufable de herramientas | La barra de herramientas entera |
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |
 | `psglab/analysis/mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw`, y la escala volts ↔ µV | Filtrado, ICA y re-referenciado |
+| `psglab/core/viewport.py` | La página visible, separada de la época de scoring | La escala de tiempo y todo lo que se dibuja |
+| `psglab/ui/docks.py` | La disposición de los paneles alrededor de la señal | Dónde aparece cada panel |
+| `psglab/ui/icons.py` | Los iconos de la barra, dibujados por el programa | La barra de navegación |
+| `psglab/ui/menus.py` | La barra de menú y qué acción vive en cada uno | Cómo se llega a cada funcionalidad |
+| `psglab/ui/theme.py` | Los esquemas de color: qué color tiene cada cosa que se dibuja | Todo lo que la interfaz pinta |
+| `psglab/ui/preferences.py` | Lo que el programa recuerda entre sesiones | El esquema con el que arranca |
 
 ---
 
