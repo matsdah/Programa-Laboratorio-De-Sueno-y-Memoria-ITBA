@@ -148,6 +148,10 @@ python -m pytest tests/test_scoring.py::test_el_arousal_es_independiente_de_la_f
 python -m pytest -rs
 ```
 
+**La suite completa tarda varios minutos**, sobre todo por `test_entrega.py`, que
+arma una ventana por test. Conviene correrla en segundo plano y **sin otra
+corrida de pytest en paralelo**: superpuestas, el tiempo casi se triplicó.
+
 En la consola de Windows los acentos de los mensajes salen como mojibake
 (`configuraci�n`) por la codepage cp1252. Es cosmético y no un bug del código:
 todo el texto que ve el usuario está en español y los archivos son UTF-8.
@@ -216,9 +220,10 @@ rechazar antes de dar por terminado un cambio:
 - Todo módulo tiene test, figura en `SIN_TEST_PROPIO` o el TODO promete el suyo
   **por nombre de archivo**. Un módulo nuevo sin ninguna de las tres cosas hace
   fallar la suite. La exención **no es `ui/` entero**: son `app.py`, `config.py`
-  y cuatro módulos de `ui/` —`main_window.py`, `navigation.py`,
-  `scoring_panel.py` y `channel_selector.py`—. Los demás panels tienen test
-  propio, así que agregar uno sin test rompe la suite.
+  y tres módulos de `ui/` —`main_window.py`, `scoring_panel.py` y
+  `channel_selector.py`—. `navigation.py` salió de la lista cuando ganó la franja
+  de posición, que traduce un clic a una ventana. Los demás módulos de `ui/`
+  tienen test propio, así que agregar uno sin test rompe la suite.
 - Todo método público de `core/`, `utils/` y `analysis/` que reciba argumentos
   tiene su fila en `CONTRATOS` de `tests/test_contratos.py`, o figura en
   `SIN_CONTRATO` con el motivo. Son las tres capas donde vive la regla de
@@ -340,16 +345,23 @@ en `core/`.
 
 `psglab/core/session.py` (`Session`) es el estado central: qué registro está
 abierto, su scoring y anotaciones, en qué ventana está parado el usuario, qué
-canales ve y con qué amplitud. La interfaz lo consulta para dibujarse y lo
-modifica ante cada acción.
+tramo está mirando, qué canales ve y con qué escala y desplazamiento vertical
+cada uno. La interfaz lo consulta para dibujarse y lo modifica ante cada acción.
+
+**Avisa de dos cambios y de nada más**: el de época, por
+`add_window_listener()`, y el de página visible, por `add_view_listener()`. Todo
+lo demás —scoring, amplitud, canales— la interfaz tiene que repreguntarlo y
+repintarlo por su cuenta.
 
 **Dos puntos de extensión.** Agregar funcionalidad no debe obligar a tocar
 `main.py`, la ventana principal ni ningún archivo existente:
 
 - **Herramienta** — crear el archivo en `psglab/tools/`, heredar de
-  `ViewerTool` (actúa con el mouse sobre la señal; coordenadas en segundos
-  desde el inicio de la ventana y en µV) o de `Tool` (panel con su propio
-  sistema de coordenadas, como el histograma), y decorar con `@register_tool`.
+  `ViewerTool` (actúa con el mouse sobre la señal; `x` en **segundos desde el
+  inicio del registro** e `y` en µV) o de `Tool` (panel con su propio sistema de
+  coordenadas, como el histograma), y decorar con `@register_tool`. La `x` era
+  relativa a la ventana de 30 s hasta el refactor de la interfaz; una
+  herramienta escrita con esa regla produce tramos corridos sin que nada falle.
   La barra se arma recorriendo el registro. Los dos contratos existen porque
   las coordenadas no son las mismas; ver `psglab/tools/base.py`.
 - **Formato de archivo** — crear el archivo en `psglab/readers/`, heredar de
@@ -362,9 +374,64 @@ modifica ante cada acción.
 archivos de salida). No repetir esos números en ningún otro módulo.
 
 `psglab/core/windows.py` es el único lugar donde se convierte entre ventanas,
-muestras y hora de la noche, para que no aparezcan cuentas de `* 30 * fs`
-repartidas por el código. Los índices de ventana son **base 0 internamente** y
-base 1 al mostrarlos y exportarlos; la conversión se hace al mostrar.
+muestras, segundos absolutos, fracción de página y hora de la noche, para que no
+aparezcan cuentas de `* 30 * fs` ni de `segundos % 30` repartidas por el código.
+Los índices de ventana son **base 0 internamente** y base 1 al mostrarlos y
+exportarlos; la conversión se hace al mostrar.
+
+### La época y la página
+
+Desde el refactor de la interfaz ([hito 22](docs/TODO.md#hito-22-refactor-de-la-interfaz))
+hay **dos nociones horizontales**, y confundirlas produce números plausibles y
+equivocados:
+
+- **La época** dura `WINDOW_SECONDS` y es la unidad de scoring: una fase por
+  época. `Session.current_window` es la época, y las flechas del teclado la
+  mueven, porque eso es V1_F de "Navegación".
+- **La página** es lo que se ve, de 10 ms al registro entero. Es un `Viewport`
+  inmutable (`core/viewport.py`) y **sólo la cambia `Session.set_viewport()`**,
+  que es lo único que avisa. Cambiar de época la mueve lo mínimo
+  (`Viewport.containing()`): con cuatro horas en pantalla, la flecha derecha
+  mueve el resaltado y no la vista.
+
+El eje del visualizador está en segundos absolutos, `OccupancyLine` guarda
+fracciones **de la página** y el anotador guarda muestras. En `SignalView`,
+`window_seconds` es la época y `view_span_seconds` es la página: los nombres
+están separados a propósito. Una página larga no se dibuja muestra por muestra
+sino con la envolvente mínimo/máximo de `core/decimation.py`, que no puede
+perder un pico.
+
+### La ventana
+
+La señal es el widget central y los demás paneles son `QDockWidget`, que arma
+`ui/docks.py` y quedan en `window.docks`. Los seis de análisis conservan el
+nombre `*_dialog` de cuando eran diálogos. La barra de navegación es fija, no un
+panel: es la única vía de navegación con el mouse. Los menús viven en
+`ui/menus.py` y cada acción llama a un método de la ventana; el de herramientas
+se sigue armando desde el registro.
+
+Los colores salen de `ui/theme.py` (esquemas inmutables, con el contraste de los
+de fábrica verificado contra WCAG 2.1) y lo que el usuario elige, de
+`ui/preferences.py`, que lo guarda en un JSON de su perfil. No es `config.py`:
+aquél fija el pliego, esto es lo que se elige.
+
+Cuatro reglas de esta capa que no se ven leyendo un solo archivo:
+
+- **Sólo `main.py` lee y escribe el archivo de preferencias**, a través de
+  `create_main_window(restore_layout=True)`. La ventana que arman los tests
+  trabaja con los valores de fábrica y no escribe nada; si lo hiciera, correr la
+  suite pisaría la configuración de quien la corre, que ya pasó una vez.
+- **Los menús muestran los atajos pero no los registran.** La tecla sale de
+  `ui/shortcuts.py` con `key_for()` y va después de un tabulador en el texto.
+  Llamar a `setShortcut()` la duplicaría con el `QShortcut` que ya existe, y ante
+  un atajo duplicado Qt no ejecuta ninguno de los dos.
+- **`psglab/ui/` no lleva subpaquetes.** El chequeo de `SOLO_BIBLIOTECA` y el que
+  exige que cada README nombre sus archivos recorren la carpeta sin entrar en
+  subcarpetas: un `ui/panels/` dejaría funciones de `analysis/` como huérfanas.
+- **No se agrega una opción de configuración que nada consuma.** Por eso la
+  ventana de configuración tiene cinco solapas y no las siete de la referencia:
+  Cursores y Calibración entran cuando existan las reglas y la conversión a
+  milímetros que configurarían.
 
 ## Convenciones
 
@@ -387,6 +454,11 @@ base 1 al mostrarlos y exportarlos; la conversión se hace al mostrar.
 - **Nunca agregar PyQt5 ni PyQt6.** Son GPL y obligarían a relicenciar el
   proyecto entero, que el pliego pide MIT. PySide6 (LGPL) se eligió
   exactamente por eso.
+- **Nunca copiar código, iconos ni recursos de EDFbrowser**, que fue la
+  referencia visual del refactor de la interfaz. Está bajo GPL-2.0, por el mismo
+  motivo de arriba. Se tomaron la disposición y los nombres de los menús, que
+  son ideas; los iconos de la barra se dibujan con `QPainterPath` en
+  `ui/icons.py`.
 - **Nunca commitear registros de participantes.** El `.gitignore` ya excluye
   `data/`, `registros/`, `*.edf`, `*.vhdr`, `*.vmrk`, `*.eeg` y los tres
   archivos de salida. En `data/` hay registros de prueba locales (un EDF y un
