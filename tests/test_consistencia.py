@@ -127,6 +127,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_preferences.py": ("psglab/ui/preferences.py",),
     "test_menus.py": ("psglab/ui/menus.py",),
     "test_docks.py": ("psglab/ui/docks.py",),
+    "test_icons.py": ("psglab/ui/icons.py",),
+    "test_navigation.py": ("psglab/ui/navigation.py",),
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",
@@ -1408,7 +1410,6 @@ SIN_TEST_PROPIO: frozenset[str] = frozenset(
         "psglab/app.py",
         "psglab/config.py",
         "psglab/ui/main_window.py",
-        "psglab/ui/navigation.py",
         "psglab/ui/scoring_panel.py",
         "psglab/ui/channel_selector.py",
     }

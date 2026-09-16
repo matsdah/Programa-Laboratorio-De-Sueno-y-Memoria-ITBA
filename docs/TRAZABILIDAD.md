@@ -135,12 +135,13 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos doce se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos trece se rompen hacia todos lados.
 
-Once de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Doce de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
-`ui/docks.py`, `ui/menus.py`, `ui/theme.py` y `ui/preferences.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`ui/docks.py`, `ui/icons.py`, `ui/menus.py`, `ui/theme.py` y
+`ui/preferences.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -155,6 +156,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |
 | `psglab/analysis/mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw`, y la escala volts ↔ µV | Filtrado, ICA y re-referenciado |
 | `psglab/ui/docks.py` | La disposición de los paneles alrededor de la señal | Dónde aparece cada panel |
+| `psglab/ui/icons.py` | Los iconos de la barra, dibujados por el programa | La barra de navegación |
 | `psglab/ui/menus.py` | La barra de menú y qué acción vive en cada uno | Cómo se llega a cada funcionalidad |
 | `psglab/ui/theme.py` | Los esquemas de color: qué color tiene cada cosa que se dibuja | Todo lo que la interfaz pinta |
 | `psglab/ui/preferences.py` | Lo que el programa recuerda entre sesiones | El esquema con el que arranca |

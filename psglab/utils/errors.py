@@ -137,6 +137,15 @@ class UnknownColorSchemeError(PsgLabError):
     """
 
 
+class UnknownIconError(PsgLabError):
+    """Se pidió un icono que el programa no sabe dibujar.
+
+    Es un error de programación y no de uso —el nombre lo escribe quien arma la
+    barra, no el investigador—, pero hereda igual de `PsgLabError`: si escapara
+    crudo, atravesaría el `except` de la ventana principal y saldría como traza.
+    """
+
+
 class InvalidPreferencesError(PsgLabError):
     """El archivo de preferencias existe pero no se pudo leer o escribir.
 

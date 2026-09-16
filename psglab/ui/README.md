@@ -55,8 +55,9 @@ conoce las flechas del teclado.
 | `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
 | `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. | V1_F de "PSD" |
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. | V1_F, V2_F, V3_F de "Übersicht" |
-| `navigation.py` | Botones de ventana anterior y siguiente, y posición actual. | V1_F de "Navegación" |
+| `navigation.py` | La barra inferior: saltos a la primera y la última ventana, control de amplitud, y una franja que muestra dónde cae la ventana en la noche y deja saltar con un clic. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. | V1_F, V2_F, V3_F de "Scoring" |
+| `icons.py` | Los iconos de la barra, dibujados con `QPainterPath`. **No hay ningún archivo de icono en el repositorio**, y es una decisión de licencia. | — |
 | `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas y arrancan ocultos. | — |
 | `menus.py` | **La barra de menú**: qué acción vive en qué menú. No implementa ninguna: cada una llama a un método de la ventana. | — |
 | `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los cinco esquemas de fábrica. | — |

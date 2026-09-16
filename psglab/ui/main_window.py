@@ -283,6 +283,8 @@ class MainWindow(QMainWindow):
         activa: `ViewerTool` recibe segundos, nunca píxeles.
         """
         self.navigation.window_requested.connect(self._go_to_window)
+        self.navigation.amplitude_up_requested.connect(self.increase_amplitude)
+        self.navigation.amplitude_down_requested.connect(self.decrease_amplitude)
         self.scoring_panel.stage_selected.connect(self.score_current_window)
         self.scoring_panel.arousal_toggled.connect(self._set_arousal)
         self.scoring_panel.nomenclature_changed.connect(self._change_nomenclature)
@@ -767,6 +769,7 @@ class MainWindow(QMainWindow):
         for grafico in self.findChildren(pg.PlotWidget):
             grafico.setBackground(scheme.background)
         self.signal_view.apply_scheme()
+        self.navigation.apply_scheme()
         self.overview_panel.update()
         self._redraw_histogram()
 
