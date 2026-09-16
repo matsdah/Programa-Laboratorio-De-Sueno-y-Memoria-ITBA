@@ -29,6 +29,7 @@ from PySide6.QtGui import QBrush, QColor, QPaintEvent, QPainter, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from psglab.tools.overview import OverviewWindow
+from psglab.ui import theme
 
 #: Separación entre rectángulos, en píxeles. Sin ella las ventanas se leen como
 #: una sola barra continua y se pierde justamente lo que el panel muestra.
@@ -38,13 +39,9 @@ _SEPARACION_PX: int = 4
 #: alto del rectángulo. Van abajo para no tapar el número de ventana.
 _FRANJA_DE_EVENTOS: float = 0.25
 
-#: Colores del panel. No salen de `config.py` porque el pliego no fija ninguno:
-#: pide que la ventana actual se distinga, y elegir con qué es del programa.
-_FONDO = QColor("#f2f2f2")
-_FONDO_ACTUAL = QColor("#c8d8ec")
-_BORDE = QColor("#8a8a8a")
-_BORDE_ACTUAL = QColor("#2c5a8c")
-_TEXTO = QColor("#333333")
+#: Color de una clase de anotación que el conjunto no supo colorear. Es gris a
+#: propósito: un color de la paleta haría creer que la clase tiene uno asignado.
+_SIN_COLOR = "#999999"
 
 
 class OverviewPanel(QWidget):
@@ -142,11 +139,16 @@ class OverviewPanel(QWidget):
         pintor.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         for ventana, caja in self.rectangles():
             actual = ventana.is_current
-            pintor.setBrush(QBrush(_FONDO_ACTUAL if actual else _FONDO))
-            pintor.setPen(QPen(_BORDE_ACTUAL if actual else _BORDE, 2 if actual else 1))
+            esquema = theme.current()
+            fondo = esquema.overview_current if actual else esquema.overview_background
+            borde = esquema.overview_border
+            if actual:
+                borde = esquema.overview_current_border
+            pintor.setBrush(QBrush(QColor(fondo)))
+            pintor.setPen(QPen(QColor(borde), 2 if actual else 1))
             pintor.drawRect(caja)
 
-            pintor.setPen(QPen(_TEXTO))
+            pintor.setPen(QPen(QColor(theme.current().overview_text)))
             # Base 1 al mostrar, como en la barra de estado y en los archivos
             # de salida.
             pintor.drawText(
@@ -170,7 +172,7 @@ class OverviewPanel(QWidget):
         alto = caja.height() * _FRANJA_DE_EVENTOS
         ancho = caja.width() / len(ventana.annotation_labels)
         for posicion, clase in enumerate(ventana.annotation_labels):
-            color = QColor(self._colors.get(clase, "#999999"))
+            color = QColor(self._colors.get(clase, _SIN_COLOR))
             pintor.setBrush(QBrush(color))
             pintor.setPen(QPen(color))
             pintor.drawRect(

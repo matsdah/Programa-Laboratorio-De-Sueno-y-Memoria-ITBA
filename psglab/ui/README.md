@@ -54,6 +54,8 @@ filas se lee como si esas piezas no existieran.
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. | V1_F, V2_F, V3_F de "Übersicht" |
 | `navigation.py` | Botones de ventana anterior y siguiente, y posición actual. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. | V1_F, V2_F, V3_F de "Scoring" |
+| `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los cinco esquemas de fábrica. |
+| `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
 
 ## `main_window.py` conecta, no implementa
@@ -151,6 +153,12 @@ que son justo donde algo se rompe en silencio:
 - Los cuatro conversores de `signal_view.py` son el **único** lugar del programa
   que traduce entre píxeles, segundos, fracción de ventana y muestras.
   Confundirlos produce números plausibles y equivocados.
+
+**Se volvió a acotar con el refactor de la interfaz**, y por el mismo criterio:
+`theme.py` y `preferences.py` tampoco dibujan. El primero es un valor inmutable
+con una regla de ciclado, y el segundo es leer y escribir un archivo —donde lo
+que importa no es el color sino que **un archivo roto no impida arrancar**—.
+Los dos se testean sin `QApplication`.
 
 Ésos se testean, con una `QApplication` sin pantalla cuando hace falta. El resto
 —el dibujo— sigue sin testear, y esa parte de la regla no cambió.

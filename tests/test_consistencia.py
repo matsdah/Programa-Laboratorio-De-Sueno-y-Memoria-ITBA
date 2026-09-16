@@ -123,6 +123,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     # que fallar cuando alguien renombra un panel, que es lo que el refactor de
     # la interfaz vuelve probable.
     "test_main_window_layout.py": ("psglab/ui/main_window.py",),
+    "test_theme.py": ("psglab/ui/theme.py",),
+    "test_preferences.py": ("psglab/ui/preferences.py",),
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",

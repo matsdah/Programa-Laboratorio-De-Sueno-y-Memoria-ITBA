@@ -13,7 +13,34 @@ from PySide6.QtWidgets import QApplication
 
 from psglab.readers.base import load_all_readers
 from psglab.tools.registry import load_all_tools
+from psglab.ui import preferences, theme
 from psglab.ui.main_window import MainWindow
+from psglab.utils.errors import PsgLabError
+
+
+def _esquema_guardado() -> theme.ColorScheme:
+    """El esquema que el usuario eligió la última vez, o el de fábrica.
+
+    **Un archivo de preferencias roto no puede impedir que el programa arranque**,
+    así que el error se atrapa acá y se sigue con el esquema por omisión. Es la
+    única vez en todo el proyecto que un `PsgLabError` no llega a la pantalla, y
+    la razón es que en este momento todavía no hay ninguna: la `QApplication`
+    recién se está construyendo y la ventana no existe.
+
+    El usuario no se queda sin señal: ve el programa en los colores de fábrica,
+    y elegir un esquema desde el menú vuelve a escribir el archivo, con lo que
+    el problema se corrige solo. Preferir un cartel a esto costaría diferir el
+    arranque de la ventana para poder mostrarlo.
+
+    **Se llama sólo desde `create_application()`, que a su vez sólo se llama
+    desde `main.py`.** Es deliberado: si lo hiciera `create_main_window()`, la
+    suite de tests leería el archivo real de quien la corre y dejaría de ser
+    reproducible.
+    """
+    try:
+        return preferences.load().scheme()
+    except PsgLabError:
+        return theme.scheme_by_name(theme.DEFAULT_SCHEME_NAME)
 
 
 def create_application(argv: list[str]) -> QApplication:
@@ -31,11 +58,11 @@ def create_application(argv: list[str]) -> QApplication:
     aplicacion = QApplication(argv)
     aplicacion.setApplicationName("PSGLab")
     aplicacion.setOrganizationName("Laboratorio de Sueño y Memoria — ITBA")
-    # Los fondos de pyqtgraph se fijan acá, para todo el programa: la señal se
-    # lee mejor oscura sobre claro, y el criterio visual del scoring tiene que
-    # ser el mismo en cualquier computadora del laboratorio.
-    pg.setConfigOption("background", "w")
-    pg.setConfigOption("foreground", "k")
+    # **Los colores ya no se fijan acá.** Antes eran dos `setConfigOption` con
+    # blanco y negro escritos a mano, y cambiar de aspecto obligaba a editar
+    # este archivo. Ahora salen del esquema elegido por el usuario, que
+    # `psglab/ui/theme.py` sabe aplicar.
+    theme.set_current(_esquema_guardado())
     # **El suavizado de curvas queda apagado a propósito**, que es el valor por
     # omisión de pyqtgraph y conviene dejar dicho por qué. Redibujar decenas de
     # canales a cientos de hercios por cada pulsación de flecha es exactamente

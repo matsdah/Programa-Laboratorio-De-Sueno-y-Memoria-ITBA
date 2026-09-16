@@ -124,6 +124,28 @@ class InvalidAnnotationError(PsgLabError):
     """
 
 
+# -- Presentación -----------------------------------------------------------
+
+
+class UnknownColorSchemeError(PsgLabError):
+    """Se pidió un esquema de color que no existe, o que no se puede dibujar.
+
+    Hereda de `PsgLabError` como todo lo demás, aunque sea un problema de
+    presentación y no de datos: el archivo de preferencias lo escribe el
+    programa pero lo puede editar el usuario, y una preferencia rota tiene que
+    salir como cartel y no como traza.
+    """
+
+
+class InvalidPreferencesError(PsgLabError):
+    """El archivo de preferencias existe pero no se pudo leer o escribir.
+
+    **Nunca impide abrir el programa.** Quien llama lo atrapa y sigue con los
+    valores por omisión: perder el tema elegido es molesto, no arrancar es
+    inaceptable.
+    """
+
+
 # -- Herramientas -----------------------------------------------------------
 
 

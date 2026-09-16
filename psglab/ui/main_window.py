@@ -103,6 +103,7 @@ from psglab.tools.magnifier import MagnifierTool
 from psglab.tools.occupancy import OccupancyTool
 from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
+from psglab.ui import preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.grid import BackgroundStyle
 from psglab.ui.navigation import NavigationBar
@@ -160,6 +161,10 @@ class MainWindow(QMainWindow):
         self._build_toolbar()
         self._connect_signals()
         install_shortcuts(self, None)
+        # El esquema ya está elegido —`create_application()` lo leyó de las
+        # preferencias antes de construir nada—, pero la hoja de estilo se
+        # aplica sobre la ventana, que recién existe ahora.
+        self.setStyleSheet(theme.stylesheet(theme.current()))
 
     # -- Construcción -------------------------------------------------------
 
@@ -262,6 +267,16 @@ class MainWindow(QMainWindow):
         for estilo in BackgroundStyle:
             ver.addAction(
                 estilo.value, lambda _=False, e=estilo: self.signal_view.grid.set_style(e)
+            )
+
+        ver.addSeparator()
+        # Los cinco esquemas de fábrica. El menú se arma recorriendo
+        # `theme.SCHEMES`, así que agregar uno no obliga a tocar este archivo,
+        # igual que pasa con las herramientas y con los formatos de archivo.
+        esquemas = ver.addMenu("Esquema de &color")
+        for nombre, esquema in theme.SCHEMES.items():
+            esquemas.addAction(
+                nombre, lambda _=False, e=esquema: self.set_color_scheme(e)
             )
 
         ver.addSeparator()
@@ -747,6 +762,52 @@ class MainWindow(QMainWindow):
             f"Ventana {ventana + 1} de {sesion.n_windows}"
             + (f" — {self._clock_label(ventana)}" if self._clock_label(ventana) else "")
         )
+
+    def set_color_scheme(self, scheme: theme.ColorScheme, remember: bool = True) -> None:
+        """Cambia el esquema de color de todo el programa y lo deja repintado.
+
+        `pg.setConfigOption()` sólo alcanza a los `PlotWidget` que se creen
+        después, así que hay que recorrer los que ya existen. Se los busca con
+        `findChildren()` y no con una lista escrita a mano **por la misma razón
+        de siempre**: un panel nuevo se agregaría a la lista sólo si alguien se
+        acuerda, y el síntoma de olvidarse sería un panel con el fondo del
+        esquema anterior, que nadie va a asociar con este método.
+
+        Args:
+            scheme: el esquema a aplicar.
+            remember: si se guarda como preferencia del usuario. Los tests lo
+                apagan para no escribir en el archivo real de quien los corre,
+                que los volvería dependientes de la máquina.
+
+        No eleva: si las preferencias no se pueden guardar, el esquema se aplica
+        igual y el problema sale como cartel. Perder la preferencia es molesto;
+        no poder cambiar de colores porque el disco está lleno, absurdo.
+        """
+        theme.set_current(scheme)
+
+        # La hoja de estilo alcanza a los widgets de Qt —menús, botones, el
+        # árbol de canales, las tablas—, que los `PlotWidget` no tocan. Sin
+        # esto, un esquema oscuro deja la ventana a dos colores.
+        self.setStyleSheet(theme.stylesheet(scheme))
+
+        for grafico in self.findChildren(pg.PlotWidget):
+            grafico.setBackground(scheme.background)
+        self.signal_view.apply_scheme()
+        self.overview_panel.update()
+        self._redraw_histogram()
+
+        if not remember:
+            return
+        try:
+            guardadas = preferences.load()
+        except PsgLabError:
+            # Un archivo roto no puede impedir guardar uno nuevo y sano: se
+            # parte de los valores de fábrica y se lo pisa.
+            guardadas = preferences.Preferences()
+        try:
+            preferences.save(guardadas.with_scheme(scheme))
+        except PsgLabError as error:
+            self._show_error(error)
 
     @property
     def session(self) -> Session | None:

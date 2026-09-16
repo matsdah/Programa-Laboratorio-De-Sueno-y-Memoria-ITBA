@@ -135,11 +135,12 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos ocho se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos diez se rompen hacia todos lados.
 
-Siete de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Nueve de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
-`tools/base.py`, `tools/registry.py`, `app.py` y `analysis/mne_bridge.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
+`ui/theme.py` y `ui/preferences.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -153,6 +154,8 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/tools/registry.py` | Registro enchufable de herramientas | La barra de herramientas entera |
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |
 | `psglab/analysis/mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw`, y la escala volts ↔ µV | Filtrado, ICA y re-referenciado |
+| `psglab/ui/theme.py` | Los esquemas de color: qué color tiene cada cosa que se dibuja | Todo lo que la interfaz pinta |
+| `psglab/ui/preferences.py` | Lo que el programa recuerda entre sesiones | El esquema con el que arranca |
 
 ---
 

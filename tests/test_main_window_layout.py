@@ -69,6 +69,7 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         # Estado.
         "session",
         "refresh",
+        "set_color_scheme",
         # Archivo.
         "open_recording",
         "open_recording_dialog",

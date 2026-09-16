@@ -40,8 +40,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from psglab.ui import theme
+
 #: Color de las barras de la topografía.
-_COLOR = "#4a90e6"
+# El color de las dos curvas sale del esquema en uso: es una sola serie por
+# gráfico, así que le toca el color de acento y no la paleta de canales.
 
 
 class IcaPanel(QWidget):
@@ -198,7 +201,7 @@ class IcaPanel(QWidget):
         x = np.asarray(seconds, dtype=float)
         y = np.asarray(values, dtype=float)
         self._curva = (x, y)
-        item.plot(x, y, pen=pg.mkPen(_COLOR, width=1))
+        item.plot(x, y, pen=pg.mkPen(theme.current().accent, width=1))
 
     def clear_time_course(self) -> None:
         """Deja el gráfico de abajo vacío."""
@@ -234,7 +237,10 @@ class IcaPanel(QWidget):
 
         item.addItem(
             pg.BarGraphItem(
-                x=posiciones, height=alturas, width=0.6, brush=pg.mkBrush(_COLOR)
+                x=posiciones,
+                height=alturas,
+                width=0.6,
+                brush=pg.mkBrush(theme.current().accent),
             )
         )
         item.getAxis("bottom").setTicks(
