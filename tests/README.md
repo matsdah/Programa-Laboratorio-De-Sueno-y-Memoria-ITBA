@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cuarenta y nueve
+camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -55,6 +55,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
 | `test_viewport.py` | La página visible: que se recorte en un solo lugar y que navegar no la mueva si la época ya está dentro. |
+| `test_decimation.py` | La envolvente: que una espiga de una sola muestra sobreviva a reducir ocho horas, y que no copie la señal. |
 | `test_nomenclature.py` | Las dos nomenclaturas, la conversión entre ellas y los códigos de `Scoring.txt`. |
 | `test_recording.py` | El registro en memoria y lo que no deja construir. |
 | `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
