@@ -11,11 +11,14 @@ tocar: **los hitos 0 a 18 están cerrados** y ningún módulo de `psglab/` eleva
 
 Con el **[hito 19](#hito-19-lo-que-la-interfaz-no-consumía)** cierran los
 **caminos muertos**, que no son stubs y por eso `contar_stubs()` no los veía:
-tres funciones públicas de `analysis/` que la interfaz no consumía. Son
-**veintidós hitos**, del 0 al 21, que son las filas de la tabla de progreso, y
-están todos cerrados. El **[hito 20](#hito-20-la-red)** es la red que evita que
-esto vuelva a pasar: tres chequeos automáticos sobre lo que hasta acá se
-encontraba a mano.
+tres funciones públicas de `analysis/` que la interfaz no consumía. El
+**[hito 20](#hito-20-la-red)** es la red que evita que esto vuelva a pasar:
+tres chequeos automáticos sobre lo que hasta acá se encontraba a mano.
+
+El **[hito 22](#hito-22-refactor-de-la-interfaz)** llevó la interfaz a un
+visualizador al estilo de EDFbrowser, en diez fases. Son **veintitrés hitos**,
+del 0 al 22, que son las filas de la tabla de progreso, y están todos cerrados;
+lo que sigue abierto está anotado al final del último.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
 se pueden usar desde el programa corriendo, no sólo desde sus módulos, que es la
@@ -102,6 +105,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [19. Lo que la interfaz no consumía](#hito-19-lo-que-la-interfaz-no-consumía) | — | 0 | ✅ cerrado |
 | [20. La red](#hito-20-la-red) | — | 0 | ✅ cerrado |
 | [21. Limpieza](#hito-21-limpieza) | — | 0 | ✅ cerrado |
+| [22. Refactor de la interfaz](#hito-22-refactor-de-la-interfaz) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1684,6 +1688,154 @@ ventana principal guarda dos copias, y nada corre fuera del hilo de la interfaz.
 **No son limpieza.** Leer por tramos, releer el archivo al deshacer o meter un
 `QThread` son decisiones de diseño con su propio costo, y cada una merece su
 hito.
+
+---
+
+## Hito 22: Refactor de la interfaz
+
+**Cerrado el 16 de septiembre de 2026.** Llevó la interfaz de una columna rígida
+de paneles sobre fondo blanco a un visualizador al estilo de EDFbrowser: la
+señal al centro, un color por canal, paneles acoplables, menús por dominio,
+escala de tiempo libre y una ventana de configuración que el programa recuerda.
+
+Se hizo en **diez fases**, cada una con la suite en verde, y entró en tres pull
+requests: el #34 trae las fases 0 a 5 y las dos primeras partes de la 6; el
+#36, el resto de la 6, la 7, un arreglo y la 8; el #38, la 9. La suite pasó de
+2106 a 2683 tests.
+
+**No tiene stubs que contar**: todo lo que entró es nuevo o reorganiza lo que ya
+andaba. Lo que sí vale es la lección del [hito 9](#hito-9-lo-que-la-interfaz-no-consume):
+cada fase se probó por la ventana y con el registro real de `data/`, y dos de
+los errores de abajo aparecieron sólo así.
+
+### Lo que se decidió antes de empezar
+
+| Decisión | Elegido | Por qué |
+|---|---|---|
+| Qué se toma de EDFbrowser | La disposición y los nombres, nada más | Está bajo **GPL-2.0**: copiarle código o un icono obligaría a relicenciar el proyecto, que el pliego pide MIT. Es el mismo motivo por el que se descartó PyQt. Los iconos se dibujan con `QPainterPath`. |
+| Escala de tiempo | Libre, de 10 ms al registro entero | La época de 30 s sigue siendo la unidad de scoring: lo que se separó es la página visible. |
+| Menús | Sólo los que tienen contenido | «Timesync» y «Window» de la referencia no se crearon: un menú vacío es peor que ninguno. |
+| Paneles | Acoplables | La señal a pantalla completa; todo lo demás se mueve, se apila o se cierra. |
+| Preferencias | Un JSON en el perfil del usuario | No es `config.py`: aquél guarda lo que fija el pliego, y esto es lo que elige el usuario. |
+
+Y tres constantes de la escala de tiempo, **confirmadas con el cliente** y
+guardadas en `config.py` para que revertir cualquiera sea cambiar una línea:
+`OCCUPANCY_CLEARS_ON_PAN` —desplazar la vista reancla las líneas de ocupación en
+vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
+—de 0,2 s a una hora, y no las veintiocho de un visor universal—.
+
+### Las fases
+
+- [x] **Fase 0 — La red de seguridad.** Una lista congelada de la superficie
+      pública de la ventana, que hasta ahí existía sólo implícita en las 1610
+      líneas de `test_entrega.py`. Y la primera medición de cuánto tarda
+      dibujar: 92 ms con 64 canales a 1000 Hz, cinco veces por debajo del
+      umbral de usabilidad. Las tablas están en `docs/ARQUITECTURA.md`.
+  - Test: `tests/test_main_window_layout.py`, **6 tests en verde**.
+- [x] **Fase 1 — Esquemas de color y preferencias.** Cinco esquemas de fábrica
+      —Claro, Oscuro, NK, Azul sobre gris y ECG— y un archivo que los recuerda.
+      Las curvas no tenían pluma y salían todas del mismo gris; ahora cada
+      canal toma su color. **El esquema Claro deja el programa exactamente como
+      era.**
+  - Test: `tests/test_theme.py`, **62 tests en verde**.
+  - Test: `tests/test_preferences.py`, **40 tests en verde**.
+- [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
+      y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
+      forma de la señal y Analizar sólo mide. El test que miraba que existiera
+      un menú «&Análisis» se reescribió para verificar cada acción, que es lo
+      que protegía.
+  - Test: `tests/test_menus.py`, **19 tests en verde**.
+- [x] **Fase 3 — Paneles acoplables.** La señal es el widget central y los otros
+      diez paneles se mueven, se apilan o se cierran; la disposición se guarda
+      al cerrar. Los seis paneles de análisis conservaron el nombre de su
+      atributo —un `QDockWidget` responde a `windowTitle()` igual que un
+      diálogo— y **los 102 tests de `test_entrega.py` pasaron sin tocar
+      ninguno**.
+  - Test: `tests/test_docks.py`, **18 tests en verde**.
+- [x] **Fase 4 — La barra inferior.** Primera, anterior, siguiente, última,
+      amplitud y una franja que salta a cualquier punto de la noche.
+      `navigation.py` salió de `SIN_TEST_PROPIO`. **Con esta fase cerró el MVP
+      visual sin haber tocado `core/` ni `tools/`.**
+  - Test: `tests/test_navigation.py`, **17 tests en verde**.
+  - Test: `tests/test_icons.py`, **19 tests en verde**.
+- [x] **Fase 5 — El menú Amplitud.** La primera fase que tocó `core/`: `Session`
+      ganó el desplazamiento vertical por canal, para los que tienen la línea
+      de base lejos del cero. El menú habla de «µV por carril» y no de
+      «amplitud», porque subir ese número achica la onda.
+- [x] **Fase 6 — Escala de tiempo libre.** La página visible pasó a ser un
+      objeto propio, separado de la época. **Los métodos de mouse de
+      `ViewerTool` reciben ahora segundos desde el inicio del registro**, y no
+      desde el inicio de la ventana: el anotador filtraba por la época, y con
+      una página de cuatro horas habría dibujado las bandas de una sola de las
+      480. Sin borde de época en la cuenta, la deriva que hacía fallar 240 de
+      960 ventanas a 256,125 Hz dejó de poder existir. Las flechas siguen
+      siendo la época, que es V1_F de «Navegación»; desplazar tiene sus
+      propias teclas.
+  - Test: `tests/test_viewport.py`, **27 tests en verde**.
+- [x] **Fase 7 — La envolvente.** Mínimo y máximo por columna de píxeles, que no
+      puede perder un pico. El registro entero de prueba —22 horas— bajó de
+      1749 ms a 444 ms la primera vez y a 14 ms las siguientes.
+  - Test: `tests/test_decimation.py`, **23 tests en verde**.
+- [x] **Fase 8 — La ventana de configuración.** Cinco solapas: Colores, Editor
+      de anotaciones, Espectro de potencia, Otras y Tipografía. Todo se aplica
+      en el momento. `psd.validate_band()` pasó a ser pública, para que la regla
+      de qué banda es válida siga siendo una sola.
+  - Test: `tests/test_settings_dialog.py`, **62 tests en verde**.
+- [x] **Fase 9 — Cierre.** La conectividad de la noche entera, que era el
+      pendiente del [hito 20](#hito-20-la-red). Los menús muestran los atajos
+      sin registrarlos otra vez, F6 recorre los paneles, y el contraste de los
+      esquemas se verifica contra WCAG 2.1.
+
+### Lo que se encontró en el camino
+
+Seis errores. **Dos venían de antes del refactor**, y la fase 0 los encontró al
+armar la red:
+
+- [x] **La tecla `2` dejaba de scorear después de cambiar de nomenclatura.**
+      `install_shortcuts()` se llama tres veces y cada vez dejaba vivos los
+      atajos anteriores; dos atajos con la misma tecla hacen que Qt no ejecute
+      ninguno.
+- [x] **Las curvas de complejidad del segundo canal en adelante eran
+      invisibles.** `mkPen(None)` no es «el color por omisión» sino ninguna
+      pluma.
+
+**Los otros cuatro los introdujo el propio refactor**, y los encontró una fase
+posterior:
+
+- [x] **Desde la segunda época no se veía ningún nombre de canal.** Los nombres
+      quedaban en x = 0, y con el eje en segundos absolutos el cero salía de la
+      pantalla. Lo introdujo la fase 6; se escapó porque todos los tests de la
+      vista miraban la época 0, que es la única donde no aparece.
+- [x] **Un esquema con un color mal escrito terminaba en una traza.** Se
+      comprobaba sólo que el color fuera texto, así que «gris oscuro» se
+      cargaba sin quejas. Venía de la fase 1; lo encontró la 8, al agregar
+      «Cargar esquema».
+- [x] **Correr los tests podía pisar las preferencias reales** de quien los
+      corría: elegir un esquema escribía el archivo sin mirar quién había
+      abierto la ventana. Fase 1; lo encontró la 8.
+- [x] **Dos esquemas de fábrica no llegaban al contraste mínimo**: el azul del
+      Oscuro daba 2,42 y el dorado de Azul sobre gris, 2,41. Fase 1; lo
+      encontró la 9, al medirlo por primera vez.
+
+### Lo que sigue abierto
+
+La ventana de configuración de la referencia tiene siete solapas y la de este
+programa, cinco. **Las dos que faltan faltan a propósito**: una solapa que no
+configura nada es una promesa que el programa no cumple. Cada una entra con lo
+que configura, en su propio hito.
+
+- [ ] **Cursores.** Configuraría las reglas que miden Δt y ΔµV sobre la señal,
+      y esas reglas no existen. Entran como herramienta nueva en `tools/`,
+      registrada con `@register_tool`.
+- [ ] **Calibración.** Haría que un milímetro de pantalla sea un milímetro de
+      papel, y nada del programa convierte todavía a milímetros.
+
+**La deuda de diseño del [hito 18](#lo-que-sigue-sin-resolverse) sigue donde
+estaba, con un cambio.** Dibujar una página ya no copia la señal, que es lo que
+volvió dibujable el registro entero; pero la ventana principal sigue guardando
+dos copias, y nada corre fuera del hilo de la interfaz. La conectividad de la
+noche tarda 25 s sobre el registro de prueba con la ventana congelada: el
+cursor de espera vuelve legible esa espera, no la acorta.
 
 ---
 
