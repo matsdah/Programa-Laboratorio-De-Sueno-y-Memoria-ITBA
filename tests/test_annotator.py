@@ -24,7 +24,7 @@ from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
-from psglab.core.windows import seconds_to_sample
+from psglab.core.windows import seconds_to_sample_absolute
 from psglab.tools.annotator import AnnotatorTool
 from psglab.tools.base import SpanOverlay
 from psglab.utils.errors import PsgLabError
@@ -56,7 +56,12 @@ def anotador(sesion: Session) -> AnnotatorTool:
 
 
 def seleccionar(tool: AnnotatorTool, desde: float, hasta: float) -> None:
-    """Un gesto completo de selección, en segundos dentro de la ventana."""
+    """Un gesto completo de selección, en **segundos absolutos del registro**.
+
+    Eran segundos dentro de la ventana de 30 s. Cambió con la escala de tiempo
+    libre: con una época y una página que ya no coinciden, el único origen
+    común es el inicio del registro.
+    """
     tool.on_mouse_press(desde, 0.0, "left")
     tool.on_mouse_move(hasta, 0.0)
     tool.on_mouse_release(hasta, 0.0, "left")
@@ -70,12 +75,13 @@ def test_la_seleccion_se_convierte_a_muestras_del_registro(
 ):
     """**El test que atrapa el error caro.**
 
-    En la ventana 1, el segundo 5 es la muestra 3500: 3000 de la ventana más
-    500 del desplazamiento. Una cuenta escrita a mano dejaría la anotación en
-    otra ventana sin que nada se viera raro.
+    El segundo 35 del registro es la muestra 3500 a 100 Hz, y cae dentro de la
+    época 1. Con el contrato viejo había que sumar el segundo 5 sobre el borde
+    de esa época, que es la cuenta donde fallaban 240 de 960 ventanas a
+    256,125 Hz; ahora hay un solo redondeo y esa deriva no puede existir.
     """
     sesion.go_to_window(1)
-    seleccionar(anotador, 5.0, 8.0)
+    seleccionar(anotador, 35.0, 38.0)
     assert anotador.pending_selection_samples == (3500, 300)
 
 
@@ -85,9 +91,40 @@ def test_la_conversion_es_la_de_windows_y_no_una_cuenta_a_mano(
     """Se compara contra `core.windows`, que es el único lugar donde el
     proyecto convierte entre unidades."""
     sesion.go_to_window(2)
-    seleccionar(anotador, 3.0, 4.0)
+    seleccionar(anotador, 63.0, 64.0)
     inicio, _ = anotador.pending_selection_samples
-    assert inicio == seconds_to_sample(2, 3.0, FRECUENCIA)
+    assert inicio == seconds_to_sample_absolute(63.0, FRECUENCIA)
+
+
+@pytest.mark.parametrize("frecuencia", [100.0, 256.125])
+def test_la_conversion_no_deriva_con_una_frecuencia_no_redonda(frecuencia: float):
+    """**El caso donde el contrato viejo fallaba.**
+
+    Con 256,125 Hz, sumar un desplazamiento sobre el borde de una época se
+    escapaba a la siguiente en 240 de 960 ventanas: es el hallazgo que
+    documenta `core.windows.seconds_to_sample()`. Con segundos absolutos hay un
+    solo redondeo, así que la cuenta cierra en cualquier época.
+
+    Arma su propia sesión porque la fixture está fijada a 100 Hz, que es
+    justamente la frecuencia redonda donde el error no aparece.
+    """
+    ventanas = 10
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("C3", ChannelKind.EEG, "µV", 0)],
+        data=np.zeros((1, int(ventanas * 30 * frecuencia))),
+        sampling_rate=frecuencia,
+    )
+    sesion = Session(registro, Scoring(ventanas, Nomenclature.AASM), AnnotationSet())
+    tool = AnnotatorTool()
+    tool.activate(sesion)
+    sesion.go_to_window(7)
+
+    segundos = 7 * 30.0 + 11.0
+    seleccionar(tool, segundos, segundos + 1.0)
+
+    inicio, _ = tool.pending_selection_samples
+    assert inicio == seconds_to_sample_absolute(segundos, frecuencia)
 
 
 def test_seleccionar_al_reves_da_lo_mismo(anotador: AnnotatorTool):
@@ -173,32 +210,62 @@ def test_la_seleccion_en_curso_se_dibuja_antes_de_soltar(anotador: AnnotatorTool
     assert banda.label == ""
 
 
-def test_las_anotaciones_vuelven_en_segundos_de_la_ventana(
+def test_las_anotaciones_vuelven_en_segundos_absolutos(
     anotador: AnnotatorTool, sesion: Session
 ):
-    """Se guardan en muestras y el visualizador entiende segundos."""
+    """Se guardan en muestras y el visualizador entiende segundos.
+
+    **Vuelven en segundos del registro y no de la ventana**: el eje del
+    visualizador está en absolutos desde la escala de tiempo libre, así que una
+    banda en coordenadas de época se dibujaría en otro lado.
+    """
     sesion.go_to_window(1)
     anotador.add_label("Huso")
-    seleccionar(anotador, 5.0, 8.0)
+    seleccionar(anotador, 35.0, 38.0)
     anotador.create_annotation("Huso", *anotador.pending_selection_samples)
 
     (banda,) = anotador.overlays()
-    assert banda.start_seconds == pytest.approx(5.0)
-    assert banda.end_seconds == pytest.approx(8.0)
+    assert banda.start_seconds == pytest.approx(35.0)
+    assert banda.end_seconds == pytest.approx(38.0)
 
 
-def test_una_anotacion_de_otra_ventana_no_se_dibuja(
+def test_una_anotacion_fuera_de_la_pagina_no_se_dibuja(
     anotador: AnnotatorTool, sesion: Session
 ):
-    """Cada ventana muestra lo suyo: si no, las bandas se apilarían todas en la
-    primera pantalla."""
+    """Cada pantalla muestra lo suyo: si no, las bandas se apilarían todas en la
+    primera.
+
+    **El filtro es la página y no la época.** Con la página de 30 s las dos
+    coinciden y esto se comporta igual que antes; lo que cambia es el test de
+    abajo, que antes no podía existir.
+    """
     sesion.go_to_window(1)
     anotador.add_label("Huso")
-    seleccionar(anotador, 5.0, 8.0)
+    seleccionar(anotador, 35.0, 38.0)
     anotador.create_annotation("Huso", *anotador.pending_selection_samples)
 
     sesion.go_to_window(0)
     assert list(anotador.overlays()) == []
+
+
+def test_con_una_pagina_larga_se_dibujan_las_anotaciones_de_otras_epocas(
+    anotador: AnnotatorTool, sesion: Session
+):
+    """**Es lo que hacía inaceptable el contrato viejo.**
+
+    Filtrando por la época, una página de cuatro horas dibujaría las bandas de
+    una sola de las 480 que hay en pantalla y las otras 479 aparecerían vacías
+    aunque tengan eventos: la herramienta mintiendo sobre lo que hay.
+    """
+    sesion.go_to_window(1)
+    anotador.add_label("Huso")
+    seleccionar(anotador, 35.0, 38.0)
+    anotador.create_annotation("Huso", *anotador.pending_selection_samples)
+
+    sesion.go_to_window(0)
+    sesion.set_viewport(sesion.viewport.with_span(300.0))
+
+    assert len(anotador.overlays()) == 1
 
 
 def test_la_banda_lleva_el_color_de_su_clase(

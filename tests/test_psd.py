@@ -25,6 +25,7 @@ from psglab.analysis.psd import (
     band_power,
     band_powers_by_window,
     compute_psd,
+    validate_band,
 )
 from psglab.config import WINDOW_SECONDS
 from psglab.core.recording import Channel, ChannelKind, Recording
@@ -346,3 +347,29 @@ def test_none_sigue_significando_todos(registro_sintetico: Recording):
     _, potencias = compute_psd(registro_sintetico, channels=None)
 
     assert potencias.shape[0] == len(registro_sintetico.channels)
+
+
+# -- validate_band, pública desde que las bandas las escribe el usuario ---------------
+
+
+def test_una_banda_valida_vuelve_como_dos_flotantes():
+    assert validate_band((1, 4)) == (1.0, 4.0)
+    assert all(isinstance(extremo, float) for extremo in validate_band((1, 4)))
+
+
+@pytest.mark.parametrize(
+    "banda",
+    [(12.0, 8.0), (4.0, 4.0), (-1.0, 4.0), (float("nan"), 4.0), (1.0, float("inf")), (1.0,), "1-4", None],
+    ids=["invertida", "vacia", "negativa", "nan", "infinita", "un-extremo", "texto", "nada"],
+)
+def test_una_banda_que_no_se_puede_integrar_se_rechaza(banda: object):
+    """Es la regla que usa el análisis y que ahora usa también la ventana de
+    configuración: tiene que ser una sola, o las dos terminan diciendo cosas
+    distintas."""
+    with pytest.raises(PsgLabError):
+        validate_band(banda)
+
+
+def test_las_bandas_de_fabrica_son_validas():
+    for banda in DEFAULT_BANDS.values():
+        validate_band(banda)

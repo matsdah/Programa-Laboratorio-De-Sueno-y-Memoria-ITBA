@@ -311,7 +311,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **76 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **108 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `set_scoring()` se agregó en el hito 6, para V3_F: importar un scoring no
     es abrir otro registro, así que sustituye adentro en vez de armar otra
@@ -570,7 +570,7 @@ la regla vive en `core/`.
 > usuario las líneas que acaba de dibujar sin que se haya movido a ningún lado.
 
 - [x] **`psglab/ui/grid.py`** · ~~4 stubs~~ · V1_P, V2_F "Diseño de la interfaz"
-  - Test: `tests/test_grid.py`, **13 tests en verde**. No dibuja píxeles:
+  - Test: `tests/test_grid.py`, **18 tests en verde**. No dibuja píxeles:
     calcula posiciones, así que se puede afirmar sobre la grilla sin mirar una
     pantalla.
   - Las posiciones **se multiplican, no se acumulan**: sumar 0,5 sesenta veces
@@ -578,7 +578,7 @@ la regla vive en `core/`.
     documenta para las ventanas.
 - [x] **`psglab/ui/signal_view.py`** · ~~13 stubs~~ · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Test: `tests/test_signal_view.py`, **32 tests en verde**. **El dibujo no se
+  - Test: `tests/test_signal_view.py`, **45 tests en verde**. **El dibujo no se
     testea**; sí los tres conversores, que es de donde salen las unidades con
     las que trabajan todas las herramientas.
   - Los píxeles de los bordes se le **preguntan al `ViewBox`** en vez de
@@ -672,7 +672,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     herramienta sirva apenas se abre un registro.
 - [x] **`psglab/tools/occupancy.py`** · ~~13 stubs~~ · V1_F–V5_F "Ocupación" ·
       `ViewerTool`
-  - Test: `tests/test_occupancy.py`, **34 tests en verde**, sin `pytestmark`.
+  - Test: `tests/test_occupancy.py`, **37 tests en verde**, sin `pytestmark`.
     Los 7 que ya estaban escritos —los ejemplos numéricos literales del
     pliego— pasaron **sin tocarlos**. **Con esto la suite queda sin ningún
     salteado.**
@@ -722,7 +722,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     interfaz tenga qué dibujar.
 - [x] **`psglab/tools/annotator.py`** · ~~9 stubs~~ · V1_F "Anotación" ·
       `ViewerTool`
-  - Test: `tests/test_annotator.py`, **18 tests en verde**.
+  - Test: `tests/test_annotator.py`, **21 tests en verde**.
   - **La conversión a muestras es lo que más importa** y tiene su test: en la
     ventana 1, el segundo 5 es la muestra 3500. Escribir la cuenta a mano deja
     la anotación en la ventana de al lado cuando la frecuencia no es redonda, y
@@ -1079,7 +1079,7 @@ ventana y no existía.
   - Dos excepciones nuevas: `UnknownPsdMethodError` —Welch y multitaper no dan
     lo mismo, así que elegir uno en silencio daría un resultado que el usuario
     no pidió y no puede distinguir del que pidió— e `InvalidBandError`.
-  - Test: `tests/test_psd.py`, **40 tests en verde**.
+  - Test: `tests/test_psd.py`, **50 tests en verde**.
 - [x] **`psglab/ui/psd_panel.py`** · el panel del espectro
   - **Acá sí se usa pyqtgraph**, a diferencia del panel de la Übersicht, que se
     pinta con `QPainter`: un espectro es una curva sobre ejes con escala, y
@@ -1091,7 +1091,7 @@ ventana y no existía.
     `PlotDataItem.getData()` devuelve el log₁₀ de lo que se dibujó, así que una
     potencia de 1e-6 volvía como -6. El panel guarda ahora la magnitud en su
     unidad, que es la misma solución que `signal_view.py` usa con los píxeles.
-  - Test: `tests/test_psd_panel.py`, **19 tests en verde**.
+  - Test: `tests/test_psd_panel.py`, **20 tests en verde**.
 
 ---
 
@@ -1148,7 +1148,7 @@ mostrarse.
     complejidad plausible y bajo, indistinguible a ojo de una medición real.
   - El eje va en **base 1**, como el histograma: desde 0 quedaría desplazado una
     ventana respecto de él.
-  - Test: `tests/test_metric_panel.py`, **14 tests en verde**.
+  - Test: `tests/test_metric_panel.py`, **16 tests en verde**.
 - [x] **`psglab/ui/connectivity_panel.py`** · el mapa de calor de la matriz
   - **La matriz es la salida real del requisito**: mostrar sólo su promedio
     diría cuánta conectividad hay pero no entre qué canales.

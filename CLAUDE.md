@@ -9,31 +9,38 @@ Este archivo está en español, como el resto de la documentación del proyecto
 
 ## Estado del proyecto
 
-**Parte 1 terminada**, con los hitos 0 a 7 cerrados: `python main.py` abre la
-ventana, lee un EDF o un BrainVision, se navega y se scorea con el teclado, las
-seis herramientas andan y los tres archivos de salida se escriben. Queda el
-hito 8, que es una lista de comprobación, y el hito 9, que salió de correrla:
-seis requisitos que estaban hechos en `tools/` y que `ui/` no consumía. Los dos
-están cerrados y **la Parte 1 está terminada**.
+**Las dos Partes están cerradas** y ningún módulo de `psglab/` eleva
+`NotImplementedError`: `python main.py` abre la ventana, lee un EDF o un
+BrainVision, se navega y se scorea con el teclado, las herramientas andan, los
+tres archivos de salida se escriben y los análisis de la Parte 2 se piden desde
+la ventana. La Parte 2 tiene dependencias propias que **hay que instalar**; ver
+"Comandos".
 
-**La Parte 2 también está terminada**, y se le corrió su lista de cierre:
-`psglab/analysis/` no eleva `NotImplementedError` en ningún módulo, y cada
-análisis se probó sobre un registro real y no sólo sobre señal sintética. Tiene
-dependencias propias que **hay que instalar**; ver "Comandos".
+**Cuántos hitos hay, cuál está abierto y qué quedó sin resolver vive sólo en
+[`docs/TODO.md`](docs/TODO.md)**, y `tests/test_consistencia.py` lo verifica
+contra el código en cada corrida. No repetirlo acá: de este archivo se verifican
+los enlaces, los párrafos repetidos y lo que dice del CI, pero **la prosa sobre
+el avance no la mira nadie**, y es justamente la que ya se desincronizó una vez.
 
-**Correr esa lista es lo que encuentra lo que las cuentas no ven.** Cerrar la
-Parte 1 por ausencia de stubs estuvo mal dos veces y de ahí salió el hito 9;
-cerrar la Parte 2 por lo mismo escondía que los filtros sugeridos no se podían
-aplicar a un registro de 100 Hz. Las dos veces apareció al recorrer los
-requisitos por la ventana, con un archivo de verdad.
+**Dar algo por cerrado porque no quedan stubs falló las tres veces.**
+`contar_stubs()` cuenta `raise NotImplementedError` y no ve **caminos muertos**:
+código correcto, con sus tests en verde, que ningún usuario puede ejecutar. Con
+esa medida se cerraron los hitos 6 y 7 con la mitad de la interfaz sin conectar
+—de ahí salió el hito 9, seis requisitos hechos en `tools/` que `ui/` no
+consumía— y se dio por cerrada la Parte 2 sin notar que los filtros sugeridos no
+se podían aplicar a un registro de 100 Hz. El hito 19 es el mismo hallazgo una
+vez más, del lado de la Parte 2: tres funciones públicas de `analysis/` sin
+ningún camino desde la ventana, que la lista de cierre del hito 17 no vio porque
+recorrió los **requisitos** de `docs/TRAZABILIDAD.md` y no las **funciones
+públicas**. Un requisito puede estar cubierto a medias y la comprobación por
+requisito lo da por bueno.
 
-**Las cuentas del avance viven sólo en [`docs/TODO.md`](docs/TODO.md)** —cuántos
-stubs quedan, en cuántos módulos, qué hito está abierto— y
-`tests/test_consistencia.py` las verifica contra el código en cada corrida. No
-repetirlas acá: a este archivo no lo verifica nadie y se desincroniza.
+**Lo que lo encuentra es recorrer el programa por la ventana, con un archivo de
+verdad.** El hito 20 automatizó la parte que se podía; ver "Lo que se verifica
+solo".
 
-Hoy no queda ningún test salteado, pero la convención sigue en pie para la
-Parte 2: los tests de un módulo sin implementar se apagan con
+Hoy no queda ningún test salteado, pero la convención sigue en pie: los tests
+de un módulo sin implementar se apagan con
 `pytestmark = pytest.mark.skip(...)` cerca del principio del archivo, y **al
 implementar el componente hay que borrar esa línea**, o el trabajo queda sin
 verificar. El chequeo `test_ningun_modulo_terminado_tiene_su_test_salteado`
@@ -44,7 +51,7 @@ terminado.** Mirá `windows.py` para ver cómo se documenta lo que un módulo
 **no** valida, y `recording.py` para el criterio opuesto: rechazar al construir
 lo que no se puede arreglar después.
 
-Nada de la Parte 1 **debe volver a ser `NotImplementedError`**, y en particular
+Nada del paquete **debe volver a ser `NotImplementedError`**, y en particular
 tampoco los decoradores
 `@register_tool` y `@register_reader`, `Reader.can_read`, el despacho de
 `read_recording()` con `load_all_readers()`, los métodos de evento de `Tool` y
@@ -69,11 +76,13 @@ y el README de su carpeta también.
 qué falta. Duplicar el avance en los dos lugares garantiza que se
 desincronicen.
 
-Las dos auditorías tampoco: [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (4 de
+Las auditorías tampoco: [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (4 de
 septiembre) y
 [`docs/AUDITORIA-2026-09-07.md`](docs/AUDITORIA-2026-09-07.md) (7 de
 septiembre, al cerrarse la Parte 1) son fotos fechadas de lo que se encontró
-revisando el repositorio entero. Antes de abrir un hito conviene
+revisando el repositorio entero. **La tercera, del 8 de septiembre, no tiene
+archivo propio**: sus hallazgos se repartieron entre los hitos 19, 20 y 21 del
+TODO, que es donde hay que ir a buscarlos. Antes de abrir un hito conviene
 leer sus bloques "Medido en la auditoría", que están citados dentro del TODO en
 el hito al que le tocan. No son bugs abiertos sino decisiones que ese hito tiene
 que tomar: firmas que no pueden ser correctas en `statistics.py`, `Session` sin
@@ -172,11 +181,14 @@ rechazar antes de dar por terminado un cambio:
 - Ningún enlace ni ancla de ningún `.md` versionado apunta a la nada, **este
   archivo incluido**. Renombrar un encabezado rompe los enlaces que lo apuntaban.
 - `docs/EXPLICACION.txt` se mantiene en ASCII, sin acentos.
-- **Cuatro** capas no importan `psglab.ui`, `PySide6` ni `pyqtgraph`: `core/`,
-  `utils/`, `readers/` y `exporters/` (`CAPAS_SIN_INTERFAZ`, en el test). Las dos
-  últimas están en la lista porque de ellas depende el corte del hito 5 —leer un
-  registro, scorearlo y exportar los tres archivos desde un script, sin abrir una
-  ventana—, que es exactamente lo que se pierde si entra Qt.
+- **Seis** capas no importan `psglab.ui`, `PySide6` ni `pyqtgraph`: `core/`,
+  `utils/`, `readers/`, `exporters/`, `tools/` y `analysis/`
+  (`CAPAS_SIN_INTERFAZ`, en el test). `readers/` y `exporters/` están porque de
+  ellas depende el corte del hito 5 —leer un registro, scorearlo y exportar los
+  tres archivos desde un script, sin abrir una ventana—, que es exactamente lo
+  que se pierde si entra Qt. `tools/` y `analysis/` entraron en el hito 10: las
+  dos declaraban no conocer la interfaz —`tools/base.py` explica que por eso
+  `Tool` no hereda de `QObject`— y ninguna lo tenía verificado.
 - Todas las firmas llevan type hints.
 - Ningún módulo terminado tiene su test salteado.
 - Cada archivo de `tests/` tiene su fila en el diccionario `COBERTURA_DE_TESTS`
@@ -201,18 +213,53 @@ rechazar antes de dar por terminado un cambio:
 - Ningún `.md` versionado repite un párrafo largo dentro de sí mismo, **este
   archivo incluido**. Explicar lo mismo dos veces en un archivo garantiza que
   alguien corrija una sola.
-- Todo módulo de la Parte 1 tiene test, figura en `SIN_TEST_PROPIO` —`ui/`
-  entero, `app.py` y `config.py`— o el TODO promete el suyo **por nombre de
-  archivo**. Un módulo nuevo sin ninguna de las tres cosas hace fallar la suite.
-- Todo método público de `core/` y `utils/` que reciba argumentos tiene su fila
-  en `CONTRATOS` de `tests/test_contratos.py`, o figura en `SIN_CONTRATO` con el
-  motivo. Es lo que obliga a verificar que una entrada hostil salga como
-  `PsgLabError` y no como una traza en la cara del investigador.
+- Todo módulo tiene test, figura en `SIN_TEST_PROPIO` o el TODO promete el suyo
+  **por nombre de archivo**. Un módulo nuevo sin ninguna de las tres cosas hace
+  fallar la suite. La exención **no es `ui/` entero**: son `app.py`, `config.py`
+  y cuatro módulos de `ui/` —`main_window.py`, `navigation.py`,
+  `scoring_panel.py` y `channel_selector.py`—. Los demás panels tienen test
+  propio, así que agregar uno sin test rompe la suite.
+- Todo método público de `core/`, `utils/` y `analysis/` que reciba argumentos
+  tiene su fila en `CONTRATOS` de `tests/test_contratos.py`, o figura en
+  `SIN_CONTRATO` con el motivo. Son las tres capas donde vive la regla de
+  negocio: `analysis/` entró en el hito 10, porque un `ValueError` de scipy o de
+  MNE le llega al investigador como traza igual que uno de `core/`.
 - `COBERTURA_DE_TESTS` no puede declarar un módulo que el test no importe.
   Declararlo sin importarlo ya contó nueve stubs como verificados mientras nadie
   exigía un test para ellos.
 - Todos los módulos del paquete se pueden importar. Es lo único que ejercita la
   capa `ui/`.
+
+Los tres que agregó el **hito 20** son la red contra lo que hasta entonces se
+buscaba a mano, y las dos veces que se buscó así se escapó algo:
+
+- **Toda función pública de `analysis/` tiene que llegar a la ventana**, o
+  figurar en `SOLO_BIBLIOTECA` con su motivo. Lo que mira es que el nombre **se
+  use** en `psglab/ui/`: un `from x import y` sin llamada no cuenta, que es
+  exactamente la forma que tenía el camino muerto de `derive_montage()`. Al
+  agregar una función a `analysis/`, o la consume la interfaz o hay que
+  declararla —y una exención que disfrace un hueco de decisión tomada es peor
+  que el hueco: lo vuelve invisible y encima parece revisado—.
+- La cuenta de hitos que declaran los documentos es la de la tabla de progreso
+  del TODO, y con una forma fija: `<numeral> hitos … del 0 al N`. Se exige a
+  `README.md`, `docs/TODO.md`, `docs/EXPLICACION.txt` y `docs/README.md`. **A
+  este archivo no**, y por eso no escribe esa cuenta en ningún lado.
+- Lo que los documentos dicen del CI coincide con el workflow, **y acá sí entra
+  este archivo**. La comprobación es por sección y no por archivo: si el CI
+  cambia de ramas, hay que corregirlo en la sección que lo describe, más abajo.
+
+Y los que sostienen las tablas de exenciones, que envejecen peor que el código:
+
+- `SIN_TEST_PROPIO`, `SOLO_BIBLIOTECA` y `SIN_CONTRATO` no pueden nombrar algo
+  que ya no existe, **símbolo incluido y no sólo archivo**: renombrar `clamp`
+  dejaba la exención apuntando a la nada y tapando lo que viniera después.
+- Los `requirements*.txt` que nombra la documentación existen, y el piso de
+  numpy alcanza para lo que el código usa.
+- La ambigüedad que los documentos declaran abierta lo está de verdad en el
+  código, con la marca `PENDIENTE DE DEFINICIÓN CON EL CLIENTE`.
+- Cada `README.md` de carpeta nombra sus archivos, `docs/TRAZABILIDAD.md` no
+  nombra ninguno que ya no exista y un hito que el TODO da por terminado figura
+  como cerrado en su tabla.
 
 ### El otro test transversal
 
@@ -232,10 +279,11 @@ guardas de tipo se podían borrar enteras, cambiando `if not isinstance(...)` po
 
 **Al implementar un módulo hay que agregar una fila por método público**, y hay
 red que lo exige: `test_cada_metodo_publico_de_negocio_tiene_su_fila_de_contrato`
-recorre `core/` y `utils/` y hace fallar la suite si falta alguna. Las
-excepciones se declaran en `SIN_CONTRATO` **con el motivo** —hoy `windows.py` y
-`clamp`, que documentan que no validan porque quien llama ya validó—, nunca se
-saltean en silencio.
+recorre `core/`, `utils/` y `analysis/` y hace fallar la suite si falta alguna.
+Las excepciones se declaran en `SIN_CONTRATO` **con el motivo** —hoy son tres:
+`windows.py` y `clamp`, que documentan que no validan porque quien llama ya
+validó, y `memoria_suficiente`, que no recibe datos sino el texto del cartel—,
+nunca se saltean en silencio.
 
 El [workflow de CI](.github/workflows/ci.yml) corre en cada push y cada pull
 request contra `Add` y `Master`: los tests en Windows, macOS y Linux con Python
@@ -272,9 +320,16 @@ de esa carpeta en el mismo commit**, igual que `docs/TRAZABILIDAD.md`.
 Las dependencias apuntan en una sola dirección:
 
 ```
-utils ← core ← { readers, tools, exporters, analysis }
-              ui ← core + tools
+utils   ←  no depende de nadie
+core    ←  modelo y reglas de negocio; cuelga sólo de utils y config
+{ readers, tools, exporters, analysis }  ←  cuelgan sólo de core
+ui      ←  importa de todas: core, tools, analysis, readers, exporters, utils
 ```
+
+Lo que importa no es de cuántas capas depende `ui/` —son todas, medido sobre los
+imports y no sobre la intención— sino que **ninguna flecha apunte hacia arriba**.
+Que la ventana le pida un filtro o una PSD a `analysis/` es lo que corresponde a
+la capa de arriba y no rompe ninguna regla.
 
 **`core/` nunca importa nada de `ui/`.** No es estética: es lo que permite
 testear modelo, scoring, estadísticas y exportadores sin levantar una ventana.

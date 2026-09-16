@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cuarenta y un
+camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y un
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -54,6 +54,8 @@ verde por omisión, que es peor que dar rojo.
 | `test_contratos.py` | Que ningún método público escape del `except` de la interfaz. |
 | `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
+| `test_viewport.py` | La página visible: que se recorte en un solo lugar y que navegar no la mueva si la época ya está dentro. |
+| `test_decimation.py` | La envolvente: que una espiga de una sola muestra sobreviva a reducir ocho horas, y que no copie la señal. |
 | `test_nomenclature.py` | Las dos nomenclaturas, la conversión entre ellas y los códigos de `Scoring.txt`. |
 | `test_recording.py` | El registro en memoria y lo que no deja construir. |
 | `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
@@ -78,6 +80,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_derivation.py` | Las derivaciones: una resta exacta, y qué clase y qué unidad lleva el canal nuevo. |
 | `test_psd.py` | El espectro: que una onda de 10 Hz dé su pico en 10 Hz, y qué pasa con la última ventana incompleta. |
 | `test_psd_panel.py` | El panel del espectro: qué curvas quedan, dónde caen las bandas, y que la potencia no salga en logaritmos. |
+| `test_settings_dialog.py` | La ventana de configuración: que mostrar no sea elegir, y que cada solapa entregue unas preferencias válidas. |
 | `test_complexity.py` | Las cuatro medidas de complejidad, cada una contra su ancla teórica. |
 | `test_connectivity.py` | La conectividad, y la afirmación que justifica el módulo: wPLI separa el volume conduction y la coherencia no. |
 | `test_metric_panel.py` | El panel de métrica por ventana: la base 1 del eje, y que los NaN queden como hueco. |
@@ -90,6 +93,13 @@ verde por omisión, que es peor que dar rojo.
 | `test_impedance_panel.py` | La tabla editable: que la celda sin valor lo diga, y que un cero escrito a mano sí cuente. |
 | `test_reference.py` | La re-referenciación: el canal de referencia en cero, y la suma de los EEG en cero. |
 | `test_entrega.py` | La comprobación de entrega: abrir, navegar, scorear y exportar **por la ventana**, no por las piezas. |
+| `test_main_window_layout.py` | Cómo se llama lo que la ventana hace: la superficie pública que un refactor no puede renombrar en silencio. |
+| `test_theme.py` | Los esquemas de color: que un esquema sea inmutable, que la paleta cicle y que lo guardado vuelva igual. |
+| `test_preferences.py` | Lo que el programa recuerda entre sesiones, y que un archivo roto no le impida arrancar. |
+| `test_menus.py` | La barra de menú: que ninguna acción quede sin conectar y que cada cosa esté donde corresponde. |
+| `test_docks.py` | Los paneles acoplables: que cada uno se pueda guardar y restaurar, y que la navegación no se pueda cerrar. |
+| `test_icons.py` | Los iconos que dibuja el programa: que no salgan vacíos y que tomen el color pedido. |
+| `test_navigation.py` | La barra inferior: que la franja convierta bien un clic en una ventana, sobre todo en los bordes. |
 
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el
 motivo por el que `core/` no importa nada de `ui/`.

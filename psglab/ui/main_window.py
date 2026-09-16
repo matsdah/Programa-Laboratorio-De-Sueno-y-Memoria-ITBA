@@ -2,25 +2,27 @@
 
 Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
-    +--------------------------------------------------------------+
-    |  Menú: Archivo | Ver | Herramientas | Análisis | Ayuda        |
-    +--------------------------------------------------------------+
-    |  Barra de herramientas (lupa, amplitud, ocupación, anotar)    |
-    +------------------+-------------------------------------------+
-    |  Selector de     |                                           |
-    |  canales         |     Visualizador de la señal (30 s)       |
-    |                  |                                           |
-    +------------------+-------------------------------------------+
-    |  Übersicht: ventanas vecinas, la actual más oscura            |
-    +--------------------------------------------------------------+
-    |  Panel de scoring (W / N1 / N2 / N3 / R ... + Arousal)        |
-    +--------------------------------------------------------------+
-    |  Navegación: ← ventana anterior | siguiente →                 |
-    +--------------------------------------------------------------+
-    |  Histograma de la noche completa                              |
-    +--------------------------------------------------------------+
-    |  Barra de estado: ventana 42 / 960 - 00:21:00                 |
-    +--------------------------------------------------------------+
+    +---------------------------------------------------------------+
+    |  Menú: Archivo | Sesión | Ver | Montaje | Filtrar | Analizar   |
+    |        Herramientas | Configuración | Ayuda                    |
+    +---------------------------------------------------------------+
+    |  Barra de herramientas (lupa, amplitud, ocupación, anotar)     |
+    +----------+-----------------------------------------+----------+
+    | Canales  |                                         | Espectro |
+    |  (dock)  |   Visualizador de la señal (central)    | Métrica  |
+    |          |                                         | ICA...   |
+    |          |                                         | (solapas)|
+    +----------+-----------------------------------------+----------+
+    |  Übersicht | Scoring | Hipnograma  (docks de abajo)            |
+    +---------------------------------------------------------------+
+    |  Navegación: ← ventana anterior | siguiente →   (barra fija)   |
+    +---------------------------------------------------------------+
+    |  Barra de estado: ventana 42 / 960 - 00:21:00                  |
+    +---------------------------------------------------------------+
+
+**La señal es el widget central y todo lo demás es un `QDockWidget`**: se
+mueve, se apila en solapas, se cierra y se saca a otra pantalla. Los seis
+paneles de análisis arrancan ocultos y los abre la acción que los calcula.
 
 Cubre del pliego: V4_F de "Archivo de salida" (elegir cuál de los tres archivos
 exportar), V3_F de "Ocupación de la página" (mostrar el porcentaje), V2_F de
@@ -43,21 +45,25 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QObject, Qt
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QByteArray, QEvent, QObject, Qt
+from PySide6.QtGui import QAction, QCloseEvent, QFont
 from PySide6.QtWidgets import (
     QApplication,
-    QDialog,
     QFileDialog,
     QInputDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
-    QSplitter,
-    QVBoxLayout,
-    QWidget,
+    QToolBar,
 )
 
+from psglab.config import (
+    MAX_SCALE_UV,
+    MIN_SCALE_UV,
+    MIN_VIEW_SECONDS,
+    VIEW_PAN_FRACTION,
+    VIEW_ZOOM_FACTOR,
+)
 from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import (
     Nomenclature,
@@ -87,7 +93,7 @@ from psglab.analysis.impedance import (
     read_impedances,
 )
 from psglab.analysis.filters import apply_filters, settings_for_kinds
-from psglab.analysis.psd import DEFAULT_BANDS, band_power, compute_psd
+from psglab.analysis.psd import band_power, compute_psd
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
@@ -103,8 +109,10 @@ from psglab.tools.magnifier import MagnifierTool
 from psglab.tools.occupancy import OccupancyTool
 from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
+from psglab.ui import preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
-from psglab.ui.grid import BackgroundStyle
+from psglab.ui.docks import build_docks
+from psglab.ui.menus import build_menus, duration_text
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.connectivity_panel import ConnectivityPanel
@@ -114,6 +122,7 @@ from psglab.ui.impedance_panel import ImpedancePanel
 from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
 from psglab.ui.scoring_panel import ScoringPanel
+from psglab.ui.settings_dialog import SettingsDialog
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
 from psglab.utils.errors import PsgLabError
@@ -138,6 +147,13 @@ _BOTONES = {
 }
 
 
+#: Cuántas muestras tiene que abarcar una página, sumando los canales visibles,
+#: para que dibujarla muestre el cursor de espera. Veinte millones son unos
+#: 250 ms sobre la máquina de desarrollo: por debajo la espera no se nota, y
+#: mostrar el cursor por un parpadeo es peor que no mostrarlo.
+_MUESTRAS_PARA_AVISAR = 20_000_000
+
+
 class MainWindow(QMainWindow):
     """Ventana principal del programa."""
 
@@ -154,154 +170,103 @@ class MainWindow(QMainWindow):
         self._active_viewer_tool: ViewerTool | None = None
         #: La descomposición ICA ajustada, mientras el panel está abierto.
         self._ica: object | None = None
+        #: Las preferencias vigentes. **Arrancan en los valores de fábrica y no
+        #: se leen del disco acá**: sólo `apply_saved_layout()` las lee, y sólo
+        #: la llama `main.py`. Si el constructor las leyera, la suite de tests
+        #: dependería de lo que cada quien tenga configurado en su máquina.
+        self._preferencias = preferences.Preferences()
+        #: La tipografía con la que arrancó el programa, para poder volver a
+        #: ella cuando el usuario elige «la del sistema».
+        self._fuente_del_sistema = QFont(QApplication.font())
+        #: La ventana de configuración. Se arma la primera vez que se pide.
+        self.settings_dialog: SettingsDialog | None = None
 
         self._build_layout()
         self._build_menus()
         self._build_toolbar()
         self._connect_signals()
         install_shortcuts(self, None)
+        # El esquema ya está elegido —`create_application()` lo leyó de las
+        # preferencias antes de construir nada—, pero la hoja de estilo se
+        # aplica sobre la ventana, que recién existe ahora.
+        self.setStyleSheet(theme.stylesheet(theme.current()))
+        #: La disposición de fábrica, capturada con todos los paneles y las dos
+        #: barras ya puestos. Es a lo que vuelve «Ver ▸ Restaurar la
+        #: disposición», y tiene que guardarse acá y no antes: `saveState()`
+        #: sólo serializa lo que ya existe.
+        self._layout_por_defecto = self.saveState()
+        #: Si al cerrar se guarda la disposición. Lo prende
+        #: `create_main_window(restore_layout=True)`, que sólo llama `main.py`:
+        #: así la suite de tests no escribe en el archivo de quien la corre.
+        self._guardar_disposicion_al_cerrar = False
 
     # -- Construcción -------------------------------------------------------
 
     def _build_layout(self) -> None:
-        """Crea los paneles y los ubica según el esquema de arriba."""
+        """Crea los paneles y los reparte alrededor de la señal.
+
+        Acá sólo se los construye y se los cablea; **dónde va cada uno lo
+        decide `psglab/ui/docks.py`**, por el mismo motivo por el que el menú se
+        mudó a `menus.py`: la disposición cambia cuando se reorganiza la
+        interfaz, y los paneles cuando cambia lo que el programa hace.
+        """
         self.signal_view = SignalView()
         self.channel_selector = ChannelSelector()
         self.scoring_panel = ScoringPanel()
         self.navigation = NavigationBar()
         self.overview_panel = OverviewPanel()
         self.histogram_view = pg.PlotWidget()
-        self.histogram_view.setMaximumHeight(140)
         self.histogram_view.getPlotItem().setMenuEnabled(False)
         self.histogram_view.getPlotItem().setMouseEnabled(x=False, y=False)
 
-        arriba = QSplitter()
-        arriba.addWidget(self.channel_selector)
-        arriba.addWidget(self.signal_view)
-        arriba.setStretchFactor(1, 4)
-
-        centro = QWidget()
-        columna = QVBoxLayout(centro)
-        columna.addWidget(arriba, stretch=4)
-        columna.addWidget(self.overview_panel)
-        columna.addWidget(self.scoring_panel)
-        columna.addWidget(self.navigation)
-        columna.addWidget(self.histogram_view, stretch=1)
-        self.setCentralWidget(centro)
-        # Lo que la herramienta activa quiere informar: el porcentaje de la
-        # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
-        # la derecha, permanente, para que no lo pise el mensaje de navegación.
-        # El espectro vive en una ventana aparte, que se crea una sola vez y se
-        # muestra u oculta: recrearla en cada pedido perdería su tamaño y su
-        # posición, que el usuario acomoda una vez.
         self.psd_panel = PsdPanel()
-        self.psd_dialog = QDialog(self)
-        self.psd_dialog.setWindowTitle("Espectro")
-        self.psd_dialog.resize(640, 420)
-        columna_psd = QVBoxLayout(self.psd_dialog)
-        columna_psd.addWidget(self.psd_panel)
-
         self.metric_panel = MetricPanel()
-        self.metric_dialog = QDialog(self)
-        self.metric_dialog.setWindowTitle("Métrica por ventana")
-        self.metric_dialog.resize(720, 380)
-        QVBoxLayout(self.metric_dialog).addWidget(self.metric_panel)
-
         self.connectivity_panel = ConnectivityPanel()
-        self.connectivity_dialog = QDialog(self)
-        self.connectivity_dialog.setWindowTitle("Conectividad")
-        self.connectivity_dialog.resize(560, 520)
-        QVBoxLayout(self.connectivity_dialog).addWidget(self.connectivity_panel)
 
         self.impedance_panel = ImpedancePanel()
         self.impedance_panel.on_changed = self._refrescar_informe_de_impedancia
         self.impedance_panel.boton_archivo.clicked.connect(self.load_impedances_dialog)
-        self.impedance_panel.boton_limpiar.clicked.connect(
-            self._limpiar_impedancias
-        )
-        self.impedance_dialog = QDialog(self)
-        self.impedance_dialog.setWindowTitle("Impedancia de los electrodos")
-        self.impedance_dialog.resize(820, 460)
-        QVBoxLayout(self.impedance_dialog).addWidget(self.impedance_panel)
+        self.impedance_panel.boton_limpiar.clicked.connect(self._limpiar_impedancias)
 
         self.filter_panel = FilterPanel()
         self.filter_panel.on_apply = self.apply_filters_from_panel
-        self.filter_dialog = QDialog(self)
-        self.filter_dialog.setWindowTitle("Filtrar la señal")
-        self.filter_dialog.resize(680, 320)
-        QVBoxLayout(self.filter_dialog).addWidget(self.filter_panel)
 
         self.ica_panel = IcaPanel()
         self.ica_panel.on_apply = self._apply_ica
         self.ica_panel.on_component_shown = self._mostrar_curva_del_componente
-        self.ica_dialog = QDialog(self)
-        self.ica_dialog.setWindowTitle("Componentes independientes")
-        self.ica_dialog.resize(860, 480)
-        QVBoxLayout(self.ica_dialog).addWidget(self.ica_panel)
 
+        build_docks(self)
+
+        # **La navegación no es un panel acoplable.** Es la única vía de
+        # navegación con el mouse, así que poder cerrarla dejaría al usuario
+        # sin salida si no conoce las flechas del teclado. Va como barra fija
+        # abajo, que además es donde la pone la referencia.
+        self.navigation_bar = QToolBar("Navegación")
+        self.navigation_bar.setObjectName("barra-de-navegacion")
+        self.navigation_bar.setMovable(False)
+        self.navigation_bar.addWidget(self.navigation)
+        self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self.navigation_bar)
+
+        # Lo que la herramienta activa quiere informar: el porcentaje de la
+        # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
+        # la derecha, permanente, para que no lo pise el mensaje de navegación.
         self.tool_readout = QLabel("")
         self.statusBar().addPermanentWidget(self.tool_readout)
+        #: Cuánto dura la página visible. Va aparte del mensaje de navegación,
+        #: que habla de la época: son dos datos distintos.
+        self.page_readout = QLabel("")
+        self.statusBar().addPermanentWidget(self.page_readout)
         self.statusBar().showMessage("Sin registro abierto")
 
     def _build_menus(self) -> None:
-        """Crea la barra de menú y las acciones."""
-        archivo = self.menuBar().addMenu("&Archivo")
-        archivo.addAction("&Abrir registro…", self.open_recording_dialog)
-        archivo.addAction("&Importar scoring…", self.open_scoring_dialog)
-        archivo.addSeparator()
-        # V4_F pide poder exportar **uno solo** de los tres, así que son tres
-        # acciones y no un único "Exportar todo".
-        for kind, nombre in DEFAULT_FILENAMES.items():
-            archivo.addAction(
-                f"Exportar {nombre}…", lambda _=False, k=kind: self._export_dialog(k)
-            )
-        archivo.addSeparator()
-        archivo.addAction("&Salir", self.close)
+        """Arma la barra de menú.
 
-        ver = self.menuBar().addMenu("&Ver")
-        for estilo in BackgroundStyle:
-            ver.addAction(
-                estilo.value, lambda _=False, e=estilo: self.signal_view.grid.set_style(e)
-            )
-
-        ver.addSeparator()
-        # V2_F del histograma: el pliego pide poder elegir el eje.
-        self.accion_eje_en_hora = ver.addAction(
-            "Histograma en hora real de la noche"
-        )
-        self.accion_eje_en_hora.setCheckable(True)
-        self.accion_eje_en_hora.toggled.connect(self.set_histogram_time_axis)
-
-        self.tools_menu = self.menuBar().addMenu("&Herramientas")
-
-        # **El menú de la Parte 2.** Cada análisis entra acá al implementarse:
-        # es lo que separa "el módulo existe" de "el investigador puede usarlo",
-        # que es la lección que costó el hito 9.
-        analisis = self.menuBar().addMenu("&Análisis")
-        # **Arriba de todo y en su propio grupo.** No es un análisis de la
-        # señal sino el control de calidad **previo** a confiar en
-        # cualquiera de los otros: filtrar la señal de un electrodo suelto
-        # da un resultado prolijo y falso, que es peor que uno feo.
-        analisis.addAction("&Impedancia de los electrodos…", self.show_impedance_dialog)
-        analisis.addAction("&Filtrar la señal…", self.show_filter_dialog)
-        analisis.addSeparator()
-        analisis.addAction("&Derivar canales…", self.derive_dialog)
-        analisis.addAction("&Re-referenciar…", self.rereference_dialog)
-        analisis.addAction("Referencia &promedio (EEG)", self.apply_average_reference)
-        analisis.addSeparator()
-        analisis.addAction("&Espectro de la ventana…", self.show_psd_dialog)
-        analisis.addAction("&Complejidad de la noche…", self.show_complexity_dialog)
-        analisis.addAction("Conectividad de la &ventana…", self.show_connectivity_dialog)
-        analisis.addSeparator()
-        analisis.addAction("Componentes &independientes (ICA)…", self.show_ica_dialog)
-        analisis.addSeparator()
-        self.accion_señal_original = analisis.addAction(
-            "&Volver a la señal original", self.restore_original_recording
-        )
-        self.accion_señal_original.setEnabled(False)
-
-        ayuda = self.menuBar().addMenu("A&yuda")
-        ayuda.addAction("&Atajos de teclado", self._show_shortcuts)
+        El contenido vive en `psglab/ui/menus.py`, que además de las acciones
+        deja en la ventana los dos `QAction` que el resto del programa toca
+        —`accion_eje_en_hora` y `accion_señal_original`— y el menú vacío de
+        herramientas que puebla `_build_toolbar()`.
+        """
+        build_menus(self)
 
     def _build_toolbar(self) -> None:
         """Crea la barra de herramientas a partir del registro de herramientas.
@@ -347,6 +312,8 @@ class MainWindow(QMainWindow):
         activa: `ViewerTool` recibe segundos, nunca píxeles.
         """
         self.navigation.window_requested.connect(self._go_to_window)
+        self.navigation.amplitude_up_requested.connect(self.increase_amplitude)
+        self.navigation.amplitude_down_requested.connect(self.decrease_amplitude)
         self.scoring_panel.stage_selected.connect(self.score_current_window)
         self.scoring_panel.arousal_toggled.connect(self._set_arousal)
         self.scoring_panel.nomenclature_changed.connect(self._change_nomenclature)
@@ -616,8 +583,15 @@ class MainWindow(QMainWindow):
             ventanas = count_windows(registro.n_samples, registro.sampling_rate)
             sesion = Session(
                 registro,
-                Scoring(ventanas, Nomenclature.AASM),
+                # La nomenclatura con que arranca un scoring nuevo. Uno
+                # importado trae la suya y ésta no la pisa.
+                Scoring(ventanas, self._preferencias.nomenclature()),
                 AnnotationSet(),
+            )
+            # La página con que se abre. Se fija antes de dibujar para no
+            # dibujar dos veces.
+            sesion.set_viewport(
+                sesion.viewport.with_span(self._preferencias.open_view_seconds)
             )
         except PsgLabError as error:
             self._show_error(error)
@@ -642,12 +616,20 @@ class MainWindow(QMainWindow):
         # decisión del hito 6, y por eso acá no hay que acordarse de avisarles.
         for herramienta in self._tools.values():
             sesion.add_window_listener(herramienta.on_window_changed)
+            sesion.add_view_listener(herramienta.on_view_changed)
 
+        self._aplicar_colores_de_clase(sesion)
         self.signal_view.set_session(sesion)
         self.channel_selector.set_recording(registro)
         self.scoring_panel.set_nomenclature(sesion.scoring.nomenclature)
         install_shortcuts(self, sesion)
         self._activate_panel_tools()
+        # El eje del histograma en hora real sólo se puede pedir si el archivo
+        # informó cuándo empezó: pedirlo igual sería un cartel de error cada
+        # vez que se abre un registro sin hora, por una preferencia que el
+        # usuario eligió para otros archivos.
+        if self._preferencias.open_clock_axis and registro.start_time is not None:
+            self.accion_eje_en_hora.setChecked(True)
         self.refresh()
 
     def open_scoring(self, path: Path) -> None:
@@ -747,6 +729,439 @@ class MainWindow(QMainWindow):
             f"Ventana {ventana + 1} de {sesion.n_windows}"
             + (f" — {self._clock_label(ventana)}" if self._clock_label(ventana) else "")
         )
+
+    # -- Escala de tiempo ---------------------------------------------------
+    #
+    # Todas cambian la página visible y ninguna toca la época: el scoring sigue
+    # siendo por ventana de 30 s. Las seis pasan por `Session.set_viewport()`,
+    # que es el único lugar que avisa a las herramientas.
+
+    def _cambiar_pagina(self, nueva: object) -> None:
+        """Aplica una página nueva y redibuja, o avisa si no se puede.
+
+        Está separado porque las seis operaciones de abajo hacen exactamente lo
+        mismo con una transformación distinta, y repetir el `try` en cada una
+        garantiza que alguna se olvide de atraparlo.
+        """
+        if self._session is None:
+            return
+        try:
+            self._session.set_viewport(nueva)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        # **Una página larga se calcula una vez y después vuelve de la caché.**
+        # Sobre el registro de prueba de 22 horas el primer dibujo del registro
+        # entero tarda 444 ms y los siguientes 14 ms; con 32 canales a 1000 Hz
+        # el primero se va a varios segundos. Esa espera no se acorta acá: se
+        # vuelve legible, que es lo que hace el cursor.
+        muestras = (
+            self._session.viewport.span_seconds
+            * self._session.recording.sampling_rate
+            * len(self._session.visible_channels)
+        )
+        if muestras > _MUESTRAS_PARA_AVISAR:
+            with self._trabajando("Dibujando la página"):
+                self.signal_view.draw_viewport()
+        else:
+            self.signal_view.draw_viewport()
+        self._actualizar_cartel_de_pagina()
+
+    def set_timescale(self, seconds: float) -> None:
+        """Le da a la página una duración concreta, conservando el centro."""
+        if self._session is None:
+            return
+        self._cambiar_pagina(self._session.viewport.with_span(seconds))
+
+    def halve_timescale(self) -> None:
+        """Acerca: la página pasa a durar la mitad."""
+        if self._session is None:
+            return
+        self._cambiar_pagina(self._session.viewport.zoomed(1 / VIEW_ZOOM_FACTOR))
+
+    def double_timescale(self) -> None:
+        """Aleja: la página pasa a durar el doble."""
+        if self._session is None:
+            return
+        self._cambiar_pagina(self._session.viewport.zoomed(VIEW_ZOOM_FACTOR))
+
+    def show_whole_recording(self) -> None:
+        """Muestra el registro entero de una vez."""
+        if self._session is None:
+            return
+        self._cambiar_pagina(self._session.viewport.whole_recording())
+
+    def ask_timescale(self) -> None:
+        """Pregunta cuántos segundos por página. Es «Definida por el usuario…»."""
+        if self._session is None:
+            return
+        actual = self._session.viewport.span_seconds
+        valor, aceptado = QInputDialog.getDouble(
+            self,
+            "Escala de tiempo",
+            "Segundos por página:",
+            actual,
+            MIN_VIEW_SECONDS,
+            self._session.recording.duration_seconds,
+            3,
+        )
+        if aceptado:
+            self.set_timescale(valor)
+
+    def pan_view_left(self) -> None:
+        """Desplaza media página hacia atrás."""
+        self._desplazar(-VIEW_PAN_FRACTION)
+
+    def pan_view_right(self) -> None:
+        """Desplaza media página hacia adelante."""
+        self._desplazar(VIEW_PAN_FRACTION)
+
+    def pan_view_page_left(self) -> None:
+        """Desplaza una página entera hacia atrás."""
+        self._desplazar(-1.0)
+
+    def pan_view_page_right(self) -> None:
+        """Desplaza una página entera hacia adelante."""
+        self._desplazar(1.0)
+
+    def _desplazar(self, fraccion_de_pagina: float) -> None:
+        """Mueve la página esa fracción de su propio ancho.
+
+        **En fracciones y no en segundos fijos**: con una página de 200 ms un
+        salto de 15 s la sacaría del registro visible, y con una de cuatro horas
+        no se notaría. Lo que el usuario espera es avanzar "un pedazo de lo que
+        estoy viendo".
+        """
+        if self._session is None:
+            return
+        pagina = self._session.viewport
+        self._cambiar_pagina(pagina.panned(fraccion_de_pagina * pagina.span_seconds))
+
+    def _actualizar_cartel_de_pagina(self) -> None:
+        """Escribe en la barra de estado cuánto dura la página.
+
+        **La barra sigue diciendo "Ventana N de M", que habla de la época.** El
+        cartel de la página es un widget aparte: son dos datos distintos y
+        mezclarlos haría ilegible el único que el pliego pide.
+        """
+        if self._session is None:
+            self.page_readout.setText("")
+            return
+        pagina = self._session.viewport
+        if pagina.shows_whole_recording:
+            self.page_readout.setText("Página: registro entero")
+            return
+        self.page_readout.setText(f"Página: {duration_text(pagina.span_seconds)}")
+
+    # -- Amplitud (V2_P, V5_F) ----------------------------------------------
+    #
+    # Las cinco entran por el menú «Amplitud» y todas comparten el alcance que
+    # ya resolvía `Session._channels_under_amplitude()`: los canales
+    # seleccionados, o todos los visibles si no hay ninguno seleccionado. No se
+    # reimplementa acá, que es lo que haría que las flechas y el menú pudieran
+    # discrepar.
+
+    def fit_amplitude_to_pane(self) -> None:
+        """Ajusta la escala para que la señal de cada canal entre en su carril."""
+        if self._session is None:
+            return
+        try:
+            self._session.fit_to_pane()
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.refresh()
+
+    def center_amplitude_offsets(self) -> None:
+        """Apoya cada canal en el centro de su carril."""
+        if self._session is None:
+            return
+        try:
+            self._session.center_offsets()
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.refresh()
+
+    def reset_amplitude_offsets(self) -> None:
+        """Devuelve al cero el desplazamiento vertical de los canales."""
+        if self._session is None:
+            return
+        try:
+            self._session.reset_offsets()
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.refresh()
+
+    def set_amplitude_scale(self, scale_uv: float) -> None:
+        """Le da la misma escala a todos los canales bajo amplitud.
+
+        **El menú habla de µV por carril y no de "amplitud"**, que es el número
+        que `Session` guarda. Decir "amplitud 100" y escribir `scale_uv = 100`
+        haría lo contrario de lo que el usuario espera la mitad de las veces:
+        subir `scale_uv` **achica** la onda, porque es cuántos µV representa la
+        altura del carril.
+        """
+        if self._session is None:
+            return
+        try:
+            for nombre in self._session.visible_channels:
+                if nombre in self._session.selected_channels or not self._session.selected_channels:
+                    self._session.set_scale_uv(nombre, scale_uv)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.refresh()
+
+    def ask_amplitude_scale(self) -> None:
+        """Pregunta la escala y la aplica. Es «Definida por el usuario…»."""
+        if self._session is None:
+            return
+        actual = self._session.scale_uv(self._session.visible_channels[0])
+        valor, aceptado = QInputDialog.getDouble(
+            self,
+            "Amplitud",
+            "Microvoltios por carril:",
+            actual,
+            MIN_SCALE_UV,
+            MAX_SCALE_UV,
+            1,
+        )
+        if not aceptado:
+            return
+        self.set_amplitude_scale(valor)
+
+    def restore_default_layout(self) -> None:
+        """Vuelve a la disposición de paneles con la que el programa se instala.
+
+        Es la salida cuando alguien arrastró un panel a un lugar del que no
+        sabe cómo sacarlo, que con nueve paneles acoplables deja de ser
+        hipotético.
+        """
+        self.restoreState(self._layout_por_defecto)
+
+    def apply_saved_layout(self) -> None:
+        """Restaura la disposición que el usuario dejó la última vez.
+
+        **Sólo la llama `create_main_window(restore_layout=True)`**, que sólo
+        llama `main.py`. Si la llamara el constructor, la suite de tests leería
+        —y después escribiría— el archivo real de quien la corre, y dejaría de
+        ser reproducible.
+
+        Prende además el guardado al cerrar: las dos cosas van juntas, porque
+        restaurar sin guardar haría que la disposición se congelara en la
+        primera que se guardó.
+
+        No eleva: una disposición que no se puede leer se descarta y la ventana
+        abre con la de fábrica.
+        """
+        self._guardar_disposicion_al_cerrar = True
+        try:
+            guardadas = preferences.load()
+        except PsgLabError:
+            return
+        # El esquema ya lo aplicó `create_application()`; lo demás de la
+        # ventana de configuración se aplica acá, que es el único lugar donde
+        # las preferencias del disco entran a la ventana.
+        self._preferencias = guardadas
+        self._aplicar_preferencias(guardadas)
+        if guardadas.window_state is None:
+            return
+        self.restoreState(QByteArray.fromBase64(guardadas.window_state.encode("ascii")))
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Guarda la disposición antes de cerrar, si corresponde.
+
+        Que no se pueda escribir **no puede impedir cerrar el programa**, así
+        que el error se traga: el usuario ya decidió irse y un cartel en ese
+        momento sólo estorba. La próxima vez abrirá con la disposición
+        anterior, que es un costo aceptable.
+        """
+        if self._guardar_disposicion_al_cerrar:
+            estado = bytes(self.saveState().toBase64()).decode("ascii")
+            try:
+                preferences.save(self._preferencias.with_window_state(estado))
+            except PsgLabError:
+                pass
+        super().closeEvent(event)
+
+    def set_color_scheme(self, scheme: theme.ColorScheme, remember: bool = True) -> None:
+        """Cambia el esquema de color de todo el programa y lo deja repintado.
+
+        `pg.setConfigOption()` sólo alcanza a los `PlotWidget` que se creen
+        después, así que hay que recorrer los que ya existen. Se los busca con
+        `findChildren()` y no con una lista escrita a mano **por la misma razón
+        de siempre**: un panel nuevo se agregaría a la lista sólo si alguien se
+        acuerda, y el síntoma de olvidarse sería un panel con el fondo del
+        esquema anterior, que nadie va a asociar con este método.
+
+        Args:
+            scheme: el esquema a aplicar.
+            remember: si se guarda como preferencia del usuario. Los tests lo
+                apagan para no escribir en el archivo real de quien los corre,
+                que los volvería dependientes de la máquina.
+
+        No eleva: si las preferencias no se pueden guardar, el esquema se aplica
+        igual y el problema sale como cartel. Perder la preferencia es molesto;
+        no poder cambiar de colores porque el disco está lleno, absurdo.
+        """
+        theme.set_current(scheme)
+
+        # La hoja de estilo alcanza a los widgets de Qt —menús, botones, el
+        # árbol de canales, las tablas—, que los `PlotWidget` no tocan. Sin
+        # esto, un esquema oscuro deja la ventana a dos colores.
+        self.setStyleSheet(theme.stylesheet(scheme))
+
+        for grafico in self.findChildren(pg.PlotWidget):
+            grafico.setBackground(scheme.background)
+        self.signal_view.apply_scheme()
+        self.navigation.apply_scheme()
+        self.overview_panel.update()
+        self._redraw_histogram()
+
+        self._preferencias = self._preferencias.with_scheme(scheme)
+        if remember:
+            self._guardar_preferencias()
+
+    def _guardar_preferencias(self) -> None:
+        """Escribe las preferencias vigentes, si esta ventana es la del usuario.
+
+        **Sólo escribe si la ventana la abrió `main.py`**, que es lo que marca
+        `apply_saved_layout()`. Antes cada cambio de esquema leía el archivo,
+        lo modificaba y lo volvía a escribir, sin mirar quién había creado la
+        ventana: un test que eligiera un esquema desde el menú pisaba las
+        preferencias reales de quien corría la suite.
+
+        No eleva: si no se puede escribir, el cambio se aplica igual y el
+        problema sale como cartel.
+        """
+        if not self._guardar_disposicion_al_cerrar:
+            return
+        try:
+            preferences.save(self._preferencias)
+        except PsgLabError as error:
+            self._show_error(error)
+
+    @property
+    def current_preferences(self) -> preferences.Preferences:
+        """Las preferencias con las que está funcionando la ventana."""
+        return self._preferencias
+
+    def apply_preferences(self, prefs: preferences.Preferences) -> None:
+        """Aplica unas preferencias nuevas a todo el programa y las recuerda.
+
+        Es lo que llama la ventana de configuración en cada cambio. **Aplica
+        todo sin reabrir el registro**: colores, grilla, tipografía, espectro y
+        colores de las clases de evento se ven enseguida. Lo de la solapa
+        «Otras» se guarda para el próximo registro que se abra.
+
+        Muestra un cartel en vez de elevar si lo que llega no son preferencias:
+        esto lo llama un panel, y una traza ahí es lo que el programa promete
+        no mostrar nunca.
+        """
+        if not isinstance(prefs, preferences.Preferences):
+            self._show_error(
+                PsgLabError(
+                    "No se pudo aplicar la configuración.",
+                    details=f"Se recibió {type(prefs).__name__} en vez de preferencias.",
+                )
+            )
+            return
+        esquema = prefs.scheme()
+        if esquema != theme.current():
+            self.set_color_scheme(esquema, remember=False)
+        self._preferencias = prefs
+        self._aplicar_preferencias(prefs)
+        if self._session is not None:
+            self._aplicar_colores_de_clase(self._session)
+            self._repintar_anotaciones()
+        self._guardar_preferencias()
+
+    def show_settings_dialog(self) -> None:
+        """Abre la ventana de configuración, mostrando lo que está vigente.
+
+        Se arma una sola vez y se la vuelve a llenar en cada apertura: lo que
+        muestra tiene que ser lo que el programa está usando, que puede haber
+        cambiado desde el menú de esquemas.
+
+        **Es modal pero no bloquea**: se muestra con `show()` y no con
+        `exec()`, así que los cambios se ven detrás mientras se eligen, que es
+        lo que hace útil aplicar en el momento.
+        """
+        colores = self._colores_de_clase_vigentes()
+        if self.settings_dialog is None:
+            self.settings_dialog = SettingsDialog(self._preferencias, colores, self)
+            self.settings_dialog.setModal(True)
+            self.settings_dialog.on_change = self.apply_preferences
+            self.settings_dialog.on_error = self._show_error
+        else:
+            self.settings_dialog.set_preferences(self._preferencias, colores)
+        self.settings_dialog.show()
+        self.settings_dialog.raise_()
+
+    def _colores_de_clase_vigentes(self) -> dict[str, str]:
+        """Las clases de evento que hay para configurar, con su color de hoy.
+
+        Con un registro abierto son las de su sesión, incluidas las que creó el
+        usuario; sin él, las de fábrica, con los colores que tendrían.
+        """
+        conjunto = (
+            self._session.annotations if self._session is not None else AnnotationSet()
+        )
+        return {clase: conjunto.color_of(clase) for clase in conjunto.labels()}
+
+    def _aplicar_preferencias(self, prefs: preferences.Preferences) -> None:
+        """Lo que se aplica enseguida y no depende de un registro abierto."""
+        if prefs.font_family is None and prefs.font_size is None:
+            fuente = QFont(self._fuente_del_sistema)
+        else:
+            fuente = QFont(self._fuente_del_sistema)
+            if prefs.font_family is not None:
+                fuente.setFamily(prefs.font_family)
+            if prefs.font_size is not None:
+                fuente.setPointSize(prefs.font_size)
+        # **Sólo si cambió.** Cambiar la tipografía de la aplicación le avisa a
+        # cada widget de cada ventana abierta, y la configuración se aplica
+        # entera en cada cambio: sin esta guarda, tocar el color de una clase
+        # le pediría al programa entero que volviera a maquetarse.
+        if fuente != QApplication.font():
+            QApplication.setFont(fuente)
+        # Los nombres de canal son ítems de pyqtgraph, que no siguen a la
+        # tipografía de la aplicación: hay que avisarles.
+        self.signal_view.apply_font(fuente)
+        self.psd_panel.set_log_power(prefs.psd_log_power)
+
+    def _aplicar_colores_de_clase(self, sesion: Session) -> None:
+        """Pone en la sesión los colores que el usuario eligió por clase.
+
+        **Una clase con color guardado queda disponible en cualquier
+        registro**, aunque ese registro todavía no la tenga: `add_label()` la
+        registra si no existía. Es lo que el usuario espera de una clase que
+        definió una vez; no cambia ningún archivo de salida, porque los
+        exportadores escriben anotaciones y no clases.
+        """
+        for clase, color in self._preferencias.annotation_colors:
+            try:
+                sesion.annotations.add_label(clase, color)
+            except PsgLabError as error:
+                self._show_error(error)
+                return
+
+    def _repintar_anotaciones(self) -> None:
+        """Vuelve a dibujar lo que muestra el color de una clase."""
+        #  le avisa a la ventana por su callback, que es el que
+        # repinta el panel: no hace falta llamarlo a mano.
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.refresh()
+        # **Sólo si el anotador es el que está dibujando.** El visualizador
+        # muestra lo de una herramienta por vez y quien avisa reemplaza todo:
+        # avisar desde el anotador con la ocupación activa borraba sus líneas
+        # de la pantalla, aunque siguieran medidas.
+        anotador = self._tools.get("annotator")
+        if anotador is not None and anotador is self._active_viewer_tool:
+            anotador.notify_changed()
 
     @property
     def session(self) -> Session | None:
@@ -976,21 +1391,13 @@ class MainWindow(QMainWindow):
         ventana = self._session.current_window
         try:
             frecuencias, potencias = compute_psd(
-                self._session.recording, channels=[canal], window_index=ventana
+                self._session.recording,
+                channels=[canal],
+                window_index=ventana,
+                method=self._preferencias.psd_method,
             )
-        except PsgLabError as error:
-            self._show_error(error)
-            return
-
-        self.psd_panel.set_spectrum(frecuencias, potencias, [canal])
-        # **La potencia de cada banda, que es la otra mitad de V1_F.** El panel
-        # sombreaba las bandas y nunca decía cuánta potencia tenía cada una;
-        # `band_power()` la calculaba desde el hito 13 y no la leía nadie.
-        # Se pasan las dos: la absoluta y la relativa, que es la que
-        # `analysis/psd.py` documenta como la que permite comparar entre
-        # participantes, porque la absoluta depende del cráneo y la impedancia.
-        self.psd_panel.set_band_powers(
-            {
+            bandas = self._preferencias.bands()
+            potencias_por_banda = {
                 nombre: (
                     float(np.ravel(band_power(frecuencias, potencias, extremos))[0]),
                     float(
@@ -999,9 +1406,22 @@ class MainWindow(QMainWindow):
                         )[0]
                     ),
                 )
-                for nombre, extremos in DEFAULT_BANDS.items()
+                for nombre, extremos in bandas.items()
             }
-        )
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        self.psd_panel.set_spectrum(frecuencias, potencias, [canal], bands=bandas)
+        # **La potencia de cada banda, que es la otra mitad de V1_F.** El panel
+        # sombreaba las bandas y nunca decía cuánta potencia tenía cada una;
+        # `band_power()` la calculaba desde el hito 13 y no la leía nadie.
+        # Se pasan las dos: la absoluta y la relativa, que es la que
+        # `analysis/psd.py` documenta como la que permite comparar entre
+        # participantes, porque la absoluta depende del cráneo y la impedancia.
+        # Las bandas son las de la configuración: las convencionales mientras el
+        # usuario no las cambie.
+        self.psd_panel.set_band_powers(potencias_por_banda)
         self.psd_dialog.setWindowTitle(
             f"Espectro de «{canal}» — ventana {ventana + 1}"
         )
@@ -1063,8 +1483,12 @@ class MainWindow(QMainWindow):
                 )
             )
             return
+        # **Las mismas bandas que el espectro.** Dos definiciones distintas de
+        # «sigma» en el mismo programa serían una trampa: el usuario que
+        # corrigió una en la configuración espera verla corregida acá también.
+        bandas = self._preferencias.bands()
         banda, acepto = QInputDialog.getItem(
-            self, "Conectividad", "Banda:", list(DEFAULT_BANDS), 0, False
+            self, "Conectividad", "Banda:", list(bandas), 0, False
         )
         if not acepto:
             return
@@ -1075,7 +1499,7 @@ class MainWindow(QMainWindow):
                 matriz = compute_connectivity(
                     self._session.recording,
                     channels=canales,
-                    band=DEFAULT_BANDS[banda],
+                    band=bandas[banda],
                     window_index=ventana,
                 )
         except PsgLabError as error:

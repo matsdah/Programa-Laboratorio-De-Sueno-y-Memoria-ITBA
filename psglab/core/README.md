@@ -26,6 +26,8 @@ ubicó mal.
 | `nomenclature.py` | Rechtschaffen y Kales frente a AASM: `Nomenclature`, `SleepStage`, conversión entre ambas. | V1_F, V3_F de "Scoring"; V3_F del histograma |
 | `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. | V1_F de "Anotación de la señal" |
 | `windows.py` | Conversión entre ventanas, muestras y hora de la noche. | V1_P de "Visualización", V1_F de "Navegación", V2_F del histograma |
+| `viewport.py` | **La página visible**, separada de la época de scoring. Inmutable: cambiarla es construir otra. | — |
+| `decimation.py` | **La envolvente mínimo/máximo** que hace dibujable el registro entero sin perder un solo pico. | — |
 
 ## `Session`: el objeto que todos consultan
 

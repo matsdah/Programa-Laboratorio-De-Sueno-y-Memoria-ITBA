@@ -94,6 +94,22 @@ class InvalidScaleError(PsgLabError):
 # -- Scoring y anotaciones --------------------------------------------------
 
 
+class InvalidViewportError(PsgLabError):
+    """La página visible pedida no se puede dibujar.
+
+    Es el equivalente horizontal de `InvalidScaleError`, y sigue el mismo
+    criterio: **lo que se puede recortar no llega acá**. Alguien que aprieta
+    "escala ÷2" quince veces no merece quince carteles, así que la página se
+    recorta en silencio contra el mínimo y contra la duración del registro.
+    Esto es para lo que no se puede recortar: un NaN, un infinito, algo que no
+    es un número, una página de ancho cero.
+
+    **No se reusa `WindowOutOfRangeError`**, que sería lo más parecido: su
+    mensaje habla de épocas —"La ventana 3 no existe en este registro"— y
+    usarlo para la página produciría un cartel que miente sobre qué falló.
+    """
+
+
 class WindowOutOfRangeError(PsgLabError):
     """Se pidió una ventana que está fuera del registro."""
 
@@ -121,6 +137,37 @@ class InvalidAnnotationError(PsgLabError):
     Existe por el mismo motivo que `InvalidRecordingError`: que el error salte
     donde está el bug, que es el anotador armando la anotación, y no al
     exportar `Anotaciones.txt` con una línea que nadie puede interpretar.
+    """
+
+
+# -- Presentación -----------------------------------------------------------
+
+
+class UnknownColorSchemeError(PsgLabError):
+    """Se pidió un esquema de color que no existe, o que no se puede dibujar.
+
+    Hereda de `PsgLabError` como todo lo demás, aunque sea un problema de
+    presentación y no de datos: el archivo de preferencias lo escribe el
+    programa pero lo puede editar el usuario, y una preferencia rota tiene que
+    salir como cartel y no como traza.
+    """
+
+
+class UnknownIconError(PsgLabError):
+    """Se pidió un icono que el programa no sabe dibujar.
+
+    Es un error de programación y no de uso —el nombre lo escribe quien arma la
+    barra, no el investigador—, pero hereda igual de `PsgLabError`: si escapara
+    crudo, atravesaría el `except` de la ventana principal y saldría como traza.
+    """
+
+
+class InvalidPreferencesError(PsgLabError):
+    """El archivo de preferencias existe pero no se pudo leer o escribir.
+
+    **Nunca impide abrir el programa.** Quien llama lo atrapa y sigue con los
+    valores por omisión: perder el tema elegido es molesto, no arrancar es
+    inaceptable.
     """
 
 

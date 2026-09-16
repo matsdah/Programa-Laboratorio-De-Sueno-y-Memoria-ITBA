@@ -8,11 +8,13 @@ Se puede afirmar sobre eso **sin mirar una pantalla**: cuántas líneas hay y en
 qué posición están es lo que define el fondo. Los píxeles no se testean.
 """
 
+import numpy as np
 import pytest
 
 pg = pytest.importorskip("pyqtgraph")
 
 from psglab.config import COARSE_GRID_SECONDS, FINE_GRID_SECONDS  # noqa: E402
+from psglab.ui import theme  # noqa: E402
 from psglab.ui.grid import BackgroundStyle, GridBackground  # noqa: E402
 
 VENTANA = 30.0
@@ -157,3 +159,84 @@ def test_el_separador_decimal_es_la_coma():
     """Es el idioma del programa: nadie escribe "0.5 segundos" a mano en
     español."""
     assert "0.5" not in BackgroundStyle.FULL.value
+
+
+# -- La grilla cuadriculada del esquema ECG ---------------------------------------
+
+
+@pytest.fixture
+def esquema_ecg():
+    """Pone el esquema ECG mientras dura el test y deja el anterior al salir."""
+    anterior = theme.current()
+    theme.set_current(theme.ECG)
+    yield
+    theme.set_current(anterior)
+
+
+def _horizontales(grid: GridBackground) -> list[float]:
+    return sorted(linea.value() for linea in grid.lines() if linea.angle == 0)
+
+
+def _verticales(grid: GridBackground) -> list[float]:
+    return sorted(linea.value() for linea in grid.lines() if linea.angle == 90)
+
+
+def test_sin_el_esquema_ecg_no_hay_lineas_horizontales(grilla: GridBackground):
+    grilla._plot.setYRange(-2.5, 0.5, padding=0)
+    grilla.redraw(VENTANA)
+
+    assert _horizontales(grilla) == []
+
+
+def test_con_el_esquema_ecg_la_grilla_es_cuadriculada(
+    grilla: GridBackground, esquema_ecg
+):
+    """Una línea visible cada cuarto de carril, como los cuadros grandes del
+    papel, sobre el rango de los canales visibles."""
+    grilla._plot.setYRange(-2.5, 0.5, padding=0)
+    grilla.set_style(BackgroundStyle.COARSE)
+    grilla.redraw(VENTANA)
+
+    horizontales = _horizontales(grilla)
+    assert horizontales[0] == pytest.approx(-2.5)
+    assert horizontales[-1] == pytest.approx(0.5)
+    assert np.allclose(np.diff(horizontales), 0.25)
+
+
+def test_las_verticales_no_cambian_con_la_grilla_ecg(
+    grilla: GridBackground, esquema_ecg
+):
+    """Los tres fondos del pliego siguen siendo tres: el ECG agrega una
+    dimensión, no cambia las líneas de tiempo."""
+    grilla._plot.setYRange(-2.5, 0.5, padding=0)
+    grilla.set_style(BackgroundStyle.FULL)
+    grilla.redraw(VENTANA)
+    con_ecg = _verticales(grilla)
+
+    theme.set_current(theme.CLARO)
+    grilla.redraw(VENTANA)
+
+    assert con_ecg == _verticales(grilla)
+
+
+def test_sin_lineas_tampoco_hay_cuadricula(grilla: GridBackground, esquema_ecg):
+    """"Sin líneas" significa sin líneas, también en el esquema ECG."""
+    grilla._plot.setYRange(-2.5, 0.5, padding=0)
+    grilla.set_style(BackgroundStyle.BLANK)
+    grilla.redraw(VENTANA)
+
+    assert grilla.lines() == []
+
+
+def test_las_lineas_finas_de_la_cuadricula_van_solo_con_la_grilla_completa(
+    grilla: GridBackground, esquema_ecg
+):
+    grilla._plot.setYRange(-2.5, 0.5, padding=0)
+    grilla.set_style(BackgroundStyle.COARSE)
+    grilla.redraw(VENTANA)
+    gruesas = len(_horizontales(grilla))
+
+    grilla.set_style(BackgroundStyle.FULL)
+    grilla.redraw(VENTANA)
+
+    assert len(_horizontales(grilla)) > gruesas

@@ -25,18 +25,22 @@ cursor: `MagnifierTool` publica el radio y el zoom, y hasta el hito 9 acá se lo
 descartaba y se pintaba un círculo de tamaño fijo.
 """
 
+from collections import OrderedDict
 from collections.abc import Sequence
 
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QPointF
+from PySide6.QtGui import QFont
 
 from psglab.config import WINDOW_SECONDS
+from psglab.core.decimation import min_max_envelope
 from psglab.core.session import Session
 from psglab.core.windows import (
-    seconds_to_sample,
-    seconds_to_window_fraction,
-    window_to_samples,
+    epoch_to_seconds,
+    seconds_to_sample_absolute,
+    seconds_to_samples,
+    seconds_to_view_fraction,
 )
 from psglab.tools.base import (
     BandOverlay,
@@ -45,6 +49,7 @@ from psglab.tools.base import (
     SegmentOverlay,
     SpanOverlay,
 )
+from psglab.ui import theme
 from psglab.ui.grid import GridBackground
 
 #: Separación vertical entre canales, en unidades del gráfico. Cada canal ocupa
@@ -55,6 +60,24 @@ _ALTO_DE_CARRIL: float = 1.0
 #: de la mitad para que dos canales vecinos no se pisen cuando los dos están al
 #: máximo de su escala.
 _LLENADO_DEL_CARRIL: float = 0.45
+
+#: Por debajo de cuántas muestras por columna de píxeles se dibuja la señal tal
+#: cual. La envolvente emite dos puntos por columna, así que con menos de dos
+#: muestras por columna no achicaría nada: sólo volvería más gruesa la traza.
+_MUESTRAS_POR_COLUMNA: int = 2
+
+#: Ancho mínimo, en columnas, con el que se calcula la envolvente.
+#:
+#: **Existe por el arranque.** Mientras se arma la ventana el gráfico todavía no
+#: tiene ancho, y una envolvente de una columna son dos puntos: la primera
+#: pantalla saldría como una raya. Con este piso sale bien aunque se dibuje
+#: antes de tener tamaño, y pedir más cubetas que píxeles no cuesta nada visible.
+_COLUMNAS_MINIMAS: int = 1000
+
+#: Cuántas envolventes se recuerdan. Con esto ir y volver desplazando la vista
+#: es instantáneo, y la memoria queda acotada: son unos pocos megabytes aunque
+#: la página sea el registro entero.
+_ENVOLVENTES_EN_MEMORIA: int = 64
 
 
 class SignalView(pg.PlotWidget):
@@ -67,8 +90,23 @@ class SignalView(pg.PlotWidget):
         self._window_index: int = 0
         self._curves: dict[str, pg.PlotDataItem] = {}
         self._labels: list[pg.TextItem] = []
+        self._baselines: list[pg.InfiniteLine] = []
         self._overlay_items: list[object] = []
+        #: La banda que marca la epoca de scoring sobre la pagina visible.
+        self._epoca: object | None = None
+        #: Envolventes ya calculadas, de la más vieja a la más nueva. La clave
+        #: es (canal, primera muestra, última muestra, columnas): **no** incluye
+        #: la escala ni el desplazamiento, que se aplican después, así que
+        #: cambiar la amplitud no obliga a recalcular nada.
+        self._envolventes: OrderedDict[
+            tuple[str, int, int, int], tuple[np.ndarray, np.ndarray]
+        ] = OrderedDict()
+        #: El registro del que salieron esas envolventes. Ver
+        #: `_olvidar_envolventes_si_cambio()`.
+        self._registro_de_las_envolventes: object | None = None
         self._visible: list[str] = []
+        #: La tipografía de los nombres de canal, o None para la de pyqtgraph.
+        self._fuente: QFont | None = None
 
         item = self.getPlotItem()
         item.hideButtons()
@@ -77,6 +115,7 @@ class SignalView(pg.PlotWidget):
         item.hideAxis("left")
         item.setLabel("bottom", "Segundos de la ventana")
         self.grid = GridBackground(item)
+        self.apply_scheme()
 
     @property
     def session(self) -> Session | None:
@@ -85,8 +124,26 @@ class SignalView(pg.PlotWidget):
 
     @property
     def window_seconds(self) -> float:
-        """Cuánto dura la ventana que se dibuja. Es la del pliego."""
+        """Cuanto dura la **epoca de scoring**. Es la del pliego.
+
+        **Sigue devolviendo `WINDOW_SECONDS` y no la pagina visible**, aunque
+        desde el refactor las dos ya no coincidan. Distinguirlas por nombre es
+        lo que evita que los tests que la usan como "el ancho de la pantalla"
+        queden mintiendo en silencio: el ancho de la pantalla es
+        `view_span_seconds`.
+        """
         return WINDOW_SECONDS
+
+    @property
+    def view_span_seconds(self) -> float:
+        """Cuanto dura la pagina que se esta mirando.
+
+        Sin sesion devuelve la epoca, que es la pagina con la que el programa
+        arranca.
+        """
+        if self._session is None:
+            return WINDOW_SECONDS
+        return self._session.viewport.span_seconds
 
     def set_session(self, session: Session) -> None:
         """Asocia el visualizador a una sesión de trabajo."""
@@ -95,36 +152,227 @@ class SignalView(pg.PlotWidget):
         self.show_window(session.current_window)
 
     def show_window(self, window_index: int) -> None:
-        """Dibuja una ventana de 30 segundos.
+        """Deja visible la época indicada y redibuja.
 
-        Pide a `Recording.get_segment` sólo el tramo necesario: no se copia ni
-        se recorre el registro entero, que puede durar ocho horas.
+        Conserva el nombre y la firma que tenía cuando la ventana de 30 s era
+        también la página: la llaman `MainWindow.refresh()` y `set_session()`.
+        Lo que cambió es lo que significa. Antes era "dibujá estos 30 s"; ahora
+        es **"ésta es la época actual; asegurate de que se vea"**.
+
+        Mueve la página **lo mínimo**, así que con una página larga la época ya
+        está adentro y la pantalla no se mueve. Es idempotente: si no hace falta
+        moverse, `Session.set_viewport()` vuelve temprano y no avisa a nadie.
+
+        Pide a `Recording.get_segment` sólo el tramo visible: no se copia ni se
+        recorre el registro entero, que puede durar ocho horas.
         """
         if self._session is None:
             return
         self._window_index = window_index
+        inicio, fin = epoch_to_seconds(
+            window_index, self._session.recording.sampling_rate
+        )
+        self._session.set_viewport(self._session.viewport.containing(inicio, fin))
+        self.draw_viewport()
+
+    def draw_viewport(self) -> None:
+        """Dibuja el tramo que dice la sesion que se esta mirando.
+
+        **El eje horizontal esta en segundos absolutos desde el inicio del
+        registro**, y no en segundos desde el inicio de la ventana como hasta el
+        refactor. Es el sistema que comparten la epoca de scoring y la pagina
+        visible, y el unico que le da a un punto de la senal siempre el mismo
+        numero: bajo el contrato anterior, desplazar la vista le cambiaba la
+        coordenada al mismo punto fisico, y un arrastre del mouse que cruzara un
+        desplazamiento automatico producia un tramo corrido, plausible y
+        equivocado.
+        """
+        if self._session is None:
+            return
         registro = self._session.recording
         frecuencia = registro.sampling_rate
-        inicio, fin = window_to_samples(window_index, frecuencia)
+        pagina = self._session.viewport
+        inicio, fin = seconds_to_samples(
+            pagina.start_seconds, pagina.end_seconds, frecuencia, registro.n_samples
+        )
 
-        self.getPlotItem().setXRange(0.0, self.window_seconds, padding=0)
-        self.grid.redraw(self.window_seconds)
+        self.getPlotItem().setXRange(
+            pagina.start_seconds, pagina.end_seconds, padding=0
+        )
+        self.grid.redraw(pagina.span_seconds, origin_seconds=pagina.start_seconds)
+        self._marcar_epoca()
+
+        # **Una sola vez y sin lista de canales**, que es lo que devuelve una
+        # vista de `Recording.data` en lugar de una copia. Pedirlo canal por
+        # canal, como antes, hace indexado por lista, que copia: sobre el
+        # registro entero eran cientos de megabytes antes de dibujar un punto.
+        bloque = registro.get_segment(inicio, fin)
+        columnas = self._columnas()
+        self._olvidar_envolventes_si_cambio(registro)
 
         for posicion, nombre in enumerate(self._visible):
-            tramo = registro.get_segment(inicio, fin, [nombre])[0]
-            tiempos = np.arange(len(tramo)) / frecuencia
+            fila = registro.channel_by_name(nombre).index
+            indices, tramo = self._muestras_a_dibujar(
+                nombre, inicio, fin, bloque[fila], columnas
+            )
+            tiempos = (inicio + indices) / frecuencia
             escala = self._session.scale_uv(nombre)
+            # **El desplazamiento se resta antes de escalar**, no después: es
+            # lo que hace que un canal con la línea de base lejos del cero
+            # —un termómetro, un canal de continua corrido— se pueda traer al
+            # centro de su carril sin achicar la señal hasta perderla.
+            desplazamiento = self._session.offset_uv(nombre)
             centro = -posicion * _ALTO_DE_CARRIL
             self._curves[nombre].setData(
-                tiempos, centro + (tramo / escala) * _LLENADO_DEL_CARRIL
+                tiempos,
+                centro + ((tramo - desplazamiento) / escala) * _LLENADO_DEL_CARRIL,
             )
+        # **Los nombres de canal acompañan a la página.** Se creaban en x = 0 y
+        # ahí quedaban, lo que era correcto mientras el eje empezaba siempre en
+        # cero. Con el eje en segundos absolutos, desde la segunda época en
+        # adelante el cero queda fuera de la pantalla y los nombres
+        # desaparecían: el investigador veía carriles sin saber de qué canal era
+        # cada uno.
+        for etiqueta in self._labels:
+            etiqueta.setPos(pagina.start_seconds, etiqueta.pos().y())
         self.update_amplitude_scale()
+
+    def _columnas(self) -> int:
+        """Cuántas columnas de píxeles tiene el área de dibujo, con un piso.
+
+        Es lo único que `core/decimation.py` no puede saber, y la razón por la
+        que la política de cuánto reducir vive acá y no allá.
+        """
+        ancho = int(self.getPlotItem().vb.width())
+        return max(ancho, _COLUMNAS_MINIMAS)
+
+    def _muestras_a_dibujar(
+        self,
+        channel_name: str,
+        start_sample: int,
+        stop_sample: int,
+        samples: np.ndarray,
+        columns: int,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Qué muestras de un canal se mandan a la pantalla, y en qué posición.
+
+        Returns:
+            Tupla (posiciones dentro del tramo, valores). Con pocas muestras son
+            todas; con muchas, la envolvente mínimo/máximo, que conserva cada
+            pico y tiene el tamaño de la pantalla y no el del registro.
+        """
+        if len(samples) <= _MUESTRAS_POR_COLUMNA * columns:
+            return np.arange(len(samples)), samples
+
+        clave = (channel_name, start_sample, stop_sample, columns)
+        guardada = self._envolventes.get(clave)
+        if guardada is not None:
+            self._envolventes.move_to_end(clave)
+            return guardada
+
+        calculada = min_max_envelope(samples, columns)
+        self._envolventes[clave] = calculada
+        if len(self._envolventes) > _ENVOLVENTES_EN_MEMORIA:
+            self._envolventes.popitem(last=False)
+        return calculada
+
+    def _olvidar_envolventes_si_cambio(self, recording: object) -> None:
+        """Descarta las envolventes si el registro que se dibuja es otro.
+
+        **La caché mentiría sin esto**, y de la peor forma: filtrar la señal
+        devuelve un registro nuevo con los mismos índices de muestra, así que la
+        clave sería la misma y se dibujaría la envolvente de la señal cruda
+        sobre la filtrada, sin ningún aviso.
+
+        Se compara la **identidad** del objeto y no se espera un aviso de la
+        sesión: cualquier camino que cambie el registro —filtrar, derivar,
+        re-referenciar, deshacer, abrir otro archivo— termina en un dibujo, y
+        acá se entera sin que nadie tenga que acordarse de avisarle. Es el
+        olvido que `Session.add_window_listener()` documenta querer impedir.
+
+        Guardar la referencia no alarga la vida del registro viejo más allá del
+        dibujo siguiente, que ocurre inmediatamente después de reemplazarlo.
+        """
+        if recording is not self._registro_de_las_envolventes:
+            self._envolventes.clear()
+            self._registro_de_las_envolventes = recording
+
+    def _marcar_epoca(self) -> None:
+        """Resalta la época que se va a scorear, sobre la página que se mira.
+
+        **Es lo único que le dice al usuario qué hace la tecla `2`** cuando la
+        página muestra cuatrocientas ochenta épocas. Con la página de 30 s la
+        banda coincide con la pantalla entera y no molesta; con una página
+        larga es la referencia que vuelve usable el scoring.
+
+        Los bordes salen de `epoch_to_seconds()` y no de `índice * 30`: con
+        256,125 Hz los dos difieren, y una banda corrida tres segundos le haría
+        scorear al usuario una época distinta de la que está mirando.
+        """
+        item = self.getPlotItem()
+        if self._epoca is not None:
+            item.removeItem(self._epoca)
+            self._epoca = None
+        if self._session is None:
+            return
+
+        inicio, fin = epoch_to_seconds(
+            self._window_index, self._session.recording.sampling_rate
+        )
+        color = pg.mkColor(theme.current().coarse_grid)
+        color.setAlpha(40)
+        self._epoca = pg.LinearRegionItem(
+            values=(inicio, fin), movable=False, brush=pg.mkBrush(color)
+        )
+        # Detrás de todo: marca dónde se scorea, no tapa la señal.
+        self._epoca.setZValue(-20)
+        item.addItem(self._epoca)
 
     def refresh(self) -> None:
         """Redibuja la ventana actual con la configuración vigente."""
         if self._session is None:
             return
         self.show_window(self._session.current_window)
+
+    def apply_font(self, font: QFont) -> None:
+        """Cambia la tipografía de los nombres de canal.
+
+        **Hace falta aparte** porque los nombres son ítems de pyqtgraph, que no
+        siguen a la tipografía de la aplicación: cambiarla desde la
+        configuración dejaba los menús con la letra nueva y los carriles con la
+        vieja.
+        """
+        self._fuente = QFont(font)
+        for etiqueta in self._labels:
+            etiqueta.setFont(self._fuente)
+
+    def apply_scheme(self) -> None:
+        """Vuelve a pintar todo con el esquema de color que esté en uso.
+
+        Se la llama al construir el visualizador y cada vez que el usuario
+        elige otro esquema. Hace falta un método explícito porque
+        `pg.setConfigOption()` sólo alcanza a los `PlotWidget` que se creen
+        después: los que ya existen se quedan con el fondo con el que nacieron.
+
+        Las curvas se vuelven a crear en vez de repintarse porque la pluma de un
+        `PlotDataItem` no se cambia sin volver a pedirla, y rehacerlas es más
+        corto que recorrerlas —son unas pocas decenas, y esto ocurre cuando el
+        usuario elige un esquema, no en el camino caliente de la flecha—.
+        """
+        esquema = theme.current()
+        self.setBackground(esquema.background)
+
+        item = self.getPlotItem()
+        pluma = pg.mkPen(esquema.foreground)
+        for nombre_de_eje in ("bottom", "left", "top", "right"):
+            eje = item.getAxis(nombre_de_eje)
+            eje.setPen(pluma)
+            eje.setTextPen(pluma)
+
+        # Sin canales no hay nada que rehacer, y forzar un redibujo acá dejaría
+        # la grilla dibujada sobre un visualizador vacío, que hoy no la tiene.
+        if self._visible:
+            self.set_visible_channels(self._visible)
 
     # -- Lo que dibujan las herramientas ------------------------------------
 
@@ -217,19 +465,22 @@ class SignalView(pg.PlotWidget):
         canal = self._visible[0]
         registro = self._session.recording
         frecuencia = registro.sampling_rate
-        inicio_ventana, fin_ventana = window_to_samples(self._window_index, frecuencia)
+        pagina = self._session.viewport
 
-        # El tramo a ampliar, recortado contra los bordes de la ventana: cerca
-        # del comienzo o del final hay menos señal de la que pide el radio.
-        desde = max(0.0, overlay.x_seconds - overlay.radius_seconds)
-        hasta = min(self.window_seconds, overlay.x_seconds + overlay.radius_seconds)
-        primera = inicio_ventana + int(desde * frecuencia)
-        ultima = min(fin_ventana, inicio_ventana + int(hasta * frecuencia))
+        # El tramo a ampliar, recortado contra los bordes de la **pagina**:
+        # cerca del comienzo o del final hay menos senal de la que pide el
+        # radio. Antes se recortaba contra la ventana de 30 s, que con la
+        # escala libre ya no es lo que se esta mirando.
+        desde = max(pagina.start_seconds, overlay.x_seconds - overlay.radius_seconds)
+        hasta = min(pagina.end_seconds, overlay.x_seconds + overlay.radius_seconds)
+        primera, ultima = seconds_to_samples(
+            desde, hasta, frecuencia, registro.n_samples
+        )
         if ultima <= primera:
             return None
 
         tramo = registro.get_segment(primera, ultima, [canal])[0]
-        tiempos = desde + np.arange(len(tramo)) / frecuencia
+        tiempos = (primera + np.arange(len(tramo))) / frecuencia
 
         centro_carril = self._centro_de_carril(canal) or 0.0
         base = centro_carril + self._a_carril(overlay.y_uv, canal)
@@ -268,7 +519,8 @@ class SignalView(pg.PlotWidget):
         """
         if self._session is None or channel_name is None:
             return microvoltios
-        return (microvoltios / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
+        desplazado = microvoltios - self._session.offset_uv(channel_name)
+        return (desplazado / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
 
     # -- Canales (V3_P, V4_F) ----------------------------------------------
 
@@ -282,14 +534,41 @@ class SignalView(pg.PlotWidget):
         self._curves.clear()
         self._labels.clear()
 
+        for linea in self._baselines:
+            item.removeItem(linea)
+        self._baselines.clear()
+
+        esquema = theme.current()
         self._visible = list(channel_names)
         for posicion, nombre in enumerate(self._visible):
-            curva = pg.PlotDataItem()
+            color = esquema.color_for_channel(posicion)
+            centro = -posicion * _ALTO_DE_CARRIL
+
+            # La línea de cero va primero para que quede **debajo** de la señal:
+            # dibujada después, un canal plano se confundiría con su propia
+            # referencia.
+            if esquema.baseline is not None:
+                base = pg.InfiniteLine(
+                    pos=centro, angle=0, pen=pg.mkPen(esquema.baseline, width=1)
+                )
+                item.addItem(base)
+                self._baselines.append(base)
+
+            # **Antes no se pedía ninguna pluma**, así que pyqtgraph usaba la
+            # suya: todos los canales salían del mismo gris claro y con ocho
+            # apilados no se distinguía uno de otro.
+            curva = pg.PlotDataItem(pen=pg.mkPen(color, width=1))
             item.addItem(curva)
             self._curves[nombre] = curva
 
-            etiqueta = pg.TextItem(self.channel_label(nombre), anchor=(0, 0.5))
-            etiqueta.setPos(0.0, -posicion * _ALTO_DE_CARRIL)
+            # El ancla cambió de `0.5` a `1.0`: la etiqueta se dibujaba centrada
+            # sobre el eje del canal, o sea encima de la señal. Ahora se apoya
+            # justo arriba, como en la referencia, y toma el color del canal
+            # para que se sepa cuál es sin contar carriles.
+            etiqueta = pg.TextItem(self.channel_label(nombre), anchor=(0, 1.0), color=color)
+            if self._fuente is not None:
+                etiqueta.setFont(self._fuente)
+            etiqueta.setPos(0.0, centro)
             item.addItem(etiqueta)
             self._labels.append(etiqueta)
 
@@ -371,19 +650,26 @@ class SignalView(pg.PlotWidget):
     # fracciones y el anotador guarda muestras. Ver `psglab/tools/base.py`.
 
     def seconds_at_pixel(self, x_pixel: float) -> float:
-        """Segundos desde el inicio de la ventana bajo una coordenada horizontal.
+        """Segundos **desde el inicio del registro** bajo una coordenada horizontal.
 
-        Es la unidad que reciben los métodos de mouse de `ViewerTool`, así que
-        esta conversión es la que aplica la ventana principal antes de avisarle
+        Es la unidad que reciben los metodos de mouse de `ViewerTool`, asi que
+        esta conversion es la que aplica la ventana principal antes de avisarle
         a la herramienta activa.
 
-        Se recorta contra los bordes de la ventana: un clic en el margen del
-        gráfico daría un segundo negativo o mayor que 30, y de ahí saldría una
-        muestra fuera del registro.
+        **Devolvia segundos desde el inicio de la ventana de 30 s.** Cambio con
+        la escala de tiempo libre, donde esa referencia deja de ser unica: hay
+        una epoca y hay una pagina, y solo el registro es comun a las dos.
+
+        Se recorta contra los bordes de la pagina: un clic en el margen del
+        grafico daria un segundo fuera de lo que se esta mirando, y de ahi
+        saldria una muestra que no corresponde a nada de lo dibujado.
         """
         vista = self.getPlotItem().vb
         segundos = float(vista.mapSceneToView(QPointF(float(x_pixel), 0.0)).x())
-        return min(self.window_seconds, max(0.0, segundos))
+        if self._session is None:
+            return min(self.window_seconds, max(0.0, segundos))
+        pagina = self._session.viewport
+        return min(pagina.end_seconds, max(pagina.start_seconds, segundos))
 
     def microvolts_at_pixel(
         self, y_pixel: float, channel_name: str | None = None
@@ -434,20 +720,31 @@ class SignalView(pg.PlotWidget):
         """
         if self._session is None or channel_name is None:
             return carriles
-        return (carriles / _LLENADO_DEL_CARRIL) * self._session.scale_uv(channel_name)
+        en_uv = (carriles / _LLENADO_DEL_CARRIL) * self._session.scale_uv(channel_name)
+        return en_uv + self._session.offset_uv(channel_name)
 
-    def window_fraction_at_pixel(self, x_pixel: float) -> float:
-        """Posición dentro de la ventana, de 0 (inicio) a 1 (final).
+    def view_fraction_at_pixel(self, x_pixel: float) -> float:
+        """Posicion dentro de la **pagina visible**, de 0 (inicio) a 1 (final).
 
-        La usa el medidor de ocupación, que mide proporciones del ancho y no
+        La usa el medidor de ocupacion, que mide proporciones del ancho y no
         tiempos: con esta unidad el porcentaje sigue siendo correcto aunque el
         usuario redimensione la ventana del programa.
 
-        Es un píxel→segundos y después `core.windows`: la aritmética entre
-        unidades no gráficas vive allá y no se reimplementa acá.
+        **Se llamaba `window_fraction_at_pixel` y media contra los 30 s de la
+        epoca.** Se renombro en vez de cambiarle la semantica en silencio, que
+        habria sido lo peor de los dos mundos: el mismo nombre midiendo contra
+        otra cosa.
+
+        Es un pixel a segundos y despues `core.windows`: la aritmetica entre
+        unidades no graficas vive alla y no se reimplementa aca.
         """
-        return seconds_to_window_fraction(
-            self.seconds_at_pixel(x_pixel), self.window_seconds
+        if self._session is None:
+            return seconds_to_view_fraction(
+                self.seconds_at_pixel(x_pixel), 0.0, self.window_seconds
+            )
+        pagina = self._session.viewport
+        return seconds_to_view_fraction(
+            self.seconds_at_pixel(x_pixel), pagina.start_seconds, pagina.span_seconds
         )
 
     def sample_at_pixel(self, x_pixel: float) -> int:
@@ -464,9 +761,7 @@ class SignalView(pg.PlotWidget):
         """
         if self._session is None:
             return 0
-        return seconds_to_sample(
-            self._window_index,
+        return seconds_to_sample_absolute(
             self.seconds_at_pixel(x_pixel),
             self._session.recording.sampling_rate,
-            self.window_seconds,
         )

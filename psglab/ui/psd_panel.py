@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.analysis.psd import DEFAULT_BANDS
+from psglab.ui import theme
 
 #: Colores de las bandas sombreadas, en orden. No salen de `config.py` porque
 #: el pliego no fija ninguno: pide mostrar la PSD por banda, y con qué color se
@@ -154,7 +155,12 @@ class PsdPanel(QWidget):
             curva = item.plot(
                 frecuencias,
                 potencias[posicion],
-                pen=pg.mkPen(_COLORES[posicion % len(_COLORES)], width=2),
+                # **El color del canal sale del esquema y no de `_COLORES`**,
+                # que es la paleta de las *bandas*. Son dos cosas distintas que
+                # compartían tabla: una banda es delta o theta siempre, y el
+                # color de un canal tiene que ser el mismo acá y en el
+                # visualizador para poder relacionar una curva con su señal.
+                pen=pg.mkPen(theme.current().color_for_channel(posicion), width=2),
                 name=nombre,
             )
             self._curvas[nombre] = curva
@@ -245,7 +251,17 @@ class PsdPanel(QWidget):
     def uses_log_power(self) -> bool:
         """Si el eje de potencia está en logarítmico.
 
-        Lo está, y es lo que hace legible el espectro: en lineal, todo lo que
-        no es delta queda aplastado contra el eje.
+        Lo está por omisión, y es lo que hace legible el espectro: en lineal,
+        todo lo que no es delta queda aplastado contra el eje.
         """
         return bool(self.grafico.getPlotItem().ctrl.logYCheck.isChecked())
+
+    def set_log_power(self, enabled: bool) -> None:
+        """Pasa el eje de potencia a logarítmico o a lineal.
+
+        Existe por la solapa de espectro de la configuración. **Lo lineal no es
+        un error**: sirve para comparar a ojo cuánto más pesa una banda que
+        otra, que en logarítmico se ve como una diferencia chica. Lo que no
+        cambia es la tabla de potencias, que está en unidades y no en el eje.
+        """
+        self.grafico.getPlotItem().setLogMode(x=False, y=bool(enabled))

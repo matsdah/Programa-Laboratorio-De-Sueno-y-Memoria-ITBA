@@ -1,13 +1,13 @@
-"""Tests de las conversiones del visualizador.
+"""Tests de las conversiones del visualizador, y de qué manda a la pantalla.
 
 **El dibujo no se testea.** Lo que sí, y es el motivo por el que este archivo
-existe, son los tres conversores: `signal_view.py` es el **único** lugar del
-programa que traduce desde píxeles, y de él salen las tres unidades con las que
+existe, son los conversores: `signal_view.py` es el **único** lugar del
+programa que traduce desde píxeles, y de él salen las unidades con las que
 trabajan las herramientas.
 
-    píxeles  --seconds_at_pixel-->         segundos  (0 .. 30)
-    píxeles  --window_fraction_at_pixel--> fracción  (0 .. 1)
-    píxeles  --sample_at_pixel-->          muestras  (0 .. n_samples)
+    píxeles  --seconds_at_pixel-->       segundos absolutos  (0 .. duración)
+    píxeles  --view_fraction_at_pixel--> fracción de página  (0 .. 1)
+    píxeles  --sample_at_pixel-->        muestras            (0 .. n_samples)
 
 Confundirlas **no rompe nada de forma visible**: los tres son números chicos y
 plausibles. Un medidor de ocupación que reciba segundos informa 3000 %, y un
@@ -17,6 +17,11 @@ donde se origina.
 
 Los píxeles de los bordes no se escriben a mano: se preguntan al `ViewBox`, que
 es lo que hace exacta la afirmación sin depender de los márgenes del gráfico.
+
+La última sección sí mira lo que se manda a dibujar, porque desde la escala de
+tiempo libre eso dejó de ser "todas las muestras": con una página larga se
+manda la envolvente, y ahí hay dos errores que no se ven — perder un pico, o
+dibujar la envolvente de una señal que ya no es la que está abierta.
 """
 
 from pathlib import Path
@@ -35,6 +40,7 @@ from psglab.core.scoring import Scoring  # noqa: E402
 from psglab.core.session import Session  # noqa: E402
 from psglab.core.windows import seconds_to_sample  # noqa: E402
 from psglab.tools.base import CircleOverlay  # noqa: E402
+from psglab.ui import signal_view as modulo_de_la_vista  # noqa: E402
 from psglab.ui.signal_view import SignalView  # noqa: E402
 
 FRECUENCIA = 100.0
@@ -130,19 +136,50 @@ def test_la_conversion_crece_de_izquierda_a_derecha(vista: SignalView):
 
 
 def test_la_fraccion_va_de_cero_a_uno(vista: SignalView):
-    """Es la unidad del medidor de ocupación, que mide proporciones del ancho."""
+    """Es la unidad del medidor de ocupacion, que mide proporciones del ancho."""
     izquierda, derecha = bordes(vista)
-    assert vista.window_fraction_at_pixel(izquierda) == pytest.approx(0.0, abs=0.01)
-    assert vista.window_fraction_at_pixel(derecha) == pytest.approx(1.0, abs=0.01)
+    assert vista.view_fraction_at_pixel(izquierda) == pytest.approx(0.0, abs=0.01)
+    assert vista.view_fraction_at_pixel(derecha) == pytest.approx(1.0, abs=0.01)
 
 
-def test_la_fraccion_es_los_segundos_divididos_la_ventana(vista: SignalView):
-    """No reimplementa la aritmética: es píxel→segundos y después
-    `core.windows`, que es su único lugar."""
+def test_la_fraccion_es_la_posicion_dentro_de_la_pagina(vista: SignalView):
+    """No reimplementa la aritmetica: es pixel a segundos y despues
+    `core.windows`, que es su unico lugar.
+
+    **Se medía contra `window_seconds`**, los 30 s de la epoca, que con la
+    escala de tiempo libre dejo de ser el ancho de la pantalla. Ahora se mide
+    contra la pagina, que es lo que el medidor de ocupacion necesita: sin esto
+    informaria 30 000 % sobre una pagina de una hora.
+    """
     izquierda, derecha = bordes(vista)
+    pagina = vista.session.viewport if vista.session is not None else None
     for pixel in (izquierda, (izquierda + derecha) / 2, derecha):
-        esperado = vista.seconds_at_pixel(pixel) / vista.window_seconds
-        assert vista.window_fraction_at_pixel(pixel) == pytest.approx(esperado)
+        if pagina is None:
+            esperado = vista.seconds_at_pixel(pixel) / vista.window_seconds
+        else:
+            esperado = (
+                vista.seconds_at_pixel(pixel) - pagina.start_seconds
+            ) / pagina.span_seconds
+        assert vista.view_fraction_at_pixel(pixel) == pytest.approx(esperado)
+
+
+def test_la_fraccion_mide_contra_la_pagina_y_no_contra_la_epoca(
+    vista: SignalView, sesion
+):
+    """Con una pagina de cuatro epocas, el punto medio de la pantalla sigue
+    dando 0,5 aunque este a dos epocas del comienzo.
+
+    Es la diferencia que hace que la ocupacion siga informando un porcentaje
+    que significa algo cuando el usuario cambia de escala.
+    """
+    vista.set_session(sesion)
+    sesion.set_viewport(sesion.viewport.zoomed(4.0))
+    vista.draw_viewport()
+    izquierda, derecha = bordes(vista)
+
+    assert vista.view_fraction_at_pixel((izquierda + derecha) / 2) == pytest.approx(
+        0.5, abs=0.01
+    )
 
 
 def test_la_muestra_incluye_el_desplazamiento_de_la_ventana(
@@ -375,3 +412,201 @@ def test_sin_registro_la_lupa_no_dibuja_nada(qt_app):
         ]
     )
     assert widget._overlay_items == []
+
+
+# -- La envolvente: qué se manda a dibujar con una página larga -------------------
+
+#: Una hora a 100 Hz: 360 000 muestras, bastante más de lo que entra en pantalla.
+EPOCAS_DE_UNA_HORA = 120
+
+#: Dónde cae la espiga, en muestras. Lejos de cualquier borde de cubeta obvio.
+ESPIGA = 200_001
+
+
+def _registro_de_una_hora(valor_de_la_espiga: float, donde: int = ESPIGA) -> Recording:
+    """Una hora de silencio con una sola muestra distinta."""
+    datos = np.zeros((1, EPOCAS_DE_UNA_HORA * 3000))
+    datos[0, donde] = valor_de_la_espiga
+    return Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("C3", ChannelKind.EEG, "µV", 0)],
+        data=datos,
+        sampling_rate=FRECUENCIA,
+    )
+
+
+@pytest.fixture
+def sesion_larga() -> Session:
+    return Session(
+        _registro_de_una_hora(500.0),
+        Scoring(EPOCAS_DE_UNA_HORA, Nomenclature.AASM),
+        AnnotationSet(),
+    )
+
+
+@pytest.fixture
+def vista_larga(qt_app, sesion_larga: Session):
+    widget = SignalView()
+    widget.resize(800, 400)
+    widget.set_session(sesion_larga)
+    yield widget
+
+
+def _ver_todo(widget: SignalView, sesion: Session) -> None:
+    sesion.set_viewport(sesion.viewport.whole_recording())
+    widget.draw_viewport()
+
+
+@pytest.fixture
+def envolventes_calculadas(monkeypatch) -> list[int]:
+    """Cuenta cuántas veces se calcula una envolvente de verdad."""
+    llamadas: list[int] = []
+    original = modulo_de_la_vista.min_max_envelope
+
+    def contando(samples: np.ndarray, n_buckets: int) -> tuple[np.ndarray, np.ndarray]:
+        llamadas.append(len(samples))
+        return original(samples, n_buckets)
+
+    monkeypatch.setattr(modulo_de_la_vista, "min_max_envelope", contando)
+    return llamadas
+
+
+def test_una_pagina_larga_no_manda_todas_las_muestras(
+    vista_larga: SignalView, sesion_larga: Session
+):
+    """**Es lo que hace dibujable el registro entero.** Sin esto, pedir la noche
+    manda millones de puntos a la pantalla."""
+    _ver_todo(vista_larga, sesion_larga)
+
+    tiempos, _ = vista_larga._curves["C3"].getData()
+
+    assert len(tiempos) <= 2 * modulo_de_la_vista._COLUMNAS_MINIMAS + 2
+    assert len(tiempos) < sesion_larga.recording.n_samples / 100
+
+
+def test_la_espiga_se_ve_con_la_noche_entera(
+    vista_larga: SignalView, sesion_larga: Session
+):
+    """Una muestra de 500 µV entre 360 000 ceros sigue llegando a la pantalla a
+    su altura completa."""
+    _ver_todo(vista_larga, sesion_larga)
+
+    _, alturas = vista_larga._curves["C3"].getData()
+
+    assert alturas.max() == pytest.approx(vista_larga._a_carril(500.0, "C3"))
+
+
+def test_la_espiga_cae_en_su_segundo(vista_larga: SignalView, sesion_larga: Session):
+    """Reducir no puede correr el evento: la posición sale de la muestra que
+    eligió la envolvente, no de la cubeta."""
+    _ver_todo(vista_larga, sesion_larga)
+
+    tiempos, alturas = vista_larga._curves["C3"].getData()
+
+    assert tiempos[int(np.argmax(alturas))] == pytest.approx(ESPIGA / FRECUENCIA)
+
+
+def test_una_pagina_corta_se_dibuja_muestra_por_muestra(
+    vista_larga: SignalView, sesion_larga: Session
+):
+    """Con menos muestras que puntos de pantalla, reducir sólo engrosaría la
+    traza. Diez segundos a 100 Hz son mil muestras."""
+    sesion_larga.set_viewport(sesion_larga.viewport.with_span(10.0))
+    vista_larga.draw_viewport()
+
+    tiempos, _ = vista_larga._curves["C3"].getData()
+
+    assert len(tiempos) == 1000
+
+
+def test_volver_a_una_pagina_no_recalcula_su_envolvente(
+    vista_larga: SignalView, sesion_larga: Session, envolventes_calculadas: list[int]
+):
+    """Ir y volver es lo que hace el usuario todo el tiempo, y la segunda vez
+    tiene que ser instantánea."""
+    _ver_todo(vista_larga, sesion_larga)
+    sesion_larga.set_viewport(sesion_larga.viewport.with_span(30.0))
+    vista_larga.draw_viewport()
+    antes = len(envolventes_calculadas)
+
+    _ver_todo(vista_larga, sesion_larga)
+
+    assert len(envolventes_calculadas) == antes
+
+
+def test_cambiar_la_amplitud_no_recalcula_la_envolvente(
+    vista_larga: SignalView, sesion_larga: Session, envolventes_calculadas: list[int]
+):
+    """La escala se aplica después de reducir, así que subir la amplitud no
+    invalida nada."""
+    _ver_todo(vista_larga, sesion_larga)
+    antes = len(envolventes_calculadas)
+
+    vista_larga.increase_amplitude()
+
+    assert len(envolventes_calculadas) == antes
+
+
+def test_con_otra_senal_no_queda_dibujada_la_envolvente_vieja(
+    vista_larga: SignalView, sesion_larga: Session
+):
+    """**El error que la caché podía cometer, y el peor.**
+
+    Filtrar devuelve un registro nuevo con los mismos índices de muestra, así
+    que la clave de la envolvente sería la misma. Sin invalidar, se dibujaría la
+    señal cruda sobre la filtrada, sin ningún aviso, y el investigador scorearía
+    mirando una señal que ya no es la que tiene abierta.
+    """
+    _ver_todo(vista_larga, sesion_larga)
+
+    sesion_larga.set_recording(_registro_de_una_hora(-700.0, donde=100_003))
+    vista_larga.draw_viewport()
+
+    _, alturas = vista_larga._curves["C3"].getData()
+    assert alturas.min() == pytest.approx(vista_larga._a_carril(-700.0, "C3"))
+    assert alturas.max() == pytest.approx(0.0)
+
+
+def test_la_cache_de_envolventes_tiene_tope(
+    vista_larga: SignalView, sesion_larga: Session
+):
+    """Recorrer muchas escalas no puede hacer crecer la memoria sin límite."""
+    tope = modulo_de_la_vista._ENVOLVENTES_EN_MEMORIA
+    for paso in range(tope + 10):
+        sesion_larga.set_viewport(sesion_larga.viewport.with_span(100.0 + 10 * paso))
+        vista_larga.draw_viewport()
+
+    assert len(vista_larga._envolventes) <= tope
+
+
+# -- Los nombres de canal ----------------------------------------------------------
+
+
+@pytest.mark.parametrize("epoca", [0, 1, 2])
+def test_los_nombres_de_canal_se_ven_en_cualquier_epoca(
+    vista: SignalView, sesion: Session, epoca: int
+):
+    """**Regresión de la escala de tiempo libre.**
+
+    Los nombres se creaban en x = 0 y ahí quedaban. Con el eje en segundos
+    absolutos, desde la segunda época el cero queda fuera de la pantalla y los
+    carriles aparecían sin nombre: el investigador no podía saber qué canal
+    estaba mirando. Ningún test lo cubría porque todos miraban la época 0.
+    """
+    sesion.go_to_window(epoca)
+    vista.show_window(epoca)
+    desde, hasta = vista.getPlotItem().vb.viewRange()[0]
+
+    for etiqueta in vista._labels:
+        assert desde <= etiqueta.pos().x() <= hasta
+
+
+def test_los_nombres_de_canal_siguen_a_la_pagina_al_desplazar(
+    vista_larga: SignalView, sesion_larga: Session
+):
+    """Desplazar sin cambiar de época también mueve el origen de la pantalla."""
+    sesion_larga.set_viewport(sesion_larga.viewport.with_span(300.0).panned(1200.0))
+    vista_larga.draw_viewport()
+    desde, hasta = vista_larga.getPlotItem().vb.viewRange()[0]
+
+    assert desde <= vista_larga._labels[0].pos().x() <= hasta

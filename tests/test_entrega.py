@@ -20,12 +20,13 @@ Corre en cualquier lado, incluido el CI: usa el BrainVision sintético de
 `conftest.py`, no los registros de `data/`.
 """
 
+import dataclasses
 from pathlib import Path
 
 import numpy as np
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QFont, QMouseEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog
 
 pytest.importorskip("pyqtgraph")
@@ -41,6 +42,9 @@ from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.nomenclature import stages_of  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
+from psglab.ui import main_window as main_window_mod  # noqa: E402
+from psglab.ui import preferences as preferencias_mod  # noqa: E402
+from psglab.ui import theme  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
 
@@ -672,12 +676,41 @@ def elige_canal(monkeypatch):
     return fijar
 
 
-def test_el_menu_analisis_existe(ventana: MainWindow):
-    """Estaba dibujado en el esquema de la ventana y no existía: `_build_menus`
-    creaba cuatro menús."""
-    menus = [accion.text() for accion in ventana.menuBar().actions()]
+def test_cada_analisis_tiene_camino_desde_la_barra_de_menu(ventana: MainWindow):
+    """Antes se llamaba `test_el_menu_analisis_existe` y miraba que hubiera un
+    menú llamado "&Análisis". Ese menú se repartió en el refactor de la interfaz
+    —el montaje, el filtrado y la medición son tres familias distintas— así que
+    afirmar sobre su nombre dejó de decir nada.
 
-    assert "&Análisis" in menus
+    **Lo que ese test protegía sigue protegido, y mejor**: que cada análisis de
+    la Parte 2 sea alcanzable desde la ventana. Es la lección del hito 9, y
+    ahora se verifica por la acción y no por el rótulo del menú que la contiene.
+    """
+    acciones = {
+        accion.text()
+        for menu in ventana.menuBar().actions()
+        if menu.menu() is not None
+        for accion in menu.menu().actions()
+    }
+
+    faltantes = [
+        esperada
+        for esperada in (
+            "&Impedancia de los electrodos…",
+            "&Filtros por clase de canal…",
+            "Componentes &independientes (ICA)…",
+            "&Derivar canales…",
+            "&Re-referenciar…",
+            "Referencia &promedio (EEG)",
+            "&Espectro de la ventana…",
+            "&Complejidad de la noche…",
+            "Conectividad de la &ventana…",
+            "&Volver a la señal original",
+        )
+        if esperada not in acciones
+    ]
+
+    assert faltantes == []
 
 
 def test_derivar_desde_el_menu_agrega_el_canal(ventana: MainWindow, elige_canal):
@@ -1608,3 +1641,344 @@ def test_el_cursor_vuelve_aunque_el_analisis_falle(ventana: MainWindow):
 
     assert QApplication.overrideCursor() is None
     assert ventana.carteles
+
+
+# -- La configuración: lo que la ventana hace con las preferencias -------------------
+#
+# Se verifica por la ventana y no por `Preferences`, que ya tiene sus tests: lo
+# que importa acá es que cada preferencia **llegue** a donde tiene efecto. Una
+# opción guardada que nadie lee es la clase de camino muerto que costó el hito 9.
+
+
+@pytest.fixture
+def fuente_restaurada(qt_app):
+    """La tipografía es global a la aplicación: se deja como estaba."""
+    anterior = QFont(QApplication.font())
+    yield
+    QApplication.setFont(anterior)
+
+
+@pytest.fixture
+def escrituras(monkeypatch) -> list[object]:
+    """Registra cualquier intento de escribir el archivo de preferencias."""
+    intentos: list[object] = []
+    monkeypatch.setattr(
+        preferencias_mod, "save", lambda *args, **kwargs: intentos.append(args)
+    )
+    return intentos
+
+
+def _con(ventana: MainWindow, **cambios: object) -> None:
+    ventana.apply_preferences(ventana.current_preferences.with_changes(**cambios))
+
+
+def test_aplicar_preferencias_no_escribe_el_archivo_de_quien_corre_los_tests(
+    ventana: MainWindow, escrituras: list[object]
+):
+    """**La ventana de los tests no es la del usuario.** Sólo la que abre
+    `main.py` escribe el archivo; si no, correr la suite pisaría la
+    configuración de quien la corre."""
+    _con(ventana, psd_log_power=False)
+
+    assert escrituras == []
+
+
+def test_elegir_un_esquema_tampoco_escribe_el_archivo(
+    ventana: MainWindow, escrituras: list[object]
+):
+    """Antes sí lo escribía: `set_color_scheme()` guardaba siempre que no se le
+    pasara `remember=False`, fuera quien fuera el que había abierto la
+    ventana."""
+    anterior = theme.current()
+    try:
+        ventana.set_color_scheme(theme.OSCURO)
+        assert escrituras == []
+    finally:
+        ventana.set_color_scheme(anterior, remember=False)
+
+
+def test_el_espectro_usa_el_metodo_elegido(
+    ventana: MainWindow, elige_canal, monkeypatch
+):
+    metodos: list[object] = []
+    original = main_window_mod.compute_psd
+
+    def espiando(*args: object, **kwargs: object) -> object:
+        metodos.append(kwargs.get("method"))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(main_window_mod, "compute_psd", espiando)
+    _con(ventana, psd_method="multitaper")
+    elige_canal("C3")
+
+    ventana.show_psd_dialog()
+
+    assert metodos == ["multitaper"]
+    assert not ventana.carteles
+
+
+def test_el_espectro_usa_las_bandas_elegidas(ventana: MainWindow, elige_canal):
+    """La tabla y el sombreado muestran las bandas del usuario, no las de
+    fábrica."""
+    bandas = {"Lenta": (0.5, 2.0), "Huso": (11.0, 16.0)}
+    ventana.apply_preferences(ventana.current_preferences.with_bands(bandas))
+    elige_canal("C3")
+
+    ventana.show_psd_dialog()
+
+    assert set(ventana.psd_panel.band_powers()) == set(bandas)
+    assert ventana.psd_panel.band_ranges() == bandas
+    assert not ventana.carteles
+
+
+def test_la_conectividad_ofrece_las_mismas_bandas_que_el_espectro(
+    ventana: MainWindow, monkeypatch
+):
+    """Dos definiciones de «sigma» en el mismo programa serían una trampa."""
+    ofrecidas: list[list[str]] = []
+
+    def respondiendo(_padre, _titulo, _etiqueta, opciones, *_resto, **_kw):
+        ofrecidas.append(list(opciones))
+        return ("", False)
+
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(respondiendo))
+    ventana.apply_preferences(
+        ventana.current_preferences.with_bands({"Huso": (11.0, 16.0)})
+    )
+
+    ventana.show_connectivity_dialog()
+
+    assert ["Huso"] in ofrecidas
+
+
+def test_el_eje_del_espectro_sigue_a_la_configuracion(ventana: MainWindow):
+    _con(ventana, psd_log_power=False)
+
+    assert not ventana.psd_panel.uses_log_power
+
+
+def test_el_color_de_una_clase_llega_a_la_sesion_abierta(ventana: MainWindow):
+    """Sin reabrir el registro."""
+    ventana.apply_preferences(
+        ventana.current_preferences.with_annotation_color("Spindle", "#ff8800")
+    )
+
+    assert ventana.session.annotations.color_of("Spindle") == "#ff8800"
+    assert not ventana.carteles
+
+
+def test_cambiar_el_color_de_una_clase_no_borra_lo_que_dibuja_otra_herramienta(
+    ventana: MainWindow,
+):
+    """**El visualizador dibuja lo de una sola herramienta a la vez**, y quien
+    avisa reemplaza todo lo dibujado. Avisar desde el anotador cuando la activa
+    es la ocupación borraba sus líneas de la pantalla: seguían medidas, pero ya
+    no se veían."""
+    from psglab.tools.occupancy import OccupancyLine
+
+    ventana._toggle_tool("occupancy", True)
+    ventana._tools["occupancy"].add_line(OccupancyLine(0.2, 0.0, 0.6, 0.0))
+    dibujadas = len(ventana.signal_view._overlay_items)
+    assert dibujadas > 0
+
+    ventana.apply_preferences(
+        ventana.current_preferences.with_annotation_color("Spindle", "#ff8800")
+    )
+
+    assert len(ventana.signal_view._overlay_items) == dibujadas
+
+
+def test_con_el_anotador_activo_la_banda_cambia_de_color_enseguida(
+    ventana: MainWindow,
+):
+    """El otro lado del test de arriba: cuando el que dibuja es el anotador, la
+    banda tiene que tomar el color nuevo sin esperar a la próxima flecha."""
+    ventana._toggle_tool("annotator", True)
+    ventana._tools["annotator"].create_annotation("Spindle", 250, 250)
+
+    ventana.apply_preferences(
+        ventana.current_preferences.with_annotation_color("Spindle", "#ff8800")
+    )
+
+    colores = [
+        item.brush.color().name()
+        for item in ventana.signal_view._overlay_items
+        if hasattr(item, "brush")
+    ]
+    assert "#ff8800" in colores
+    assert not ventana.carteles
+
+
+def test_el_color_de_una_clase_sobrevive_a_abrir_otro_registro(
+    ventana: MainWindow, tmp_path: Path
+):
+    """Una clase que el usuario definió una vez queda disponible en cualquier
+    registro."""
+    ventana.apply_preferences(
+        ventana.current_preferences.with_annotation_color("Apnea", "#00aa88")
+    )
+
+    ventana.open_recording(
+        escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 2)
+    )
+
+    assert ventana.session.annotations.color_of("Apnea") == "#00aa88"
+    assert not ventana.carteles
+
+
+def test_lo_de_la_solapa_otras_espera_al_proximo_registro(
+    ventana: MainWindow, tmp_path: Path
+):
+    """El registro abierto no cambia de página ni de nomenclatura bajo los pies
+    del usuario; el próximo arranca con lo elegido."""
+    _con(ventana, open_view_seconds=60.0, open_nomenclature="RK")
+
+    assert ventana.session.viewport.span_seconds == WINDOW_SECONDS
+
+    ventana.open_recording(
+        escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * VENTANAS)
+    )
+
+    assert ventana.session.viewport.span_seconds == 60.0
+    assert ventana.session.scoring.nomenclature.name == "RK"
+    assert not ventana.carteles
+
+
+def test_el_histograma_arranca_en_hora_real_si_se_eligio(
+    ventana: MainWindow, tmp_path: Path
+):
+    _con(ventana, open_clock_axis=True)
+
+    ventana.open_recording(
+        escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * VENTANAS)
+    )
+
+    assert ventana.session.recording.start_time is not None
+    assert ventana.accion_eje_en_hora.isChecked()
+    assert not ventana.carteles
+
+
+def test_sin_hora_de_inicio_esa_preferencia_no_muestra_un_cartel(
+    ventana: MainWindow, tmp_path: Path, monkeypatch
+):
+    """Pedir la hora real a un registro que no la informa es un cartel de
+    error. Mostrarlo en cada apertura, por una preferencia elegida para otros
+    archivos, sería castigar al usuario por haberla elegido."""
+    _con(ventana, open_clock_axis=True)
+    original = main_window_mod.read_recording
+    monkeypatch.setattr(
+        main_window_mod,
+        "read_recording",
+        lambda ruta: dataclasses.replace(original(ruta), start_time=None),
+    )
+    ventana.accion_eje_en_hora.setChecked(False)
+
+    ventana.open_recording(
+        escribir_brainvision(tmp_path / "sin-hora", segundos=WINDOW_SECONDS * 2)
+    )
+
+    assert not ventana.accion_eje_en_hora.isChecked()
+    assert not ventana.carteles
+
+
+def test_la_tipografia_elegida_llega_tambien_a_los_nombres_de_canal(
+    ventana: MainWindow, fuente_restaurada
+):
+    """Los nombres son ítems de pyqtgraph y no siguen solos a la aplicación."""
+    _con(ventana, font_size=17)
+
+    assert QApplication.font().pointSize() == 17
+    assert ventana.signal_view._labels
+    for etiqueta in ventana.signal_view._labels:
+        assert etiqueta.textItem.font().pointSize() == 17
+
+
+def test_se_puede_volver_a_la_tipografia_del_sistema(
+    ventana: MainWindow, fuente_restaurada
+):
+    del_sistema = QFont(ventana._fuente_del_sistema)
+    _con(ventana, font_size=17)
+
+    _con(ventana, font_size=None)
+
+    assert QApplication.font().pointSize() == del_sistema.pointSize()
+    assert QApplication.font().family() == del_sistema.family()
+
+
+def test_aplicar_algo_que_no_son_preferencias_avisa_sin_romper(ventana: MainWindow):
+    ventana.apply_preferences({"font_size": 12})
+
+    assert ventana.carteles
+
+
+# -- La ventana de configuración, abierta desde la principal -----------------------
+
+
+def test_la_configuracion_muestra_lo_vigente(ventana: MainWindow):
+    _con(ventana, psd_method="multitaper")
+
+    ventana.show_settings_dialog()
+
+    assert ventana.settings_dialog.preferences == ventana.current_preferences
+    assert ventana.settings_dialog.psd_method.currentData() == "multitaper"
+    ventana.settings_dialog.close()
+
+
+def test_la_configuracion_ofrece_las_clases_del_registro_abierto(ventana: MainWindow):
+    """Incluida una que el usuario creó en esta sesión."""
+    ventana.session.annotations.add_label("Apnea")
+
+    ventana.show_settings_dialog()
+
+    assert "Apnea" in ventana.settings_dialog.annotation_buttons
+    ventana.settings_dialog.close()
+
+
+def test_un_cambio_en_la_configuracion_llega_a_la_ventana(ventana: MainWindow):
+    """**El camino, no la pieza**: la casilla de la ventana de configuración
+    termina cambiando el eje del espectro de la principal."""
+    ventana.show_settings_dialog()
+
+    ventana.settings_dialog.log_power.setChecked(False)
+
+    assert not ventana.current_preferences.psd_log_power
+    assert not ventana.psd_panel.uses_log_power
+    ventana.settings_dialog.close()
+
+
+def test_el_color_elegido_en_la_configuracion_llega_a_la_sesion(ventana: MainWindow):
+    ventana.show_settings_dialog()
+
+    ventana.settings_dialog.annotation_buttons["Spindle"].choose("#ff8800")
+
+    assert ventana.session.annotations.color_of("Spindle") == "#ff8800"
+    ventana.settings_dialog.close()
+
+
+def test_volver_a_abrir_la_configuracion_refleja_lo_cambiado_afuera(
+    ventana: MainWindow,
+):
+    """El menú de esquemas cambia el esquema sin pasar por la configuración:
+    al reabrirla tiene que mostrar el nuevo."""
+    ventana.show_settings_dialog()
+    ventana.settings_dialog.close()
+    anterior = theme.current()
+    try:
+        ventana.set_color_scheme(theme.ECG, remember=False)
+
+        ventana.show_settings_dialog()
+
+        assert ventana.settings_dialog.grid_ecg.isChecked()
+    finally:
+        ventana.settings_dialog.close()
+        ventana.set_color_scheme(anterior, remember=False)
+
+
+def test_la_configuracion_se_abre_sin_registro(qt_app):
+    """Con las clases de fábrica, que es lo que el usuario va a tener."""
+    principal = create_main_window()
+
+    principal.show_settings_dialog()
+
+    assert set(principal.settings_dialog.annotation_buttons) >= {"Spindle"}
+    principal.settings_dialog.close()

@@ -28,11 +28,15 @@ más** que dejaban escapar `TypeError`, `KeyError` o `AttributeError` crudos, m�
 del doble de los que había encontrado a mano la auditoría, incluido `stage_code`,
 que alimenta la línea de `Scoring.txt`.
 
-El alcance es `core/` y `utils/`, donde vive la regla de negocio. `tools/` tiene
-un test por herramienta, y de `ui/` se testea lo que no dibuja. Las
-excepciones se declaran en `SIN_CONTRATO`, con el motivo: hoy son `windows.py`,
-que documenta que no valida porque quien llama ya validó, y `clamp`, que declara
-la misma precondición.
+El alcance son las **tres** capas donde vive la regla de negocio: `core/`,
+`utils/` y `analysis/`. Esta última entró en el hito 10, por el mismo argumento
+que las otras dos: un `ValueError` de scipy o de MNE atraviesa el `except` de la
+ventana igual que uno de `core/`. `readers/`, `tools/` y `exporters/` quedan
+afuera; `tools/` tiene un test por herramienta, y de `ui/` se testea lo que no
+dibuja. Las excepciones se declaran en `SIN_CONTRATO`, con el motivo: hoy son
+`windows.py`, que documenta que no valida porque quien llama ya validó, `clamp`,
+que declara la misma precondición, y `memoria_suficiente`, que no recibe datos
+sino el texto que va a aparecer en el cartel.
 """
 
 from pathlib import Path
@@ -57,6 +61,8 @@ from psglab.analysis import (
     reference,
 )
 from psglab.core.session import Session
+from psglab.core.decimation import min_max_envelope
+from psglab.core.viewport import Viewport
 from psglab.utils import units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
 
@@ -104,6 +110,11 @@ def anotaciones() -> AnnotationSet:
 #:
 #: **Al agregar un método público a un módulo implementado hay que agregar su
 #: fila**, o `test_consistencia.py` hace fallar la suite.
+def pagina() -> Viewport:
+    """Una página de una época sobre una hora de registro."""
+    return Viewport.clamped(0.0, 30.0, 3600.0)
+
+
 CONTRATOS: dict[str, list[tuple[str, object]]] = {
     "psglab/core/recording.py": [
         ("Recording(data=...)", lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0)], v, 100.0)),
@@ -147,6 +158,27 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("in_range(start_sample=...)", lambda v: anotaciones().in_range(v, 100)),
         ("in_range(stop_sample=...)", lambda v: anotaciones().in_range(0, v)),
     ],
+    "psglab/core/decimation.py": [
+        ("min_max_envelope(samples=...)", lambda v: min_max_envelope(v, 10)),
+        ("min_max_envelope(n_buckets=...)", lambda v: min_max_envelope(np.zeros(100), v)),
+    ],
+    "psglab/core/viewport.py": [
+        ("Viewport(start=...)", lambda v: Viewport(v, 30.0, 3600.0)),
+        ("Viewport(span=...)", lambda v: Viewport(0.0, v, 3600.0)),
+        ("Viewport(duration=...)", lambda v: Viewport(0.0, 30.0, v)),
+        ("Viewport.clamped(start=...)", lambda v: Viewport.clamped(v, 30.0, 3600.0)),
+        ("Viewport.clamped(span=...)", lambda v: Viewport.clamped(0.0, v, 3600.0)),
+        ("Viewport.clamped(duration=...)", lambda v: Viewport.clamped(0.0, 30.0, v)),
+        ("with_span", lambda v: pagina().with_span(v)),
+        ("with_start", lambda v: pagina().with_start(v)),
+        ("with_center", lambda v: pagina().with_center(v)),
+        ("zoomed", lambda v: pagina().zoomed(v)),
+        ("panned", lambda v: pagina().panned(v)),
+        ("for_duration", lambda v: pagina().for_duration(v)),
+        ("containing(start=...)", lambda v: pagina().containing(v, 10.0)),
+        ("containing(end=...)", lambda v: pagina().containing(0.0, v)),
+        ("replaced", lambda v: pagina().replaced(span_seconds=v)),
+    ],
     "psglab/core/session.py": [
         ("Session(recording=...)", lambda v: Session(v, Scoring(1, Nomenclature.AASM), AnnotationSet())),
         ("Session(scoring=...)", lambda v: Session(registro(), v, AnnotationSet())),
@@ -155,12 +187,19 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("go_to_window", lambda v: sesion().go_to_window(v)),
         ("scale_uv", lambda v: sesion().scale_uv(v)),
         ("set_scale_uv(scale=...)", lambda v: sesion().set_scale_uv("C0", v)),
+        ("offset_uv", lambda v: sesion().offset_uv(v)),
+        ("set_offset_uv(channel=...)", lambda v: sesion().set_offset_uv(v, 0.0)),
+        ("set_offset_uv(offset=...)", lambda v: sesion().set_offset_uv("C0", v)),
+        ("center_offsets", lambda v: sesion().center_offsets(v)),
+        ("fit_to_pane", lambda v: sesion().fit_to_pane(v)),
         ("set_visible_channels", lambda v: sesion().set_visible_channels([v])),
         ("set_selected_channels", lambda v: sesion().set_selected_channels([v])),
         ("increase_amplitude(factor=...)", lambda v: sesion().increase_amplitude(v)),
         ("decrease_amplitude(factor=...)", lambda v: sesion().decrease_amplitude(v)),
         ("set_active_tool", lambda v: sesion().set_active_tool(v)),
         ("add_window_listener", lambda v: sesion().add_window_listener(v)),
+        ("set_viewport", lambda v: sesion().set_viewport(v)),
+        ("add_view_listener", lambda v: sesion().add_view_listener(v)),
         ("set_scoring", lambda v: sesion().set_scoring(v)),
         ("set_recording", lambda v: sesion().set_recording(v)),
     ],
@@ -228,6 +267,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("average_connectivity", lambda v: connectivity.average_connectivity(v)),
     ],
     "psglab/analysis/psd.py": [
+        ("validate_band", lambda v: psd.validate_band(v)),
         ("compute_psd(recording=...)", lambda v: psd.compute_psd(v)),
         ("compute_psd(channels=...)", lambda v: psd.compute_psd(registro(), v)),
         ("compute_psd(window_index=...)", lambda v: psd.compute_psd(registro(), None, v)),
@@ -285,6 +325,24 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Fase 8 del refactor. **Desde que las bandas las escribe el usuario**, una
+    # banda invertida es lo esperable de un error de tipeo, y aceptarla integra
+    # un rango vacío: la tabla mostraría potencia cero sin ningún aviso.
+    ("validate_band con los extremos invertidos", (12.0, 8.0),
+     lambda v: psd.validate_band(v)),
+    # Fase 7 del refactor. **Mientras se arma la ventana el grafico no tiene
+    # ancho**, y ese cero llega como cantidad de cubetas. Sin la guarda sale un
+    # ZeroDivisionError, que la ventana principal no sabe atrapar.
+    ("min_max_envelope sin cubetas", 0,
+     lambda v: min_max_envelope(np.zeros(1000), v)),
+    # `True` es un `int` para Python: sin excluirlo pasaria como una cubeta y
+    # la noche entera se dibujaria como dos puntos.
+    ("min_max_envelope con un booleano como cubetas", True,
+     lambda v: min_max_envelope(np.zeros(1000), v)),
+    # `Recording.data` es una matriz de canales, y pasarla entera es el error
+    # esperable. `argmin` sobre dos dimensiones no falla: devuelve otra cosa.
+    ("min_max_envelope con una matriz de canales", np.zeros((2, 1000)),
+     lambda v: min_max_envelope(v, 10)),
     # Hito 12. **La guarda que MNE no hace.** Se midió: con un pasa-altos de 40
     # y un pasa-bajos de 10, MNE acepta el par, arma una banda eliminada, no
     # emite ningún aviso y devuelve la señal sin atenuar nada. Borrar esta
