@@ -94,6 +94,22 @@ class InvalidScaleError(PsgLabError):
 # -- Scoring y anotaciones --------------------------------------------------
 
 
+class InvalidViewportError(PsgLabError):
+    """La página visible pedida no se puede dibujar.
+
+    Es el equivalente horizontal de `InvalidScaleError`, y sigue el mismo
+    criterio: **lo que se puede recortar no llega acá**. Alguien que aprieta
+    "escala ÷2" quince veces no merece quince carteles, así que la página se
+    recorta en silencio contra el mínimo y contra la duración del registro.
+    Esto es para lo que no se puede recortar: un NaN, un infinito, algo que no
+    es un número, una página de ancho cero.
+
+    **No se reusa `WindowOutOfRangeError`**, que sería lo más parecido: su
+    mensaje habla de épocas —"La ventana 3 no existe en este registro"— y
+    usarlo para la página produciría un cartel que miente sobre qué falló.
+    """
+
+
 class WindowOutOfRangeError(PsgLabError):
     """Se pidió una ventana que está fuera del registro."""
 

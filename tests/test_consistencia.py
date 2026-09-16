@@ -60,6 +60,7 @@ RAIZ = pathlib.Path(__file__).resolve().parent.parent
 #: Al agregar un archivo de test, agregar acá su fila.
 COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_windows.py": ("psglab/core/windows.py",),
+    "test_viewport.py": ("psglab/core/viewport.py",),
     "test_errors.py": ("psglab/utils/errors.py",),
     "test_validation.py": ("psglab/utils/validation.py",),
     "test_units.py": ("psglab/utils/units.py",),
