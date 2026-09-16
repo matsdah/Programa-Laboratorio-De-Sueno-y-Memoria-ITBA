@@ -30,7 +30,7 @@ from collections.abc import Sequence
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QPointF
+from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QFont
 
 from psglab.config import WINDOW_SECONDS
@@ -115,6 +115,10 @@ class SignalView(pg.PlotWidget):
         item.hideAxis("left")
         item.setLabel("bottom", "Segundos de la ventana")
         self.grid = GridBackground(item)
+        # El nombre que lee un lector de pantalla, y el foco por teclado: sin
+        # él, F6 no tendría dónde dejar el foco al volver a la señal.
+        self.setAccessibleName("Señal")
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.apply_scheme()
 
     @property

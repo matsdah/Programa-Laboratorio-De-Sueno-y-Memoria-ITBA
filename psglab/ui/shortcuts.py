@@ -29,10 +29,16 @@ from psglab.core.session import Session
 #: Los atajos de las fases de sueño no están acá porque dependen de la
 #: nomenclatura activa; los arma `stage_shortcuts()`.
 #:
-#: Cada atajo corresponde a un requisito del pliego. No se agregan atajos
-#: para funciones que el pliego no pide: un "deshacer", por ejemplo, no es
-#: una tecla sino un subsistema completo (historial de cambios del scoring y
-#: de las anotaciones), y no está pedido.
+#: Los primeros siete corresponden a requisitos del pliego. **Los demás los
+#: agregó el refactor de la interfaz**, y cada uno dice por qué: el
+#: desplazamiento y la escala de tiempo libre, y el recorrido de paneles, que
+#: es de accesibilidad. Lo que sigue sin tecla es lo que no es una tecla: un
+#: "deshacer" es un subsistema completo (historial de cambios del scoring y de
+#: las anotaciones), y no está pedido.
+#:
+#: **Los menús muestran estas teclas pero no las registran**: leen este
+#: diccionario con `key_for()`. Este módulo sigue siendo el único que dice qué
+#: tecla hace qué.
 FIXED_SHORTCUTS: Final[dict[str, str]] = {
     "Right": "Ventana siguiente",           # V1_F de "Navegación"
     "Left": "Ventana anterior",             # V1_F de "Navegación"
@@ -52,6 +58,11 @@ FIXED_SHORTCUTS: Final[dict[str, str]] = {
     "Ctrl+-": "Alejar: página × 2",
     "Ctrl++": "Acercar: página ÷ 2",
     "Ctrl+0": "Mostrar el registro entero",
+    # Accesibilidad. F6 es la tecla con que la mayoría de los programas pasan
+    # el foco de un panel al siguiente; sin ella, llegar al selector de canales
+    # o al scoring sin mouse obligaba a atravesar todos los controles con Tab.
+    "F6": "Pasar al panel siguiente",
+    "Shift+F6": "Volver al panel anterior",
 }
 
 #: Qué método de la ventana principal ejecuta cada atajo fijo. Está separado de
@@ -77,6 +88,18 @@ ACTIONS: Final[dict[str, str]] = {
     "Ctrl+-": "double_timescale",
     "Ctrl++": "halve_timescale",
     "Ctrl+0": "show_whole_recording",
+    "F6": "focus_next_pane",
+    "Shift+F6": "focus_previous_pane",
+}
+
+#: Cómo se le escribe cada tecla al usuario. Las flechas se dibujan, y
+#: «Shift» es «Mayús», que es lo que dice un teclado en español.
+_NOMBRES_DE_TECLA: Final[dict[str, str]] = {
+    "Left": "←",
+    "Right": "→",
+    "Up": "↑",
+    "Down": "↓",
+    "Shift": "Mayús",
 }
 
 
@@ -95,6 +118,32 @@ def stage_shortcuts(nomenclature: Nomenclature) -> dict[str, str]:
         _tecla_de_fase(fase): f"Marcar la ventana como {stage_label(fase)}"
         for fase in stages_of(nomenclature)
     }
+
+
+def readable_key(key: str) -> str:
+    """Una tecla escrita como la lee el usuario: «Mayús+←» y no «Shift+Left».
+
+    La que termina en «++» es la tecla «+» con modificadores: partirla por
+    «+» a secas la perdería.
+    """
+    if key.endswith("++"):
+        partes = key[:-2].split("+") + ["+"]
+    else:
+        partes = key.split("+")
+    return "+".join(_NOMBRES_DE_TECLA.get(parte, parte) for parte in partes)
+
+
+def key_for(method: str) -> str | None:
+    """La tecla que ejecuta un método de la ventana, o None si no tiene.
+
+    Es la inversa de `ACTIONS`, y la usa el menú para mostrar el atajo al lado
+    de cada acción **sin declararlo otra vez**: este módulo sigue siendo el
+    único lugar que dice qué tecla hace qué.
+    """
+    for tecla, metodo in ACTIONS.items():
+        if metodo == method:
+            return tecla
+    return None
 
 
 def install_shortcuts(window: QMainWindow, session: Session | None) -> None:
@@ -212,7 +261,9 @@ def shortcuts_help_text(nomenclature: Nomenclature) -> str:
     nueva sin que nadie edite nada.
     """
     lineas = ["Atajos de teclado", ""]
-    lineas += [f"  {tecla:8}  {texto}" for tecla, texto in FIXED_SHORTCUTS.items()]
+    lineas += [
+        f"  {readable_key(tecla):10}  {texto}" for tecla, texto in FIXED_SHORTCUTS.items()
+    ]
     lineas += ["", f"Fases ({nomenclature.value})", ""]
     lineas += [
         f"  {tecla:8}  {texto}"

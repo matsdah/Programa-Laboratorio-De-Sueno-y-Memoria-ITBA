@@ -18,6 +18,8 @@ from psglab.core.nomenclature import Nomenclature, stages_of
 from psglab.ui.shortcuts import (
     ACTIONS,
     FIXED_SHORTCUTS,
+    key_for,
+    readable_key,
     shortcuts_help_text,
     stage_shortcuts,
 )
@@ -110,8 +112,10 @@ def test_la_ayuda_lista_todos_los_atajos(nomenclatura: Nomenclature):
     """Se arma desde los diccionarios del módulo, así que no puede quedar
     desactualizada: es el motivo de que exista la función."""
     texto = shortcuts_help_text(nomenclatura)
+    # Las fijas se escriben como las lee el usuario —«→» y no «Right»—, que es
+    # lo mismo que muestran los menús.
     for tecla in FIXED_SHORTCUTS:
-        assert tecla in texto
+        assert readable_key(tecla) in texto
     for tecla in stage_shortcuts(nomenclatura):
         assert tecla in texto
 
@@ -128,3 +132,44 @@ def test_la_ayuda_cambia_con_la_nomenclatura():
     assert shortcuts_help_text(Nomenclature.RK) != shortcuts_help_text(
         Nomenclature.AASM
     )
+
+
+# -- Cómo se le escribe una tecla al usuario ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    "tecla, legible",
+    [
+        ("Right", "→"),
+        ("Left", "←"),
+        ("Up", "↑"),
+        ("Down", "↓"),
+        ("Shift+Left", "Mayús+←"),
+        ("Ctrl+O", "Ctrl+O"),
+        ("Ctrl++", "Ctrl++"),
+        ("Ctrl+-", "Ctrl+-"),
+        ("Shift+F6", "Mayús+F6"),
+        ("A", "A"),
+    ],
+)
+def test_la_tecla_se_escribe_como_la_lee_el_usuario(tecla: str, legible: str):
+    """«Ctrl++» es la tecla «+» con Control: partirla por «+» a secas la
+    perdería."""
+    assert readable_key(tecla) == legible
+
+
+def test_de_un_metodo_se_llega_a_su_tecla():
+    """Es la inversa de `ACTIONS`, y lo que usa el menú para no declarar las
+    teclas otra vez."""
+    for tecla, metodo in ACTIONS.items():
+        assert key_for(metodo) == tecla
+
+
+def test_un_metodo_sin_atajo_no_tiene_tecla():
+    assert key_for("show_settings_dialog") is None
+
+
+def test_f6_recorre_los_paneles():
+    """El atajo con que la mayoría de los programas pasan de un panel a otro."""
+    assert ACTIONS["F6"] == "focus_next_pane"
+    assert ACTIONS["Shift+F6"] == "focus_previous_pane"

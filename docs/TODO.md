@@ -616,7 +616,7 @@ la regla vive en `core/`.
     el panel emite y la ventana principal decide si pregunta, porque el panel no
     conoce el scoring.
 - [x] **`psglab/ui/shortcuts.py`** · ~~3 stubs~~ · flechas y teclas de fase
-  - Test: `tests/test_shortcuts.py`, **17 tests en verde**. Las dos funciones que
+  - Test: `tests/test_shortcuts.py`, **30 tests en verde**. Las dos funciones que
     importan se llaman **sin ninguna `QApplication`**.
   - Los de fase salen de la nomenclatura: **la tecla se deriva del código de la
     fase**, así que una fase nueva trae su tecla sola. Hay un test que verifica
@@ -1593,7 +1593,7 @@ números y el camino muerto**. Estos tres los cierran donde se puede.
 
 ### Lo que el primer chequeo encontró al escribirse
 
-- [ ] **El barrido de conectividad a lo largo de la noche no está en el menú.**
+- [x] **El barrido de conectividad a lo largo de la noche no estaba en el menú.**
       `connectivity_by_window()` produce una matriz por ventana, `MetricPanel`
       existe y sirve para esa forma de dato —lo dice su propio docstring— y no
       hay ningún camino que los junte. Es el mismo hueco que el hito 19 cerró
@@ -1605,6 +1605,13 @@ números y el camino muerto**. Estos tres los cierran donde se puede.
       Está anotado como tal en `SOLO_BIBLIOTECA`, con esas palabras. Una
       exención que disfrace un hueco de decisión tomada es peor que el hueco:
       lo vuelve invisible y encima parece revisado.
+
+      **Se cerró en la fase 9 del refactor de la interfaz**, que lo ofrece:
+      «Conectividad de la noche…» mide época por época y grafica en el panel de
+      métrica el promedio de cada matriz, que es un número por época y se
+      compara contra el hipnograma. Un test comprueba que cada época vale lo
+      mismo que la conectividad de esa ventana pedida por el otro menú. La
+      exención salió de `SOLO_BIBLIOTECA`.
 
 ---
 

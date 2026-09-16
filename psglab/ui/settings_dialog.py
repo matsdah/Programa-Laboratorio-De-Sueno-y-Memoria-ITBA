@@ -308,6 +308,13 @@ class SettingsDialog(QDialog):
         )
         izquierda.addWidget(self.vary_colors, fila + 1, 0, 1, 2)
 
+        #: Qué no se va a distinguir del fondo con los colores elegidos. Es un
+        #: aviso y no un rechazo: el usuario puede querer un esquema de poco
+        #: contraste para imprimir, pero tiene que saberlo.
+        self.contrast_notice = QLabel("")
+        self.contrast_notice.setWordWrap(True)
+        izquierda.addWidget(self.contrast_notice, fila + 3, 0, 1, 2)
+
         paleta = QGroupBox("Colores de los canales")
         self._fila_de_paleta = QHBoxLayout(paleta)
         #: Un botón por color de la paleta de canales. Se rearman al cambiar de
@@ -318,7 +325,7 @@ class SettingsDialog(QDialog):
         # botones se alejaban de su rótulo y la paleta crecía hasta ocupar
         # media ventana.
         izquierda.setColumnStretch(2, 1)
-        izquierda.setRowStretch(fila + 3, 1)
+        izquierda.setRowStretch(fila + 4, 1)
         self._fila_de_paleta.addStretch(1)
 
         derecha = QVBoxLayout()
@@ -450,6 +457,15 @@ class SettingsDialog(QDialog):
     def _reflejar_colores(self) -> None:
         esquema = self._prefs.scheme()
         self.scheme_label.setText(f"En uso: {esquema.name}")
+        bajos = theme.low_contrast_elements(esquema)
+        self.contrast_notice.setText(
+            ""
+            if not bajos
+            else "Poco contraste con el fondo: "
+            + "; ".join(
+                f"{que} ({_texto(contraste)} a 1)" for que, contraste in bajos
+            )
+        )
         for campo, boton in self.color_buttons.items():
             boton.set_color(getattr(esquema, campo))
         # El color del botón va antes que la casilla: marcarla lee el botón.

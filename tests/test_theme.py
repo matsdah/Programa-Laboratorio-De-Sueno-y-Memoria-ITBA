@@ -286,3 +286,49 @@ def test_un_esquema_guardado_antes_de_la_grilla_ecg_sigue_cargando():
     del datos["ecg_grid"]
 
     assert theme.scheme_from_dict(datos) == theme.OSCURO
+
+
+# -- Contraste --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("nombre", list(theme.SCHEMES))
+def test_ningun_esquema_de_fabrica_tiene_algo_que_no_se_distinga(nombre: str):
+    """**WCAG 2.1**: 4,5 a 1 para el texto y 3 a 1 para lo que hay que
+    distinguir. Dos esquemas no llegaban: el azul del oscuro daba 2,42 y el
+    dorado de «Azul sobre gris» daba 2,41."""
+    assert theme.low_contrast_elements(theme.SCHEMES[nombre]) == []
+
+
+def test_el_contraste_va_de_uno_a_veintiuno():
+    assert theme.contrast_ratio("#000000", "#ffffff") == pytest.approx(21.0)
+    assert theme.contrast_ratio("#777777", "#777777") == pytest.approx(1.0)
+
+
+def test_el_contraste_no_depende_del_orden():
+    assert theme.contrast_ratio("#123456", "#fedcba") == pytest.approx(
+        theme.contrast_ratio("#fedcba", "#123456")
+    )
+
+
+def test_medir_el_contraste_de_algo_que_no_es_un_color_avisa():
+    with pytest.raises(UnknownColorSchemeError):
+        theme.contrast_ratio("gris", "#ffffff")
+
+
+def test_un_color_de_canal_que_no_se_distingue_se_detecta():
+    esquema = dataclasses.replace(
+        theme.OSCURO, signal_palette=("#ffff00", "#404040")
+    )
+
+    bajos = theme.low_contrast_elements(esquema)
+
+    assert [que for que, _ in bajos] == ["el color 2 de los canales"]
+    assert bajos[0][1] < theme.MIN_GRAPHIC_CONTRAST
+
+
+def test_un_texto_poco_legible_se_detecta_con_el_umbral_del_texto():
+    """3,5 a 1 alcanza para una curva y no para un texto."""
+    esquema = dataclasses.replace(theme.CLARO, foreground="#8a8a8a")
+
+    assert theme.contrast_ratio("#8a8a8a", theme.CLARO.background) > 3.0
+    assert "el texto de los gráficos" in [que for que, _ in theme.low_contrast_elements(esquema)]

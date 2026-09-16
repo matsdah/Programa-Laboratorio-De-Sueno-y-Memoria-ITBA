@@ -49,8 +49,31 @@ _PALETA_OSCURA: Final[tuple[str, ...]] = (
     "#ff4040",
     "#00e0e0",
     "#ff40ff",
-    "#6060ff",
+    # **Era `#6060ff`**, y sobre el gris del esquema oscuro daba un contraste
+    # de 2,42: el canal azul casi no se distinguía del fondo. Éste da 3,39.
+    "#8080ff",
 )
+
+#: La paleta para fondos grises. **Un gris necesita colores más oscuros que el
+#: blanco**: con la paleta clara, el dorado daba 2,41 sobre el esquema «Azul
+#: sobre gris». Son los mismos tonos, oscurecidos hasta pasar el mínimo.
+_PALETA_SOBRE_GRIS: Final[tuple[str, ...]] = (
+    "#123a75",
+    "#2c5a20",
+    "#6b5412",
+    "#7a3a14",
+    "#521575",
+    "#135a55",
+)
+
+#: Contraste mínimo para texto, según WCAG 2.1 (criterio 1.4.3).
+MIN_TEXT_CONTRAST: Final[float] = 4.5
+
+#: Contraste mínimo para lo que se dibuja y hay que distinguir —curvas,
+#: la paleta de canales—, según WCAG 2.1 (criterio 1.4.11). La grilla y la
+#: línea de base quedan afuera a propósito: son referencias que tienen que
+#: verse menos que la señal.
+MIN_GRAPHIC_CONTRAST: Final[float] = 3.0
 
 
 @dataclass(frozen=True)
@@ -184,7 +207,7 @@ AZUL_SOBRE_GRIS: Final[ColorScheme] = ColorScheme(
     foreground="#1a1a2e",
     signals="#00008b",
     vary_signal_colors=False,
-    signal_palette=_PALETA_CLARA,
+    signal_palette=_PALETA_SOBRE_GRIS,
     baseline="#a8a8a8",
     coarse_grid="#8a8a9a",
     fine_grid="#b8b8c4",
@@ -468,3 +491,63 @@ def is_valid_color(value: object) -> bool:
     except (ValueError, TypeError, IndexError, KeyError):
         return False
     return True
+
+
+def contrast_ratio(first: str, second: str) -> float:
+    """El contraste entre dos colores, como lo define WCAG 2.1: de 1 a 21.
+
+    Raises:
+        UnknownColorSchemeError: si alguno no es un color que se pueda dibujar.
+    """
+    for color in (first, second):
+        if not is_valid_color(color):
+            raise UnknownColorSchemeError(
+                "No se pudo medir el contraste porque uno de los colores no es válido.",
+                details=f"Se recibió {color!r}.",
+            )
+    claro, oscuro = sorted(
+        (_luminancia(first), _luminancia(second)), reverse=True
+    )
+    return (claro + 0.05) / (oscuro + 0.05)
+
+
+def _luminancia(color: str) -> float:
+    """La luminancia relativa de WCAG 2.1, de 0 (negro) a 1 (blanco)."""
+    qcolor = pg.mkColor(color)
+
+    def canal(valor: int) -> float:
+        c = valor / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    return (
+        0.2126 * canal(qcolor.red())
+        + 0.7152 * canal(qcolor.green())
+        + 0.0722 * canal(qcolor.blue())
+    )
+
+
+def low_contrast_elements(scheme: ColorScheme) -> list[tuple[str, float]]:
+    """Lo que en un esquema no alcanza el contraste mínimo, con su contraste.
+
+    Lo usan dos: el test que garantiza que **ningún esquema de fábrica** tenga
+    nada en esta lista, y la ventana de configuración, que avisa cuando el
+    usuario elige un color que no se va a distinguir del fondo.
+
+    Returns:
+        (qué cosa, contraste), vacía si todo alcanza.
+    """
+    medidas: list[tuple[str, str, str, float]] = [
+        ("el texto de los gráficos", scheme.foreground, scheme.background, MIN_TEXT_CONTRAST),
+        ("el texto del contexto", scheme.overview_text, scheme.overview_background, MIN_TEXT_CONTRAST),
+        ("las señales", scheme.signals, scheme.background, MIN_GRAPHIC_CONTRAST),
+        ("la curva de los paneles", scheme.accent, scheme.background, MIN_GRAPHIC_CONTRAST),
+    ]
+    medidas += [
+        (f"el color {posicion + 1} de los canales", color, scheme.background, MIN_GRAPHIC_CONTRAST)
+        for posicion, color in enumerate(scheme.signal_palette)
+    ]
+    return [
+        (que, round(contrast_ratio(color, fondo), 2))
+        for que, color, fondo, minimo in medidas
+        if contrast_ratio(color, fondo) < minimo
+    ]

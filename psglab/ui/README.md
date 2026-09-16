@@ -91,15 +91,33 @@ una es inviable.
 | `A` | Marcar o desmarcar arousal |
 | `Ctrl+O` | Abrir un registro |
 | `Ctrl+S` | Exportar el scoring |
+| `Mayús+←` / `Mayús+→` | Desplazar media página |
+| `Ctrl+←` / `Ctrl+→` | Desplazar una página entera |
+| `Ctrl+-` / `Ctrl++` | Alejar / acercar: página × 2 / ÷ 2 |
+| `Ctrl+0` | Mostrar el registro entero |
+| `F6` / `Mayús+F6` | Pasar al panel siguiente / anterior |
+
+Los cinco primeros son requisitos del pliego. **Los demás los agregó el
+refactor de la interfaz**: los de desplazamiento y escala acompañan a la escala
+de tiempo libre —las flechas solas siguen siendo la época, que es V1_F de
+"Navegación"—, y F6 es de accesibilidad: sin él, llegar al selector de canales o
+al scoring sin mouse obligaba a atravesar todos los controles con Tab. F6 salta
+los paneles cerrados y los que no tienen nada que pueda recibir el foco, como el
+de contexto, que se pinta a mano.
+
+**Los menús muestran los atajos pero no los registran.** Leen este módulo con
+`key_for()` y escriben la tecla después de un tabulador, que es como Qt dibuja
+la columna del atajo. Registrarla también en la acción la volvería ambigua con
+el `QShortcut`, y ante un atajo ambiguo Qt no ejecuta ninguno.
 
 Los atajos de las fases **no** están en ese diccionario: dependen de la
 nomenclatura activa y los arma `stage_shortcuts()` (W, 1, 2, 3, 4, R, M en R&K;
 W, 1, 2, 3, R en AASM). Así, agregar o cambiar una fase no obliga a tocar la
 tabla a mano.
 
-No se agregan atajos para funciones que el pliego no pide. Un "deshacer", por
-ejemplo, no es una tecla sino un subsistema completo (historial de cambios del
-scoring y de las anotaciones), y no está pedido.
+Lo que sigue sin tecla es lo que no es una tecla. Un "deshacer", por ejemplo,
+es un subsistema completo (historial de cambios del scoring y de las
+anotaciones), y no está pedido.
 
 ## `grid.py`
 

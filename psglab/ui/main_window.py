@@ -49,12 +49,14 @@ from PySide6.QtCore import QByteArray, QEvent, QObject, Qt
 from PySide6.QtGui import QAction, QCloseEvent, QFont
 from PySide6.QtWidgets import (
     QApplication,
+    QDockWidget,
     QFileDialog,
     QInputDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
     QToolBar,
+    QWidget,
 )
 
 from psglab.config import (
@@ -79,6 +81,7 @@ from psglab.analysis.complexity import MEASURES, complexity_by_window
 from psglab.analysis.connectivity import (
     average_connectivity,
     compute_connectivity,
+    connectivity_by_window,
 )
 from psglab.analysis.ica import (
     apply_ica,
@@ -154,6 +157,17 @@ _BOTONES = {
 _MUESTRAS_PARA_AVISAR = 20_000_000
 
 
+def _primero_que_toma_foco(widget: QWidget | None) -> QWidget | None:
+    """El primer widget, empezando por él mismo, que se puede enfocar con el
+    teclado. None si no hay ninguno."""
+    if widget is None:
+        return None
+    for candidato in [widget, *widget.findChildren(QWidget)]:
+        if candidato.focusPolicy() & Qt.FocusPolicy.TabFocus and candidato.isEnabled():
+            return candidato
+    return None
+
+
 class MainWindow(QMainWindow):
     """Ventana principal del programa."""
 
@@ -180,6 +194,9 @@ class MainWindow(QMainWindow):
         self._fuente_del_sistema = QFont(QApplication.font())
         #: La ventana de configuración. Se arma la primera vez que se pide.
         self.settings_dialog: SettingsDialog | None = None
+        #: Qué panel tiene el foco en el recorrido con F6, como posición en
+        #: `focusable_panes()`. Arranca en la señal.
+        self._panel_actual = 0
 
         self._build_layout()
         self._build_menus()
@@ -1078,6 +1095,55 @@ class MainWindow(QMainWindow):
             self._repintar_anotaciones()
         self._guardar_preferencias()
 
+    def focusable_panes(self) -> list[QWidget]:
+        """Lo que se recorre con F6: la señal y los paneles abiertos que pueden
+        recibir el foco.
+
+        En el orden en que se arman los paneles, que es el de la pantalla: el
+        trabajo de scoring primero y los análisis después.
+
+        **Un panel que no tiene nada que pueda recibir el foco no se recorre.**
+        El de contexto se pinta a mano y no tiene controles: incluirlo hacía que
+        F6 lo diera por visitado mientras el foco seguía en el panel anterior,
+        que es la peor combinación para quien navega sin mouse.
+        """
+        paneles: list[QWidget] = [self.signal_view]
+        paneles += [
+            dock
+            for dock in self.docks.values()
+            if not dock.isHidden() and _primero_que_toma_foco(dock.widget()) is not None
+        ]
+        return paneles
+
+    def current_pane(self) -> QWidget:
+        """El panel que tiene el foco del recorrido con F6."""
+        paneles = self.focusable_panes()
+        return paneles[self._panel_actual % len(paneles)]
+
+    def focus_next_pane(self) -> None:
+        """F6: pasa el foco al panel siguiente."""
+        self._pasar_de_panel(1)
+
+    def focus_previous_pane(self) -> None:
+        """Mayús+F6: vuelve al panel anterior."""
+        self._pasar_de_panel(-1)
+
+    def _pasar_de_panel(self, paso: int) -> None:
+        """Mueve el foco al panel que está `paso` lugares más allá, en círculo.
+
+        Si el panel está apilado detrás de otro en solapas, se lo trae adelante:
+        dejar el foco en algo que no se ve es peor que no moverlo.
+        """
+        paneles = self.focusable_panes()
+        actual = self._panel_actual % len(paneles)
+        self._panel_actual = (actual + paso) % len(paneles)
+        panel = paneles[self._panel_actual]
+        panel.raise_()
+        destino = panel.widget() if isinstance(panel, QDockWidget) else panel
+        candidato = _primero_que_toma_foco(destino)
+        if candidato is not None:
+            candidato.setFocus(Qt.FocusReason.ShortcutFocusReason)
+
     def show_settings_dialog(self) -> None:
         """Abre la ventana de configuración, mostrando lo que está vigente.
 
@@ -1514,6 +1580,67 @@ class MainWindow(QMainWindow):
         )
         self.connectivity_dialog.show()
         self.connectivity_dialog.raise_()
+
+    def show_connectivity_night_dialog(self) -> None:
+        """Mide la conectividad época por época y la grafica a lo largo de la noche.
+
+        **Era un hueco declarado**, no una decisión: `connectivity_by_window()`
+        existía desde el hito 14 y `MetricPanel` desde el hito 19, que lo dice
+        en su propio docstring, y no había ningún camino que los juntara. El
+        hito 20 lo dejó anotado como pregunta de producto. Se ofrece al cerrar
+        el refactor de la interfaz.
+
+        Lo que se grafica es **el promedio de cada matriz**, sin la diagonal:
+        una matriz por época no se puede mirar a lo largo de ochocientas
+        épocas, y un número por época sí se compara contra el hipnograma, que
+        es para lo que sirve ver la noche entera.
+
+        Es la operación más cara del menú después de la ICA: medido en el hito
+        14, entre 0,3 y 0,5 minutos por noche con cuatro canales. Por eso va con
+        el cursor de espera.
+        """
+        if self._session is None:
+            return
+        canales = self._session.visible_channels
+        if len(canales) < 2:
+            self._show_error(
+                PsgLabError(
+                    "La conectividad se mide entre canales, así que hacen falta "
+                    "al menos dos visibles.",
+                    details=f"canales visibles: {canales}.",
+                )
+            )
+            return
+        bandas = self._preferencias.bands()
+        banda, acepto = QInputDialog.getItem(
+            self, "Conectividad de la noche", "Banda:", list(bandas), 0, False
+        )
+        if not acepto:
+            return
+
+        try:
+            with self._trabajando(
+                f"Midiendo la conectividad en {banda} a lo largo de la noche"
+            ):
+                matrices = connectivity_by_window(
+                    self._session.recording, canales, band=bandas[banda]
+                )
+                promedios = np.array(
+                    [average_connectivity(matriz) for matriz in matrices]
+                )
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+
+        etiqueta = f"Conectividad en {banda}"
+        self.metric_panel.set_metric(
+            etiqueta, {f"Promedio de {len(canales)} canales": promedios}
+        )
+        self.metric_dialog.setWindowTitle(
+            f"{etiqueta} a lo largo de la noche — {', '.join(canales)}"
+        )
+        self.metric_dialog.show()
+        self.metric_dialog.raise_()
 
     def show_filter_dialog(self) -> None:
         """Abre el panel de filtros (V1_F de "Filtración").
