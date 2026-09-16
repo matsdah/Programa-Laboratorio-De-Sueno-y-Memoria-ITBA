@@ -84,6 +84,12 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "apply_preferences",
         "current_preferences",
         "show_settings_dialog",
+        "show_connectivity_night_dialog",
+        # Accesibilidad.
+        "focusable_panes",
+        "current_pane",
+        "focus_next_pane",
+        "focus_previous_pane",
         # Escala de tiempo.
         "set_timescale",
         "halve_timescale",

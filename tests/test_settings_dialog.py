@@ -545,3 +545,24 @@ def test_la_muestra_usa_la_tipografia_elegida(dialogo: SettingsDialog):
     dialogo.font_size.setValue(22)
 
     assert dialogo.font_preview.font().pointSize() == 22
+
+
+# -- El aviso de contraste --------------------------------------------------------------
+
+
+@pytest.mark.parametrize("nombre", list(theme.SCHEMES))
+def test_los_esquemas_de_fabrica_no_muestran_aviso(dialogo: SettingsDialog, nombre: str):
+    dialogo.set_preferences(Preferences().with_scheme(theme.SCHEMES[nombre]))
+
+    assert dialogo.contrast_notice.text() == ""
+
+
+def test_elegir_un_color_que_no_se_distingue_avisa_sin_impedirlo(
+    dialogo: SettingsDialog, cambios
+):
+    """Un esquema de poco contraste puede ser buscado —para imprimir, por
+    ejemplo—, pero el usuario tiene que saberlo."""
+    dialogo.color_buttons["signals"].choose("#f4f4f4")
+
+    assert ultima(cambios).scheme().signals == "#f4f4f4"
+    assert "señales" in dialogo.contrast_notice.text()

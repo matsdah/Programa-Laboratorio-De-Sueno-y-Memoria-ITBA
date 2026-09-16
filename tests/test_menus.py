@@ -208,3 +208,69 @@ def test_la_ventana_de_configuracion_se_abre_desde_su_menu(ventana: MainWindow):
     assert ventana.settings_dialog is not None
     assert ventana.settings_dialog.isVisible()
     ventana.settings_dialog.close()
+
+
+# -- Los atajos, a la vista ----------------------------------------------------------
+
+
+def _todas_las_acciones(ventana: MainWindow) -> list:
+    acciones = []
+
+    def recorrer(menu) -> None:
+        for accion in menu.actions():
+            if accion.menu() is not None:
+                recorrer(accion.menu())
+            elif not accion.isSeparator():
+                acciones.append(accion)
+
+    for accion_de_menu in ventana.menuBar().actions():
+        if accion_de_menu.menu() is not None:
+            recorrer(accion_de_menu.menu())
+    return acciones
+
+
+def test_las_acciones_con_atajo_lo_muestran(ventana: MainWindow):
+    """**Hasta la fase 9 ningún menú mostraba un atajo**, y es lo primero que
+    mira quien aprende un programa."""
+    from psglab.ui.shortcuts import key_for, readable_key
+
+    con_atajo = [
+        accion
+        for accion in _todas_las_acciones(ventana)
+        if isinstance(accion.data(), str) and key_for(accion.data()) is not None
+    ]
+
+    assert len(con_atajo) >= 7
+    for accion in con_atajo:
+        rotulo, _, atajo = accion.text().partition("\t")
+        assert atajo == readable_key(key_for(accion.data())), rotulo
+
+
+def test_las_acciones_sin_atajo_no_muestran_ninguno(ventana: MainWindow):
+    from psglab.ui.shortcuts import key_for
+
+    for accion in _todas_las_acciones(ventana):
+        metodo = accion.data()
+        if not isinstance(metodo, str) or key_for(metodo) is None:
+            assert "\t" not in accion.text(), accion.text()
+
+
+def test_abrir_un_registro_muestra_ctrl_o(ventana: MainWindow):
+    textos = [a.text() for a in menu_llamado(ventana, "&Archivo").actions()]
+
+    assert "&Abrir registro…\tCtrl+O" in textos
+
+
+def test_exportar_el_scoring_muestra_ctrl_s(ventana: MainWindow):
+    """Lo ejecuta otro método que el de la tecla, y por eso se anota a mano."""
+    textos = [a.text() for a in menu_llamado(ventana, "&Sesión").actions()]
+
+    assert any(t.startswith("Exportar Scoring") and t.endswith("\tCtrl+S") for t in textos)
+
+
+def test_el_atajo_se_muestra_pero_no_se_registra_en_la_accion(ventana: MainWindow):
+    """**La tecla ya la instala `shortcuts.py`.** Registrarla también en la
+    acción la volvería ambigua, y ante un atajo ambiguo Qt no ejecuta
+    ninguno: mostrar el atajo rompería el atajo."""
+    for accion in _todas_las_acciones(ventana):
+        assert accion.shortcut().isEmpty(), accion.text()
