@@ -352,6 +352,32 @@ Dos advertencias sobre estos números, para quien los vuelva a medir:
 
 ---
 
+### Contraste de los esquemas de color — WCAG 2.1, verificado por test
+
+Los cinco esquemas de fábrica se comprueban contra los umbrales de **WCAG 2.1**:
+4,5 a 1 para el texto (criterio 1.4.3) y 3 a 1 para lo que hay que distinguir
+de un vistazo, que en este programa son las curvas y la paleta de canales
+(criterio 1.4.11). `theme.low_contrast_elements()` hace la cuenta y
+`tests/test_theme.py` exige que ningún esquema de fábrica tenga nada en esa
+lista.
+
+**Se eligió un estándar y no un criterio propio** porque un umbral inventado se
+discute cada vez que alguien no ve bien un color; uno publicado, no.
+
+**Al escribir el test fallaron dos esquemas.** El azul de la paleta oscura daba
+2,42 sobre el gris de fondo —un canal que casi no se distinguía— y el dorado
+daba 2,41 sobre «Azul sobre gris». El primero se aclaró; el segundo esquema ganó una paleta propia, porque
+**un fondo gris necesita colores más oscuros que uno blanco** y oscurecer la
+paleta compartida habría cambiado el esquema claro sin motivo.
+
+**La grilla y la línea de base quedan afuera a propósito.** Son referencias, y
+tienen que verse menos que la señal: exigirles 3 a 1 las volvería tan
+llamativas como lo que están ayudando a medir.
+
+**Un esquema propio con poco contraste se permite**, con un aviso en la ventana
+de configuración. Puede ser buscado —para imprimir, por ejemplo—, pero quien lo
+elige tiene que saberlo.
+
 ## Convenciones de código
 
 - **La API pública y los nombres de archivo, en inglés**; comentarios,

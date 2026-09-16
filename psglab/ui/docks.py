@@ -84,6 +84,10 @@ def nuevo_dock(
     dock.setObjectName(f"dock-{titulo}")
     dock.setAllowedAreas(areas)
     dock.setWidget(contenido)
+    # **El nombre que lee un lector de pantalla.** Sin él, un lector anuncia
+    # "grupo" o nada al llegar al panel. El título ya dice lo que es.
+    if not contenido.accessibleName():
+        contenido.setAccessibleName(titulo)
     return dock
 
 

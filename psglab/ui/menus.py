@@ -42,8 +42,14 @@ from psglab.config import AMPLITUDE_PRESETS_UV, VIEW_TIMESCALE_PRESETS
 from psglab.exporters import DEFAULT_FILENAMES
 from psglab.ui import theme
 from psglab.ui.grid import BackgroundStyle
+from psglab.ui.shortcuts import key_for, readable_key
 
 if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
+    from collections.abc import Callable
+
+    from PySide6.QtGui import QAction
+    from PySide6.QtWidgets import QMenu
+
     from psglab.ui.main_window import MainWindow
 
 
@@ -66,14 +72,58 @@ def build_menus(window: "MainWindow") -> None:
     window.tools_menu = window.menuBar().addMenu("&Herramientas")
     _configuracion(window)
     _ayuda(window)
+    _mostrar_atajos(window)
+
+
+def _agregar(
+    menu: "QMenu", texto: str, slot: "Callable[[], object]"
+) -> "QAction":
+    """Agrega una acción y anota qué método de la ventana ejecuta.
+
+    El nombre queda en `QAction.data()`, que es donde `_mostrar_atajos()` lo
+    busca: Qt no deja preguntarle a una acción a qué está conectada.
+    """
+    accion = menu.addAction(texto, slot)
+    accion.setData(getattr(slot, "__name__", None))
+    return accion
+
+
+def _mostrar_atajos(window: "MainWindow") -> None:
+    """Escribe al lado de cada acción el atajo que la ejecuta, si tiene uno.
+
+    **Hasta la fase 9 los menús no mostraban ningún atajo**, y es lo primero
+    que mira quien aprende un programa: la única forma de saber que Ctrl+O
+    abría un registro era la ayuda.
+
+    **El atajo no se registra en la acción, sólo se muestra.** Las teclas ya
+    las instala `shortcuts.py` como `QShortcut`, y declararlas también en la
+    acción las volvería ambiguas: ante un atajo ambiguo, Qt no ejecuta
+    ninguno. Se usa el mismo mecanismo con que Qt dibuja los menús: lo que
+    sigue a un tabulador en el texto va en la columna del atajo.
+    """
+    for accion_de_menu in window.menuBar().actions():
+        _atajos_en(accion_de_menu.menu())
+
+
+def _atajos_en(menu: "QMenu | None") -> None:
+    if menu is None:
+        return
+    for accion in menu.actions():
+        if accion.menu() is not None:
+            _atajos_en(accion.menu())
+            continue
+        metodo = accion.data()
+        tecla = key_for(metodo) if isinstance(metodo, str) else None
+        if tecla is not None and "\t" not in accion.text():
+            accion.setText(f"{accion.text()}\t{readable_key(tecla)}")
 
 
 def _archivo(window: "MainWindow") -> None:
     """Abrir un registro y salir. Nada más: lo demás se mudó a «Sesión»."""
     archivo = window.menuBar().addMenu("&Archivo")
-    archivo.addAction("&Abrir registro…", window.open_recording_dialog)
+    _agregar(archivo, "&Abrir registro…", window.open_recording_dialog)
     archivo.addSeparator()
-    archivo.addAction("&Salir", window.close)
+    _agregar(archivo, "&Salir", window.close)
 
 
 def _sesion(window: "MainWindow") -> None:
@@ -85,14 +135,17 @@ def _sesion(window: "MainWindow") -> None:
     buscar "Exportar Scoring.txt" entre las acciones de apertura.
     """
     sesion = window.menuBar().addMenu("&Sesión")
-    sesion.addAction("&Importar scoring…", window.open_scoring_dialog)
+    _agregar(sesion, "&Importar scoring…", window.open_scoring_dialog)
     sesion.addSeparator()
     # V4_F pide poder exportar **uno solo** de los tres, así que son tres
     # acciones y no un único "Exportar todo".
     for kind, nombre in DEFAULT_FILENAMES.items():
-        sesion.addAction(
+        accion = sesion.addAction(
             f"Exportar {nombre}…", lambda _=False, k=kind: window._export_dialog(k)
         )
+        # Exportar el scoring es lo que hace Ctrl+S, aunque por otro método.
+        if kind == "scoring":
+            accion.setData("export_scoring_dialog")
 
 
 def _escala_de_tiempo(window: "MainWindow") -> None:
@@ -114,11 +167,11 @@ def _escala_de_tiempo(window: "MainWindow") -> None:
             lambda _=False, s=segundos: window.set_timescale(s),
         )
     escala.addSeparator()
-    escala.addAction("&Registro entero", window.show_whole_recording)
-    escala.addAction("Definida por el &usuario…", window.ask_timescale)
+    _agregar(escala, "&Registro entero", window.show_whole_recording)
+    _agregar(escala, "Definida por el &usuario…", window.ask_timescale)
     escala.addSeparator()
-    escala.addAction("&Acercar (página ÷ 2)", window.halve_timescale)
-    escala.addAction("A&lejar (página × 2)", window.double_timescale)
+    _agregar(escala, "&Acercar (página ÷ 2)", window.halve_timescale)
+    _agregar(escala, "A&lejar (página × 2)", window.double_timescale)
 
 
 def duration_text(seconds: float) -> str:
@@ -159,9 +212,9 @@ def _amplitud(window: "MainWindow") -> None:
     Lo resuelve `Session`, no este menú.
     """
     amplitud = window.menuBar().addMenu("A&mplitud")
-    amplitud.addAction("&Ajustar al panel", window.fit_amplitude_to_pane)
-    amplitud.addAction("Ajustar el &desplazamiento", window.center_amplitude_offsets)
-    amplitud.addAction("Desplazamiento a &cero", window.reset_amplitude_offsets)
+    _agregar(amplitud, "&Ajustar al panel", window.fit_amplitude_to_pane)
+    _agregar(amplitud, "Ajustar el &desplazamiento", window.center_amplitude_offsets)
+    _agregar(amplitud, "Desplazamiento a &cero", window.reset_amplitude_offsets)
     amplitud.addSeparator()
     for microvoltios in AMPLITUDE_PRESETS_UV:
         etiqueta = f"{microvoltios:g} µV por carril"
@@ -169,13 +222,13 @@ def _amplitud(window: "MainWindow") -> None:
             etiqueta, lambda _=False, uv=microvoltios: window.set_amplitude_scale(uv)
         )
     amplitud.addSeparator()
-    amplitud.addAction("Definida por el &usuario…", window.ask_amplitude_scale)
+    _agregar(amplitud, "Definida por el &usuario…", window.ask_amplitude_scale)
     amplitud.addSeparator()
     # Las mismas dos operaciones que las flechas Arriba y Abajo. Están en el
     # menú **además** de en el teclado porque el pliego pide las dos vías
     # (V2_P), y porque un menú es donde se descubre que el atajo existe.
-    amplitud.addAction("Aumentar la amplitud", window.increase_amplitude)
-    amplitud.addAction("Reducir la amplitud", window.decrease_amplitude)
+    _agregar(amplitud, "Aumentar la amplitud", window.increase_amplitude)
+    _agregar(amplitud, "Reducir la amplitud", window.decrease_amplitude)
 
 
 def _ver(window: "MainWindow") -> None:
@@ -195,7 +248,7 @@ def _ver(window: "MainWindow") -> None:
     paneles = ver.addMenu("&Paneles")
     for dock in window.docks.values():
         paneles.addAction(dock.toggleViewAction())
-    ver.addAction("&Restaurar la disposición", window.restore_default_layout)
+    _agregar(ver, "&Restaurar la disposición", window.restore_default_layout)
 
     ver.addSeparator()
     # V2_F del histograma: el pliego pide poder elegir el eje.
@@ -213,9 +266,9 @@ def _montaje(window: "MainWindow") -> None:
     original", que por eso vive acá y no en «Analizar».
     """
     montaje = window.menuBar().addMenu("&Montaje")
-    montaje.addAction("&Derivar canales…", window.derive_dialog)
-    montaje.addAction("&Re-referenciar…", window.rereference_dialog)
-    montaje.addAction("Referencia &promedio (EEG)", window.apply_average_reference)
+    _agregar(montaje, "&Derivar canales…", window.derive_dialog)
+    _agregar(montaje, "&Re-referenciar…", window.rereference_dialog)
+    _agregar(montaje, "Referencia &promedio (EEG)", window.apply_average_reference)
     montaje.addSeparator()
     window.accion_señal_original = montaje.addAction(
         "&Volver a la señal original", window.restore_original_recording
@@ -232,9 +285,9 @@ def _filtrar(window: "MainWindow") -> None:
     decirle al usuario a qué familia pertenece antes de que la use.
     """
     filtrar = window.menuBar().addMenu("&Filtrar")
-    filtrar.addAction("&Filtros por clase de canal…", window.show_filter_dialog)
+    _agregar(filtrar, "&Filtros por clase de canal…", window.show_filter_dialog)
     filtrar.addSeparator()
-    filtrar.addAction("Componentes &independientes (ICA)…", window.show_ica_dialog)
+    _agregar(filtrar, "Componentes &independientes (ICA)…", window.show_ica_dialog)
 
 
 def _analizar(window: "MainWindow") -> None:
@@ -246,11 +299,12 @@ def _analizar(window: "MainWindow") -> None:
     y falso, que es peor que uno feo.
     """
     analizar = window.menuBar().addMenu("&Analizar")
-    analizar.addAction("&Impedancia de los electrodos…", window.show_impedance_dialog)
+    _agregar(analizar, "&Impedancia de los electrodos…", window.show_impedance_dialog)
     analizar.addSeparator()
-    analizar.addAction("&Espectro de la ventana…", window.show_psd_dialog)
-    analizar.addAction("&Complejidad de la noche…", window.show_complexity_dialog)
-    analizar.addAction("Conectividad de la &ventana…", window.show_connectivity_dialog)
+    _agregar(analizar, "&Espectro de la ventana…", window.show_psd_dialog)
+    _agregar(analizar, "&Complejidad de la noche…", window.show_complexity_dialog)
+    _agregar(analizar, "Conectividad de la &ventana…", window.show_connectivity_dialog)
+    _agregar(analizar, "Conectividad de la &noche…", window.show_connectivity_night_dialog)
 
 
 def _configuracion(window: "MainWindow") -> None:
@@ -261,7 +315,7 @@ def _configuracion(window: "MainWindow") -> None:
     herramienta o un formato de archivo nuevos aparezcan solos.
     """
     configuracion = window.menuBar().addMenu("&Configuración")
-    configuracion.addAction("&Configuración…", window.show_settings_dialog)
+    _agregar(configuracion, "&Configuración…", window.show_settings_dialog)
     configuracion.addSeparator()
     esquemas = configuracion.addMenu("Esquema de &color")
     for nombre, esquema in theme.SCHEMES.items():
@@ -270,4 +324,4 @@ def _configuracion(window: "MainWindow") -> None:
 
 def _ayuda(window: "MainWindow") -> None:
     ayuda = window.menuBar().addMenu("A&yuda")
-    ayuda.addAction("&Atajos de teclado", window._show_shortcuts)
+    _agregar(ayuda, "&Atajos de teclado", window._show_shortcuts)

@@ -982,13 +982,6 @@ SOLO_BIBLIOTECA: dict[str, str] = {
         "el panel del espectro, y no el barrido de la noche entera. La función "
         "queda para un script."
     ),
-    # **Éste no es una decisión tomada, y por eso se dice así.** Una exención
-    # que disfrace un hueco de decisión es peor que el hueco.
-    "psglab/analysis/connectivity.py::connectivity_by_window": (
-        "hueco conocido y sin decidir: el barrido de conectividad a lo largo de "
-        "la noche no está en el menú, aunque MetricPanel existe y sirve para "
-        "esa forma de dato. Anotado en el hito 20 del TODO."
-    ),
 }
 
 

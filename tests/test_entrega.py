@@ -705,6 +705,7 @@ def test_cada_analisis_tiene_camino_desde_la_barra_de_menu(ventana: MainWindow):
             "&Espectro de la ventana…",
             "&Complejidad de la noche…",
             "Conectividad de la &ventana…",
+            "Conectividad de la &noche…",
             "&Volver a la señal original",
         )
         if esperada not in acciones
@@ -1982,3 +1983,199 @@ def test_la_configuracion_se_abre_sin_registro(qt_app):
 
     assert set(principal.settings_dialog.annotation_buttons) >= {"Spindle"}
     principal.settings_dialog.close()
+
+
+# -- La conectividad a lo largo de la noche ---------------------------------------
+#
+# Era un hueco declarado desde el hito 20: la función existía, el panel también,
+# y ningún camino los juntaba.
+
+
+def test_la_conectividad_de_la_noche_desde_el_menu(ventana: MainWindow, elige_opciones):
+    """Un número por época, **con el largo de la noche**: es lo que lo deja
+    alineado con el hipnograma."""
+    elige_opciones(("Delta", True))
+
+    ventana.show_connectivity_night_dialog()
+
+    (serie,) = ventana.metric_panel.channels()
+    assert len(ventana.metric_panel.series(serie)) == ventana.session.n_windows
+    assert ventana.metric_panel.window_positions(serie)[0] == 1.0
+    assert not ventana.carteles
+
+
+def test_cada_epoca_vale_lo_mismo_que_la_conectividad_de_esa_ventana(
+    ventana: MainWindow, elige_opciones
+):
+    """**Los dos caminos tienen que coincidir.** El barrido promedia la misma
+    matriz que el menú de la ventana muestra: si dieran distinto, uno de los dos
+    le estaría mintiendo al investigador."""
+    from psglab.analysis.connectivity import average_connectivity
+
+    elige_opciones(("Delta", True), ("Delta", True))
+    ventana._go_to_window(2)
+
+    ventana.show_connectivity_night_dialog()
+    (serie,) = ventana.metric_panel.channels()
+    de_la_noche = ventana.metric_panel.series(serie)[2]
+    ventana.show_connectivity_dialog()
+    de_la_ventana = average_connectivity(ventana.connectivity_panel.matrix())
+
+    assert de_la_noche == pytest.approx(de_la_ventana)
+
+
+def test_el_titulo_dice_la_banda_y_entre_que_canales(
+    ventana: MainWindow, elige_opciones
+):
+    elige_opciones(("Theta", True))
+
+    ventana.show_connectivity_night_dialog()
+
+    titulo = ventana.metric_dialog.windowTitle()
+    assert "Theta" in titulo
+    assert "noche" in titulo
+    for canal in ventana.session.visible_channels:
+        assert canal in titulo
+
+
+def test_cancelar_la_banda_no_mide_nada(ventana: MainWindow, elige_opciones, monkeypatch):
+    """Es la operación más cara del menú después de la ICA: cancelar no puede
+    arrancarla igual."""
+    llamadas: list[object] = []
+    monkeypatch.setattr(
+        main_window_mod,
+        "connectivity_by_window",
+        lambda *args, **kwargs: llamadas.append(args),
+    )
+    elige_opciones(("", False))
+
+    ventana.show_connectivity_night_dialog()
+
+    assert llamadas == []
+    assert not ventana.carteles
+
+
+def test_con_un_solo_canal_visible_avisa_sin_medir(ventana: MainWindow):
+    ventana.session.set_visible_channels(ventana.session.visible_channels[:1])
+
+    ventana.show_connectivity_night_dialog()
+
+    assert ventana.carteles
+
+
+def test_medir_la_noche_no_mueve_al_usuario_de_ventana(
+    ventana: MainWindow, elige_opciones
+):
+    ventana._go_to_window(3)
+    elige_opciones(("Delta", True))
+
+    ventana.show_connectivity_night_dialog()
+
+    assert ventana.session.current_window == 3
+
+
+def test_medir_la_noche_muestra_el_cursor_de_espera(
+    ventana: MainWindow, elige_opciones, monkeypatch
+):
+    """Tarda medio minuto sobre un registro real: sin cursor, se lee como un
+    programa colgado."""
+    cursores: list[object] = []
+    original = main_window_mod.connectivity_by_window
+
+    def midiendo(*args: object, **kwargs: object) -> object:
+        cursores.append(QApplication.overrideCursor())
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(main_window_mod, "connectivity_by_window", midiendo)
+    elige_opciones(("Delta", True))
+
+    ventana.show_connectivity_night_dialog()
+
+    assert cursores and cursores[0] is not None
+    assert QApplication.overrideCursor() is None
+
+
+# -- Recorrer los paneles con el teclado ---------------------------------------------
+
+
+def test_f6_arranca_en_la_senal_y_pasa_al_panel_siguiente(ventana: MainWindow):
+    paneles = ventana.focusable_panes()
+    assert ventana.current_pane() is ventana.signal_view
+
+    ventana.focus_next_pane()
+
+    assert ventana.current_pane() is paneles[1]
+
+
+def test_f6_da_la_vuelta(ventana: MainWindow):
+    for _ in ventana.focusable_panes():
+        ventana.focus_next_pane()
+
+    assert ventana.current_pane() is ventana.signal_view
+
+
+def test_mayus_f6_vuelve_para_atras(ventana: MainWindow):
+    ventana.focus_previous_pane()
+
+    assert ventana.current_pane() is ventana.focusable_panes()[-1]
+
+
+def test_los_paneles_cerrados_no_se_recorren(ventana: MainWindow):
+    """Dejar el foco en algo que no se ve es peor que no moverlo."""
+    cerrado = ventana.focusable_panes()[1]
+    cerrado.hide()
+
+    assert cerrado not in ventana.focusable_panes()
+
+
+def test_los_paneles_de_analisis_cerrados_al_arrancar_no_se_recorren(
+    ventana: MainWindow,
+):
+    assert ventana.psd_dialog not in ventana.focusable_panes()
+
+    ventana.psd_dialog.show()
+
+    assert ventana.psd_dialog in ventana.focusable_panes()
+
+
+def test_todos_los_paneles_tienen_un_nombre_para_el_lector_de_pantalla(
+    ventana: MainWindow,
+):
+    """Sin él, un lector anuncia «grupo» o nada al llegar al panel."""
+    assert ventana.signal_view.accessibleName()
+    for dock in ventana.docks.values():
+        assert dock.widget().accessibleName(), dock.windowTitle()
+
+
+def test_la_senal_acepta_el_foco_del_teclado(ventana: MainWindow):
+    """Si no, F6 no tendría dónde dejarlo al volver a ella."""
+    assert ventana.signal_view.focusPolicy() & Qt.FocusPolicy.TabFocus
+
+
+def test_f6_mueve_el_foco_de_verdad(ventana: MainWindow):
+    """**Lo que el recorrido cree y lo que pasa tienen que coincidir.** El panel
+    de contexto no tiene nada que tome el foco, y cuando se lo recorría F6 lo
+    daba por visitado mientras el foco seguía en el panel anterior."""
+    ventana.resize(1200, 800)
+    ventana.show()
+    ventana.activateWindow()
+    QApplication.processEvents()
+    try:
+        for _ in ventana.focusable_panes():
+            ventana.focus_next_pane()
+            QApplication.processEvents()
+            panel = ventana.current_pane()
+            destino = panel.widget() if hasattr(panel, "widget") else panel
+            foco = QApplication.focusWidget()
+            assert foco is not None
+            assert foco is destino or destino.isAncestorOf(foco), panel.windowTitle()
+    finally:
+        ventana.close()
+
+
+def test_el_panel_de_contexto_no_se_recorre(ventana: MainWindow):
+    """Se pinta a mano y no tiene controles: no hay dónde dejar el foco."""
+    assert ventana.docks
+    contexto = [d for d in ventana.docks.values() if d.widget() is ventana.overview_panel]
+    assert contexto
+    assert contexto[0] not in ventana.focusable_panes()
