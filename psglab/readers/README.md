@@ -15,7 +15,8 @@ polisomnografía": los formatos se suman de a uno sin rediseñar nada.
 | `base.py` | La clase `Reader`, el registro de formatos y `read_recording()`. | Base de V1_F y V2_F de "Importación" |
 | `brainvision.py` | Formato BrainVision (`.vhdr` + `.vmrk` + `.eeg`). | V1_F de "Importación" |
 | `edf.py` | Formato EDF y EDF+. | V2_F de "Importación" |
-| `scoring_reader.py` | Un scoring ya existente, para ver o corregir la fase de cada ventana. | V3_F de "Importación" |
+| `scoring_reader.py` | Un scoring ya existente, para ver o corregir la fase de cada ventana. Elige el lector por la extensión y lee él mismo el `.txt`. | V3_F de "Importación" |
+| `scoring_formats.py` | Un scoring en CSV, EDF+ o XML del NSRR, escrito por este programa o por otro. | V3_F de "Importación" |
 | `channel_types.py` | Detección automática de la clase de cada canal (EEG, EOG, EMG, otro). | V4_F de "Visualización" |
 
 ## Cómo agregar un formato
@@ -75,6 +76,18 @@ Si el archivo está corrupto o incompleto, elevá `UnreadableFileError` con un
 mensaje en español; si ningún lector registrado maneja la extensión,
 `read_recording()` ya eleva `UnsupportedFormatError` por su cuenta.
 
+## El scoring de otros programas
+
+`scoring_formats.py` lee un hipnograma como el de la Sleep-EDF, un XML del
+NSRR o una planilla con punto y coma. **La nomenclatura no se adivina**: se
+usa la que el archivo declara, o la única compatible con lo que trae; si las
+dos son posibles, eleva `UndeclaredNomenclatureError` y la ventana le
+pregunta al usuario. Los eventos con inicio y duración se pasan a épocas con
+`core.windows.windows_in_span()`, por el punto medio de cada una.
+
+Ninguno de los dos módulos de scoring es un `Reader`, y `load_all_readers()`
+los saltea.
+
 ## `channel_types.py`
 
 Resuelve V4_F: aceptar **cualquier canal, sin límite de tipo**, y saber de qué
@@ -123,7 +136,8 @@ estaban implementados antes del hito 4 y a propósito: sostienen el punto de
 extensión y **no deben convertirse en stubs**.
 
 Sus dos tests, `test_readers.py` y `test_scoring_reader.py`, cierran el hito y
-están corriendo.
+están corriendo. `scoring_formats.py`, del hito 23, tiene el suyo:
+`test_scoring_formats.py`.
 
 `available_readers()` devuelve **clases**, no instancias, igual que
 `tools.registry.available_tools()`. Los dos son los puntos de extensión del

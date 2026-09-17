@@ -20,7 +20,9 @@ from psglab.core.windows import (
     window_duration,
     window_fraction_to_seconds,
     window_to_clock_time,
+    window_span_seconds,
     window_to_samples,
+    windows_in_span,
 )
 
 
@@ -345,3 +347,56 @@ def test_el_redondeo_de_una_muestra_es_hacia_abajo():
     tolerancia de los otros tests —una muestra entera— no lo nota.
     """
     assert seconds_to_sample(0, 0.019, 100.0) == 1
+
+
+# -- Eventos con inicio y duración ----------------------------------------------
+#
+# Los usan los formatos de scoring que no hablan de épocas: el EDF+ de un
+# hipnograma y el XML del NSRR.
+
+
+def test_un_tramo_empieza_en_su_primera_epoca_y_dura_lo_que_suman():
+    assert window_span_seconds(3, 2) == (3 * WINDOW_SECONDS, 2 * WINDOW_SECONDS)
+
+
+def test_un_evento_alineado_nombra_exactamente_sus_epocas():
+    assert windows_in_span(3 * WINDOW_SECONDS, 2 * WINDOW_SECONDS) == range(3, 5)
+
+
+@pytest.mark.parametrize("corrimiento", [-1.0, 1.0, -14.9, 14.9])
+def test_un_evento_corrido_menos_de_media_epoca_no_cambia_de_epocas(corrimiento):
+    """Un redondeo del archivo no puede arrastrar la época vecina."""
+    inicio = 3 * WINDOW_SECONDS + corrimiento
+
+    assert windows_in_span(inicio, 2 * WINDOW_SECONDS) == range(3, 5)
+
+
+@pytest.mark.parametrize("borde", [0.0, 29.0, 45.0, 61.0, 300.0])
+def test_dos_eventos_contiguos_no_comparten_ni_pierden_epocas(borde):
+    total = 10 * WINDOW_SECONDS
+    antes = windows_in_span(0.0, borde)
+    despues = windows_in_span(borde, total - borde)
+
+    assert not set(antes) & set(despues)
+    assert sorted([*antes, *despues]) == list(range(10))
+
+
+def test_un_evento_que_no_cubre_ningun_punto_medio_no_nombra_ninguna_epoca():
+    assert len(windows_in_span(50.0, 5.0)) == 0
+
+
+def test_lo_anterior_al_inicio_se_recorta_en_cero():
+    assert windows_in_span(-2 * WINDOW_SECONDS, 3 * WINDOW_SECONDS) == range(0, 1)
+
+
+def test_lo_posterior_al_final_no_se_recorta():
+    """Este módulo no conoce el largo del registro, y el lector de scoring
+    necesita ver lo que se pasa para avisar que el archivo es de otro."""
+    assert windows_in_span(10 * WINDOW_SECONDS, 2 * WINDOW_SECONDS) == range(10, 12)
+
+
+@pytest.mark.parametrize("primera, cuantas", [(0, 1), (0, 960), (7, 3), (959, 1)])
+def test_tramo_y_evento_son_inversas(primera, cuantas):
+    assert windows_in_span(*window_span_seconds(primera, cuantas)) == range(
+        primera, primera + cuantas
+    )

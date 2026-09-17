@@ -113,8 +113,11 @@ def load_all_readers() -> None:
 
     import psglab.readers
 
+    # Los que no son lectores de señal: ninguno registra un `Reader`, y los dos
+    # de scoring leen otra cosa que un `Recording`.
+    no_son_lectores = ("base", "channel_types", "scoring_reader", "scoring_formats")
     for module in pkgutil.iter_modules(psglab.readers.__path__):
-        if module.name not in ("base", "channel_types", "scoring_reader"):
+        if module.name not in no_son_lectores:
             importlib.import_module(f"psglab.readers.{module.name}")
     _REGISTRY_CARGADO = True
 

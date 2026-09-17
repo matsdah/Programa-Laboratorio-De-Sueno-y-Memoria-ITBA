@@ -41,11 +41,14 @@ BrainVision, muestra la senal en ventanas de 30 segundos, se navega y se scorea
 con el teclado, se anotan eventos sobre la senal, funcionan las seis
 herramientas -lupa, banda de amplitud, ocupacion horizontal, Ubersicht,
 histograma de la noche y anotador- y se escriben los tres archivos de salida.
+Desde la ventana se exporta el scoring, en .txt, .csv, .edf o .xml; los otros
+dos archivos, Anotaciones.txt e Informacion.txt, salieron del menu a pedido
+del usuario y hoy se piden desde un script. Falta confirmarlo con el cliente.
 
 LA PARTE 2 TAMBIEN ESTA TERMINADA, el modulo de analisis de bioseniales:
 filtrado, ICA, impedancia, re-referenciado, derivaciones, densidad espectral,
-complejidad y conectividad. Todas esas funciones se piden desde el menu
-Analisis. Necesita dos dependencias que no se instalan por defecto; estan en
+complejidad y conectividad. Todas esas funciones se piden desde los menus
+Montaje, Filtrar y Analizar. Necesita dos dependencias que no se instalan por defecto; estan en
 requirements-analysis.txt y el README explica cuando hacen falta.
 
 Se trabajo asi a proposito: primero se acuerda la estructura, despues se
@@ -53,8 +56,8 @@ programa. Con eso se evita descubrir a mitad de camino que dos personas
 escribieron lo mismo en dos lugares distintos.
 
 Como se llego hasta aca esta en docs/TODO.md, que es el unico documento que
-lleva la cuenta. El trabajo esta agrupado en veintitres hitos, del 0 al 22: cada
-hito solo usa cosas que ya estan terminadas en los hitos anteriores.
+lleva la cuenta. El trabajo esta agrupado en veinticuatro hitos, del 0 al 23:
+cada hito solo usa cosas que ya estan terminadas en los hitos anteriores.
 
 
 -------------------------------------------------------------------------------

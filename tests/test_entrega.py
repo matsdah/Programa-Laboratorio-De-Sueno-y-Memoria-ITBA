@@ -70,7 +70,7 @@ def ventana(qt_app, tmp_path, monkeypatch):
 
     # **Por `create_main_window()`, que es por donde entra `main.py`.** Armar
     # la `MainWindow` a mano saltea la carga de los dos registros, y entonces
-    # la barra de herramientas y el filtro del diálogo de apertura se arman
+    # el menú Herramientas y el filtro del diálogo de apertura se arman
     # vacíos: el test pasaría verificando un programa que el usuario no tiene.
     principal = create_main_window()
     vhdr = escribir_brainvision(tmp_path / "registro", segundos=WINDOW_SECONDS * VENTANAS)
@@ -150,7 +150,11 @@ def test_el_arousal_es_aparte_de_la_fase(ventana: MainWindow):
 
 
 def test_se_exportan_los_tres_archivos(ventana: MainWindow, tmp_path: Path):
-    """V4_F: los tres se piden **de a uno**, que es lo que el pliego pide."""
+    """V4_F: los tres se piden **de a uno**, que es lo que el pliego pide.
+
+    **Desde el hito 23 la ventana sólo ofrece el scoring**, por decisión del
+    usuario: este test verifica que `export()` sigue escribiendo los tres, que
+    es la vía que queda para los otros dos."""
     ventana._go_to_window(0)
     ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
 
@@ -195,6 +199,213 @@ def test_exportar_a_un_lugar_imposible_avisa_sin_romper(
     ventana.export("scoring", tmp_path / "no" / "existe" / "Scoring.txt")
 
     assert ventana.carteles, "escribir en una carpeta inexistente no avisó nada"
+
+
+# -- El scoring en los cuatro formatos (hito 23) ------------------------------
+
+
+def scorear_todas(ventana: MainWindow) -> list:
+    """Una fase distinta por ventana y un arousal, por los métodos del teclado."""
+    fases = list(stages_of(ventana.session.scoring.nomenclature))
+    for indice in range(VENTANAS):
+        ventana._go_to_window(indice)
+        ventana.score_current_window(fases[indice % len(fases)])
+    ventana._go_to_window(1)
+    ventana.toggle_arousal()
+    return [
+        (ventana.session.scoring.get(i).stage, ventana.session.scoring.get(i).arousal)
+        for i in range(VENTANAS)
+    ]
+
+
+@pytest.mark.parametrize("extension", ["txt", "csv", "edf", "xml"])
+def test_el_scoring_se_exporta_y_se_vuelve_a_importar_en_cada_formato(
+    ventana: MainWindow, tmp_path: Path, extension: str
+):
+    """Por la ventana de punta a punta: exportar, perder el trabajo e
+    importarlo de vuelta."""
+    esperado = scorear_todas(ventana)
+    destino = tmp_path / f"Scoring.{extension}"
+    ventana.export("scoring", destino)
+
+    for indice in range(VENTANAS):
+        ventana._go_to_window(indice)
+        ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+    ventana.open_scoring(destino)
+
+    sesion = ventana.session
+    assert [
+        (sesion.scoring.get(i).stage, sesion.scoring.get(i).arousal) for i in range(VENTANAS)
+    ] == esperado
+    assert not ventana.carteles
+
+
+def test_exportar_con_una_extension_que_no_es_de_ningun_formato_avisa(
+    ventana: MainWindow, tmp_path: Path
+):
+    ventana.export("scoring", tmp_path / "Scoring.json")
+
+    assert ventana.carteles
+    assert not (tmp_path / "Scoring.json").exists()
+
+
+@pytest.fixture
+def dialogo_de_guardado(monkeypatch):
+    """Responde el diálogo de guardado con la ruta que se fije, y anota con
+    qué nombre propuesto y qué filtro se abrió."""
+    estado: dict[str, object] = {"respuesta": "", "llamadas": []}
+
+    def responder(_padre, _titulo, propuesto, filtro, *_a, **_k) -> tuple[str, str]:
+        estado["llamadas"].append((propuesto, filtro))
+        return str(estado["respuesta"]), ""
+
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(responder))
+    return estado
+
+
+def test_ctrl_s_sigue_exportando_en_txt(ventana: MainWindow, dialogo_de_guardado):
+    ventana.export_scoring_dialog()
+
+    assert dialogo_de_guardado["llamadas"] == [(SCORING_FILENAME, "Texto (*.txt)")]
+
+
+@pytest.mark.parametrize("extension", ["csv", "edf", "xml"])
+def test_cada_formato_propone_su_nombre_y_su_filtro(
+    ventana: MainWindow, dialogo_de_guardado, extension: str
+):
+    ventana.export_scoring_dialog(extension)
+
+    (propuesto, filtro), = dialogo_de_guardado["llamadas"]
+    assert propuesto == f"Scoring.{extension}"
+    assert filtro.endswith(f"(*.{extension})")
+
+
+@pytest.mark.parametrize(
+    "escrito, guardado",
+    [("noche", "noche.csv"), ("noche.v2", "noche.v2.csv"), ("noche.CSV", "noche.CSV")],
+)
+def test_el_nombre_sin_la_extension_del_formato_la_recibe(
+    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado, escrito: str, guardado: str
+):
+    """El diálogo de Qt no la agrega en todas las plataformas, y sin ella no se
+    sabría en qué formato escribir. Se agrega en vez de reemplazar."""
+    dialogo_de_guardado["respuesta"] = tmp_path / escrito
+
+    ventana.export_scoring_dialog("csv")
+
+    assert (tmp_path / guardado).read_text(encoding="utf-8").startswith("ventana,")
+    assert not ventana.carteles
+
+
+def test_cancelar_el_guardado_no_escribe_nada(
+    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado
+):
+    ventana.export_scoring_dialog("xml")
+
+    assert list(tmp_path.glob("*.xml")) == []
+    assert not ventana.carteles
+
+
+def test_el_dialogo_de_importar_ofrece_los_cuatro_formatos_juntos(
+    ventana: MainWindow, monkeypatch
+):
+    filtros: list[str] = []
+
+    def responder(_padre, _titulo, _dir, filtro, *_a, **_k) -> tuple[str, str]:
+        filtros.append(filtro)
+        return "", ""
+
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(responder))
+
+    ventana.open_scoring_dialog()
+
+    primero = filtros[0].split(";;")[0]
+    assert primero == "Scoring (*.txt *.csv *.edf *.xml)"
+    assert filtros[0].endswith("Todos los archivos (*)")
+
+
+@pytest.fixture
+def pregunta_nomenclatura(monkeypatch):
+    """Responde la pregunta de nomenclatura y anota qué se ofreció."""
+    estado: dict[str, object] = {"respuesta": ("", False), "ofrecido": []}
+
+    def responder(_padre, _titulo, _etiqueta, opciones, inicial, *_a, **_k):
+        estado["ofrecido"].append((list(opciones), inicial))
+        return estado["respuesta"]
+
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(responder))
+    return estado
+
+
+def escribir_sin_cabecera(tmp_path: Path) -> Path:
+    destino = tmp_path / "ajeno.txt"
+    destino.write_text("2 0\n" * VENTANAS, encoding="utf-8")
+    return destino
+
+
+def test_un_scoring_que_no_dice_su_nomenclatura_la_pregunta(
+    ventana: MainWindow, tmp_path: Path, pregunta_nomenclatura
+):
+    """Antes se rechazaba: casi todo lo que escriben otros programas quedaba
+    afuera. Adivinar no es una opción, así que se pregunta."""
+    pregunta_nomenclatura["respuesta"] = ("Rechtschaffen y Kales", True)
+
+    ventana.open_scoring(escribir_sin_cabecera(tmp_path))
+
+    scoring = ventana.session.scoring
+    assert scoring.nomenclature.name == "RK"
+    assert scoring.get(0).stage.value == "S2"
+    assert ventana.scoring_panel._nomenclaturas.currentData().name == "RK"
+    assert not ventana.carteles
+
+
+def test_la_pregunta_arranca_en_la_nomenclatura_del_registro(
+    ventana: MainWindow, tmp_path: Path, pregunta_nomenclatura
+):
+    ventana.open_scoring(escribir_sin_cabecera(tmp_path))
+
+    (opciones, inicial), = pregunta_nomenclatura["ofrecido"]
+    assert opciones[inicial] == ventana.session.scoring.nomenclature.value
+    assert len(opciones) == 2
+
+
+def test_cancelar_la_pregunta_no_importa_nada(
+    ventana: MainWindow, tmp_path: Path, pregunta_nomenclatura
+):
+    antes = ventana.session.scoring
+
+    ventana.open_scoring(escribir_sin_cabecera(tmp_path))
+
+    assert ventana.session.scoring is antes
+    assert not ventana.carteles
+
+
+def test_un_archivo_que_declara_su_nomenclatura_no_pregunta(
+    ventana: MainWindow, tmp_path: Path, pregunta_nomenclatura
+):
+    destino = tmp_path / "Scoring.txt"
+    ventana.export("scoring", destino)
+
+    ventana.open_scoring(destino)
+
+    assert pregunta_nomenclatura["ofrecido"] == []
+    assert not ventana.carteles
+
+
+def test_el_icono_de_abrir_se_redibuja_con_el_esquema(ventana: MainWindow):
+    """Un icono es un mapa de bits ya pintado: sin redibujarlo, un esquema
+    oscuro deja la carpeta oscura sobre fondo oscuro."""
+    from psglab.ui.icons import icon
+
+    anterior = theme.current()
+    try:
+        ventana.set_color_scheme(theme.OSCURO, remember=False)
+
+        actual = ventana.open_button.icon().pixmap(32, 32).toImage()
+        esperado = icon("abrir", theme.icon_ink(theme.OSCURO)).pixmap(32, 32).toImage()
+        assert actual == esperado
+    finally:
+        ventana.set_color_scheme(anterior, remember=False)
 
 
 # -- Anotar, por el camino del mouse (V1_F de "Anotación") -------------------
@@ -1959,8 +2170,9 @@ def test_el_color_elegido_en_la_configuracion_llega_a_la_sesion(ventana: MainWin
 def test_volver_a_abrir_la_configuracion_refleja_lo_cambiado_afuera(
     ventana: MainWindow,
 ):
-    """El menú de esquemas cambia el esquema sin pasar por la configuración:
-    al reabrirla tiene que mostrar el nuevo."""
+    """Un esquema que cambia sin pasar por la configuración —el menú de
+    esquemas lo hacía hasta el hito 23; hoy, `set_color_scheme()` llamado
+    desde otro lado— tiene que verse al reabrirla."""
     ventana.show_settings_dialog()
     ventana.settings_dialog.close()
     anterior = theme.current()

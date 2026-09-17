@@ -27,23 +27,30 @@ habría que decidir por contenido. Se resolvió al revés: el scoring entra por 
 propia opción del menú, y `readers/edf.py` eleva un error que manda a esa opción
 cuando le toca un EDF sin ninguna señal.
 
+**`read_scoring()` elige el lector por la extensión.** Un `.csv`, un `.edf` o
+un `.xml` van a `scoring_formats.py`, que lee lo que escriben otros programas;
+cualquier otra extensión se lee como "Scoring.txt", que es lo que se hacía
+antes de que hubiera otros formatos y lo que sigue esperando quien elige
+"Todos los archivos" en el diálogo.
+
 Cubre del pliego: V3_F de "Importación de archivos".
 """
 
+from datetime import datetime
 from pathlib import Path
 
 from psglab.config import SCORING_HEADER_PREFIX
 from psglab.core.nomenclature import Nomenclature, stage_from_code
 from psglab.core.scoring import Scoring
-from psglab.utils.errors import ScoringMismatchError, UnreadableFileError
+from psglab.readers.scoring_formats import NOMENCLATURE_NAMES, read_scoring_file
+from psglab.utils.errors import (
+    ScoringMismatchError,
+    UndeclaredNomenclatureError,
+    UnreadableFileError,
+)
 
-#: Cómo se puede escribir cada nomenclatura en la cabecera, en minúscula. Se
-#: aceptan el nombre corto y el largo porque el archivo lo puede haber escrito
-#: una persona: "# RK" y "# Rechtschaffen y Kales" son la misma intención.
-_NOMBRES_DE_NOMENCLATURA: dict[str, Nomenclature] = {
-    **{n.name.lower(): n for n in Nomenclature},
-    **{n.value.lower(): n for n in Nomenclature},
-}
+#: Las extensiones que no son "Scoring.txt" y tienen lector propio.
+_OTROS_FORMATOS: frozenset[str] = frozenset({".csv", ".edf", ".xml"})
 
 
 def _leer_lineas(path: Path) -> list[str]:
@@ -93,11 +100,14 @@ def read_scoring(
     path: Path,
     n_windows: int,
     nomenclature: Nomenclature | None = None,
+    start_time: datetime | None = None,
 ) -> Scoring:
     """Carga un archivo de scoring y lo asocia a un registro.
 
     Args:
-        path: archivo de scoring, con el formato de "Scoring.txt".
+        path: archivo de scoring. Con extensión `.csv`, `.edf` o `.xml` lo lee
+            `scoring_formats.read_scoring_file()`; con cualquier otra, se
+            espera el formato de "Scoring.txt".
         n_windows: cantidad de ventanas del registro abierto. Sirve para
             detectar que el scoring no corresponde a este registro.
         nomenclature: nomenclatura con la que interpretar los códigos de fase.
@@ -105,6 +115,8 @@ def read_scoring(
             el archivo sabe mejor que quien lo abre con qué se escribió. Sólo
             se usa si el archivo no la declara, y si no la declara y tampoco se
             pasa, se eleva un error en vez de adivinar.
+        start_time: cuándo empezó el registro. Sólo lo usa un hipnograma EDF+,
+            para alinearse con la señal.
 
     Returns:
         El scoring cargado. Las ventanas ausentes del archivo quedan como
@@ -113,9 +125,14 @@ def read_scoring(
 
     Raises:
         ScoringMismatchError: si el archivo tiene más ventanas que el registro.
-        UnreadableFileError: si alguna línea no respeta el formato esperado, o
-            si no hay forma de saber la nomenclatura.
+        UndeclaredNomenclatureError: si no hay forma de saber la nomenclatura.
+            Es un `UnreadableFileError`, así que quien atrapa aquél lo sigue
+            atrapando; la ventana lo atrapa aparte para preguntarle al usuario.
+        UnreadableFileError: si alguna línea no respeta el formato esperado.
     """
+    if path.suffix.lower() in _OTROS_FORMATOS:
+        return read_scoring_file(path, n_windows, nomenclature, start_time)
+
     # **El archivo se lee una sola vez.** Antes `read_scoring()` llamaba a
     # `_leer_lineas()` y despues a `detect_nomenclature()` y
     # `detect_line_format()`, que la llaman de nuevo: tres lecturas del disco
@@ -127,7 +144,7 @@ def read_scoring(
 
     elegida = _nomenclatura_de(lineas) or nomenclature
     if elegida is None:
-        raise UnreadableFileError(
+        raise UndeclaredNomenclatureError(
             f"No se sabe con qué nomenclatura se escribió '{path.name}', y adivinarla "
             "cargaría toda la noche mal traducida sin que se note: el código 2 es S2 "
             "en Rechtschaffen y Kales y N2 en AASM.",
@@ -228,8 +245,8 @@ def _nomenclatura_de(lineas: list[str]) -> Nomenclature | None:
             # más arriba, que ya se leyeron con otra.
             return None
         etiqueta = linea.lstrip().lstrip(SCORING_HEADER_PREFIX).strip().lower()
-        if etiqueta in _NOMBRES_DE_NOMENCLATURA:
-            return _NOMBRES_DE_NOMENCLATURA[etiqueta]
+        if etiqueta in NOMENCLATURE_NAMES:
+            return NOMENCLATURE_NAMES[etiqueta]
     return None
 
 

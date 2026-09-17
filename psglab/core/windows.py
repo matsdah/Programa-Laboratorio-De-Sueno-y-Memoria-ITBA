@@ -424,3 +424,51 @@ def seconds_to_epoch_offset(
     epoca = sample_to_window(muestra, sampling_rate, window_seconds)
     inicio, _ = window_to_samples(epoca, sampling_rate, window_seconds)
     return epoca, (muestra - inicio) / sampling_rate
+
+
+def window_span_seconds(
+    first_window: int,
+    n_windows: int,
+    window_seconds: float = WINDOW_SECONDS,
+) -> tuple[float, float]:
+    """Dónde empieza y cuánto dura un tramo de épocas, en segundos **nominales**.
+
+    Lo necesitan los formatos de scoring que hablan de eventos con inicio y
+    duración —el EDF+ de un hipnograma, el XML del NSRR— y no de una línea por
+    época. **Esos archivos cuentan la época en múltiplos exactos de su
+    duración**, sin mirar la frecuencia de muestreo: por eso esta función no la
+    recibe, a diferencia de `epoch_to_seconds()`, que tiene que caer sobre las
+    muestras que el usuario está viendo.
+
+    Returns:
+        Tupla (segundo de inicio, duración en segundos).
+    """
+    return first_window * window_seconds, n_windows * window_seconds
+
+
+def windows_in_span(
+    onset_seconds: float,
+    duration_seconds: float,
+    window_seconds: float = WINDOW_SECONDS,
+) -> range:
+    """Las épocas que abarca un evento.
+
+    La inversa de `window_span_seconds()`. **Una época entra si su punto medio
+    cae dentro de `[onset, onset + duration)`**, y no si el evento la toca:
+    un evento que empieza medio segundo antes del borde por redondeo del
+    archivo no puede arrastrar la época anterior, y dos eventos contiguos no
+    pueden reclamar la misma. Con eventos alineados a la época, que es lo
+    habitual, da exactamente las épocas que el evento nombra.
+
+    **No se recorta contra el final del registro**, porque este módulo no lo
+    conoce: un evento que se pasa del final es exactamente lo que el lector de
+    scoring necesita ver para avisar que el archivo es de otro registro. Sí se
+    recorta en cero, porque antes del inicio no hay ninguna época que nombrar.
+
+    Returns:
+        Las épocas, base 0. Vacío si el evento no llega a cubrir ningún punto
+        medio.
+    """
+    primera = max(math.ceil(onset_seconds / window_seconds - 0.5), 0)
+    ultima = math.ceil((onset_seconds + duration_seconds) / window_seconds - 0.5)
+    return range(primera, max(ultima, primera))

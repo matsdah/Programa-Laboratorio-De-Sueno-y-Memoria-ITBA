@@ -1,4 +1,7 @@
-"""Los iconos de la barra de navegación, dibujados por el programa.
+"""Los iconos de la interfaz, dibujados por el programa.
+
+Son los de la barra de navegación y el botón de abrir un registro, que ocupa en
+la barra de menú el lugar que antes tenía «Archivo».
 
 **No hay ningún archivo de icono en el repositorio, y es a propósito.** La
 referencia visual de este refactor es EDFbrowser, que está bajo GPL-2.0;
@@ -7,9 +10,9 @@ MIT. Es exactamente el motivo por el que se eligió PySide6 sobre PyQt, y el
 mismo que hace fallar el job de licencias del CI ante cualquier dependencia GPL.
 
 Tomar un set de iconos permisivo —Lucide, Feather, Tabler, todos MIT— habría
-sido legítimo, y se descartó por una razón práctica: **son seis flechas**.
-Agregar un directorio de recursos, un `.qrc` y una licencia de terceros más para
-seis triángulos y dos barras es más mantenimiento del que ahorran. Dibujarlos
+sido legítimo, y se descartó por una razón práctica: **son seis flechas y una
+carpeta**. Agregar un directorio de recursos, un `.qrc` y una licencia de
+terceros más para siete siluetas es más mantenimiento del que ahorran. Dibujarlos
 acá los deja además tomando el color del esquema, que un `.png` no puede hacer.
 
 Los iconos se dibujan **en el momento**, con el color que se les pida. No se
@@ -46,6 +49,7 @@ NOMBRES: Final[tuple[str, ...]] = (
     "ultima",
     "amplitud-mas",
     "amplitud-menos",
+    "abrir",
 )
 
 
@@ -110,6 +114,8 @@ def _camino(name: str) -> QPainterPath:
                 _triangulo(borde + ancho_barra, borde, ancho_triangulo, False)
             )
         return camino
+    if name == "abrir":
+        return _carpeta(borde, util)
     if name == "amplitud-mas":
         return _triangulo_vertical(borde, borde, util, hacia_arriba=True)
     return _triangulo_vertical(borde, borde, util, hacia_arriba=False)
@@ -145,3 +151,27 @@ def _triangulo_vertical(
         camino.lineTo(QPointF(x + lado / 2, y + lado))
     camino.closeSubpath()
     return camino
+
+
+def _carpeta(borde: float, lado: float) -> QPainterPath:
+    """Una carpeta: la pestaña arriba a la izquierda y el cuerpo debajo.
+
+    Es el símbolo con que casi todos los programas dicen "abrir un archivo", y
+    por eso reemplaza al rótulo «Archivo» sin tener que aprenderlo. El cuerpo
+    es más ancho que alto, como una carpeta de verdad, y queda centrado en el
+    lienzo para no verse corrido respecto de las flechas.
+    """
+    alto = lado * 0.78
+    arriba = borde + (lado - alto) / 2
+    pestana_alto = alto * 0.18
+    radio = lado * 0.06
+    camino = QPainterPath()
+    camino.addRoundedRect(
+        QRectF(borde, arriba, lado * 0.45, pestana_alto * 2), radio, radio
+    )
+    camino.addRoundedRect(
+        QRectF(borde, arriba + pestana_alto, lado, alto - pestana_alto), radio, radio
+    )
+    # La unión de las dos figuras, para que el borde compartido no quede como
+    # una línea sin pintar.
+    return camino.simplified()

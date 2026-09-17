@@ -408,7 +408,9 @@ La señal es el widget central y los demás paneles son `QDockWidget`, que arma
 nombre `*_dialog` de cuando eran diálogos. La barra de navegación es fija, no un
 panel: es la única vía de navegación con el mouse. Los menús viven en
 `ui/menus.py` y cada acción llama a un método de la ventana; el de herramientas
-se sigue armando desde el registro.
+se sigue armando desde el registro, y desde el hito 23 es la única vía para
+activar una herramienta: **no hay barra de herramientas**. Abrir un registro es
+el botón de la esquina de la barra de menú (`window.open_button`), no un menú.
 
 Los colores salen de `ui/theme.py` (esquemas inmutables, con el contraste de los
 de fábrica verificado contra WCAG 2.1) y lo que el usuario elige, de
@@ -460,8 +462,8 @@ Cuatro reglas de esta capa que no se ven leyendo un solo archivo:
   son ideas; los iconos de la barra se dibujan con `QPainterPath` en
   `ui/icons.py`.
 - **Nunca commitear registros de participantes.** El `.gitignore` ya excluye
-  `data/`, `registros/`, `*.edf`, `*.vhdr`, `*.vmrk`, `*.eeg` y los tres
-  archivos de salida. En `data/` hay registros de prueba locales (un EDF y un
+  `data/`, `registros/`, `*.edf`, `*.vhdr`, `*.vmrk`, `*.eeg`, los tres
+  archivos de salida y el scoring en CSV y XML. En `data/` hay registros de prueba locales (un EDF y un
   BrainVision) que sirven para probar la importación a mano; **ningún test debe
   leerlos**, por la regla de abajo.
 - Los tests usan **señal sintética generada en el momento** (fixtures en
