@@ -72,8 +72,28 @@ def test_la_cantidad_de_puntos_no_crece_con_la_duracion():
     indices_cortos, _ = min_max_envelope(corta, ANCHO)
     indices_largos, _ = min_max_envelope(larga, ANCHO)
 
-    assert len(indices_largos) <= 2 * ANCHO + 2
-    assert abs(len(indices_largos) - len(indices_cortos)) <= 2
+    # Las cubetas tienen que ser iguales y cubrir la señal, así que su tamaño se
+    # redondea hacia arriba y pueden ser algo menos que columnas: con más de
+    # dos muestras por columna, nunca menos de dos tercios.
+    for indices in (indices_cortos, indices_largos):
+        assert 2 * ANCHO * 2 / 3 <= len(indices) <= 2 * ANCHO + 2
+
+
+@pytest.mark.parametrize("muestras, columnas", [(3000, 1120), (3000, 1400), (7683, 1000)])
+def test_la_envolvente_cubre_la_senal_hasta_el_final(muestras: int, columnas: int):
+    """**Hasta el hito 24 no la cubría.** Con cubetas de `muestras // columnas`,
+    una página de 30 s a 100 Hz sobre 1120 columnas dejaba los últimos 7,6 s en
+    la cola, reducidos a dos puntos: la señal se dibujaba cortada al 75 % y con
+    una recta al final. Ningún tramo puede quedar más lejos que dos cubetas del
+    punto anterior."""
+    senal = np.random.default_rng(7).normal(size=muestras)
+    por_cubeta = -(-muestras // columnas)
+
+    indices, _ = min_max_envelope(senal, columnas)
+
+    assert indices[0] < por_cubeta
+    assert indices[-1] >= muestras - por_cubeta
+    assert np.diff(indices).max() < 2 * por_cubeta
 
 
 def test_los_valores_son_los_de_la_senal_en_esos_indices():

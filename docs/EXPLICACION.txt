@@ -45,6 +45,11 @@ Desde la ventana se exporta el scoring, en .txt, .csv, .edf o .xml; los otros
 dos archivos, Anotaciones.txt e Informacion.txt, salieron del menu a pedido
 del usuario y hoy se piden desde un script. Falta confirmarlo con el cliente.
 
+El programa abre con la senal y la lista de canales, y nada mas: los demas
+paneles se abren desde el menu Paneles. La barra de abajo mueve la epoca, mueve
+la pagina y tiene un boton para reproducir el registro solo, como EDFbrowser,
+a la velocidad que se elija.
+
 LA PARTE 2 TAMBIEN ESTA TERMINADA, el modulo de analisis de bioseniales:
 filtrado, ICA, impedancia, re-referenciado, derivaciones, densidad espectral,
 complejidad y conectividad. Todas esas funciones se piden desde los menus
@@ -56,7 +61,7 @@ programa. Con eso se evita descubrir a mitad de camino que dos personas
 escribieron lo mismo en dos lugares distintos.
 
 Como se llego hasta aca esta en docs/TODO.md, que es el unico documento que
-lleva la cuenta. El trabajo esta agrupado en veinticuatro hitos, del 0 al 23:
+lleva la cuenta. El trabajo esta agrupado en veinticinco hitos, del 0 al 24:
 cada hito solo usa cosas que ya estan terminadas en los hitos anteriores.
 
 

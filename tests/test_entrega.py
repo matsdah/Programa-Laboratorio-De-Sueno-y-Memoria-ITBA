@@ -2391,3 +2391,192 @@ def test_el_panel_de_contexto_no_se_recorre(ventana: MainWindow):
     contexto = [d for d in ventana.docks.values() if d.widget() is ventana.overview_panel]
     assert contexto
     assert contexto[0] not in ventana.focusable_panes()
+
+
+# -- La página y la reproducción (hito 24) -----------------------------------
+#
+# Por la ventana, como todo este archivo: los botones se aprietan con
+# `click()` y el reloj se hace avanzar emitiendo su señal, que es lo mismo que
+# hace el temporizador. Esperar al temporizador de verdad ataría el test a la
+# velocidad de la máquina.
+
+
+@pytest.fixture
+def reproduccion(ventana: MainWindow):
+    """La ventana, con la reproducción detenida al terminar pase lo que pase:
+    un temporizador vivo seguiría moviendo la página en el test siguiente."""
+    yield ventana
+    ventana.playback.stop()
+
+
+def pagina(ventana: MainWindow) -> float:
+    return ventana.session.viewport.start_seconds
+
+
+def test_reproducir_avanza_la_pagina_y_no_la_epoca(reproduccion: MainWindow):
+    """Decisión del usuario: reproducir es mirar, como Mayús+→. Lo que se
+    scorea sigue siendo la época resaltada."""
+    ventana = reproduccion
+    epoca = ventana.session.current_window
+
+    ventana.toggle_playback()
+    ventana.playback.advanced.emit(10.0)
+    ventana.playback.advanced.emit(2.5)
+
+    assert ventana.playback.is_playing
+    assert pagina(ventana) == pytest.approx(12.5)
+    assert ventana.session.current_window == epoca
+    assert ventana.navigation._reproducir.toolTip() == "Pausar"
+    assert not ventana.carteles
+
+
+def test_la_reproduccion_se_detiene_en_el_final(reproduccion: MainWindow):
+    ventana = reproduccion
+
+    ventana.toggle_playback()
+    ventana.playback.advanced.emit(10 * WINDOW_SECONDS * VENTANAS)
+
+    assert not ventana.playback.is_playing
+    assert ventana.session.viewport.at_end
+    assert ventana.statusBar().currentMessage() == "Fin del registro"
+    assert not ventana.navigation._reproducir.isEnabled()
+
+
+def test_en_el_final_no_arranca(reproduccion: MainWindow):
+    ventana = reproduccion
+    for _ in range(2 * VENTANAS):
+        ventana.pan_view_page_right()
+
+    ventana.toggle_playback()
+
+    assert not ventana.playback.is_playing
+    assert "final" in ventana.statusBar().currentMessage()
+
+
+def test_con_el_registro_entero_en_pantalla_no_arranca(reproduccion: MainWindow):
+    ventana = reproduccion
+    ventana.show_whole_recording()
+
+    ventana.toggle_playback()
+
+    assert not ventana.playback.is_playing
+    assert "registro entero" in ventana.statusBar().currentMessage()
+    assert not ventana.navigation._reproducir.isEnabled()
+
+
+def test_sin_registro_reproducir_no_hace_nada(qt_app):
+    principal = create_main_window()
+
+    principal.toggle_playback()
+
+    assert not principal.playback.is_playing
+
+
+def test_apretar_de_nuevo_pausa(reproduccion: MainWindow):
+    ventana = reproduccion
+    ventana.navigation._reproducir.click()
+    ventana.playback.advanced.emit(5.0)
+
+    ventana.navigation._reproducir.click()
+
+    assert not ventana.playback.is_playing
+    assert pagina(ventana) == pytest.approx(5.0)
+    assert ventana.navigation._reproducir.toolTip() == "Reproducir"
+
+
+def test_abrir_otro_registro_detiene_la_reproduccion(
+    reproduccion: MainWindow, tmp_path: Path
+):
+    ventana = reproduccion
+    ventana.toggle_playback()
+
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 3)
+    ventana.open_recording(otro)
+
+    assert not ventana.playback.is_playing
+    assert pagina(ventana) == 0.0
+
+
+def test_volver_a_la_senal_original_detiene_la_reproduccion(reproduccion: MainWindow):
+    ventana = reproduccion
+    ventana.accion_señal_original.setEnabled(True)
+    ventana.toggle_playback()
+
+    ventana.restore_original_recording()
+
+    assert not ventana.playback.is_playing
+
+
+def test_la_velocidad_del_selector_llega_al_reloj(reproduccion: MainWindow):
+    selector = reproduccion.navigation.speed_selector
+
+    selector.setCurrentIndex(selector.findText("30×"))
+
+    assert reproduccion.playback.speed == 30.0
+
+
+def test_espacio_reproduce_y_pausa(reproduccion: MainWindow):
+    """El atajo cuelga de la señal. Se lo dispara por su señal: apretar la
+    tecla de verdad necesita la ventana en pantalla y con el foco."""
+    from PySide6.QtGui import QShortcut
+
+    ventana = reproduccion
+    (espacio,) = [
+        a for a in ventana.findChildren(QShortcut) if a.key().toString() == "Space"
+    ]
+
+    espacio.activated.emit()
+    assert ventana.playback.is_playing
+
+    espacio.activated.emit()
+    assert not ventana.playback.is_playing
+
+
+@pytest.mark.parametrize(
+    "boton, esperado",
+    [
+        ("_pagina_adelante", WINDOW_SECONDS),
+        ("_media_adelante", WINDOW_SECONDS / 2),
+    ],
+)
+def test_los_botones_de_pagina_mueven_la_vista_y_no_la_epoca(
+    ventana: MainWindow, boton: str, esperado: float
+):
+    epoca = ventana.session.current_window
+
+    getattr(ventana.navigation, boton).click()
+
+    assert pagina(ventana) == pytest.approx(esperado)
+    assert ventana.session.current_window == epoca
+    assert not ventana.carteles
+
+
+def test_los_botones_de_retroceso_se_habilitan_al_avanzar(ventana: MainWindow):
+    barra = ventana.navigation
+    assert not barra._pagina_atras.isEnabled()
+
+    barra._pagina_adelante.click()
+    barra._pagina_adelante.click()
+    assert barra._pagina_atras.isEnabled()
+
+    barra._media_atras.click()
+    barra._pagina_atras.click()
+
+    assert pagina(ventana) == pytest.approx(WINDOW_SECONDS / 2)
+
+
+def test_cambiar_de_epoca_actualiza_los_botones_de_pagina(ventana: MainWindow):
+    """Llevar la época al final mueve la página, y no pasa por los botones:
+    igual tienen que enterarse."""
+    ventana._go_to_window(VENTANAS - 1)
+
+    assert ventana.session.viewport.at_end
+    assert not ventana.navigation._pagina_adelante.isEnabled()
+    assert ventana.navigation._pagina_atras.isEnabled()
+
+
+def test_el_programa_abre_solo_con_la_senal_y_los_canales(ventana: MainWindow):
+    """Hito 24. Con un registro abierto sigue igual: abrir no despliega nada."""
+    visibles = [clave for clave, dock in ventana.docks.items() if not dock.isHidden()]
+
+    assert visibles == ["channels"]

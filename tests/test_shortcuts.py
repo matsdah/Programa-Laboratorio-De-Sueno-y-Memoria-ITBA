@@ -18,6 +18,7 @@ from psglab.core.nomenclature import Nomenclature, stages_of
 from psglab.ui.shortcuts import (
     ACTIONS,
     FIXED_SHORTCUTS,
+    SIGNAL_ACTIONS,
     key_for,
     readable_key,
     shortcuts_help_text,
@@ -93,8 +94,10 @@ def test_cada_atajo_fijo_sabe_a_que_metodo_va():
     Están separados para que cambiar un texto de ayuda no pueda desconectar una
     tecla, pero tienen que cubrir las mismas teclas: una sin acción sería un
     atajo que no hace nada, y una acción sin atajo, código inalcanzable.
+    Los de la señal cuentan igual: también los lee el usuario.
     """
-    assert set(ACTIONS) == set(FIXED_SHORTCUTS)
+    assert set(ACTIONS) | set(SIGNAL_ACTIONS) == set(FIXED_SHORTCUTS)
+    assert not set(ACTIONS) & set(SIGNAL_ACTIONS)
 
 
 def test_las_flechas_y_el_arousal_estan_declarados():
@@ -173,3 +176,20 @@ def test_f6_recorre_los_paneles():
     """El atajo con que la mayoría de los programas pasan de un panel a otro."""
     assert ACTIONS["F6"] == "focus_next_pane"
     assert ACTIONS["Shift+F6"] == "focus_previous_pane"
+
+
+# -- La reproducción (hito 24) -------------------------------------------------
+
+
+def test_espacio_reproduce_y_pausa():
+    assert SIGNAL_ACTIONS["Space"] == "toggle_playback"
+    assert key_for("toggle_playback") == "Space"
+
+
+def test_espacio_se_escribe_en_castellano():
+    assert readable_key("Space") == "Espacio"
+
+
+def test_la_ayuda_dice_que_espacio_necesita_el_foco_en_la_senal():
+    assert "señal" in FIXED_SHORTCUTS["Space"]
+    assert "Espacio" in shortcuts_help_text(Nomenclature.AASM)

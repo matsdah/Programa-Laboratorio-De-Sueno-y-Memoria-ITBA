@@ -69,10 +69,6 @@ class Preferences:
             mejorarlos en una versión nueva alcance a quien ya los eligió.
         custom_scheme: el esquema completo, cuando el usuario lo modificó y ya
             no es ninguno de fábrica. None mientras use uno de los cinco.
-        window_state: la disposición de los paneles acoplables, tal como la
-            serializa `QMainWindow.saveState()`, en base64. Se guarda como
-            texto opaco **y este módulo no la interpreta**: es un formato de Qt
-            y entenderlo sería atarse a su versión.
         font_family: la tipografía de la interfaz, o None para la del sistema.
         font_size: su tamaño en puntos, o None para el del sistema.
         psd_method: cómo se estima el espectro; uno de `psd.METHODS`.
@@ -105,7 +101,6 @@ class Preferences:
 
     scheme_name: str = DEFAULT_SCHEME_NAME
     custom_scheme: ColorScheme | None = None
-    window_state: str | None = None
     font_family: str | None = None
     font_size: int | None = None
     psd_method: str = METHODS[0]
@@ -221,10 +216,6 @@ class Preferences:
         colores = dict(self.annotation_colors)
         colores[label] = color
         return replace(self, annotation_colors=tuple(colores.items()))
-
-    def with_window_state(self, state: str | None) -> "Preferences":
-        """Las mismas preferencias con otra disposición de paneles."""
-        return replace(self, window_state=state)
 
     def scheme(self) -> ColorScheme:
         """El esquema de color que corresponde a estas preferencias.
@@ -395,16 +386,11 @@ def load(path: Path | None = None) -> Preferences:
     propio = datos.get("custom_scheme")
     esquema = scheme_from_dict(propio) if isinstance(propio, dict) else None
 
-    disposicion = datos.get("window_state")
-    if not isinstance(disposicion, str):
-        # **No eleva.** Una disposición ilegible se descarta y la ventana abre
-        # con la de fábrica: es lo único de este archivo que el usuario puede
-        # rehacer con un gesto, así que no vale la pena molestarlo.
-        disposicion = None
-
-    base = Preferences(
-        scheme_name=nombre, custom_scheme=esquema, window_state=disposicion
-    )
+    # **Una clave `window_state` se ignora**, sin error. Es la disposición de
+    # paneles que se guardaba hasta el hito 24, y los archivos de antes la
+    # siguen trayendo: desde entonces el programa abre siempre con la vista de
+    # fábrica.
+    base = Preferences(scheme_name=nombre, custom_scheme=esquema)
     return _con_campos_nuevos(base, datos)
 
 
@@ -491,8 +477,6 @@ def save(preferences: Preferences, path: Path | None = None) -> None:
     }
     if preferences.custom_scheme is not None:
         datos["custom_scheme"] = scheme_to_dict(preferences.custom_scheme)
-    if preferences.window_state is not None:
-        datos["window_state"] = preferences.window_state
     # Los campos de la ventana de configuración. **Se escriben siempre**, aunque
     # tengan el valor de fábrica: el archivo es también lo que alguien abre
     # para ver qué puede cambiar. Una versión anterior del programa los ignora,

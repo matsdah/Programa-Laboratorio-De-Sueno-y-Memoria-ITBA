@@ -26,6 +26,10 @@ COARSE_LANE_FRACTION: float = 0.25
 #: Y cada cuántos una discreta: cinco por cada visible, como los cuadros chicos.
 FINE_LANE_FRACTION: float = 0.05
 
+#: En qué capa se dibuja cada serie. Ver `GridBackground._aplicar()`.
+_Z_VISIBLE: float = -10.0
+_Z_FINA: float = -11.0
+
 
 def _segundos(valor: float) -> str:
     """Formatea una cantidad de segundos como la escribiría un lector en español.
@@ -70,6 +74,9 @@ class GridBackground:
         self._plot = plot
         self._style = BackgroundStyle.FULL
         self._lines: list[pg.InfiniteLine] = []
+        #: Con qué ángulo y color está cada línea de `_lines`, para no volver a
+        #: fijarle la pluma si no cambió.
+        self._claves: list[tuple[int, str]] = []
         #: La última ventana dibujada, para poder redibujar al cambiar de
         #: fondo sin que quien llama tenga que repetir la duración.
         self._window_seconds: float | None = None
@@ -116,27 +123,35 @@ class GridBackground:
         **Las series con demasiadas líneas no se dibujan.** Una página de
         cuatro horas pediría 28 800 líneas finas: no es lento, es una pantalla
         tapada de gris donde no se ve la señal. El techo es `MAX_GRID_LINES`.
+
+        **Las líneas se reusan, no se recrean.** Hasta el hito 24 cada redibujo
+        borraba las setenta de una página de 30 s y creaba otras setenta, y eso
+        era casi todo lo que tardaba en moverse la página: 45 de 52 ms sobre el
+        registro de prueba. Con la reproducción, que mueve la página
+        veinticinco veces por segundo, dejó de ser tolerable.
         """
         self._window_seconds = window_seconds
         self._origin_seconds = origin_seconds
-        self.clear()
         if self._style is BackgroundStyle.BLANK:
+            self.clear()
             return
 
         # Los colores se leen **en cada redibujo** y no se guardan: así cambiar
         # de esquema y pedir un redibujo alcanza para que la grilla cambie, sin
         # que este objeto tenga que enterarse de nada.
         esquema = theme.current()
-        pluma_fina = pg.mkPen(color=esquema.fine_grid, width=1)
-        pluma_visible = pg.mkPen(color=esquema.coarse_grid, width=1)
+        pedidas: list[tuple[float, int, str]] = []
 
-        # Las finas van primero para que las visibles queden encima: dibujadas
-        # al revés, una línea de 3 s coincide con una de 0,5 s y la tapa la que
-        # menos se tiene que ver.
+        # Las finas van primero y las visibles después. El orden de dibujo no
+        # depende de eso sino del `zValue` de cada serie: una línea de 3 s
+        # coincide con una de 0,5 s y tiene que quedar arriba la que más se
+        # tiene que ver, aunque se haya reusado una línea creada antes.
         if self._style is BackgroundStyle.FULL:
-            self._dibujar_serie(window_seconds, fine_seconds, pluma_fina, origin_seconds)
-        self._dibujar_serie(
-            window_seconds, coarse_seconds, pluma_visible, origin_seconds
+            pedidas += self._verticales(
+                window_seconds, fine_seconds, esquema.fine_grid, origin_seconds
+            )
+        pedidas += self._verticales(
+            window_seconds, coarse_seconds, esquema.coarse_grid, origin_seconds
         )
 
         # **La cuadrícula del esquema ECG.** Las líneas horizontales respetan el
@@ -145,16 +160,18 @@ class GridBackground:
         # pliego siguen siendo tres y el ECG es otra dimensión, no un cuarto.
         if esquema.ecg_grid:
             if self._style is BackgroundStyle.FULL:
-                self._dibujar_horizontales(FINE_LANE_FRACTION, pluma_fina)
-            self._dibujar_horizontales(COARSE_LANE_FRACTION, pluma_visible)
+                pedidas += self._horizontales(FINE_LANE_FRACTION, esquema.fine_grid)
+            pedidas += self._horizontales(COARSE_LANE_FRACTION, esquema.coarse_grid)
 
-    def _dibujar_serie(
+        self._aplicar(pedidas, esquema.coarse_grid)
+
+    def _verticales(
         self,
         window_seconds: float,
         cada: float,
-        pluma: object,
+        color: str,
         origin_seconds: float = 0.0,
-    ) -> None:
+    ) -> list[tuple[float, int, str]]:
         """Una línea vertical cada `cada` segundos, sin pasarse del borde.
 
         Se cuenta con enteros y se multiplica, en vez de ir acumulando: sumar
@@ -166,20 +183,20 @@ class GridBackground:
         usuario desplaza la vista, que es lo que las vuelve una referencia.
         """
         if cada <= 0:
-            return
+            return []
         cantidad = int(window_seconds / cada)
         if cantidad > MAX_GRID_LINES:
-            return
+            return []
         primera = math.ceil(origin_seconds / cada)
+        pedidas = []
         for paso in range(cantidad + 2):
             posicion = (primera + paso) * cada
             if posicion > origin_seconds + window_seconds:
                 break
-            linea = pg.InfiniteLine(pos=posicion, angle=90, pen=pluma)
-            self._plot.addItem(linea)
-            self._lines.append(linea)
+            pedidas.append((posicion, 90, color))
+        return pedidas
 
-    def _dibujar_horizontales(self, cada: float, pluma: object) -> None:
+    def _horizontales(self, cada: float, color: str) -> list[tuple[float, int, str]]:
         """Una línea horizontal cada `cada` carriles, sobre lo que se ve.
 
         **En fracciones de carril y no en microvoltios.** Cada canal tiene su
@@ -193,24 +210,60 @@ class GridBackground:
         """
         abajo, arriba = self._plot.vb.viewRange()[1]
         if cada <= 0 or arriba <= abajo:
-            return
+            return []
         cantidad = int((arriba - abajo) / cada)
         if cantidad > MAX_GRID_LINES:
-            return
+            return []
         primera = math.ceil(abajo / cada)
+        pedidas = []
         for paso in range(cantidad + 2):
             posicion = (primera + paso) * cada
             if posicion > arriba:
                 break
-            linea = pg.InfiniteLine(pos=posicion, angle=0, pen=pluma)
-            self._plot.addItem(linea)
-            self._lines.append(linea)
+            pedidas.append((posicion, 0, color))
+        return pedidas
+
+    def _aplicar(self, pedidas: list[tuple[float, int, str]], visible: str) -> None:
+        """Deja en pantalla exactamente las líneas pedidas, reusando las que hay.
+
+        Sobran: se sacan del gráfico. Faltan: se crean. Las demás sólo cambian
+        de lugar, y de pluma si hace falta. Al desplazar una página de ancho
+        fijo la cantidad cambia en una a lo sumo, así que casi siempre no se
+        crea ni se borra nada.
+
+        **El `zValue` separa las dos series**, las dos por debajo de la señal y
+        por encima de la banda de la época actual (−20): las visibles en −10 y
+        las finas en −11. Sin eso, una fina reusada podía quedar encima de una
+        visible en el mismo lugar y taparla.
+        """
+        while len(self._lines) > len(pedidas):
+            self._plot.removeItem(self._lines.pop())
+            self._claves.pop()
+
+        for indice, (posicion, angulo, color) in enumerate(pedidas):
+            clave = (angulo, color)
+            if indice == len(self._lines):
+                linea = pg.InfiniteLine(
+                    pos=posicion, angle=angulo, pen=pg.mkPen(color=color, width=1)
+                )
+                self._plot.addItem(linea)
+                self._lines.append(linea)
+                self._claves.append(clave)
+            else:
+                linea = self._lines[indice]
+                if self._claves[indice] != clave:
+                    linea.setAngle(angulo)
+                    linea.setPen(pg.mkPen(color=color, width=1))
+                    self._claves[indice] = clave
+                linea.setValue(posicion)
+            linea.setZValue(_Z_VISIBLE if color == visible else _Z_FINA)
 
     def clear(self) -> None:
         """Borra todas las líneas de la grilla."""
         for linea in self._lines:
             self._plot.removeItem(linea)
         self._lines.clear()
+        self._claves.clear()
 
     def lines(self) -> list[pg.InfiniteLine]:
         """Las líneas dibujadas ahora mismo.

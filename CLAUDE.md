@@ -420,9 +420,11 @@ aquél fija el pliego, esto es lo que se elige.
 Cuatro reglas de esta capa que no se ven leyendo un solo archivo:
 
 - **Sólo `main.py` lee y escribe el archivo de preferencias**, a través de
-  `create_main_window(restore_layout=True)`. La ventana que arman los tests
+  `create_main_window(saved_preferences=True)`. La ventana que arman los tests
   trabaja con los valores de fábrica y no escribe nada; si lo hiciera, correr la
-  suite pisaría la configuración de quien la corre, que ya pasó una vez.
+  suite pisaría la configuración de quien la corre, que ya pasó una vez. **La
+  disposición de paneles no se guarda** desde el hito 24: el programa abre
+  siempre con la señal y el selector de canales.
 - **Los menús muestran los atajos pero no los registran.** La tecla sale de
   `ui/shortcuts.py` con `key_for()` y va después de un tabulador en el texto.
   Llamar a `setShortcut()` la duplicaría con el `QShortcut` que ya existe, y ante

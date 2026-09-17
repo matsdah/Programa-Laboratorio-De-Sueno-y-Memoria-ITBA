@@ -100,3 +100,58 @@ def test_pedir_un_icono_con_algo_que_no_es_texto_avisa(qt_app):
 def test_el_error_del_modulo_es_del_programa():
     """Si escapara crudo atravesaría el `except` de la ventana principal."""
     assert issubclass(UnknownIconError, PsgLabError)
+
+
+def test_reproducir_no_se_confunde_con_la_flecha_de_epoca(qt_app):
+    """Comparten fila: el de reproducir lleva el triángulo calado en un
+    círculo, el de época es un triángulo lleno."""
+    reproducir = icons.icon("reproducir", "#000000").pixmap(QSize(32, 32)).toImage()
+    siguiente = icons.icon("siguiente", "#000000").pixmap(QSize(32, 32)).toImage()
+    pausa = icons.icon("pausa", "#000000").pixmap(QSize(32, 32)).toImage()
+
+    assert reproducir != siguiente
+    assert reproducir != pausa
+
+
+def test_el_centro_de_reproducir_esta_calado(qt_app):
+    """Si la regla de relleno no fuera par-impar, el icono sería un círculo
+    lleno y los dos estados se verían iguales."""
+    imagen = icons.icon("reproducir", "#000000").pixmap(
+        QSize(icons.LADO, icons.LADO)
+    ).toImage()
+
+    centro = imagen.pixelColor(icons.LADO // 2, icons.LADO // 2)
+    borde = imagen.pixelColor(icons.LADO // 2, int(icons.LADO * 0.22))
+
+    assert centro.alpha() == 0
+    assert borde.alpha() > 0
+
+
+@pytest.mark.parametrize(
+    "atras, adelante",
+    [("media-atras", "media-adelante"), ("pagina-atras", "pagina-adelante")],
+)
+def test_los_chevrones_opuestos_son_espejos(qt_app, atras: str, adelante: str):
+    """Con margen: el suavizado de los bordes no cae exactamente igual de los
+    dos lados, y eso no es un icono distinto."""
+    from PySide6.QtCore import Qt
+
+    izquierda = icons.icon(atras, "#000000").pixmap(QSize(32, 32)).toImage()
+    derecha = icons.icon(adelante, "#000000").pixmap(QSize(32, 32)).toImage()
+    espejada = izquierda.flipped(Qt.Orientation.Horizontal)
+
+    distintos = sum(
+        1
+        for x in range(32)
+        for y in range(32)
+        if abs(espejada.pixelColor(x, y).alpha() - derecha.pixelColor(x, y).alpha()) > 64
+    )
+    assert izquierda != derecha
+    assert distintos == 0
+
+
+def test_una_pagina_no_es_media(qt_app):
+    media = icons.icon("media-adelante", "#000000").pixmap(QSize(32, 32)).toImage()
+    pagina = icons.icon("pagina-adelante", "#000000").pixmap(QSize(32, 32)).toImage()
+
+    assert media != pagina

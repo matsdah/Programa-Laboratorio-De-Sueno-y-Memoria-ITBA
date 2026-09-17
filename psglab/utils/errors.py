@@ -123,6 +123,16 @@ class InvalidViewportError(PsgLabError):
     """
 
 
+class InvalidPlaybackSpeedError(PsgLabError):
+    """Se pidió reproducir a una velocidad que el programa no ofrece.
+
+    Las velocidades son una lista cerrada, `ui.playback.PLAYBACK_SPEEDS`, y el
+    selector de la barra sólo ofrece ésas. Esto es para quien la fije por
+    código: una velocidad cero congela la reproducción sin avisar, y una
+    negativa la hace retroceder.
+    """
+
+
 class WindowOutOfRangeError(PsgLabError):
     """Se pidió una ventana que está fuera del registro."""
 

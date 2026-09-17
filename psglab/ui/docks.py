@@ -8,8 +8,11 @@ scoring a otra pantalla. Y los seis paneles de análisis eran ventanas sueltas
 que tapaban la señal justo cuando había que mirarla.
 
 Ahora **la señal es el widget central y todo lo demás es un `QDockWidget`**: se
-mueve, se apila en solapas, se cierra y se saca a otra pantalla. La disposición
-que arme el usuario se guarda y vuelve en el arranque siguiente.
+mueve, se apila en solapas, se cierra y se saca a otra pantalla.
+
+**La disposición no se recuerda entre aperturas**, por decisión del hito 24:
+el programa abre siempre con la vista de abajo, y lo que el usuario arme vale
+hasta que lo cierre. Hasta ese hito se guardaba al cerrar.
 
 ## El nombre del atributo no cambió
 
@@ -23,11 +26,14 @@ significar "el contenedor del panel", que es lo que siempre quiso decir.
 
 ## Qué arranca visible
 
-Los cuatro paneles de trabajo —canales, scoring, hipnograma y Übersicht—
-arrancan abiertos, porque son los que se usan en cada ventana que se scorea. Los
-seis de análisis arrancan ocultos y los abre la acción del menú que los calcula:
-un panel de conectividad vacío ocupando media pantalla desde el arranque es
-ruido, no información.
+**Sólo la señal y el selector de canales.** Hasta el hito 24 arrancaban
+abiertos también el scoring, el hipnograma y la Übersicht, y entre los tres le
+quitaban a la señal un cuarto de la pantalla; se abren desde «Paneles». Scorear
+no los necesita: las fases y el arousal tienen su tecla.
+
+Los seis de análisis arrancan ocultos y los abre la acción del menú que los
+calcula: un panel de conectividad vacío ocupando media pantalla desde el
+arranque es ruido, no información.
 
 Cubre del pliego: ningún ID. Es la disposición de la ventana; cada panel cubre
 lo suyo.
@@ -106,7 +112,7 @@ def build_docks(window: "MainWindow") -> None:
 
 
 def _trabajo(window: "MainWindow") -> None:
-    """Los cuatro que se usan en cada ventana que se scorea."""
+    """Los cuatro que se usan al scorear. Sólo el de canales arranca visible."""
     izquierda = Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
     abajo = Qt.DockWidgetArea.BottomDockWidgetArea | Qt.DockWidgetArea.TopDockWidgetArea
 
@@ -141,6 +147,14 @@ def _trabajo(window: "MainWindow") -> None:
         ("histogram", window.histogram_dock),
     ):
         window.docks[nombre] = dock
+
+    # Se ocultan después de acomodarlos, para que al mostrarlos desde «Paneles»
+    # vuelvan al borde de abajo y lado a lado. **El reparto de arriba es una
+    # preferencia, no una garantía**: la Übersicht no baja de 480 px y el
+    # scoring de 690, así que en una pantalla de 1400 px el hipnograma se queda
+    # con lo que sobra. Ya pasaba cuando arrancaban visibles.
+    for dock in (window.overview_dock, window.scoring_dock, window.histogram_dock):
+        dock.hide()
 
 
 def _analisis(window: "MainWindow") -> None:

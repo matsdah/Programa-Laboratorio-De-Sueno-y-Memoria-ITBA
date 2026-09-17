@@ -22,18 +22,21 @@ registro de 400 es una regla y va en `core/`.
 |          |                                         | ICA...   |
 |          |                                         | (solapas)|
 +----------+-----------------------------------------+----------+
-|  Übersicht | Scoring | Hipnograma  (docks de abajo)            |
+|  Übersicht | Scoring | Hipnograma  (docks de abajo, ocultos)   |
 +---------------------------------------------------------------+
-|  Navegación: ← ventana anterior | siguiente →   (barra fija)   |
+|  Navegación: época ⏮◀▶⏭ | página ≪‹⏯›≫ 1× | amplitud | franja |
 +---------------------------------------------------------------+
 |  Barra de estado: ventana 42 / 960 - 00:21:00                  |
 +---------------------------------------------------------------+
 ```
 
 **La señal es el widget central y todo lo demás es un `QDockWidget`**: se mueve,
-se apila en solapas, se cierra y se saca a otra pantalla. La disposición que
-arme el usuario se guarda y vuelve en el arranque siguiente, y «Paneles ▸
-Restaurar la disposición» devuelve la de fábrica.
+se apila en solapas, se cierra y se saca a otra pantalla.
+
+**El programa abre siempre con la señal y el panel Canales, y nada más.**
+Los otros nueve arrancan ocultos y se abren desde «Paneles»; «Paneles ▸
+Restaurar la disposición» vuelve a esa vista. Desde el hito 24 la
+disposición no se recuerda de una apertura a otra.
 
 **La barra de menú empieza con un botón y no con «Archivo».** Abrir un
 registro era lo único que le quedaba a ese menú, así que es un icono de
@@ -60,13 +63,14 @@ conoce las flechas del teclado.
 | `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
 | `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. | V1_F de "PSD" |
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. | V1_F, V2_F, V3_F de "Übersicht" |
-| `navigation.py` | La barra inferior: saltos a la primera y la última ventana, control de amplitud, y una franja que muestra dónde cae la ventana en la noche y deja saltar con un clic. | V1_F de "Navegación" |
+| `navigation.py` | La barra inferior: saltos entre épocas, botones que mueven la página (≪ ‹ › ≫), reproducir y su velocidad, control de amplitud, y una franja que muestra dónde cae la ventana en la noche y deja saltar con un clic. | V1_F de "Navegación" |
+| `playback.py` | El reloj de la reproducción: mide el tiempo real y avisa cuánto avanzar la página. No conoce la sesión ni mueve nada. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. | V1_F, V2_F, V3_F de "Scoring" |
 | `icons.py` | Los iconos de la barra de navegación y el de abrir un registro, dibujados con `QPainterPath`. **No hay ningún archivo de icono en el repositorio**, y es una decisión de licencia. | — |
 | `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas y arrancan ocultos. | — |
 | `menus.py` | **La barra de menú**: qué acción vive en qué menú, y el botón de abrir un registro. No implementa ninguna: cada una llama a un método de la ventana. | — |
 | `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los cinco esquemas de fábrica. | — |
-| `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. | — |
+| `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. La disposición de paneles ya no es parte de eso. | — |
 | `settings_dialog.py` | **La ventana de configuración**: cinco solapas, todas con algo real detrás. Aplica en el momento y avisa por callbacks. | — |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
 

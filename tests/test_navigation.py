@@ -14,7 +14,10 @@ Lo que se verifica:
 - que los botones **pidan y no naveguen**, que es el contrato que mantiene en
   `core/` la regla de qué ventana existe;
 - que se deshabiliten en los extremos, para que no haya botones que no hacen
-  nada.
+  nada;
+- desde el hito 24, que los botones de página y de reproducción pidan lo
+  suyo, y que el de reproducir no se apague mientras reproduce: es con el
+  que se pausa.
 """
 
 import pytest
@@ -152,6 +155,11 @@ def test_sin_registro_no_hay_ningun_boton_habilitado(barra):
             barra._ultima,
             barra._mas_amplitud,
             barra._menos_amplitud,
+            barra._pagina_atras,
+            barra._media_atras,
+            barra._reproducir,
+            barra._media_adelante,
+            barra._pagina_adelante,
         )
         if b.isEnabled()
     ]
@@ -203,8 +211,9 @@ def test_el_horario_se_oculta_si_el_registro_no_lo_informa(barra):
 
 def test_cambiar_de_esquema_repinta_los_iconos(barra):
     """Un icono es un mapa de bits ya pintado: sin repintarlo, pasar de oscuro
-    a claro deja seis triángulos claros sobre fondo claro."""
+    a claro deja los triángulos claros sobre fondo claro."""
     antes = barra._siguiente.icon().cacheKey()
+    antes_de_reproducir = barra._reproducir.icon().cacheKey()
 
     theme.set_current(theme.OSCURO)
     try:
@@ -213,6 +222,7 @@ def test_cambiar_de_esquema_repinta_los_iconos(barra):
         theme.set_current(theme.CLARO)
 
     assert barra._siguiente.icon().cacheKey() != antes
+    assert barra._reproducir.icon().cacheKey() != antes_de_reproducir
 
 
 def _clic(widget, fraccion: float):
@@ -235,3 +245,137 @@ def _clic(widget, fraccion: float):
         Qt.MouseButton.LeftButton,
         Qt.KeyboardModifier.NoModifier,
     )
+
+
+# -- La página y la reproducción (hito 24) ---------------------------------------
+
+
+def con_registro(barra, al_principio=False, al_final=False, entera=False):
+    barra.set_position(3, 10)
+    barra.set_page_bounds(al_principio, al_final, entera)
+    return barra
+
+
+def test_los_botones_de_pagina_piden_su_fraccion(barra):
+    """Una página entera o media, hacia cada lado. Mover es de la ventana."""
+    con_registro(barra)
+    recibidas: list[float] = []
+    barra.page_pan_requested.connect(recibidas.append)
+
+    for boton in (
+        barra._pagina_atras,
+        barra._media_atras,
+        barra._media_adelante,
+        barra._pagina_adelante,
+    ):
+        boton.click()
+
+    assert recibidas == [-1.0, -0.5, 0.5, 1.0]
+
+
+def test_los_botones_de_pagina_no_piden_una_ventana(barra):
+    """Mueven lo que se ve, no la época que se scorea."""
+    con_registro(barra)
+    ventanas = pedidas(barra)
+
+    barra._pagina_adelante.click()
+    barra._media_atras.click()
+
+    assert ventanas == []
+
+
+def test_al_principio_no_se_puede_retroceder_la_pagina(barra):
+    con_registro(barra, al_principio=True)
+
+    assert not barra._pagina_atras.isEnabled()
+    assert not barra._media_atras.isEnabled()
+    assert barra._media_adelante.isEnabled()
+    assert barra._reproducir.isEnabled()
+
+
+def test_al_final_no_se_puede_avanzar_ni_reproducir(barra):
+    con_registro(barra, al_final=True)
+
+    assert barra._pagina_atras.isEnabled()
+    assert not barra._pagina_adelante.isEnabled()
+    assert not barra._media_adelante.isEnabled()
+    assert not barra._reproducir.isEnabled()
+
+
+def test_con_el_registro_entero_no_se_puede_reproducir(barra):
+    con_registro(barra, al_principio=True, al_final=True, entera=True)
+
+    assert not barra._reproducir.isEnabled()
+
+
+def test_reproduciendo_el_boton_sigue_habilitado_en_el_final(barra):
+    """Es el botón con que se pausa."""
+    con_registro(barra)
+    barra.set_playing(True)
+
+    barra.set_page_bounds(False, True, False)
+
+    assert barra._reproducir.isEnabled()
+
+
+def test_al_pausar_en_el_final_el_boton_se_apaga(barra):
+    """Los límites se calcularon mientras todavía reproducía."""
+    con_registro(barra)
+    barra.set_playing(True)
+    barra.set_page_bounds(False, True, False)
+
+    barra.set_playing(False)
+
+    assert not barra._reproducir.isEnabled()
+
+
+def test_reproducir_pide_y_no_reproduce(barra):
+    con_registro(barra)
+    pedidos: list[bool] = []
+    barra.playback_toggle_requested.connect(lambda: pedidos.append(True))
+
+    barra._reproducir.click()
+
+    assert pedidos == [True]
+    assert barra._reproducir.toolTip() == "Reproducir"
+
+
+def test_reproduciendo_el_boton_dice_pausar(barra):
+    antes = barra._reproducir.icon().cacheKey()
+
+    barra.set_playing(True)
+
+    assert barra._reproducir.toolTip() == "Pausar"
+    assert barra._reproducir.icon().cacheKey() != antes
+    barra.set_playing(False)
+    assert barra._reproducir.toolTip() == "Reproducir"
+
+
+def test_el_selector_ofrece_las_velocidades_y_arranca_en_tiempo_real(barra):
+    from psglab.ui.playback import DEFAULT_SPEED, PLAYBACK_SPEEDS
+
+    opciones = [
+        barra.speed_selector.itemData(i) for i in range(barra.speed_selector.count())
+    ]
+
+    assert opciones == list(PLAYBACK_SPEEDS)
+    assert barra.speed_selector.currentData() == DEFAULT_SPEED
+    assert barra.speed_selector.currentText() == "1×"
+
+
+def test_elegir_una_velocidad_la_pide(barra):
+    recibidas: list[float] = []
+    barra.playback_speed_changed.connect(recibidas.append)
+
+    barra.speed_selector.setCurrentIndex(barra.speed_selector.findText("30×"))
+
+    assert recibidas == [30.0]
+
+
+def test_un_clic_en_un_boton_no_le_saca_el_foco_a_la_senal(barra):
+    """Si se lo sacara, Espacio dejaría de reproducir después de cualquier
+    clic. Con Tab se siguen alcanzando."""
+    from PySide6.QtCore import Qt
+
+    for boton in (barra._reproducir, barra._pagina_adelante, barra._siguiente):
+        assert boton.focusPolicy() == Qt.FocusPolicy.TabFocus
