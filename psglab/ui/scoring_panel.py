@@ -4,10 +4,19 @@ Los botones se generan a partir de la nomenclatura activa, no están escritos
 a mano: cambiar de Rechtschaffen y Kales a AASM reemplaza los botones solo
 (V3_F). Eso evita que las dos nomenclaturas se desincronicen con el tiempo.
 
+**El panel se puede angostar.** Con los anchos que Qt les da por omisión, el
+combo y los siete botones de Rechtschaffen y Kales no bajaban de 868 px, y
+al abrirlo junto al hipnograma le dejaban a éste unos 230: la curva de la
+noche no se leía. Cada control tiene ahora un mínimo propio, chico, y crece
+si hay lugar. El selector muestra la abreviatura de la nomenclatura, que es
+como se la nombra en el laboratorio, y el nombre completo en el tooltip.
+
 Cubre del pliego: V1_F, V2_F, V3_F de "Scoring de la señal".
 """
 
-from PySide6.QtCore import Signal
+from typing import Final
+
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -18,6 +27,21 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.core.nomenclature import Nomenclature, SleepStage, stage_label, stages_of
+
+#: Hasta dónde se achica un botón de fase. Alcanza para «REM», la etiqueta
+#: más larga, con el margen del estilo.
+ANCHO_MINIMO_DE_BOTON: Final[int] = 40
+
+#: Hasta dónde se achica el selector de nomenclatura. Alcanza para «AASM».
+ANCHO_MINIMO_DEL_SELECTOR: Final[int] = 72
+
+#: Cómo se muestra cada nomenclatura en el selector. «Rechtschaffen y Kales»
+#: entero hacía que el selector solo ocupara 160 px. Una nomenclatura que no
+#: esté acá se muestra con su nombre completo, que es largo pero correcto.
+ABREVIATURAS: Final[dict[Nomenclature, str]] = {
+    Nomenclature.RK: "R&K",
+    Nomenclature.AASM: "AASM",
+}
 
 
 class ScoringPanel(QWidget):
@@ -46,14 +70,24 @@ class ScoringPanel(QWidget):
         self._grupo.setExclusive(True)
 
         self._nomenclaturas = QComboBox()
-        for nomenclatura in Nomenclature:
-            self._nomenclaturas.addItem(nomenclatura.value, nomenclatura)
+        self._nomenclaturas.setMinimumWidth(ANCHO_MINIMO_DEL_SELECTOR)
+        for posicion, nomenclatura in enumerate(Nomenclature):
+            self._nomenclaturas.addItem(
+                ABREVIATURAS.get(nomenclatura, nomenclatura.value), nomenclatura
+            )
+            self._nomenclaturas.setItemData(
+                posicion, nomenclatura.value, Qt.ItemDataRole.ToolTipRole
+            )
         self._nomenclaturas.currentIndexChanged.connect(self._on_nomenclature)
 
         self._arousal = QCheckBox("Arousal")
         self._arousal.toggled.connect(self._on_arousal)
 
         self._fila = QHBoxLayout(self)
+        # Los márgenes de fábrica son 11 px por lado: en un panel que se
+        # quiere angosto, son dos botones.
+        self._fila.setContentsMargins(4, 2, 4, 2)
+        self._fila.setSpacing(4)
         self._fila.addWidget(self._nomenclaturas)
         self._fila.addStretch(1)
         self._fila.addWidget(self._arousal)
@@ -92,12 +126,19 @@ class ScoringPanel(QWidget):
         for boton in self._botones.values():
             self._grupo.removeButton(boton)
             self._fila.removeWidget(boton)
+            # `deleteLater()` espera al ciclo de eventos, y dentro de un diálogo
+            # modal puede no llegar: sin ocultarlo, el botón viejo queda
+            # dibujado debajo del nuevo.
+            boton.hide()
             boton.deleteLater()
         self._botones.clear()
 
         for posicion, fase in enumerate(stages_of(nomenclature)):
             boton = QPushButton(stage_label(fase))
             boton.setCheckable(True)
+            # Un mínimo explícito es lo que le gana al de Qt, que en Windows
+            # es de 75 px por botón aunque diga «W».
+            boton.setMinimumWidth(ANCHO_MINIMO_DE_BOTON)
             boton.clicked.connect(lambda _=False, f=fase: self._on_stage(f))
             self._grupo.addButton(boton)
             # Después del combo y antes del espaciador, que es el índice 1.
@@ -105,8 +146,9 @@ class ScoringPanel(QWidget):
             self._botones[fase] = boton
 
         self._reflejando = True
-        self._nomenclaturas.setCurrentText(nomenclature.value)
+        self._nomenclaturas.setCurrentIndex(self._nomenclaturas.findData(nomenclature))
         self._reflejando = False
+        self._nomenclaturas.setToolTip(f"Nomenclatura: {nomenclature.value}")
 
     def set_current(self, stage: SleepStage, arousal: bool) -> None:
         """Refleja el scoring de la ventana actual en los botones.
