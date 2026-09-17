@@ -75,7 +75,7 @@ def create_application(argv: list[str]) -> QApplication:
     return aplicacion
 
 
-def create_main_window(restore_layout: bool = False) -> MainWindow:
+def create_main_window(saved_preferences: bool = False) -> MainWindow:
     """Crea la ventana principal con todos sus paneles y herramientas.
 
     No hay que enumerar acá ni las herramientas ni los formatos: cada registro
@@ -85,9 +85,10 @@ def create_main_window(restore_layout: bool = False) -> MainWindow:
     tocar ni este archivo ni `main.py`.
 
     Args:
-        restore_layout: si se restaura la disposición de paneles que el usuario
-            dejó la última vez, y si se la vuelve a guardar al cerrar. **Lo
-            prende sólo `main.py`.** Por omisión está apagado para que la suite
+        saved_preferences: si se aplican las preferencias que el usuario
+            dejó la última vez, y si los cambios se guardan. **Lo prende sólo
+            `main.py`.** La disposición de paneles no es parte de ellas: el
+            programa abre siempre con la vista de fábrica. Por omisión está apagado para que la suite
             de tests no lea ni escriba el archivo de preferencias de quien la
             corre, que la volvería dependiente de la máquina.
 
@@ -100,6 +101,6 @@ def create_main_window(restore_layout: bool = False) -> MainWindow:
     load_all_tools()
     load_all_readers()
     ventana = MainWindow()
-    if restore_layout:
-        ventana.apply_saved_layout()
+    if saved_preferences:
+        ventana.apply_saved_preferences()
     return ventana

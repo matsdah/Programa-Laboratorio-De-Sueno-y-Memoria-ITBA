@@ -43,7 +43,7 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Avanzar y retroceder con flechas ←→ y con botones | `psglab/ui/navigation.py`, `psglab/ui/shortcuts.py`, `psglab/core/session.py`, `psglab/core/windows.py` |
+| V1_F | Avanzar y retroceder con flechas ←→ y con botones | `psglab/ui/navigation.py`, `psglab/ui/playback.py` (la reproducción), `psglab/ui/shortcuts.py`, `psglab/core/session.py`, `psglab/core/windows.py` |
 
 ### Diseño de la interfaz de visualización
 

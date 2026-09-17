@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y dos
+camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y tres
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -100,7 +100,8 @@ verde por omisión, que es peor que dar rojo.
 | `test_menus.py` | La barra de menú: que ninguna acción quede sin conectar, que cada cosa esté donde corresponde y que lo que se sacó no vuelva sin que nadie lo decida. |
 | `test_docks.py` | Los paneles acoplables: que cada uno se pueda guardar y restaurar, y que la navegación no se pueda cerrar. |
 | `test_icons.py` | Los iconos que dibuja el programa: que no salgan vacíos y que tomen el color pedido. |
-| `test_navigation.py` | La barra inferior: que la franja convierta bien un clic en una ventana, sobre todo en los bordes. |
+| `test_navigation.py` | La barra inferior: que la franja convierta bien un clic en una ventana, sobre todo en los bordes, y que los botones de página y de reproducción pidan lo suyo. |
+| `test_playback.py` | El reloj de la reproducción: que avance a la velocidad pedida aunque dibujar tarde, sin esperar al temporizador. |
 
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el
 motivo por el que `core/` no importa nada de `ui/`.

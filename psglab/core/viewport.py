@@ -44,6 +44,11 @@ from psglab.config import MIN_VIEW_SECONDS
 from psglab.utils.errors import InvalidViewportError
 from psglab.utils.validation import check_finite
 
+#: Cuánto le puede faltar a una página para contar como que llega al final. Un
+#: microsegundo es mil veces menos que la muestra más corta de un registro de
+#: sueño, y muchísimo más que el error de redondeo de una resta.
+_TOLERANCIA_EN_SEGUNDOS = 1e-6
+
 
 def _check_seconds(nombre: str, valor: float) -> None:
     """Rechaza un valor con el que no se puede hacer aritmética de tiempo.
@@ -138,6 +143,23 @@ class Viewport:
         dibujo va a tardar, y el menú para poder tildar "Registro entero".
         """
         return self.start_seconds <= 0 and self.span_seconds >= self.duration_seconds
+
+    @property
+    def at_start(self) -> bool:
+        """Si la página empieza con el registro: no hay hacia dónde retroceder."""
+        return self.start_seconds <= 0
+
+    @property
+    def at_end(self) -> bool:
+        """Si la página llega al final del registro: no hay hacia dónde avanzar.
+
+        **Con tolerancia**, y no por descuido: `clamped()` calcula el comienzo
+        como `duración - página`, y sumarle la página de vuelta puede quedar una
+        fracción de microsegundo corta. Sin ella, la reproducción no se
+        detendría nunca en el final: seguiría pidiendo una página que no se
+        mueve.
+        """
+        return self.end_seconds >= self.duration_seconds - _TOLERANCIA_EN_SEGUNDOS
 
     # -- Construcción con recorte -------------------------------------------
 

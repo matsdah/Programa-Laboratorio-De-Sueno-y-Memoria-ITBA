@@ -334,3 +334,28 @@ def test_un_archivo_de_la_version_anterior_sigue_cargando(archivo: Path):
 
     assert leidas.scheme() is theme.OSCURO
     assert leidas == preferences.Preferences(scheme_name="Oscuro")
+
+
+# -- La disposición de paneles ya no se guarda (hito 24) -------------------------
+
+
+def test_un_archivo_de_antes_con_disposicion_se_lee_igual(archivo: Path):
+    """Los archivos anteriores al hito 24 traen `window_state`. Se ignora sin
+    error: el programa abre siempre con la vista de fábrica."""
+    archivo.write_text(
+        json.dumps(
+            {"version": 1, "scheme_name": "Oscuro", "window_state": "AAAA/wAAAAD9"}
+        ),
+        encoding="utf-8",
+    )
+
+    leidas = preferences.load(archivo)
+
+    assert leidas.scheme() is theme.OSCURO
+    assert not hasattr(leidas, "window_state")
+
+
+def test_la_disposicion_no_se_escribe(archivo: Path):
+    preferences.save(preferences.Preferences(), archivo)
+
+    assert "window_state" not in json.loads(archivo.read_text(encoding="utf-8"))

@@ -57,6 +57,8 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         "tool_readout",
         "page_readout",
         "settings_dialog",
+        # El reloj de la reproducción, que los tests hacen avanzar a mano.
+        "playback",
         # Los seis paneles de análisis y sus contenedores. **El panel y el
         # contenedor son atributos distintos a propósito**: los tests preguntan
         # por el título del contenedor y por el contenido del panel.
@@ -104,7 +106,9 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "pan_view_page_left",
         "pan_view_page_right",
         "restore_default_layout",
-        "apply_saved_layout",
+        "apply_saved_preferences",
+        # Reproducción.
+        "toggle_playback",
         # Archivo.
         "open_recording",
         "open_recording_dialog",
@@ -209,9 +213,13 @@ def test_cada_atajo_encuentra_su_metodo(ventana: MainWindow):
     """`shortcuts.py` conecta por nombre con `getattr`, así que un método que se
     renombra no da error: el atajo simplemente deja de instalarse, en silencio.
     """
-    from psglab.ui.shortcuts import ACTIONS
+    from psglab.ui.shortcuts import ACTIONS, SIGNAL_ACTIONS
 
-    faltantes = [metodo for metodo in ACTIONS.values() if not hasattr(ventana, metodo)]
+    faltantes = [
+        metodo
+        for metodo in [*ACTIONS.values(), *SIGNAL_ACTIONS.values()]
+        if not hasattr(ventana, metodo)
+    ]
 
     assert faltantes == []
 
@@ -249,3 +257,29 @@ def test_reinstalar_los_atajos_los_deja_funcionando(ventana: MainWindow):
 
     assert "Right" in teclas
     assert "Ctrl+O" in teclas
+
+
+def test_espacio_cuelga_de_la_senal_y_no_de_la_ventana(ventana: MainWindow):
+    """Colgado de la ventana, Espacio le robaría la tecla a las casillas de
+    Canales y a los botones: sólo tiene que andar con el foco en la señal."""
+    from PySide6.QtCore import Qt
+
+    espacios = [
+        atajo
+        for atajo in ventana.findChildren(QShortcut)
+        if atajo.key().toString() == "Space"
+    ]
+
+    assert len(espacios) == 1
+    assert espacios[0].parent() is ventana.signal_view
+    assert espacios[0].context() == Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+
+def test_reinstalar_no_duplica_espacio(ventana: MainWindow):
+    install_shortcuts(ventana, None)
+    install_shortcuts(ventana, None)
+
+    espacios = [
+        a for a in ventana.findChildren(QShortcut) if a.key().toString() == "Space"
+    ]
+    assert len(espacios) == 1

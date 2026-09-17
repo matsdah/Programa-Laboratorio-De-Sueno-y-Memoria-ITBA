@@ -51,6 +51,10 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "cuarenta y cinco": 45, "cuarenta y seis": 46, "cuarenta y siete": 47,
     "cuarenta y ocho": 48, "cuarenta y nueve": 49, "cincuenta": 50,
     "cincuenta y uno": 51, "cincuenta y un": 51, "cincuenta y dos": 52,
+    # Y se cortó de nuevo en el hito 24, al llegar a 53.
+    "cincuenta y tres": 53, "cincuenta y cuatro": 54, "cincuenta y cinco": 55,
+    "cincuenta y seis": 56, "cincuenta y siete": 57, "cincuenta y ocho": 58,
+    "cincuenta y nueve": 59, "sesenta": 60,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
@@ -137,6 +141,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_docks.py": ("psglab/ui/docks.py",),
     "test_icons.py": ("psglab/ui/icons.py",),
     "test_navigation.py": ("psglab/ui/navigation.py",),
+    "test_playback.py": ("psglab/ui/playback.py",),
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",
