@@ -12,9 +12,9 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
     |          |                                         | ICA...   |
     |          |                                         | (solapas)|
     +----------+-----------------------------------------+----------+
-    |  Übersicht | Scoring | Hipnograma  (docks de abajo)            |
+    |  Übersicht | Scoring | Hipnograma  (docks de abajo, ocultos)   |
     +---------------------------------------------------------------+
-    |  Navegación: ← ventana anterior | siguiente →   (barra fija)   |
+    |  Navegación: época ⏮◀▶⏭ | página ≪‹⏯›≫ 1× | amplitud | franja |
     +---------------------------------------------------------------+
     |  Barra de estado: ventana 42 / 960 - 00:21:00                  |
     +---------------------------------------------------------------+
@@ -26,6 +26,10 @@ paneles de análisis arrancan ocultos y los abre la acción que los calcula.
 **No hay barra de herramientas.** Las herramientas se activan desde su menú,
 que es la única vía: la barra horizontal que lo repetía debajo de la barra de
 menú se quitó por confusa.
+
+**El programa abre sólo con la señal y el selector de canales**, y no
+recuerda la disposición de una apertura a otra (hito 24). Los demás paneles
+se abren desde «Paneles».
 
 Cubre del pliego: V4_F de "Archivo de salida" (`export()` elige cuál de los tres
 archivos escribir, aunque desde el hito 23 la ventana sólo ofrece el scoring),
@@ -49,8 +53,8 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QByteArray, QEvent, QObject, Qt
-from PySide6.QtGui import QAction, QCloseEvent, QFont
+from PySide6.QtCore import QEvent, QObject, Qt
+from PySide6.QtGui import QAction, QFont
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -123,6 +127,7 @@ from psglab.ui.icons import icon
 from psglab.ui.menus import build_menus, duration_text
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
+from psglab.ui.playback import PlaybackClock
 from psglab.ui.connectivity_panel import ConnectivityPanel
 from psglab.ui.ica_panel import IcaPanel
 from psglab.ui.filter_panel import FilterPanel
@@ -191,7 +196,7 @@ class MainWindow(QMainWindow):
         #: La descomposición ICA ajustada, mientras el panel está abierto.
         self._ica: object | None = None
         #: Las preferencias vigentes. **Arrancan en los valores de fábrica y no
-        #: se leen del disco acá**: sólo `apply_saved_layout()` las lee, y sólo
+        #: se leen del disco acá**: sólo `apply_saved_preferences()` las lee, y sólo
         #: la llama `main.py`. Si el constructor las leyera, la suite de tests
         #: dependería de lo que cada quien tenga configurado en su máquina.
         self._preferencias = preferences.Preferences()
@@ -218,10 +223,11 @@ class MainWindow(QMainWindow):
         #: la disposición», y tiene que guardarse acá y no antes: `saveState()`
         #: sólo serializa lo que ya existe.
         self._layout_por_defecto = self.saveState()
-        #: Si al cerrar se guarda la disposición. Lo prende
-        #: `create_main_window(restore_layout=True)`, que sólo llama `main.py`:
-        #: así la suite de tests no escribe en el archivo de quien la corre.
-        self._guardar_disposicion_al_cerrar = False
+        #: Si esta ventana es la del usuario, y por lo tanto la que escribe sus
+        #: preferencias. Lo prende `create_main_window(saved_preferences=True)`,
+        #: que sólo llama `main.py`: así la suite de tests no escribe en el
+        #: archivo de quien la corre.
+        self._es_la_ventana_del_usuario = False
 
     # -- Construcción -------------------------------------------------------
 
@@ -269,6 +275,10 @@ class MainWindow(QMainWindow):
         self.navigation_bar.setMovable(False)
         self.navigation_bar.addWidget(self.navigation)
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self.navigation_bar)
+
+        #: El reloj de la reproducción. Sólo dice cuánto avanzar; mover la
+        #: página es de `_avanzar_reproduccion()`.
+        self.playback = PlaybackClock(self)
 
         # Lo que la herramienta activa quiere informar: el porcentaje de la
         # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
@@ -344,6 +354,11 @@ class MainWindow(QMainWindow):
         self.navigation.window_requested.connect(self._go_to_window)
         self.navigation.amplitude_up_requested.connect(self.increase_amplitude)
         self.navigation.amplitude_down_requested.connect(self.decrease_amplitude)
+        self.navigation.page_pan_requested.connect(self._desplazar)
+        self.navigation.playback_toggle_requested.connect(self.toggle_playback)
+        self.navigation.playback_speed_changed.connect(self._cambiar_velocidad)
+        self.playback.advanced.connect(self._avanzar_reproduccion)
+        self.playback.playing_changed.connect(self.navigation.set_playing)
         self.scoring_panel.stage_selected.connect(self.score_current_window)
         self.scoring_panel.arousal_toggled.connect(self._set_arousal)
         self.scoring_panel.nomenclature_changed.connect(self._change_nomenclature)
@@ -634,6 +649,8 @@ class MainWindow(QMainWindow):
         # Y por el mismo motivo, la descomposición ICA del registro anterior: es
         # de otra señal y de otros canales.
         self._olvidar_ica()
+        # La reproducción avanzaba sobre la página del registro anterior.
+        self.playback.stop()
 
         self._session = sesion
         # **El registro tal como se leyó.** Los análisis de la Parte 2 devuelven
@@ -778,6 +795,9 @@ class MainWindow(QMainWindow):
         self.scoring_panel.set_current(epoca.stage, epoca.arousal)
         self.channel_selector.set_visible(sesion.visible_channels)
         self._redraw_histogram()
+        # Cambiar de época puede mover la página, así que los botones de
+        # página se recalculan también acá y no sólo al desplazar.
+        self._actualizar_cartel_de_pagina()
         self.statusBar().showMessage(
             f"Ventana {ventana + 1} de {sesion.n_windows}"
             + (f" — {self._clock_label(ventana)}" if self._clock_label(ventana) else "")
@@ -789,20 +809,28 @@ class MainWindow(QMainWindow):
     # siendo por ventana de 30 s. Las seis pasan por `Session.set_viewport()`,
     # que es el único lugar que avisa a las herramientas.
 
-    def _cambiar_pagina(self, nueva: object) -> None:
+    def _cambiar_pagina(self, nueva: object, avisar: bool = True) -> bool:
         """Aplica una página nueva y redibuja, o avisa si no se puede.
 
         Está separado porque las seis operaciones de abajo hacen exactamente lo
         mismo con una transformación distinta, y repetir el `try` en cada una
         garantiza que alguna se olvide de atraparlo.
+
+        Args:
+            avisar: si una página grande muestra el cursor de espera. La
+                reproducción lo apaga: veinticinco pasos por segundo lo harían
+                parpadear.
+
+        Returns:
+            Si la página se pudo aplicar.
         """
         if self._session is None:
-            return
+            return False
         try:
             self._session.set_viewport(nueva)
         except PsgLabError as error:
             self._show_error(error)
-            return
+            return False
         # **Una página larga se calcula una vez y después vuelve de la caché.**
         # Sobre el registro de prueba de 22 horas el primer dibujo del registro
         # entero tarda 444 ms y los siguientes 14 ms; con 32 canales a 1000 Hz
@@ -813,12 +841,13 @@ class MainWindow(QMainWindow):
             * self._session.recording.sampling_rate
             * len(self._session.visible_channels)
         )
-        if muestras > _MUESTRAS_PARA_AVISAR:
+        if avisar and muestras > _MUESTRAS_PARA_AVISAR:
             with self._trabajando("Dibujando la página"):
                 self.signal_view.draw_viewport()
         else:
             self.signal_view.draw_viewport()
         self._actualizar_cartel_de_pagina()
+        return True
 
     def set_timescale(self, seconds: float) -> None:
         """Le da a la página una duración concreta, conservando el centro."""
@@ -901,10 +930,70 @@ class MainWindow(QMainWindow):
             self.page_readout.setText("")
             return
         pagina = self._session.viewport
+        self.navigation.set_page_bounds(
+            pagina.at_start, pagina.at_end, pagina.shows_whole_recording
+        )
         if pagina.shows_whole_recording:
             self.page_readout.setText("Página: registro entero")
             return
         self.page_readout.setText(f"Página: {duration_text(pagina.span_seconds)}")
+
+    # -- Reproducción (hito 24) ---------------------------------------------
+    #
+    # La página avanza sola, como en EDFbrowser. **La época no se toca**, por
+    # decisión del usuario: reproducir es mirar, igual que Mayús+→, y lo que se
+    # scorea sigue siendo la época resaltada.
+
+    def toggle_playback(self) -> None:
+        """Reproduce o pausa. Es el botón ⏯ y Espacio con el foco en la señal.
+
+        No arranca, y dice por qué en la barra de estado, si la página ya
+        muestra el registro entero o ya llegó al final: no habría hacia dónde
+        avanzar, y un botón que parece andar y no mueve nada es peor.
+        """
+        if self.playback.is_playing:
+            self.playback.stop()
+            return
+        if self._session is None:
+            return
+        pagina = self._session.viewport
+        if pagina.shows_whole_recording:
+            self.statusBar().showMessage(
+                "Con el registro entero en pantalla no hay hacia dónde avanzar: "
+                "elegí una escala de tiempo más corta para reproducir.",
+                5000,
+            )
+            return
+        if pagina.at_end:
+            self.statusBar().showMessage(
+                "La página ya está al final del registro.", 5000
+            )
+            return
+        self.playback.start()
+
+    def _avanzar_reproduccion(self, segundos: float) -> None:
+        """Un paso de la reproducción: la página avanza esos segundos.
+
+        Se detiene al llegar al final, o si la página no se pudo aplicar: un
+        error repetido veinticinco veces por segundo sería un cartel tras otro.
+        """
+        if self._session is None:
+            self.playback.stop()
+            return
+        pagina = self._session.viewport
+        if not self._cambiar_pagina(pagina.panned(segundos), avisar=False):
+            self.playback.stop()
+            return
+        if self._session.viewport.at_end:
+            self.playback.stop()
+            self.statusBar().showMessage("Fin del registro", 5000)
+
+    def _cambiar_velocidad(self, velocidad: float) -> None:
+        """Lo que pide el selector de velocidad. Vale también reproduciendo."""
+        try:
+            self.playback.speed = velocidad
+        except PsgLabError as error:
+            self._show_error(error)
 
     # -- Amplitud (V2_P, V5_F) ----------------------------------------------
     #
@@ -986,30 +1075,32 @@ class MainWindow(QMainWindow):
         self.set_amplitude_scale(valor)
 
     def restore_default_layout(self) -> None:
-        """Vuelve a la disposición de paneles con la que el programa se instala.
+        """Vuelve a la disposición de paneles con la que el programa abre.
 
         Es la salida cuando alguien arrastró un panel a un lugar del que no
         sabe cómo sacarlo, que con nueve paneles acoplables deja de ser
-        hipotético.
+        hipotético. Es la misma vista de cada apertura: la señal y el selector
+        de canales.
         """
         self.restoreState(self._layout_por_defecto)
 
-    def apply_saved_layout(self) -> None:
-        """Restaura la disposición que el usuario dejó la última vez.
+    def apply_saved_preferences(self) -> None:
+        """Aplica las preferencias que el usuario dejó la última vez.
 
-        **Sólo la llama `create_main_window(restore_layout=True)`**, que sólo
-        llama `main.py`. Si la llamara el constructor, la suite de tests leería
-        —y después escribiría— el archivo real de quien la corre, y dejaría de
-        ser reproducible.
+        **Sólo la llama `create_main_window(saved_preferences=True)`**, que
+        sólo llama `main.py`. Si la llamara el constructor, la suite de tests
+        leería —y después escribiría— el archivo real de quien la corre, y
+        dejaría de ser reproducible. Por el mismo motivo marca la ventana como
+        la del usuario, que es la única que escribe el archivo.
 
-        Prende además el guardado al cerrar: las dos cosas van juntas, porque
-        restaurar sin guardar haría que la disposición se congelara en la
-        primera que se guardó.
+        **La disposición de paneles no se restaura.** Hasta el hito 24 se
+        guardaba al cerrar y volvía al abrir; desde entonces el programa abre
+        siempre con la vista de fábrica, por decisión del usuario.
 
-        No eleva: una disposición que no se puede leer se descarta y la ventana
-        abre con la de fábrica.
+        No eleva: unas preferencias que no se pueden leer se descartan y la
+        ventana abre con las de fábrica.
         """
-        self._guardar_disposicion_al_cerrar = True
+        self._es_la_ventana_del_usuario = True
         try:
             guardadas = preferences.load()
         except PsgLabError:
@@ -1019,25 +1110,6 @@ class MainWindow(QMainWindow):
         # las preferencias del disco entran a la ventana.
         self._preferencias = guardadas
         self._aplicar_preferencias(guardadas)
-        if guardadas.window_state is None:
-            return
-        self.restoreState(QByteArray.fromBase64(guardadas.window_state.encode("ascii")))
-
-    def closeEvent(self, event: QCloseEvent) -> None:
-        """Guarda la disposición antes de cerrar, si corresponde.
-
-        Que no se pueda escribir **no puede impedir cerrar el programa**, así
-        que el error se traga: el usuario ya decidió irse y un cartel en ese
-        momento sólo estorba. La próxima vez abrirá con la disposición
-        anterior, que es un costo aceptable.
-        """
-        if self._guardar_disposicion_al_cerrar:
-            estado = bytes(self.saveState().toBase64()).decode("ascii")
-            try:
-                preferences.save(self._preferencias.with_window_state(estado))
-            except PsgLabError:
-                pass
-        super().closeEvent(event)
 
     def set_color_scheme(self, scheme: theme.ColorScheme, remember: bool = True) -> None:
         """Cambia el esquema de color de todo el programa y lo deja repintado.
@@ -1082,7 +1154,7 @@ class MainWindow(QMainWindow):
         """Escribe las preferencias vigentes, si esta ventana es la del usuario.
 
         **Sólo escribe si la ventana la abrió `main.py`**, que es lo que marca
-        `apply_saved_layout()`. Antes cada cambio de esquema leía el archivo,
+        `apply_saved_preferences()`. Antes cada cambio de esquema leía el archivo,
         lo modificaba y lo volvía a escribir, sin mirar quién había creado la
         ventana: un test que eligiera un esquema desde el menú pisaba las
         preferencias reales de quien corría la suite.
@@ -1090,7 +1162,7 @@ class MainWindow(QMainWindow):
         No eleva: si no se puede escribir, el cambio se aplica igual y el
         problema sale como cartel.
         """
-        if not self._guardar_disposicion_al_cerrar:
+        if not self._es_la_ventana_del_usuario:
             return
         try:
             preferences.save(self._preferencias)
@@ -1387,8 +1459,10 @@ class MainWindow(QMainWindow):
         self.channel_selector.set_recording(procesado)
         # La señal cambió, así que la descomposición que hubiera dejó de ser de
         # este registro. Va **después** del `except`: si el análisis falló, la
-        # señal es la de antes y la ICA sigue siendo válida.
+        # señal es la de antes y la ICA sigue siendo válida. La reproducción
+        # se detiene por lo mismo: la página puede haber cambiado de largo.
         self._olvidar_ica()
+        self.playback.stop()
         self.accion_señal_original.setEnabled(True)
         self.refresh()
         self.statusBar().showMessage(que_hace, 5000)
@@ -1895,6 +1969,7 @@ class MainWindow(QMainWindow):
         # Deshacer también cambia la señal, así que la descomposición que hubiera
         # se ajustó sobre la procesada y ya no corresponde.
         self._olvidar_ica()
+        self.playback.stop()
         self.accion_señal_original.setEnabled(False)
         self.refresh()
         self.statusBar().showMessage("Se volvió a la señal original", 5000)

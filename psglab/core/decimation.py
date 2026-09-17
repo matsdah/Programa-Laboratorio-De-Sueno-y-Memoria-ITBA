@@ -46,7 +46,9 @@ def min_max_envelope(
 
     Args:
         samples: la señal de un canal, en una dimensión.
-        n_buckets: cuántas cubetas. Quien dibuja pasa el ancho en píxeles.
+        n_buckets: cuántas cubetas, como mucho. Quien dibuja pasa el ancho en
+            píxeles. Pueden ser menos: las cubetas tienen que ser iguales y
+            cubrir la señal, así que su tamaño se redondea hacia arriba.
 
     Returns:
         Tupla (índices dentro de `samples`, valores). Los índices vienen
@@ -105,23 +107,30 @@ def min_max_envelope(
     if cantidad <= 2 * n_buckets:
         return np.arange(cantidad), samples
 
-    por_cubeta = cantidad // n_buckets
-    usadas = por_cubeta * n_buckets
-    cuerpo = samples[:usadas].reshape(n_buckets, por_cubeta)
+    # **Redondeando hacia arriba, y no con `cantidad // n_buckets`.** Con la
+    # división entera, 3000 muestras sobre 1120 columnas daban cubetas de 2 que
+    # cubrían sólo 2240: los últimos 760 —la cuarta parte de una página de 30 s
+    # a 100 Hz— quedaban en la cola, reducidos a dos puntos, y la señal se
+    # dibujaba cortada con una recta al final. Hacia arriba, la cola es siempre
+    # más corta que una cubeta, y las cubetas enteras no pasan de `n_buckets`.
+    por_cubeta = -(-cantidad // n_buckets)
+    cubetas = cantidad // por_cubeta
+    usadas = por_cubeta * cubetas
+    cuerpo = samples[:usadas].reshape(cubetas, por_cubeta)
 
     del_minimo = cuerpo.argmin(axis=1)
     del_maximo = cuerpo.argmax(axis=1)
     primero = np.minimum(del_minimo, del_maximo)
     segundo = np.maximum(del_minimo, del_maximo)
-    base = np.arange(n_buckets) * por_cubeta
+    base = np.arange(cubetas) * por_cubeta
 
-    indices = np.empty(2 * n_buckets, dtype=np.intp)
+    indices = np.empty(2 * cubetas, dtype=np.intp)
     indices[0::2] = base + primero
     indices[1::2] = base + segundo
     # Una cubeta constante tiene el mínimo y el máximo en la misma muestra:
     # emitirla dos veces no dibuja nada distinto y rompe la promesa de índices
     # sin repetir.
-    conservar = np.ones(2 * n_buckets, dtype=bool)
+    conservar = np.ones(2 * cubetas, dtype=bool)
     conservar[1::2] = segundo != primero
     indices = indices[conservar]
 

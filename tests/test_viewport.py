@@ -196,3 +196,49 @@ def test_un_tramo_mas_largo_que_la_pagina_se_alinea_por_el_comienzo():
     movida = pagina.containing(100.0, 130.0)
 
     assert movida.start_seconds == pytest.approx(100.0)
+
+
+# -- Los extremos (hito 24) ------------------------------------------------------
+
+
+def test_la_primera_pagina_esta_al_principio(pagina: Viewport):
+    assert pagina.at_start
+    assert not pagina.at_end
+
+
+def test_la_ultima_pagina_esta_al_final():
+    ultima = Viewport.clamped(NOCHE, 30.0, NOCHE)
+
+    assert ultima.at_end
+    assert not ultima.at_start
+
+
+def test_el_final_tolera_el_redondeo_de_la_resta():
+    """`clamped()` calcula el comienzo como duración − página, y con una
+    duración que no es redonda la suma puede quedar un pelo corta. Sin
+    tolerancia, la reproducción no se detendría nunca."""
+    duracion = 79_500.0 + 1 / 3
+    ultima = Viewport.clamped(duracion, 0.1, duracion)
+
+    assert ultima.at_end
+
+
+def test_una_pagina_del_medio_no_esta_en_ningun_extremo(pagina: Viewport):
+    medio = pagina.panned(3600.0)
+
+    assert not medio.at_start
+    assert not medio.at_end
+
+
+def test_el_registro_entero_esta_en_los_dos_extremos(pagina: Viewport):
+    entera = pagina.whole_recording()
+
+    assert entera.at_start and entera.at_end
+
+
+def test_a_un_microsegundo_del_final_no_se_considera_final():
+    """La tolerancia es de un microsegundo; una muestra de un registro de sueño
+    dura por lo menos mil veces más."""
+    casi = Viewport(NOCHE - 30.0 - 0.001, 30.0, NOCHE)
+
+    assert not casi.at_end

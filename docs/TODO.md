@@ -18,9 +18,11 @@ tres chequeos automáticos sobre lo que hasta acá se encontraba a mano.
 El **[hito 22](#hito-22-refactor-de-la-interfaz)** llevó la interfaz a un
 visualizador al estilo de EDFbrowser, en diez fases, y el
 **[hito 23](#hito-23-ajustes-de-la-barra-de-menú)** ajustó su barra de menú y
-sumó el scoring en CSV, EDF+ y XML. Son **veinticuatro hitos**, del 0 al 23,
-que son las filas de la tabla de progreso, y están todos cerrados; lo que
-queda por confirmar está anotado al final del último.
+sumó el scoring en CSV, EDF+ y XML. El
+**[hito 24](#hito-24-vista-inicial-y-reproducción)** dejó la señal sola al
+abrir y agregó la reproducción. Son **veinticinco hitos**, del 0 al 24, que
+son las filas de la tabla de progreso, y están todos cerrados; lo que sigue
+abierto está anotado al final de los dos últimos.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
 34 requisitos se podían usar desde el programa corriendo, no sólo desde sus
@@ -112,6 +114,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [21. Limpieza](#hito-21-limpieza) | — | 0 | ✅ cerrado |
 | [22. Refactor de la interfaz](#hito-22-refactor-de-la-interfaz) | — | 0 | ✅ cerrado |
 | [23. Ajustes de la barra de menú](#hito-23-ajustes-de-la-barra-de-menú) | — | 0 | ✅ cerrado |
+| [24. Vista inicial y reproducción](#hito-24-vista-inicial-y-reproducción) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -626,7 +629,7 @@ la regla vive en `core/`.
     el panel emite y la ventana principal decide si pregunta, porque el panel no
     conoce el scoring.
 - [x] **`psglab/ui/shortcuts.py`** · ~~3 stubs~~ · flechas y teclas de fase
-  - Test: `tests/test_shortcuts.py`, **30 tests en verde**. Las dos funciones que
+  - Test: `tests/test_shortcuts.py`, **33 tests en verde**. Las dos funciones que
     importan se llaman **sin ninguna `QApplication`**.
   - Los de fase salen de la nomenclatura: **la tecla se deriva del código de la
     fase**, así que una fase nueva trae su tecla sola. Hay un test que verifica
@@ -1737,14 +1740,14 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       líneas de `test_entrega.py`. Y la primera medición de cuánto tarda
       dibujar: 92 ms con 64 canales a 1000 Hz, cinco veces por debajo del
       umbral de usabilidad. Las tablas están en `docs/ARQUITECTURA.md`.
-  - Test: `tests/test_main_window_layout.py`, **6 tests en verde**.
+  - Test: `tests/test_main_window_layout.py`, **8 tests en verde**.
 - [x] **Fase 1 — Esquemas de color y preferencias.** Cinco esquemas de fábrica
       —Claro, Oscuro, NK, Azul sobre gris y ECG— y un archivo que los recuerda.
       Las curvas no tenían pluma y salían todas del mismo gris; ahora cada
       canal toma su color. **El esquema Claro deja el programa exactamente como
       era.**
   - Test: `tests/test_theme.py`, **68 tests en verde**.
-  - Test: `tests/test_preferences.py`, **40 tests en verde**.
+  - Test: `tests/test_preferences.py`, **42 tests en verde**.
 - [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
       y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
@@ -1757,13 +1760,13 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       atributo —un `QDockWidget` responde a `windowTitle()` igual que un
       diálogo— y **los 102 tests de `test_entrega.py` pasaron sin tocar
       ninguno**.
-  - Test: `tests/test_docks.py`, **18 tests en verde**.
+  - Test: `tests/test_docks.py`, **23 tests en verde**.
 - [x] **Fase 4 — La barra inferior.** Primera, anterior, siguiente, última,
       amplitud y una franja que salta a cualquier punto de la noche.
       `navigation.py` salió de `SIN_TEST_PROPIO`. **Con esta fase cerró el MVP
       visual sin haber tocado `core/` ni `tools/`.**
-  - Test: `tests/test_navigation.py`, **17 tests en verde**.
-  - Test: `tests/test_icons.py`, **21 tests en verde**.
+  - Test: `tests/test_navigation.py`, **29 tests en verde**.
+  - Test: `tests/test_icons.py`, **38 tests en verde**.
 - [x] **Fase 5 — El menú Amplitud.** La primera fase que tocó `core/`: `Session`
       ganó el desplazamiento vertical por canal, para los que tienen la línea
       de base lejos del cero. El menú habla de «µV por carril» y no de
@@ -1777,11 +1780,11 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       960 ventanas a 256,125 Hz dejó de poder existir. Las flechas siguen
       siendo la época, que es V1_F de «Navegación»; desplazar tiene sus
       propias teclas.
-  - Test: `tests/test_viewport.py`, **27 tests en verde**.
+  - Test: `tests/test_viewport.py`, **33 tests en verde**.
 - [x] **Fase 7 — La envolvente.** Mínimo y máximo por columna de píxeles, que no
       puede perder un pico. El registro entero de prueba —22 horas— bajó de
       1749 ms a 444 ms la primera vez y a 14 ms las siguientes.
-  - Test: `tests/test_decimation.py`, **23 tests en verde**.
+  - Test: `tests/test_decimation.py`, **26 tests en verde**.
 - [x] **Fase 8 — La ventana de configuración.** Cinco solapas: Colores, Editor
       de anotaciones, Espectro de potencia, Otras y Tipografía. Todo se aplica
       en el momento. `psd.validate_band()` pasó a ser pública, para que la regla
@@ -1875,7 +1878,7 @@ reorganiza lo que ya andaba.
 - [x] **La barra de menú deja de ser la nativa**, para que en macOS no
       desaparezcan el botón de abrir ni «Configuración», que no tiene submenú.
   - Test: `tests/test_menus.py`, **30 tests en verde**.
-  - Test: `tests/test_icons.py`, **21 tests en verde**.
+  - Test: `tests/test_icons.py`, **38 tests en verde**.
 
 ### El scoring en cuatro formatos
 
@@ -1922,6 +1925,89 @@ reorganiza lo que ya andaba.
 - [ ] **Un EDF+ de R&K sin S4 ni MT pregunta la nomenclatura al volver a
       leerlo.** El EDF+ no tiene dónde declararla y «Sleep stage 2» se usa en
       las dos. AASM no pregunta, porque escribe «Sleep stage N2».
+
+---
+
+## Hito 24: Vista inicial y reproducción
+
+**Cerrado el 17 de septiembre de 2026.** Tres pedidos del usuario después de
+usar el programa con el [hito 23](#hito-23-ajustes-de-la-barra-de-menú): que
+abra con la señal a pantalla casi completa, que haya botones para mover la
+vista y no sólo la época, y un «play» que recorra el registro solo, como en
+EDFbrowser.
+
+**No tiene stubs que contar.** Lo que más costó no estaba pedido: al medir la
+reproducción aparecieron dos errores del hito 22, abajo.
+
+### Lo que se decidió
+
+| Decisión | Elegido | Por qué |
+|---|---|---|
+| Vista al abrir | La señal y Canales, **siempre** | Pedido del usuario. Scoring, hipnograma y Übersicht le quitaban un cuarto de la pantalla; se abren desde «Paneles» |
+| Recordar la disposición | **Ya no se recuerda** | Revisa la decisión del hito 22: con la vista limpia en cada apertura, guardarla no tenía quién la usara. `Preferences.window_state` se quitó, y un archivo de antes que la trae se sigue leyendo |
+| Qué mueve «play» | Sólo la página | Pedido del usuario: reproducir es mirar, como Mayús+→. La época resaltada, que es lo que se scorea, no se mueve |
+| Velocidades | 0,5× a 60×, arranca en 1× | 1× es la de EDFbrowser; a 30× pasa una época por segundo |
+| Teclado | Espacio, **sólo con el foco en la señal** | En el resto de la ventana Espacio tilda una casilla o aprieta un botón |
+
+### Lo que se hizo
+
+- [x] **La vista inicial.** `ui/docks.py` oculta tres paneles más al armarlos;
+      `apply_saved_layout()` pasó a `apply_saved_preferences()` y ya no
+      restaura nada, y la ventana dejó de guardar la disposición al cerrar.
+  - Test: `tests/test_docks.py`, **23 tests en verde**.
+  - Test: `tests/test_preferences.py`, **42 tests en verde**.
+- [x] **Los botones de página.** ≪ ‹ › ≫ en la barra de abajo, con chevrones
+      para que no se confundan con los triángulos de la época.
+      `Viewport.at_start` y `Viewport.at_end` dicen cuándo apagarlos.
+  - Test: `tests/test_navigation.py`, **29 tests en verde**.
+  - Test: `tests/test_icons.py`, **38 tests en verde**.
+  - Test: `tests/test_viewport.py`, **33 tests en verde**.
+- [x] **`psglab/ui/playback.py`** · V1_F "Navegación"
+  - Un reloj que mide el tiempo real y avisa cuánto avanzar; mover la página
+    es de la ventana, con `Viewport.panned()`. **Mide en vez de contar
+    pasos**: si dibujar tarda más que el paso, la velocidad sigue siendo la
+    pedida. El paso se limita a un segundo, para que una pausa de la máquina
+    no haga saltar la vista.
+  - Se detiene al llegar al final, al abrir otro registro y cuando un
+    análisis cambia la señal. No arranca con el registro entero en pantalla.
+  - Test: `tests/test_playback.py`, **31 tests en verde**.
+  - Test: `tests/test_shortcuts.py`, **33 tests en verde**.
+  - Test: `tests/test_main_window_layout.py`, **8 tests en verde**.
+
+### Lo que se encontró en el camino
+
+La primera medición dio **4,4 cuadros por segundo** con una página de 30 s
+del registro real, que tiene siete canales a 100 Hz: la reproducción se veía
+a saltos. Y la captura para verificarla mostró la señal cortada.
+
+- [x] **La grilla se recreaba entera en cada movimiento de la página.** Setenta
+      líneas borradas y setenta creadas: 45 de los 52 ms de cada paso. Ahora
+      se reusan y sólo cambian de lugar. Quedaron además **debajo de la
+      señal** y no encima, con un `zValue` por serie: al reusarlas, el orden de
+      creación dejó de ser una garantía. Venía del hito 22.
+- [x] **La señal se dibujaba cortada al 75 % de la página, con una recta al
+      final.** `min_max_envelope()` calculaba el tamaño de cubeta con división
+      entera: 3000 muestras sobre 1120 columnas daban cubetas de 2 que cubrían
+      2240, y los últimos 7,6 s quedaban reducidos a dos puntos. Se redondea
+      hacia arriba. Venía de la fase 7 del hito 22, y se escapó porque los
+      tests usaban señales que dividían justo.
+  - Test: `tests/test_decimation.py`, **26 tests en verde**.
+
+Con las dos correcciones, un paso tarda **48 ms con una página de 30 s y 63
+ms con una de 5 min o una hora**: unos 21 y 16 cuadros por segundo, medidos
+sobre el registro de `data/`.
+
+### Lo que sigue abierto
+
+- [ ] **La reproducción corre en el hilo de la interfaz**, como todo el
+      dibujo; es la deuda del [hito 18](#lo-que-sigue-sin-resolverse). Con 32
+      canales a 1000 Hz no hay medición todavía, y el reloj compensa con pasos
+      más largos, así que se vería menos fluida pero a la velocidad elegida.
+- [ ] **El hipnograma queda angosto al abrir los tres paneles de abajo.**
+      `docks.py` les pide 250, 400 y 900 px, pero la Übersicht no baja de 480 y
+      el scoring de 690: en una pantalla de 1400 px el hipnograma recibe unos
+      230. Pasaba igual desde el hito 22, cuando arrancaban abiertos; se midió
+      acá. Achicar esos mínimos es el arreglo, y es trabajo de cada panel.
 
 ---
 

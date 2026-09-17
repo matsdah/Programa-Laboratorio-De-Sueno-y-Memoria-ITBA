@@ -7,8 +7,8 @@ no dan error**:
   la disposición no vuelve: Qt lo avisa por consola y sigue, que es la peor
   combinación posible;
 - que la señal sea el widget central, que es todo el punto del refactor;
-- que los seis paneles de análisis arranquen ocultos, porque un panel de
-  conectividad vacío ocupando media pantalla desde el arranque es ruido;
+- que el programa abra sólo con la señal y el selector de canales (hito 24),
+  y que la disposición no se recuerde de una apertura a otra;
 - que la navegación **no** sea un dock, porque poder cerrarla dejaría sin salida
   a quien no conoce las flechas del teclado.
 """
@@ -70,15 +70,22 @@ def test_los_nombres_de_objeto_no_se_repiten(ventana: MainWindow):
     assert len(set(nombres)) == len(nombres)
 
 
-def test_los_cuatro_de_trabajo_arrancan_visibles(ventana: MainWindow):
-    """Son los que se usan en cada ventana que se scorea."""
-    ocultos = [
-        clave
-        for clave in ("channels", "overview", "scoring", "histogram")
-        if ventana.docks[clave].isHidden()
-    ]
+def test_solo_el_de_canales_arranca_visible(ventana: MainWindow):
+    """Hito 24: la señal ocupa todo lo demás. Scoring, hipnograma y Übersicht
+    se abren desde «Paneles»; las fases y el arousal tienen su tecla."""
+    visibles = [clave for clave, dock in ventana.docks.items() if not dock.isHidden()]
 
-    assert ocultos == []
+    assert visibles == ["channels"]
+
+
+@pytest.mark.parametrize("clave", ["overview", "scoring", "histogram"])
+def test_los_de_trabajo_se_pueden_mostrar_desde_su_accion(ventana: MainWindow, clave: str):
+    """La acción de «Paneles» es la de Qt, que queda sin tildar al arrancar."""
+    accion = ventana.docks[clave].toggleViewAction()
+
+    assert not accion.isChecked()
+    accion.trigger()
+    assert not ventana.docks[clave].isHidden()
 
 
 def test_los_seis_de_analisis_arrancan_ocultos(ventana: MainWindow):
@@ -139,6 +146,15 @@ def test_cerrar_un_panel_y_restaurar_lo_devuelve(ventana: MainWindow):
     assert not ventana.channels_dock.isHidden()
 
 
+def test_restaurar_vuelve_a_la_vista_limpia(ventana: MainWindow):
+    ventana.scoring_dock.show()
+    ventana.psd_dialog.show()
+
+    ventana.restore_default_layout()
+
+    assert [c for c, d in ventana.docks.items() if not d.isHidden()] == ["channels"]
+
+
 def test_la_disposicion_va_y_vuelve(ventana: MainWindow):
     ventana.scoring_dock.hide()
     estado = ventana.saveState()
@@ -158,8 +174,34 @@ def test_restaurar_no_desarma_los_paneles(ventana: MainWindow):
     assert ventana.channels_dock.widget() is ventana.channel_selector
 
 
-def test_la_ventana_recien_construida_no_guarda_al_cerrar(ventana: MainWindow):
-    """Lo prende `create_main_window(restore_layout=True)`, que sólo llama
+def test_la_ventana_recien_construida_no_es_la_del_usuario(ventana: MainWindow):
+    """Lo prende `create_main_window(saved_preferences=True)`, que sólo llama
     `main.py`. Si estuviera prendido por omisión, la suite escribiría el
     archivo de preferencias de quien la corre."""
-    assert ventana._guardar_disposicion_al_cerrar is False
+    assert ventana._es_la_ventana_del_usuario is False
+
+
+def test_la_disposicion_no_se_recuerda(qt_app, tmp_path, monkeypatch):
+    """Hito 24: por más que un archivo de antes traiga una disposición con
+    todos los paneles abiertos, la ventana del usuario abre con la limpia."""
+    import json
+
+    from psglab.ui import preferences
+
+    vieja = create_main_window()
+    for dock in vieja.docks.values():
+        dock.show()
+    estado = bytes(vieja.saveState().toBase64()).decode("ascii")
+    archivo = tmp_path / "preferencias.json"
+    archivo.write_text(
+        json.dumps({"version": 1, "scheme_name": "Claro", "window_state": estado}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(preferences, "preferences_path", lambda: archivo)
+    guardadas = archivo.read_text(encoding="utf-8")
+
+    nueva = create_main_window(saved_preferences=True)
+    nueva.close()
+
+    assert [c for c, d in nueva.docks.items() if not d.isHidden()] == ["channels"]
+    assert archivo.read_text(encoding="utf-8") == guardadas

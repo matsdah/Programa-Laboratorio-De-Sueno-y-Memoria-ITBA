@@ -13,8 +13,9 @@ V1_F de "Navegación" (flechas Izquierda/Derecha) y V1_F/V2_F de "Scoring".
 
 from typing import Final
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QMainWindow, QWidget
 
 from psglab.core.nomenclature import (
     Nomenclature,
@@ -58,6 +59,11 @@ FIXED_SHORTCUTS: Final[dict[str, str]] = {
     "Ctrl+-": "Alejar: página × 2",
     "Ctrl++": "Acercar: página ÷ 2",
     "Ctrl+0": "Mostrar el registro entero",
+    # La reproducción, del hito 24. **Sólo con el foco en la señal**: en el
+    # resto de la ventana Espacio ya tiene dueño —tilda una casilla de
+    # Canales, aprieta el botón enfocado— y robárselo rompería el uso con
+    # teclado de esos paneles.
+    "Space": "Reproducir o pausar (con el foco en la señal)",
     # Accesibilidad. F6 es la tecla con que la mayoría de los programas pasan
     # el foco de un panel al siguiente; sin ella, llegar al selector de canales
     # o al scoring sin mouse obligaba a atravesar todos los controles con Tab.
@@ -92,6 +98,14 @@ ACTIONS: Final[dict[str, str]] = {
     "Shift+F6": "focus_previous_pane",
 }
 
+#: Los atajos que sólo andan **con el foco en la señal**, y el método que
+#: ejecutan. Van aparte de `ACTIONS` porque no se cuelgan de la ventana sino
+#: del visualizador, con `WidgetWithChildrenShortcut`: así la tecla no le llega
+#: a la ventana cuando el foco está en otro panel.
+SIGNAL_ACTIONS: Final[dict[str, str]] = {
+    "Space": "toggle_playback",
+}
+
 #: Cómo se le escribe cada tecla al usuario. Las flechas se dibujan, y
 #: «Shift» es «Mayús», que es lo que dice un teclado en español.
 _NOMBRES_DE_TECLA: Final[dict[str, str]] = {
@@ -100,6 +114,7 @@ _NOMBRES_DE_TECLA: Final[dict[str, str]] = {
     "Up": "↑",
     "Down": "↓",
     "Shift": "Mayús",
+    "Space": "Espacio",
 }
 
 
@@ -136,11 +151,11 @@ def readable_key(key: str) -> str:
 def key_for(method: str) -> str | None:
     """La tecla que ejecuta un método de la ventana, o None si no tiene.
 
-    Es la inversa de `ACTIONS`, y la usa el menú para mostrar el atajo al lado
-    de cada acción **sin declararlo otra vez**: este módulo sigue siendo el
-    único lugar que dice qué tecla hace qué.
+    Es la inversa de `ACTIONS` y de `SIGNAL_ACTIONS`, y la usa el menú para
+    mostrar el atajo al lado de cada acción **sin declararlo otra vez**: este
+    módulo sigue siendo el único lugar que dice qué tecla hace qué.
     """
-    for tecla, metodo in ACTIONS.items():
+    for tecla, metodo in {**ACTIONS, **SIGNAL_ACTIONS}.items():
         if metodo == method:
             return tecla
     return None
@@ -177,6 +192,11 @@ def install_shortcuts(window: QMainWindow, session: Session | None) -> None:
     for tecla, metodo in ACTIONS.items():
         _conectar(window, tecla, metodo)
 
+    senal = getattr(window, "signal_view", None)
+    if isinstance(senal, QWidget):
+        for tecla, metodo in SIGNAL_ACTIONS.items():
+            _conectar(window, tecla, metodo, sobre=senal)
+
     if session is None:
         return
     for tecla, fase in _fases_por_tecla(session.scoring.nomenclature).items():
@@ -204,7 +224,8 @@ def _quitar_atajos_anteriores(window: QMainWindow) -> None:
     """Desinstala los atajos que puso una llamada anterior.
 
     Se reconocen por su `objectName`, y no se borran todos los `QShortcut` de la
-    ventana: este módulo es la fuente única de los atajos del programa, pero
+    ventana. `findChildren()` busca en toda la descendencia, así que también
+    encuentra los que cuelgan de la señal: este módulo es la fuente única de los atajos del programa, pero
     nada impide que Qt o un widget de terceros cuelgue el suyo, y llevárselo
     puesto sería un efecto secundario invisible.
 
@@ -221,15 +242,20 @@ def _quitar_atajos_anteriores(window: QMainWindow) -> None:
         atajo.deleteLater()
 
 
-def _nuevo_atajo(window: QMainWindow, tecla: str) -> QShortcut:
+def _nuevo_atajo(dueno: QWidget, tecla: str) -> QShortcut:
     """Crea un atajo marcado como nuestro, para poder desinstalarlo después."""
-    atajo = QShortcut(QKeySequence(tecla), window)
+    atajo = QShortcut(QKeySequence(tecla), dueno)
     atajo.setObjectName(_NOMBRE_DE_ATAJO)
     return atajo
 
 
-def _conectar(window: QMainWindow, tecla: str, metodo: str) -> None:
-    """Cuelga un atajo de la ventana y lo conecta a uno de sus métodos.
+def _conectar(
+    window: QMainWindow, tecla: str, metodo: str, sobre: QWidget | None = None
+) -> None:
+    """Cuelga un atajo y lo conecta a uno de los métodos de la ventana.
+
+    Con `sobre`, el atajo cuelga de ese widget y sólo anda con el foco adentro
+    de él; sin `sobre`, cuelga de la ventana y anda siempre.
 
     Si la ventana no tiene ese método, el atajo **no se instala**. No es un
     descuido: `install_shortcuts()` se llama con la ventana a medio construir en
@@ -239,7 +265,10 @@ def _conectar(window: QMainWindow, tecla: str, metodo: str) -> None:
     accion = getattr(window, metodo, None)
     if accion is None:
         return
-    _nuevo_atajo(window, tecla).activated.connect(accion)
+    atajo = _nuevo_atajo(window if sobre is None else sobre, tecla)
+    if sobre is not None:
+        atajo.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+    atajo.activated.connect(accion)
 
 
 def _conectar_fase(window: QMainWindow, tecla: str, stage: SleepStage) -> None:
