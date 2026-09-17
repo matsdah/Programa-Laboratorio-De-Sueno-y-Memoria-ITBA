@@ -45,6 +45,19 @@ class UnreadableFileError(PsgLabError):
     """El archivo existe pero no se puede leer: está corrupto o incompleto."""
 
 
+class UndeclaredNomenclatureError(UnreadableFileError):
+    """El archivo de scoring no dice con qué nomenclatura se escribió.
+
+    **Hereda de `UnreadableFileError` a propósito**: hasta que existió, ése era
+    el error de este caso, y quien lo atrapaba sigue atrapándolo. Es una clase
+    aparte porque la interfaz no lo trata como un fracaso sino como una
+    pregunta: le ofrece al investigador las dos nomenclaturas y vuelve a leer
+    con la que elija. Adivinarla no es una opción —el código 2 es S2 en
+    Rechtschaffen y Kales y N2 en AASM—, y rechazar el archivo dejaba afuera a
+    casi todos los que escriben otros programas.
+    """
+
+
 class MixedSamplingRateError(PsgLabError):
     """Los canales tienen frecuencias de muestreo distintas e incompatibles."""
 

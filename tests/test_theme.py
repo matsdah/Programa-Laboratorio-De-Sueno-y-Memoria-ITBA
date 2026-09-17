@@ -332,3 +332,28 @@ def test_un_texto_poco_legible_se_detecta_con_el_umbral_del_texto():
 
     assert theme.contrast_ratio("#8a8a8a", theme.CLARO.background) > 3.0
     assert "el texto de los gráficos" in [que for que, _ in theme.low_contrast_elements(esquema)]
+
+
+# -- El color de los iconos ------------------------------------------------------
+
+
+@pytest.mark.parametrize("nombre", [n for n in theme.SCHEMES if n != "Claro"])
+def test_los_iconos_toman_el_texto_del_esquema(nombre: str):
+    esquema = theme.SCHEMES[nombre]
+
+    assert theme.icon_ink(esquema) == esquema.foreground
+
+
+def test_con_claro_los_iconos_siguen_al_sistema(qt_app):
+    """Claro deja el aspecto nativo, que puede ser oscuro: con el negro del
+    esquema, los iconos quedaban negros sobre una barra negra."""
+    from PySide6.QtGui import QGuiApplication, QPalette
+
+    esperado = QGuiApplication.palette().color(QPalette.ColorRole.WindowText).name()
+
+    assert theme.icon_ink(theme.CLARO) == esperado
+
+
+def test_el_color_de_los_iconos_pide_un_esquema():
+    with pytest.raises(UnknownColorSchemeError):
+        theme.icon_ink("Oscuro")  # type: ignore[arg-type]

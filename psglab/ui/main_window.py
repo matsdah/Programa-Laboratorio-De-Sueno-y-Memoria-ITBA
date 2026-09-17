@@ -3,10 +3,9 @@
 Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
     +---------------------------------------------------------------+
-    |  Menú: Archivo | Sesión | Ver | Montaje | Filtrar | Analizar   |
-    |        Herramientas | Configuración | Ayuda                    |
-    +---------------------------------------------------------------+
-    |  Barra de herramientas (lupa, amplitud, ocupación, anotar)     |
+    | [abrir] Scoring | Escala de tiempo | Amplitud | Ver | Paneles  |
+    |   Montaje | Filtrar | Analizar | Herramientas | Configuración  |
+    |   Ayuda                                                        |
     +----------+-----------------------------------------+----------+
     | Canales  |                                         | Espectro |
     |  (dock)  |   Visualizador de la señal (central)    | Métrica  |
@@ -24,8 +23,13 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 mueve, se apila en solapas, se cierra y se saca a otra pantalla. Los seis
 paneles de análisis arrancan ocultos y los abre la acción que los calcula.
 
-Cubre del pliego: V4_F de "Archivo de salida" (elegir cuál de los tres archivos
-exportar), V3_F de "Ocupación de la página" (mostrar el porcentaje), V2_F de
+**No hay barra de herramientas.** Las herramientas se activan desde su menú,
+que es la única vía: la barra horizontal que lo repetía debajo de la barra de
+menú se quitó por confusa.
+
+Cubre del pliego: V4_F de "Archivo de salida" (`export()` elige cuál de los tres
+archivos escribir, aunque desde el hito 23 la ventana sólo ofrece el scoring),
+V3_F de "Ocupación de la página" (mostrar el porcentaje), V2_F de
 "Herramienta Lupa" (el contador de picos), V2_F del "Histograma" (el eje
 horizontal, en hora real o de 1 a VENMAX) y V5_F de "Filtración" (`_olvidar_ica`,
 que descarta la descomposición cuando la señal deja de ser la suya).
@@ -102,7 +106,7 @@ from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
 from psglab.exporters.annotations_txt import export_annotations
 from psglab.exporters.information_txt import export_information
-from psglab.exporters.scoring_txt import export_scoring
+from psglab.exporters.scoring_formats import SCORING_FORMATS, export_scoring_as
 from psglab.readers.base import file_dialog_filter, read_recording
 from psglab.readers.scoring_reader import read_scoring
 from psglab.tools.annotator import AnnotatorTool
@@ -115,6 +119,7 @@ from psglab.tools.registry import available_tools
 from psglab.ui import preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.docks import build_docks
+from psglab.ui.icons import icon
 from psglab.ui.menus import build_menus, duration_text
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
@@ -128,7 +133,7 @@ from psglab.ui.scoring_panel import ScoringPanel
 from psglab.ui.settings_dialog import SettingsDialog
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
-from psglab.utils.errors import PsgLabError
+from psglab.utils.errors import PsgLabError, UndeclaredNomenclatureError
 
 #: Medidas de complejidad que la interfaz ofrece para recorrer la noche.
 #:
@@ -179,7 +184,8 @@ class MainWindow(QMainWindow):
         #: El registro tal como se leyó, para poder deshacer los análisis.
         self._registro_original: Recording | None = None
         self._tools: dict[str, Tool] = {}
-        #: El botón de cada herramienta, para poder destildarlo al apagarla.
+        #: La entrada de menú de cada herramienta, para poder destildarla al
+        #: apagarla.
         self._tool_actions: dict[str, QAction] = {}
         self._active_viewer_tool: ViewerTool | None = None
         #: La descomposición ICA ajustada, mientras el panel está abierto.
@@ -200,16 +206,16 @@ class MainWindow(QMainWindow):
 
         self._build_layout()
         self._build_menus()
-        self._build_toolbar()
+        self._build_tools_menu()
         self._connect_signals()
         install_shortcuts(self, None)
         # El esquema ya está elegido —`create_application()` lo leyó de las
         # preferencias antes de construir nada—, pero la hoja de estilo se
         # aplica sobre la ventana, que recién existe ahora.
         self.setStyleSheet(theme.stylesheet(theme.current()))
-        #: La disposición de fábrica, capturada con todos los paneles y las dos
-        #: barras ya puestos. Es a lo que vuelve «Ver ▸ Restaurar la
-        #: disposición», y tiene que guardarse acá y no antes: `saveState()`
+        #: La disposición de fábrica, capturada con todos los paneles y la barra
+        #: de navegación ya puestos. Es a lo que vuelve «Paneles ▸ Restaurar
+        #: la disposición», y tiene que guardarse acá y no antes: `saveState()`
         #: sólo serializa lo que ya existe.
         self._layout_por_defecto = self.saveState()
         #: Si al cerrar se guarda la disposición. Lo prende
@@ -280,25 +286,32 @@ class MainWindow(QMainWindow):
 
         El contenido vive en `psglab/ui/menus.py`, que además de las acciones
         deja en la ventana los dos `QAction` que el resto del programa toca
-        —`accion_eje_en_hora` y `accion_señal_original`— y el menú vacío de
-        herramientas que puebla `_build_toolbar()`.
+        —`accion_eje_en_hora` y `accion_señal_original`—, el botón de abrir un
+        registro y el menú vacío de herramientas que puebla
+        `_build_tools_menu()`.
         """
         build_menus(self)
 
-    def _build_toolbar(self) -> None:
-        """Crea la barra de herramientas a partir del registro de herramientas.
+    def _build_tools_menu(self) -> None:
+        """Crea las herramientas y sus entradas en el menú Herramientas.
 
         Se arma recorriendo `psglab.tools.registry`, así que una herramienta
         nueva aparece sola sin tocar este archivo.
+
+        **El menú es la única vía para activarlas.** Hasta el hito 23 las
+        mismas acciones iban también en una barra horizontal debajo del menú,
+        que repetía lo mismo y se confundía con él.
         """
-        barra = self.addToolBar("Herramientas")
         for cls in available_tools():
             herramienta = cls()
             self._tools[cls.name] = herramienta
 
-            accion = barra.addAction(cls.label)
+            accion = QAction(cls.label, self)
             accion.setCheckable(True)
             accion.setToolTip(cls.description)
+            # El menú no muestra tooltips; la barra de estado sí muestra esto
+            # mientras el mouse pasa por la entrada.
+            accion.setStatusTip(cls.description)
             self._tool_actions[cls.name] = accion
             accion.toggled.connect(
                 lambda activa, n=cls.name: self._toggle_tool(n, activa)
@@ -650,7 +663,12 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def open_scoring(self, path: Path) -> None:
-        """Importa un scoring existente sobre el registro abierto (V3_F)."""
+        """Importa un scoring existente sobre el registro abierto (V3_F).
+
+        Acepta los cuatro formatos de `SCORING_FORMATS`. **Si el archivo no
+        dice con qué nomenclatura se scoreó, se le pregunta al usuario** y se
+        vuelve a leer con la que elija; si cancela, no se importa nada.
+        """
         if self._session is None:
             self._show_error(
                 PsgLabError(
@@ -659,8 +677,17 @@ class MainWindow(QMainWindow):
                 )
             )
             return
+        inicio = self._session.recording.start_time
         try:
-            scoring = read_scoring(path, self._session.n_windows)
+            try:
+                scoring = read_scoring(path, self._session.n_windows, start_time=inicio)
+            except UndeclaredNomenclatureError:
+                elegida = self._elegir_nomenclatura(path)
+                if elegida is None:
+                    return
+                scoring = read_scoring(
+                    path, self._session.n_windows, elegida, start_time=inicio
+                )
             # **Se sustituye adentro de la sesión, no se arma otra.** Importar
             # un scoring no es abrir otro registro: el usuario sigue parado en
             # su ventana, con sus canales y sus amplitudes, y las herramientas
@@ -681,14 +708,23 @@ class MainWindow(QMainWindow):
         El diálogo de guardado propone el nombre de archivo que fija el pliego,
         tomándolo de `psglab.exporters.DEFAULT_FILENAMES`.
 
+        **Desde la ventana sólo se pide el scoring**: Anotaciones.txt e
+        Informacion.txt salieron del menú el 16 de septiembre de 2026, pero
+        este método los sigue escribiendo, y es la vía para pedirlos desde un
+        script.
+
         Args:
             kind: "scoring", "annotations" o "information".
+            path: el destino. Para el scoring, su extensión elige el formato:
+                `.txt`, `.csv`, `.edf` o `.xml`.
         """
         if self._session is None:
             return
         try:
             if kind == "scoring":
-                export_scoring(self._session.scoring, path)
+                export_scoring_as(
+                    self._session.scoring, path, self._session.recording.start_time
+                )
             elif kind == "annotations":
                 export_annotations(self._session.annotations, path)
             elif kind == "information":
@@ -809,7 +845,7 @@ class MainWindow(QMainWindow):
         self._cambiar_pagina(self._session.viewport.whole_recording())
 
     def ask_timescale(self) -> None:
-        """Pregunta cuántos segundos por página. Es «Definida por el usuario…»."""
+        """Pregunta cuántos segundos por página. Es «Escala de tiempo ▸ Personalizado…»."""
         if self._session is None:
             return
         actual = self._session.viewport.span_seconds
@@ -932,7 +968,7 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def ask_amplitude_scale(self) -> None:
-        """Pregunta la escala y la aplica. Es «Definida por el usuario…»."""
+        """Pregunta la escala y la aplica. Es «Amplitud ▸ Personalizado…»."""
         if self._session is None:
             return
         actual = self._session.scale_uv(self._session.visible_channels[0])
@@ -1034,6 +1070,7 @@ class MainWindow(QMainWindow):
             grafico.setBackground(scheme.background)
         self.signal_view.apply_scheme()
         self.navigation.apply_scheme()
+        self.open_button.setIcon(icon("abrir", theme.icon_ink(scheme)))
         self.overview_panel.update()
         self._redraw_histogram()
 
@@ -1149,7 +1186,7 @@ class MainWindow(QMainWindow):
 
         Se arma una sola vez y se la vuelve a llenar en cada apertura: lo que
         muestra tiene que ser lo que el programa está usando, que puede haber
-        cambiado desde el menú de esquemas.
+        cambiado desde otro lado desde la última vez que se abrió.
 
         **Es modal pero no bloquea**: se muestra con `show()` y no con
         `exec()`, así que los cambios se ven detrás mientras se eligen, que es
@@ -1393,6 +1430,29 @@ class MainWindow(QMainWindow):
         nombres = self._session.recording.channel_names()
         elegido, acepto = QInputDialog.getItem(self, titulo, etiqueta, nombres, 0, False)
         return elegido if acepto else None
+
+    def _elegir_nomenclatura(self, path: Path) -> Nomenclature | None:
+        """Pregunta con qué nomenclatura se scoreó un archivo que no lo dice.
+
+        Arranca en la del registro abierto, que es la respuesta más probable:
+        quien importa un scoring suele haberlo hecho con la misma que usa acá.
+        `None` si el usuario cancela.
+        """
+        opciones = [n.value for n in Nomenclature]
+        actual = self._session.scoring.nomenclature if self._session else None
+        inicial = opciones.index(actual.value) if actual is not None else 0
+        elegida, acepto = QInputDialog.getItem(
+            self,
+            "Importar scoring",
+            f"«{path.name}» no dice con qué nomenclatura se scoreó.\n"
+            "¿Con cuál se hizo?",
+            opciones,
+            inicial,
+            False,
+        )
+        if not acepto:
+            return None
+        return next(n for n in Nomenclature if n.value == elegida)
 
     def derive_dialog(self) -> None:
         """Pregunta los dos canales y agrega la derivación (sección "Derivar").
@@ -1852,25 +1912,49 @@ class MainWindow(QMainWindow):
 
         No es un formato más: `read_scoring()` no produce un `Recording`, así
         que no pasa por el despacho de `read_recording()`.
+
+        El filtro se arma recorriendo `SCORING_FORMATS`: el primero junta los
+        cuatro, que es lo que se busca casi siempre.
         """
+        patrones = " ".join(f"*.{extension}" for extension in SCORING_FORMATS)
+        filtros = [f"Scoring ({patrones})"]
+        filtros += [f"{nombre} (*.{ext})" for ext, nombre in SCORING_FORMATS.items()]
+        filtros.append("Todos los archivos (*)")
         ruta, _ = QFileDialog.getOpenFileName(
-            self, "Importar scoring", "", "Scoring (*.txt);;Todos los archivos (*)"
+            self, "Importar scoring", "", ";;".join(filtros)
         )
         if ruta:
             self.open_scoring(Path(ruta))
 
-    def export_scoring_dialog(self) -> None:
-        """Ctrl+S."""
-        self._export_dialog("scoring")
+    def export_scoring_dialog(self, fmt: str = "txt") -> None:
+        """Exporta el scoring en el formato pedido.
+
+        Ctrl+S la llama sin argumento, así que el atajo exporta en `.txt`, que
+        es el formato del pliego. Las cuatro entradas de «Scoring» pasan su
+        extensión.
+        """
+        self._export_dialog("scoring", fmt)
 
     # -- Ayudantes privados -------------------------------------------------
 
-    def _export_dialog(self, kind: str) -> None:
-        ruta, _ = QFileDialog.getSaveFileName(
-            self, "Exportar", DEFAULT_FILENAMES[kind], "Texto (*.txt)"
-        )
-        if ruta:
-            self.export(kind, Path(ruta))
+    def _export_dialog(self, kind: str, fmt: str = "txt") -> None:
+        """Pregunta dónde guardar y exporta.
+
+        Propone el nombre del pliego con la extensión del formato elegido.
+        **Si el usuario escribe un nombre sin esa extensión, se le agrega**: el
+        diálogo de Qt no lo hace en todas las plataformas, y sin ella
+        `export()` no sabría en qué formato escribir. Se agrega en vez de
+        reemplazar para no convertir «noche.v2» en «noche.csv».
+        """
+        propuesto = Path(DEFAULT_FILENAMES[kind]).with_suffix(f".{fmt}").name
+        filtro = f"{SCORING_FORMATS.get(fmt, fmt.upper())} (*.{fmt})"
+        ruta, _ = QFileDialog.getSaveFileName(self, "Exportar", propuesto, filtro)
+        if not ruta:
+            return
+        destino = Path(ruta)
+        if destino.suffix.lower() != f".{fmt}":
+            destino = destino.with_name(f"{destino.name}.{fmt}")
+        self.export(kind, destino)
 
     def _go_to_window(self, window_index: int) -> None:
         if self._session is None:

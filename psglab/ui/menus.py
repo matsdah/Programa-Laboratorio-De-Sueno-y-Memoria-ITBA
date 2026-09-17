@@ -5,7 +5,20 @@ por el que `grid.py` está separado de `signal_view.py`: **cambia por razones
 distintas**. El menú cambia cuando se reorganiza la interfaz; la ventana, cuando
 cambia lo que el programa hace.
 
-## Por qué nueve menús y no cinco
+## Qué hay en la barra
+
+Un botón con el icono de una carpeta, que abre un registro, y después Scoring,
+Escala de tiempo, Amplitud, Ver, Paneles, Montaje, Filtrar, Analizar,
+Herramientas, Configuración y Ayuda.
+
+**«Archivo» dejó de ser un menú** porque sólo le quedaba una acción: un menú
+de una entrada obliga a dos clics para lo que un botón hace en uno. Por el
+mismo motivo **«Configuración» abre su ventana directamente**: el submenú de
+esquemas repetía la solapa Colores de esa ventana. Y **«Paneles» es una
+sección propia** y no un submenú de «Ver», porque mostrar u ocultar un panel es
+de lo que más se hace y quedaba a tres clics.
+
+## Por qué los menús van por dominio
 
 Había cinco —Archivo, Ver, Herramientas, Análisis, Ayuda— y `Análisis` se había
 convertido en el cajón de todo lo de la Parte 2: filtrar, derivar,
@@ -26,9 +39,11 @@ principal, y ahí es donde vive lo que hace. Si estás por escribir lógica acá
 va en otro archivo.
 
 **Tampoco arma el menú de herramientas.** Ése se puebla recorriendo el registro
-—`available_tools()`— desde `main_window._build_toolbar()`, y es el punto de
+—`available_tools()`— desde `main_window._build_tools_menu()`, y es el punto de
 extensión que pide el pliego: una herramienta nueva aparece sola. Acá sólo se
-crea el menú vacío que aquél después llena.
+crea el menú vacío que aquél después llena. **Es la única vía para activar una
+herramienta**: la barra horizontal que repetía ese menú debajo de la barra de
+menú se quitó por confusa.
 
 Cubre del pliego: ningún ID. Es el cableado de la barra de menú; cada acción la
 implementa el método de `main_window.py` al que llama.
@@ -38,34 +53,49 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtWidgets import QToolButton
+
 from psglab.config import AMPLITUDE_PRESETS_UV, VIEW_TIMESCALE_PRESETS
-from psglab.exporters import DEFAULT_FILENAMES
+from psglab.exporters.scoring_formats import SCORING_FORMATS
 from psglab.ui import theme
 from psglab.ui.grid import BackgroundStyle
+from psglab.ui.icons import icon
 from psglab.ui.shortcuts import key_for, readable_key
 
 if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
     from collections.abc import Callable
 
     from PySide6.QtGui import QAction
-    from PySide6.QtWidgets import QMenu
+    from PySide6.QtWidgets import QMenu, QMenuBar
 
     from psglab.ui.main_window import MainWindow
+
+#: Lado del icono de abrir, en píxeles. El de Qt por omisión, 16, deja la
+#: carpeta más chica que el texto de los menús de al lado.
+TAMANO_DEL_ICONO = 20
 
 
 def build_menus(window: "MainWindow") -> None:
     """Arma la barra de menú entera sobre la ventana principal.
 
     Deja en la ventana los dos `QAction` que el resto del programa necesita
-    tocar después —`accion_eje_en_hora` y `accion_señal_original`— y el menú
-    vacío de herramientas, `tools_menu`, que `_build_toolbar()` puebla desde el
-    registro.
+    tocar después —`accion_eje_en_hora` y `accion_señal_original`—, el botón
+    de abrir un registro, `open_button`, y el menú vacío de herramientas,
+    `tools_menu`, que `_build_tools_menu()` puebla desde el registro.
+
+    **La barra de menú no es la nativa del sistema.** En macOS la nativa es la
+    de arriba de la pantalla, que no muestra el botón de abrir ni deja una
+    entrada sin submenú como «Configuración»: la barra quedaría distinta, y
+    sin la vía principal para abrir un registro.
     """
-    _archivo(window)
-    _sesion(window)
+    window.menuBar().setNativeMenuBar(False)
+    _abrir(window)
+    _scoring(window)
     _escala_de_tiempo(window)
     _amplitud(window)
     _ver(window)
+    _paneles(window)
     _montaje(window)
     _filtrar(window)
     _analizar(window)
@@ -76,7 +106,7 @@ def build_menus(window: "MainWindow") -> None:
 
 
 def _agregar(
-    menu: "QMenu", texto: str, slot: "Callable[[], object]"
+    menu: "QMenu | QMenuBar", texto: str, slot: "Callable[[], object]"
 ) -> "QAction":
     """Agrega una acción y anota qué método de la ventana ejecuta.
 
@@ -118,33 +148,54 @@ def _atajos_en(menu: "QMenu | None") -> None:
             accion.setText(f"{accion.text()}\t{readable_key(tecla)}")
 
 
-def _archivo(window: "MainWindow") -> None:
-    """Abrir un registro y salir. Nada más: lo demás se mudó a «Sesión»."""
-    archivo = window.menuBar().addMenu("&Archivo")
-    _agregar(archivo, "&Abrir registro…", window.open_recording_dialog)
-    archivo.addSeparator()
-    _agregar(archivo, "&Salir", window.close)
+def _abrir(window: "MainWindow") -> None:
+    """El botón con que se abre un registro, en la esquina izquierda de la barra.
+
+    Ocupa el lugar de «Archivo», que ya no tenía otra acción: «Salir» se quitó
+    porque lo hace la cruz de la ventana. `setAutoRaise()` es lo que le da el
+    realce al pasar el mouse, y la hoja de estilo de `theme.py` lo repite con
+    los colores del esquema.
+
+    **El atajo va en el tooltip** y no como texto al lado, que es donde lo
+    ponen los menús: un botón con icono no tiene columna de atajo.
+    """
+    boton = QToolButton(window.menuBar())
+    boton.setIcon(icon("abrir", theme.icon_ink(theme.current())))
+    boton.setIconSize(QSize(TAMANO_DEL_ICONO, TAMANO_DEL_ICONO))
+    boton.setAutoRaise(True)
+    boton.setCursor(Qt.CursorShape.PointingHandCursor)
+    boton.setAccessibleName("Abrir registro")
+    tecla = key_for("open_recording_dialog")
+    boton.setToolTip(
+        "Abrir registro" + (f" ({readable_key(tecla)})" if tecla is not None else "")
+    )
+    boton.clicked.connect(window.open_recording_dialog)
+    window.menuBar().setCornerWidget(boton, Qt.Corner.TopLeftCorner)
+    window.open_button = boton
 
 
-def _sesion(window: "MainWindow") -> None:
-    """El scoring y las anotaciones: lo que el investigador produce.
+def _scoring(window: "MainWindow") -> None:
+    """El scoring: lo que el investigador produce, en los cuatro formatos.
 
     **Se separó de «Archivo» a propósito.** Abrir un registro es abrir el dato
     de entrada; importar y exportar un scoring es manejar el trabajo propio, y
-    son las dos cosas que más veces por sesión se hacen. Mezclarlas obligaba a
-    buscar "Exportar Scoring.txt" entre las acciones de apertura.
+    son las dos cosas que más veces por sesión se hacen.
+
+    Las exportaciones se arman recorriendo `SCORING_FORMATS`, así que un
+    formato nuevo aparece solo. **Anotaciones.txt e Informacion.txt ya no se
+    ofrecen desde acá**, por decisión del 16 de septiembre de 2026:
+    `MainWindow.export()` los sigue escribiendo, pero sólo desde un script.
     """
-    sesion = window.menuBar().addMenu("&Sesión")
-    _agregar(sesion, "&Importar scoring…", window.open_scoring_dialog)
-    sesion.addSeparator()
-    # V4_F pide poder exportar **uno solo** de los tres, así que son tres
-    # acciones y no un único "Exportar todo".
-    for kind, nombre in DEFAULT_FILENAMES.items():
-        accion = sesion.addAction(
-            f"Exportar {nombre}…", lambda _=False, k=kind: window._export_dialog(k)
+    scoring = window.menuBar().addMenu("&Scoring")
+    _agregar(scoring, "&Importar scoring…", window.open_scoring_dialog)
+    scoring.addSeparator()
+    for extension in SCORING_FORMATS:
+        accion = scoring.addAction(
+            f"Exportar .{extension}…",
+            lambda _=False, e=extension: window.export_scoring_dialog(e),
         )
-        # Exportar el scoring es lo que hace Ctrl+S, aunque por otro método.
-        if kind == "scoring":
+        # El `.txt` es lo que exporta Ctrl+S: el mismo método, sin argumento.
+        if extension == "txt":
             accion.setData("export_scoring_dialog")
 
 
@@ -168,10 +219,9 @@ def _escala_de_tiempo(window: "MainWindow") -> None:
         )
     escala.addSeparator()
     _agregar(escala, "&Registro entero", window.show_whole_recording)
-    _agregar(escala, "Definida por el &usuario…", window.ask_timescale)
-    escala.addSeparator()
-    _agregar(escala, "&Acercar (página ÷ 2)", window.halve_timescale)
-    _agregar(escala, "A&lejar (página × 2)", window.double_timescale)
+    _agregar(escala, "&Personalizado…", window.ask_timescale)
+    # Acercar y alejar a la mitad y al doble no están en el menú: agregaban
+    # poco frente a la lista de escalas, y siguen en Ctrl++ y Ctrl+-.
 
 
 def duration_text(seconds: float) -> str:
@@ -222,7 +272,7 @@ def _amplitud(window: "MainWindow") -> None:
             etiqueta, lambda _=False, uv=microvoltios: window.set_amplitude_scale(uv)
         )
     amplitud.addSeparator()
-    _agregar(amplitud, "Definida por el &usuario…", window.ask_amplitude_scale)
+    _agregar(amplitud, "&Personalizado…", window.ask_amplitude_scale)
     amplitud.addSeparator()
     # Las mismas dos operaciones que las flechas Arriba y Abajo. Están en el
     # menú **además** de en el teclado porque el pliego pide las dos vías
@@ -241,20 +291,28 @@ def _ver(window: "MainWindow") -> None:
         )
 
     ver.addSeparator()
-    # **El submenú se arma recorriendo los docks**, no con una lista escrita a
-    # mano: un panel nuevo aparece solo. `toggleViewAction()` es la acción que
-    # Qt ya mantiene sincronizada con el estado del panel, así que la tilde
-    # queda bien aunque el usuario lo cierre con la cruz.
-    paneles = ver.addMenu("&Paneles")
-    for dock in window.docks.values():
-        paneles.addAction(dock.toggleViewAction())
-    _agregar(ver, "&Restaurar la disposición", window.restore_default_layout)
-
-    ver.addSeparator()
     # V2_F del histograma: el pliego pide poder elegir el eje.
     window.accion_eje_en_hora = ver.addAction("Histograma en hora real de la noche")
     window.accion_eje_en_hora.setCheckable(True)
     window.accion_eje_en_hora.toggled.connect(window.set_histogram_time_axis)
+
+
+def _paneles(window: "MainWindow") -> None:
+    """Qué paneles se ven, y cómo volver a la disposición de fábrica.
+
+    Era un submenú de «Ver», y se volvió sección propia porque es de lo que más
+    se usa: quedaba a tres clics.
+
+    **Se arma recorriendo los docks**, no con una lista escrita a mano: un
+    panel nuevo aparece solo. `toggleViewAction()` es la acción que Qt ya
+    mantiene sincronizada con el estado del panel, así que la tilde queda bien
+    aunque el usuario lo cierre con la cruz.
+    """
+    paneles = window.menuBar().addMenu("&Paneles")
+    for dock in window.docks.values():
+        paneles.addAction(dock.toggleViewAction())
+    paneles.addSeparator()
+    _agregar(paneles, "&Restaurar la disposición", window.restore_default_layout)
 
 
 def _montaje(window: "MainWindow") -> None:
@@ -308,18 +366,13 @@ def _analizar(window: "MainWindow") -> None:
 
 
 def _configuracion(window: "MainWindow") -> None:
-    """Las preferencias del usuario.
+    """Las preferencias del usuario: un clic abre su ventana.
 
-    El submenú se arma recorriendo `theme.SCHEMES`, así que agregar un esquema
-    no obliga a tocar este archivo: es el mismo criterio que hace que una
-    herramienta o un formato de archivo nuevos aparezcan solos.
+    Es una entrada de la barra sin submenú. Tenía uno con «Configuración…» y
+    los esquemas de color, que repetían la solapa Colores de esa misma ventana,
+    donde además se ve el esquema antes de elegirlo.
     """
-    configuracion = window.menuBar().addMenu("&Configuración")
-    _agregar(configuracion, "&Configuración…", window.show_settings_dialog)
-    configuracion.addSeparator()
-    esquemas = configuracion.addMenu("Esquema de &color")
-    for nombre, esquema in theme.SCHEMES.items():
-        esquemas.addAction(nombre, lambda _=False, e=esquema: window.set_color_scheme(e))
+    _agregar(window.menuBar(), "&Configuración", window.show_settings_dialog)
 
 
 def _ayuda(window: "MainWindow") -> None:

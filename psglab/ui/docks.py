@@ -95,7 +95,7 @@ def build_docks(window: "MainWindow") -> None:
     """Ubica todos los paneles alrededor de la señal.
 
     Deja en la ventana un atributo por dock, y `docks` con todos ellos por
-    nombre, que es lo que usa el menú «Ver ▸ Paneles» para poder mostrarlos y
+    nombre, que es lo que usa el menú «Paneles» para poder mostrarlos y
     ocultarlos sin conocerlos uno por uno.
     """
     window.setCentralWidget(window.signal_view)

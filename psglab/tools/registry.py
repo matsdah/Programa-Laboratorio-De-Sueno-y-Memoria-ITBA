@@ -8,7 +8,7 @@ Es el mecanismo que hace enchufables a las herramientas. Para agregar una:
        zona de pantalla.
     3. Decorarla con `@register_tool`.
 
-La barra de herramientas de la ventana principal se arma recorriendo este
+El menú Herramientas de la ventana principal se arma recorriendo este
 registro, así que la herramienta nueva aparece sola. No hay que modificar
 ningún archivo existente.
 

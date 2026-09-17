@@ -95,8 +95,8 @@ def create_main_window(restore_layout: bool = False) -> MainWindow:
         La ventana principal, todavía sin mostrar.
     """
     # Los dos registros se pueblan solos recorriendo su paquete. Se los carga
-    # antes de construir la ventana porque la barra de herramientas y el filtro
-    # del diálogo de apertura se arman recorriéndolos.
+    # antes de construir la ventana porque el menú Herramientas y el filtro del
+    # diálogo de apertura se arman recorriéndolos.
     load_all_tools()
     load_all_readers()
     ventana = MainWindow()

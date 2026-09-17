@@ -28,6 +28,7 @@ from psglab.readers.scoring_reader import (
 from psglab.utils.errors import (
     PsgLabError,
     ScoringMismatchError,
+    UndeclaredNomenclatureError,
     UnreadableFileError,
 )
 
@@ -325,3 +326,35 @@ def test_el_archivo_se_lee_una_sola_vez(escribir, monkeypatch):
     read_scoring(ruta, n_windows=3)
 
     assert len(lecturas) == 1, f"el archivo se leyo {len(lecturas)} veces"
+
+
+# -- La pregunta y los otros formatos ---------------------------------------------
+
+
+def test_sin_cabecera_el_error_es_el_que_la_ventana_convierte_en_pregunta(escribir):
+    """Sigue siendo un `UnreadableFileError`, así que nadie que lo atrapaba se
+    entera del cambio; la ventana lo atrapa aparte para preguntar."""
+    with pytest.raises(UndeclaredNomenclatureError):
+        read_scoring(escribir("0 0\n2 0\n"), 2)
+    assert issubclass(UndeclaredNomenclatureError, UnreadableFileError)
+
+
+def test_un_csv_no_se_lee_como_si_fuera_scoring_txt(tmp_path):
+    """La extensión elige el lector: leído como `.txt`, la cabecera del CSV
+    sería una línea con un campo de más."""
+    ruta = tmp_path / "Scoring.csv"
+    ruta.write_text("ventana,inicio_s,fase,arousal\n1,0,N2,1\n", encoding="utf-8")
+
+    scoring = read_scoring(ruta, 1)
+
+    assert scoring.get(0).stage is SleepStage.N2
+    assert scoring.get(0).arousal is True
+
+
+def test_una_extension_desconocida_se_sigue_leyendo_como_scoring_txt(tmp_path):
+    """Es lo que se hacía antes de que hubiera otros formatos, y lo que espera
+    quien elige «Todos los archivos» en el diálogo."""
+    ruta = tmp_path / "scoring.dat"
+    ruta.write_text("# AASM\n2 0\n", encoding="utf-8")
+
+    assert read_scoring(ruta, 1).get(0).stage is SleepStage.N2

@@ -27,7 +27,7 @@ commit.
 |----|-----------|---------|
 | V1_F | Importar BrainVision (VHDR/VMRK/EEG) | `psglab/readers/brainvision.py`, `psglab/readers/base.py` (despacho), `psglab/core/recording.py` (modelo) |
 | V2_F | Importar `.edf` | `psglab/readers/edf.py`, `psglab/readers/base.py` (despacho), `psglab/core/recording.py` (modelo) |
-| V3_F | Importar señal ya escorada y ver la fase de cada ventana | `psglab/readers/scoring_reader.py`, `psglab/core/scoring.py`, `psglab/core/recording.py` (cantidad de ventanas) |
+| V3_F | Importar señal ya escorada y ver la fase de cada ventana | `psglab/readers/scoring_reader.py`, `psglab/readers/scoring_formats.py` (CSV, EDF+ y XML), `psglab/core/scoring.py`, `psglab/core/recording.py` (cantidad de ventanas) |
 
 ### Visualización de la señal
 
@@ -110,10 +110,10 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | `Scoring.txt` | `psglab/exporters/scoring_txt.py`, `psglab/core/nomenclature.py` (`STAGE_CODES`) |
+| V1_F | `Scoring.txt`, y el mismo scoring en CSV, EDF+ y XML | `psglab/exporters/scoring_txt.py`, `psglab/exporters/scoring_formats.py` (los otros tres formatos), `psglab/core/nomenclature.py` (`STAGE_CODES`) |
 | V2_F | `Anotaciones.txt` | `psglab/exporters/annotations_txt.py`, `psglab/core/annotations.py` |
 | V3_F | `Informacion.txt` | `psglab/exporters/information_txt.py`, `psglab/exporters/statistics.py` |
-| V4_F | Elegir cuál de los tres exportar | `psglab/ui/main_window.py` |
+| V4_F | Elegir cuál de los tres exportar | `psglab/ui/main_window.py` (`export()`; desde el hito 23 la ventana sólo ofrece el scoring) |
 
 ---
 
@@ -152,7 +152,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/utils/errors.py` | Excepciones con mensaje para el investigador | Todo mensaje de error que ve el usuario |
 | `psglab/utils/validation.py` | Que un NaN no atraviese una guarda numérica | Toda validación del modelo |
 | `psglab/tools/base.py` | Los contratos `Tool` y `ViewerTool`, y el sistema de coordenadas | Las seis herramientas |
-| `psglab/tools/registry.py` | Registro enchufable de herramientas | La barra de herramientas entera |
+| `psglab/tools/registry.py` | Registro enchufable de herramientas | El menú Herramientas entero |
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |
 | `psglab/analysis/mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw`, y la escala volts ↔ µV | Filtrado, ICA y re-referenciado |
 | `psglab/core/viewport.py` | La página visible, separada de la época de scoring | La escala de tiempo y todo lo que se dibuja |

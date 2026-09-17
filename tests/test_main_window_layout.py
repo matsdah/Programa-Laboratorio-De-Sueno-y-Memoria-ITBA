@@ -36,6 +36,9 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         "accion_señal_original",
         # El menú que se puebla desde el registro de herramientas.
         "tools_menu",
+        # El botón de la esquina de la barra de menú, que abre un registro. El
+        # cambio de esquema le vuelve a dibujar el icono.
+        "open_button",
         # Los paneles acoplables, por nombre, y los cuatro de trabajo.
         "docks",
         "channels_dock",

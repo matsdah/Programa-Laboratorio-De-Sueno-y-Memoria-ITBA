@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y un
+camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y dos
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -64,6 +64,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_channel_types.py` | Que cada canal se clasifique solo: EEG, EOG, EMG, ECG u otro. |
 | `test_readers.py` | El despacho por formato, y que la señal de un EDF y un BrainVision salga en la escala correcta. |
 | `test_scoring_reader.py` | Importar un scoring ya hecho sin adivinar con qué nomenclatura se escribió. |
+| `test_scoring_formats.py` | El scoring en CSV, EDF+ y XML: la ida y la vuelta, y los archivos que escriben otros programas. |
 | `test_registry.py` | El registro de herramientas y su clase base: el punto de extensión. |
 | `test_amplitude_band.py` | La banda de 75 µV, y sobre qué canal se dibuja. |
 | `test_occupancy.py` | La ocupación horizontal: los ejemplos del pliego y el gesto del mouse. |
@@ -96,7 +97,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_main_window_layout.py` | Cómo se llama lo que la ventana hace: la superficie pública que un refactor no puede renombrar en silencio. |
 | `test_theme.py` | Los esquemas de color: que un esquema sea inmutable, que la paleta cicle y que lo guardado vuelva igual. |
 | `test_preferences.py` | Lo que el programa recuerda entre sesiones, y que un archivo roto no le impida arrancar. |
-| `test_menus.py` | La barra de menú: que ninguna acción quede sin conectar y que cada cosa esté donde corresponde. |
+| `test_menus.py` | La barra de menú: que ninguna acción quede sin conectar, que cada cosa esté donde corresponde y que lo que se sacó no vuelva sin que nadie lo decida. |
 | `test_docks.py` | Los paneles acoplables: que cada uno se pueda guardar y restaurar, y que la navegación no se pueda cerrar. |
 | `test_icons.py` | Los iconos que dibuja el programa: que no salgan vacíos y que tomen el color pedido. |
 | `test_navigation.py` | La barra inferior: que la franja convierta bien un clic en una ventana, sobre todo en los bordes. |

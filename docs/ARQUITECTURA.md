@@ -75,7 +75,7 @@ formas concretas.
 **Herramientas** (`psglab/tools/registry.py`). Agregar una herramienta nueva
 es crear un archivo, heredar de `ViewerTool` (si actúa con el mouse sobre la
 señal) o de `Tool` (si es un panel), y decorar la clase con
-`@register_tool`. La barra de herramientas se arma recorriendo el registro,
+`@register_tool`. El menú Herramientas se arma recorriendo el registro,
 así que la herramienta aparece sola. No hay que tocar `main.py`, ni la
 ventana principal, ni ninguna herramienta existente.
 

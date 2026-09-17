@@ -23,6 +23,7 @@ from dataclasses import dataclass, fields
 from typing import Final
 
 import pyqtgraph as pg
+from PySide6.QtGui import QGuiApplication, QPalette
 
 from psglab.utils.errors import UnknownColorSchemeError
 
@@ -327,6 +328,12 @@ def stylesheet(scheme: ColorScheme) -> str:
             background-color: {realce};
         }}
         QMenu {{ border: 1px solid {borde}; }}
+        QMenuBar QToolButton {{
+            border: none; border-radius: 3px; padding: 2px 6px;
+        }}
+        QMenuBar QToolButton:hover, QMenuBar QToolButton:pressed {{
+            background-color: {realce};
+        }}
         QToolBar {{ border-bottom: 1px solid {borde}; }}
         QPushButton, QComboBox, QLineEdit, QSpinBox {{
             background-color: {fondo};
@@ -356,6 +363,28 @@ def stylesheet(scheme: ColorScheme) -> str:
             border: 1px solid {borde};
         }}
     """
+
+
+def icon_ink(scheme: ColorScheme) -> str:
+    """El color con que se dibujan los iconos bajo este esquema.
+
+    Es el texto del esquema, **salvo en Claro**. Ése no aplica hoja de estilo
+    y deja el aspecto nativo, que sigue el modo claro u oscuro del sistema: con
+    Windows en modo oscuro, el negro de Claro dejaba los iconos negros sobre
+    una barra negra. Ahí la tinta es la del texto de la aplicación, que Qt ya
+    eligió para ese fondo.
+
+    Raises:
+        UnknownColorSchemeError: si lo que se pasa no es un `ColorScheme`.
+    """
+    if not isinstance(scheme, ColorScheme):
+        raise UnknownColorSchemeError(
+            "No se pudo elegir el color de los iconos porque no es un esquema válido.",
+            details=f"Se recibió un objeto de tipo {type(scheme).__name__}.",
+        )
+    if scheme is CLARO and QGuiApplication.instance() is not None:
+        return QGuiApplication.palette().color(QPalette.ColorRole.WindowText).name()
+    return scheme.foreground
 
 
 def scheme_by_name(name: str) -> ColorScheme:
