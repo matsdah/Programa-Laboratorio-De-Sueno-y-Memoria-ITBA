@@ -16,7 +16,7 @@ import pytest
 pytest.importorskip("pyqtgraph")
 
 from psglab.tools.overview import OverviewWindow  # noqa: E402
-from psglab.ui.overview_panel import OverviewPanel  # noqa: E402
+from psglab.ui.overview_panel import ANCHO_MINIMO, OverviewPanel  # noqa: E402
 
 ANCHO = 500
 ALTO = 80
@@ -141,12 +141,35 @@ def test_el_alto_se_puede_cambiar(panel: OverviewPanel):
     assert panel.height() == 150
 
 
-def test_el_ancho_pedido_es_un_minimo(panel: OverviewPanel):
-    """Se fija como mínimo y no como ancho exacto, para que el panel siga
-    acompañando a la ventana si el usuario la agranda."""
+def test_el_ancho_pedido_es_el_preferido(panel: OverviewPanel):
+    """No es un ancho exacto, para que el panel siga acompañando a la ventana
+    si el usuario la agranda.
+
+    **Tampoco es un mínimo**, desde el hito 24: como mínimo no le dejaba lugar
+    al hipnograma cuando se abrían los tres paneles de abajo."""
     panel.set_panel_size(600, 150)
 
-    assert panel.minimumWidth() == 600
+    assert panel.sizeHint().width() == 600
+    assert panel.minimumWidth() == ANCHO_MINIMO
+
+
+def test_un_ancho_pedido_menor_que_el_minimo_tambien_vale(panel: OverviewPanel):
+    """El mínimo no puede agrandar lo que el usuario pidió chico."""
+    panel.set_panel_size(80, 90)
+
+    assert panel.minimumWidth() == 80
+    assert panel.sizeHint().width() == 80
+
+
+def test_con_el_ancho_minimo_se_siguen_viendo_las_tres_ventanas(panel: OverviewPanel):
+    """37 px por ventana alcanzan para el número."""
+    panel.set_windows(vecinas(actual=10)[1:4])
+    panel.resize(ANCHO_MINIMO, ALTO)
+
+    cajas = panel.rectangles()
+
+    assert len(cajas) == 3
+    assert all(caja.width() >= 30 for _, caja in cajas)
 
 
 def test_cambiar_el_tamano_no_borra_lo_que_muestra(panel: OverviewPanel):

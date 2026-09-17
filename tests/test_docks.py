@@ -14,12 +14,13 @@ no dan error**:
 """
 
 import pytest
-from PySide6.QtWidgets import QDockWidget
+from PySide6.QtWidgets import QApplication, QDockWidget
 
 pytest.importorskip("pyqtgraph")
 
 import psglab.ui.docks as docks  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
+from psglab.core.nomenclature import Nomenclature  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 
 
@@ -205,3 +206,130 @@ def test_la_disposicion_no_se_recuerda(qt_app, tmp_path, monkeypatch):
 
     assert [c for c, d in nueva.docks.items() if not d.isHidden()] == ["channels"]
     assert archivo.read_text(encoding="utf-8") == guardadas
+
+
+# -- El ancho de los paneles de abajo ------------------------------------------
+#
+# Hasta el hito 24 el scoring no bajaba de 690 px y la Übersicht de 480, y al
+# abrir los tres el hipnograma se quedaba con unos 230 en una pantalla de
+# 1400: la curva de la noche no se leía.
+
+
+def mostrar_los_de_abajo(ventana: MainWindow) -> list[QDockWidget]:
+    """Los tres paneles de abajo, abiertos desde su acción como lo hace
+    «Paneles», con la ventana en pantalla para que haya reparto."""
+    ventana.resize(1400, 800)
+    ventana.show()
+    QApplication.processEvents()
+    abajo = [ventana.docks[clave] for clave in docks.ANCHOS_DE_ABAJO]
+    for dock in abajo:
+        dock.toggleViewAction().trigger()
+    for _ in range(3):
+        QApplication.processEvents()
+    return abajo
+
+
+@pytest.mark.parametrize("nomenclatura", list(Nomenclature))
+def test_el_scoring_se_deja_angostar(ventana: MainWindow, nomenclatura: Nomenclature):
+    """Ningún control vuelve al mínimo de Qt, que en Windows es de 75 px por
+    botón aunque diga «W».
+
+    El tope se arma con los mínimos declarados y no en píxeles fijos: el ancho
+    de «Arousal» depende de la tipografía de cada plataforma —72 px en Windows,
+    108 en la de los tests—.
+    """
+    from psglab.core.nomenclature import stages_of
+    from psglab.ui.scoring_panel import ANCHO_MINIMO_DE_BOTON, ANCHO_MINIMO_DEL_SELECTOR
+
+    panel = ventana.scoring_panel
+    panel.set_nomenclature(nomenclatura)
+    botones = len(stages_of(nomenclatura))
+    fila = panel.layout()
+    margenes = fila.contentsMargins()
+    tope = (
+        margenes.left()
+        + margenes.right()
+        + ANCHO_MINIMO_DEL_SELECTOR
+        + botones * ANCHO_MINIMO_DE_BOTON
+        + panel._arousal.minimumSizeHint().width()
+        + fila.spacing() * (botones + 2)
+    )
+
+    assert all(b.minimumWidth() == ANCHO_MINIMO_DE_BOTON for b in panel._botones.values())
+    assert panel.minimumSizeHint().width() <= tope
+
+
+def test_la_ubersicht_se_deja_angostar(ventana: MainWindow):
+    assert ventana.overview_dock.minimumSizeHint().width() <= 140
+
+
+@pytest.mark.parametrize("nomenclatura", list(Nomenclature))
+def test_con_los_tres_de_abajo_el_hipnograma_es_el_mas_ancho(
+    ventana: MainWindow, nomenclatura: Nomenclature
+):
+    ventana.scoring_panel.set_nomenclature(nomenclatura)
+    try:
+        overview, scoring, hipnograma = mostrar_los_de_abajo(ventana)
+
+        assert hipnograma.width() > scoring.width()
+        assert hipnograma.width() > overview.width()
+        assert hipnograma.width() >= 600
+    finally:
+        ventana.close()
+
+
+def test_volver_a_mostrar_el_hipnograma_le_devuelve_el_ancho(ventana: MainWindow):
+    """Qt no recuerda un reparto pedido mientras el panel estaba oculto: por
+    eso se reparte cada vez que uno aparece."""
+    try:
+        _, _, hipnograma = mostrar_los_de_abajo(ventana)
+        antes = hipnograma.width()
+        hipnograma.toggleViewAction().trigger()
+        QApplication.processEvents()
+
+        hipnograma.toggleViewAction().trigger()
+        for _ in range(3):
+            QApplication.processEvents()
+
+        assert hipnograma.width() >= antes - 10
+    finally:
+        ventana.close()
+
+
+def test_repartir_con_un_solo_panel_abajo_no_hace_nada(ventana: MainWindow):
+    """No hay con quién repartir, y `resizeDocks()` con un solo panel lo
+    achicaría hasta el ancho pedido."""
+    ventana.histogram_dock.show()
+
+    docks.repartir_abajo(ventana)
+
+    assert not ventana.histogram_dock.isHidden()
+
+
+def test_el_selector_muestra_la_abreviatura(ventana: MainWindow):
+    """«Rechtschaffen y Kales» entero ocupaba 160 px del panel. El nombre
+    completo queda en el tooltip de cada opción y del selector."""
+    from PySide6.QtCore import Qt
+
+    selector = ventana.scoring_panel._nomenclaturas
+    textos = [selector.itemText(i) for i in range(selector.count())]
+    ayudas = [selector.itemData(i, Qt.ItemDataRole.ToolTipRole) for i in range(selector.count())]
+
+    assert textos == ["R&K", "AASM"]
+    assert ayudas == [n.value for n in Nomenclature]
+    ventana.scoring_panel.set_nomenclature(Nomenclature.RK)
+    assert selector.currentData() is Nomenclature.RK
+    assert "Rechtschaffen y Kales" in selector.toolTip()
+
+
+def test_cambiar_de_nomenclatura_oculta_los_botones_viejos_enseguida(
+    ventana: MainWindow,
+):
+    """`deleteLater()` espera al ciclo de eventos; sin ocultarlos, dentro de un
+    diálogo modal los botones viejos quedaban dibujados bajo los nuevos."""
+    viejos = list(ventana.scoring_panel._botones.values())
+
+    ventana.scoring_panel.set_nomenclature(Nomenclature.RK)
+
+    assert viejos
+    assert all(boton.isHidden() for boton in viejos)

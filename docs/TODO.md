@@ -1760,7 +1760,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       atributo —un `QDockWidget` responde a `windowTitle()` igual que un
       diálogo— y **los 102 tests de `test_entrega.py` pasaron sin tocar
       ninguno**.
-  - Test: `tests/test_docks.py`, **23 tests en verde**.
+  - Test: `tests/test_docks.py`, **32 tests en verde**.
 - [x] **Fase 4 — La barra inferior.** Primera, anterior, siguiente, última,
       amplitud y una franja que salta a cualquier punto de la noche.
       `navigation.py` salió de `SIN_TEST_PROPIO`. **Con esta fase cerró el MVP
@@ -1954,7 +1954,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
 - [x] **La vista inicial.** `ui/docks.py` oculta tres paneles más al armarlos;
       `apply_saved_layout()` pasó a `apply_saved_preferences()` y ya no
       restaura nada, y la ventana dejó de guardar la disposición al cerrar.
-  - Test: `tests/test_docks.py`, **23 tests en verde**.
+  - Test: `tests/test_docks.py`, **32 tests en verde**.
   - Test: `tests/test_preferences.py`, **42 tests en verde**.
 - [x] **Los botones de página.** ≪ ‹ › ≫ en la barra de abajo, con chevrones
       para que no se confundan con los triángulos de la época.
@@ -2003,11 +2003,23 @@ sobre el registro de `data/`.
       dibujo; es la deuda del [hito 18](#lo-que-sigue-sin-resolverse). Con 32
       canales a 1000 Hz no hay medición todavía, y el reloj compensa con pasos
       más largos, así que se vería menos fluida pero a la velocidad elegida.
-- [ ] **El hipnograma queda angosto al abrir los tres paneles de abajo.**
-      `docks.py` les pide 250, 400 y 900 px, pero la Übersicht no baja de 480 y
-      el scoring de 690: en una pantalla de 1400 px el hipnograma recibe unos
-      230. Pasaba igual desde el hito 22, cuando arrancaban abiertos; se midió
-      acá. Achicar esos mínimos es el arreglo, y es trabajo de cada panel.
+- [x] **El hipnograma quedaba angosto al abrir los tres paneles de abajo.**
+      `docks.py` les pedía 250, 400 y 900 px, pero la Übersicht no bajaba de
+      480 y el scoring de 690: en una pantalla de 1400 px el hipnograma recibía
+      unos 230. Pasaba desde el hito 22. **Resuelto el mismo día**, en tres
+      partes:
+      - El ancho de la Übersicht (V2_F) es el preferido y no el mínimo, que
+        bajó a 120 px.
+      - El scoring tiene mínimos propios —40 px por botón, 72 el selector— y
+        el selector muestra «R&K» en vez del nombre entero, que queda en el
+        tooltip. Pasó de 868 px a unos 460 con Rechtschaffen y Kales.
+      - Qt no recordaba el reparto pedido mientras los paneles estaban
+        ocultos, así que `repartir_abajo()` lo vuelve a aplicar cada vez que
+        uno aparece.
+
+      Con 1400 px el hipnograma recibe ahora unos 690, el más ancho de los
+      tres.
+  - Test: `tests/test_docks.py`, **32 tests en verde**.
 
 ---
 
