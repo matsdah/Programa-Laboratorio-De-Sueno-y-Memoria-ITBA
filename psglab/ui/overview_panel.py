@@ -24,7 +24,7 @@ Cubre del pliego: V1_F, V2_F, V3_F de "Übersicht (panel de contexto)".
 
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF, Qt
+from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QBrush, QColor, QPaintEvent, QPainter, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
@@ -43,6 +43,11 @@ _FRANJA_DE_EVENTOS: float = 0.25
 #: propósito: un color de la paleta haría creer que la clase tiene uno asignado.
 _SIN_COLOR = "#999999"
 
+#: Hasta dónde se deja angostar el panel, en píxeles. Con tres ventanas son
+#: unos 37 px cada una, que todavía alcanzan para leer el número. Ver
+#: `OverviewPanel.set_panel_size()`.
+ANCHO_MINIMO: int = 120
+
 
 class OverviewPanel(QWidget):
     """Dibuja las ventanas vecinas que publica `OverviewTool`."""
@@ -54,6 +59,8 @@ class OverviewPanel(QWidget):
         #: Colores por clase de evento, que los pide la ventana principal al
         #: `AnnotationSet`: la herramienta manda los nombres, no los colores.
         self._colors: dict[str, str] = {}
+        #: El ancho que pidió el usuario (V2_F). Es el preferido, no el mínimo.
+        self._ancho_preferido = ANCHO_MINIMO
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.set_panel_size(480, 90)
         self.setToolTip(
@@ -84,12 +91,22 @@ class OverviewPanel(QWidget):
         """Fija el tamaño del panel (V2_F).
 
         La validación vive en `OverviewTool.set_size()`, que es donde está la
-        regla; acá sólo se obedece. Se fija el alto y se deja el ancho como
-        mínimo, para que el panel siga acompañando a la ventana si el usuario
-        la agranda.
+        regla; acá sólo se obedece. El alto se fija.
+
+        **El ancho es el preferido, no el mínimo.** Como mínimo, los 480 px
+        con que se arma el panel —240 con los de la herramienta— no dejaban
+        lugar al hipnograma cuando se abrían los tres paneles de abajo. Ahora
+        el panel empieza con el ancho pedido, crece si la ventana se agranda y
+        se deja angostar hasta `ANCHO_MINIMO` si hace falta.
         """
-        self.setMinimumWidth(int(width_px))
+        self._ancho_preferido = int(width_px)
+        self.setMinimumWidth(min(ANCHO_MINIMO, self._ancho_preferido))
         self.setFixedHeight(int(height_px))
+        self.updateGeometry()
+
+    def sizeHint(self) -> QSize:
+        """El ancho que pidió el usuario y el alto fijado."""
+        return QSize(self._ancho_preferido, self.height())
 
     # -- Dónde va cada cosa, que sí se puede afirmar sin mirar --------------
 

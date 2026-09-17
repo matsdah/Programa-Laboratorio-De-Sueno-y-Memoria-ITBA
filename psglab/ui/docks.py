@@ -54,6 +54,17 @@ if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
 #: dejarla crecer le come lugar a la señal.
 ALTO_DEL_HIPNOGRAMA: Final[int] = 140
 
+#: Cómo se reparten el ancho los tres paneles de abajo, en proporción:
+#: Übersicht, scoring e hipnograma. **El hipnograma se lleva la mayor parte**:
+#: dibuja las 2650 ventanas de la noche entera, y en un tercio de la pantalla
+#: las fases se amontonan hasta ser ilegibles. La Übersicht muestra tres
+#: ventanas y no gana nada con más lugar.
+ANCHOS_DE_ABAJO: Final[dict[str, int]] = {
+    "overview": 250,
+    "scoring": 400,
+    "histogram": 900,
+}
+
 #: Los paneles de análisis, en el orden en que se apilan en solapas a la
 #: derecha. El orden es el del flujo de trabajo, no el alfabético: primero el
 #: control de calidad, después lo que mide, al final lo que modifica la señal.
@@ -129,17 +140,6 @@ def _trabajo(window: "MainWindow") -> None:
     window.histogram_dock = nuevo_dock(window, "Hipnograma", window.histogram_view, abajo)
     window.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, window.histogram_dock)
 
-    # Los tres de abajo quedan lado a lado, y sin esto Qt les da el mismo
-    # ancho. **El hipnograma necesita más que los otros dos**: dibuja las 2650
-    # ventanas de la noche entera, y en un tercio de la pantalla las fases se
-    # amontonan hasta ser ilegibles. La Übersicht, en cambio, muestra tres
-    # ventanas y no gana nada con más lugar.
-    window.resizeDocks(
-        [window.overview_dock, window.scoring_dock, window.histogram_dock],
-        [250, 400, 900],
-        Qt.Orientation.Horizontal,
-    )
-
     for nombre, dock in (
         ("channels", window.channels_dock),
         ("overview", window.overview_dock),
@@ -149,12 +149,42 @@ def _trabajo(window: "MainWindow") -> None:
         window.docks[nombre] = dock
 
     # Se ocultan después de acomodarlos, para que al mostrarlos desde «Paneles»
-    # vuelvan al borde de abajo y lado a lado. **El reparto de arriba es una
-    # preferencia, no una garantía**: la Übersicht no baja de 480 px y el
-    # scoring de 690, así que en una pantalla de 1400 px el hipnograma se queda
-    # con lo que sobra. Ya pasaba cuando arrancaban visibles.
-    for dock in (window.overview_dock, window.scoring_dock, window.histogram_dock):
-        dock.hide()
+    # vuelvan al borde de abajo y lado a lado.
+    for clave in ANCHOS_DE_ABAJO:
+        window.docks[clave].hide()
+        # **Cada vez que uno aparece se vuelve a repartir el ancho.** Qt no
+        # recuerda un reparto pedido mientras estaban ocultos: los mostraba
+        # con lo que le sobrara a cada uno, y el hipnograma quedaba el más
+        # angosto de los tres.
+        window.docks[clave].toggleViewAction().toggled.connect(
+            lambda visible: visible and repartir_abajo(window)
+        )
+
+
+def repartir_abajo(window: "MainWindow") -> None:
+    """Reparte el ancho entre los paneles de abajo que estén a la vista.
+
+    Según `ANCHOS_DE_ABAJO`, y sólo entre los que están acoplados: uno suelto
+    en otra pantalla no comparte el borde con nadie.
+
+    **Es una proporción, no una garantía.** Qt respeta el mínimo de cada
+    panel —el del scoring es el mayor: unos 380 px con AASM y 460 con
+    Rechtschaffen y Kales— y reparte el resto. Hasta el hito 24 esos mínimos
+    eran de 480 y 690 px, y en una pantalla de 1400 el hipnograma recibía
+    unos 230.
+    """
+    visibles = [
+        (window.docks[clave], ancho)
+        for clave, ancho in ANCHOS_DE_ABAJO.items()
+        if not window.docks[clave].isHidden() and not window.docks[clave].isFloating()
+    ]
+    if len(visibles) < 2:
+        return
+    window.resizeDocks(
+        [dock for dock, _ in visibles],
+        [ancho for _, ancho in visibles],
+        Qt.Orientation.Horizontal,
+    )
 
 
 def _analisis(window: "MainWindow") -> None:
