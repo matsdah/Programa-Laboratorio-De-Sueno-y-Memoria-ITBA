@@ -13,10 +13,9 @@ registro de 400 es una regla y va en `core/`.
 
 ```
 +---------------------------------------------------------------+
-|  Menú: Archivo | Sesión | Ver | Montaje | Filtrar | Analizar   |
-|        Herramientas | Configuración | Ayuda                    |
-+---------------------------------------------------------------+
-|  Barra de herramientas (lupa, amplitud, ocupación, anotar)     |
+| [abrir] Scoring | Escala de tiempo | Amplitud | Ver | Paneles  |
+|   Montaje | Filtrar | Analizar | Herramientas | Configuración  |
+|   Ayuda                                                        |
 +----------+-----------------------------------------+----------+
 | Canales  |                                         | Espectro |
 |  (dock)  |   Visualizador de la señal (central)    | Métrica  |
@@ -33,8 +32,14 @@ registro de 400 es una regla y va en `core/`.
 
 **La señal es el widget central y todo lo demás es un `QDockWidget`**: se mueve,
 se apila en solapas, se cierra y se saca a otra pantalla. La disposición que
-arme el usuario se guarda y vuelve en el arranque siguiente, y «Ver ▸ Restaurar
-la disposición» devuelve la de fábrica.
+arme el usuario se guarda y vuelve en el arranque siguiente, y «Paneles ▸
+Restaurar la disposición» devuelve la de fábrica.
+
+**La barra de menú empieza con un botón y no con «Archivo».** Abrir un
+registro era lo único que le quedaba a ese menú, así que es un icono de
+carpeta en la esquina. «Configuración» tampoco despliega nada: abre su
+ventana. **No hay barra de herramientas**: las herramientas se activan desde
+su menú, que es la única vía desde el hito 23.
 
 **La navegación no es un dock**, y es la única excepción: es la única vía de
 navegación con el mouse, así que poder cerrarla dejaría sin salida a quien no
@@ -44,7 +49,7 @@ conoce las flechas del teclado.
 
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
-| `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. | V4_F de "Archivo de salida" |
+| `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. `export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos. | V4_F de "Archivo de salida" |
 | `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
 | `channel_selector.py` | Elegir cuántos y cuáles canales se ven, agrupados por clase. | V3_P, V4_F de "Visualización" |
 | `grid.py` | La grilla de fondo y los tres fondos elegibles. | V1_P, V2_F de "Diseño de la interfaz" |
@@ -57,9 +62,9 @@ conoce las flechas del teclado.
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. | V1_F, V2_F, V3_F de "Übersicht" |
 | `navigation.py` | La barra inferior: saltos a la primera y la última ventana, control de amplitud, y una franja que muestra dónde cae la ventana en la noche y deja saltar con un clic. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. | V1_F, V2_F, V3_F de "Scoring" |
-| `icons.py` | Los iconos de la barra, dibujados con `QPainterPath`. **No hay ningún archivo de icono en el repositorio**, y es una decisión de licencia. | — |
+| `icons.py` | Los iconos de la barra de navegación y el de abrir un registro, dibujados con `QPainterPath`. **No hay ningún archivo de icono en el repositorio**, y es una decisión de licencia. | — |
 | `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas y arrancan ocultos. | — |
-| `menus.py` | **La barra de menú**: qué acción vive en qué menú. No implementa ninguna: cada una llama a un método de la ventana. | — |
+| `menus.py` | **La barra de menú**: qué acción vive en qué menú, y el botón de abrir un registro. No implementa ninguna: cada una llama a un método de la ventana. | — |
 | `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los cinco esquemas de fábrica. | — |
 | `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. | — |
 | `settings_dialog.py` | **La ventana de configuración**: cinco solapas, todas con algo real detrás. Aplica en el momento y avisa por callbacks. | — |

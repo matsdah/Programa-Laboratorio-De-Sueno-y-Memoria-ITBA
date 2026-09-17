@@ -78,6 +78,10 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
         "psglab/readers/brainvision.py",
     ),
     "test_scoring_reader.py": ("psglab/readers/scoring_reader.py",),
+    "test_scoring_formats.py": (
+        "psglab/readers/scoring_formats.py",
+        "psglab/exporters/scoring_formats.py",
+    ),
     "test_amplitude_band.py": ("psglab/tools/amplitude_band.py",),
     "test_magnifier.py": ("psglab/tools/magnifier.py",),
     "test_annotator.py": ("psglab/tools/annotator.py",),

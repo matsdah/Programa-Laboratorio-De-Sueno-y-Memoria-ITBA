@@ -16,13 +16,18 @@ tres funciones públicas de `analysis/` que la interfaz no consumía. El
 tres chequeos automáticos sobre lo que hasta acá se encontraba a mano.
 
 El **[hito 22](#hito-22-refactor-de-la-interfaz)** llevó la interfaz a un
-visualizador al estilo de EDFbrowser, en diez fases. Son **veintitrés hitos**,
-del 0 al 22, que son las filas de la tabla de progreso, y están todos cerrados;
-lo que sigue abierto está anotado al final del último.
+visualizador al estilo de EDFbrowser, en diez fases, y el
+**[hito 23](#hito-23-ajustes-de-la-barra-de-menú)** ajustó su barra de menú y
+sumó el scoring en CSV, EDF+ y XML. Son **veinticuatro hitos**, del 0 al 23,
+que son las filas de la tabla de progreso, y están todos cerrados; lo que
+queda por confirmar está anotado al final del último.
 
-**La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Sus 34 requisitos
-se pueden usar desde el programa corriendo, no sólo desde sus módulos, que es la
-distinción que este resumen no puede dar y que costó el hito 9.
+**La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
+34 requisitos se podían usar desde el programa corriendo, no sólo desde sus
+módulos, que es la distinción que este resumen no puede dar y que costó el
+hito 9. **Desde el hito 23 hay dos que no**: Anotaciones.txt e
+Informacion.txt salieron del menú por decisión del usuario, y falta
+confirmarlo con el cliente.
 
 Hasta el hito 10 este archivo **excluía la Parte 2 a propósito** y sus cuentas
 la ignoraban activamente. Cerrada la Parte 1, el TODO pasa a ser la cola de la
@@ -106,6 +111,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [20. La red](#hito-20-la-red) | — | 0 | ✅ cerrado |
 | [21. Limpieza](#hito-21-limpieza) | — | 0 | ✅ cerrado |
 | [22. Refactor de la interfaz](#hito-22-refactor-de-la-interfaz) | — | 0 | ✅ cerrado |
+| [23. Ajustes de la barra de menú](#hito-23-ajustes-de-la-barra-de-menú) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -221,7 +227,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     módulo, la normalización dejaría de hacer nada y ningún otro test lo notaría.
 - [x] **`psglab/core/windows.py`** · ~~5 stubs~~ · sostiene V1_P "Visualización"
       (nº de ventana y total), V1_F "Navegación", V2_F "Histograma"
-  - Test: `tests/test_windows.py`, **35 tests en verde**.
+  - Test: `tests/test_windows.py`, **53 tests en verde**.
   - Los bordes se calculan desde el índice de la ventana, nunca acumulando un
     paso redondeado: con una frecuencia no redonda (256,125 Hz en EDF) acumular
     corre la ventana 960 casi tres segundos. Hay tres tests que lo fijan.
@@ -425,7 +431,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
     canal auxiliar con prefijo puede quedar corrida en un factor. Los canales
     que el programa mide son de voltaje y para ésos la conversión es exacta.
 - [x] **`psglab/readers/scoring_reader.py`** · ~~3 stubs~~ · V3_F "Importación"
-  - Test: `tests/test_scoring_reader.py`, **30 tests en verde**. El archivo lo
+  - Test: `tests/test_scoring_reader.py`, **33 tests en verde**. El archivo lo
     escribe el propio test, así que no necesita `data/`.
   - `detect_nomenclature()` lee la cabecera que escribirá
     `exporters/scoring_txt.py::format_header()`. Acepta el nombre corto y el
@@ -1737,14 +1743,14 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       Las curvas no tenían pluma y salían todas del mismo gris; ahora cada
       canal toma su color. **El esquema Claro deja el programa exactamente como
       era.**
-  - Test: `tests/test_theme.py`, **62 tests en verde**.
+  - Test: `tests/test_theme.py`, **68 tests en verde**.
   - Test: `tests/test_preferences.py`, **40 tests en verde**.
 - [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
       y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
       un menú «&Análisis» se reescribió para verificar cada acción, que es lo
       que protegía.
-  - Test: `tests/test_menus.py`, **19 tests en verde**.
+  - Test: `tests/test_menus.py`, **30 tests en verde**.
 - [x] **Fase 3 — Paneles acoplables.** La señal es el widget central y los otros
       diez paneles se mueven, se apilan o se cierran; la disposición se guarda
       al cerrar. Los seis paneles de análisis conservaron el nombre de su
@@ -1757,7 +1763,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       `navigation.py` salió de `SIN_TEST_PROPIO`. **Con esta fase cerró el MVP
       visual sin haber tocado `core/` ni `tools/`.**
   - Test: `tests/test_navigation.py`, **17 tests en verde**.
-  - Test: `tests/test_icons.py`, **19 tests en verde**.
+  - Test: `tests/test_icons.py`, **21 tests en verde**.
 - [x] **Fase 5 — El menú Amplitud.** La primera fase que tocó `core/`: `Session`
       ganó el desplazamiento vertical por canal, para los que tienen la línea
       de base lejos del cero. El menú habla de «µV por carril» y no de
@@ -1836,6 +1842,86 @@ volvió dibujable el registro entero; pero la ventana principal sigue guardando
 dos copias, y nada corre fuera del hilo de la interfaz. La conectividad de la
 noche tarda 25 s sobre el registro de prueba con la ventana congelada: el
 cursor de espera vuelve legible esa espera, no la acorta.
+
+---
+
+## Hito 23: Ajustes de la barra de menú
+
+**Cerrado el 16 de septiembre de 2026.** Salió de probar el programa después
+del [hito 22](#hito-22-refactor-de-la-interfaz): la barra de menú tenía
+entradas que no agregaban nada, dos rutas demasiado profundas y una barra de
+herramientas que repetía un menú. Y el scoring sólo entraba y salía en `.txt`.
+
+**No tiene stubs que contar**, igual que el 22: todo lo que entró es nuevo o
+reorganiza lo que ya andaba.
+
+### Lo que cambió en la barra
+
+- [x] **«Archivo» es un botón.** Le quedaba una sola acción —«Salir» se quitó,
+      porque lo hace la cruz de la ventana—, así que es un icono de carpeta en
+      la esquina izquierda, con realce al pasar el mouse y el atajo en el
+      tooltip. La carpeta se dibuja en `ui/icons.py`, como las flechas.
+- [x] **«Sesión» pasó a llamarse «Scoring»** e importa y exporta en `.txt`,
+      `.csv`, `.edf` y `.xml`.
+- [x] **Escala de tiempo** perdió «Acercar» y «Alejar», que siguen en Ctrl++ y
+      Ctrl+-. En Escala de tiempo y en Amplitud, «Definida por el usuario…»
+      pasó a «Personalizado…».
+- [x] **«Paneles» es una entrada propia**, con «Restaurar la disposición», que
+      antes estaba en «Ver». Mostrar u ocultar un panel quedaba a tres clics.
+- [x] **No hay barra de herramientas.** Repetía el menú Herramientas justo
+      debajo de la barra de menú; ahora ese menú es la única vía.
+- [x] **«Configuración» abre su ventana de un clic.** El submenú de esquemas
+      repetía la solapa Colores de esa misma ventana.
+- [x] **La barra de menú deja de ser la nativa**, para que en macOS no
+      desaparezcan el botón de abrir ni «Configuración», que no tiene submenú.
+  - Test: `tests/test_menus.py`, **30 tests en verde**.
+  - Test: `tests/test_icons.py`, **21 tests en verde**.
+
+### El scoring en cuatro formatos
+
+- [x] **`psglab/exporters/scoring_formats.py`** · V1_F "Archivo de salida"
+  - CSV con el rótulo de la fase, que dice solo la nomenclatura; EDF+ de sólo
+    anotaciones con los rótulos de la Sleep-EDF; y el XML del NSRR con un
+    `<Nomenclature>` que sus lectores ignoran. **El EDF+ se escribe a mano**:
+    MNE sólo lo exporta con `edfio`, y desde un `Raw`, que no puede tener cero
+    canales.
+- [x] **`psglab/readers/scoring_formats.py`** · V3_F "Importación"
+  - Lee también lo que escriben otros programas. **Probado con el hipnograma
+    real de la Sleep-EDF**: da las 2650 ventanas del registro, reconoce R&K
+    por el estadio 4 sin preguntar, y descarta el «Sleep stage ?» del final,
+    que se pasa de la señal casi dos horas.
+  - Test: `tests/test_scoring_formats.py`, **65 tests en verde**.
+- [x] **La nomenclatura se pregunta.** Un archivo que no la dice —incluido un
+      `.txt` sin cabecera, que antes se rechazaba— eleva
+      `UndeclaredNomenclatureError`, y la ventana ofrece las dos con la del
+      registro abierto elegida. Adivinar sigue sin ser una opción.
+  - Test: `tests/test_scoring_reader.py`, **33 tests en verde**.
+- [x] `core/windows.py` ganó las dos conversiones entre un tramo de épocas y un
+      evento en segundos. **Una época pertenece al evento que cubre su punto
+      medio**, así que un redondeo del archivo no arrastra la vecina.
+  - Test: `tests/test_windows.py`, **53 tests en verde**.
+
+### Lo que se encontró en el camino
+
+- [x] **Con el esquema Claro y Windows en modo oscuro, los iconos de la barra
+      de navegación salían negros sobre negro.** Claro no aplica hoja de estilo
+      y deja el aspecto nativo, que sigue al sistema. `theme.icon_ink()` elige
+      la tinta, y la usan los dos lugares que dibujan iconos. Venía del hito
+      22; apareció al dibujar el icono de abrir.
+  - Test: `tests/test_theme.py`, **68 tests en verde**.
+
+### Lo que queda por confirmar
+
+- [ ] **Anotaciones.txt e Informacion.txt no tienen camino desde la ventana.**
+      Se sacaron del menú por decisión del usuario el 16 de septiembre, aunque
+      el pliego los pide (V2_F, V3_F y V4_F de "Archivo de salida").
+      `MainWindow.export()` los sigue escribiendo y `test_entrega.py` lo
+      verifica, pero sólo se pueden pedir desde un script. **Hay que
+      confirmarlo con el cliente**; devolverlos es una entrada por archivo en
+      `ui/menus.py`.
+- [ ] **Un EDF+ de R&K sin S4 ni MT pregunta la nomenclatura al volver a
+      leerlo.** El EDF+ no tiene dónde declararla y «Sleep stage 2» se usa en
+      las dos. AASM no pregunta, porque escribe «Sleep stage N2».
 
 ---
 

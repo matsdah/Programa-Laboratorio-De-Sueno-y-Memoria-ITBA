@@ -167,7 +167,7 @@ class NavigationBar(QWidget):
         diferencia entre "anterior" y "primera" hay que deducirla del dibujo.
         """
         boton = QPushButton()
-        boton.setIcon(icon(nombre, theme.current().foreground))
+        boton.setIcon(icon(nombre, theme.icon_ink(theme.current())))
         boton.setToolTip(ayuda)
         boton.setFixedSize(LADO_DEL_BOTON, LADO_DEL_BOTON)
         boton.setFlat(True)
@@ -179,7 +179,7 @@ class NavigationBar(QWidget):
         Un icono es un mapa de bits ya pintado: cambiar de esquema oscuro a
         claro sin esto deja seis triángulos claros sobre fondo claro.
         """
-        color = theme.current().foreground
+        color = theme.icon_ink(theme.current())
         for nombre, boton in (
             ("primera", self._primera),
             ("anterior", self._anterior),

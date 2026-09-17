@@ -11,8 +11,11 @@ registros/
 *.vmrk
 *.eeg
 
-# Archivos de salida generados por el programa
+# Archivos de salida generados por el programa. El scoring en EDF+ ya lo
+# excluye *.edf, de arriba.
 Scoring.txt
+Scoring.csv
+Scoring.xml
 Anotaciones.txt
 Informacion.txt
 

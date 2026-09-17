@@ -1,7 +1,14 @@
 # `exporters/` — archivos de salida
 
 Tres archivos de texto, uno por módulo, más las estadísticas que alimentan al
-tercero. El usuario elige cuál exportar (V4_F).
+tercero, y el scoring en los formatos que leen otros programas.
+
+**Desde la ventana sólo se exporta el scoring**, en `.txt`, `.csv`, `.edf` o
+`.xml`. Anotaciones.txt e Informacion.txt salieron del menú el 16 de
+septiembre de 2026 por decisión del usuario, aunque el pliego los pide
+(V2_F, V3_F y V4_F): `MainWindow.export()` los sigue escribiendo y se piden
+desde un script. Está anotado como pendiente de confirmar con el cliente en
+el [hito 23 del TODO](../../docs/TODO.md#hito-23-ajustes-de-la-barra-de-menú).
 
 **Los formatos son texto plano y fáciles de leer con cualquier herramienta, y
 eso es deliberado:** los archivos de salida son la vía por la que el scoring
@@ -16,6 +23,7 @@ programa para poder leerse.
 | `annotations_txt.py` | `Anotaciones.txt` | V2_F de "Archivo de salida" |
 | `information_txt.py` | `Informacion.txt` | V3_F de "Archivo de salida" |
 | `statistics.py` | Los números que usa `Informacion.txt`. No escribe archivos. | Alimenta V3_F |
+| `scoring_formats.py` | El scoring en CSV, EDF+ y XML del NSRR, y `export_scoring_as()`, que elige el formato por la extensión. | V1_F de "Archivo de salida" |
 
 Los nombres propuestos en el diálogo de guardado salen de `DEFAULT_FILENAMES`,
 en el `__init__.py` del paquete, que a su vez los toma de
@@ -45,6 +53,22 @@ en el orden de las líneas. El formato sigue parametrizado en
 
 **Cambiar esa sola constante tiene que alcanzar para pasar a la otra variante:
 no hardcodear ninguna de las dos.**
+
+## El scoring en otros formatos
+
+`scoring_formats.py` escribe el mismo scoring para **llevarlo a otro
+programa**: una planilla, EDFbrowser, Luna, YASA, las herramientas del NSRR.
+Su gemelo, [`readers/scoring_formats.py`](../readers/README.md), lo lee de
+vuelta, y `tests/test_scoring_formats.py` fija la ida y la vuelta.
+
+| Formato | Qué lleva | Cómo dice la nomenclatura |
+|---|---|---|
+| CSV | `ventana,inicio_s,fase,arousal`, una fila por ventana | Con el rótulo de la fase: S2 y N2 no se repiten |
+| EDF+ | Un EDF+C sin señales, una anotación por tramo, con los rótulos de la Sleep-EDF | AASM escribe `Sleep stage N2`; R&K sólo se reconoce si tiene S4 o MT |
+| XML | El `<PSGAnnotation>` del NSRR, un `<ScoredEvent>` por tramo | Un `<Nomenclature>` extra, que los lectores del NSRR ignoran |
+
+**El EDF+ se escribe a mano**: MNE sólo lo exporta con `edfio`, una
+dependencia más, y desde un `Raw`, que no puede tener cero canales.
 
 ## `Anotaciones.txt`
 

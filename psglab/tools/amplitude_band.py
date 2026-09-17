@@ -30,8 +30,9 @@ class AmplitudeBandTool(ViewerTool):
     name = "amplitude_band"
     label = "Banda de amplitud"
     #: El número y la unidad salen de `config` y de `utils.units`, no escritos a
-    #: mano: este texto lo lee el usuario en la barra de herramientas, y si
-    #: alguien cambiara la constante, un literal acá le mentiría.
+    #: mano: este texto lo lee el usuario en la barra de estado al pasar por
+    #: el menú Herramientas, y si alguien cambiara la constante, un literal
+    #: acá le mentiría.
     description = (
         f"Banda de {AMPLITUDE_BAND_UV:.0f} {MICROVOLT} "
         "para comparar la amplitud de la señal"

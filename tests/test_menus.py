@@ -10,21 +10,26 @@ Lo que sí se testea acá son las tres cosas que sí se pueden romper en silenci
 
 - **Ninguna acción queda sin conectar.** Una entrada de menú que no llama a
   nada se ve exactamente igual que una que funciona, hasta que alguien la usa.
-- **Los tres objetos que el resto del programa busca por nombre** quedan puestos
-  sobre la ventana: `accion_eje_en_hora`, `accion_señal_original` y
-  `tools_menu`. Se los arma acá y se los usa en otro archivo.
-- **El submenú de esquemas se arma solo**, recorriendo el registro de esquemas,
-  igual que la barra de herramientas recorre el registro de herramientas.
+- **Los cuatro objetos que el resto del programa busca por nombre** quedan
+  puestos sobre la ventana: `accion_eje_en_hora`, `accion_señal_original`,
+  `open_button` y `tools_menu`. Se los arma acá y se los usa en otro archivo.
+- **Las exportaciones del scoring se arman solas**, recorriendo
+  `SCORING_FORMATS`, igual que el menú de herramientas recorre su registro.
+
+Y, desde el hito 23, lo que se sacó a pedido del usuario: un test que lo
+afirme es lo único que impide que vuelva en el próximo refactor sin que nadie
+lo decida.
 """
 
 import pytest
-from PySide6.QtWidgets import QMenu
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMenu, QToolBar, QToolButton
 
 pytest.importorskip("pyqtgraph")
 
 import psglab.ui.menus as menus  # noqa: E402
-import psglab.ui.theme as theme  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
+from psglab.exporters.scoring_formats import SCORING_FORMATS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 
 
@@ -42,20 +47,46 @@ def menu_llamado(ventana: MainWindow, titulo: str) -> QMenu:
     raise AssertionError(f"no hay ningún menú «{titulo}»")
 
 
+def _todas_las_acciones(ventana: MainWindow) -> list:
+    """Las acciones de todos los menús y submenús, sin separadores.
+
+    Incluye las entradas de la barra que no tienen submenú, como
+    «Configuración».
+    """
+    acciones = []
+
+    def recorrer(menu) -> None:
+        for accion in menu.actions():
+            if accion.menu() is not None:
+                recorrer(accion.menu())
+            elif not accion.isSeparator():
+                acciones.append(accion)
+
+    for accion_de_menu in ventana.menuBar().actions():
+        if accion_de_menu.menu() is not None:
+            recorrer(accion_de_menu.menu())
+        else:
+            acciones.append(accion_de_menu)
+    return acciones
+
+
 # -- La estructura -----------------------------------------------------------
 
 
-def test_estan_los_once_menus(ventana: MainWindow):
+def test_estan_las_once_entradas(ventana: MainWindow):
     """Eran cinco, con «Análisis» de cajón de sastre: nueve entradas
-    heterogéneas en un solo menú obligan a leerlo entero cada vez."""
+    heterogéneas en un solo menú obligan a leerlo entero cada vez.
+
+    «Archivo» ya no está —es el botón de la esquina— y «Paneles» salió de
+    «Ver» para ser una entrada propia."""
     titulos = [accion.text() for accion in ventana.menuBar().actions()]
 
     assert titulos == [
-        "&Archivo",
-        "&Sesión",
+        "&Scoring",
         "&Escala de tiempo",
         "A&mplitud",
         "&Ver",
+        "&Paneles",
         "&Montaje",
         "&Filtrar",
         "&Analizar",
@@ -81,7 +112,8 @@ def test_ninguna_accion_quedo_sin_conectar(ventana: MainWindow):
     """Una entrada que no llama a nada se ve igual que una que funciona.
 
     Se mira que tenga al menos un receptor conectado a `triggered`; los
-    separadores y los submenús quedan afuera porque no disparan nada.
+    separadores y los submenús quedan afuera porque no disparan nada. Las
+    entradas de la barra sin submenú, como «Configuración», también cuentan.
 
     La firma va con el prefijo `2`, que es como Qt codifica una señal en
     `receivers()`. Sin él la cuenta da cero para todas y el test pasaría
@@ -90,6 +122,8 @@ def test_ninguna_accion_quedo_sin_conectar(ventana: MainWindow):
     sueltas: list[str] = []
     for menu in ventana.menuBar().actions():
         if menu.menu() is None:
+            if menu.receivers("2triggered(bool)") == 0:
+                sueltas.append(menu.text())
             continue
         for accion in menu.menu().actions():
             if accion.isSeparator() or accion.menu() is not None:
@@ -117,79 +151,174 @@ def test_volver_a_la_senal_original_arranca_apagada(ventana: MainWindow):
 
 
 def test_el_menu_de_herramientas_queda_listo_para_poblarse(ventana: MainWindow):
-    """Lo llena `_build_toolbar()` recorriendo el registro: es el punto de
+    """Lo llena `_build_tools_menu()` recorriendo el registro: es el punto de
     extensión del pliego, y una herramienta nueva tiene que aparecer sola."""
     assert ventana.tools_menu is not None
     assert len(ventana.tools_menu.actions()) > 0
 
 
-# -- Lo que se arma recorriendo un registro ----------------------------------
+def test_el_boton_de_abrir_queda_en_la_esquina_de_la_barra(ventana: MainWindow):
+    esquina = ventana.menuBar().cornerWidget(Qt.Corner.TopLeftCorner)
+
+    assert isinstance(ventana.open_button, QToolButton)
+    assert esquina is ventana.open_button
 
 
-def test_el_submenu_de_esquemas_los_ofrece_a_todos(ventana: MainWindow):
-    """Se arma recorriendo `theme.SCHEMES`, así que agregar un esquema no
-    obliga a tocar `menus.py`."""
-    configuracion = menu_llamado(ventana, "&Configuración")
-    submenus = [a.menu() for a in configuracion.actions() if a.menu() is not None]
-
-    assert len(submenus) == 1
-    assert [a.text() for a in submenus[0].actions()] == list(theme.SCHEMES)
+# -- El botón de abrir -------------------------------------------------------
 
 
-def test_elegir_un_esquema_desde_el_menu_lo_aplica(ventana: MainWindow, monkeypatch):
-    """No se guarda en el archivo real de quien corre los tests."""
-    aplicados: list[theme.ColorScheme] = []
+def test_abrir_es_un_boton_con_icono_y_no_un_menu(ventana: MainWindow):
+    """«Archivo» tenía una sola acción: un menú de una entrada son dos clics
+    para lo que un botón hace en uno."""
+    titulos = [accion.text() for accion in ventana.menuBar().actions()]
+
+    assert "&Archivo" not in titulos
+    assert not ventana.open_button.icon().isNull()
+    assert ventana.open_button.text() == ""
+
+
+def test_el_boton_de_abrir_se_realza_al_pasar_el_mouse(ventana: MainWindow):
+    """`autoRaise` es lo que le da el realce: sin él, el botón se ve siempre
+    igual y no parece clickeable."""
+    assert ventana.open_button.autoRaise()
+
+
+def test_el_boton_de_abrir_dice_que_hace_y_su_atajo(ventana: MainWindow):
+    """Un icono sin tooltip obliga a adivinar, y el botón no tiene columna de
+    atajo como los menús."""
+    assert ventana.open_button.toolTip() == "Abrir registro (Ctrl+O)"
+    assert ventana.open_button.accessibleName() == "Abrir registro"
+
+
+def test_el_clic_en_el_boton_abre_el_dialogo(qt_app, monkeypatch):
+    """Se reemplaza el método **antes** de armar la ventana: la conexión se
+    hace con el método ligado, y uno reemplazado después no se enteraría."""
+    llamadas: list[bool] = []
+    monkeypatch.setattr(
+        MainWindow, "open_recording_dialog", lambda self: llamadas.append(True)
+    )
+    ventana = create_main_window()
+
+    ventana.open_button.click()
+
+    assert llamadas == [True]
+
+
+def test_no_existe_salir(ventana: MainWindow):
+    """Lo hace la cruz de la ventana."""
+    textos = [a.text() for a in _todas_las_acciones(ventana)]
+
+    assert not [t for t in textos if "Salir" in t]
+
+
+# -- Scoring -----------------------------------------------------------------
+
+
+def test_scoring_importa_y_exporta_en_los_cuatro_formatos(ventana: MainWindow):
+    """Abrir un registro es abrir el dato de entrada; importar y exportar un
+    scoring es manejar el trabajo propio, que es lo que más se hace."""
+    textos = [
+        a.text().partition("\t")[0]
+        for a in menu_llamado(ventana, "&Scoring").actions()
+        if not a.isSeparator()
+    ]
+
+    assert textos == [
+        "&Importar scoring…",
+        "Exportar .txt…",
+        "Exportar .csv…",
+        "Exportar .edf…",
+        "Exportar .xml…",
+    ]
+
+
+def test_las_exportaciones_salen_de_la_tabla_de_formatos(ventana: MainWindow):
+    """Un formato nuevo en `SCORING_FORMATS` tiene que aparecer solo."""
+    textos = [
+        a.text().partition("\t")[0]
+        for a in menu_llamado(ventana, "&Scoring").actions()
+        if a.text().startswith("Exportar")
+    ]
+
+    assert textos == [f"Exportar .{extension}…" for extension in SCORING_FORMATS]
+
+
+def test_anotaciones_e_informacion_ya_no_se_ofrecen(ventana: MainWindow):
+    """**Decisión del 16 de septiembre de 2026**, aunque el pliego los pide:
+    `MainWindow.export()` los sigue escribiendo, pero sólo desde un script. Si
+    vuelven al menú, que sea porque alguien lo decidió."""
+    textos = " ".join(a.text() for a in _todas_las_acciones(ventana))
+
+    assert "Anotaciones" not in textos
+    assert "Informacion" not in textos
+    assert "Información" not in textos
+
+
+def test_cada_exportacion_pide_su_formato(qt_app, monkeypatch):
+    pedidos: list[str] = []
     monkeypatch.setattr(
         MainWindow,
-        "set_color_scheme",
-        lambda self, esquema, remember=True: aplicados.append(esquema),
+        "export_scoring_dialog",
+        lambda self, fmt="txt": pedidos.append(fmt),
     )
+    ventana = create_main_window()
 
-    configuracion = menu_llamado(ventana, "&Configuración")
-    submenu = next(a.menu() for a in configuracion.actions() if a.menu() is not None)
-    submenu.actions()[1].trigger()
+    for accion in menu_llamado(ventana, "&Scoring").actions():
+        if accion.text().startswith("Exportar"):
+            accion.trigger()
 
-    assert aplicados == [list(theme.SCHEMES.values())[1]]
-
-
-# -- Dónde quedó cada cosa ---------------------------------------------------
+    assert pedidos == list(SCORING_FORMATS)
 
 
-def test_exportar_se_mudo_de_archivo_a_sesion(ventana: MainWindow):
-    """Abrir un registro es abrir el dato de entrada; exportar un scoring es
-    manejar el trabajo propio, que es lo que más veces por sesión se hace."""
-    archivo = [a.text() for a in menu_llamado(ventana, "&Archivo").actions()]
-    sesion = [a.text() for a in menu_llamado(ventana, "&Sesión").actions()]
-
-    assert not [t for t in archivo if t.startswith("Exportar")]
-    assert len([t for t in sesion if t.startswith("Exportar")]) == 3
+# -- Escala, amplitud, paneles, herramientas y configuración -----------------
 
 
-def test_el_montaje_junta_lo_que_cambia_de_donde_sale_la_senal(ventana: MainWindow):
-    montaje = [a.text() for a in menu_llamado(ventana, "&Montaje").actions()]
+def test_la_escala_no_ofrece_acercar_ni_alejar(ventana: MainWindow):
+    """Agregaban poco frente a la lista de escalas. Siguen en Ctrl++ y Ctrl+-,
+    como verifica `test_main_window_layout.py` al buscar el método de cada
+    atajo."""
+    textos = [a.text() for a in menu_llamado(ventana, "&Escala de tiempo").actions()]
 
-    assert "&Derivar canales…" in montaje
-    assert "&Re-referenciar…" in montaje
-    assert "Referencia &promedio (EEG)" in montaje
-
-
-def test_la_ica_esta_en_filtrar_y_no_en_analizar(ventana: MainWindow):
-    """Ajustar la descomposición no cambia nada, pero aplicarla **sustituye la
-    señal**: es la operación menos reversible del programa, y agruparla con el
-    filtrado dice a qué familia pertenece antes de que alguien la use."""
-    filtrar = [a.text() for a in menu_llamado(ventana, "&Filtrar").actions()]
-    analizar = [a.text() for a in menu_llamado(ventana, "&Analizar").actions()]
-
-    assert "Componentes &independientes (ICA)…" in filtrar
-    assert "Componentes &independientes (ICA)…" not in analizar
+    assert not [t for t in textos if "Acercar" in t or "Alejar" in t]
 
 
-def test_la_impedancia_va_primero_en_analizar(ventana: MainWindow):
-    """No es un análisis de la señal sino el control de calidad previo a
-    confiar en cualquiera de los otros."""
-    analizar = [a.text() for a in menu_llamado(ventana, "&Analizar").actions()]
+@pytest.mark.parametrize("titulo", ["&Escala de tiempo", "A&mplitud"])
+def test_la_escala_propia_se_llama_personalizado(ventana: MainWindow, titulo: str):
+    textos = [a.text() for a in menu_llamado(ventana, titulo).actions()]
 
-    assert analizar[0] == "&Impedancia de los electrodos…"
+    assert "&Personalizado…" in textos
+    assert not [t for t in textos if "Definida por el" in t]
+
+
+def test_paneles_es_una_entrada_propia_con_todos_los_paneles(ventana: MainWindow):
+    """Quedaba a tres clics, dentro de «Ver». Se arma recorriendo los docks."""
+    paneles = menu_llamado(ventana, "&Paneles")
+    acciones = [a for a in paneles.actions() if not a.isSeparator()]
+
+    assert acciones[:-1] == [dock.toggleViewAction() for dock in ventana.docks.values()]
+    assert acciones[-1].text() == "&Restaurar la disposición"
+
+
+def test_ver_ya_no_tiene_submenus(ventana: MainWindow):
+    ver = menu_llamado(ventana, "&Ver")
+
+    assert not [a for a in ver.actions() if a.menu() is not None]
+
+
+def test_no_hay_barra_de_herramientas(ventana: MainWindow):
+    """Repetía el menú Herramientas justo debajo de la barra de menú. La única
+    barra que queda es la de navegación, que no es un panel a propósito."""
+    assert ventana.findChildren(QToolBar) == [ventana.navigation_bar]
+
+
+def test_las_herramientas_se_tildan_desde_su_menu(ventana: MainWindow):
+    """El menú no muestra tooltips, así que la descripción va también a la
+    barra de estado."""
+    acciones = ventana.tools_menu.actions()
+
+    assert acciones
+    assert all(a.isCheckable() for a in acciones)
+    assert all(a.statusTip() for a in acciones)
 
 
 def test_construir_los_menus_no_necesita_saber_de_la_ventana(ventana: MainWindow):
@@ -199,10 +328,11 @@ def test_construir_los_menus_no_necesita_saber_de_la_ventana(ventana: MainWindow
     assert "MainWindow" not in vars(menus)
 
 
-def test_la_ventana_de_configuracion_se_abre_desde_su_menu(ventana: MainWindow):
-    configuracion = menu_llamado(ventana, "&Configuración")
-    accion = next(a for a in configuracion.actions() if a.text() == "&Configuración…")
+def test_configuracion_abre_su_ventana_sin_desplegar_nada(ventana: MainWindow):
+    """El submenú de esquemas repetía la solapa Colores de esa misma ventana."""
+    accion = next(a for a in ventana.menuBar().actions() if a.text() == "&Configuración")
 
+    assert accion.menu() is None
     accion.trigger()
 
     assert ventana.settings_dialog is not None
@@ -210,23 +340,13 @@ def test_la_ventana_de_configuracion_se_abre_desde_su_menu(ventana: MainWindow):
     ventana.settings_dialog.close()
 
 
+def test_la_barra_no_es_la_nativa(ventana: MainWindow):
+    """La nativa de macOS no muestra el botón de abrir ni una entrada sin
+    submenú: la barra sería otra en esa plataforma."""
+    assert not ventana.menuBar().isNativeMenuBar()
+
+
 # -- Los atajos, a la vista ----------------------------------------------------------
-
-
-def _todas_las_acciones(ventana: MainWindow) -> list:
-    acciones = []
-
-    def recorrer(menu) -> None:
-        for accion in menu.actions():
-            if accion.menu() is not None:
-                recorrer(accion.menu())
-            elif not accion.isSeparator():
-                acciones.append(accion)
-
-    for accion_de_menu in ventana.menuBar().actions():
-        if accion_de_menu.menu() is not None:
-            recorrer(accion_de_menu.menu())
-    return acciones
 
 
 def test_las_acciones_con_atajo_lo_muestran(ventana: MainWindow):
@@ -240,7 +360,9 @@ def test_las_acciones_con_atajo_lo_muestran(ventana: MainWindow):
         if isinstance(accion.data(), str) and key_for(accion.data()) is not None
     ]
 
-    assert len(con_atajo) >= 7
+    # Exportar .txt, registro entero y las dos de amplitud. Eran siete hasta
+    # que abrir, acercar y alejar salieron del menú en el hito 23.
+    assert len(con_atajo) >= 4
     for accion in con_atajo:
         rotulo, _, atajo = accion.text().partition("\t")
         assert atajo == readable_key(key_for(accion.data())), rotulo
@@ -255,17 +377,12 @@ def test_las_acciones_sin_atajo_no_muestran_ninguno(ventana: MainWindow):
             assert "\t" not in accion.text(), accion.text()
 
 
-def test_abrir_un_registro_muestra_ctrl_o(ventana: MainWindow):
-    textos = [a.text() for a in menu_llamado(ventana, "&Archivo").actions()]
+def test_exportar_en_txt_muestra_ctrl_s(ventana: MainWindow):
+    """Ctrl+S llama al mismo método sin argumento, y por eso se anota a mano."""
+    textos = [a.text() for a in menu_llamado(ventana, "&Scoring").actions()]
 
-    assert "&Abrir registro…\tCtrl+O" in textos
-
-
-def test_exportar_el_scoring_muestra_ctrl_s(ventana: MainWindow):
-    """Lo ejecuta otro método que el de la tecla, y por eso se anota a mano."""
-    textos = [a.text() for a in menu_llamado(ventana, "&Sesión").actions()]
-
-    assert any(t.startswith("Exportar Scoring") and t.endswith("\tCtrl+S") for t in textos)
+    assert "Exportar .txt…\tCtrl+S" in textos
+    assert [t for t in textos if "\t" in t] == ["Exportar .txt…\tCtrl+S"]
 
 
 def test_el_atajo_se_muestra_pero_no_se_registra_en_la_accion(ventana: MainWindow):
