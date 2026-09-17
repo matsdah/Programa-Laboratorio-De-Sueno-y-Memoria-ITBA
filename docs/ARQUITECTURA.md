@@ -323,8 +323,25 @@ promedio de doce redibujos después del primero:
 
 **El dibujo de una ventana no es un cuello de botella.** El peor caso —64
 canales a 1000 Hz, más de lo que usa el laboratorio— tarda 92 ms, cinco veces
-por debajo del umbral. La decisión de pyqtgraph se sostiene con margen, y
-**ninguna optimización del dibujo de la ventana de 30 s está justificada hoy**.
+por debajo del umbral. La decisión de pyqtgraph se sostiene con margen.
+
+**La última frase de este párrafo decía que ninguna optimización del dibujo
+estaba justificada, y el hito 25 la revisó.** No porque el número estuviera
+mal, sino por lo que no medía: se tomó con `QT_QPA_PLATFORM=offscreen` y sobre
+`show_window()`, o sea sin la composición real de la pantalla y sin la grilla
+moviéndose. Con la reproducción del hito 24 —veinticinco cuadros por segundo—
+eso dejó de ser un detalle:
+
+| Un paso de reproducción, página de 30 s, 1400×800 en pantalla | |
+|---|---|
+| Registro de prueba, con la grilla fina (72 líneas) | 113 ms |
+| El mismo paso con el fondo «sin líneas» | 57 ms |
+| 72 líneas sueltas contra 72 en un solo objeto (banco aparte) | 67,5 contra 22,1 ms |
+
+O sea que **cada línea de grilla costaba 0,8 ms por cuadro**, no por dibujarse
+sino por ser un objeto de la escena. La lección para quien vuelva a medir es la
+de la primera advertencia de abajo, ahora con un caso: un piso medido sin
+pantalla no dice nada sobre lo que pasa a veinticinco cuadros por segundo.
 
 Lo que sí es un problema aparece al soltar la escala de tiempo. Con la página
 libre, "registro entero" son ocho horas a 1000 Hz, o sea **28,8 millones de

@@ -622,9 +622,16 @@ class MainWindow(QMainWindow):
         Muestra un error legible si el archivo no se puede leer, en vez de
         dejar caer una excepción: los usuarios no necesariamente tienen
         experiencia informática (pliego, sección 3).
+
+        **Avisa mientras lee.** Una noche entera son varios segundos —4,3 s el
+        registro de prueba, de los cuales 2,6 los tarda MNE— y todo corre en el
+        hilo de la interfaz, así que la ventana queda congelada. Sin cursor de
+        espera ni mensaje, eso se lee como que el programa se colgó justo
+        cuando el usuario hizo lo primero que hace.
         """
         try:
-            registro = read_recording(path)
+            with self._trabajando(f"Leyendo «{path.name}»"):
+                registro = read_recording(path)
             ventanas = count_windows(registro.n_samples, registro.sampling_rate)
             sesion = Session(
                 registro,

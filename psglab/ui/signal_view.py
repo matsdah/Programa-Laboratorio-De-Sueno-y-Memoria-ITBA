@@ -88,9 +88,8 @@ class SignalView(pg.PlotWidget):
         super().__init__()
         self._session: Session | None = None
         self._window_index: int = 0
-        self._curves: dict[str, pg.PlotDataItem] = {}
+        self._curves: dict[str, pg.PlotCurveItem] = {}
         self._labels: list[pg.TextItem] = []
-        self._baselines: list[pg.InfiniteLine] = []
         self._overlay_items: list[object] = []
         #: La banda que marca la epoca de scoring sobre la pagina visible.
         self._epoca: object | None = None
@@ -312,25 +311,44 @@ class SignalView(pg.PlotWidget):
         Los bordes salen de `epoch_to_seconds()` y no de `índice * 30`: con
         256,125 Hz los dos difieren, y una banda corrida tres segundos le haría
         scorear al usuario una época distinta de la que está mirando.
+
+        **La banda se crea una vez y después sólo se mueve.** Hasta el hito 25
+        cada dibujo la sacaba de la escena y armaba otra, y eso era lo que hacía
+        que la señal se repintara **dos veces por cuadro**: sacar y poner un
+        ítem son dos cambios de escena, y el segundo llega cuando el primer
+        repintado ya empezó. Medido con un filtro de eventos sobre el
+        visualizador: con la banda recreada, 2,00 pinturas por cuadro; moviéndola,
+        1,00. Un `LinearRegionItem` es además un ítem compuesto —dos líneas y una
+        región—, así que se armaban tres objetos por cuadro.
         """
-        item = self.getPlotItem()
-        if self._epoca is not None:
-            item.removeItem(self._epoca)
-            self._epoca = None
         if self._session is None:
+            if self._epoca is not None:
+                self._epoca.hide()
             return
 
         inicio, fin = epoch_to_seconds(
             self._window_index, self._session.recording.sampling_rate
         )
+        if self._epoca is None:
+            self._epoca = pg.LinearRegionItem(
+                values=(inicio, fin), movable=False, brush=self._pincel_de_la_epoca()
+            )
+            # Detrás de todo: marca dónde se scorea, no tapa la señal.
+            self._epoca.setZValue(-20)
+            self.getPlotItem().addItem(self._epoca)
+            return
+
+        self._epoca.show()
+        # `setRegion` no hace nada si la época es la misma, así que reproducir
+        # —que mueve la página y no la época— no le pide nada a la escena.
+        if self._epoca.getRegion() != (inicio, fin):
+            self._epoca.setRegion((inicio, fin))
+
+    def _pincel_de_la_epoca(self) -> object:
+        """El relleno de la banda, translúcido para no tapar la señal."""
         color = pg.mkColor(theme.current().coarse_grid)
         color.setAlpha(40)
-        self._epoca = pg.LinearRegionItem(
-            values=(inicio, fin), movable=False, brush=pg.mkBrush(color)
-        )
-        # Detrás de todo: marca dónde se scorea, no tapa la señal.
-        self._epoca.setZValue(-20)
-        item.addItem(self._epoca)
+        return pg.mkBrush(color)
 
     def refresh(self) -> None:
         """Redibuja la ventana actual con la configuración vigente."""
@@ -358,8 +376,8 @@ class SignalView(pg.PlotWidget):
         `pg.setConfigOption()` sólo alcanza a los `PlotWidget` que se creen
         después: los que ya existen se quedan con el fondo con el que nacieron.
 
-        Las curvas se vuelven a crear en vez de repintarse porque la pluma de un
-        `PlotDataItem` no se cambia sin volver a pedirla, y rehacerlas es más
+        Las curvas se vuelven a crear en vez de repintarse porque la pluma de una
+        curva no se cambia sin volver a pedirla, y rehacerlas es más
         corto que recorrerlas —son unas pocas decenas, y esto ocurre cuando el
         usuario elige un esquema, no en el camino caliente de la flecha—.
         """
@@ -372,6 +390,11 @@ class SignalView(pg.PlotWidget):
             eje = item.getAxis(nombre_de_eje)
             eje.setPen(pluma)
             eje.setTextPen(pluma)
+
+        # La banda de la época ya no se rehace en cada dibujo, así que su color
+        # hay que cambiarlo acá: es lo único que la ataba al esquema.
+        if self._epoca is not None:
+            self._epoca.setBrush(self._pincel_de_la_epoca())
 
         # Sin canales no hay nada que rehacer, y forzar un redibujo acá dejaría
         # la grilla dibujada sobre un visualizador vacío, que hoy no la tiene.
@@ -538,30 +561,30 @@ class SignalView(pg.PlotWidget):
         self._curves.clear()
         self._labels.clear()
 
-        for linea in self._baselines:
-            item.removeItem(linea)
-        self._baselines.clear()
-
         esquema = theme.current()
         self._visible = list(channel_names)
+        # **Las líneas de cero las dibuja la grilla.** Una por canal, y hasta el
+        # hito 25 cada una era un objeto de la escena que costaba lo mismo por
+        # cuadro que una línea de grilla. Van debajo de la señal: dibujadas
+        # encima, un canal plano se confundiría con su propia referencia.
+        self.grid.set_baselines(
+            [-posicion * _ALTO_DE_CARRIL for posicion in range(len(self._visible))],
+            esquema.baseline,
+        )
         for posicion, nombre in enumerate(self._visible):
             color = esquema.color_for_channel(posicion)
             centro = -posicion * _ALTO_DE_CARRIL
 
-            # La línea de cero va primero para que quede **debajo** de la señal:
-            # dibujada después, un canal plano se confundiría con su propia
-            # referencia.
-            if esquema.baseline is not None:
-                base = pg.InfiniteLine(
-                    pos=centro, angle=0, pen=pg.mkPen(esquema.baseline, width=1)
-                )
-                item.addItem(base)
-                self._baselines.append(base)
-
             # **Antes no se pedía ninguna pluma**, así que pyqtgraph usaba la
             # suya: todos los canales salían del mismo gris claro y con ocho
             # apilados no se distinguía uno de otro.
-            curva = pg.PlotDataItem(pen=pg.mkPen(color, width=1))
+            #
+            # **`PlotCurveItem` y no `PlotDataItem`**: aquél es la curva y éste
+            # es un envoltorio que además maneja puntos, relleno y decimación
+            # propia, ninguno de los cuales se usa acá. Medido sobre un paso de
+            # reproducción con página de 30 s: 28 ms contra 19 con el registro
+            # de prueba, y 68 contra 58 con 32 canales a 1000 Hz.
+            curva = pg.PlotCurveItem(pen=pg.mkPen(color, width=1))
             item.addItem(curva)
             self._curves[nombre] = curva
 

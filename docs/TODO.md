@@ -20,9 +20,11 @@ visualizador al estilo de EDFbrowser, en diez fases, y el
 **[hito 23](#hito-23-ajustes-de-la-barra-de-menú)** ajustó su barra de menú y
 sumó el scoring en CSV, EDF+ y XML. El
 **[hito 24](#hito-24-vista-inicial-y-reproducción)** dejó la señal sola al
-abrir y agregó la reproducción. Son **veinticinco hitos**, del 0 al 24, que
-son las filas de la tabla de progreso, y están todos cerrados; lo que sigue
-abierto está anotado al final de los dos últimos.
+abrir y agregó la reproducción, y el
+**[hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar)** la hizo el doble
+de rápida. Son **veintiséis hitos**, del 0 al 25, que son las filas de la
+tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
+al final de los tres últimos.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
 34 requisitos se podían usar desde el programa corriendo, no sólo desde sus
@@ -115,6 +117,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [22. Refactor de la interfaz](#hito-22-refactor-de-la-interfaz) | — | 0 | ✅ cerrado |
 | [23. Ajustes de la barra de menú](#hito-23-ajustes-de-la-barra-de-menú) | — | 0 | ✅ cerrado |
 | [24. Vista inicial y reproducción](#hito-24-vista-inicial-y-reproducción) | — | 0 | ✅ cerrado |
+| [25. Rendimiento](#hito-25-rendimiento-al-abrir-y-al-desplazar) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -583,7 +586,7 @@ la regla vive en `core/`.
 > usuario las líneas que acaba de dibujar sin que se haya movido a ningún lado.
 
 - [x] **`psglab/ui/grid.py`** · ~~4 stubs~~ · V1_P, V2_F "Diseño de la interfaz"
-  - Test: `tests/test_grid.py`, **18 tests en verde**. No dibuja píxeles:
+  - Test: `tests/test_grid.py`, **23 tests en verde**. No dibuja píxeles:
     calcula posiciones, así que se puede afirmar sobre la grilla sin mirar una
     pantalla.
   - Las posiciones **se multiplican, no se acumulan**: sumar 0,5 sesenta veces
@@ -591,7 +594,7 @@ la regla vive en `core/`.
     documenta para las ventanas.
 - [x] **`psglab/ui/signal_view.py`** · ~~13 stubs~~ · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Test: `tests/test_signal_view.py`, **45 tests en verde**. **El dibujo no se
+  - Test: `tests/test_signal_view.py`, **51 tests en verde**. **El dibujo no se
     testea**; sí los tres conversores, que es de donde salen las unidades con
     las que trabajan todas las herramientas.
   - Los píxeles de los bordes se le **preguntan al `ViewBox`** en vez de
@@ -2020,6 +2023,122 @@ sobre el registro de `data/`.
       Con 1400 px el hipnograma recibe ahora unos 690, el más ancho de los
       tres.
   - Test: `tests/test_docks.py`, **32 tests en verde**.
+
+---
+
+## Hito 25: Rendimiento al abrir y al desplazar
+
+**Cerrado el 17 de septiembre de 2026.** La reproducción del
+[hito 24](#hito-24-vista-inicial-y-reproducción) se veía a saltos y abrir un
+registro congela la ventana varios segundos sin avisar nada.
+
+**No tiene stubs que contar.** Lo que tiene es una medición: sin ella, dos de
+las tres cosas que se hicieron habrían sido las equivocadas.
+
+### Lo que se midió antes de tocar nada
+
+Con el registro real de `data/` —7 canales a 100 Hz, 22 h— en una ventana de
+1400×800, un paso de reproducción de una página de 30 s tardaba **113 ms**. El
+mismo paso, con el fondo «sin líneas», **57 ms**: o sea que **la grilla sola se
+llevaba la mitad**, unos 0,8 ms por línea y por cuadro. Cada línea era una
+`pg.InfiniteLine`, y cada objeto de pyqtgraph recalcula su rectángulo, consulta
+la escala del gráfico y se pinta por separado.
+
+En un banco aparte, sin nada del programa, mover 72 líneas y el eje cuesta
+**67,5 ms** como objetos sueltos y **22,1 ms** dibujadas en uno solo.
+
+Arreglada la grilla quedaba un segundo hallazgo, y éste no se veía sin
+contar repintados: **la señal se repintaba dos veces por cuadro**. La
+bisección, con un filtro de eventos sobre el visualizador, dio una sola
+línea: `_marcar_epoca()` sacaba la banda de la escena y armaba otra en cada
+dibujo, y el segundo cambio de escena llega cuando el primer repintado ya
+empezó. Un `LinearRegionItem` es además un ítem compuesto, así que eran tres
+objetos por cuadro para mover un rectángulo que casi nunca cambia: la época
+no se mueve al reproducir.
+
+Con eso, lo único que quedaba pesando eran **las curvas**: un paso sin
+dibujarlas cuesta 0,1 ms y con ellas 28. Ahí la pregunta era cuál de las dos
+clases de pyqtgraph usar. `PlotDataItem` es un envoltorio que además maneja
+puntos, relleno y decimación propia, y nada de eso se usa acá.
+
+### Lo que se hizo
+
+- [x] **La grilla es un solo objeto de la escena.** `GridBackground` arma una
+      lista de `GridLine` —dónde cae cada una, en qué sentido y de qué color— y
+      un único `_LineasDeFondo` las dibuja todas en su `paint()`. **Las líneas
+      de cero de los canales se mudaron ahí**: eran otra `InfiniteLine` por
+      canal, con el mismo costo.
+  - Test: `tests/test_grid.py`, **23 tests en verde**, con el de regresión que
+    exige que sea **un** objeto y no uno por línea.
+- [x] **La banda de la época se mueve, no se rehace.** Se crea una vez y
+      después sólo se le pide el rango, que además casi siempre es el mismo.
+      Con eso el repintado por cuadro pasó de 2,00 a 1,00, medido con el
+      filtro de eventos.
+  - Test: `tests/test_signal_view.py`, **51 tests en verde**.
+- [x] **Las curvas son `PlotCurveItem` y no `PlotDataItem`.** Medido
+      intercalando las dos clases en el mismo proceso, que es la única forma
+      de comparar en una máquina que varía: 28 ms contra 19 con el registro
+      de prueba, y 68 contra 58 con 32 canales a 1000 Hz. El dibujo es el
+      mismo píxel por píxel.
+- [x] **La conversión a microvoltios de los lectores es en sitio.**
+      `to_microvolts()` devolvía un array nuevo por canal; sobre el registro de
+      prueba son 286 ms de copias que se descartan enseguida, contra 61 ms
+      multiplicando en sitio. El factor sale del mismo lugar de siempre,
+      `utils.units.conversion_factor()`.
+- [x] **Abrir un registro avisa.** `open_recording()` usa el mismo
+      `_trabajando()` que los análisis: cursor de espera y el nombre del
+      archivo en la barra de estado. La espera no se acorta —MNE se lleva 2,6
+      de los 4,3 s—, pero deja de leerse como que el programa se colgó.
+- [x] **`tests/medir_rendimiento.py`**, el banco de medición. No es un test y
+      pytest no lo recolecta: se corre con `python -m tests.medir_rendimiento`
+      e imprime una tabla. Los tiempos dependen de la máquina, así que **una
+      cota en segundos como test se pondría roja en la máquina de otro sin que
+      nadie sepa si empeoró el programa o el día**.
+
+### Lo que se ganó, medido con el banco
+
+Mediana de 40 cuadros, misma máquina, misma ventana de 1400×800:
+
+Las dos corridas, una detrás de la otra y con la máquina en el mismo estado.
+**Eso último no es un detalle**: la misma medición dio 118 ms con el equipo
+ocupado sincronizando archivos y 56 con el equipo libre, así que un número de
+este banco sólo vale contra otro de la misma tanda.
+
+| Página | Antes | Después |
+|---|---|---|
+| 7 canales a 100 Hz, 5 s | 32,7 ms | 11,5 ms |
+| 7 canales a 100 Hz, **30 s** | **56,3 ms** | **17,5 ms** |
+| 7 canales a 100 Hz, 5 min | 16,6 ms | 14,3 ms |
+| 7 canales a 100 Hz, registro entero | 24,1 ms | 21,0 ms |
+| 32 canales a 1000 Hz, 5 s | 71,5 ms | 37,8 ms |
+| 32 canales a 1000 Hz, **30 s** | **109,1 ms** | **44,4 ms** |
+| 32 canales a 1000 Hz, 5 min | 37,4 ms | 28,1 ms |
+| 32 canales a 1000 Hz, registro entero | 46,2 ms | 30,6 ms |
+
+La página de 30 s es la que importa: es la que el programa abre y la que se
+usa para scorear. Pasó de 17,8 a **57 cuadros por segundo** con el registro de
+prueba, y el reloj de la reproducción pide 25. Con 32 canales a 1000 Hz quedan
+22,5, que es casi.
+
+### Lo que sigue abierto
+
+- [ ] **Un registro denso llega justo**: 44 ms por cuadro con 32 canales a
+      1000 Hz, contra los 40 que pide el reloj. Casi todo eso es rasterizar
+      71 000 puntos de trazo. Las dos salidas que quedan son dibujar menos
+      puntos —una pareja de envolvente cada dos píxeles en vez de cada uno, que
+      **se midió en −25 % y se descartó**: bajar la resolución horizontal del
+      trazado es una decisión clínica y el usuario eligió no tomarla— o sacar
+      el dibujo del hilo de la interfaz.
+- [ ] **OpenGL se probó y no sirvió.** `useOpenGL` dio 30 ms contra 19 con el
+      registro de prueba y 66 contra 58 con el denso: en este dibujo —muchas
+      polilíneas cortas— el camino por GPU cuesta más de lo que ahorra. Queda
+      anotado para que no se vuelva a proponer sin medirlo.
+- [ ] **La lectura sigue siendo de MNE**, 2,6 s de los 4,3. Un lector propio
+      con numpy para el caso simple bajaría eso a medio segundo, y es un parser
+      nuevo que hay que mantener: **la decisión fue no hacerlo por ahora**.
+      La copia que hace `crudo.get_data()` —300 ms— tampoco se puede evitar:
+      la versión de MNE que fija `requirements.txt` no ofrece leer sin copiar,
+      y leerle el array privado sería atarse a un detalle interno suyo.
 
 ---
 

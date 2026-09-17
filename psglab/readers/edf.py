@@ -40,7 +40,7 @@ from psglab.core.recording import Channel, Recording
 from psglab.readers.base import Reader, register_reader
 from psglab.readers.channel_types import detect_channel_kind
 from psglab.utils.errors import UnreadableFileError
-from psglab.utils.units import MICROVOLT, is_electrical, to_microvolts
+from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
 
 #: Unidad en la que MNE entrega los canales que reconoce como eléctricos. No es
 #: la que declara el archivo: es la del SI, que MNE usa internamente.
@@ -132,7 +132,10 @@ class EdfReader(Reader):
             unidad_declarada, frecuencia_original = cabecera.get(nombre, ("", None))
             if is_electrical(unidad_declarada):
                 # MNE ya aplicó la dimensión física del archivo y entregó volts.
-                datos[posicion] = to_microvolts(datos[posicion], _UNIDAD_DE_MNE)
+                # **En sitio**: `to_microvolts()` devuelve un array nuevo, y sobre
+                # el registro de prueba eso eran 42 ms por canal en copias que se
+                # descartaban enseguida. El factor sale del mismo lugar.
+                datos[posicion] *= conversion_factor(_UNIDAD_DE_MNE)
                 unidad_de_la_fila = MICROVOLT
             else:
                 unidad_de_la_fila = unidad_declarada
