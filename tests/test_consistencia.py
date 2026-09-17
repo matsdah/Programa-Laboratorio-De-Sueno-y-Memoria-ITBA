@@ -39,7 +39,8 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     # ASCII a propósito y tiene un chequeo que lo exige.
     "veintidós": 22, "veintidos": 22, "veintitrés": 23, "veintitres": 23,
     "veinticuatro": 24, "veinticinco": 25,
-    "veintiséis": 26, "veintisiete": 27, "veintiocho": 28, "veintinueve": 29,
+    "veintiséis": 26, "veintiseis": 26,
+    "veintisiete": 27, "veintiocho": 28, "veintinueve": 29,
     "treinta": 30, "treinta y uno": 31, "treinta y un": 31, "treinta y dos": 32, "treinta y tres": 33,
     "treinta y cuatro": 34, "treinta y cinco": 35, "treinta y seis": 36,
     "treinta y siete": 37, "treinta y ocho": 38, "treinta y nueve": 39,

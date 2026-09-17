@@ -6,6 +6,9 @@ en 60— y tres fondos elegibles por el usuario (V2_F).
 
 Se puede afirmar sobre eso **sin mirar una pantalla**: cuántas líneas hay y en
 qué posición están es lo que define el fondo. Los píxeles no se testean.
+
+Desde el hito 25 `lines()` devuelve `GridLine`, un valor, y no objetos de la
+escena: las dibuja todas un solo objeto. Lo que se verifica no cambió.
 """
 
 import numpy as np
@@ -35,7 +38,7 @@ def grilla(qt_app):
 
 
 def posiciones(grid: GridBackground) -> list[float]:
-    return sorted(linea.value() for linea in grid.lines())
+    return sorted(linea.position for linea in grid.lines())
 
 
 # -- Los tres fondos del pliego (V2_F) ---------------------------------------
@@ -174,11 +177,11 @@ def esquema_ecg():
 
 
 def _horizontales(grid: GridBackground) -> list[float]:
-    return sorted(linea.value() for linea in grid.lines() if linea.angle == 0)
+    return sorted(linea.position for linea in grid.lines() if linea.angle == 0)
 
 
 def _verticales(grid: GridBackground) -> list[float]:
-    return sorted(linea.value() for linea in grid.lines() if linea.angle == 90)
+    return sorted(linea.position for linea in grid.lines() if linea.angle == 90)
 
 
 def test_sin_el_esquema_ecg_no_hay_lineas_horizontales(grilla: GridBackground):
@@ -240,3 +243,61 @@ def test_las_lineas_finas_de_la_cuadricula_van_solo_con_la_grilla_completa(
     grilla.redraw(VENTANA)
 
     assert len(_horizontales(grilla)) > gruesas
+
+
+# -- Un solo objeto en la escena (hito 25) -----------------------------------
+
+
+def objetos_de(grid: GridBackground) -> list:
+    """Lo que la grilla le agregó al gráfico."""
+    return [item for item in grid._plot.items if item is grid._item]
+
+
+def test_la_grilla_es_un_solo_objeto_de_la_escena(grilla: GridBackground):
+    """**Es lo que compró el hito 25.** Con una `InfiniteLine` por línea, cada
+    una recalculaba su rectángulo y se pintaba aparte: 0,8 ms por línea y por
+    cuadro, la mitad de lo que costaba mover la página."""
+    grilla.set_style(BackgroundStyle.FULL)
+    grilla.redraw(VENTANA)
+
+    assert len(grilla.lines()) > 50
+    assert len(objetos_de(grilla)) == 1
+
+
+def test_redibujar_no_agrega_objetos(grilla: GridBackground):
+    grilla.set_style(BackgroundStyle.FULL)
+    grilla.redraw(VENTANA)
+    antes = len(grilla._plot.items)
+
+    for origen in range(10):
+        grilla.redraw(VENTANA, origin_seconds=origen * 1.2)
+
+    assert len(grilla._plot.items) == antes
+
+
+# -- Las líneas de cero de los canales ---------------------------------------
+
+
+def test_las_lineas_de_base_son_horizontales_donde_se_piden(grilla: GridBackground):
+    grilla.set_baselines([0.0, -1.0, -2.0], "#808080")
+
+    assert [linea.position for linea in grilla.baselines()] == [0.0, -1.0, -2.0]
+    assert all(linea.angle == 0 for linea in grilla.baselines())
+    assert all(linea.color == "#808080" for linea in grilla.baselines())
+
+
+def test_las_lineas_de_base_no_son_parte_del_fondo(grilla: GridBackground):
+    """`lines()` es lo que el pliego llama fondo (V2_F). Las de cero son de los
+    canales, y el fondo «sin líneas» no las apaga."""
+    grilla.set_style(BackgroundStyle.BLANK)
+    grilla.redraw(VENTANA)
+    grilla.set_baselines([0.0, -1.0], "#808080")
+
+    assert grilla.lines() == []
+    assert len(grilla.baselines()) == 2
+
+
+def test_un_esquema_sin_linea_de_cero_no_dibuja_ninguna(grilla: GridBackground):
+    grilla.set_baselines([0.0, -1.0], None)
+
+    assert grilla.baselines() == []

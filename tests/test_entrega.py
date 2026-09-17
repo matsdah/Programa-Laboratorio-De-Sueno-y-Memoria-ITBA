@@ -1830,6 +1830,40 @@ def test_durante_un_analisis_el_cursor_dice_que_esta_trabajando(ventana: MainWin
     assert visto == [Qt.CursorShape.WaitCursor]
 
 
+def test_abrir_un_registro_avisa_mientras_lee(
+    ventana: MainWindow, tmp_path: Path, monkeypatch
+):
+    """Leer una noche entera son varios segundos con la ventana congelada: sin
+    cursor de espera ni mensaje se lee como que el programa se colgó, y es lo
+    primero que hace el usuario."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+
+    visto: list[tuple[object, str]] = []
+    leer = main_window_mod.read_recording
+
+    def mirar(ruta):
+        cursor = QApplication.overrideCursor()
+        visto.append(
+            (
+                cursor.shape() if cursor is not None else None,
+                ventana.statusBar().currentMessage(),
+            )
+        )
+        return leer(ruta)
+
+    monkeypatch.setattr(main_window_mod, "read_recording", mirar)
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS)
+
+    ventana.open_recording(otro)
+
+    (forma, mensaje), = visto
+    assert forma == Qt.CursorShape.WaitCursor
+    assert otro.name in mensaje
+    assert QApplication.overrideCursor() is None
+    assert not ventana.carteles
+
+
 def test_al_terminar_el_cursor_vuelve(ventana: MainWindow):
     """Un cursor de espera que no se restaura deja el programa inutilizable a
     la vista, aunque funcione."""

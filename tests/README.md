@@ -100,6 +100,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_menus.py` | La barra de menú: que ninguna acción quede sin conectar, que cada cosa esté donde corresponde y que lo que se sacó no vuelva sin que nadie lo decida. |
 | `test_docks.py` | Los paneles acoplables: que cada uno se pueda guardar y restaurar, y que la navegación no se pueda cerrar. |
 | `test_icons.py` | Los iconos que dibuja el programa: que no salgan vacíos y que tomen el color pedido. |
+| `medir_rendimiento.py` | **No es un test**: el banco de medición. Se corre a mano con `python -m tests.medir_rendimiento` e imprime cuánto tarda abrir un registro y cada cuadro de la reproducción. |
 | `test_navigation.py` | La barra inferior: que la franja convierta bien un clic en una ventana, sobre todo en los bordes, y que los botones de página y de reproducción pidan lo suyo. |
 | `test_playback.py` | El reloj de la reproducción: que avance a la velocidad pedida aunque dibujar tarde, sin esperar al temporizador. |
 

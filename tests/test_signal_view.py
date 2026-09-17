@@ -610,3 +610,91 @@ def test_los_nombres_de_canal_siguen_a_la_pagina_al_desplazar(
     desde, hasta = vista_larga.getPlotItem().vb.viewRange()[0]
 
     assert desde <= vista_larga._labels[0].pos().x() <= hasta
+
+
+# -- Las líneas de cero las dibuja la grilla (hito 25) -----------------------
+
+
+def test_cada_canal_visible_tiene_su_linea_de_cero(vista: SignalView, sesion: Session):
+    """Eran una `InfiniteLine` por canal, con el mismo costo por cuadro que una
+    línea de grilla; ahora las dibuja el objeto de la grilla."""
+    vista.set_session(sesion)
+
+    alturas = [linea.position for linea in vista.grid.baselines()]
+
+    assert len(alturas) == len(sesion.visible_channels)
+    assert alturas == sorted(alturas, reverse=True)
+
+
+def test_cambiar_los_canales_visibles_mueve_las_lineas_de_cero(
+    vista: SignalView, sesion: Session
+):
+    vista.set_session(sesion)
+    uno = sesion.visible_channels[:1]
+
+    vista.set_visible_channels(uno)
+
+    assert len(vista.grid.baselines()) == 1
+
+
+# -- La banda de la época se mueve, no se rehace (hito 25) -------------------
+
+
+def test_la_banda_de_la_epoca_no_se_rehace_en_cada_dibujo(
+    vista: SignalView, sesion: Session
+):
+    """**Era lo que hacía que la señal se repintara dos veces por cuadro.**
+    Sacar un ítem de la escena y poner otro son dos cambios, y el segundo llega
+    cuando el primer repintado ya empezó."""
+    vista.set_session(sesion)
+    banda = vista._epoca
+
+    for inicio in range(5):
+        sesion.set_viewport(sesion.viewport.with_start(inicio * 1.2))
+        vista.draw_viewport()
+
+    assert banda is not None
+    assert vista._epoca is banda
+    assert banda in vista.getPlotItem().items
+
+
+def test_la_banda_sigue_a_la_epoca(vista: SignalView, sesion: Session):
+    """Es lo único que le dice al usuario qué época va a scorear cuando la
+    página muestra muchas."""
+    from psglab.core.windows import epoch_to_seconds
+
+    vista.set_session(sesion)
+    esperado = epoch_to_seconds(1, sesion.recording.sampling_rate)
+
+    vista.show_window(1)
+
+    assert vista._epoca.getRegion() == pytest.approx(esperado)
+
+
+def test_desplazar_la_pagina_no_mueve_la_banda(vista: SignalView, sesion: Session):
+    """Reproducir mueve la vista y no la época: la banda se queda donde está."""
+    vista.set_session(sesion)
+    antes = vista._epoca.getRegion()
+
+    sesion.set_viewport(sesion.viewport.with_start(12.0))
+    vista.draw_viewport()
+
+    assert vista._epoca.getRegion() == antes
+
+
+def test_cambiar_de_esquema_repinta_la_banda(vista: SignalView, sesion: Session):
+    """La banda ya no se rehace en cada dibujo, así que su color lo tiene que
+    cambiar `apply_scheme()`."""
+    import psglab.ui.theme as theme
+
+    vista.set_session(sesion)
+    antes = vista._epoca.brush.color().name()
+
+    anterior = theme.current()
+    try:
+        theme.set_current(theme.ECG)
+        vista.apply_scheme()
+        assert vista._epoca.brush.color().name() != antes
+    finally:
+        theme.set_current(anterior)
+        vista.apply_scheme()
