@@ -8,13 +8,36 @@ El pliego define dos densidades de línea sobre la ventana de 30 segundos:
 y tres fondos elegibles por el usuario (V2_F): blanco, sólo las líneas de
 3 segundos, o las dos densidades juntas.
 
+## Todas las líneas son un solo objeto de la escena
+
+Hasta el hito 25 cada línea era una `pg.InfiniteLine`, y **eso era la mitad de
+lo que costaba mover la página**: cada objeto de pyqtgraph recalcula su
+rectángulo, consulta la escala del gráfico y se pinta por separado. Medido
+sobre el registro de prueba, con una página de 30 s y su grilla de 72 líneas:
+
+    paso de reproducción con la grilla fina     113 ms
+    el mismo paso sin ninguna línea              57 ms
+
+o sea unos 0,8 ms por línea y por cuadro. En un banco aparte, mover 72 líneas y
+el eje cuesta 67,5 ms como objetos sueltos y 22,1 ms dibujadas en uno solo.
+
+Por eso `GridBackground` no crea objetos: arma una lista de `GridLine` —dónde
+cae cada una, en qué sentido y de qué color— y un único `_LineasDeFondo` las
+dibuja todas en su `paint()`. **Las líneas de base de los canales viven acá por
+el mismo motivo**, aunque no sean parte de la grilla del pliego: eran otro
+objeto por canal.
+
 Cubre del pliego: V1_P, V2_F de "Diseño de la interfaz de visualización".
 """
 
+import itertools
 import math
+from dataclasses import dataclass
 from enum import Enum
 
 import pyqtgraph as pg
+from PySide6.QtCore import QLineF, QRectF
+from PySide6.QtGui import QPainter
 
 from psglab.config import COARSE_GRID_SECONDS, FINE_GRID_SECONDS, MAX_GRID_LINES
 from psglab.ui import theme
@@ -26,9 +49,91 @@ COARSE_LANE_FRACTION: float = 0.25
 #: Y cada cuántos una discreta: cinco por cada visible, como los cuadros chicos.
 FINE_LANE_FRACTION: float = 0.05
 
-#: En qué capa se dibuja cada serie. Ver `GridBackground._aplicar()`.
-_Z_VISIBLE: float = -10.0
-_Z_FINA: float = -11.0
+#: En qué capa va la grilla: **debajo de la señal** y encima de la banda de la
+#: época actual, que está en −20.
+_Z_GRILLA: float = -10.0
+
+
+@dataclass(frozen=True)
+class GridLine:
+    """Una línea de fondo: dónde cae, en qué sentido y de qué color.
+
+    Es un valor y no un objeto de la escena. Las dibuja todas
+    `_LineasDeFondo`, y esto es lo que se puede afirmar en un test sin mirar
+    píxeles: cuántas hay y dónde caen es lo que define el fondo.
+
+    Attributes:
+        position: la coordenada donde cae, en el eje al que es perpendicular:
+            segundos para una vertical, unidades del gráfico para una
+            horizontal.
+        angle: 90 si es vertical y 0 si es horizontal, como los llamaba
+            `pg.InfiniteLine`.
+        color: el color con que se dibuja, del esquema en uso.
+    """
+
+    position: float
+    angle: int
+    color: str
+
+
+class _LineasDeFondo(pg.GraphicsObject):
+    """El único objeto de la escena que dibuja la grilla y las líneas de base.
+
+    **Se pinta en coordenadas del gráfico y con pluma cosmética**: así una línea
+    mide un píxel cualquiera sea la escala de tiempo, que es lo que hacía
+    `InfiniteLine` por su cuenta.
+    """
+
+    def __init__(self) -> None:
+        """Crea el objeto sin ninguna línea."""
+        super().__init__()
+        self._lineas: tuple[GridLine, ...] = ()
+        self.setZValue(_Z_GRILLA)
+
+    def set_lines(self, lineas: tuple[GridLine, ...]) -> None:
+        """Cambia las líneas y pide un repintado."""
+        self._lineas = lineas
+        self.update()
+
+    def viewRangeChanged(self) -> None:
+        """Al cambiar la vista, el rectángulo del objeto cambia con ella.
+
+        pyqtgraph llama a este método cuando el `ViewBox` se mueve o se escala.
+        Sin `prepareGeometryChange()`, la escena seguiría creyendo que el objeto
+        ocupa el rectángulo anterior y dejaría las líneas a medio dibujar al
+        desplazar la página.
+        """
+        self.prepareGeometryChange()
+        self.update()
+
+    def boundingRect(self) -> QRectF:
+        """Todo lo que se ve: las líneas llegan de borde a borde."""
+        caja = self.getViewBox()
+        return QRectF() if caja is None else QRectF(caja.viewRect())
+
+    def paint(self, painter: QPainter, *_: object) -> None:
+        """Dibuja las líneas agrupadas por color, en el orden en que llegaron.
+
+        Agrupar ahorra cambios de pluma, y el orden es el que decide qué queda
+        arriba: las finas primero y las visibles después, porque una línea de
+        3 s coincide con una de 0,5 s y tiene que verse la que más importa.
+        """
+        caja = self.getViewBox()
+        if caja is None or not self._lineas:
+            return
+        (x0, x1), (y0, y1) = caja.viewRange()
+        for color, grupo in itertools.groupby(self._lineas, key=lambda linea: linea.color):
+            pluma = pg.mkPen(color=color, width=1)
+            pluma.setCosmetic(True)
+            painter.setPen(pluma)
+            painter.drawLines(
+                [
+                    QLineF(linea.position, y0, linea.position, y1)
+                    if linea.angle == 90
+                    else QLineF(x0, linea.position, x1, linea.position)
+                    for linea in grupo
+                ]
+            )
 
 
 def _segundos(valor: float) -> str:
@@ -73,15 +178,20 @@ class GridBackground:
         """Asocia la grilla al gráfico donde se dibujan las señales."""
         self._plot = plot
         self._style = BackgroundStyle.FULL
-        self._lines: list[pg.InfiniteLine] = []
-        #: Con qué ángulo y color está cada línea de `_lines`, para no volver a
-        #: fijarle la pluma si no cambió.
-        self._claves: list[tuple[int, str]] = []
+        self._lines: tuple[GridLine, ...] = ()
+        #: Las líneas de cero de cada canal. No son parte de la grilla del
+        #: pliego, pero las dibuja el mismo objeto: ver el docstring del módulo.
+        self._baselines: tuple[GridLine, ...] = ()
         #: La última ventana dibujada, para poder redibujar al cambiar de
         #: fondo sin que quien llama tenga que repetir la duración.
         self._window_seconds: float | None = None
         #: Dónde empezaba esa página, por el mismo motivo.
         self._origin_seconds: float = 0.0
+        self._item = _LineasDeFondo()
+        # `ignoreBounds` porque el rectángulo del objeto **es** el de la vista:
+        # dejarlo entrar en el autoajuste sería pedirle al gráfico que se
+        # ajuste a sí mismo.
+        plot.addItem(self._item, ignoreBounds=True)
 
     @property
     def style(self) -> BackgroundStyle:
@@ -103,7 +213,7 @@ class GridBackground:
         fine_seconds: float = FINE_GRID_SECONDS,
         origin_seconds: float = 0.0,
     ) -> None:
-        """Redibuja las líneas para una página de la duración indicada.
+        """Rearma las líneas para una página de la duración indicada.
 
         Recibe la duración por parámetro y no la lee de `config` para que la
         grilla siga siendo correcta si mañana el laboratorio trabaja con
@@ -124,28 +234,25 @@ class GridBackground:
         cuatro horas pediría 28 800 líneas finas: no es lento, es una pantalla
         tapada de gris donde no se ve la señal. El techo es `MAX_GRID_LINES`.
 
-        **Las líneas se reusan, no se recrean.** Hasta el hito 24 cada redibujo
-        borraba las setenta de una página de 30 s y creaba otras setenta, y eso
-        era casi todo lo que tardaba en moverse la página: 45 de 52 ms sobre el
-        registro de prueba. Con la reproducción, que mueve la página
-        veinticinco veces por segundo, dejó de ser tolerable.
+        **No crea ni destruye nada de la escena**: arma la lista y se la pasa
+        al único objeto que dibuja. Ver el docstring del módulo.
         """
         self._window_seconds = window_seconds
         self._origin_seconds = origin_seconds
         if self._style is BackgroundStyle.BLANK:
-            self.clear()
+            self._lines = ()
+            self._actualizar()
             return
 
         # Los colores se leen **en cada redibujo** y no se guardan: así cambiar
         # de esquema y pedir un redibujo alcanza para que la grilla cambie, sin
         # que este objeto tenga que enterarse de nada.
         esquema = theme.current()
-        pedidas: list[tuple[float, int, str]] = []
+        pedidas: list[GridLine] = []
 
-        # Las finas van primero y las visibles después. El orden de dibujo no
-        # depende de eso sino del `zValue` de cada serie: una línea de 3 s
-        # coincide con una de 0,5 s y tiene que quedar arriba la que más se
-        # tiene que ver, aunque se haya reusado una línea creada antes.
+        # Las finas van primero y las visibles después, que es el orden en que
+        # se pintan: donde una de 3 s coincide con una de 0,5 s tiene que
+        # quedar arriba la que más se tiene que ver.
         if self._style is BackgroundStyle.FULL:
             pedidas += self._verticales(
                 window_seconds, fine_seconds, esquema.fine_grid, origin_seconds
@@ -163,7 +270,37 @@ class GridBackground:
                 pedidas += self._horizontales(FINE_LANE_FRACTION, esquema.fine_grid)
             pedidas += self._horizontales(COARSE_LANE_FRACTION, esquema.coarse_grid)
 
-        self._aplicar(pedidas, esquema.coarse_grid)
+        self._lines = tuple(pedidas)
+        self._actualizar()
+
+    def set_baselines(self, positions: list[float], color: str | None) -> None:
+        """Fija las líneas de cero de los canales, que van debajo de la señal.
+
+        Las dibuja este objeto y no `signal_view.py` porque eran una
+        `InfiniteLine` por canal, con el mismo costo por cuadro que las de la
+        grilla.
+
+        Args:
+            positions: la altura de cada línea, en unidades del gráfico.
+            color: el del esquema en uso, o None si el esquema no dibuja línea
+                de cero, que es como se apagan.
+        """
+        if color is None:
+            self._baselines = ()
+        else:
+            self._baselines = tuple(
+                GridLine(position=float(p), angle=0, color=color) for p in positions
+            )
+        self._actualizar()
+
+    def _actualizar(self) -> None:
+        """Le pasa al objeto de la escena todo lo que tiene que dibujar.
+
+        Las líneas de base van primero: una línea de cero debajo de la grilla
+        es lo que se veía hasta ahora, cuando las dibujaba `signal_view.py`
+        antes que nada.
+        """
+        self._item.set_lines(self._baselines + self._lines)
 
     def _verticales(
         self,
@@ -171,7 +308,7 @@ class GridBackground:
         cada: float,
         color: str,
         origin_seconds: float = 0.0,
-    ) -> list[tuple[float, int, str]]:
+    ) -> list[GridLine]:
         """Una línea vertical cada `cada` segundos, sin pasarse del borde.
 
         Se cuenta con enteros y se multiplica, en vez de ir acumulando: sumar
@@ -193,10 +330,10 @@ class GridBackground:
             posicion = (primera + paso) * cada
             if posicion > origin_seconds + window_seconds:
                 break
-            pedidas.append((posicion, 90, color))
+            pedidas.append(GridLine(position=posicion, angle=90, color=color))
         return pedidas
 
-    def _horizontales(self, cada: float, color: str) -> list[tuple[float, int, str]]:
+    def _horizontales(self, cada: float, color: str) -> list[GridLine]:
         """Una línea horizontal cada `cada` carriles, sobre lo que se ve.
 
         **En fracciones de carril y no en microvoltios.** Cada canal tiene su
@@ -220,55 +357,23 @@ class GridBackground:
             posicion = (primera + paso) * cada
             if posicion > arriba:
                 break
-            pedidas.append((posicion, 0, color))
+            pedidas.append(GridLine(position=posicion, angle=0, color=color))
         return pedidas
 
-    def _aplicar(self, pedidas: list[tuple[float, int, str]], visible: str) -> None:
-        """Deja en pantalla exactamente las líneas pedidas, reusando las que hay.
-
-        Sobran: se sacan del gráfico. Faltan: se crean. Las demás sólo cambian
-        de lugar, y de pluma si hace falta. Al desplazar una página de ancho
-        fijo la cantidad cambia en una a lo sumo, así que casi siempre no se
-        crea ni se borra nada.
-
-        **El `zValue` separa las dos series**, las dos por debajo de la señal y
-        por encima de la banda de la época actual (−20): las visibles en −10 y
-        las finas en −11. Sin eso, una fina reusada podía quedar encima de una
-        visible en el mismo lugar y taparla.
-        """
-        while len(self._lines) > len(pedidas):
-            self._plot.removeItem(self._lines.pop())
-            self._claves.pop()
-
-        for indice, (posicion, angulo, color) in enumerate(pedidas):
-            clave = (angulo, color)
-            if indice == len(self._lines):
-                linea = pg.InfiniteLine(
-                    pos=posicion, angle=angulo, pen=pg.mkPen(color=color, width=1)
-                )
-                self._plot.addItem(linea)
-                self._lines.append(linea)
-                self._claves.append(clave)
-            else:
-                linea = self._lines[indice]
-                if self._claves[indice] != clave:
-                    linea.setAngle(angulo)
-                    linea.setPen(pg.mkPen(color=color, width=1))
-                    self._claves[indice] = clave
-                linea.setValue(posicion)
-            linea.setZValue(_Z_VISIBLE if color == visible else _Z_FINA)
-
     def clear(self) -> None:
-        """Borra todas las líneas de la grilla."""
-        for linea in self._lines:
-            self._plot.removeItem(linea)
-        self._lines.clear()
-        self._claves.clear()
+        """Borra todas las líneas de la grilla. Las de base quedan."""
+        self._lines = ()
+        self._actualizar()
 
-    def lines(self) -> list[pg.InfiniteLine]:
-        """Las líneas dibujadas ahora mismo.
+    def lines(self) -> list[GridLine]:
+        """Las líneas de la grilla que están dibujadas ahora mismo.
 
         Existe para poder afirmar sobre la grilla en un test sin mirar píxeles:
-        cuántas líneas hay y dónde están es lo que define el fondo.
+        cuántas líneas hay y dónde están es lo que define el fondo. **No
+        incluye las líneas de base**, que no son parte del fondo del pliego.
         """
         return list(self._lines)
+
+    def baselines(self) -> list[GridLine]:
+        """Las líneas de cero de los canales que están dibujadas ahora mismo."""
+        return list(self._baselines)

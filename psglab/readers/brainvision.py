@@ -43,7 +43,7 @@ from psglab.core.recording import Channel, Recording
 from psglab.readers.base import Reader, register_reader
 from psglab.readers.channel_types import detect_channel_kind
 from psglab.utils.errors import UnreadableFileError
-from psglab.utils.units import MICROVOLT, is_electrical, to_microvolts
+from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
 
 #: Unidad en la que MNE entrega los canales de voltaje. Ver `readers/edf.py`,
 #: donde está medido contra el rango físico de la cabecera.
@@ -228,7 +228,9 @@ class BrainVisionReader(Reader):
         for posicion, nombre in enumerate(crudo.ch_names):
             unidad_declarada = declaradas.get(nombre, _UNIDAD_POR_DEFECTO)
             if is_electrical(unidad_declarada):
-                datos[posicion] = to_microvolts(datos[posicion], _UNIDAD_DE_MNE)
+                # En sitio, por lo mismo que en `edf.py`: `to_microvolts()`
+                # copiaría el canal entero para descartarlo enseguida.
+                datos[posicion] *= conversion_factor(_UNIDAD_DE_MNE)
                 unidad_de_la_fila = MICROVOLT
             else:
                 unidad_de_la_fila = unidad_declarada
