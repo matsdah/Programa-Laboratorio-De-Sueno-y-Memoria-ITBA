@@ -93,6 +93,9 @@ class SignalView(pg.PlotWidget):
         self._overlay_items: list[object] = []
         #: La banda que marca la epoca de scoring sobre la pagina visible.
         self._epoca: object | None = None
+        #: La línea que marca por dónde va la reproducción. Se crea la primera
+        #: vez que hace falta y después sólo se mueve. Ver `set_playhead()`.
+        self._cursor: pg.InfiniteLine | None = None
         #: Envolventes ya calculadas, de la más vieja a la más nueva. La clave
         #: es (canal, primera muestra, última muestra, columnas): **no** incluye
         #: la escala ni el desplazamiento, que se aplican después, así que
@@ -168,14 +171,21 @@ class SignalView(pg.PlotWidget):
 
         Pide a `Recording.get_segment` sólo el tramo visible: no se copia ni se
         recorre el registro entero, que puede durar ocho horas.
+
+        **Reproduciendo no mueve la página**: mientras se ve el cursor, la
+        página es suya (`Session.move_playhead()`). Con la página de 30 s
+        centrada en el cursor la época casi nunca entra entera, y `containing()`
+        la sacaría del medio en cada cosa que redibuja —scorear, cambiar la
+        amplitud— para que el paso siguiente la volviera a centrar.
         """
         if self._session is None:
             return
         self._window_index = window_index
-        inicio, fin = epoch_to_seconds(
-            window_index, self._session.recording.sampling_rate
-        )
-        self._session.set_viewport(self._session.viewport.containing(inicio, fin))
+        if self.playhead() is None:
+            inicio, fin = epoch_to_seconds(
+                window_index, self._session.recording.sampling_rate
+            )
+            self._session.set_viewport(self._session.viewport.containing(inicio, fin))
         self.draw_viewport()
 
     def draw_viewport(self) -> None:
@@ -344,6 +354,54 @@ class SignalView(pg.PlotWidget):
         if self._epoca.getRegion() != (inicio, fin):
             self._epoca.setRegion((inicio, fin))
 
+    def mark_window(self, window_index: int) -> None:
+        """Mueve la banda a otra época **sin tocar la página**.
+
+        `show_window()` también mueve la banda, pero antes le pide a la sesión
+        que la época entre en pantalla, y eso es lo que la reproducción no
+        puede permitir: con una página de menos de 30 s, `containing()` la
+        llevaría al comienzo de la época y el cursor dejaría el medio.
+        """
+        self._window_index = window_index
+        self._marcar_epoca()
+
+    def set_playhead(self, seconds: float | None) -> None:
+        """Pone la línea de la reproducción en ese instante, o la oculta.
+
+        **Una sola línea, creada una vez y después movida**, por lo que midió el
+        hito 25 con la banda de la época: sacar un ítem de la escena y poner
+        otro son dos cambios, y el segundo llega cuando el primer repintado ya
+        empezó. La reproducción la mueve veinticinco veces por segundo.
+
+        Args:
+            seconds: segundos desde el inicio del registro, o `None` para
+                ocultarla al pausar.
+        """
+        if seconds is None:
+            if self._cursor is not None:
+                self._cursor.hide()
+            return
+        if self._cursor is None:
+            self._cursor = pg.InfiniteLine(
+                pos=seconds, angle=90, movable=False, pen=self._pluma_del_cursor()
+            )
+            # Encima de las curvas: es por donde va la lectura.
+            self._cursor.setZValue(20)
+            self.getPlotItem().addItem(self._cursor)
+            return
+        self._cursor.setValue(seconds)
+        self._cursor.show()
+
+    def playhead(self) -> float | None:
+        """Dónde está la línea de la reproducción, o `None` si no se ve."""
+        if self._cursor is None or not self._cursor.isVisible():
+            return None
+        return float(self._cursor.value())
+
+    def _pluma_del_cursor(self) -> object:
+        """La línea del cursor, con el color de las curvas de los paneles."""
+        return pg.mkPen(theme.current().accent, width=2)
+
     def _pincel_de_la_epoca(self) -> object:
         """El relleno de la banda, translúcido para no tapar la señal."""
         color = pg.mkColor(theme.current().coarse_grid)
@@ -395,6 +453,8 @@ class SignalView(pg.PlotWidget):
         # hay que cambiarlo acá: es lo único que la ataba al esquema.
         if self._epoca is not None:
             self._epoca.setBrush(self._pincel_de_la_epoca())
+        if self._cursor is not None:
+            self._cursor.setPen(self._pluma_del_cursor())
 
         # Sin canales no hay nada que rehacer, y forzar un redibujo acá dejaría
         # la grilla dibujada sobre un visualizador vacío, que hoy no la tiene.
