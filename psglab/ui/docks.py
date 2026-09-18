@@ -43,7 +43,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QDockWidget, QWidget
 
 if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
@@ -76,6 +76,15 @@ ORDEN_DE_ANALISIS: Final[tuple[tuple[str, str], ...]] = (
     ("filter", "Filtrar la señal"),
     ("ica", "Componentes independientes"),
 )
+
+#: Qué parte del ancho de la ventana se lleva la pila de análisis al abrirse.
+#: **Hasta el hito 26 no había ninguna, y lo decidía Qt**: con el espectro
+#: abierto la pila se quedaba con 640 px de una ventana de 1400, y a la señal
+#: le quedaban 478 —358 con 1280—. El panel explicaba una señal que ya casi no
+#: se veía. Con un 30 % la señal conserva unos 700 px con 1400 y 620 con 1280,
+#: medido con `tests/medir_reparto.py`. El mínimo del panel manda si es mayor:
+#: el de Impedancia, el más ancho de los seis, es de 380.
+FRACCION_DE_ANALISIS: Final[float] = 0.30
 
 
 def nuevo_dock(
@@ -169,16 +178,21 @@ def repartir_abajo(window: "MainWindow") -> None:
 
     **Es una proporción, no una garantía.** Qt atiende primero el mínimo de cada
     panel —el del scoring es el mayor— y reparte el resto entre los demás.
-    Medido con el registro de prueba en una ventana de 1400 px: 203, 464 y
-    729 px con Rechtschaffen y Kales, y 222, 376 y 798 con AASM. Hasta el
-    hito 24 los mínimos del scoring y de la Übersicht eran de 690 y 480 px, y
-    ahí el hipnograma recibía unos 230.
+    Medido con el registro de prueba: con 1400 px, 225, 360 y 811 px, y con
+    1280, 206, 329 y 741, con cualquiera de las dos nomenclaturas. Ahí manda la
+    proporción entera, porque ningún panel toca su mínimo.
 
-    **El número del scoring no llega a usarse nunca.** Su parte proporcional
-    recién alcanza su propio mínimo con una ventana de unos 1800 px con
-    Rechtschaffen y Kales, así que en cualquier pantalla real se lleva el
-    mínimo y la proporción sólo reparte entre los otros dos. Por debajo de unos
-    1060 px pasa además a ser más ancho que el hipnograma.
+    **El mínimo del scoring recién aparece debajo de unos 1210 px**: es de
+    312 px con Rechtschaffen y Kales y 224 con AASM, que es lo que mide su fila
+    de fases desde que las fases van en su propia fila (hito 26). Con 1170 px
+    el reparto ya es 186, 312 y 668. Por la misma cuenta, sin medir, el
+    hipnograma sigue siendo el más ancho hasta unos 715 px de ventana.
+
+    Así se llegó acá: hasta el hito 24 los mínimos del scoring y de la
+    Übersicht eran de 690 y 480 px, y el hipnograma recibía unos 230; hasta el
+    26 el scoring iba en una sola fila con un mínimo de 464 px, más de lo que
+    la proporción le pedía, y el hipnograma se quedaba en 729 con 1400 px y en
+    635 con 1280.
 
     Esos números **dependen de la máquina**: los mínimos salen de métricas de
     fuente, y con otro escalado de pantalla son otros. Para volver a sacarlos
@@ -198,6 +212,28 @@ def repartir_abajo(window: "MainWindow") -> None:
     )
 
 
+def repartir_derecha(window: "MainWindow") -> None:
+    """Le da a la pila de análisis su parte del ancho de la ventana.
+
+    La parte es `FRACCION_DE_ANALISIS`, y sólo si la pila está acoplada: suelta
+    en otra pantalla no le quita lugar a la señal. Los seis paneles están
+    apilados en solapas, así que pedirle el ancho a uno es pedírselo a la pila.
+
+    Se vuelve a pedir cada vez que se abre un panel de análisis, aunque la pila
+    ya estuviera a la vista: es la misma regla que abajo, y por el mismo motivo.
+    Un ancho que el usuario haya arrastrado a mano se respeta hasta ese momento.
+    """
+    acoplados = [
+        window.docks[clave]
+        for clave, _ in ORDEN_DE_ANALISIS
+        if not window.docks[clave].isHidden() and not window.docks[clave].isFloating()
+    ]
+    if not acoplados:
+        return
+    ancho = round(window.width() * FRACCION_DE_ANALISIS)
+    window.resizeDocks([acoplados[0]], [ancho], Qt.Orientation.Horizontal)
+
+
 def _analisis(window: "MainWindow") -> None:
     """Los seis de la Parte 2, apilados en solapas a la derecha y ocultos.
 
@@ -215,6 +251,16 @@ def _analisis(window: "MainWindow") -> None:
         if anterior is not None:
             window.tabifyDockWidget(anterior, dock)
         dock.hide()
+        # Como los de abajo: el ancho se pide cada vez que uno aparece, porque
+        # Qt no recuerda lo pedido mientras la pila estaba oculta. **Pero en la
+        # vuelta siguiente del ciclo de eventos, no en el momento.** La primera
+        # vez que la pila aparece, Qt todavía no la ubicó cuando llega el aviso,
+        # y su primer acomodo pisa lo pedido: la pila quedaba en los 600 px que
+        # pide el gráfico. Abajo no pasa porque, cuando aparece el segundo
+        # panel, el primero ya está ubicado.
+        dock.toggleViewAction().toggled.connect(
+            lambda visible: visible and QTimer.singleShot(0, lambda: repartir_derecha(window))
+        )
         # **El nombre del atributo conserva el sufijo `_dialog`.** Ver la
         # explicación de arriba: cambiarlo costaría ocho tests y no ganaría
         # nada.

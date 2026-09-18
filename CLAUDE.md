@@ -162,8 +162,8 @@ python -m tests.medir_reparto
 ```
 
 El primero mide cuánto tarda abrir un registro y cada cuadro de la
-reproducción; el segundo, cuánto ancho recibe cada panel de abajo y cuál es el
-mínimo que lo decide. **Ninguno de los dos puede ser un test**, y es la misma
+reproducción; el segundo, cuánto ancho recibe cada panel de abajo y la pila de
+análisis, y cuál es el mínimo que lo decide. **Ninguno de los dos puede ser un test**, y es la misma
 razón las dos veces: el resultado depende de la máquina. Una misma medición de
 tiempo dio 118 ms con el equipo ocupado y 56 con el equipo libre, y los mínimos
 de los paneles salen de métricas de fuente, así que cambian con el escalado de
@@ -242,10 +242,11 @@ rechazar antes de dar por terminado un cambio:
 - Todo módulo tiene test, figura en `SIN_TEST_PROPIO` o el TODO promete el suyo
   **por nombre de archivo**. Un módulo nuevo sin ninguna de las tres cosas hace
   fallar la suite. La exención **no es `ui/` entero**: son `app.py`, `config.py`
-  y tres módulos de `ui/` —`main_window.py`, `scoring_panel.py` y
-  `channel_selector.py`—. `navigation.py` salió de la lista cuando ganó la franja
-  de posición, que traduce un clic a una ventana. Los demás módulos de `ui/`
-  tienen test propio, así que agregar uno sin test rompe la suite.
+  y dos módulos de `ui/` —`main_window.py` y `channel_selector.py`—.
+  `navigation.py` salió de la lista cuando ganó la franja de posición, que
+  traduce un clic a una ventana, y `scoring_panel.py` cuando ganó el pie con la
+  ventana y su fase. Los demás módulos de `ui/` tienen test propio, así que
+  agregar uno sin test rompe la suite.
 - Todo método público de `core/`, `utils/` y `analysis/` que reciba argumentos
   tiene su fila en `CONTRATOS` de `tests/test_contratos.py`, o figura en
   `SIN_CONTRATO` con el motivo. Son las tres capas donde vive la regla de

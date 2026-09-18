@@ -186,6 +186,24 @@ Todas compatibles con MIT.
 
 **Prohibido:** PyQt5, PyQt6 (GPL).
 
+### Las tipografías que el programa trae
+
+Desde el hito 26 el programa distribuye tres archivos de **IBM Plex** —Sans
+regular y seminegrita, Mono regular— en `psglab/resources/fonts/`. Van bajo la
+**SIL Open Font License 1.1**, que permite empaquetarlas con un programa de
+cualquier licencia, el MIT de éste incluido, con dos condiciones: que la
+licencia viaje con los archivos —está en `OFL.txt`, al lado— y que una versión
+modificada no use el nombre reservado «Plex». No se modifican.
+
+**El control de licencias del CI no las ve**, porque sólo recorre los paquetes
+de pip. Por eso quedan anotadas acá, y un archivo que se agregue a esa carpeta
+tiene que traer su licencia y sumarse a este párrafo.
+
+Se bajaron del repositorio oficial, `github.com/IBM/plex`, y se verificaron
+contra los tamaños que publica su API. Registrarlas no cambia lo que se ve al
+arrancar: el programa sigue con la tipografía del sistema y el esquema Claro, y
+las usa quien elige el esquema Papel o las elige en Tipografía.
+
 Verificar antes de cada release:
 
 ```bash
@@ -371,12 +389,13 @@ Dos advertencias sobre estos números, para quien los vuelva a medir:
 
 ### Contraste de los esquemas de color — WCAG 2.1, verificado por test
 
-Los cinco esquemas de fábrica se comprueban contra los umbrales de **WCAG 2.1**:
+Los seis esquemas de fábrica se comprueban contra los umbrales de **WCAG 2.1**:
 4,5 a 1 para el texto (criterio 1.4.3) y 3 a 1 para lo que hay que distinguir
 de un vistazo, que en este programa son las curvas y la paleta de canales
 (criterio 1.4.11). `theme.low_contrast_elements()` hace la cuenta y
 `tests/test_theme.py` exige que ningún esquema de fábrica tenga nada en esa
-lista.
+lista. Un esquema con fondo de ventana propio —Papel, desde el hito 26— suma
+el texto sobre ese fondo a la cuenta.
 
 **Se eligió un estándar y no un criterio propio** porque un umbral inventado se
 discute cada vez que alguien no ve bien un color; uno publicado, no.

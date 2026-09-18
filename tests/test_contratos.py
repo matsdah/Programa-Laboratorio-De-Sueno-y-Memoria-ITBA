@@ -272,6 +272,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("compute_psd(channels=...)", lambda v: psd.compute_psd(registro(), v)),
         ("compute_psd(window_index=...)", lambda v: psd.compute_psd(registro(), None, v)),
         ("compute_psd(method=...)", lambda v: psd.compute_psd(registro(), None, None, v)),
+        ("describe_method(method=...)", lambda v: psd.describe_method(v)),
         ("band_power(band=...)", lambda v: psd.band_power(FRECUENCIAS, POTENCIAS, v)),
         ("band_power(relative=...)", lambda v: psd.band_power(FRECUENCIAS, POTENCIAS, (1.0, 4.0), v)),
         ("band_powers_by_window(recording=...)", lambda v: psd.band_powers_by_window(v, ["C0"])),
@@ -325,6 +326,10 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Hito 26. Sin la guarda, un método que no existe caía en la rama del
+    # multitaper y el panel describía un cálculo que nadie había hecho.
+    ("describe_method con un método que no existe", "fft",
+     lambda v: psd.describe_method(v)),
     # Fase 8 del refactor. **Desde que las bandas las escribe el usuario**, una
     # banda invertida es lo esperable de un error de tipeo, y aceptarla integra
     # un rango vacío: la tabla mostraría potencia cero sin ningún aviso.

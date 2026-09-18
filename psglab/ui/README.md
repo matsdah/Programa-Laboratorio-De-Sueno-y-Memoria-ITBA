@@ -61,15 +61,16 @@ conoce las flechas del teclado.
 | `ica_panel.py` | Inspeccionar los componentes de una ICA y elegir cuáles quitar. La topografía dice **dónde** pesa cada uno y la curva temporal **cuándo** ocurre. Ninguno viene marcado. | V5_F de "Filtración" |
 | `metric_panel.py` | Una métrica por ventana a lo largo de la noche, con los NaN como hueco. La usan complejidad y conectividad. | — (Parte 2) |
 | `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
-| `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. | V1_F de "PSD" |
+| `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. Arriba, una línea dice con qué método se estimó. | V1_F de "PSD" |
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. El ancho que se pide es el preferido; se deja angostar hasta 120 px. | V1_F, V2_F, V3_F de "Übersicht" |
 | `navigation.py` | La barra inferior: saltos entre épocas, botones que mueven la página (≪ ‹ › ≫), reproducir y su velocidad, control de amplitud, y una franja que muestra dónde cae la ventana en la noche y deja saltar con un clic. | V1_F de "Navegación" |
 | `playback.py` | El reloj de la reproducción: mide el tiempo real y avisa cuánto avanzar la página. No conoce la sesión ni mueve nada. | V1_F de "Navegación" |
-| `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. Cada control tiene un mínimo chico, para dejarle lugar al hipnograma. | V1_F, V2_F, V3_F de "Scoring" |
+| `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. Las fases van en su propia fila, debajo del selector, para que el mínimo del panel sea el de la fila más ancha y no la suma; abajo, un pie con la ventana y su fase, que se sigue viendo si el panel sale a otra pantalla. | V1_F, V2_F, V3_F de "Scoring" |
 | `icons.py` | Los iconos de la barra de navegación y el de abrir un registro, dibujados con `QPainterPath`. **No hay ningún archivo de icono en el repositorio**, y es una decisión de licencia. | — |
-| `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas y arrancan ocultos. | — |
+| `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas, arrancan ocultos y al abrirse se llevan `FRACCION_DE_ANALISIS` del ancho: sin eso Qt les daba más lugar que a la señal. | — |
 | `menus.py` | **La barra de menú**: qué acción vive en qué menú, y el botón de abrir un registro. No implementa ninguna: cada una llama a un método de la ventana. | — |
-| `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los cinco esquemas de fábrica. | — |
+| `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los seis esquemas de fábrica. Claro no pone hoja de estilo y queda nativo; Papel, el del lienzo de diseño, separa el fondo de la ventana (`chrome`) del de las áreas de dibujo y les da a las lecturas numéricas su propia tipografía. | — |
+| `fonts.py` | Registra las tipografías que el programa trae —IBM Plex Sans y Mono, en `psglab/resources/fonts/`, bajo la OFL 1.1—. No cambian nada al arrancar: quedan para elegir en Tipografía y para las lecturas del esquema Papel. Si faltan, el programa arranca igual. | — |
 | `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. La disposición de paneles ya no es parte de eso. | — |
 | `settings_dialog.py` | **La ventana de configuración**: cinco solapas, todas con algo real detrás. Aplica en el momento y avisa por callbacks. | — |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |

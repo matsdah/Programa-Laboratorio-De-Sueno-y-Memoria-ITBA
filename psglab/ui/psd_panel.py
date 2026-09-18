@@ -28,6 +28,7 @@ import pyqtgraph as pg
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
+    QLabel,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -96,8 +97,17 @@ class PsdPanel(QWidget):
         )
         self.tabla.setMaximumHeight(190)
 
+        #: Con qué se estimó el espectro: el método, el segmento, la ventana y
+        #: el solape. **Sin esto, dos espectros de la misma ventana podían no
+        #: coincidir** —uno con Welch y otro con multitaper, que se elige en la
+        #: configuración— sin que el panel diera ninguna pista de por qué.
+        self.metodo = QLabel("")
+        self.metodo.setWordWrap(True)
+        self.metodo.setAccessibleName("Método de estimación")
+
         columna = QVBoxLayout(self)
         columna.setContentsMargins(0, 0, 0, 0)
+        columna.addWidget(self.metodo)
         columna.addWidget(self.grafico, stretch=3)
         columna.addWidget(self.tabla, stretch=1)
 
@@ -169,9 +179,22 @@ class PsdPanel(QWidget):
         if frecuencias.size:
             item.setXRange(float(frecuencias[0]), float(frecuencias[-1]), padding=0.02)
 
+    def set_method_description(self, text: str) -> None:
+        """Dice con qué se estimó el espectro, arriba del gráfico.
+
+        El texto lo arma `analysis.psd.describe_method()`: este panel no sabe
+        de segmentos ni de ventanas, sólo dibuja.
+        """
+        self.metodo.setText(text)
+
+    def method_description(self) -> str:
+        """Lo que dice hoy la línea del método."""
+        return self.metodo.text()
+
     def clear_spectrum(self) -> None:
         """Deja el panel vacío, como antes del primer cálculo."""
         self.set_spectrum(np.array([]), np.empty((0, 0)), [])
+        self.metodo.setText("")
 
     def set_band_powers(self, powers: dict[str, tuple[float, float]]) -> None:
         """Llena la tabla con la potencia de cada banda.

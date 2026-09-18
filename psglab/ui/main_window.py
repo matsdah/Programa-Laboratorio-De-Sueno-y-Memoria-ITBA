@@ -104,7 +104,7 @@ from psglab.analysis.impedance import (
     read_impedances,
 )
 from psglab.analysis.filters import apply_filters, settings_for_kinds
-from psglab.analysis.psd import band_power, compute_psd
+from psglab.analysis.psd import band_power, compute_psd, describe_method
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
@@ -289,6 +289,9 @@ class MainWindow(QMainWindow):
         #: que habla de la época: son dos datos distintos.
         self.page_readout = QLabel("")
         self.statusBar().addPermanentWidget(self.page_readout)
+        # Las dos son lecturas: el esquema puede darles una tipografía numérica.
+        for lectura in (self.tool_readout, self.page_readout):
+            lectura.setProperty(theme.READOUT_PROPERTY, True)
         self.statusBar().showMessage("Sin registro abierto")
 
     def _build_menus(self) -> None:
@@ -799,7 +802,7 @@ class MainWindow(QMainWindow):
         self.navigation.set_position(ventana, sesion.n_windows)
         self.navigation.set_clock_time(self._clock_label(ventana))
         epoca = sesion.scoring.get(ventana)
-        self.scoring_panel.set_current(epoca.stage, epoca.arousal)
+        self.scoring_panel.set_current(epoca.stage, epoca.arousal, ventana)
         self.channel_selector.set_visible(sesion.visible_channels)
         self._redraw_histogram()
         # Cambiar de época puede mover la página, así que los botones de
@@ -1620,6 +1623,13 @@ class MainWindow(QMainWindow):
             return
 
         self.psd_panel.set_spectrum(frecuencias, potencias, [canal], bands=bandas)
+        # Con qué se estimó: el método se elige en la configuración, y sin esta
+        # línea dos espectros de la misma ventana podían no coincidir sin que
+        # el panel dijera por qué. `compute_psd()` ya aceptó el método, así que
+        # describirlo no puede fallar.
+        self.psd_panel.set_method_description(
+            describe_method(self._preferencias.psd_method)
+        )
         # **La potencia de cada banda, que es la otra mitad de V1_F.** El panel
         # sombreaba las bandas y nunca decía cuánta potencia tenía cada una;
         # `band_power()` la calculaba desde el hito 13 y no la leía nadie.

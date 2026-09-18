@@ -212,13 +212,15 @@ def test_la_disposicion_no_se_recuerda(qt_app, tmp_path, monkeypatch):
 #
 # Hasta el hito 24 el scoring no bajaba de 690 px y la Übersicht de 480, y al
 # abrir los tres el hipnograma se quedaba con unos 230 en una pantalla de
-# 1400: la curva de la noche no se leía.
+# 1400: la curva de la noche no se leía. Hasta el hito 26 el scoring iba en una
+# sola fila y su mínimo, 464 px con Rechtschaffen y Kales, era más de lo que la
+# proporción le pedía: el hipnograma perdía 94 px a 1280.
 
 
-def mostrar_los_de_abajo(ventana: MainWindow) -> list[QDockWidget]:
+def mostrar_los_de_abajo(ventana: MainWindow, ancho: int = 1400) -> list[QDockWidget]:
     """Los tres paneles de abajo, abiertos desde su acción como lo hace
     «Paneles», con la ventana en pantalla para que haya reparto."""
-    ventana.resize(1400, 800)
+    ventana.resize(ancho, 800)
     ventana.show()
     QApplication.processEvents()
     abajo = [ventana.docks[clave] for clave in docks.ANCHOS_DE_ABAJO]
@@ -237,6 +239,10 @@ def test_el_scoring_se_deja_angostar(ventana: MainWindow, nomenclatura: Nomencla
     El tope se arma con los mínimos declarados y no en píxeles fijos: el ancho
     de «Arousal» depende de la tipografía de cada plataforma —72 px en Windows,
     108 en la de los tests—.
+
+    **Es el de la fila más ancha y no la suma de las dos**, que es todo el punto
+    de apilarlas: en una sola fila el mínimo con Rechtschaffen y Kales era de
+    464 px, más que lo que la proporción le pedía al scoring.
     """
     from psglab.core.nomenclature import stages_of
     from psglab.ui.scoring_panel import ANCHO_MINIMO_DE_BOTON, ANCHO_MINIMO_DEL_SELECTOR
@@ -244,32 +250,34 @@ def test_el_scoring_se_deja_angostar(ventana: MainWindow, nomenclatura: Nomencla
     panel = ventana.scoring_panel
     panel.set_nomenclature(nomenclatura)
     botones = len(stages_of(nomenclatura))
-    fila = panel.layout()
-    margenes = fila.contentsMargins()
-    tope = (
-        margenes.left()
-        + margenes.right()
-        + ANCHO_MINIMO_DEL_SELECTOR
-        + botones * ANCHO_MINIMO_DE_BOTON
+    margenes = panel.layout().contentsMargins()
+    fases = botones * ANCHO_MINIMO_DE_BOTON + panel._fila.spacing() * (botones - 1)
+    controles = (
+        ANCHO_MINIMO_DEL_SELECTOR
         + panel._arousal.minimumSizeHint().width()
-        + fila.spacing() * (botones + 2)
+        + panel._controles.spacing() * 2
     )
+    tope = margenes.left() + margenes.right() + max(fases, controles)
 
     assert all(b.minimumWidth() == ANCHO_MINIMO_DE_BOTON for b in panel._botones.values())
     assert panel.minimumSizeHint().width() <= tope
+    assert panel.minimumSizeHint().width() < fases + controles
 
 
 def test_la_ubersicht_se_deja_angostar(ventana: MainWindow):
     assert ventana.overview_dock.minimumSizeHint().width() <= 140
 
 
+@pytest.mark.parametrize("ancho", [1400, 1280])
 @pytest.mark.parametrize("nomenclatura", list(Nomenclature))
 def test_con_los_tres_de_abajo_el_hipnograma_es_el_mas_ancho(
-    ventana: MainWindow, nomenclatura: Nomenclature
+    ventana: MainWindow, nomenclatura: Nomenclature, ancho: int
 ):
+    """A 1280 es donde el scoring en una fila le ganaba lugar: el hipnograma
+    quedaba en 635 px con Rechtschaffen y Kales."""
     ventana.scoring_panel.set_nomenclature(nomenclatura)
     try:
-        overview, scoring, hipnograma = mostrar_los_de_abajo(ventana)
+        overview, scoring, hipnograma = mostrar_los_de_abajo(ventana, ancho)
 
         assert hipnograma.width() > scoring.width()
         assert hipnograma.width() > overview.width()
@@ -304,6 +312,62 @@ def test_repartir_con_un_solo_panel_abajo_no_hace_nada(ventana: MainWindow):
     docks.repartir_abajo(ventana)
 
     assert not ventana.histogram_dock.isHidden()
+
+
+# -- El ancho de la pila de análisis --------------------------------------------
+#
+# Hasta el hito 26 lo decidía Qt: al abrir el espectro, la pila se llevaba 640 px
+# de una ventana de 1400 y a la señal le quedaban 478. Con 1280, 358.
+
+
+@pytest.mark.parametrize("ancho", [1400, 1280])
+def test_la_pila_de_analisis_se_lleva_la_fraccion_pedida(ventana: MainWindow, ancho: int):
+    """La fracción, o el mínimo del panel si es mayor: Qt no deja achicarlo más."""
+    try:
+        ventana.resize(ancho, 800)
+        ventana.show()
+        QApplication.processEvents()
+        pila = ventana.docks["psd"]
+        pila.toggleViewAction().trigger()
+        for _ in range(3):
+            QApplication.processEvents()
+
+        pedido = max(round(ancho * docks.FRACCION_DE_ANALISIS), pila.minimumSizeHint().width())
+        assert abs(pila.width() - pedido) <= 10
+    finally:
+        ventana.close()
+
+
+@pytest.mark.parametrize("ancho", [1400, 1280])
+def test_con_un_analisis_abierto_la_senal_sigue_siendo_lo_mas_ancho(
+    ventana: MainWindow, ancho: int
+):
+    """Es lo que estaba roto: la pila le ganaba a la señal, que es lo que el
+    análisis está explicando."""
+    try:
+        ventana.resize(ancho, 800)
+        ventana.show()
+        QApplication.processEvents()
+        pila = ventana.docks["psd"]
+        pila.toggleViewAction().trigger()
+        for _ in range(3):
+            QApplication.processEvents()
+
+        assert ventana.centralWidget().width() > pila.width()
+    finally:
+        ventana.close()
+
+
+def test_una_pila_suelta_no_se_reparte(ventana: MainWindow):
+    """Sacada a otra pantalla no comparte el borde con la señal."""
+    pila = ventana.docks["psd"]
+    pila.setFloating(True)
+    pila.show()
+    antes = pila.width()
+
+    docks.repartir_derecha(ventana)
+
+    assert pila.width() == antes
 
 
 def test_el_selector_muestra_la_abreviatura(ventana: MainWindow):

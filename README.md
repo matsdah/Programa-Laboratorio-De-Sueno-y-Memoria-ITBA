@@ -20,7 +20,7 @@ compatibilidad únicamente con Windows y precios excesivos.
 > derivaciones, PSD, complejidad y conectividad. Necesita dos dependencias
 > aparte, en `requirements-analysis.txt`.
 >
-> **[`docs/TODO.md`](docs/TODO.md)** lleva los veintiséis hitos —del 0 al 25— con
+> **[`docs/TODO.md`](docs/TODO.md)** lleva los veintisiete hitos —del 0 al 26— con
 > lo que se decidió en cada uno, y es el único lugar que lleva la cuenta.
 
 ---
@@ -266,5 +266,8 @@ cerrar la Parte 2, que dos pull requests se habían mergeado con cero checks.
 [MIT](LICENSE).
 
 Todas las dependencias son compatibles con MIT (LGPL, BSD-3 y MIT).
+Las tipografías IBM Plex que trae el programa van bajo la SIL Open Font License 1.1,
+que permite distribuirlas con él; su licencia viaja con los archivos, en
+[`psglab/resources/fonts/OFL.txt`](psglab/resources/fonts/OFL.txt).
 **No se puede agregar PyQt5 ni PyQt6**: son GPL y forzarían a relicenciar el proyecto.
 Usamos PySide6, que es el binding oficial de Qt bajo LGPL.

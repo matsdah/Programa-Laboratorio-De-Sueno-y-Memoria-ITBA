@@ -85,6 +85,7 @@ TAB_TITLES: tuple[str, ...] = (
 #: El orden es el de la pantalla: primero lo que se mira todo el tiempo.
 COLOR_FIELDS: tuple[tuple[str, str], ...] = (
     ("background", "Fondo"),
+    ("chrome", "Fondo de la ventana"),
     ("signals", "Señales"),
     ("foreground", "Ejes y texto"),
     ("coarse_grid", "Grilla visible"),
@@ -467,7 +468,10 @@ class SettingsDialog(QDialog):
             )
         )
         for campo, boton in self.color_buttons.items():
-            boton.set_color(getattr(esquema, campo))
+            valor = getattr(esquema, campo)
+            # Un fondo de ventana vacío es «el mismo que el fondo»: el botón
+            # muestra ése, que es el que se ve.
+            boton.set_color(valor if valor is not None else esquema.background)
         # El color del botón va antes que la casilla: marcarla lee el botón.
         if esquema.baseline is not None:
             self.baseline_button.set_color(esquema.baseline)

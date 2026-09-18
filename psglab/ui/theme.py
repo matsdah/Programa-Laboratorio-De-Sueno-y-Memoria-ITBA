@@ -70,6 +70,13 @@ _PALETA_SOBRE_GRIS: Final[tuple[str, ...]] = (
 #: Contraste mínimo para texto, según WCAG 2.1 (criterio 1.4.3).
 MIN_TEXT_CONTRAST: Final[float] = 4.5
 
+#: La propiedad dinámica de Qt que marca una **lectura**: un rótulo que muestra
+#: un número que cambia —la ventana actual, la hora de la noche, lo que informa
+#: la herramienta activa—. La hoja de estilo la usa para darles a todas la
+#: tipografía numérica del esquema, si tiene una, sin que el esquema tenga que
+#: conocer los widgets por nombre.
+READOUT_PROPERTY: Final[str] = "lectura"
+
 #: Contraste mínimo para lo que se dibuja y hay que distinguir —curvas,
 #: la paleta de canales—, según WCAG 2.1 (criterio 1.4.11). La grilla y la
 #: línea de base quedan afuera a propósito: son referencias que tienen que
@@ -109,6 +116,16 @@ class ColorScheme:
             no aparte porque el esquema ECG la trae prendida, y separarlas
             obligaría a elegir dos cosas para obtener el aspecto que el nombre
             promete.
+        chrome: fondo de la ventana —la barra de menú, la de estado, los
+            paneles y sus títulos—, cuando es distinto del de las áreas de
+            dibujo. **Vacío es «el mismo que `background`»**, que es lo que
+            hacen todos los esquemas anteriores al hito 26: la hoja de estilo
+            sale idéntica.
+        numeric_font: la tipografía de las lecturas numéricas (ver
+            `READOUT_PROPERTY`), o vacío para usar la de siempre. Va en el
+            esquema por el mismo argumento que `ecg_grid`: el esquema «Papel»
+            la trae puesta, y separarlas obligaría a elegir dos cosas para
+            obtener el aspecto que el nombre promete.
 
     **No tiene los colores de las reglas ni del rectángulo del mouse**, que la
     referencia sí trae: todavía no hay nada que los dibuje. Entran con la
@@ -132,6 +149,8 @@ class ColorScheme:
     overview_current_border: str
     overview_text: str
     ecg_grid: bool = False
+    chrome: str | None = None
+    numeric_font: str | None = None
 
     def color_for_channel(self, position: int) -> str:
         """El color que le toca al canal dibujado en esa posición vertical.
@@ -239,10 +258,36 @@ ECG: Final[ColorScheme] = ColorScheme(
     ecg_grid=True,
 )
 
+#: El aspecto del lienzo de diseño del hito 26: las áreas de dibujo en blanco,
+#: como en Claro, y la ventana alrededor en un gris cálido, para que la señal se
+#: despegue del resto sin competir con ella. Las cifras van en IBM Plex Mono,
+#: que el programa trae consigo (ver `fonts.py`); si no está, Qt usa la de
+#: siempre sin avisar, que es lo que corresponde a una preferencia visual.
+PAPEL: Final[ColorScheme] = ColorScheme(
+    name="Papel",
+    background="#ffffff",
+    foreground="#1a1a1a",
+    signals="#1a1a1a",
+    vary_signal_colors=False,
+    signal_palette=_PALETA_CLARA,
+    baseline="#d0d0d0",
+    coarse_grid="#a0a0a0",
+    fine_grid="#dcdcdc",
+    accent="#2c5a8c",
+    overview_background="#f2f2f2",
+    overview_current="#c8d8ec",
+    overview_border="#8a8a8a",
+    overview_current_border="#2c5a8c",
+    overview_text="#333333",
+    chrome="#ebe8e2",
+    numeric_font="IBM Plex Mono",
+)
+
 #: Los esquemas de fábrica, por nombre. El orden es el que ve el usuario en el
 #: menú, y arranca por el que reproduce el aspecto histórico del programa.
 SCHEMES: Final[dict[str, ColorScheme]] = {
-    esquema.name: esquema for esquema in (CLARO, OSCURO, NK, AZUL_SOBRE_GRIS, ECG)
+    esquema.name: esquema
+    for esquema in (CLARO, OSCURO, NK, AZUL_SOBRE_GRIS, ECG, PAPEL)
 }
 
 #: Con cuál arranca el programa la primera vez. **Es el claro y no el oscuro**,
@@ -319,10 +364,20 @@ def stylesheet(scheme: ColorScheme) -> str:
     texto = scheme.foreground
     borde = scheme.coarse_grid
     realce = scheme.overview_current
+    # **La ventana y el contenido**: lo que rodea —barras, paneles, títulos,
+    # encabezados— va con `chrome`, y lo que se lee adentro —campos, listas,
+    # tablas— con el fondo. Sin `chrome` los dos son el mismo color, y la hoja
+    # sale idéntica a la de antes del hito 26.
+    ventana = scheme.chrome if scheme.chrome is not None else fondo
+    lecturas = (
+        f'QLabel[{READOUT_PROPERTY}="true"] {{ font-family: "{scheme.numeric_font}"; }}'
+        if scheme.numeric_font is not None
+        else ""
+    )
     return f"""
-        QWidget {{ background-color: {fondo}; color: {texto}; }}
+        QWidget {{ background-color: {ventana}; color: {texto}; }}
         QMenuBar, QMenu, QToolBar, QStatusBar {{
-            background-color: {fondo}; color: {texto};
+            background-color: {ventana}; color: {texto};
         }}
         QMenuBar::item:selected, QMenu::item:selected {{
             background-color: {realce};
@@ -349,19 +404,20 @@ def stylesheet(scheme: ColorScheme) -> str:
             border: 1px solid {borde};
         }}
         QHeaderView::section {{
-            background-color: {fondo};
+            background-color: {ventana};
             color: {texto};
             border: 1px solid {borde};
         }}
         QTreeWidget::item:selected, QTableWidget::item:selected,
         QListWidget::item:selected {{ background-color: {realce}; }}
         QSplitter::handle {{ background-color: {borde}; }}
-        QScrollBar {{ background-color: {fondo}; }}
+        QScrollBar {{ background-color: {ventana}; }}
         QScrollBar::handle {{ background-color: {borde}; }}
         QToolTip {{
             background-color: {fondo}; color: {texto};
             border: 1px solid {borde};
         }}
+        {lecturas}
     """
 
 
@@ -487,6 +543,20 @@ def _valor_validado(nombre: str, valor: object) -> object:
                 details="«ecg_grid» tiene que ser verdadero o falso.",
             )
         return valor
+    if nombre == "numeric_font":
+        if valor is not None and (not isinstance(valor, str) or not valor.strip()):
+            raise UnknownColorSchemeError(
+                "El esquema de color tiene una tipografía que no se puede usar.",
+                details=f"«numeric_font» tiene que ser un nombre, o estar vacío; es {valor!r}.",
+            )
+        return valor
+    if nombre == "chrome":
+        if valor is not None and not is_valid_color(valor):
+            raise UnknownColorSchemeError(
+                "El esquema de color tiene un fondo de ventana que no se puede usar.",
+                details=f"«chrome» tiene que ser un color, o estar vacío; es {valor!r}.",
+            )
+        return valor
     if nombre == "baseline":
         if valor is not None and not is_valid_color(valor):
             raise UnknownColorSchemeError(
@@ -571,6 +641,10 @@ def low_contrast_elements(scheme: ColorScheme) -> list[tuple[str, float]]:
         ("las señales", scheme.signals, scheme.background, MIN_GRAPHIC_CONTRAST),
         ("la curva de los paneles", scheme.accent, scheme.background, MIN_GRAPHIC_CONTRAST),
     ]
+    if scheme.chrome is not None:
+        medidas.append(
+            ("el texto de la ventana", scheme.foreground, scheme.chrome, MIN_TEXT_CONTRAST)
+        )
     medidas += [
         (f"el color {posicion + 1} de los canales", color, scheme.background, MIN_GRAPHIC_CONTRAST)
         for posicion, color in enumerate(scheme.signal_palette)
