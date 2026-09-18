@@ -105,6 +105,19 @@ def test_lo_reflejado_es_lo_que_se_muestra(dialogo: SettingsDialog):
     assert dialogo.psd_method.currentData() == "multitaper"
 
 
+def test_sin_fondo_de_ventana_propio_el_boton_muestra_el_fondo(dialogo: SettingsDialog):
+    """Vacío quiere decir «el mismo que el fondo», y eso es lo que se ve."""
+    dialogo.set_preferences(Preferences().with_scheme(theme.OSCURO))
+
+    assert dialogo.color_buttons["chrome"].color() == theme.OSCURO.background
+
+
+def test_papel_muestra_su_fondo_de_ventana(dialogo: SettingsDialog):
+    dialogo.set_preferences(Preferences().with_scheme(theme.PAPEL))
+
+    assert dialogo.color_buttons["chrome"].color() == theme.PAPEL.chrome
+
+
 def test_reflejar_algo_que_no_son_preferencias_avisa(dialogo: SettingsDialog):
     with pytest.raises(PsgLabError):
         dialogo.set_preferences({"font_size": 12})

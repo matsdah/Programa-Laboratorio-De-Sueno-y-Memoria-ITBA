@@ -289,6 +289,9 @@ class MainWindow(QMainWindow):
         #: que habla de la época: son dos datos distintos.
         self.page_readout = QLabel("")
         self.statusBar().addPermanentWidget(self.page_readout)
+        # Las dos son lecturas: el esquema puede darles una tipografía numérica.
+        for lectura in (self.tool_readout, self.page_readout):
+            lectura.setProperty(theme.READOUT_PROPERTY, True)
         self.statusBar().showMessage("Sin registro abierto")
 
     def _build_menus(self) -> None:

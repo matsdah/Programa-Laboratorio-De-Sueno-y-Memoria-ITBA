@@ -371,12 +371,13 @@ Dos advertencias sobre estos números, para quien los vuelva a medir:
 
 ### Contraste de los esquemas de color — WCAG 2.1, verificado por test
 
-Los cinco esquemas de fábrica se comprueban contra los umbrales de **WCAG 2.1**:
+Los seis esquemas de fábrica se comprueban contra los umbrales de **WCAG 2.1**:
 4,5 a 1 para el texto (criterio 1.4.3) y 3 a 1 para lo que hay que distinguir
 de un vistazo, que en este programa son las curvas y la paleta de canales
 (criterio 1.4.11). `theme.low_contrast_elements()` hace la cuenta y
 `tests/test_theme.py` exige que ningún esquema de fábrica tenga nada en esa
-lista.
+lista. Un esquema con fondo de ventana propio —Papel, desde el hito 26— suma
+el texto sobre ese fondo a la cuenta.
 
 **Se eligió un estándar y no un criterio propio** porque un umbral inventado se
 discute cada vez que alguien no ve bien un color; uno publicado, no.
