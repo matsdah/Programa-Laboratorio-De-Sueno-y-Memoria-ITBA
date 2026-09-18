@@ -61,7 +61,7 @@ conoce las flechas del teclado.
 | `ica_panel.py` | Inspeccionar los componentes de una ICA y elegir cuáles quitar. La topografía dice **dónde** pesa cada uno y la curva temporal **cuándo** ocurre. Ninguno viene marcado. | V5_F de "Filtración" |
 | `metric_panel.py` | Una métrica por ventana a lo largo de la noche, con los NaN como hueco. La usan complejidad y conectividad. | — (Parte 2) |
 | `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
-| `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. | V1_F de "PSD" |
+| `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. Arriba, una línea dice con qué método se estimó. | V1_F de "PSD" |
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. El ancho que se pide es el preferido; se deja angostar hasta 120 px. | V1_F, V2_F, V3_F de "Übersicht" |
 | `navigation.py` | La barra inferior: saltos entre épocas, botones que mueven la página (≪ ‹ › ≫), reproducir y su velocidad, control de amplitud, y una franja que muestra dónde cae la ventana en la noche y deja saltar con un clic. | V1_F de "Navegación" |
 | `playback.py` | El reloj de la reproducción: mide el tiempo real y avisa cuánto avanzar la página. No conoce la sesión ni mueve nada. | V1_F de "Navegación" |

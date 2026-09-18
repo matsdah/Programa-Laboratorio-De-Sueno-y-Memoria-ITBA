@@ -104,7 +104,7 @@ from psglab.analysis.impedance import (
     read_impedances,
 )
 from psglab.analysis.filters import apply_filters, settings_for_kinds
-from psglab.analysis.psd import band_power, compute_psd
+from psglab.analysis.psd import band_power, compute_psd, describe_method
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
@@ -1620,6 +1620,13 @@ class MainWindow(QMainWindow):
             return
 
         self.psd_panel.set_spectrum(frecuencias, potencias, [canal], bands=bandas)
+        # Con qué se estimó: el método se elige en la configuración, y sin esta
+        # línea dos espectros de la misma ventana podían no coincidir sin que
+        # el panel dijera por qué. `compute_psd()` ya aceptó el método, así que
+        # describirlo no puede fallar.
+        self.psd_panel.set_method_description(
+            describe_method(self._preferencias.psd_method)
+        )
         # **La potencia de cada banda, que es la otra mitad de V1_F.** El panel
         # sombreaba las bandas y nunca decía cuánta potencia tenía cada una;
         # `band_power()` la calculaba desde el hito 13 y no la leía nadie.

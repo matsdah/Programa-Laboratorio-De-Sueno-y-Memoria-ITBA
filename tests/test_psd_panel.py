@@ -122,6 +122,26 @@ def test_vaciar_lo_deja_como_al_principio(panel: PsdPanel):
 # -- Las bandas --------------------------------------------------------------
 
 
+def test_la_linea_del_metodo_arranca_vacia(panel: PsdPanel):
+    assert panel.method_description() == ""
+
+
+def test_la_linea_del_metodo_dice_lo_que_se_le_pasa(panel: PsdPanel):
+    from psglab.analysis.psd import describe_method
+
+    panel.set_method_description(describe_method("welch"))
+
+    assert panel.method_description() == describe_method("welch")
+
+
+def test_vaciar_tambien_borra_la_linea_del_metodo(panel: PsdPanel):
+    panel.set_method_description("Welch")
+
+    panel.clear_spectrum()
+
+    assert panel.method_description() == ""
+
+
 def test_sombrea_las_bandas_convencionales(panel: PsdPanel):
     panel.set_spectrum(*espectro(), ["C3"])
 

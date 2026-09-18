@@ -70,6 +70,18 @@ METHODS: Final[tuple[str, ...]] = ("welch", "multitaper")
 #: promediado, que es lo que Welch hace para bajar la varianza.
 WELCH_SEGMENT_SECONDS: Final[float] = 4.0
 
+#: Con qué ventana pesa Welch cada segmento. Es la que scipy usa por omisión, y
+#: **se escribe acá igual**: el panel del espectro dice con qué se estimó, y lo
+#: que dice tiene que salir de lo que el programa hace y no de lo que alguien
+#: recuerde de los valores por defecto de otra biblioteca. Si scipy los
+#: cambiara, el resultado cambiaría sin que nada de este proyecto se enterara.
+WELCH_WINDOW: Final[str] = "hann"
+
+#: Cuánto se solapan dos segmentos de Welch, como fracción del segmento. Es la
+#: mitad, que también es lo que scipy usa por omisión; por el mismo motivo que
+#: la ventana, se pide explícito.
+WELCH_OVERLAP: Final[float] = 0.5
+
 
 def _exigir_registro(recording: Recording) -> None:
     """Rechaza como `PsgLabError` lo que no sea un `Recording`."""
@@ -196,7 +208,14 @@ def compute_psd(
     if method == "welch":
         from scipy import signal as sp
 
-        return sp.welch(datos, fs=frecuencia, nperseg=por_segmento, axis=-1)
+        return sp.welch(
+            datos,
+            fs=frecuencia,
+            window=WELCH_WINDOW,
+            nperseg=por_segmento,
+            noverlap=int(por_segmento * WELCH_OVERLAP),
+            axis=-1,
+        )
 
     from mne.time_frequency import psd_array_multitaper
 
@@ -204,6 +223,35 @@ def compute_psd(
         datos, sfreq=frecuencia, verbose="ERROR"
     )
     return frecuencias, potencias
+
+
+def describe_method(method: str) -> str:
+    """Con qué se estima la PSD, en una línea para mostrarle al investigador.
+
+    La arma con las constantes de este módulo y no con texto fijo: si cambia el
+    segmento de Welch, cambia lo que se lee en el panel. Del multitaper no dice
+    el ancho de banda porque no lo fija este programa sino MNE, y afirmar uno
+    sería inventarlo.
+
+    Args:
+        method: uno de `METHODS`.
+
+    Raises:
+        UnknownPsdMethodError: si el método no es uno de `METHODS`, igual que
+            `compute_psd()`: describir un método que no se usa es peor que no
+            describir ninguno.
+    """
+    if method not in METHODS:
+        raise UnknownPsdMethodError(
+            f"No se conoce el método «{method}» para calcular la PSD.",
+            details=f"métodos disponibles: {', '.join(METHODS)}.",
+        )
+    if method == "welch":
+        return (
+            f"Welch · segmentos de {WELCH_SEGMENT_SECONDS:g} s · "
+            f"{WELCH_WINDOW.capitalize()} · solape {round(WELCH_OVERLAP * 100)} %"
+        )
+    return "Multitaper (MNE) · el tramo entero, sin segmentar"
 
 
 def band_power(
