@@ -1,0 +1,104 @@
+"""Tests del panel de scoring.
+
+Hasta el hito 26 el panel no tenía test propio y figuraba en `SIN_TEST_PROPIO`:
+lo que hacía se verificaba a través de la ventana, en `test_entrega.py`, y su
+ancho mínimo en `test_docks.py`, que es donde sigue. Lo que trajo el hito es el
+pie con la ventana y su fase, y eso se afirma mejor acá, sin armar una ventana.
+
+Lo que importa del pie es que diga lo mismo que el resto del programa —la
+ventana en base 1, la fase con su rótulo— y que **reflejar no sea elegir**: el
+panel se actualiza en cada navegación, y si al hacerlo emitiera, navegar
+volvería a scorear.
+"""
+
+import pytest
+
+pytest.importorskip("PySide6")
+
+from psglab.core.nomenclature import Nomenclature, SleepStage  # noqa: E402
+from psglab.ui.scoring_panel import (  # noqa: E402
+    PIE_SIN_REGISTRO,
+    ScoringPanel,
+    status_text,
+)
+
+
+@pytest.fixture
+def panel(qt_app) -> ScoringPanel:
+    return ScoringPanel()
+
+
+# -- El texto del pie ---------------------------------------------------------
+
+
+def test_el_pie_muestra_la_ventana_en_base_uno():
+    assert status_text(136, SleepStage.S2, False) == "Ventana 137 · S2"
+
+
+def test_una_ventana_sin_scorear_lo_dice_en_palabras():
+    """El «-» con que se guarda no se lee como nada en un texto suelto."""
+    assert status_text(0, SleepStage.UNSCORED, False) == "Ventana 1 · sin scorear"
+
+
+def test_el_arousal_se_suma_al_final():
+    assert status_text(9, SleepStage.REM, True) == "Ventana 10 · REM · arousal"
+
+
+def test_el_arousal_sin_fase_tambien_se_muestra():
+    """El arousal es independiente de la fase, y el pie no lo esconde."""
+    assert status_text(4, SleepStage.UNSCORED, True) == "Ventana 5 · sin scorear · arousal"
+
+
+@pytest.mark.parametrize("fase", [SleepStage.N1, SleepStage.N2, SleepStage.N3, SleepStage.R])
+def test_las_fases_de_aasm_llevan_su_rotulo(fase: SleepStage):
+    assert status_text(0, fase, False) == f"Ventana 1 · {fase.value}"
+
+
+# -- El panel -----------------------------------------------------------------
+
+
+def test_antes_de_abrir_un_registro_el_pie_lo_dice(panel: ScoringPanel):
+    assert panel.status() == PIE_SIN_REGISTRO
+
+
+def test_reflejar_la_ventana_actualiza_el_pie(panel: ScoringPanel):
+    panel.set_current(SleepStage.N2, False, 136)
+
+    assert panel.status() == "Ventana 137 · N2"
+
+
+def test_reflejar_no_emite_ni_la_fase_ni_el_arousal(panel: ScoringPanel):
+    emitidas: list[object] = []
+    panel.stage_selected.connect(emitidas.append)
+    panel.arousal_toggled.connect(emitidas.append)
+
+    panel.set_current(SleepStage.N3, True, 4)
+
+    assert emitidas == []
+
+
+def test_reflejar_marca_el_boton_de_la_fase(panel: ScoringPanel):
+    panel.set_current(SleepStage.R, False, 0)
+
+    marcados = [fase for fase, boton in panel._botones.items() if boton.isChecked()]
+    assert marcados == [SleepStage.R]
+
+
+def test_cambiar_de_nomenclatura_no_borra_el_pie(panel: ScoringPanel):
+    panel.set_current(SleepStage.N2, False, 136)
+
+    panel.set_nomenclature(Nomenclature.RK)
+
+    assert panel.status() == "Ventana 137 · N2"
+
+
+def test_las_fases_van_en_su_propia_fila(panel: ScoringPanel):
+    """Separadas del selector y del arousal: es lo que baja el mínimo del panel
+    al de la fila más ancha."""
+    panel.set_nomenclature(Nomenclature.RK)
+
+    en_la_fila = [panel._fila.itemAt(i).widget() for i in range(panel._fila.count())]
+
+    assert en_la_fila == list(panel._botones.values())
+    assert panel._nomenclaturas not in en_la_fila
+    assert panel._arousal not in en_la_fila

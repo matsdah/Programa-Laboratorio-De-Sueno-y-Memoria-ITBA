@@ -242,10 +242,11 @@ rechazar antes de dar por terminado un cambio:
 - Todo módulo tiene test, figura en `SIN_TEST_PROPIO` o el TODO promete el suyo
   **por nombre de archivo**. Un módulo nuevo sin ninguna de las tres cosas hace
   fallar la suite. La exención **no es `ui/` entero**: son `app.py`, `config.py`
-  y tres módulos de `ui/` —`main_window.py`, `scoring_panel.py` y
-  `channel_selector.py`—. `navigation.py` salió de la lista cuando ganó la franja
-  de posición, que traduce un clic a una ventana. Los demás módulos de `ui/`
-  tienen test propio, así que agregar uno sin test rompe la suite.
+  y dos módulos de `ui/` —`main_window.py` y `channel_selector.py`—.
+  `navigation.py` salió de la lista cuando ganó la franja de posición, que
+  traduce un clic a una ventana, y `scoring_panel.py` cuando ganó el pie con la
+  ventana y su fase. Los demás módulos de `ui/` tienen test propio, así que
+  agregar uno sin test rompe la suite.
 - Todo método público de `core/`, `utils/` y `analysis/` que reciba argumentos
   tiene su fila en `CONTRATOS` de `tests/test_contratos.py`, o figura en
   `SIN_CONTRATO` con el motivo. Son las tres capas donde vive la regla de

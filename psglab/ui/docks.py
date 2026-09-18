@@ -169,16 +169,21 @@ def repartir_abajo(window: "MainWindow") -> None:
 
     **Es una proporción, no una garantía.** Qt atiende primero el mínimo de cada
     panel —el del scoring es el mayor— y reparte el resto entre los demás.
-    Medido con el registro de prueba en una ventana de 1400 px: 203, 464 y
-    729 px con Rechtschaffen y Kales, y 222, 376 y 798 con AASM. Hasta el
-    hito 24 los mínimos del scoring y de la Übersicht eran de 690 y 480 px, y
-    ahí el hipnograma recibía unos 230.
+    Medido con el registro de prueba: con 1400 px, 225, 360 y 811 px, y con
+    1280, 206, 329 y 741, con cualquiera de las dos nomenclaturas. Ahí manda la
+    proporción entera, porque ningún panel toca su mínimo.
 
-    **El número del scoring no llega a usarse nunca.** Su parte proporcional
-    recién alcanza su propio mínimo con una ventana de unos 1800 px con
-    Rechtschaffen y Kales, así que en cualquier pantalla real se lleva el
-    mínimo y la proporción sólo reparte entre los otros dos. Por debajo de unos
-    1060 px pasa además a ser más ancho que el hipnograma.
+    **El mínimo del scoring recién aparece debajo de unos 1210 px**: es de
+    312 px con Rechtschaffen y Kales y 224 con AASM, que es lo que mide su fila
+    de fases desde que las fases van en su propia fila (hito 26). Con 1170 px
+    el reparto ya es 186, 312 y 668. Por la misma cuenta, sin medir, el
+    hipnograma sigue siendo el más ancho hasta unos 715 px de ventana.
+
+    Así se llegó acá: hasta el hito 24 los mínimos del scoring y de la
+    Übersicht eran de 690 y 480 px, y el hipnograma recibía unos 230; hasta el
+    26 el scoring iba en una sola fila con un mínimo de 464 px, más de lo que
+    la proporción le pedía, y el hipnograma se quedaba en 729 con 1400 px y en
+    635 con 1280.
 
     Esos números **dependen de la máquina**: los mínimos salen de métricas de
     fuente, y con otro escalado de pantalla son otros. Para volver a sacarlos

@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y tres
+camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y cuatro
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -103,6 +103,7 @@ verde por omisión, que es peor que dar rojo.
 | `medir_rendimiento.py` | **No es un test**: el banco de medición. Se corre a mano con `python -m tests.medir_rendimiento` e imprime cuánto tarda abrir un registro y cada cuadro de la reproducción. |
 | `medir_reparto.py` | **No es un test**: el otro banco. Se corre a mano con `python -m tests.medir_reparto` e imprime cuánto ancho recibe cada panel de abajo, y el mínimo de cada uno, que es lo que decide el reparto. Abre una ventana de verdad: offscreen no usa el estilo nativo y daría otros mínimos. |
 | `test_navigation.py` | La barra inferior: que la franja convierta bien un clic en una ventana, sobre todo en los bordes, y que los botones de página y de reproducción pidan lo suyo. |
+| `test_scoring_panel.py` | El panel de scoring: el pie con la ventana y su fase, que reflejar la ventana no la vuelva a scorear, y las fases en su propia fila. |
 | `test_playback.py` | El reloj de la reproducción: que avance a la velocidad pedida aunque dibujar tarde, sin esperar al temporizador. |
 
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el

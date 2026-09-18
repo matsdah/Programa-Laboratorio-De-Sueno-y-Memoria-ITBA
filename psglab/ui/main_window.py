@@ -799,7 +799,7 @@ class MainWindow(QMainWindow):
         self.navigation.set_position(ventana, sesion.n_windows)
         self.navigation.set_clock_time(self._clock_label(ventana))
         epoca = sesion.scoring.get(ventana)
-        self.scoring_panel.set_current(epoca.stage, epoca.arousal)
+        self.scoring_panel.set_current(epoca.stage, epoca.arousal, ventana)
         self.channel_selector.set_visible(sesion.visible_channels)
         self._redraw_histogram()
         # Cambiar de época puede mover la página, así que los botones de

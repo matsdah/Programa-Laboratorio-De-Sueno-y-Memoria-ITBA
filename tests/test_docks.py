@@ -212,13 +212,15 @@ def test_la_disposicion_no_se_recuerda(qt_app, tmp_path, monkeypatch):
 #
 # Hasta el hito 24 el scoring no bajaba de 690 px y la Übersicht de 480, y al
 # abrir los tres el hipnograma se quedaba con unos 230 en una pantalla de
-# 1400: la curva de la noche no se leía.
+# 1400: la curva de la noche no se leía. Hasta el hito 26 el scoring iba en una
+# sola fila y su mínimo, 464 px con Rechtschaffen y Kales, era más de lo que la
+# proporción le pedía: el hipnograma perdía 94 px a 1280.
 
 
-def mostrar_los_de_abajo(ventana: MainWindow) -> list[QDockWidget]:
+def mostrar_los_de_abajo(ventana: MainWindow, ancho: int = 1400) -> list[QDockWidget]:
     """Los tres paneles de abajo, abiertos desde su acción como lo hace
     «Paneles», con la ventana en pantalla para que haya reparto."""
-    ventana.resize(1400, 800)
+    ventana.resize(ancho, 800)
     ventana.show()
     QApplication.processEvents()
     abajo = [ventana.docks[clave] for clave in docks.ANCHOS_DE_ABAJO]
@@ -237,6 +239,10 @@ def test_el_scoring_se_deja_angostar(ventana: MainWindow, nomenclatura: Nomencla
     El tope se arma con los mínimos declarados y no en píxeles fijos: el ancho
     de «Arousal» depende de la tipografía de cada plataforma —72 px en Windows,
     108 en la de los tests—.
+
+    **Es el de la fila más ancha y no la suma de las dos**, que es todo el punto
+    de apilarlas: en una sola fila el mínimo con Rechtschaffen y Kales era de
+    464 px, más que lo que la proporción le pedía al scoring.
     """
     from psglab.core.nomenclature import stages_of
     from psglab.ui.scoring_panel import ANCHO_MINIMO_DE_BOTON, ANCHO_MINIMO_DEL_SELECTOR
@@ -244,32 +250,34 @@ def test_el_scoring_se_deja_angostar(ventana: MainWindow, nomenclatura: Nomencla
     panel = ventana.scoring_panel
     panel.set_nomenclature(nomenclatura)
     botones = len(stages_of(nomenclatura))
-    fila = panel.layout()
-    margenes = fila.contentsMargins()
-    tope = (
-        margenes.left()
-        + margenes.right()
-        + ANCHO_MINIMO_DEL_SELECTOR
-        + botones * ANCHO_MINIMO_DE_BOTON
+    margenes = panel.layout().contentsMargins()
+    fases = botones * ANCHO_MINIMO_DE_BOTON + panel._fila.spacing() * (botones - 1)
+    controles = (
+        ANCHO_MINIMO_DEL_SELECTOR
         + panel._arousal.minimumSizeHint().width()
-        + fila.spacing() * (botones + 2)
+        + panel._controles.spacing() * 2
     )
+    tope = margenes.left() + margenes.right() + max(fases, controles)
 
     assert all(b.minimumWidth() == ANCHO_MINIMO_DE_BOTON for b in panel._botones.values())
     assert panel.minimumSizeHint().width() <= tope
+    assert panel.minimumSizeHint().width() < fases + controles
 
 
 def test_la_ubersicht_se_deja_angostar(ventana: MainWindow):
     assert ventana.overview_dock.minimumSizeHint().width() <= 140
 
 
+@pytest.mark.parametrize("ancho", [1400, 1280])
 @pytest.mark.parametrize("nomenclatura", list(Nomenclature))
 def test_con_los_tres_de_abajo_el_hipnograma_es_el_mas_ancho(
-    ventana: MainWindow, nomenclatura: Nomenclature
+    ventana: MainWindow, nomenclatura: Nomenclature, ancho: int
 ):
+    """A 1280 es donde el scoring en una fila le ganaba lugar: el hipnograma
+    quedaba en 635 px con Rechtschaffen y Kales."""
     ventana.scoring_panel.set_nomenclature(nomenclatura)
     try:
-        overview, scoring, hipnograma = mostrar_los_de_abajo(ventana)
+        overview, scoring, hipnograma = mostrar_los_de_abajo(ventana, ancho)
 
         assert hipnograma.width() > scoring.width()
         assert hipnograma.width() > overview.width()
