@@ -22,8 +22,10 @@ sumó el scoring en CSV, EDF+ y XML. El
 **[hito 24](#hito-24-vista-inicial-y-reproducción)** dejó la señal sola al
 abrir y agregó la reproducción, y el
 **[hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar)** la hizo el doble
-de rápida. Son **veintiséis hitos**, del 0 al 25, que son las filas de la
-tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
+de rápida. El **[hito 26](#hito-26-el-diseño-de-la-ventana)** llevó al programa
+lo que propuso y midió un lienzo de diseño: el reparto de los paneles, un
+esquema nuevo y dos detalles. Son **veintisiete hitos**, del 0 al 26, que son
+las filas de la tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
 dentro del hito al que le toca, casi todo en los tres últimos.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
@@ -118,6 +120,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [23. Ajustes de la barra de menú](#hito-23-ajustes-de-la-barra-de-menú) | — | 0 | ✅ cerrado |
 | [24. Vista inicial y reproducción](#hito-24-vista-inicial-y-reproducción) | — | 0 | ✅ cerrado |
 | [25. Rendimiento](#hito-25-rendimiento-al-abrir-y-al-desplazar) | — | 0 | ✅ cerrado |
+| [26. El diseño de la ventana](#hito-26-el-diseño-de-la-ventana) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1095,7 +1098,7 @@ ventana y no existía.
   - Dos excepciones nuevas: `UnknownPsdMethodError` —Welch y multitaper no dan
     lo mismo, así que elegir uno en silencio daría un resultado que el usuario
     no pidió y no puede distinguir del que pidió— e `InvalidBandError`.
-  - Test: `tests/test_psd.py`, **50 tests en verde**.
+  - Test: `tests/test_psd.py`, **56 tests en verde**.
 - [x] **`psglab/ui/psd_panel.py`** · el panel del espectro
   - **Acá sí se usa pyqtgraph**, a diferencia del panel de la Übersicht, que se
     pinta con `QPainter`: un espectro es una curva sobre ejes con escala, y
@@ -1107,7 +1110,7 @@ ventana y no existía.
     `PlotDataItem.getData()` devuelve el log₁₀ de lo que se dibujó, así que una
     potencia de 1e-6 volvía como -6. El panel guarda ahora la magnitud en su
     unidad, que es la misma solución que `signal_view.py` usa con los píxeles.
-  - Test: `tests/test_psd_panel.py`, **20 tests en verde**.
+  - Test: `tests/test_psd_panel.py`, **23 tests en verde**.
 
 ---
 
@@ -1777,7 +1780,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       Las curvas no tenían pluma y salían todas del mismo gris; ahora cada
       canal toma su color. **El esquema Claro deja el programa exactamente como
       era.**
-  - Test: `tests/test_theme.py`, **68 tests en verde**.
+  - Test: `tests/test_theme.py`, **82 tests en verde**.
   - Test: `tests/test_preferences.py`, **42 tests en verde**.
 - [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
       y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
@@ -1791,7 +1794,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       atributo —un `QDockWidget` responde a `windowTitle()` igual que un
       diálogo— y **los 102 tests de `test_entrega.py` pasaron sin tocar
       ninguno**.
-  - Test: `tests/test_docks.py`, **32 tests en verde**.
+  - Test: `tests/test_docks.py`, **39 tests en verde**.
 - [x] **Fase 4 — La barra inferior.** Primera, anterior, siguiente, última,
       amplitud y una franja que salta a cualquier punto de la noche.
       `navigation.py` salió de `SIN_TEST_PROPIO`. **Con esta fase cerró el MVP
@@ -1820,7 +1823,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       de anotaciones, Espectro de potencia, Otras y Tipografía. Todo se aplica
       en el momento. `psd.validate_band()` pasó a ser pública, para que la regla
       de qué banda es válida siga siendo una sola.
-  - Test: `tests/test_settings_dialog.py`, **62 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **66 tests en verde**.
 - [x] **Fase 9 — Cierre.** La conectividad de la noche entera, que era el
       pendiente del [hito 20](#hito-20-la-red). Los menús muestran los atajos
       sin registrarlos otra vez, F6 recorre los paneles, y el contraste de los
@@ -1942,7 +1945,7 @@ reorganiza lo que ya andaba.
       y deja el aspecto nativo, que sigue al sistema. `theme.icon_ink()` elige
       la tinta, y la usan los dos lugares que dibujan iconos. Venía del hito
       22; apareció al dibujar el icono de abrir.
-  - Test: `tests/test_theme.py`, **68 tests en verde**.
+  - Test: `tests/test_theme.py`, **82 tests en verde**.
 
 ### Lo que queda por confirmar
 
@@ -1985,7 +1988,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
 - [x] **La vista inicial.** `ui/docks.py` oculta tres paneles más al armarlos;
       `apply_saved_layout()` pasó a `apply_saved_preferences()` y ya no
       restaura nada, y la ventana dejó de guardar la disposición al cerrar.
-  - Test: `tests/test_docks.py`, **32 tests en verde**.
+  - Test: `tests/test_docks.py`, **39 tests en verde**.
   - Test: `tests/test_preferences.py`, **42 tests en verde**.
 - [x] **Los botones de página.** ≪ ‹ › ≫ en la barra de abajo, con chevrones
       para que no se confundan con los triángulos de la época.
@@ -2050,7 +2053,7 @@ sobre el registro de `data/`.
 
       Con 1400 px el hipnograma recibe ahora unos 690, el más ancho de los
       tres.
-  - Test: `tests/test_docks.py`, **32 tests en verde**.
+  - Test: `tests/test_docks.py`, **39 tests en verde**.
 
 ---
 
@@ -2167,6 +2170,104 @@ prueba, y el reloj de la reproducción pide 25. Con 32 canales a 1000 Hz quedan
       La copia que hace `crudo.get_data()` —300 ms— tampoco se puede evitar:
       la versión de MNE que fija `requirements.txt` no ofrece leer sin copiar,
       y leerle el array privado sería atarse a un detalle interno suyo.
+
+---
+
+## Hito 26: El diseño de la ventana
+
+**Cerrado el 18 de septiembre de 2026.** Salió de un lienzo de diseño,
+«Disposición de la ventana principal», que retrató la ventana en sus tres
+estados —al abrir, scoreando y analizando— y midió cuánto recibe cada panel con
+`tests/medir_reparto.py`. **Casi todo lo que dibujó ya existía**; lo que midió
+dejó dos problemas de verdad, y además propuso un aspecto y dos detalles. Se
+implementaron las cuatro cosas.
+
+**No tiene stubs que contar.** Lo que tiene son mediciones de antes y después,
+todas con el registro de prueba en una ventana nativa: los mínimos salen de
+métricas de fuente y el plugin offscreen de la suite daría otros.
+
+### El reparto de abajo
+
+- [x] **El scoring va en dos filas**: el selector y el arousal arriba, las fases
+      debajo y un pie al final. En una sola fila el mínimo era la suma de todo,
+      más de lo que `ANCHOS_DE_ABAJO` le pedía, así que el scoring se quedaba
+      siempre en su mínimo y **el 400 de la proporción no se usaba nunca**.
+      Apilado, el mínimo es el de la fila más ancha.
+
+      | | Antes | Ahora |
+      |---|---|---|
+      | Mínimo del scoring, R&K | 464 px | 312 px |
+      | Mínimo del scoring, AASM | 376 px | 224 px |
+      | Ventana de 1400: Übersicht, scoring, hipnograma | 203 / 464 / 729 | 225 / 360 / 811 |
+      | Ventana de 1280 | 177 / 464 / 635 | 206 / 329 / 741 |
+
+      A 1400 y 1280 manda la proporción entera. El mínimo del scoring recién
+      aparece por debajo de unos 1210 px.
+  - Test: `tests/test_docks.py`, **39 tests en verde**, con el hipnograma como
+    el más ancho también a 1280.
+
+### La pila de análisis
+
+- [x] **`repartir_derecha()` le da el 30 % del ancho** al abrir un panel de
+      análisis. Hasta acá lo decidía Qt, y le daba a la pila más lugar que a
+      la señal que el panel estaba explicando:
+
+      | | Pila | Señal |
+      |---|---|---|
+      | 1400, antes | 640 px | 478 px |
+      | 1400, ahora | 420 px | 698 px |
+      | 1280, antes | 640 px | 358 px |
+      | 1280, ahora | 384 px | 614 px |
+
+      El mínimo del panel manda si es mayor: el de Impedancia, el más ancho de
+      los seis, es de 380. **El pedido va en la vuelta siguiente del ciclo de
+      eventos**: la primera vez que la pila aparece, Qt todavía no la ubicó
+      cuando llega el aviso, y su primer acomodo pisaba lo pedido.
+  - El banco `tests/medir_reparto.py` mide ahora también la derecha.
+
+### El aspecto del lienzo
+
+- [x] **El esquema «Papel»**: las áreas de dibujo en blanco y la ventana
+      alrededor en un gris cálido. **No reemplaza a Claro**, que sigue sin hoja
+      de estilo y sigue siendo el de fábrica. `ColorScheme` gana `chrome`, el
+      fondo de la ventana, y `numeric_font`, la tipografía de las lecturas
+      numéricas; vacíos, la hoja de estilo sale idéntica a la de antes.
+      Intercalados en el mismo proceso, un paso de reproducción de 30 s dio
+      17,5–22,2 ms con Claro y 13,1–21,0 con Papel: la hoja no cuesta
+      repintado.
+  - Test: `tests/test_theme.py`, **82 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **66 tests en verde**, con el
+    botón nuevo de «Fondo de la ventana».
+- [x] **Las tipografías IBM Plex**, Sans y Mono, en `psglab/resources/fonts/`
+      con su licencia, la OFL 1.1. `ui/fonts.py` las registra al arrancar; si
+      faltan, el programa arranca igual. El control de licencias del CI no las
+      ve, porque sólo mira pip: están anotadas en `docs/ARQUITECTURA.md`.
+  - Test: `tests/test_fonts.py`, **7 tests en verde**.
+
+### Los detalles
+
+- [x] **El pie del scoring**: «Ventana 137 · S2», «sin scorear» en vez del
+      guion con que se guarda, y «· arousal» si está marcado. Repite lo que
+      dicen las barras de navegación y de estado a propósito: el panel se puede
+      sacar a otra pantalla, donde ninguna de las dos se ve.
+      `scoring_panel.py` sale de `SIN_TEST_PROPIO`.
+  - Test: `tests/test_scoring_panel.py`, **14 tests en verde**.
+- [x] **El espectro dice con qué se estimó**: «Welch · segmentos de 4 s · Hann
+      · solape 50 %». La ventana y el solape de Welch pasan a ser constantes
+      explícitas —son los valores por defecto de scipy, así que el espectro no
+      cambia, y hay un test que lo compara— y `describe_method()` arma la línea
+      con ellas. Del multitaper no afirma un ancho de banda, porque lo fija MNE.
+  - Test: `tests/test_psd.py`, **56 tests en verde**.
+  - Test: `tests/test_psd_panel.py`, **23 tests en verde**.
+
+### Lo que sigue abierto
+
+- [ ] **Papel dibuja todas las señales en negro**, como el lienzo, y Claro las
+      varía por canal. Es una decisión visual: el interruptor está en Colores,
+      y si el laboratorio prefiere colores, es cambiar un campo del esquema.
+- [ ] **Un ancho de pila arrastrado a mano vuelve al 30 %** al abrir otro panel
+      de análisis, igual que abajo vuelve la proporción. Recordarlo sería
+      guardar la disposición, que el hito 24 decidió no hacer.
 
 ---
 
