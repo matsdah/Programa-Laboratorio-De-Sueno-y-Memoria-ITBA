@@ -155,11 +155,7 @@ def test_sin_registro_no_hay_ningun_boton_habilitado(barra):
             barra._ultima,
             barra._mas_amplitud,
             barra._menos_amplitud,
-            barra._pagina_atras,
-            barra._media_atras,
             barra._reproducir,
-            barra._media_adelante,
-            barra._pagina_adelante,
         )
         if b.isEnabled()
     ]
@@ -247,86 +243,70 @@ def _clic(widget, fraccion: float):
     )
 
 
-# -- La página y la reproducción (hito 24) ---------------------------------------
+# -- Los ocho controles y la reproducción (hitos 24 y 27) ------------------------
 
 
-def con_registro(barra, al_principio=False, al_final=False, entera=False):
+def con_registro(barra):
     barra.set_position(3, 10)
-    barra.set_page_bounds(al_principio, al_final, entera)
     return barra
 
 
-def test_los_botones_de_pagina_piden_su_fraccion(barra):
-    """Una página entera o media, hacia cada lado. Mover es de la ventana."""
-    con_registro(barra)
-    recibidas: list[float] = []
-    barra.page_pan_requested.connect(recibidas.append)
+def test_son_los_ocho_controles_en_el_orden_pedido(barra):
+    """El orden que pidió el usuario en el hito 27: reproducir entre las dos
+    flechas, como en cualquier reproductor, y la velocidad al lado."""
+    from PySide6.QtWidgets import QComboBox, QPushButton
 
-    for boton in (
-        barra._pagina_atras,
-        barra._media_atras,
-        barra._media_adelante,
-        barra._pagina_adelante,
-    ):
-        boton.click()
+    caja = barra.layout()
+    controles = [
+        caja.itemAt(i).widget()
+        for i in range(caja.count())
+        if isinstance(caja.itemAt(i).widget(), (QPushButton, QComboBox))
+    ]
 
-    assert recibidas == [-1.0, -0.5, 0.5, 1.0]
-
-
-def test_los_botones_de_pagina_no_piden_una_ventana(barra):
-    """Mueven lo que se ve, no la época que se scorea."""
-    con_registro(barra)
-    ventanas = pedidas(barra)
-
-    barra._pagina_adelante.click()
-    barra._media_atras.click()
-
-    assert ventanas == []
+    assert [control.accessibleName() for control in controles] == [
+        "Primera ventana",
+        "Ventana anterior",
+        "Reproducir",
+        "Ventana siguiente",
+        "Última ventana",
+        "Velocidad de reproducción",
+        "Reducir la amplitud",
+        "Aumentar la amplitud",
+    ]
 
 
-def test_al_principio_no_se_puede_retroceder_la_pagina(barra):
-    con_registro(barra, al_principio=True)
-
-    assert not barra._pagina_atras.isEnabled()
-    assert not barra._media_atras.isEnabled()
-    assert barra._media_adelante.isEnabled()
-    assert barra._reproducir.isEnabled()
-
-
-def test_al_final_no_se_puede_avanzar_ni_reproducir(barra):
-    con_registro(barra, al_final=True)
-
-    assert barra._pagina_atras.isEnabled()
-    assert not barra._pagina_adelante.isEnabled()
-    assert not barra._media_adelante.isEnabled()
-    assert not barra._reproducir.isEnabled()
+def test_no_quedan_botones_de_pagina(barra):
+    """Los cuatro chevrones del hito 24 se sacaron en el 27. Mover la vista sin
+    mover la época sigue en el teclado, con Mayús+← → y Ctrl+← →."""
+    assert not hasattr(barra, "page_pan_requested")
+    assert not hasattr(barra, "set_page_bounds")
+    for atributo in ("_pagina_atras", "_media_atras", "_media_adelante", "_pagina_adelante"):
+        assert not hasattr(barra, atributo)
 
 
-def test_con_el_registro_entero_no_se_puede_reproducir(barra):
-    con_registro(barra, al_principio=True, al_final=True, entera=True)
+def test_sin_registro_no_se_puede_reproducir(barra):
+    barra.set_position(0, 0)
 
     assert not barra._reproducir.isEnabled()
 
 
-def test_reproduciendo_el_boton_sigue_habilitado_en_el_final(barra):
-    """Es el botón con que se pausa."""
-    con_registro(barra)
-    barra.set_playing(True)
-
-    barra.set_page_bounds(False, True, False)
+@pytest.mark.parametrize("ventana", [0, 5, 9])
+def test_con_registro_siempre_se_puede_reproducir(barra, ventana):
+    """También en la última ventana: desde el hito 27 el cursor avanza adentro
+    de la página cuando ésta ya no se puede mover. Hasta entonces el botón se
+    apagaba con la página al final."""
+    barra.set_position(ventana, 10)
 
     assert barra._reproducir.isEnabled()
 
 
-def test_al_pausar_en_el_final_el_boton_se_apaga(barra):
-    """Los límites se calcularon mientras todavía reproducía."""
+def test_pausar_no_apaga_el_boton(barra):
     con_registro(barra)
     barra.set_playing(True)
-    barra.set_page_bounds(False, True, False)
 
     barra.set_playing(False)
 
-    assert not barra._reproducir.isEnabled()
+    assert barra._reproducir.isEnabled()
 
 
 def test_reproducir_pide_y_no_reproduce(barra):
@@ -377,5 +357,5 @@ def test_un_clic_en_un_boton_no_le_saca_el_foco_a_la_senal(barra):
     clic. Con Tab se siguen alcanzando."""
     from PySide6.QtCore import Qt
 
-    for boton in (barra._reproducir, barra._pagina_adelante, barra._siguiente):
+    for boton in (barra._reproducir, barra._primera, barra._siguiente):
         assert boton.focusPolicy() == Qt.FocusPolicy.TabFocus

@@ -106,7 +106,7 @@ from psglab.analysis.impedance import (
 from psglab.analysis.filters import apply_filters, settings_for_kinds
 from psglab.analysis.psd import band_power, compute_psd, describe_method
 from psglab.analysis.reference import average_reference, rereference
-from psglab.core.windows import count_windows, window_to_clock_time
+from psglab.core.windows import count_windows, epoch_to_seconds, window_to_clock_time
 from psglab.exporters import DEFAULT_FILENAMES
 from psglab.exporters.annotations_txt import export_annotations
 from psglab.exporters.information_txt import export_information
@@ -276,9 +276,12 @@ class MainWindow(QMainWindow):
         self.navigation_bar.addWidget(self.navigation)
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self.navigation_bar)
 
-        #: El reloj de la reproducción. Sólo dice cuánto avanzar; mover la
-        #: página es de `_avanzar_reproduccion()`.
+        #: El reloj de la reproducción. Sólo dice cuánto avanzar; mover el
+        #: cursor es de `_avanzar_reproduccion()`.
         self.playback = PlaybackClock(self)
+        #: El instante que se está reproduciendo, en segundos desde el inicio
+        #: del registro, o None en pausa. Ver `_llevar_el_cursor()`.
+        self._cabezal: float | None = None
 
         # Lo que la herramienta activa quiere informar: el porcentaje de la
         # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
@@ -357,11 +360,10 @@ class MainWindow(QMainWindow):
         self.navigation.window_requested.connect(self._go_to_window)
         self.navigation.amplitude_up_requested.connect(self.increase_amplitude)
         self.navigation.amplitude_down_requested.connect(self.decrease_amplitude)
-        self.navigation.page_pan_requested.connect(self._desplazar)
         self.navigation.playback_toggle_requested.connect(self.toggle_playback)
         self.navigation.playback_speed_changed.connect(self._cambiar_velocidad)
         self.playback.advanced.connect(self._avanzar_reproduccion)
-        self.playback.playing_changed.connect(self.navigation.set_playing)
+        self.playback.playing_changed.connect(self._al_cambiar_la_reproduccion)
         self.scoring_panel.stage_selected.connect(self.score_current_window)
         self.scoring_panel.arousal_toggled.connect(self._set_arousal)
         self.scoring_panel.nomenclature_changed.connect(self._change_nomenclature)
@@ -795,19 +797,34 @@ class MainWindow(QMainWindow):
         """
         if self._session is None:
             return
+        self.signal_view.show_window(self._session.current_window)
+        self.channel_selector.set_visible(self._session.visible_channels)
+        self._reflejar_epoca()
+        # Cambiar de época puede mover la página, así que el cartel de la
+        # página se recalcula también acá y no sólo al desplazar.
+        self._actualizar_cartel_de_pagina()
+
+    def _reflejar_epoca(self) -> None:
+        """Pone al día todo lo que depende de la época actual, **sin mover la
+        página**: la banda, la posición y la hora de la barra, el pie del
+        scoring, el hipnograma y la barra de estado.
+
+        Es la mitad de `refresh()` que la reproducción necesita sola. Desde el
+        hito 27 la época cambia mientras se reproduce —es la que pasa por el
+        medio del gráfico—, y el paso ya dibujó la página: llamar a `refresh()`
+        la dibujaría otra vez.
+        """
+        if self._session is None:
+            return
         sesion = self._session
         ventana = sesion.current_window
 
-        self.signal_view.show_window(ventana)
+        self.signal_view.mark_window(ventana)
         self.navigation.set_position(ventana, sesion.n_windows)
         self.navigation.set_clock_time(self._clock_label(ventana))
         epoca = sesion.scoring.get(ventana)
         self.scoring_panel.set_current(epoca.stage, epoca.arousal, ventana)
-        self.channel_selector.set_visible(sesion.visible_channels)
         self._redraw_histogram()
-        # Cambiar de época puede mover la página, así que los botones de
-        # página se recalculan también acá y no sólo al desplazar.
-        self._actualizar_cartel_de_pagina()
         self.statusBar().showMessage(
             f"Ventana {ventana + 1} de {sesion.n_windows}"
             + (f" — {self._clock_label(ventana)}" if self._clock_label(ventana) else "")
@@ -927,7 +944,15 @@ class MainWindow(QMainWindow):
         if self._session is None:
             return
         pagina = self._session.viewport
-        self._cambiar_pagina(pagina.panned(fraccion_de_pagina * pagina.span_seconds))
+        desplazamiento = fraccion_de_pagina * pagina.span_seconds
+        # **Reproduciendo se mueve el cursor**, lo mismo que se movería la
+        # página: si se moviera sólo la página, el paso siguiente la devolvería
+        # al cursor. Así la vista y el cursor van juntos y la reproducción
+        # sigue desde ahí.
+        if self._cabezal is not None:
+            self._llevar_el_cursor(self._cabezal + desplazamiento)
+            return
+        self._cambiar_pagina(pagina.panned(desplazamiento))
 
     def _actualizar_cartel_de_pagina(self) -> None:
         """Escribe en la barra de estado cuánto dura la página.
@@ -940,63 +965,127 @@ class MainWindow(QMainWindow):
             self.page_readout.setText("")
             return
         pagina = self._session.viewport
-        self.navigation.set_page_bounds(
-            pagina.at_start, pagina.at_end, pagina.shows_whole_recording
-        )
         if pagina.shows_whole_recording:
             self.page_readout.setText("Página: registro entero")
             return
         self.page_readout.setText(f"Página: {duration_text(pagina.span_seconds)}")
 
-    # -- Reproducción (hito 24) ---------------------------------------------
+    # -- Reproducción (hitos 24 y 27) ----------------------------------------
     #
-    # La página avanza sola, como en EDFbrowser. **La época no se toca**, por
-    # decisión del usuario: reproducir es mirar, igual que Mayús+→, y lo que se
-    # scorea sigue siendo la época resaltada.
+    # La página avanza sola, como en EDFbrowser. **Desde el hito 27 el recorrido
+    # se cuenta desde el medio del gráfico**: un cursor, `_cabezal`, marca el
+    # instante que se está reproduciendo, la página se centra en él y la época
+    # actual es la suya. Al pausar, el usuario queda parado en la época que
+    # estaba mirando y la scorea ahí.
+    #
+    # Hasta ese hito era al revés, por decisión del hito 24: reproducir sólo
+    # movía la vista, igual que Mayús+→, y la época no se tocaba. El usuario la
+    # revisó el 18 de septiembre de 2026. En pausa todo sigue como antes: las
+    # flechas mueven la página lo mínimo (`Session._seguir_a_la_epoca()`).
 
     def toggle_playback(self) -> None:
         """Reproduce o pausa. Es el botón ⏯ y Espacio con el foco en la señal.
 
-        No arranca, y dice por qué en la barra de estado, si la página ya
-        muestra el registro entero o ya llegó al final: no habría hacia dónde
-        avanzar, y un botón que parece andar y no mueve nada es peor.
+        **Arranca desde el centro de la época actual**, que es la que se está
+        scoreando. Con la página de 30 s ya está centrada, así que no hay
+        salto; después de «Primera ventana» el cursor arranca cerca del borde
+        izquierdo y la página no se mueve hasta que el cursor llega al medio.
+
+        Ya no se niega con la página al final ni con el registro entero en
+        pantalla, como hasta el hito 27: el cursor avanza adentro de la página
+        cuando ésta no se puede mover, así que siempre hay por dónde seguir.
         """
         if self.playback.is_playing:
             self.playback.stop()
             return
         if self._session is None:
             return
-        pagina = self._session.viewport
-        if pagina.shows_whole_recording:
-            self.statusBar().showMessage(
-                "Con el registro entero en pantalla no hay hacia dónde avanzar: "
-                "elegí una escala de tiempo más corta para reproducir.",
-                5000,
-            )
-            return
-        if pagina.at_end:
-            self.statusBar().showMessage(
-                "La página ya está al final del registro.", 5000
-            )
+        inicio, fin = epoch_to_seconds(
+            self._session.current_window, self._session.recording.sampling_rate
+        )
+        if not self._llevar_el_cursor((inicio + fin) / 2):
             return
         self.playback.start()
 
     def _avanzar_reproduccion(self, segundos: float) -> None:
-        """Un paso de la reproducción: la página avanza esos segundos.
+        """Un paso de la reproducción: el cursor avanza esos segundos.
 
-        Se detiene al llegar al final, o si la página no se pudo aplicar: un
-        error repetido veinticinco veces por segundo sería un cartel tras otro.
+        Se detiene al llegar al final **del registro**, no de la página: en el
+        último tramo la página ya no se mueve y el cursor sigue hasta el borde,
+        que es lo que recorre las últimas épocas. También se detiene si el
+        cursor no se pudo ubicar: un error repetido veinticinco veces por
+        segundo sería un cartel tras otro.
         """
         if self._session is None:
             self.playback.stop()
             return
-        pagina = self._session.viewport
-        if not self._cambiar_pagina(pagina.panned(segundos), avisar=False):
+        # Un paso sin cursor —el banco de medición los pide sin arrancar la
+        # reproducción— parte del medio de lo que se ve.
+        desde = (
+            self._cabezal
+            if self._cabezal is not None
+            else self._session.viewport.center_seconds
+        )
+        if not self._llevar_el_cursor(desde + segundos):
             self.playback.stop()
             return
-        if self._session.viewport.at_end:
+        if self._cabezal is not None and (
+            self._cabezal >= self._session.recording.duration_seconds
+        ):
             self.playback.stop()
             self.statusBar().showMessage("Fin del registro", 5000)
+
+    def _llevar_el_cursor(self, segundos: float) -> bool:
+        """Pone el cursor en ese instante y deja la pantalla al día.
+
+        La regla —la página centrada en el cursor, la época la del cursor— es
+        de `Session.move_playhead()`. Acá sólo se redibuja lo que cambió: la
+        página si se movió, la línea siempre, y lo que depende de la época si la
+        época cambió, que pasa una vez cada 30 s de registro.
+
+        Returns:
+            Si el cursor se pudo ubicar.
+        """
+        if self._session is None:
+            return False
+        pagina = self._session.viewport
+        epoca = self._session.current_window
+        try:
+            self._cabezal = self._session.move_playhead(segundos)
+        except PsgLabError as error:
+            self._show_error(error)
+            return False
+        if self._session.viewport != pagina:
+            self.signal_view.draw_viewport()
+        self.signal_view.set_playhead(self._cabezal)
+        if self._session.current_window != epoca:
+            self._reflejar_epoca()
+        return True
+
+    def _saltar_con_el_cursor(self, window_index: int) -> None:
+        """Reproduciendo, ir a una época es llevar el cursor a su centro, y la
+        reproducción sigue desde ahí (hito 27).
+
+        Una época que no existe se ignora, como la flecha en los bordes: la
+        piden los botones, la franja y el hipnograma, que ya recortan contra el
+        registro, y llevar el cursor al final por un índice de más detendría la
+        reproducción sin que el usuario lo hubiera pedido.
+        """
+        if self._session is None or not 0 <= window_index < self._session.n_windows:
+            return
+        inicio, fin = epoch_to_seconds(window_index, self._session.recording.sampling_rate)
+        self._llevar_el_cursor((inicio + fin) / 2)
+
+    def _al_cambiar_la_reproduccion(self, reproduciendo: bool) -> None:
+        """El botón muestra reproducir o pausar, y al pausar se va el cursor.
+
+        La banda de la época queda como referencia: es lo que se scorea, y
+        desde el hito 27 es la época que pasaba por el medio al pausar.
+        """
+        self.navigation.set_playing(reproduciendo)
+        if not reproduciendo:
+            self._cabezal = None
+            self.signal_view.set_playhead(None)
 
     def _cambiar_velocidad(self, velocidad: float) -> None:
         """Lo que pide el selector de velocidad. Vale también reproduciendo."""
@@ -1356,16 +1445,24 @@ class MainWindow(QMainWindow):
     # -- Lo que ejecutan los atajos de teclado ------------------------------
 
     def go_to_next_window(self) -> None:
-        """Flecha derecha."""
-        if self._session is not None:
-            self._session.next_window()
-            self.refresh()
+        """Flecha derecha. Reproduciendo, lleva el cursor a la época siguiente."""
+        if self._session is None:
+            return
+        if self._cabezal is not None:
+            self._saltar_con_el_cursor(self._session.current_window + 1)
+            return
+        self._session.next_window()
+        self.refresh()
 
     def go_to_previous_window(self) -> None:
-        """Flecha izquierda."""
-        if self._session is not None:
-            self._session.previous_window()
-            self.refresh()
+        """Flecha izquierda. Reproduciendo, lleva el cursor a la época anterior."""
+        if self._session is None:
+            return
+        if self._cabezal is not None:
+            self._saltar_con_el_cursor(self._session.current_window - 1)
+            return
+        self._session.previous_window()
+        self.refresh()
 
     def increase_amplitude(self) -> None:
         """Flecha arriba. La cuenta la hace `Session`."""
@@ -2050,6 +2147,11 @@ class MainWindow(QMainWindow):
 
     def _go_to_window(self, window_index: int) -> None:
         if self._session is None:
+            return
+        # Reproduciendo, los botones, la franja y el hipnograma llevan el
+        # cursor, y la reproducción sigue desde la época pedida (hito 27).
+        if self._cabezal is not None:
+            self._saltar_con_el_cursor(window_index)
             return
         try:
             self._session.go_to_window(window_index)

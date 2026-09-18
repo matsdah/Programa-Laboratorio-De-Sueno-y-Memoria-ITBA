@@ -146,11 +146,21 @@ def medir_dibujo(ventana: MainWindow, registro: Recording, titulo: str) -> None:
         if pagina > registro.duration_seconds:
             continue
         ventana.set_timescale(pagina)
-        ventana._cambiar_pagina(sesion.viewport.with_start(registro.duration_seconds / 3))
+        ventana._cambiar_pagina(sesion.viewport.with_start(0.0))
+        # **Desde el hito 27 el paso mueve un cursor**, que arranca en el medio
+        # de la página y la arrastra. Sin olvidarlo acá, cada escala seguiría
+        # desde donde la dejó la anterior hasta el final del registro, donde la
+        # página ya no se mueve y el paso no dibuja nada: medía 0,0 ms.
+        ventana._cabezal = None
         QApplication.processEvents()
 
+        # Un quincuagésimo de página por paso: los cuarenta y cinco pasos de la
+        # medición recorren menos de media página y el cursor no llega al borde
+        # del registro, donde la página se queda quieta. Hasta el hito 27 era
+        # un veinticincoavo desde un tercio del registro, y con la página de
+        # 300 s la medición terminaba redibujando una página que no se movía.
         def paso() -> None:
-            ventana._avanzar_reproduccion(pagina / 25)
+            ventana._avanzar_reproduccion(pagina / 50)
             QApplication.processEvents()
 
         entera = pagina >= registro.duration_seconds

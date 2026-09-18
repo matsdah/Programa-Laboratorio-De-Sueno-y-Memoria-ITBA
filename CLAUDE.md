@@ -424,11 +424,19 @@ están separados a propósito. Una página larga no se dibuja muestra por muestr
 sino con la envolvente mínimo/máximo de `core/decimation.py`, que no puede
 perder un pico.
 
-**La reproducción mueve la página, nunca la época** (`ui/playback.py`): es un
-reloj que mide tiempo real y avisa cuántos segundos hay que avanzar; la ventana
-los aplica con `Viewport.panned()`. Contar pasos de 40 ms en vez de medirlos
-reproduciría más lento de lo que dice en cuanto un cuadro tarde más, y sin
-avisar.
+**La reproducción se cuenta desde el medio del gráfico** (hito 27): un
+cursor marca el instante que se reproduce, `Session.move_playhead()` centra la
+página en él y **la época actual es la del cursor**, así que al pausar se
+scorea la que pasaba por el medio. En los bordes del registro la página no se
+puede centrar y el cursor avanza adentro de ella. Mientras se ve el cursor la
+página es suya: `show_window()` no la mueve. En pausa todo sigue como arriba,
+con las flechas moviendo la página lo mínimo. Hasta el hito 27 era al revés
+—reproducir movía la página y la época no se tocaba—, por una decisión del
+hito 24 que el usuario revisó.
+
+El reloj (`ui/playback.py`) mide tiempo real y avisa cuántos segundos hay que
+avanzar. Contar pasos de 40 ms en vez de medirlos reproduciría más lento de lo
+que dice en cuanto un cuadro tarde más, y sin avisar.
 
 ### La ventana
 
@@ -469,7 +477,8 @@ Cinco reglas de esta capa que no se ven leyendo un solo archivo:
   reproducción. El hito 25 los consiguió con tres decisiones que se deshacen
   sin querer: la grilla es **un solo objeto** de la escena y no una
   `InfiniteLine` por línea —0,8 ms por línea y por cuadro, la mitad del
-  cuadro—, la banda de la época se **mueve** en vez de rehacerse, y las curvas
+  cuadro—, la banda de la época y el cursor de la reproducción se **mueven**
+  en vez de rehacerse, y las curvas
   son `PlotCurveItem` y no `PlotDataItem`, que es un envoltorio con puntos,
   relleno y decimación propia que acá no se usan. `useOpenGL` se midió y
   **empeora**. Lo que se proponga en su lugar, medirlo con el banco.

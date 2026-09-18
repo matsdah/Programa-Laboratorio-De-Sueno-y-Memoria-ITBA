@@ -672,7 +672,9 @@ def test_la_banda_sigue_a_la_epoca(vista: SignalView, sesion: Session):
 
 
 def test_desplazar_la_pagina_no_mueve_la_banda(vista: SignalView, sesion: Session):
-    """Reproducir mueve la vista y no la época: la banda se queda donde está."""
+    """Desplazar la página —Mayús+→ en pausa— mueve la vista y no la época: la
+    banda se queda donde está. Reproducir, desde el hito 27, sí mueve la
+    época, pero lo hace por `mark_window()`."""
     vista.set_session(sesion)
     antes = vista._epoca.getRegion()
 
@@ -695,6 +697,73 @@ def test_cambiar_de_esquema_repinta_la_banda(vista: SignalView, sesion: Session)
         theme.set_current(theme.ECG)
         vista.apply_scheme()
         assert vista._epoca.brush.color().name() != antes
+    finally:
+        theme.set_current(anterior)
+        vista.apply_scheme()
+
+
+def test_marcar_la_epoca_no_mueve_la_pagina(vista: SignalView, sesion: Session):
+    """Es lo que necesita la reproducción: `show_window()` llevaría una página
+    de 5 s al comienzo de la época y el cursor dejaría el medio."""
+    from psglab.core.windows import epoch_to_seconds
+
+    vista.set_session(sesion)
+    sesion.set_viewport(sesion.viewport.with_span(5.0).with_center(47.5))
+    pagina = sesion.viewport
+
+    vista.mark_window(1)
+
+    assert sesion.viewport == pagina
+    assert vista._epoca.getRegion() == pytest.approx(
+        epoch_to_seconds(1, sesion.recording.sampling_rate)
+    )
+
+
+# -- El cursor de la reproducción (hito 27) ----------------------------------
+
+
+def test_sin_reproducir_no_hay_cursor(vista: SignalView, sesion: Session):
+    vista.set_session(sesion)
+
+    assert vista.playhead() is None
+
+
+def test_el_cursor_es_una_sola_linea_que_se_mueve(vista: SignalView, sesion: Session):
+    """Veinticinco pasos por segundo: rehacerla sería el error que el hito 25
+    encontró con la banda de la época."""
+    vista.set_session(sesion)
+    vista.set_playhead(10.0)
+    linea = vista._cursor
+
+    for segundos in (11.0, 12.5, 14.0):
+        vista.set_playhead(segundos)
+
+    assert vista._cursor is linea
+    assert vista.playhead() == pytest.approx(14.0)
+    assert sum(1 for item in vista.getPlotItem().items if item is linea) == 1
+
+
+def test_al_pausar_el_cursor_se_oculta(vista: SignalView, sesion: Session):
+    vista.set_session(sesion)
+    vista.set_playhead(10.0)
+
+    vista.set_playhead(None)
+
+    assert vista.playhead() is None
+
+
+def test_cambiar_de_esquema_repinta_el_cursor(vista: SignalView, sesion: Session):
+    import psglab.ui.theme as theme
+
+    vista.set_session(sesion)
+    vista.set_playhead(10.0)
+    antes = vista._cursor.pen.color().name()
+
+    anterior = theme.current()
+    try:
+        theme.set_current(theme.ECG)
+        vista.apply_scheme()
+        assert vista._cursor.pen.color().name() != antes
     finally:
         theme.set_current(anterior)
         vista.apply_scheme()

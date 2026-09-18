@@ -2427,12 +2427,17 @@ def test_el_panel_de_contexto_no_se_recorre(ventana: MainWindow):
     assert contexto[0] not in ventana.focusable_panes()
 
 
-# -- La página y la reproducción (hito 24) -----------------------------------
+# -- La reproducción, contada desde el medio (hitos 24 y 27) --------------------
 #
 # Por la ventana, como todo este archivo: los botones se aprietan con
 # `click()` y el reloj se hace avanzar emitiendo su señal, que es lo mismo que
 # hace el temporizador. Esperar al temporizador de verdad ataría el test a la
 # velocidad de la máquina.
+#
+# **Desde el hito 27 la época sigue al medio del gráfico** mientras se
+# reproduce: el cursor arranca en el centro de la época actual, la página se
+# centra en él y la época es la suya. Hasta ese hito la reproducción movía la
+# página y la época no se tocaba. El registro de prueba dura cinco épocas, 150 s.
 
 
 @pytest.fixture
@@ -2447,55 +2452,119 @@ def pagina(ventana: MainWindow) -> float:
     return ventana.session.viewport.start_seconds
 
 
-def test_reproducir_avanza_la_pagina_y_no_la_epoca(reproduccion: MainWindow):
-    """Decisión del usuario: reproducir es mirar, como Mayús+→. Lo que se
-    scorea sigue siendo la época resaltada."""
+def centro_de(epoca: int) -> float:
+    return (epoca + 0.5) * WINDOW_SECONDS
+
+
+def test_reproducir_lleva_la_epoca_que_pasa_por_el_medio(reproduccion: MainWindow):
+    """Al pausar, el usuario queda parado en la época que estaba mirando."""
     ventana = reproduccion
-    epoca = ventana.session.current_window
 
     ventana.toggle_playback()
     ventana.playback.advanced.emit(10.0)
-    ventana.playback.advanced.emit(2.5)
+    ventana.playback.advanced.emit(10.0)
 
     assert ventana.playback.is_playing
-    assert pagina(ventana) == pytest.approx(12.5)
-    assert ventana.session.current_window == epoca
+    assert ventana.signal_view.playhead() == pytest.approx(centro_de(0) + 20.0)
+    assert ventana.session.viewport.center_seconds == pytest.approx(centro_de(0) + 20.0)
+    assert ventana.session.current_window == 1
     assert ventana.navigation._reproducir.toolTip() == "Pausar"
     assert not ventana.carteles
 
 
-def test_la_reproduccion_se_detiene_en_el_final(reproduccion: MainWindow):
+def test_la_epoca_nueva_llega_a_la_barra_y_al_scoring(reproduccion: MainWindow):
+    """Lo que depende de la época se pone al día sin que nadie llame a
+    `refresh()`: la posición de la barra y el pie del scoring."""
     ventana = reproduccion
 
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(10 * WINDOW_SECONDS * VENTANAS)
+    ventana.playback.advanced.emit(WINDOW_SECONDS)
+
+    assert ventana.navigation._posicion.text() == f"Ventana 2 de {VENTANAS}"
+    assert ventana.scoring_panel.status().startswith("Ventana 2 ")
+
+
+def test_con_la_pagina_de_una_epoca_arrancar_no_salta(reproduccion: MainWindow):
+    """El cursor arranca en el centro de la época actual, que con la página de
+    30 s ya es el medio de la pantalla."""
+    ventana = reproduccion
+    ventana._go_to_window(3)
+    antes = ventana.session.viewport
+
+    ventana.toggle_playback()
+
+    assert ventana.session.viewport == antes
+    assert ventana.signal_view.playhead() == pytest.approx(centro_de(3))
+
+
+def test_al_principio_el_cursor_avanza_y_la_pagina_no(reproduccion: MainWindow):
+    """Con una página de dos épocas, el medio queda a 30 s: hasta ahí la
+    página no se puede mover y es el cursor el que avanza adentro de ella."""
+    ventana = reproduccion
+    ventana.set_timescale(2 * WINDOW_SECONDS)
+
+    ventana.toggle_playback()
+    ventana.playback.advanced.emit(10.0)
+
+    assert pagina(ventana) == 0.0
+    assert ventana.signal_view.playhead() == pytest.approx(centro_de(0) + 10.0)
+
+    ventana.playback.advanced.emit(10.0)
+
+    assert pagina(ventana) == pytest.approx(centro_de(0) + 20.0 - WINDOW_SECONDS)
+    assert ventana.session.current_window == 1
+
+
+def test_al_final_el_cursor_llega_al_borde_y_se_detiene(reproduccion: MainWindow):
+    """La página ya no se mueve, y el cursor sigue hasta el final del registro:
+    así se recorren también las últimas épocas."""
+    ventana = reproduccion
+    ventana.set_timescale(2 * WINDOW_SECONDS)
+    ventana._go_to_window(VENTANAS - 1)
+
+    ventana.toggle_playback()
+    assert ventana.session.viewport.at_end
+    ventana.playback.advanced.emit(10.0)
+    assert ventana.playback.is_playing
+
+    ventana.playback.advanced.emit(10 * WINDOW_SECONDS)
 
     assert not ventana.playback.is_playing
-    assert ventana.session.viewport.at_end
+    assert ventana.session.current_window == VENTANAS - 1
     assert ventana.statusBar().currentMessage() == "Fin del registro"
-    assert not ventana.navigation._reproducir.isEnabled()
+    assert ventana.signal_view.playhead() is None
+    assert ventana.navigation._reproducir.isEnabled()
 
 
-def test_en_el_final_no_arranca(reproduccion: MainWindow):
+def test_con_el_registro_entero_en_pantalla_tambien_reproduce(reproduccion: MainWindow):
+    """Hasta el hito 27 no arrancaba: no había página que mover. Ahora se mueve
+    el cursor, y la época con él."""
+    ventana = reproduccion
+    ventana.show_whole_recording()
+    entera = ventana.session.viewport
+
+    ventana.toggle_playback()
+    ventana.playback.advanced.emit(2 * WINDOW_SECONDS)
+
+    assert ventana.playback.is_playing
+    assert ventana.session.viewport == entera
+    assert ventana.session.current_window == 2
+
+
+def test_arranca_desde_la_epoca_actual_aunque_la_vista_se_haya_ido(
+    reproduccion: MainWindow,
+):
+    """Mayús+→ en pausa mueve la vista y no la época, y la reproducción sale
+    de la época que se está scoreando, no de lo que quedó en pantalla."""
     ventana = reproduccion
     for _ in range(2 * VENTANAS):
         ventana.pan_view_page_right()
 
     ventana.toggle_playback()
 
-    assert not ventana.playback.is_playing
-    assert "final" in ventana.statusBar().currentMessage()
-
-
-def test_con_el_registro_entero_en_pantalla_no_arranca(reproduccion: MainWindow):
-    ventana = reproduccion
-    ventana.show_whole_recording()
-
-    ventana.toggle_playback()
-
-    assert not ventana.playback.is_playing
-    assert "registro entero" in ventana.statusBar().currentMessage()
-    assert not ventana.navigation._reproducir.isEnabled()
+    assert ventana.playback.is_playing
+    assert ventana.signal_view.playhead() == pytest.approx(centro_de(0))
+    assert pagina(ventana) == 0.0
 
 
 def test_sin_registro_reproducir_no_hace_nada(qt_app):
@@ -2518,6 +2587,125 @@ def test_apretar_de_nuevo_pausa(reproduccion: MainWindow):
     assert ventana.navigation._reproducir.toolTip() == "Reproducir"
 
 
+def test_al_pausar_se_va_el_cursor_y_se_queda_la_epoca(reproduccion: MainWindow):
+    ventana = reproduccion
+    ventana.toggle_playback()
+    ventana.playback.advanced.emit(20.0)
+    pagina_al_pausar = ventana.session.viewport
+
+    ventana.toggle_playback()
+
+    assert ventana.signal_view.playhead() is None
+    assert ventana.session.current_window == 1
+    assert ventana.session.viewport == pagina_al_pausar
+
+
+def test_siguiente_y_anterior_reproduciendo_llevan_el_cursor(reproduccion: MainWindow):
+    """Saltan una época y la reproducción sigue desde su centro."""
+    ventana = reproduccion
+    ventana.toggle_playback()
+
+    ventana.navigation._siguiente.click()
+    assert ventana.session.current_window == 1
+    assert ventana.signal_view.playhead() == pytest.approx(centro_de(1))
+
+    ventana.go_to_next_window()
+    assert ventana.session.current_window == 2
+
+    ventana.navigation._anterior.click()
+    assert ventana.session.current_window == 1
+    assert ventana.signal_view.playhead() == pytest.approx(centro_de(1))
+    assert ventana.playback.is_playing
+    assert not ventana.carteles
+
+
+def test_la_ultima_y_la_franja_reproduciendo_llevan_el_cursor(reproduccion: MainWindow):
+    ventana = reproduccion
+    ventana.toggle_playback()
+
+    ventana.navigation._ultima.click()
+    assert ventana.session.current_window == VENTANAS - 1
+    assert ventana.signal_view.playhead() == pytest.approx(centro_de(VENTANAS - 1))
+
+    ventana._go_to_window(2)
+    assert ventana.signal_view.playhead() == pytest.approx(centro_de(2))
+    assert ventana.playback.is_playing
+
+
+def test_siguiente_en_la_ultima_reproduciendo_no_hace_nada(reproduccion: MainWindow):
+    """Como la flecha en pausa: llegar al borde no es un error ni un salto al
+    final del registro."""
+    ventana = reproduccion
+    ventana._go_to_window(VENTANAS - 1)
+    ventana.toggle_playback()
+
+    ventana.go_to_next_window()
+
+    assert ventana.signal_view.playhead() == pytest.approx(centro_de(VENTANAS - 1))
+    assert ventana.playback.is_playing
+
+
+def test_en_pausa_las_flechas_mueven_la_pagina_lo_minimo(ventana: MainWindow):
+    """Como siempre: con la época adentro de la página, la flecha mueve el
+    resaltado y no la vista. Sólo reproduciendo se centra."""
+    ventana.set_timescale(VENTANAS * WINDOW_SECONDS)
+    antes = ventana.session.viewport
+
+    ventana.go_to_next_window()
+
+    assert ventana.session.current_window == 1
+    assert ventana.session.viewport == antes
+    assert ventana.signal_view.playhead() is None
+
+
+@pytest.mark.parametrize(
+    "accion, esperado",
+    [
+        ("pan_view_page_right", WINDOW_SECONDS),
+        ("pan_view_right", WINDOW_SECONDS / 2),
+    ],
+)
+def test_los_atajos_de_pagina_en_pausa_mueven_la_vista_y_no_la_epoca(
+    ventana: MainWindow, accion: str, esperado: float
+):
+    """Los botones de página se sacaron en el hito 27; sus atajos se quedan."""
+    epoca = ventana.session.current_window
+
+    getattr(ventana, accion)()
+
+    assert pagina(ventana) == pytest.approx(esperado)
+    assert ventana.session.current_window == epoca
+    assert not ventana.carteles
+
+
+def test_los_atajos_de_pagina_reproduciendo_mueven_el_cursor(reproduccion: MainWindow):
+    """Si movieran sólo la página, el paso siguiente la devolvería al cursor."""
+    ventana = reproduccion
+    ventana.toggle_playback()
+
+    ventana.pan_view_page_right()
+
+    assert ventana.signal_view.playhead() == pytest.approx(centro_de(0) + WINDOW_SECONDS)
+    assert ventana.session.current_window == 1
+    assert ventana.playback.is_playing
+
+
+def test_scorear_reproduciendo_no_saca_la_pagina_del_cursor(reproduccion: MainWindow):
+    """Con la página de 30 s centrada en el cursor la época no entra entera, y
+    redibujar con `containing()` la llevaba al comienzo de la época."""
+    from psglab.core.nomenclature import SleepStage
+
+    ventana = reproduccion
+    ventana.toggle_playback()
+    ventana.playback.advanced.emit(10.0)
+    centrada = ventana.session.viewport
+
+    ventana.score_current_window(SleepStage.N2)
+
+    assert ventana.session.viewport == centrada
+    assert ventana.session.scoring.get(0).stage is SleepStage.N2
+
+
 def test_abrir_otro_registro_detiene_la_reproduccion(
     reproduccion: MainWindow, tmp_path: Path
 ):
@@ -2529,6 +2717,7 @@ def test_abrir_otro_registro_detiene_la_reproduccion(
 
     assert not ventana.playback.is_playing
     assert pagina(ventana) == 0.0
+    assert ventana.signal_view.playhead() is None
 
 
 def test_volver_a_la_senal_original_detiene_la_reproduccion(reproduccion: MainWindow):
@@ -2564,49 +2753,6 @@ def test_espacio_reproduce_y_pausa(reproduccion: MainWindow):
 
     espacio.activated.emit()
     assert not ventana.playback.is_playing
-
-
-@pytest.mark.parametrize(
-    "boton, esperado",
-    [
-        ("_pagina_adelante", WINDOW_SECONDS),
-        ("_media_adelante", WINDOW_SECONDS / 2),
-    ],
-)
-def test_los_botones_de_pagina_mueven_la_vista_y_no_la_epoca(
-    ventana: MainWindow, boton: str, esperado: float
-):
-    epoca = ventana.session.current_window
-
-    getattr(ventana.navigation, boton).click()
-
-    assert pagina(ventana) == pytest.approx(esperado)
-    assert ventana.session.current_window == epoca
-    assert not ventana.carteles
-
-
-def test_los_botones_de_retroceso_se_habilitan_al_avanzar(ventana: MainWindow):
-    barra = ventana.navigation
-    assert not barra._pagina_atras.isEnabled()
-
-    barra._pagina_adelante.click()
-    barra._pagina_adelante.click()
-    assert barra._pagina_atras.isEnabled()
-
-    barra._media_atras.click()
-    barra._pagina_atras.click()
-
-    assert pagina(ventana) == pytest.approx(WINDOW_SECONDS / 2)
-
-
-def test_cambiar_de_epoca_actualiza_los_botones_de_pagina(ventana: MainWindow):
-    """Llevar la época al final mueve la página, y no pasa por los botones:
-    igual tienen que enterarse."""
-    ventana._go_to_window(VENTANAS - 1)
-
-    assert ventana.session.viewport.at_end
-    assert not ventana.navigation._pagina_adelante.isEnabled()
-    assert ventana.navigation._pagina_atras.isEnabled()
 
 
 def test_el_programa_abre_solo_con_la_senal_y_los_canales(ventana: MainWindow):

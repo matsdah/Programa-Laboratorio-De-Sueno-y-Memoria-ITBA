@@ -10,16 +10,17 @@ MIT. Es exactamente el motivo por el que se eligió PySide6 sobre PyQt, y el
 mismo que hace fallar el job de licencias del CI ante cualquier dependencia GPL.
 
 Tomar un set de iconos permisivo —Lucide, Feather, Tabler, todos MIT— habría
-sido legítimo, y se descartó por una razón práctica: **son trece siluetas
+sido legítimo, y se descartó por una razón práctica: **son nueve siluetas
 hechas de triángulos, barras y un círculo**. Agregar un directorio de
 recursos, un `.qrc` y una licencia de terceros más para eso es más
 mantenimiento del que ahorran. Dibujarlos
 acá los deja además tomando el color del esquema, que un `.png` no puede hacer.
 
-**Los de la página no pueden parecerse a los de la época.** Las flechas de
-época son triángulos llenos; los de desplazar la página son chevrones
-abiertos (‹ ≪), y reproducir y pausar llevan la figura calada en un círculo.
-Con once botones en una fila, dos que se parezcan se confunden.
+**Reproducir y pausar no pueden parecerse a las flechas de época.** Las
+flechas son triángulos llenos, y reproducir —que queda entre ellas desde el
+hito 27— lleva el triángulo calado en un círculo: en una fila de siete, dos
+triángulos iguales se confunden. Hasta ese hito había además cuatro chevrones
+abiertos para mover la página, que se sacaron con sus botones.
 
 Los iconos se dibujan **en el momento**, con el color que se les pida. No se
 cachean: se los pide una vez por botón al construir la barra, y volver a
@@ -56,10 +57,6 @@ NOMBRES: Final[tuple[str, ...]] = (
     "amplitud-mas",
     "amplitud-menos",
     "abrir",
-    "pagina-atras",
-    "media-atras",
-    "media-adelante",
-    "pagina-adelante",
     "reproducir",
     "pausa",
 )
@@ -128,13 +125,6 @@ def _camino(name: str) -> QPainterPath:
         return camino
     if name == "abrir":
         return _carpeta(borde, util)
-    if name in ("pagina-atras", "media-atras", "media-adelante", "pagina-adelante"):
-        return _chevrones(
-            borde,
-            util,
-            cuantos=2 if name.startswith("pagina") else 1,
-            hacia_la_derecha=name.endswith("adelante"),
-        )
     if name == "reproducir":
         return _calado(borde, util, _triangulo_de_reproducir(borde, util))
     if name == "pausa":
@@ -197,44 +187,6 @@ def _carpeta(borde: float, lado: float) -> QPainterPath:
     )
     # La unión de las dos figuras, para que el borde compartido no quede como
     # una línea sin pintar.
-    return camino.simplified()
-
-
-def _chevrones(
-    borde: float, lado: float, cuantos: int, hacia_la_derecha: bool
-) -> QPainterPath:
-    """Uno o dos chevrones abiertos (› o »), centrados en el lienzo.
-
-    Un chevrón es una V acostada con un trazo de grosor fijo: se dibuja como
-    un polígono de seis puntos y no con una pluma, para que tome el mismo
-    relleno que el resto de los iconos.
-    """
-    ancho = lado * 0.42
-    grosor = ancho * 0.42
-    separacion = ancho * 0.55
-    total = ancho + separacion * (cuantos - 1)
-    inicio = borde + (lado - total) / 2
-    camino = QPainterPath()
-    for i in range(cuantos):
-        x = inicio + i * separacion
-        puntos = [
-            (x, borde),
-            (x + grosor, borde),
-            (x + ancho, borde + lado / 2),
-            (x + grosor, borde + lado),
-            (x, borde + lado),
-            (x + ancho - grosor, borde + lado / 2),
-        ]
-        if not hacia_la_derecha:
-            # Espejado respecto del centro del lienzo.
-            puntos = [(2 * borde + lado - px, py) for px, py in puntos]
-        poligono = QPainterPath()
-        poligono.moveTo(QPointF(*puntos[0]))
-        for punto in puntos[1:]:
-            poligono.lineTo(QPointF(*punto))
-        poligono.closeSubpath()
-        camino.addPath(poligono)
-    # Dos chevrones que se tocan se suman en vez de calarse.
     return camino.simplified()
 
 

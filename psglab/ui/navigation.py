@@ -11,9 +11,12 @@ veces—, el control de amplitud al lado, y sobre todo una **franja de posición
 que muestra dónde cae la ventana actual dentro de la noche y deja saltar a
 cualquier punto con un clic.
 
-El hito 24 le sumó los botones que mueven la **página** en vez de la época, y
-los de la reproducción: ≪ ‹ ⏯ › ≫ y la velocidad. La reproducción la maneja
-`playback.py`; acá sólo están el botón y el selector.
+El hito 24 le sumó cuatro botones que movían la **página** en vez de la época
+(≪ ‹ › ≫) y la reproducción. **El hito 27 los sacó**, a pedido del usuario:
+quedan ocho controles, en este orden —primera ventana, anterior,
+reproducir/pausar, siguiente, última, velocidad, menos y más amplitud—. Mover
+la vista sin mover la época sigue en el teclado (Mayús+← → y Ctrl+← →). La
+reproducción la maneja `playback.py`; acá sólo están el botón y el selector.
 
 Los atajos de teclado no se definen acá sino en `shortcuts.py`, para tener un
 único lugar donde se sabe qué hace cada tecla.
@@ -45,7 +48,7 @@ from psglab.ui.playback import DEFAULT_SPEED, PLAYBACK_SPEEDS, speed_text
 #: pegarle un clic sin apuntar.
 ALTO_DE_LA_FRANJA: int = 14
 
-#: Lado del botón de la barra. Compacto a propósito: son once y comparten fila
+#: Lado del botón de la barra. Compacto a propósito: son siete y comparten fila
 #: con la velocidad, la franja, la posición y el horario.
 LADO_DEL_BOTON: int = 26
 
@@ -117,13 +120,14 @@ class PositionStrip(QWidget):
 
 
 class NavigationBar(QWidget):
-    """Botones de época, de página y de reproducción, amplitud, franja e
-    indicadores.
+    """Los ocho controles de la barra, la franja de posición y los indicadores.
 
-    **Hay dos juegos de flechas y no se pueden confundir.** Los triángulos
-    llenos mueven la **época**, que es lo que el pliego llama ventana y lo que
-    se scorea. Los chevrones (‹ ≪) mueven la **página**, lo que se ve, sin
-    tocar la época: son los mismos pasos que Mayús+← → y Ctrl+← →.
+    **Hay un solo juego de flechas, y mueve la época**, que es lo que el pliego
+    llama ventana y lo que se scorea. Hasta el hito 27 había otro, de chevrones,
+    que movía la página sin tocar la época; se sacó para que no hubiera dos
+    flechas que parecen lo mismo y hacen otra cosa. Reproduciendo, las flechas
+    llevan el cursor a la época pedida y la reproducción sigue desde ahí: eso lo
+    decide la ventana principal, no esta barra.
     """
 
     #: Se emite cuando el usuario pide ir a una ventana concreta (base 0).
@@ -132,9 +136,6 @@ class NavigationBar(QWidget):
     #: cambia por paso lo decide `Session`, no un widget.
     amplitude_up_requested = Signal()
     amplitude_down_requested = Signal()
-    #: Se emite con cuánto mover la página, en fracciones de su propio ancho:
-    #: −1 y +1 son una página entera, −0,5 y +0,5 media.
-    page_pan_requested = Signal(float)
     #: Se emite al apretar reproducir o pausar.
     playback_toggle_requested = Signal()
     #: Se emite con la velocidad elegida, como múltiplo del tiempo real.
@@ -146,19 +147,12 @@ class NavigationBar(QWidget):
         self._window_index = 0
         self._n_windows = 0
         self._reproduciendo = False
-        #: Los últimos límites de la página: (al principio, al final, entera).
-        #: None hasta que se abre un registro.
-        self._limites: tuple[bool, bool, bool] | None = None
 
         self._primera = self._boton("primera", "Primera ventana")
         self._anterior = self._boton("anterior", "Ventana anterior")
+        self._reproducir = self._boton("reproducir", "Reproducir")
         self._siguiente = self._boton("siguiente", "Ventana siguiente")
         self._ultima = self._boton("ultima", "Última ventana")
-        self._pagina_atras = self._boton("pagina-atras", "Una página hacia atrás")
-        self._media_atras = self._boton("media-atras", "Media página hacia atrás")
-        self._reproducir = self._boton("reproducir", "Reproducir")
-        self._media_adelante = self._boton("media-adelante", "Media página hacia adelante")
-        self._pagina_adelante = self._boton("pagina-adelante", "Una página hacia adelante")
         self._mas_amplitud = self._boton("amplitud-mas", "Aumentar la amplitud")
         self._menos_amplitud = self._boton("amplitud-menos", "Reducir la amplitud")
 
@@ -169,10 +163,6 @@ class NavigationBar(QWidget):
             self._anterior: "anterior",
             self._siguiente: "siguiente",
             self._ultima: "ultima",
-            self._pagina_atras: "pagina-atras",
-            self._media_atras: "media-atras",
-            self._media_adelante: "media-adelante",
-            self._pagina_adelante: "pagina-adelante",
             self._mas_amplitud: "amplitud-mas",
             self._menos_amplitud: "amplitud-menos",
         }
@@ -196,15 +186,6 @@ class NavigationBar(QWidget):
         self._anterior.clicked.connect(lambda: self._pedir(self._window_index - 1))
         self._siguiente.clicked.connect(lambda: self._pedir(self._window_index + 1))
         self._ultima.clicked.connect(lambda: self._pedir(self._n_windows - 1))
-        for boton, fraccion in (
-            (self._pagina_atras, -1.0),
-            (self._media_atras, -0.5),
-            (self._media_adelante, 0.5),
-            (self._pagina_adelante, 1.0),
-        ):
-            boton.clicked.connect(
-                lambda _=False, f=fraccion: self.page_pan_requested.emit(f)
-            )
         self._reproducir.clicked.connect(self.playback_toggle_requested.emit)
         self.speed_selector.currentIndexChanged.connect(
             lambda _: self.playback_speed_changed.emit(self.speed_selector.currentData())
@@ -215,15 +196,14 @@ class NavigationBar(QWidget):
 
         caja = QHBoxLayout(self)
         caja.setContentsMargins(4, 2, 4, 2)
-        for boton in (self._primera, self._anterior, self._siguiente, self._ultima):
-            caja.addWidget(boton)
-        caja.addSpacing(12)
+        # El orden que pidió el usuario en el hito 27: reproducir entre las dos
+        # flechas, que es donde lo pone cualquier reproductor.
         for boton in (
-            self._pagina_atras,
-            self._media_atras,
+            self._primera,
+            self._anterior,
             self._reproducir,
-            self._media_adelante,
-            self._pagina_adelante,
+            self._siguiente,
+            self._ultima,
         ):
             caja.addWidget(boton)
         caja.addWidget(self.speed_selector)
@@ -241,7 +221,7 @@ class NavigationBar(QWidget):
     def _boton(self, nombre: str, ayuda: str) -> QPushButton:
         """Un botón compacto con su icono y su tooltip.
 
-        El tooltip no es decorativo: son once iconos y, sin él, la diferencia
+        El tooltip no es decorativo: son siete iconos y, sin él, la diferencia
         entre "anterior" y "primera" hay que deducirla del dibujo.
 
         **Un clic no le saca el foco a la señal** (`TabFocus`): si se lo sacara,
@@ -278,40 +258,9 @@ class NavigationBar(QWidget):
         )
         self._reproducir.setToolTip(ayuda)
         self._reproducir.setAccessibleName(ayuda)
-        # Al detenerse en el final, el botón tiene que apagarse: los límites se
-        # calcularon mientras todavía reproducía.
-        self._aplicar_limites()
 
     def _icono_de_reproducir(self) -> str:
         return "pausa" if self._reproduciendo else "reproducir"
-
-    def set_page_bounds(self, at_start: bool, at_end: bool, whole: bool) -> None:
-        """Habilita los botones de página según dónde está la página.
-
-        Args:
-            at_start: si la página empieza con el registro.
-            at_end: si llega a su final.
-            whole: si muestra el registro entero.
-
-        **Reproducir queda habilitado mientras se reproduce**, aunque la página
-        llegue al final: es el botón con que se pausa, y deshabilitarlo dejaría
-        al usuario sin forma de detenerla con el mouse.
-        """
-        self._limites = (bool(at_start), bool(at_end), bool(whole))
-        self._aplicar_limites()
-
-    def _aplicar_limites(self) -> None:
-        """Habilita los botones de página con los últimos límites recibidos."""
-        if self._n_windows <= 0 or self._limites is None:
-            return
-        at_start, at_end, whole = self._limites
-        self._pagina_atras.setEnabled(not at_start)
-        self._media_atras.setEnabled(not at_start)
-        self._media_adelante.setEnabled(not at_end)
-        self._pagina_adelante.setEnabled(not at_end)
-        self._reproducir.setEnabled(
-            self._reproduciendo or not (at_end or whole)
-        )
 
     def set_position(self, window_index: int, n_windows: int) -> None:
         """Actualiza el indicador de posición y la franja.
@@ -323,9 +272,10 @@ class NavigationBar(QWidget):
         ventanas son base 0 de punta a punta; convertir al mostrar y no antes es
         lo que evita que la cuenta se corra en algún camino intermedio.
 
-        Los botones de página no dependen de la época sino de la página, así
-        que los habilita `set_page_bounds()`. Acá sólo se apagan cuando no hay
-        registro.
+        **Reproducir queda habilitado siempre que haya registro**, aunque la
+        página esté al final o muestre la noche entera: desde el hito 27 el
+        cursor avanza adentro de la página cuando ésta no se puede mover, así
+        que siempre hay por dónde seguir. Hasta entonces lo apagaba la página.
         """
         self._window_index = window_index
         self._n_windows = n_windows
@@ -342,16 +292,7 @@ class NavigationBar(QWidget):
         self._ultima.setEnabled(hay_registro and window_index < n_windows - 1)
         self._mas_amplitud.setEnabled(hay_registro)
         self._menos_amplitud.setEnabled(hay_registro)
-        if not hay_registro:
-            self._limites = None
-            for boton in (
-                self._pagina_atras,
-                self._media_atras,
-                self._reproducir,
-                self._media_adelante,
-                self._pagina_adelante,
-            ):
-                boton.setEnabled(False)
+        self._reproducir.setEnabled(hay_registro)
 
     def set_clock_time(self, label: str | None) -> None:
         """Muestra el horario real de la ventana actual, si se conoce.
