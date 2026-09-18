@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QApplication
 
 from psglab.readers.base import load_all_readers
 from psglab.tools.registry import load_all_tools
-from psglab.ui import preferences, theme
+from psglab.ui import fonts, preferences, theme
 from psglab.ui.main_window import MainWindow
 from psglab.utils.errors import PsgLabError
 
@@ -63,6 +63,10 @@ def create_application(argv: list[str]) -> QApplication:
     # este archivo. Ahora salen del esquema elegido por el usuario, que
     # `psglab/ui/theme.py` sabe aplicar.
     theme.set_current(_esquema_guardado())
+    # Las tipografías que el programa trae: quedan para elegir en la
+    # configuración y para el esquema Papel. Registrarlas no cambia nada de lo
+    # que se ve al arrancar, y si faltan el programa arranca igual.
+    fonts.register_bundled_fonts()
     # **El suavizado de curvas queda apagado a propósito**, que es el valor por
     # omisión de pyqtgraph y conviene dejar dicho por qué. Redibujar decenas de
     # canales a cientos de hercios por cada pulsación de flecha es exactamente

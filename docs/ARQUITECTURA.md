@@ -186,6 +186,24 @@ Todas compatibles con MIT.
 
 **Prohibido:** PyQt5, PyQt6 (GPL).
 
+### Las tipografías que el programa trae
+
+Desde el hito 26 el programa distribuye tres archivos de **IBM Plex** —Sans
+regular y seminegrita, Mono regular— en `psglab/resources/fonts/`. Van bajo la
+**SIL Open Font License 1.1**, que permite empaquetarlas con un programa de
+cualquier licencia, el MIT de éste incluido, con dos condiciones: que la
+licencia viaje con los archivos —está en `OFL.txt`, al lado— y que una versión
+modificada no use el nombre reservado «Plex». No se modifican.
+
+**El control de licencias del CI no las ve**, porque sólo recorre los paquetes
+de pip. Por eso quedan anotadas acá, y un archivo que se agregue a esa carpeta
+tiene que traer su licencia y sumarse a este párrafo.
+
+Se bajaron del repositorio oficial, `github.com/IBM/plex`, y se verificaron
+contra los tamaños que publica su API. Registrarlas no cambia lo que se ve al
+arrancar: el programa sigue con la tipografía del sistema y el esquema Claro, y
+las usa quien elige el esquema Papel o las elige en Tipografía.
+
 Verificar antes de cada release:
 
 ```bash

@@ -144,6 +144,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_navigation.py": ("psglab/ui/navigation.py",),
     "test_playback.py": ("psglab/ui/playback.py",),
     "test_scoring_panel.py": ("psglab/ui/scoring_panel.py",),
+    "test_fonts.py": ("psglab/ui/fonts.py",),
     "test_exporters.py": (
         "psglab/exporters/scoring_txt.py",
         "psglab/exporters/annotations_txt.py",

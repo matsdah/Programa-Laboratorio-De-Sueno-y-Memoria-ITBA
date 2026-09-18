@@ -15,6 +15,7 @@
 *.jpg binary
 *.pdf binary
 *.ico binary
+*.ttf binary
 
 # Formatos de registro polisomnográfico. No deberían llegar al repositorio
 # (los excluye .gitignore), pero si alguno entra por error, que no se corrompa.

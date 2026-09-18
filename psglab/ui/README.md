@@ -70,6 +70,7 @@ conoce las flechas del teclado.
 | `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas, arrancan ocultos y al abrirse se llevan `FRACCION_DE_ANALISIS` del ancho: sin eso Qt les daba más lugar que a la señal. | — |
 | `menus.py` | **La barra de menú**: qué acción vive en qué menú, y el botón de abrir un registro. No implementa ninguna: cada una llama a un método de la ventana. | — |
 | `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los seis esquemas de fábrica. Claro no pone hoja de estilo y queda nativo; Papel, el del lienzo de diseño, separa el fondo de la ventana (`chrome`) del de las áreas de dibujo y les da a las lecturas numéricas su propia tipografía. | — |
+| `fonts.py` | Registra las tipografías que el programa trae —IBM Plex Sans y Mono, en `psglab/resources/fonts/`, bajo la OFL 1.1—. No cambian nada al arrancar: quedan para elegir en Tipografía y para las lecturas del esquema Papel. Si faltan, el programa arranca igual. | — |
 | `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. La disposición de paneles ya no es parte de eso. | — |
 | `settings_dialog.py` | **La ventana de configuración**: cinco solapas, todas con algo real detrás. Aplica en el momento y avisa por callbacks. | — |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
