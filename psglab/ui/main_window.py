@@ -29,7 +29,7 @@ menú se quitó por confusa.
 
 **El programa abre sólo con la señal y el selector de canales**, y no
 recuerda la disposición de una apertura a otra (hito 24). Los demás paneles
-se abren desde «Paneles».
+se abren desde «Herramientas», que desde el hito 28 lleva también los paneles.
 
 Cubre del pliego: V4_F de "Archivo de salida" (`export()` elige cuál de los tres
 archivos escribir, aunque desde el hito 23 la ventana sólo ofrece el scoring),
@@ -317,10 +317,26 @@ class MainWindow(QMainWindow):
         **El menú es la única vía para activarlas.** Hasta el hito 23 las
         mismas acciones iban también en una barra horizontal debajo del menú,
         que repetía lo mismo y se confundía con él.
+
+        **Una herramienta que tiene panel no recibe entrada propia** (hito 28):
+        la que cuenta es la del panel, que `menus._herramientas()` ya puso. Son
+        las que se llaman igual que una clave de `self.docks` —hoy la Übersicht
+        y el hipnograma—, y se prenden solas al abrir un registro
+        (`_activate_panel_tools()`), así que lo único que el usuario decide es
+        si el panel se ve. Con las dos entradas, un menú las mostraba tildadas
+        y el otro no, y apagar la herramienta con el panel a la vista lo dejaba
+        vacío.
+
+        Las demás, los modos del mouse, se insertan **arriba del menú**, antes
+        de la primera entrada que dejó `menus._herramientas()`, y en el orden
+        del registro.
         """
+        primera = self.tools_menu.actions()[0] if self.tools_menu.actions() else None
         for cls in available_tools():
             herramienta = cls()
             self._tools[cls.name] = herramienta
+            if cls.name in self.docks:
+                continue
 
             accion = QAction(cls.label, self)
             accion.setCheckable(True)
@@ -332,7 +348,7 @@ class MainWindow(QMainWindow):
             accion.toggled.connect(
                 lambda activa, n=cls.name: self._toggle_tool(n, activa)
             )
-            self.tools_menu.addAction(accion)
+            self.tools_menu.insertAction(primera, accion)
 
     def _connect_signals(self) -> None:
         """Conecta las señales de los paneles entre sí.

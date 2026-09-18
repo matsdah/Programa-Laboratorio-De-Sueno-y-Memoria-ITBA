@@ -32,7 +32,10 @@ class HistogramTool(Tool):
     """Hipnograma navegable de todo el registro."""
 
     name = "histogram"
-    label = "Histograma"
+    # «Hipnograma» y no «Histograma», aunque el pliego lo llame así: es lo que
+    # dice su panel, y desde el hito 28 los dos comparten una sola entrada en
+    # el menú. Con dos nombres parecían dos cosas.
+    label = "Hipnograma"
     description = "Ver el hipnograma de la noche y navegar haciendo clic"
     exclusive = False  # Es un panel permanente, no un modo del mouse.
 

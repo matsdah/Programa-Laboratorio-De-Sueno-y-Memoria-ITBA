@@ -28,7 +28,7 @@ significar "el contenedor del panel", que es lo que siempre quiso decir.
 
 **Sólo la señal y el selector de canales.** Hasta el hito 24 arrancaban
 abiertos también el scoring, el hipnograma y la Übersicht, y entre los tres le
-quitaban a la señal un cuarto de la pantalla; se abren desde «Paneles». Scorear
+quitaban a la señal un cuarto de la pantalla; se abren desde «Herramientas». Scorear
 no los necesita: las fases y el arousal tienen su tecla.
 
 Los seis de análisis arrancan ocultos y los abre la acción del menú que los
@@ -121,7 +121,7 @@ def build_docks(window: "MainWindow") -> None:
     """Ubica todos los paneles alrededor de la señal.
 
     Deja en la ventana un atributo por dock, y `docks` con todos ellos por
-    nombre, que es lo que usa el menú «Paneles» para poder mostrarlos y
+    nombre, que es lo que usa el menú «Herramientas» para poder mostrarlos y
     ocultarlos sin conocerlos uno por uno.
     """
     window.setCentralWidget(window.signal_view)
@@ -157,7 +157,7 @@ def _trabajo(window: "MainWindow") -> None:
     ):
         window.docks[nombre] = dock
 
-    # Se ocultan después de acomodarlos, para que al mostrarlos desde «Paneles»
+    # Se ocultan después de acomodarlos, para que al mostrarlos desde «Herramientas»
     # vuelvan al borde de abajo y lado a lado.
     for clave in ANCHOS_DE_ABAJO:
         window.docks[clave].hide()

@@ -26,8 +26,9 @@ de rápida. El **[hito 26](#hito-26-el-diseño-de-la-ventana)** llevó al progra
 lo que propuso y midió un lienzo de diseño: el reparto de los paneles, un
 esquema nuevo y dos detalles. El **[hito 27](#hito-27-la-navegación-desde-el-medio)**
 dejó ocho controles en la barra y hace que la reproducción se cuente desde el
-medio del gráfico. Son **veintiocho hitos**, del 0 al 27, que son las filas de
-la tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
+medio del gráfico, y el **[hito 28](#hito-28-un-solo-menú-de-herramientas)**
+fundió «Paneles» con «Herramientas». Son **veintinueve hitos**, del 0 al 28,
+que son las filas de la tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
 dentro del hito al que le toca, casi todo en los tres últimos.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
@@ -124,6 +125,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [25. Rendimiento](#hito-25-rendimiento-al-abrir-y-al-desplazar) | — | 0 | ✅ cerrado |
 | [26. El diseño de la ventana](#hito-26-el-diseño-de-la-ventana) | — | 0 | ✅ cerrado |
 | [27. La navegación desde el medio](#hito-27-la-navegación-desde-el-medio) | — | 0 | ✅ cerrado |
+| [28. Un solo menú de herramientas](#hito-28-un-solo-menú-de-herramientas) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1790,7 +1792,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
       un menú «&Análisis» se reescribió para verificar cada acción, que es lo
       que protegía.
-  - Test: `tests/test_menus.py`, **30 tests en verde**.
+  - Test: `tests/test_menus.py`, **35 tests en verde**.
 - [x] **Fase 3 — Paneles acoplables.** La señal es el widget central y los otros
       diez paneles se mueven, se apilan o se cierran; la disposición se guarda
       al cerrar. Los seis paneles de análisis conservaron el nombre de su
@@ -1914,7 +1916,7 @@ reorganiza lo que ya andaba.
       repetía la solapa Colores de esa misma ventana.
 - [x] **La barra de menú deja de ser la nativa**, para que en macOS no
       desaparezcan el botón de abrir ni «Configuración», que no tiene submenú.
-  - Test: `tests/test_menus.py`, **30 tests en verde**.
+  - Test: `tests/test_menus.py`, **35 tests en verde**.
   - Test: `tests/test_icons.py`, **31 tests en verde**.
 
 ### El scoring en cuatro formatos
@@ -2326,7 +2328,7 @@ lo mínimo.
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **183 tests en verde**.
+  - Test: `tests/test_entrega.py`, **185 tests en verde**.
 
 ### Lo que se midió
 
@@ -2355,6 +2357,52 @@ borde.
       en pausa se movió la vista con Mayús+→, la reproducción vuelve a la
       época que se está scoreando. Es a propósito —la época es lo que se
       scorea— y queda anotado por si el laboratorio prefiere lo otro.
+
+---
+
+## Hito 28: Un solo menú de herramientas
+
+**Cerrado el 18 de septiembre de 2026.** Pedido del usuario: los menús
+«Paneles» y «Herramientas» se repetían, y tenían que quedar en uno solo,
+llamado «Herramientas». La Übersicht estaba en los dos, y el hipnograma también,
+con dos nombres —«Histograma» en uno, «Hipnograma» en el otro—.
+
+**No era sólo una repetición: los dos menús decían cosas distintas.**
+`OverviewTool` y `HistogramTool` son herramientas-panel (`exclusive = False`) y
+se prenden solas al abrir un registro, pero desde el
+[hito 24](#hito-24-vista-inicial-y-reproducción) sus paneles arrancan ocultos.
+Así, «Herramientas» las mostraba tildadas y «Paneles» destildadas, y apagar la
+herramienta con el panel a la vista lo dejaba vacío.
+
+Al aclararlo el usuario eligió el nombre «Hipnograma», que los seis paneles de
+análisis se queden en su propio bloque, un menú plano con separadores y que
+«Herramientas» conserve su lugar en la barra.
+
+**No tiene stubs que contar.**
+
+- [x] **Un menú en cuatro bloques**: los modos del mouse —Anotar, Lupa,
+      Ocupación, Banda de amplitud—, los paneles de trabajo —Canales,
+      Übersicht, Scoring, Hipnograma—, los de análisis y «Restaurar la
+      disposición». La barra pasa de once menús a diez.
+- [x] **La regla que evita el duplicado no es una lista**: una herramienta que
+      se llama igual que una clave de `window.docks` se muestra con su panel y
+      no recibe entrada propia. `menus._herramientas()` pone los paneles
+      recorriendo los docks, y `_build_tools_menu()` inserta arriba los modos
+      que salen del registro. Una herramienta con panel que se agregue cae sola
+      en la misma regla.
+- [x] **Las herramientas-panel quedan siempre prendidas con un registro
+      abierto**, como ya hacía `_activate_panel_tools()`. Lo que se prende y se
+      apaga es el panel, y desaparece el estado «panel a la vista con la
+      herramienta apagada».
+- [x] `HistogramTool.label` pasa a «Hipnograma». El módulo, la clase y los IDs
+      del pliego siguen diciendo «histograma»: son identificadores y
+      trazabilidad.
+  - Test: `tests/test_menus.py`, **35 tests en verde**, con que
+    ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
+    de sus paneles.
+  - Test: `tests/test_entrega.py`, **185 tests en verde**: tildar
+    un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
+    oculta.
 
 ---
 

@@ -824,6 +824,37 @@ def test_el_panel_de_contexto_arranca_encendido(ventana: MainWindow):
     assert ventana.overview_panel.rectangles(), "la Übersicht arrancó vacía"
 
 
+@pytest.mark.parametrize(
+    "texto, clave", [("Übersicht", "overview"), ("Hipnograma", "histogram")]
+)
+def test_tildar_un_panel_desde_herramientas_lo_muestra_con_contenido(
+    ventana: MainWindow, texto: str, clave: str
+):
+    """Hito 28: la herramienta y su panel son una sola entrada. La herramienta
+    ya estaba prendida desde que se abrió el registro, así que el panel aparece
+    con su contenido; destildarlo sólo lo oculta."""
+    (entrada,) = [a for a in ventana.tools_menu.actions() if a.text() == texto]
+    dock = ventana.docks[clave]
+
+    def tiene_contenido() -> bool:
+        if clave == "overview":
+            return bool(ventana.overview_panel.rectangles())
+        return bool(ventana.histogram_view.getPlotItem().listDataItems())
+
+    assert dock.isHidden()
+
+    entrada.trigger()
+
+    assert not dock.isHidden()
+    assert tiene_contenido()
+
+    entrada.trigger()
+
+    # Oculto, pero la herramienta sigue prendida: vuelve a verse igual.
+    assert dock.isHidden()
+    assert tiene_contenido()
+
+
 def test_el_panel_sigue_a_la_navegacion(ventana: MainWindow):
     """Se recentra sola: `Session` avisa y la herramienta se entera, que es la
     decisión del hito 6."""
