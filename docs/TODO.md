@@ -24,7 +24,7 @@ abrir y agregó la reproducción, y el
 **[hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar)** la hizo el doble
 de rápida. Son **veintiséis hitos**, del 0 al 25, que son las filas de la
 tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
-al final de los tres últimos.
+dentro del hito al que le toca, casi todo en los tres últimos.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
 34 requisitos se podían usar desde el programa corriendo, no sólo desde sus
@@ -1628,6 +1628,34 @@ números y el camino muerto**. Estos tres los cierran donde se puede.
       compara contra el hipnograma. Un test comprueba que cada época vale lo
       mismo que la conectividad de esa ventana pedida por el otro menú. La
       exención salió de `SOLO_BIBLIOTECA`.
+
+### Lo que el chequeo sigue sin ver
+
+- [ ] **El chequeo de caminos muertos recorre `analysis/`, y el camino muerto
+      de hoy está en `exporters/`.** Desde el
+      [hito 23](#hito-23-ajustes-de-la-barra-de-menú) ninguna acción de la
+      barra llega a las ramas `annotations` ni `information` de
+      `MainWindow.export()`: es la forma del hito 19 una capa más abajo, y la
+      encontró leer el programa, no la red.
+
+      **Extender la tabla a `exporters/` no lo habría atrapado**, y ésa es la
+      parte que importa. `export_annotations` y `export_information` sí se
+      llaman en `psglab/ui/`, dentro de ese método; lo que no existe es un
+      camino desde un menú o un atajo hasta esa llamada. El chequeo mide uso
+      del nombre en la capa, que es barato y alcanzaba para `derive_montage()`;
+      medir esto otro es recorrer el grafo desde las acciones de `ui/menus.py`
+      y `ui/shortcuts.py` hasta el método, y ahí hay que decidir cuánta
+      indirección se sigue.
+
+      Los tests tampoco lo señalan, y por una razón que conviene anotar:
+      `tests/test_entrega.py` llama a `ventana.export("annotations", destino)`
+      directamente, así que el requisito queda verificado sobre un camino que
+      el investigador no puede recorrer.
+
+      **Antes de escribir el chequeo hay que saber si esos dos archivos vuelven
+      al menú**, que es lo que espera la respuesta del cliente anotada en el
+      hito 23. Si vuelven, no queda ningún caso conocido y la pregunta pasa a
+      ser si el chequeo se justifica igual.
 
 ---
 
