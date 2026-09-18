@@ -24,8 +24,10 @@ abrir y agregó la reproducción, y el
 **[hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar)** la hizo el doble
 de rápida. El **[hito 26](#hito-26-el-diseño-de-la-ventana)** llevó al programa
 lo que propuso y midió un lienzo de diseño: el reparto de los paneles, un
-esquema nuevo y dos detalles. Son **veintisiete hitos**, del 0 al 26, que son
-las filas de la tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
+esquema nuevo y dos detalles. El **[hito 27](#hito-27-la-navegación-desde-el-medio)**
+dejó ocho controles en la barra y hace que la reproducción se cuente desde el
+medio del gráfico. Son **veintiocho hitos**, del 0 al 27, que son las filas de
+la tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
 dentro del hito al que le toca, casi todo en los tres últimos.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
@@ -121,6 +123,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [24. Vista inicial y reproducción](#hito-24-vista-inicial-y-reproducción) | — | 0 | ✅ cerrado |
 | [25. Rendimiento](#hito-25-rendimiento-al-abrir-y-al-desplazar) | — | 0 | ✅ cerrado |
 | [26. El diseño de la ventana](#hito-26-el-diseño-de-la-ventana) | — | 0 | ✅ cerrado |
+| [27. La navegación desde el medio](#hito-27-la-navegación-desde-el-medio) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -330,7 +333,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **108 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **126 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `set_scoring()` se agregó en el hito 6, para V3_F: importar un scoring no
     es abrir otro registro, así que sustituye adentro en vez de armar otra
@@ -597,7 +600,7 @@ la regla vive en `core/`.
     documenta para las ventanas.
 - [x] **`psglab/ui/signal_view.py`** · ~~13 stubs~~ · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Test: `tests/test_signal_view.py`, **51 tests en verde**. **El dibujo no se
+  - Test: `tests/test_signal_view.py`, **56 tests en verde**. **El dibujo no se
     testea**; sí los tres conversores, que es de donde salen las unidades con
     las que trabajan todas las herramientas.
   - Los píxeles de los bordes se le **preguntan al `ViewBox`** en vez de
@@ -1800,7 +1803,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       `navigation.py` salió de `SIN_TEST_PROPIO`. **Con esta fase cerró el MVP
       visual sin haber tocado `core/` ni `tools/`.**
   - Test: `tests/test_navigation.py`, **29 tests en verde**.
-  - Test: `tests/test_icons.py`, **38 tests en verde**.
+  - Test: `tests/test_icons.py`, **31 tests en verde**.
 - [x] **Fase 5 — El menú Amplitud.** La primera fase que tocó `core/`: `Session`
       ganó el desplazamiento vertical por canal, para los que tienen la línea
       de base lejos del cero. El menú habla de «µV por carril» y no de
@@ -1912,7 +1915,7 @@ reorganiza lo que ya andaba.
 - [x] **La barra de menú deja de ser la nativa**, para que en macOS no
       desaparezcan el botón de abrir ni «Configuración», que no tiene submenú.
   - Test: `tests/test_menus.py`, **30 tests en verde**.
-  - Test: `tests/test_icons.py`, **38 tests en verde**.
+  - Test: `tests/test_icons.py`, **31 tests en verde**.
 
 ### El scoring en cuatro formatos
 
@@ -1994,7 +1997,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
       para que no se confundan con los triángulos de la época.
       `Viewport.at_start` y `Viewport.at_end` dicen cuándo apagarlos.
   - Test: `tests/test_navigation.py`, **29 tests en verde**.
-  - Test: `tests/test_icons.py`, **38 tests en verde**.
+  - Test: `tests/test_icons.py`, **31 tests en verde**.
   - Test: `tests/test_viewport.py`, **33 tests en verde**.
 - [x] **`psglab/ui/playback.py`** · V1_F "Navegación"
   - Un reloj que mide el tiempo real y avisa cuánto avanzar; mover la página
@@ -2105,7 +2108,7 @@ puntos, relleno y decimación propia, y nada de eso se usa acá.
       después sólo se le pide el rango, que además casi siempre es el mismo.
       Con eso el repintado por cuadro pasó de 2,00 a 1,00, medido con el
       filtro de eventos.
-  - Test: `tests/test_signal_view.py`, **51 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **56 tests en verde**.
 - [x] **Las curvas son `PlotCurveItem` y no `PlotDataItem`.** Medido
       intercalando las dos clases en el mismo proceso, que es la única forma
       de comparar en una máquina que varía: 28 ms contra 19 con el registro
@@ -2268,6 +2271,90 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
 - [ ] **Un ancho de pila arrastrado a mano vuelve al 30 %** al abrir otro panel
       de análisis, igual que abajo vuelve la proporción. Recordarlo sería
       guardar la disposición, que el hito 24 decidió no hacer.
+
+---
+
+## Hito 27: La navegación desde el medio
+
+**Cerrado el 18 de septiembre de 2026.** Dos pedidos del usuario sobre la barra
+de abajo: que queden sólo ocho controles —primera ventana, anterior,
+reproducir/pausar, siguiente, última, velocidad, menos y más amplitud— y que
+**el recorrido de la reproducción se cuente desde el medio del gráfico**. Al
+aclararlo decidió cuatro cosas: la época sigue al medio mientras se reproduce;
+anterior y siguiente centran sólo reproduciendo; los atajos de página se
+quedan; y el cursor recorre también los bordes del registro.
+
+**Revierte una decisión del [hito 24](#hito-24-vista-inicial-y-reproducción)**:
+«reproducir no toca la época». La fijaba un test,
+`test_reproducir_avanza_la_pagina_y_no_la_epoca`, que pasó a afirmar lo
+contrario. En pausa sigue valiendo lo de siempre: las flechas mueven la página
+lo mínimo.
+
+**No tiene stubs que contar.**
+
+### La barra
+
+- [x] **Ocho controles, en el orden pedido**, con reproducir entre las dos
+      flechas. Salieron los cuatro botones de página (≪ ‹ › ≫), su señal
+      `page_pan_requested` y `set_page_bounds()`, que sólo existían para
+      apagarlos, y sus cuatro chevrones de `icons.py`. Reproducir queda
+      habilitado siempre que haya registro. Mover la vista sin mover la época
+      sigue en Mayús+← → y Ctrl+← →.
+  - Test: `tests/test_navigation.py`, **29 tests en verde**.
+  - Test: `tests/test_icons.py`, **31 tests en verde**.
+
+### El cursor
+
+- [x] **`Session.move_playhead()`**: la página se centra en el instante —en los
+      bordes la recorta el `Viewport` y el instante queda adentro, fuera del
+      medio— y la época actual es la que lo contiene. Avisa del cambio de época
+      una sola vez y devuelve el instante recortado, para que la interfaz no
+      repita el recorte. No llama a `_seguir_a_la_epoca()`: con una página de
+      menos de 30 s, `containing()` la sacaría del medio.
+  - Test: `tests/test_session.py`, **126 tests en verde**.
+  - Test: `tests/test_contratos.py`, **947 tests en verde**, con su
+    fila en `CONTRATOS` y en `RECHAZOS_OBLIGATORIOS`: un NaN no puede pasar.
+- [x] **Una línea marca el cursor**, creada una vez y después movida, por la
+      regla del hito 25. `mark_window()` mueve la banda de la época sin tocar la
+      página, y **mientras se ve el cursor `show_window()` no mueve la
+      página**: con la de 30 s centrada, la época no entra entera, y scorear o
+      cambiar la amplitud la sacaban del medio hasta el paso siguiente.
+  - Test: `tests/test_signal_view.py`, **56 tests en verde**.
+- [x] **La ventana**: la reproducción arranca en el centro de la época actual
+      —con la página de 30 s no salta—, cada paso lleva el cursor y redibuja
+      sólo lo que cambió, y se detiene al final del registro y no al de la
+      página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
+      de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
+      `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
+  - Test: `tests/test_entrega.py`, **183 tests en verde**.
+
+### Lo que se midió
+
+Intercalando los dos bancos en la misma corrida, un paso con 7 canales a
+100 Hz: con la página de 30 s, 13,8 ms antes y 15,8 y 15,6 después; con la de
+300 s, 14,7 contra 17,2 y 16,6. **El cursor cuesta unos 2 ms por cuadro**,
+lejos de los 40 que pide el reloj. Con 32 canales la diferencia queda dentro
+del ruido.
+
+**El banco tuvo que cambiar.** `tests/medir_rendimiento.py` avanza con
+`_avanzar_reproduccion()` sin arrancar la reproducción, así que el cursor
+quedaba de una escala a la siguiente, llegaba al final del registro y el paso
+no dibujaba nada: medía 0,0 ms. Ahora cada escala arranca con el cursor en el
+medio de la página y avanza un quincuagésimo de página por paso, sin llegar al
+borde.
+
+### Lo que sigue abierto
+
+- [ ] **Con 32 canales a 1000 Hz, un paso con página de 5 min cuesta unos
+      90 ms**, antes y después de este hito: más del doble de lo que pide el
+      reloj. Lo destapó el banco corregido. El de antes llegaba al final del
+      registro a los ocho pasos y medía el redibujo de una página quieta, que
+      sale de la caché de envolventes: de ahí los 28 ms de la tabla del
+      [hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar).
+- [ ] **Reproducir arranca desde la época actual y no desde lo que se ve.** Si
+      en pausa se movió la vista con Mayús+→, la reproducción vuelve a la
+      época que se está scoreando. Es a propósito —la época es lo que se
+      scorea— y queda anotado por si el laboratorio prefiere lo otro.
 
 ---
 
