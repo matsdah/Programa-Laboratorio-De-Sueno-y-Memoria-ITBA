@@ -21,10 +21,13 @@ import pytest
 from psglab.analysis.psd import (
     DEFAULT_BANDS,
     METHODS,
+    WELCH_OVERLAP,
     WELCH_SEGMENT_SECONDS,
+    WELCH_WINDOW,
     band_power,
     band_powers_by_window,
     compute_psd,
+    describe_method,
     validate_band,
 )
 from psglab.config import WINDOW_SECONDS
@@ -107,6 +110,56 @@ def test_multitaper_encuentra_el_mismo_pico(registro_sintetico: Recording):
     )
 
     assert pico(frecuencias, potencias[0]) == pytest.approx(10.0, abs=0.3)
+
+
+def test_los_parametros_escritos_dan_lo_mismo_que_los_de_scipy(registro_sintetico: Recording):
+    """La ventana y el solape de Welch se escriben explícitos desde el hito 26,
+    para que el panel pueda decirlos. Son los que scipy usa por omisión, así que
+    el espectro no puede haber cambiado."""
+    from scipy import signal as sp
+
+    frecuencias, potencias = compute_psd(registro_sintetico, channels=["C4"])
+    datos = np.array(
+        registro_sintetico.get_segment(0, registro_sintetico.n_samples, ["C4"]), copy=True
+    )
+    por_segmento = int(WELCH_SEGMENT_SECONDS * registro_sintetico.sampling_rate)
+    esperadas, de_scipy = sp.welch(
+        datos, fs=registro_sintetico.sampling_rate, nperseg=por_segmento, axis=-1
+    )
+
+    np.testing.assert_array_equal(frecuencias, esperadas)
+    np.testing.assert_allclose(potencias, de_scipy)
+
+
+# -- Cómo se describe el método ----------------------------------------------
+
+
+def test_describir_welch_dice_segmento_ventana_y_solape():
+    """Armado con las constantes: si cambia el segmento, cambia lo que se lee."""
+    texto = describe_method("welch")
+
+    assert texto.startswith("Welch")
+    assert f"{WELCH_SEGMENT_SECONDS:g} s" in texto
+    assert WELCH_WINDOW.capitalize() in texto
+    assert f"{round(WELCH_OVERLAP * 100)} %" in texto
+
+
+def test_describir_multitaper_no_inventa_un_ancho_de_banda():
+    """El ancho de banda lo fija MNE, no este programa: no se afirma ninguno."""
+    texto = describe_method("multitaper")
+
+    assert texto.startswith("Multitaper")
+    assert "Hz" not in texto
+
+
+@pytest.mark.parametrize("metodo", METHODS)
+def test_cada_metodo_aceptado_tiene_su_descripcion(metodo: str):
+    assert describe_method(metodo)
+
+
+def test_describir_un_metodo_que_no_existe_avisa():
+    with pytest.raises(UnknownPsdMethodError):
+        describe_method("fft")
 
 
 # -- La potencia por banda ---------------------------------------------------

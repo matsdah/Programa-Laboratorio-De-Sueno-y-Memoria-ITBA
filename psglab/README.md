@@ -38,6 +38,7 @@ de 400 ventanas es una regla y va en `core/`.
 | [`exporters/`](exporters/README.md) | Los tres archivos de salida y las estadísticas que los alimentan. | [exporters/README.md](exporters/README.md) |
 | [`analysis/`](analysis/README.md) | Parte 2: filtrado, ICA, impedancia, PSD, complejidad, conectividad. | [analysis/README.md](analysis/README.md) |
 | [`utils/`](utils/README.md) | Unidades (µV) y errores propios. | [utils/README.md](utils/README.md) |
+| `resources/` | Lo que no es código: las tipografías IBM Plex que registra `ui/fonts.py`. No es un paquete de Python, así que ningún chequeo la recorre. | La licencia de las tipografías, [OFL.txt](resources/fonts/OFL.txt) |
 
 ## Los dos archivos sueltos del paquete
 

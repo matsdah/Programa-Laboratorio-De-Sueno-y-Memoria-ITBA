@@ -38,8 +38,10 @@ def esquema_restaurado():
 # -- Los esquemas de fábrica -------------------------------------------------
 
 
-def test_estan_los_cinco_esquemas():
-    assert list(theme.SCHEMES) == ["Claro", "Oscuro", "NK", "Azul sobre gris", "ECG"]
+def test_estan_los_seis_esquemas():
+    """Papel, el del lienzo de diseño del hito 26, va último: el orden del menú
+    arranca por el que reproduce el aspecto histórico del programa."""
+    assert list(theme.SCHEMES) == ["Claro", "Oscuro", "NK", "Azul sobre gris", "ECG", "Papel"]
 
 
 def test_cada_esquema_se_llama_como_su_clave():
@@ -61,13 +63,18 @@ def test_el_de_fabrica_es_el_claro():
     assert theme.scheme_by_name(theme.DEFAULT_SCHEME_NAME) is theme.CLARO
 
 
+#: Los campos en los que `None` quiere decir algo: sin línea de base, la ventana
+#: del mismo color que el fondo, las lecturas con la tipografía de siempre.
+CAMPOS_OPCIONALES = {"baseline", "chrome", "numeric_font"}
+
+
 def test_ningun_esquema_deja_campos_sin_definir():
-    """Un campo en `None` que no sea la línea de base dejaría algo sin dibujar."""
+    """Un campo en `None` que no sea uno de los opcionales dejaría algo sin dibujar."""
     sin_definir = [
         (esquema.name, campo.name)
         for esquema in theme.SCHEMES.values()
         for campo in dataclasses.fields(theme.ColorScheme)
-        if getattr(esquema, campo.name) is None and campo.name != "baseline"
+        if getattr(esquema, campo.name) is None and campo.name not in CAMPOS_OPCIONALES
     ]
 
     assert sin_definir == []
@@ -155,7 +162,7 @@ def test_el_esquema_claro_no_pone_hoja_de_estilo():
 
 @pytest.mark.parametrize(
     "esquema",
-    [theme.OSCURO, theme.NK, theme.AZUL_SOBRE_GRIS, theme.ECG],
+    [theme.OSCURO, theme.NK, theme.AZUL_SOBRE_GRIS, theme.ECG, theme.PAPEL],
     ids=lambda e: e.name,
 )
 def test_los_demas_esquemas_pintan_los_widgets(esquema: theme.ColorScheme):
@@ -167,6 +174,58 @@ def test_los_demas_esquemas_pintan_los_widgets(esquema: theme.ColorScheme):
     assert esquema.foreground in hoja
     for widget in ("QMenuBar", "QTreeWidget", "QPushButton", "QHeaderView"):
         assert widget in hoja
+
+
+def test_papel_pinta_la_ventana_con_su_propio_fondo():
+    """La señal en blanco y la ventana alrededor en gris cálido."""
+    hoja = theme.stylesheet(theme.PAPEL)
+
+    assert f"QWidget {{ background-color: {theme.PAPEL.chrome};" in hoja
+    assert theme.PAPEL.background in hoja
+
+
+@pytest.mark.parametrize(
+    "esquema",
+    [theme.OSCURO, theme.NK, theme.AZUL_SOBRE_GRIS, theme.ECG],
+    ids=lambda e: e.name,
+)
+def test_sin_fondo_de_ventana_la_hoja_es_la_de_antes(esquema: theme.ColorScheme):
+    """Un `chrome` vacío es «el mismo que el fondo»: los esquemas de antes del
+    hito 26 no pueden haber cambiado."""
+    igual_al_fondo = dataclasses.replace(esquema, chrome=esquema.background)
+
+    assert theme.stylesheet(igual_al_fondo) == theme.stylesheet(esquema)
+
+
+def test_papel_da_su_tipografia_a_las_lecturas():
+    hoja = theme.stylesheet(theme.PAPEL)
+
+    assert f'QLabel[{theme.READOUT_PROPERTY}="true"]' in hoja
+    assert theme.PAPEL.numeric_font in hoja
+
+
+def test_sin_tipografia_numerica_no_hay_regla_para_las_lecturas():
+    assert theme.READOUT_PROPERTY not in theme.stylesheet(theme.OSCURO)
+
+
+def test_un_fondo_de_ventana_poco_legible_se_detecta():
+    esquema = dataclasses.replace(theme.PAPEL, chrome="#2a2a2a")
+
+    assert "el texto de la ventana" in [que for que, _ in theme.low_contrast_elements(esquema)]
+
+
+def test_un_fondo_de_ventana_mal_escrito_se_rechaza_al_leerlo():
+    datos = theme.scheme_to_dict(theme.PAPEL) | {"chrome": "gris"}
+
+    with pytest.raises(UnknownColorSchemeError):
+        theme.scheme_from_dict(datos)
+
+
+def test_una_tipografia_numerica_vacia_se_rechaza_al_leerla():
+    datos = theme.scheme_to_dict(theme.PAPEL) | {"numeric_font": "  "}
+
+    with pytest.raises(UnknownColorSchemeError):
+        theme.scheme_from_dict(datos)
 
 
 def test_armar_la_hoja_de_algo_que_no_es_un_esquema_avisa():

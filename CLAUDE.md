@@ -11,10 +11,11 @@ Este archivo está en español, como el resto de la documentación del proyecto
 
 **Las dos Partes están cerradas** y ningún módulo de `psglab/` eleva
 `NotImplementedError`: `python main.py` abre la ventana, lee un EDF o un
-BrainVision, se navega y se scorea con el teclado, las herramientas andan, los
-tres archivos de salida se escriben y los análisis de la Parte 2 se piden desde
-la ventana. La Parte 2 tiene dependencias propias que **hay que instalar**; ver
-"Comandos".
+BrainVision, se navega y se scorea, las herramientas andan y los análisis de la
+Parte 2 se piden desde la ventana. **Qué se puede pedir desde la ventana y qué
+quedó sólo para un script vive en [`docs/TODO.md`](docs/TODO.md)** —hoy
+Anotaciones.txt e Informacion.txt son lo segundo—. La Parte 2 tiene
+dependencias propias que **hay que instalar**; ver "Comandos".
 
 **Cuántos hitos hay, cuál está abierto y qué quedó sin resolver vive sólo en
 [`docs/TODO.md`](docs/TODO.md)**, y `tests/test_consistencia.py` lo verifica
@@ -152,6 +153,27 @@ python -m pytest -rs
 arma una ventana por test. Conviene correrla en segundo plano y **sin otra
 corrida de pytest en paralelo**: superpuestas, el tiempo casi se triplicó.
 
+Los dos bancos de medición **no son tests y pytest no los recolecta**: se
+corren a mano e imprimen una tabla, sin afirmar nada.
+
+```bash
+python -m tests.medir_rendimiento
+python -m tests.medir_reparto
+```
+
+El primero mide cuánto tarda abrir un registro y cada cuadro de la
+reproducción; el segundo, cuánto ancho recibe cada panel de abajo y la pila de
+análisis, y cuál es el mínimo que lo decide. **Ninguno de los dos puede ser un test**, y es la misma
+razón las dos veces: el resultado depende de la máquina. Una misma medición de
+tiempo dio 118 ms con el equipo ocupado y 56 con el equipo libre, y los mínimos
+de los paneles salen de métricas de fuente, así que cambian con el escalado de
+pantalla. Una cota escrita en un test se pondría roja en la máquina de al lado
+sin que nadie sepa cuál de las dos está mal.
+
+El de reparto **abre una ventana de verdad**, al revés que la suite: el plugin
+`offscreen` que fija `conftest.py` no usa el estilo nativo, que es justamente lo
+que decide cuánto mide un botón de fase.
+
 En la consola de Windows los acentos de los mensajes salen como mojibake
 (`configuraci�n`) por la codepage cp1252. Es cosmético y no un bug del código:
 todo el texto que ve el usuario está en español y los archivos son UTF-8.
@@ -220,10 +242,11 @@ rechazar antes de dar por terminado un cambio:
 - Todo módulo tiene test, figura en `SIN_TEST_PROPIO` o el TODO promete el suyo
   **por nombre de archivo**. Un módulo nuevo sin ninguna de las tres cosas hace
   fallar la suite. La exención **no es `ui/` entero**: son `app.py`, `config.py`
-  y tres módulos de `ui/` —`main_window.py`, `scoring_panel.py` y
-  `channel_selector.py`—. `navigation.py` salió de la lista cuando ganó la franja
-  de posición, que traduce un clic a una ventana. Los demás módulos de `ui/`
-  tienen test propio, así que agregar uno sin test rompe la suite.
+  y dos módulos de `ui/` —`main_window.py` y `channel_selector.py`—.
+  `navigation.py` salió de la lista cuando ganó la franja de posición, que
+  traduce un clic a una ventana, y `scoring_panel.py` cuando ganó el pie con la
+  ventana y su fase. Los demás módulos de `ui/` tienen test propio, así que
+  agregar uno sin test rompe la suite.
 - Todo método público de `core/`, `utils/` y `analysis/` que reciba argumentos
   tiene su fila en `CONTRATOS` de `tests/test_contratos.py`, o figura en
   `SIN_CONTRATO` con el motivo. Son las tres capas donde vive la regla de
@@ -401,6 +424,12 @@ están separados a propósito. Una página larga no se dibuja muestra por muestr
 sino con la envolvente mínimo/máximo de `core/decimation.py`, que no puede
 perder un pico.
 
+**La reproducción mueve la página, nunca la época** (`ui/playback.py`): es un
+reloj que mide tiempo real y avisa cuántos segundos hay que avanzar; la ventana
+los aplica con `Viewport.panned()`. Contar pasos de 40 ms en vez de medirlos
+reproduciría más lento de lo que dice en cuanto un cuadro tarde más, y sin
+avisar.
+
 ### La ventana
 
 La señal es el widget central y los demás paneles son `QDockWidget`, que arma
@@ -417,7 +446,7 @@ de fábrica verificado contra WCAG 2.1) y lo que el usuario elige, de
 `ui/preferences.py`, que lo guarda en un JSON de su perfil. No es `config.py`:
 aquél fija el pliego, esto es lo que se elige.
 
-Cuatro reglas de esta capa que no se ven leyendo un solo archivo:
+Cinco reglas de esta capa que no se ven leyendo un solo archivo:
 
 - **Sólo `main.py` lee y escribe el archivo de preferencias**, a través de
   `create_main_window(saved_preferences=True)`. La ventana que arman los tests
@@ -436,6 +465,14 @@ Cuatro reglas de esta capa que no se ven leyendo un solo archivo:
   ventana de configuración tiene cinco solapas y no las siete de la referencia:
   Cursores y Calibración entran cuando existan las reglas y la conversión a
   milímetros que configurarían.
+- **Un cuadro tiene 40 ms de presupuesto**, que es lo que pide el reloj de la
+  reproducción. El hito 25 los consiguió con tres decisiones que se deshacen
+  sin querer: la grilla es **un solo objeto** de la escena y no una
+  `InfiniteLine` por línea —0,8 ms por línea y por cuadro, la mitad del
+  cuadro—, la banda de la época se **mueve** en vez de rehacerse, y las curvas
+  son `PlotCurveItem` y no `PlotDataItem`, que es un envoltorio con puntos,
+  relleno y decimación propia que acá no se usan. `useOpenGL` se midió y
+  **empeora**. Lo que se proponga en su lugar, medirlo con el banco.
 
 ## Convenciones
 

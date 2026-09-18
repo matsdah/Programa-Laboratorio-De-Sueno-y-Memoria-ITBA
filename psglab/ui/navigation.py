@@ -188,6 +188,9 @@ class NavigationBar(QWidget):
         self.strip = PositionStrip()
         self._posicion = QLabel("Sin registro")
         self._horario = QLabel("")
+        # Son lecturas: el esquema puede darles una tipografía numérica.
+        for lectura in (self._posicion, self._horario):
+            lectura.setProperty(theme.READOUT_PROPERTY, True)
 
         self._primera.clicked.connect(lambda: self._pedir(0))
         self._anterior.clicked.connect(lambda: self._pedir(self._window_index - 1))

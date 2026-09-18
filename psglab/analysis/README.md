@@ -22,7 +22,7 @@ desde un script del laboratorio sin abrir el programa.
 | `reference.py` | Re-referenciación, incluida la referencia promedio. | "Rereferenciar" |
 | `derivation.py` | Canales nuevos calculados a partir de los existentes (`derive`, `derive_montage`). | "Derivar" |
 | `impedance.py` | Control de impedancia de los electrodos y canales por encima del límite. | V1_F de "Impedancia" |
-| `psd.py` | Densidad espectral de potencia y potencia por banda, absoluta o relativa. | V1_F de "PSD" |
+| `psd.py` | Densidad espectral de potencia y potencia por banda, absoluta o relativa. `describe_method()` dice con qué se estimó —segmento, ventana y solape de Welch— armado con las mismas constantes que usa el cálculo. | V1_F de "PSD" |
 | `complexity.py` | Entropía de muestra y de permutación, Lempel-Ziv, dimensión fractal de Higuchi. | "Complejidad" |
 | `connectivity.py` | Conectividad entre canales, por ventana o promediada. | "Conectividad de la señal" |
 | `mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw` en las dos direcciones, y la escala volts ↔ µV. | — (infraestructura) |
