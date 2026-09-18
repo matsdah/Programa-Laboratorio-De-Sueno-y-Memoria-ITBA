@@ -167,11 +167,22 @@ def repartir_abajo(window: "MainWindow") -> None:
     Según `ANCHOS_DE_ABAJO`, y sólo entre los que están acoplados: uno suelto
     en otra pantalla no comparte el borde con nadie.
 
-    **Es una proporción, no una garantía.** Qt respeta el mínimo de cada
-    panel —el del scoring es el mayor: unos 380 px con AASM y 460 con
-    Rechtschaffen y Kales— y reparte el resto. Hasta el hito 24 esos mínimos
-    eran de 480 y 690 px, y en una pantalla de 1400 el hipnograma recibía
-    unos 230.
+    **Es una proporción, no una garantía.** Qt atiende primero el mínimo de cada
+    panel —el del scoring es el mayor— y reparte el resto entre los demás.
+    Medido con el registro de prueba en una ventana de 1400 px: 203, 464 y
+    729 px con Rechtschaffen y Kales, y 222, 376 y 798 con AASM. Hasta el
+    hito 24 los mínimos del scoring y de la Übersicht eran de 690 y 480 px, y
+    ahí el hipnograma recibía unos 230.
+
+    **El número del scoring no llega a usarse nunca.** Su parte proporcional
+    recién alcanza su propio mínimo con una ventana de unos 1800 px con
+    Rechtschaffen y Kales, así que en cualquier pantalla real se lleva el
+    mínimo y la proporción sólo reparte entre los otros dos. Por debajo de unos
+    1060 px pasa además a ser más ancho que el hipnograma.
+
+    Esos números **dependen de la máquina**: los mínimos salen de métricas de
+    fuente, y con otro escalado de pantalla son otros. Para volver a sacarlos
+    está `tests/medir_reparto.py`, que no es un test por ese mismo motivo.
     """
     visibles = [
         (window.docks[clave], ancho)

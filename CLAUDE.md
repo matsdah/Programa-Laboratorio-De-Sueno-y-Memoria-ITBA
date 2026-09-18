@@ -153,17 +153,26 @@ python -m pytest -rs
 arma una ventana por test. Conviene correrla en segundo plano y **sin otra
 corrida de pytest en paralelo**: superpuestas, el tiempo casi se triplicó.
 
-El banco de medición del visualizador **no es un test y pytest no lo
-recolecta**: se corre a mano e imprime una tabla, sin afirmar nada.
+Los dos bancos de medición **no son tests y pytest no los recolecta**: se
+corren a mano e imprimen una tabla, sin afirmar nada.
 
 ```bash
 python -m tests.medir_rendimiento
+python -m tests.medir_reparto
 ```
 
-Un número de ahí sólo vale contra otro de la misma corrida: la misma medición
-dio 118 ms con la máquina ocupada y 56 con la máquina libre. Por eso el
-rendimiento no tiene test propio: una cota en segundos se pone roja en la
-máquina de otro sin que nadie sepa si empeoró el programa o el día.
+El primero mide cuánto tarda abrir un registro y cada cuadro de la
+reproducción; el segundo, cuánto ancho recibe cada panel de abajo y cuál es el
+mínimo que lo decide. **Ninguno de los dos puede ser un test**, y es la misma
+razón las dos veces: el resultado depende de la máquina. Una misma medición de
+tiempo dio 118 ms con el equipo ocupado y 56 con el equipo libre, y los mínimos
+de los paneles salen de métricas de fuente, así que cambian con el escalado de
+pantalla. Una cota escrita en un test se pondría roja en la máquina de al lado
+sin que nadie sepa cuál de las dos está mal.
+
+El de reparto **abre una ventana de verdad**, al revés que la suite: el plugin
+`offscreen` que fija `conftest.py` no usa el estilo nativo, que es justamente lo
+que decide cuánto mide un botón de fase.
 
 En la consola de Windows los acentos de los mensajes salen como mojibake
 (`configuraci�n`) por la codepage cp1252. Es cosmético y no un bug del código:
