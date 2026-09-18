@@ -8,15 +8,23 @@ cambia lo que el programa hace.
 ## Qué hay en la barra
 
 Un botón con el icono de una carpeta, que abre un registro, y después Scoring,
-Escala de tiempo, Amplitud, Ver, Paneles, Montaje, Filtrar, Analizar,
-Herramientas, Configuración y Ayuda.
+Escala de tiempo, Amplitud, Ver, Montaje, Filtrar, Analizar, Herramientas,
+Configuración y Ayuda.
 
 **«Archivo» dejó de ser un menú** porque sólo le quedaba una acción: un menú
 de una entrada obliga a dos clics para lo que un botón hace en uno. Por el
 mismo motivo **«Configuración» abre su ventana directamente**: el submenú de
-esquemas repetía la solapa Colores de esa ventana. Y **«Paneles» es una
-sección propia** y no un submenú de «Ver», porque mostrar u ocultar un panel es
-de lo que más se hace y quedaba a tres clics.
+esquemas repetía la solapa Colores de esa ventana.
+
+**«Herramientas» lleva también los paneles** desde el hito 28. Hasta entonces
+había un menú «Paneles» aparte, y los dos se pisaban: la Übersicht estaba en
+los dos, y el hipnograma también, con dos nombres —«Histograma» en uno,
+«Hipnograma» en el otro—. Además decían cosas distintas: la herramienta se
+prende sola al abrir un registro y su panel arranca oculto, así que un menú la
+mostraba tildada y el otro no. Ahora es un solo menú plano, en cuatro bloques
+separados: los modos del mouse, los paneles de trabajo, los de análisis y
+«Restaurar la disposición». Sigue a un clic, que es por lo que «Paneles» había
+salido de «Ver» en el hito 23.
 
 ## Por qué los menús van por dominio
 
@@ -38,12 +46,13 @@ sesión y por eso habilitan "volver a la señal original", y las terceras no.
 principal, y ahí es donde vive lo que hace. Si estás por escribir lógica acá,
 va en otro archivo.
 
-**Tampoco arma el menú de herramientas.** Ése se puebla recorriendo el registro
-—`available_tools()`— desde `main_window._build_tools_menu()`, y es el punto de
-extensión que pide el pliego: una herramienta nueva aparece sola. Acá sólo se
-crea el menú vacío que aquél después llena. **Es la única vía para activar una
-herramienta**: la barra horizontal que repetía ese menú debajo de la barra de
-menú se quitó por confusa.
+**Tampoco arma los modos del mouse del menú de herramientas.** Ésos se pueblan
+recorriendo el registro —`available_tools()`— desde
+`main_window._build_tools_menu()`, que es el punto de extensión que pide el
+pliego: una herramienta nueva aparece sola. Acá se ponen los paneles, que
+salen de `window.docks`, y aquél inserta los modos arriba de todo. **Es la
+única vía para activar una herramienta**: la barra horizontal que repetía ese
+menú debajo de la barra de menú se quitó por confusa.
 
 Cubre del pliego: ningún ID. Es el cableado de la barra de menú; cada acción la
 implementa el método de `main_window.py` al que llama.
@@ -59,6 +68,7 @@ from PySide6.QtWidgets import QToolButton
 from psglab.config import AMPLITUDE_PRESETS_UV, VIEW_TIMESCALE_PRESETS
 from psglab.exporters.scoring_formats import SCORING_FORMATS
 from psglab.ui import theme
+from psglab.ui.docks import ORDEN_DE_ANALISIS
 from psglab.ui.grid import BackgroundStyle
 from psglab.ui.icons import icon
 from psglab.ui.shortcuts import key_for, readable_key
@@ -81,8 +91,9 @@ def build_menus(window: "MainWindow") -> None:
 
     Deja en la ventana los dos `QAction` que el resto del programa necesita
     tocar después —`accion_eje_en_hora` y `accion_señal_original`—, el botón
-    de abrir un registro, `open_button`, y el menú vacío de herramientas,
-    `tools_menu`, que `_build_tools_menu()` puebla desde el registro.
+    de abrir un registro, `open_button`, y el menú de herramientas,
+    `tools_menu`, con los paneles ya puestos: `_build_tools_menu()` le inserta
+    arriba los modos del mouse que salen del registro.
 
     **La barra de menú no es la nativa del sistema.** En macOS la nativa es la
     de arriba de la pantalla, que no muestra el botón de abrir ni deja una
@@ -95,11 +106,10 @@ def build_menus(window: "MainWindow") -> None:
     _escala_de_tiempo(window)
     _amplitud(window)
     _ver(window)
-    _paneles(window)
     _montaje(window)
     _filtrar(window)
     _analizar(window)
-    window.tools_menu = window.menuBar().addMenu("&Herramientas")
+    _herramientas(window)
     _configuracion(window)
     _ayuda(window)
     _mostrar_atajos(window)
@@ -297,22 +307,36 @@ def _ver(window: "MainWindow") -> None:
     window.accion_eje_en_hora.toggled.connect(window.set_histogram_time_axis)
 
 
-def _paneles(window: "MainWindow") -> None:
-    """Qué paneles se ven, y cómo volver a la disposición de fábrica.
+def _herramientas(window: "MainWindow") -> None:
+    """Los paneles del menú de herramientas, y cómo volver a la disposición.
 
-    Era un submenú de «Ver», y se volvió sección propia porque es de lo que más
-    se usa: quedaba a tres clics.
+    El menú queda en cuatro bloques. **El primero, los modos del mouse, lo
+    inserta después `_build_tools_menu()`** antes del separador con que arranca
+    éste: salen del registro y acá no se conocen. Si no hubiera ninguno, `QMenu`
+    no dibuja el separador que quedaría suelto arriba.
 
-    **Se arma recorriendo los docks**, no con una lista escrita a mano: un
-    panel nuevo aparece solo. `toggleViewAction()` es la acción que Qt ya
-    mantiene sincronizada con el estado del panel, así que la tilde queda bien
-    aunque el usuario lo cierre con la cruz.
+    **Se arma recorriendo los docks**, no con una lista escrita a mano: un panel
+    nuevo aparece solo. `toggleViewAction()` es la acción que Qt ya mantiene
+    sincronizada con el estado del panel, así que la tilde queda bien aunque el
+    usuario lo cierre con la cruz. Los de análisis van aparte, en el orden de
+    `docks.ORDEN_DE_ANALISIS`, que es el del flujo de trabajo.
+
+    Una herramienta que tiene panel —la Übersicht, el hipnograma— **está acá
+    una sola vez, como su panel**: ver `main_window._build_tools_menu()`.
     """
-    paneles = window.menuBar().addMenu("&Paneles")
-    for dock in window.docks.values():
-        paneles.addAction(dock.toggleViewAction())
-    paneles.addSeparator()
-    _agregar(paneles, "&Restaurar la disposición", window.restore_default_layout)
+    menu = window.menuBar().addMenu("&Herramientas")
+    window.tools_menu = menu
+    de_analisis = {clave for clave, _ in ORDEN_DE_ANALISIS}
+
+    menu.addSeparator()
+    for clave, dock in window.docks.items():
+        if clave not in de_analisis:
+            menu.addAction(dock.toggleViewAction())
+    menu.addSeparator()
+    for clave, _ in ORDEN_DE_ANALISIS:
+        menu.addAction(window.docks[clave].toggleViewAction())
+    menu.addSeparator()
+    _agregar(menu, "&Restaurar la disposición", window.restore_default_layout)
 
 
 def _montaje(window: "MainWindow") -> None:

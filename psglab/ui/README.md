@@ -13,9 +13,8 @@ registro de 400 es una regla y va en `core/`.
 
 ```
 +---------------------------------------------------------------+
-| [abrir] Scoring | Escala de tiempo | Amplitud | Ver | Paneles  |
-|   Montaje | Filtrar | Analizar | Herramientas | Configuración  |
-|   Ayuda                                                        |
+| [abrir] Scoring | Escala de tiempo | Amplitud | Ver | Montaje  |
+|   Filtrar | Analizar | Herramientas | Configuración | Ayuda     |
 +----------+-----------------------------------------+----------+
 | Canales  |                                         | Espectro |
 |  (dock)  |   Visualizador de la señal (central)    | Métrica  |
@@ -34,8 +33,9 @@ registro de 400 es una regla y va en `core/`.
 se apila en solapas, se cierra y se saca a otra pantalla.
 
 **El programa abre siempre con la señal y el panel Canales, y nada más.**
-Los otros nueve arrancan ocultos y se abren desde «Paneles»; «Paneles ▸
-Restaurar la disposición» vuelve a esa vista. Desde el hito 24 la
+Los otros nueve arrancan ocultos y se abren desde «Herramientas», que desde
+el hito 28 junta las herramientas y los paneles; «Herramientas ▸ Restaurar la
+disposición» vuelve a esa vista. Desde el hito 24 la
 disposición no se recuerda de una apertura a otra.
 
 **La barra de menú empieza con un botón y no con «Archivo».** Abrir un
@@ -68,7 +68,7 @@ conoce las flechas del teclado.
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. Las fases van en su propia fila, debajo del selector, para que el mínimo del panel sea el de la fila más ancha y no la suma; abajo, un pie con la ventana y su fase, que se sigue viendo si el panel sale a otra pantalla. | V1_F, V2_F, V3_F de "Scoring" |
 | `icons.py` | Los iconos de la barra de navegación y el de abrir un registro, dibujados con `QPainterPath`. **No hay ningún archivo de icono en el repositorio**, y es una decisión de licencia. | — |
 | `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas, arrancan ocultos y al abrirse se llevan `FRACCION_DE_ANALISIS` del ancho: sin eso Qt les daba más lugar que a la señal. | — |
-| `menus.py` | **La barra de menú**: qué acción vive en qué menú, y el botón de abrir un registro. No implementa ninguna: cada una llama a un método de la ventana. | — |
+| `menus.py` | **La barra de menú**: qué acción vive en qué menú, y el botón de abrir un registro. No implementa ninguna: cada una llama a un método de la ventana. «Herramientas» lleva los modos del mouse y los paneles, sin repetir los que son las dos cosas. | — |
 | `theme.py` | **Los esquemas de color del programa.** Qué color tiene cada cosa que se dibuja, y los seis esquemas de fábrica. Claro no pone hoja de estilo y queda nativo; Papel, el del lienzo de diseño, separa el fondo de la ventana (`chrome`) del de las áreas de dibujo y les da a las lecturas numéricas su propia tipografía. | — |
 | `fonts.py` | Registra las tipografías que el programa trae —IBM Plex Sans y Mono, en `psglab/resources/fonts/`, bajo la OFL 1.1—. No cambian nada al arrancar: quedan para elegir en Tipografía y para las lecturas del esquema Papel. Si faltan, el programa arranca igual. | — |
 | `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. La disposición de paneles ya no es parte de eso. | — |

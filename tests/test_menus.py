@@ -73,12 +73,12 @@ def _todas_las_acciones(ventana: MainWindow) -> list:
 # -- La estructura -----------------------------------------------------------
 
 
-def test_estan_las_once_entradas(ventana: MainWindow):
+def test_estan_las_diez_entradas(ventana: MainWindow):
     """Eran cinco, con «Análisis» de cajón de sastre: nueve entradas
     heterogéneas en un solo menú obligan a leerlo entero cada vez.
 
-    «Archivo» ya no está —es el botón de la esquina— y «Paneles» salió de
-    «Ver» para ser una entrada propia."""
+    «Archivo» ya no está —es el botón de la esquina— y «Paneles», que había
+    salido de «Ver» en el hito 23, se fundió con «Herramientas» en el 28."""
     titulos = [accion.text() for accion in ventana.menuBar().actions()]
 
     assert titulos == [
@@ -86,7 +86,6 @@ def test_estan_las_once_entradas(ventana: MainWindow):
         "&Escala de tiempo",
         "A&mplitud",
         "&Ver",
-        "&Paneles",
         "&Montaje",
         "&Filtrar",
         "&Analizar",
@@ -290,13 +289,75 @@ def test_la_escala_propia_se_llama_personalizado(ventana: MainWindow, titulo: st
     assert not [t for t in textos if "Definida por el" in t]
 
 
-def test_paneles_es_una_entrada_propia_con_todos_los_paneles(ventana: MainWindow):
-    """Quedaba a tres clics, dentro de «Ver». Se arma recorriendo los docks."""
-    paneles = menu_llamado(ventana, "&Paneles")
-    acciones = [a for a in paneles.actions() if not a.isSeparator()]
+# -- Herramientas y paneles, un solo menú (hito 28) -----------------------------
 
-    assert acciones[:-1] == [dock.toggleViewAction() for dock in ventana.docks.values()]
-    assert acciones[-1].text() == "&Restaurar la disposición"
+
+def bloques(menu: QMenu) -> list[list]:
+    """Las entradas del menú, partidas en los bloques que separan los
+    separadores."""
+    partes: list[list] = [[]]
+    for accion in menu.actions():
+        if accion.isSeparator():
+            partes.append([])
+        else:
+            partes[-1].append(accion)
+    return [parte for parte in partes if parte]
+
+
+def test_ya_no_hay_menu_de_paneles(ventana: MainWindow):
+    """Se pisaba con «Herramientas»: la Übersicht estaba en los dos."""
+    titulos = [accion.text() for accion in ventana.menuBar().actions()]
+
+    assert "&Paneles" not in titulos
+
+
+def test_herramientas_tiene_todos_los_paneles(ventana: MainWindow):
+    """Se arma recorriendo los docks: un panel nuevo aparece solo."""
+    acciones = ventana.tools_menu.actions()
+
+    for dock in ventana.docks.values():
+        assert dock.toggleViewAction() in acciones
+    assert [a for a in acciones if not a.isSeparator()][-1].text() == (
+        "&Restaurar la disposición"
+    )
+
+
+def test_herramientas_va_en_cuatro_bloques(ventana: MainWindow):
+    """Modos del mouse, paneles de trabajo, paneles de análisis y restaurar."""
+    from psglab.ui.docks import ORDEN_DE_ANALISIS
+
+    modos, trabajo, analisis, restaurar = bloques(ventana.tools_menu)
+    de_analisis = [clave for clave, _ in ORDEN_DE_ANALISIS]
+
+    assert modos == list(ventana._tool_actions.values())
+    assert trabajo == [
+        dock.toggleViewAction()
+        for clave, dock in ventana.docks.items()
+        if clave not in de_analisis
+    ]
+    assert analisis == [ventana.docks[clave].toggleViewAction() for clave in de_analisis]
+    assert [a.text() for a in restaurar] == ["&Restaurar la disposición"]
+
+
+def test_ninguna_entrada_de_herramientas_se_repite(ventana: MainWindow):
+    """Era todo el problema: la Übersicht dos veces y el hipnograma dos veces,
+    con dos nombres."""
+    textos = [a.text() for a in ventana.tools_menu.actions() if not a.isSeparator()]
+
+    assert len(textos) == len(set(textos))
+    assert "Histograma" not in textos
+
+
+@pytest.mark.parametrize("clave, texto", [("overview", "Übersicht"), ("histogram", "Hipnograma")])
+def test_una_herramienta_con_panel_esta_como_su_panel(
+    ventana: MainWindow, clave: str, texto: str
+):
+    """La herramienta se prende sola con el registro; lo que se elige es si su
+    panel se ve. No tiene entrada propia."""
+    (entrada,) = [a for a in ventana.tools_menu.actions() if a.text() == texto]
+
+    assert entrada is ventana.docks[clave].toggleViewAction()
+    assert clave not in ventana._tool_actions
 
 
 def test_ver_ya_no_tiene_submenus(ventana: MainWindow):
@@ -313,8 +374,9 @@ def test_no_hay_barra_de_herramientas(ventana: MainWindow):
 
 def test_las_herramientas_se_tildan_desde_su_menu(ventana: MainWindow):
     """El menú no muestra tooltips, así que la descripción va también a la
-    barra de estado."""
-    acciones = ventana.tools_menu.actions()
+    barra de estado. Se mira el primer bloque, el de los modos del mouse: los
+    paneles son las acciones de Qt, que no la llevan."""
+    acciones = bloques(ventana.tools_menu)[0]
 
     assert acciones
     assert all(a.isCheckable() for a in acciones)

@@ -444,10 +444,14 @@ La señal es el widget central y los demás paneles son `QDockWidget`, que arma
 `ui/docks.py` y quedan en `window.docks`. Los seis de análisis conservan el
 nombre `*_dialog` de cuando eran diálogos. La barra de navegación es fija, no un
 panel: es la única vía de navegación con el mouse. Los menús viven en
-`ui/menus.py` y cada acción llama a un método de la ventana; el de herramientas
-se sigue armando desde el registro, y desde el hito 23 es la única vía para
-activar una herramienta: **no hay barra de herramientas**. Abrir un registro es
-el botón de la esquina de la barra de menú (`window.open_button`), no un menú.
+`ui/menus.py` y cada acción llama a un método de la ventana. **«Herramientas»
+lleva también los paneles** desde el hito 28 —ya no hay menú «Paneles»—: arriba
+los modos del mouse, que se siguen armando desde el registro, y abajo los
+paneles, que salen de `window.docks`. Una herramienta que se llama igual que un
+dock —la Übersicht, el hipnograma— aparece una sola vez, como su panel. Desde el
+hito 23 es la única vía para activar una herramienta: **no hay barra de
+herramientas**. Abrir un registro es el botón de la esquina de la barra de menú
+(`window.open_button`), no un menú.
 
 Los colores salen de `ui/theme.py` (esquemas inmutables, con el contraste de los
 de fábrica verificado contra WCAG 2.1) y lo que el usuario elige, de
