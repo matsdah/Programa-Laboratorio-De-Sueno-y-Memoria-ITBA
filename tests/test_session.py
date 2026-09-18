@@ -977,3 +977,107 @@ def test_cambiar_el_registro_recorta_la_pagina_y_avisa(session, recording):
 
     assert len(avisadas) == 1
     assert avisadas[0].duration_seconds == pytest.approx(recording.duration_seconds)
+
+
+# -- El cursor de la reproducción (hito 27) ----------------------------------
+#
+# Reproduciendo, la época es la que pasa por el medio del gráfico. Hasta el hito
+# 27 era al revés: la reproducción movía la página y la época se quedaba quieta.
+# La señal sintética dura 600 s: veinte épocas de 30.
+
+
+def test_el_cursor_centra_la_pagina(session):
+    session.set_viewport(session.viewport.with_span(60.0))
+
+    session.move_playhead(300.0)
+
+    assert session.viewport.center_seconds == pytest.approx(300.0)
+
+
+def test_la_epoca_es_la_que_contiene_al_cursor(session):
+    session.move_playhead(299.9)
+    assert session.current_window == 9
+
+    session.move_playhead(300.0)
+    assert session.current_window == 10
+
+
+def test_con_una_pagina_corta_el_cursor_sigue_en_el_medio(session):
+    """Es lo que pasaría si el cursor llamara a `_seguir_a_la_epoca()`: una
+    página de 5 s saltaría al comienzo de la época."""
+    session.set_viewport(session.viewport.with_span(5.0))
+
+    session.move_playhead(317.5)
+
+    assert session.viewport.center_seconds == pytest.approx(317.5)
+    assert session.current_window == 10
+
+
+def test_al_principio_la_pagina_no_se_centra(session):
+    """La página se recorta contra el registro y el cursor queda adentro de
+    ella, fuera del medio: así se recorren también las primeras épocas."""
+    session.set_viewport(session.viewport.with_span(120.0))
+
+    session.move_playhead(15.0)
+
+    assert session.viewport.start_seconds == 0.0
+    assert session.current_window == 0
+
+
+def test_al_final_la_pagina_tampoco(session):
+    session.set_viewport(session.viewport.with_span(120.0))
+
+    session.move_playhead(590.0)
+
+    assert session.viewport.end_seconds == pytest.approx(session.recording.duration_seconds)
+    assert session.current_window == VENTANAS_SINTETICAS - 1
+
+
+def test_el_final_exacto_es_la_ultima_epoca(session):
+    """El último instante del registro cae en una ventana que no existe."""
+    session.move_playhead(session.recording.duration_seconds)
+
+    assert session.current_window == VENTANAS_SINTETICAS - 1
+
+
+@pytest.mark.parametrize("afuera, epoca", [(-5.0, 0), (10_000.0, VENTANAS_SINTETICAS - 1)])
+def test_lo_que_cae_fuera_del_registro_se_recorta(session, afuera, epoca):
+    session.move_playhead(afuera)
+
+    assert session.current_window == epoca
+
+
+@pytest.mark.parametrize("pedido, queda", [(-5.0, 0.0), (123.4, 123.4), (10_000.0, 600.0)])
+def test_devuelve_el_instante_que_quedo(session, pedido, queda):
+    """La interfaz dibuja el cursor donde dice esto, y no recorta por su cuenta."""
+    assert session.move_playhead(pedido) == pytest.approx(queda)
+
+
+def test_el_cambio_de_epoca_se_avisa_una_sola_vez(session):
+    """Veinticinco pasos por segundo no pueden ser veinticinco avisos: las
+    herramientas borran lo que dibujaron al cambiar de ventana."""
+    avisadas = []
+    session.add_window_listener(avisadas.append)
+
+    for segundos in (305.0, 310.0, 315.0):
+        session.move_playhead(segundos)
+
+    assert avisadas == [10]
+
+
+def test_si_la_pagina_no_cambia_no_se_avisa_a_las_herramientas(session):
+    """Con el registro entero en pantalla el cursor avanza y la página no."""
+    session.set_viewport(session.viewport.whole_recording())
+    avisadas = []
+    session.add_view_listener(avisadas.append)
+
+    session.move_playhead(100.0)
+    session.move_playhead(200.0)
+
+    assert avisadas == []
+
+
+@pytest.mark.parametrize("hostil", [None, "300", float("nan"), float("inf"), True])
+def test_un_cursor_que_no_es_un_instante_se_rechaza(session, hostil):
+    with pytest.raises(PsgLabError):
+        session.move_playhead(hostil)

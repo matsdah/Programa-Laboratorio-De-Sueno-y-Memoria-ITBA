@@ -28,7 +28,13 @@ from psglab.core.annotations import AnnotationSet
 from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.viewport import Viewport
-from psglab.core.windows import count_windows, epoch_to_seconds, window_to_samples
+from psglab.core.windows import (
+    count_windows,
+    epoch_to_seconds,
+    sample_to_window,
+    seconds_to_sample_absolute,
+    window_to_samples,
+)
 from psglab.utils.errors import (
     PsgLabError,
     InvalidViewportError,
@@ -461,6 +467,62 @@ class Session:
             self._current_window -= 1
             self._seguir_a_la_epoca()
             self._notify_window_changed(self._current_window)
+
+    def move_playhead(self, seconds: float) -> float:
+        """Lleva la reproducción a un instante: la página se centra en él y la
+        época actual pasa a ser la que lo contiene (hito 27).
+
+        Es la gemela de `_seguir_a_la_epoca()`, con la regla opuesta a
+        propósito. Aquélla mueve la página **lo mínimo** para que entre la
+        época, y es lo que corresponde en pausa: con cuatro horas en pantalla la
+        flecha mueve el resaltado y no la vista. Reproduciendo, lo que se sigue
+        es el instante que pasa por el medio del gráfico, y la época es la de
+        ese instante: al pausar, el usuario queda parado en la época que estaba
+        mirando y la scorea ahí. **Hasta el hito 27 era al revés**: reproducir
+        movía la página y la época se quedaba donde estaba.
+
+        **En los bordes la página no se puede centrar, y no se fuerza.** La
+        recorta `Viewport.clamped()`, y el instante queda adentro de la página
+        pero fuera del medio. Así la reproducción pasa por todas las épocas,
+        también por las del principio y las del final.
+
+        **No llama a `_seguir_a_la_epoca()`**: con una página de menos de 30 s,
+        `containing()` la llevaría al comienzo de la época y el instante dejaría
+        de estar en el medio.
+
+        Args:
+            seconds: segundos desde el inicio del registro. Lo que cae fuera del
+                registro se recorta a él.
+
+        Returns:
+            El instante que quedó, ya recortado. Lo devuelve para que la
+            interfaz no repita el recorte: si lo hiciera por su cuenta, el
+            cursor que dibuja y el que usa la sesión podrían discrepar.
+
+        Raises:
+            InvalidViewportError: si no es un número finito. Un NaN recortado
+                con `min` y `max` seguiría siendo NaN, y la página también.
+        """
+        check_finite(
+            seconds,
+            error=InvalidViewportError,
+            message="No se pudo ubicar la reproducción en el registro.",
+            details="seconds tiene que ser un número finito.",
+        )
+        instante = clamp(float(seconds), 0.0, self._recording.duration_seconds)
+        self.set_viewport(self._viewport.with_center(instante))
+
+        frecuencia = self._recording.sampling_rate
+        # El final exacto del registro cae en una ventana que no existe: es la
+        # muestra siguiente a la última.
+        epoca = min(
+            sample_to_window(seconds_to_sample_absolute(instante, frecuencia), frecuencia),
+            self.n_windows - 1,
+        )
+        if epoca != self._current_window:
+            self._current_window = epoca
+            self._notify_window_changed(epoca)
+        return instante
 
     # -- Canales visibles (V3_P, V4_F de "Visualización") -------------------
 

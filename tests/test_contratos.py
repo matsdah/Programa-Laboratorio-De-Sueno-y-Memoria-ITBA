@@ -199,6 +199,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("set_active_tool", lambda v: sesion().set_active_tool(v)),
         ("add_window_listener", lambda v: sesion().add_window_listener(v)),
         ("set_viewport", lambda v: sesion().set_viewport(v)),
+        ("move_playhead", lambda v: sesion().move_playhead(v)),
         ("add_view_listener", lambda v: sesion().add_view_listener(v)),
         ("set_scoring", lambda v: sesion().set_scoring(v)),
         ("set_recording", lambda v: sesion().set_recording(v)),
@@ -326,6 +327,11 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Hito 27. `clamp` documenta que no valida: un NaN que pasara de la guarda
+    # llegaría a la página como centro, y la reproducción dibujaría la nada
+    # veinticinco veces por segundo.
+    ("move_playhead con NaN", float("nan"),
+     lambda v: sesion().move_playhead(v)),
     # Hito 26. Sin la guarda, un método que no existe caía en la rama del
     # multitaper y el panel describía un cálculo que nadie había hecho.
     ("describe_method con un método que no existe", "fft",

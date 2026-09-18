@@ -128,30 +128,10 @@ def test_el_centro_de_reproducir_esta_calado(qt_app):
 
 
 @pytest.mark.parametrize(
-    "atras, adelante",
-    [("media-atras", "media-adelante"), ("pagina-atras", "pagina-adelante")],
+    "nombre", ["pagina-atras", "media-atras", "media-adelante", "pagina-adelante"]
 )
-def test_los_chevrones_opuestos_son_espejos(qt_app, atras: str, adelante: str):
-    """Con margen: el suavizado de los bordes no cae exactamente igual de los
-    dos lados, y eso no es un icono distinto."""
-    from PySide6.QtCore import Qt
-
-    izquierda = icons.icon(atras, "#000000").pixmap(QSize(32, 32)).toImage()
-    derecha = icons.icon(adelante, "#000000").pixmap(QSize(32, 32)).toImage()
-    espejada = izquierda.flipped(Qt.Orientation.Horizontal)
-
-    distintos = sum(
-        1
-        for x in range(32)
-        for y in range(32)
-        if abs(espejada.pixelColor(x, y).alpha() - derecha.pixelColor(x, y).alpha()) > 64
-    )
-    assert izquierda != derecha
-    assert distintos == 0
-
-
-def test_una_pagina_no_es_media(qt_app):
-    media = icons.icon("media-adelante", "#000000").pixmap(QSize(32, 32)).toImage()
-    pagina = icons.icon("pagina-adelante", "#000000").pixmap(QSize(32, 32)).toImage()
-
-    assert media != pagina
+def test_los_chevrones_de_pagina_ya_no_existen(nombre: str):
+    """Se sacaron con sus botones en el hito 27. Un icono que nadie pide es un
+    dibujo que nadie ve, y dejarlo haría creer que la barra todavía lo usa."""
+    with pytest.raises(PsgLabError):
+        icons.icon(nombre, "#000000")
