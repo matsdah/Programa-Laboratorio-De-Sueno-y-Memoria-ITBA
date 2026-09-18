@@ -46,9 +46,10 @@ dos archivos, Anotaciones.txt e Informacion.txt, salieron del menu a pedido
 del usuario y hoy se piden desde un script. Falta confirmarlo con el cliente.
 
 El programa abre con la senal y la lista de canales, y nada mas: los demas
-paneles se abren desde el menu Paneles. La barra de abajo mueve la epoca, mueve
-la pagina y tiene un boton para reproducir el registro solo, como EDFbrowser,
-a la velocidad que se elija.
+paneles se abren desde el menu Herramientas, que junta las herramientas y los
+paneles. La barra de abajo mueve la epoca y tiene un boton para reproducir el
+registro solo, como EDFbrowser, a la velocidad que se elija: la reproduccion se
+cuenta desde el medio del grafico, y la epoca actual es la que pasa por ahi.
 
 LA PARTE 2 TAMBIEN ESTA TERMINADA, el modulo de analisis de bioseniales:
 filtrado, ICA, impedancia, re-referenciado, derivaciones, densidad espectral,
@@ -61,7 +62,7 @@ programa. Con eso se evita descubrir a mitad de camino que dos personas
 escribieron lo mismo en dos lugares distintos.
 
 Como se llego hasta aca esta en docs/TODO.md, que es el unico documento que
-lleva la cuenta. El trabajo esta agrupado en veintiocho hitos, del 0 al 27:
+lleva la cuenta. El trabajo esta agrupado en veintinueve hitos, del 0 al 28:
 cada hito solo usa cosas que ya estan terminadas en los hitos anteriores.
 
 
