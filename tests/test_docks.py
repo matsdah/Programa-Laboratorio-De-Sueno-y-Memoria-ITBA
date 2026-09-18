@@ -314,6 +314,62 @@ def test_repartir_con_un_solo_panel_abajo_no_hace_nada(ventana: MainWindow):
     assert not ventana.histogram_dock.isHidden()
 
 
+# -- El ancho de la pila de análisis --------------------------------------------
+#
+# Hasta el hito 26 lo decidía Qt: al abrir el espectro, la pila se llevaba 640 px
+# de una ventana de 1400 y a la señal le quedaban 478. Con 1280, 358.
+
+
+@pytest.mark.parametrize("ancho", [1400, 1280])
+def test_la_pila_de_analisis_se_lleva_la_fraccion_pedida(ventana: MainWindow, ancho: int):
+    """La fracción, o el mínimo del panel si es mayor: Qt no deja achicarlo más."""
+    try:
+        ventana.resize(ancho, 800)
+        ventana.show()
+        QApplication.processEvents()
+        pila = ventana.docks["psd"]
+        pila.toggleViewAction().trigger()
+        for _ in range(3):
+            QApplication.processEvents()
+
+        pedido = max(round(ancho * docks.FRACCION_DE_ANALISIS), pila.minimumSizeHint().width())
+        assert abs(pila.width() - pedido) <= 10
+    finally:
+        ventana.close()
+
+
+@pytest.mark.parametrize("ancho", [1400, 1280])
+def test_con_un_analisis_abierto_la_senal_sigue_siendo_lo_mas_ancho(
+    ventana: MainWindow, ancho: int
+):
+    """Es lo que estaba roto: la pila le ganaba a la señal, que es lo que el
+    análisis está explicando."""
+    try:
+        ventana.resize(ancho, 800)
+        ventana.show()
+        QApplication.processEvents()
+        pila = ventana.docks["psd"]
+        pila.toggleViewAction().trigger()
+        for _ in range(3):
+            QApplication.processEvents()
+
+        assert ventana.centralWidget().width() > pila.width()
+    finally:
+        ventana.close()
+
+
+def test_una_pila_suelta_no_se_reparte(ventana: MainWindow):
+    """Sacada a otra pantalla no comparte el borde con la señal."""
+    pila = ventana.docks["psd"]
+    pila.setFloating(True)
+    pila.show()
+    antes = pila.width()
+
+    docks.repartir_derecha(ventana)
+
+    assert pila.width() == antes
+
+
 def test_el_selector_muestra_la_abreviatura(ventana: MainWindow):
     """«Rechtschaffen y Kales» entero ocupaba 160 px del panel. El nombre
     completo queda en el tooltip de cada opción y del selector."""

@@ -43,7 +43,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QDockWidget, QWidget
 
 if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
@@ -76,6 +76,15 @@ ORDEN_DE_ANALISIS: Final[tuple[tuple[str, str], ...]] = (
     ("filter", "Filtrar la señal"),
     ("ica", "Componentes independientes"),
 )
+
+#: Qué parte del ancho de la ventana se lleva la pila de análisis al abrirse.
+#: **Hasta el hito 26 no había ninguna, y lo decidía Qt**: con el espectro
+#: abierto la pila se quedaba con 640 px de una ventana de 1400, y a la señal
+#: le quedaban 478 —358 con 1280—. El panel explicaba una señal que ya casi no
+#: se veía. Con un 30 % la señal conserva unos 700 px con 1400 y 620 con 1280,
+#: medido con `tests/medir_reparto.py`. El mínimo del panel manda si es mayor:
+#: el de Impedancia, el más ancho de los seis, es de 380.
+FRACCION_DE_ANALISIS: Final[float] = 0.30
 
 
 def nuevo_dock(
@@ -203,6 +212,28 @@ def repartir_abajo(window: "MainWindow") -> None:
     )
 
 
+def repartir_derecha(window: "MainWindow") -> None:
+    """Le da a la pila de análisis su parte del ancho de la ventana.
+
+    La parte es `FRACCION_DE_ANALISIS`, y sólo si la pila está acoplada: suelta
+    en otra pantalla no le quita lugar a la señal. Los seis paneles están
+    apilados en solapas, así que pedirle el ancho a uno es pedírselo a la pila.
+
+    Se vuelve a pedir cada vez que se abre un panel de análisis, aunque la pila
+    ya estuviera a la vista: es la misma regla que abajo, y por el mismo motivo.
+    Un ancho que el usuario haya arrastrado a mano se respeta hasta ese momento.
+    """
+    acoplados = [
+        window.docks[clave]
+        for clave, _ in ORDEN_DE_ANALISIS
+        if not window.docks[clave].isHidden() and not window.docks[clave].isFloating()
+    ]
+    if not acoplados:
+        return
+    ancho = round(window.width() * FRACCION_DE_ANALISIS)
+    window.resizeDocks([acoplados[0]], [ancho], Qt.Orientation.Horizontal)
+
+
 def _analisis(window: "MainWindow") -> None:
     """Los seis de la Parte 2, apilados en solapas a la derecha y ocultos.
 
@@ -220,6 +251,16 @@ def _analisis(window: "MainWindow") -> None:
         if anterior is not None:
             window.tabifyDockWidget(anterior, dock)
         dock.hide()
+        # Como los de abajo: el ancho se pide cada vez que uno aparece, porque
+        # Qt no recuerda lo pedido mientras la pila estaba oculta. **Pero en la
+        # vuelta siguiente del ciclo de eventos, no en el momento.** La primera
+        # vez que la pila aparece, Qt todavía no la ubicó cuando llega el aviso,
+        # y su primer acomodo pisa lo pedido: la pila quedaba en los 600 px que
+        # pide el gráfico. Abajo no pasa porque, cuando aparece el segundo
+        # panel, el primero ya está ubicado.
+        dock.toggleViewAction().toggled.connect(
+            lambda visible: visible and QTimer.singleShot(0, lambda: repartir_derecha(window))
+        )
         # **El nombre del atributo conserva el sufijo `_dialog`.** Ver la
         # explicación de arriba: cambiarlo costaría ocho tests y no ganaría
         # nada.

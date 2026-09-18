@@ -23,6 +23,8 @@ Qué mide, para cada ancho de ventana y cada nomenclatura:
 - **El mínimo de cada uno**, que es lo que Qt atiende antes que la proporción
   de `ANCHOS_DE_ABAJO` y lo que explica el reparto que sale.
 - **El ancho del panel de canales y el de la señal**, que son lo que queda.
+- **La pila de análisis de la derecha**: cuánto recibe al abrir uno de sus
+  paneles, el mínimo de cada uno de los seis y cuánto le queda a la señal.
 
 Con el registro de `data/` si está —el árbol de canales cambia de ancho con los
 nombres que trae—, y con uno sintético si no, que no se versiona.
@@ -39,7 +41,7 @@ if str(RAIZ) not in sys.path:  # pragma: no cover - para `python tests/medir...`
 
 from psglab.app import create_application, create_main_window  # noqa: E402
 from psglab.core.nomenclature import Nomenclature  # noqa: E402
-from psglab.ui.docks import ANCHOS_DE_ABAJO, repartir_abajo  # noqa: E402
+from psglab.ui.docks import ANCHOS_DE_ABAJO, ORDEN_DE_ANALISIS, repartir_abajo  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from tests.medir_rendimiento import registro_sintetico, sesion_de  # noqa: E402
 
@@ -100,6 +102,28 @@ def medir(ventana: MainWindow, ancho: int, nomenclatura: Nomenclature) -> None:
     print(f"  {'Señal':<21} x={central.x():4d}  {central.width():4d} px")
 
 
+def medir_analisis(ventana: MainWindow, ancho: int) -> None:
+    """Imprime cuánto recibe la pila de análisis con ese ancho de ventana.
+
+    Se abre el espectro, que es el primero que pide el investigador; los seis
+    están apilados en solapas, así que el ancho de uno es el de la pila.
+    """
+    ventana.resize(ancho, ALTO)
+    asentar()
+    pila = ventana.docks["psd"]
+    pila.show()
+    asentar()
+    central = ventana.centralWidget().geometry()
+    print(f"\n== Análisis con una ventana de {ventana.width()} px ==")
+    print(f"  {'Pila (derecha)':<28} x={pila.geometry().x():4d}  {pila.width():4d} px")
+    print(f"  {'Señal':<28} x={central.x():4d}  {central.width():4d} px")
+    for clave, titulo in ORDEN_DE_ANALISIS:
+        minimo = ventana.docks[clave].minimumSizeHint().width()
+        print(f"  {titulo:<28} mínimo {minimo:4d} px")
+    pila.hide()
+    asentar()
+
+
 def preparar(ventana: MainWindow) -> None:
     """Carga un registro y deja los tres paneles de abajo a la vista.
 
@@ -135,6 +159,8 @@ def main() -> int:
     for nomenclatura in (Nomenclature.RK, Nomenclature.AASM):
         for ancho in ANCHOS:
             medir(ventana, ancho, nomenclatura)
+    for ancho in ANCHOS[:2]:
+        medir_analisis(ventana, ancho)
 
     ventana.close()
     del aplicacion

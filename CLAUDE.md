@@ -162,8 +162,8 @@ python -m tests.medir_reparto
 ```
 
 El primero mide cuánto tarda abrir un registro y cada cuadro de la
-reproducción; el segundo, cuánto ancho recibe cada panel de abajo y cuál es el
-mínimo que lo decide. **Ninguno de los dos puede ser un test**, y es la misma
+reproducción; el segundo, cuánto ancho recibe cada panel de abajo y la pila de
+análisis, y cuál es el mínimo que lo decide. **Ninguno de los dos puede ser un test**, y es la misma
 razón las dos veces: el resultado depende de la máquina. Una misma medición de
 tiempo dio 118 ms con el equipo ocupado y 56 con el equipo libre, y los mínimos
 de los paneles salen de métricas de fuente, así que cambian con el escalado de
