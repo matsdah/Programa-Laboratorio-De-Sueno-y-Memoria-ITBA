@@ -819,8 +819,10 @@ def test_una_ambiguedad_declarada_abierta_lo_esta_de_verdad():
     espera**, y que ese módulo lleve de verdad la marca `PENDIENTE DE`. Una
     ambigüedad que ya se cerró no tiene ningún módulo así al que apuntar.
 
-    `TODO.md` queda exento porque es el documento que lleva el estado, y
-    `AUDITORIA.md` porque es una foto de lo que estaba mal.
+    `TODO.md` queda exento porque es el documento que lleva el estado, y una
+    auditoría con archivo propio —`AUDITORIA*.md`— porque es una foto de lo que
+    estaba mal. Hoy no hay ninguna: las dos que hubo se borraron el 19 de
+    septiembre de 2026, y la exención queda para la próxima que se escriba así.
     """
     con_marca = {
         ruta_relativa(f)
@@ -1341,8 +1343,9 @@ def secciones_que_nombran(archivo: pathlib.Path, aguja: str) -> list[tuple[str, 
     return encontradas
 
 
-#: Documentos que explican **cuándo corre el CI**. `docs/AUDITORIA.md` también
-#: lo enlaza y no está acá a propósito: es una foto fechada y no se toca.
+#: Documentos que explican **cuándo corre el CI**. Una auditoría con archivo
+#: propio también lo nombraría y no estaría acá a propósito: es una foto fechada
+#: y no se toca.
 DOCUMENTOS_QUE_DESCRIBEN_EL_CI: tuple[str, ...] = (
     "README.md",
     "docs/TODO.md",

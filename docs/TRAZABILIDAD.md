@@ -207,7 +207,8 @@ archivo; cuando se retomen, entran como módulos nuevos en `psglab/analysis/`.
 ni V4_F en esta tabla, ni en ningún docstring, ni en ningún otro documento del
 proyecto.
 
-Lo encontró la [primera auditoría](AUDITORIA.md) y sigue sin resolverse. Hay dos
+Lo encontró la primera auditoría, del 4 de septiembre de 2026, y sigue sin
+resolverse. Hay dos
 explicaciones posibles y no se puede elegir entre ellas sin el pliego:
 
 1. La numeración del pliego simplemente salta, y no falta nada.
