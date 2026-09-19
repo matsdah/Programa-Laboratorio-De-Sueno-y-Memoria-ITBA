@@ -324,3 +324,59 @@ def test_none_sigue_midiendo_entre_todos(registro_sintetico: Recording):
 
     canales = len(registro_sintetico.channels)
     assert salida.shape[1:] == (canales, canales)
+
+
+# -- Una banda sin ninguna frecuencia que medir (hito 33) ---------------------
+#
+# mne-connectivity elevaba `ValueError`, que atravesaba el `except` de la
+# ventana: una banda del usuario de 55 a 90 Hz sobre un registro de 100 Hz no
+# mostraba ningún cartel. Se rechaza antes, con la misma grilla que usa él.
+
+
+def dos_canales(segundos: float, fs: float) -> Recording:
+    tiempo = np.arange(int(segundos * fs)) / fs
+    return registro(
+        {"C3": 50 * np.sin(2 * np.pi * 10 * tiempo), "C4": 50 * np.sin(2 * np.pi * 3 * tiempo)},
+        fs=fs,
+    )
+
+
+def test_una_banda_sobre_nyquist_dice_hasta_donde_se_puede_medir():
+    with pytest.raises(InvalidBandError) as error:
+        compute_connectivity(dos_canales(WINDOW_SECONDS, 100.0), band=(55.0, 90.0), window_index=0)
+
+    assert "50 Hz" in str(error.value)
+
+
+def test_una_banda_mas_angosta_que_la_resolucion_lo_dice():
+    """La grilla va cada `1 / EPOCH_SECONDS` Hz: entre dos puntos no hay nada."""
+    resolucion = 1 / EPOCH_SECONDS
+    with pytest.raises(InvalidBandError) as error:
+        compute_connectivity(
+            dos_canales(WINDOW_SECONDS, 100.0),
+            band=(10 + resolucion / 4, 10 + resolucion * 3 / 4),
+            window_index=0,
+        )
+
+    assert f"{resolucion:g} Hz" in str(error.value)
+
+
+def test_una_banda_que_toca_un_solo_punto_se_mide():
+    """Los dos extremos entran, como en mne-connectivity: rechazar esto sería
+    rechazar una banda que sí se puede medir."""
+    matriz = compute_connectivity(
+        dos_canales(WINDOW_SECONDS, 100.0), band=(10.0, 10.0 + 1 / (4 * EPOCH_SECONDS)),
+        window_index=0,
+    )
+
+    assert matriz.shape == (2, 2)
+
+
+def test_la_noche_rechaza_la_banda_aunque_ninguna_ventana_alcance():
+    """**Por qué la noche comprueba antes de recorrer.** Con un registro más
+    corto que una época cada ventana sale como "corta", que se traga en
+    silencio: la noche daba NaN entera sin decir que la banda no servía."""
+    corto = dos_canales(EPOCH_SECONDS / 2, 100.0)
+
+    with pytest.raises(InvalidBandError):
+        connectivity_by_window(corto, ["C3", "C4"], band=(55.0, 90.0))

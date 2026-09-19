@@ -109,6 +109,53 @@ def _validar_banda(band: tuple[float, float]) -> tuple[float, float]:
     return desde, hasta
 
 
+def _exigir_frecuencias_en_la_banda(desde: float, hasta: float, sampling_rate: float) -> None:
+    """Rechaza una banda que no contiene ninguna frecuencia medible (hito 33).
+
+    mne-connectivity mide sobre la grilla de una época —`rfftfreq`, de 0 a la
+    mitad de la frecuencia de muestreo, cada `1 / EPOCH_SECONDS` Hz— y toma los
+    puntos de la banda con los dos extremos incluidos. Si no toca ninguno eleva
+    `ValueError`, que atravesaba el `except` de la ventana: una banda del usuario
+    de 55 a 90 Hz sobre un registro de 100 Hz no mostraba ningún cartel, y la
+    traza iba a la consola. Se comprueba acá con la misma grilla, para poder
+    decir por qué.
+
+    Raises:
+        InvalidBandError: si la banda queda por encima de lo que el registro
+            puede medir, o si es más angosta que la resolución. Es
+            `InvalidBandError` y no `InvalidRecordingError` a propósito:
+            `connectivity_by_window()` traga el segundo como "ventana corta", y
+            la noche entera saldría en NaN sin avisar.
+    """
+    muestras = int(EPOCH_SECONDS * sampling_rate)
+    if muestras < 2:
+        # Ni una época: lo dice después el control del tramo.
+        return
+    frecuencias = np.fft.rfftfreq(muestras, d=1.0 / sampling_rate)
+    if np.any((frecuencias >= desde) & (frecuencias <= hasta)):
+        return
+    nyquist = sampling_rate / 2
+    if desde > nyquist:
+        mensaje = (
+            f"La banda de {desde:g} a {hasta:g} Hz está por encima de lo que registra "
+            f"este archivo: a {sampling_rate:g} Hz, la frecuencia más alta que se "
+            f"puede medir es {nyquist:g} Hz."
+        )
+    else:
+        mensaje = (
+            f"La banda de {desde:g} a {hasta:g} Hz es más angosta que la resolución "
+            f"de la conectividad, de {1 / EPOCH_SECONDS:g} Hz, así que no contiene "
+            "ninguna frecuencia que medir."
+        )
+    raise InvalidBandError(
+        mensaje,
+        details=(
+            f"Frecuencias medibles: de 0 a {frecuencias[-1]:g} Hz, cada "
+            f"{frecuencias[1] - frecuencias[0]:g} Hz."
+        ),
+    )
+
+
 def _en_epocas(tramo: np.ndarray, sampling_rate: float) -> np.ndarray | None:
     """Parte un tramo continuo en épocas, como pide mne-connectivity.
 
@@ -162,7 +209,8 @@ def compute_connectivity(
         UnknownConnectivityMethodError: si el método no es uno de `METHODS`.
             Elegir uno por omisión daría un resultado que se interpreta al
             revés: la coherencia común y wPLI responden preguntas distintas.
-        InvalidBandError: si la banda está mal formada.
+        InvalidBandError: si la banda está mal formada, o si no contiene ninguna
+            frecuencia que este registro pueda medir.
         WindowOutOfRangeError: si la ventana no existe.
         InvalidRecordingError: si no hay al menos dos canales, o si el tramo no
             da ni para una época.
@@ -178,6 +226,7 @@ def compute_connectivity(
             details=f"métodos disponibles: {', '.join(METHODS)}.",
         )
     desde, hasta = _validar_banda(band)
+    _exigir_frecuencias_en_la_banda(desde, hasta, recording.sampling_rate)
 
     if channels is None:
         nombres = recording.channel_names()
@@ -270,6 +319,13 @@ def connectivity_by_window(
         Lo mismo que `compute_connectivity()`.
     """
     _exigir_registro(recording)
+    # **La banda se comprueba antes de recorrer la noche** (hito 33). Adentro
+    # del recorrido la comprobaría `compute_connectivity()` en la primera
+    # ventana, pero un registro más corto que una época no llega a pedirla: cada
+    # ventana sale como "corta" y la noche entera en NaN, sin decir que la banda
+    # tampoco servía.
+    desde, hasta = _validar_banda(band)
+    _exigir_frecuencias_en_la_banda(desde, hasta, recording.sampling_rate)
     total = count_windows(recording.n_samples, recording.sampling_rate)
     # La misma comprobación que hace `compute_connectivity()`, repetida acá
     # porque el largo de `nombres` se usa **antes** de llamarla: sin esto,

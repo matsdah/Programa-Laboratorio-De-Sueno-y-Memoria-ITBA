@@ -1176,7 +1176,7 @@ mostrarse.
   - mne-connectivity devuelve sólo el triángulo inferior; el módulo lo refleja,
     porque promete una matriz simétrica y quien la lea no tiene por qué saber
     de qué lado quedó cada par.
-  - Test: `tests/test_connectivity.py`, **35 tests en verde**.
+  - Test: `tests/test_connectivity.py`, **39 tests en verde**.
 - [x] **`psglab/ui/metric_panel.py`** · una métrica por ventana a lo largo de la
       noche
   - **Sirve a los dos módulos**, porque los dos producen esa forma. Es lo que
@@ -2328,7 +2328,7 @@ lo mínimo.
       repita el recorte. No llama a `_seguir_a_la_epoca()`: con una página de
       menos de 30 s, `containing()` la sacaría del medio.
   - Test: `tests/test_session.py`, **135 tests en verde**.
-  - Test: `tests/test_contratos.py`, **959 tests en verde**, con su
+  - Test: `tests/test_contratos.py`, **962 tests en verde**, con su
     fila en `CONTRATOS` y en `RECHAZOS_OBLIGATORIOS`: un NaN no puede pasar.
 - [x] **Una línea marca el cursor**, creada una vez y después movida, por la
       regla del hito 25. `mark_window()` mueve la banda de la época sin tocar la
@@ -2342,7 +2342,7 @@ lo mínimo.
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**.
+  - Test: `tests/test_entrega.py`, **233 tests en verde**.
 
 ### Lo que se midió
 
@@ -2414,7 +2414,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
   - Test: `tests/test_menus.py`, **37 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**: tildar
+  - Test: `tests/test_entrega.py`, **233 tests en verde**: tildar
     un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
     oculta.
 
@@ -2435,7 +2435,7 @@ amplitud también quedaban corridas.
 - [x] **El test no podía verlo**: `arrastrar()` armaba el evento con las tres
       posiciones iguales. Ahora lo arma como Qt, con `scenePosition()` relativa
       a la ventana.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**, con que la
+  - Test: `tests/test_entrega.py`, **233 tests en verde**, con que la
     anotación empiece y termine a un píxel del mouse. Falla sin la corrección,
     corrida 7,5 s.
 
@@ -2463,7 +2463,7 @@ clic derecho**.
       más corta, que es la que no se puede señalar en ningún otro lugar.
   - Test: `tests/test_annotator.py`, **28 tests en verde**, con
     `annotation_at()` y las bandas sin la herramienta activada.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**, con eventos de Qt
+  - Test: `tests/test_entrega.py`, **233 tests en verde**, con eventos de Qt
     de verdad: las bandas al ir y volver de época con cada herramienta, y el
     clic derecho con la confirmación aceptada, rechazada y con otra
     herramienta activa. Fallan con la ventana anterior.
@@ -2525,7 +2525,7 @@ llegan a la ventana.
 - [x] **El clic del hipnograma no tenía ningún test con eventos**, y tenía el
       mismo error que el anotador hasta el hito 28: con los tres paneles de
       abajo a la vista, caía en la época 4 en vez de la 3.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**, con dos registros
+  - Test: `tests/test_entrega.py`, **233 tests en verde**, con dos registros
     de verdad. Los cinco fallan sin su corrección.
   - Test: `tests/test_occupancy.py`, **40 tests en verde**.
   - Test: `tests/test_annotator.py`, **28 tests en verde**.
@@ -2596,7 +2596,7 @@ todas con la recomendación que se le hizo.
       métodos y no sólo funciones: son `SIN_CAMINO_A_PROPOSITO` y
       `HUECOS_ABIERTOS` en `tests/test_consistencia.py`. Un hueco abierto no se
       exime: tiene que figurar por su nombre en este archivo.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**. Los siete nuevos
+  - Test: `tests/test_entrega.py`, **233 tests en verde**. Los siete nuevos
     fallan con la ventana anterior.
   - Test: `tests/test_preferences.py`, **71 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **73 tests en verde**.
@@ -2664,7 +2664,7 @@ tiempo.
       tarda 0,3 s. Pedida apenas abierto el registro todavía espera lo que le
       falta a la compilación: 4,6 s. Lempel-Ziv tarda 2,7 s por el cálculo en
       sí, compilado o no.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**: el menú no cambia
+  - Test: `tests/test_entrega.py`, **233 tests en verde**: el menú no cambia
     después de los cuatro análisis, y `main.py` precalienta y la suite no.
   - Test: `tests/test_connectivity_panel.py`, **16 tests en verde**.
   - Test: `tests/test_filter_panel.py`, **20 tests en verde**, y
@@ -2712,10 +2712,10 @@ le hizo, y mantuvo afuera las operaciones largas.
       es de la ventana.
 - [x] **`HUECOS_ABIERTOS` queda vacía**: los cuatro métodos que encontró la red
       del hito 30 tienen camino desde la ventana.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**, con un registro que
+  - Test: `tests/test_entrega.py`, **233 tests en verde**, con un registro que
     tiene un canal en cero.
   - Test: `tests/test_recording.py`, **40 tests en verde**, y
-    `tests/test_contratos.py`, **959 tests en verde**.
+    `tests/test_contratos.py`, **962 tests en verde**.
   - Test: `tests/test_magnifier.py`, **27 tests en verde**;
     `tests/test_preferences.py`, **71 tests en verde**;
     `tests/test_settings_dialog.py`, **73 tests en verde**.
@@ -2810,7 +2810,7 @@ ya advertía.
         «trae 4 h 10 min de los 8 h 00 min que declara su cabecera».
   - Test: `tests/test_readers.py`, **77 tests en verde**, con el truncado, el
     entero y el de -1 registros.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**, abriéndolos por la
+  - Test: `tests/test_entrega.py`, **233 tests en verde**, abriéndolos por la
     ventana.
 - [x] **Una fila de bandas mal formada en las preferencias impedía arrancar.**
       `_leer_bandas()` elevaba `IndexError`, que no estaba entre lo que
@@ -2827,7 +2827,7 @@ ya advertía.
     que le pone a cada campo guardado todos los tipos de JSON y exige que
     `load()` no eleve nada que no sea `PsgLabError`. Con el módulo anterior
     falla sólo `psd_bands`, con cuatro de esos valores.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**, con el arranque
+  - Test: `tests/test_entrega.py`, **233 tests en verde**, con el arranque
     y el cartel. El del cartel encontró que el `except ... as error` borra la
     variable antes de que el temporizador la use.
 - [x] **Abrir otro registro o cerrar la ventana descartaba el scoring sin
@@ -2847,16 +2847,34 @@ ya advertía.
         nuevo está roto, la sesión anterior sigue y no hay nada que preguntar.
   - Test: `tests/test_session.py`, **135 tests en verde**, con nueve sobre qué
     cuenta como trabajo sin exportar.
-  - Test: `tests/test_entrega.py`, **231 tests en verde**, con doce por la
+  - Test: `tests/test_entrega.py`, **233 tests en verde**, con doce por la
     ventana: cerrar y abrir otro registro con cada una de las tres
     respuestas, un guardado cancelado o fallido, y el cartel de verdad con sus
     tres botones. Con la ventana anterior fallan once; el que pasa igual es el
     que afirma que sin nada scoreado no se pregunta.
-- [ ] **La conectividad deja escapar un `ValueError` de MNE** cuando la banda
-      no tiene ninguna frecuencia por debajo de Nyquist: una banda del usuario
-      de 55 a 90 Hz sobre un registro de 100 Hz. No sale ningún cartel y la
-      traza va a la consola. Validar la banda contra la frecuencia en
-      `_validar_banda()`.
+- [x] **La conectividad dejaba escapar un `ValueError` de MNE** cuando la
+      banda no tenía ninguna frecuencia que medir: una banda del usuario de 55
+      a 90 Hz sobre un registro de 100 Hz. No salía ningún cartel y la traza iba
+      a la consola.
+      - `_exigir_frecuencias_en_la_banda()` arma la misma grilla que
+        mne-connectivity —la de una época, con los dos extremos incluidos— y
+        rechaza antes con `InvalidBandError`, diciendo por qué: la banda está
+        por encima de Nyquist, o es más angosta que la resolución de 0,2 Hz.
+      - Es `InvalidBandError` y no `InvalidRecordingError` a propósito:
+        `connectivity_by_window()` traga el segundo como "ventana corta", y la
+        noche habría salido entera en NaN. La noche además comprueba la banda
+        antes de recorrer, para que un registro más corto que una época no la
+        esconda.
+      - Queda anotado lo vecino: una banda que **cruza** Nyquist se mide en la
+        parte que entra, sin decirlo, y la potencia de una banda que el
+        espectro no alcanza sale en cero (ver la lista de abajo).
+  - Test: `tests/test_connectivity.py`, **39 tests en verde**, con los dos
+    mensajes, la banda de un solo punto que sí se mide y la noche corta.
+  - Test: `tests/test_contratos.py`, **962 tests en verde**, con tres
+    rechazos obligatorios nuevos.
+  - Test: `tests/test_entrega.py`, **233 tests en verde**, con el cartel desde
+    los dos menús de conectividad. Con el módulo anterior fallan los seis que
+    rechazan.
 - [ ] **La primera apertura de cada sesión del programa congela unos 9 s**, y
       la segunda tarda 0,6. Son las importaciones perezosas de MNE:
       `mne.io.brainvision` arrastra `mne.viz` y `matplotlib`. El hilo de

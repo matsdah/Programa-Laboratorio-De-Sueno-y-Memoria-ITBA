@@ -3631,3 +3631,26 @@ def test_un_archivo_de_preferencias_danado_se_avisa_al_arrancar(
     assert len(carteles) == 1 and "preferencias" in carteles[0]
     assert archivo.read_text(encoding="utf-8") == "{esto no es json"
     nueva.close()
+
+
+# -- Una banda de conectividad que el registro no puede medir (hito 33) ------
+
+
+@pytest.mark.parametrize("metodo", ["show_connectivity_dialog", "show_connectivity_night_dialog"])
+def test_una_banda_sobre_nyquist_sale_como_cartel(
+    ventana: MainWindow, elige_opciones, metodo: str
+):
+    """Las bandas las escribe el usuario en la configuración, y una que sirve
+    para un registro de 1000 Hz puede no servir para otro. mne-connectivity
+    elevaba `ValueError`, que atravesaba el `except` de la ventana: no salía
+    ningún cartel y la traza iba a la consola."""
+    nyquist = FRECUENCIA_BV / 2
+    ventana.apply_preferences(
+        ventana.current_preferences.with_bands({"Alta": (nyquist + 10, nyquist + 40)})
+    )
+    elige_opciones(("Alta", True))
+
+    getattr(ventana, metodo)()
+
+    assert len(ventana.carteles) == 1
+    assert f"{nyquist:g} Hz" in ventana.carteles[0]

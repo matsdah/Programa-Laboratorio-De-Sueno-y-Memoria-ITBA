@@ -413,6 +413,17 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     ("Channel con frecuencia original cero", 0,
      lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0, v)],
                          np.zeros((1, 10)), 100.0)),
+    # Hito 33. **Una banda bien formada que no se puede medir.** Sin la guarda,
+    # mne-connectivity elevaba `ValueError` y el cartel no salía: la traza iba a
+    # la consola. El registro es de 100 Hz, así que Nyquist queda en 50.
+    ("compute_connectivity con una banda sobre Nyquist", (60.0, 90.0),
+     lambda v: connectivity.compute_connectivity(registro(), None, v, "wpli", 0)),
+    ("compute_connectivity con una banda más angosta que la resolución", (10.05, 10.15),
+     lambda v: connectivity.compute_connectivity(registro(), None, v, "wpli", 0)),
+    # Y la noche no puede tragárselo como si fueran ventanas cortas: saldría
+    # entera en NaN sin avisar.
+    ("connectivity_by_window con una banda sobre Nyquist", (60.0, 90.0),
+     lambda v: connectivity.connectivity_by_window(registro(), ["C0", "C1"], v)),
 ]
 
 
