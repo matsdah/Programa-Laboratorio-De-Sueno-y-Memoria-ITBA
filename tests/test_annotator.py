@@ -355,6 +355,18 @@ def test_desactivarla_conserva_las_anotaciones(
     assert len(sesion.annotations.all()) == 1
 
 
+
+def test_desactivarla_suelta_la_sesion(anotador: AnnotatorTool, sesion: Session):
+    """Conservarla mantenía vivo el registro anterior después de abrir otro.
+    Las anotaciones no se pierden: viven en la sesión, no en la herramienta."""
+    anotar(sesion, 5.0, 8.0)
+    anotador.deactivate()
+    # Ningún atributo la guarda. No se prueba con un `weakref` porque la
+    # fixture de pytest la sigue sosteniendo; eso lo mide `test_entrega.py`
+    # con dos registros de verdad.
+    assert all(valor is not sesion for valor in vars(anotador).values())
+
+
 def test_desactivarla_descarta_la_seleccion_a_medias(anotador: AnnotatorTool):
     """Un tramo marcado y sin clase no sobrevive a apagar la herramienta: el
     usuario ya se fue a otra cosa."""

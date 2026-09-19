@@ -122,7 +122,7 @@ from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
 from psglab.ui import preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
-from psglab.ui.docks import build_docks
+from psglab.ui.docks import ORDEN_DE_ANALISIS, build_docks
 from psglab.ui.icons import icon
 from psglab.ui.menus import build_menus, duration_text
 from psglab.ui.navigation import NavigationBar
@@ -787,6 +787,7 @@ class MainWindow(QMainWindow):
 
         self._aplicar_colores_de_clase(sesion)
         self.signal_view.set_session(sesion)
+        self._reiniciar_paneles_de_analisis()
         self.channel_selector.set_recording(registro)
         self.scoring_panel.set_nomenclature(sesion.scoring.nomenclature)
         install_shortcuts(self, sesion)
@@ -798,6 +799,31 @@ class MainWindow(QMainWindow):
         if self._preferencias.open_clock_axis and registro.start_time is not None:
             self.accion_eje_en_hora.setChecked(True)
         self.refresh()
+
+    def _reiniciar_paneles_de_analisis(self) -> None:
+        """Deja los paneles de análisis como corresponden al registro recién abierto.
+
+        **Seguían mostrando el anterior.** El espectro decía «Espectro de «C3»»
+        sobre un registro sin C3; la métrica y la conectividad eran de otra
+        señal; la tabla de impedancias listaba los canales viejos con el informe
+        de los nuevos; y el panel de filtros conservaba los sugeridos del otro
+        registro, así que en uno de 100 Hz «Aplicar» pedía el notch de 50 Hz.
+
+        Los que muestran un resultado se vacían, porque recalcularlos es
+        trabajo que nadie pidió. Los que muestran una configuración —filtros e
+        impedancias— se cargan con la del registro nuevo, que no calcula nada.
+        La ICA la olvida `_olvidar_ica()`.
+        """
+        self.psd_panel.clear_spectrum()
+        self.psd_panel.clear_band_powers()
+        self.metric_panel.clear_metric()
+        self.connectivity_panel.clear_matrix()
+        # Los títulos decían de qué canal y qué ventana era el resultado.
+        for clave, titulo in ORDEN_DE_ANALISIS:
+            self.docks[clave].setWindowTitle(titulo)
+        if self._session is not None:
+            self.filter_panel.set_recording(self._session.recording)
+        self._cargar_impedancias()
 
     def open_scoring(self, path: Path) -> None:
         """Importa un scoring existente sobre el registro abierto (V3_F).
@@ -2018,6 +2044,20 @@ class MainWindow(QMainWindow):
         if self._session is None:
             return
         por_clase = self.filter_panel.settings()
+        # **Sin ningún filtro escrito no se toca la señal.** Antes se la
+        # reemplazaba por una copia idéntica: la barra decía «Se filtró la
+        # señal», se habilitaba volver a la original y se descartaba la ICA ya
+        # ajustada, todo por un filtrado que no filtró nada.
+        if all(filtros.is_empty for filtros in por_clase.values()):
+            self._show_error(
+                PsgLabError(
+                    "No hay ningún filtro escrito, así que la señal no cambió. "
+                    "Para quitar un filtro ya aplicado está «Montaje › Volver a "
+                    "la señal original».",
+                    details=f"filtros por clase: {por_clase}",
+                )
+            )
+            return
         self._aplicar_analisis(
             "Se filtró la señal",
             lambda registro: apply_filters(
@@ -2034,13 +2074,19 @@ class MainWindow(QMainWindow):
         """
         if self._session is None:
             return
+        self._cargar_impedancias()
+        self.impedance_dialog.show()
+        self.impedance_dialog.raise_()
+
+    def _cargar_impedancias(self) -> None:
+        """Llena el panel con los canales del registro y lo que traiga el archivo."""
+        if self._session is None:
+            return
         self.impedance_panel.set_channels(
             self._session.recording.channel_names(),
             read_impedances(self._session.recording),
         )
         self._refrescar_informe_de_impedancia()
-        self.impedance_dialog.show()
-        self.impedance_dialog.raise_()
 
     def load_impedances_dialog(self) -> None:
         """Importa las impedancias de un archivo del equipo de adquisición."""

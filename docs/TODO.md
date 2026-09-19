@@ -27,7 +27,9 @@ lo que propuso y midió un lienzo de diseño: el reparto de los paneles, un
 esquema nuevo y dos detalles. El **[hito 27](#hito-27-la-navegación-desde-el-medio)**
 dejó ocho controles en la barra y hace que la reproducción se cuente desde el
 medio del gráfico, y el **[hito 28](#hito-28-un-solo-menú-de-herramientas)**
-fundió «Paneles» con «Herramientas». Son **veintinueve hitos**, del 0 al 28,
+fundió «Paneles» con «Herramientas». El
+**[hito 29](#hito-29-verificación-de-las-herramientas)** recorrió nueve
+herramientas buscando caminos muertos y fugas. Son **treinta hitos**, del 0 al 29,
 que son las filas de la tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
 dentro del hito al que le toca, casi todo en los tres últimos.
 
@@ -126,6 +128,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [26. El diseño de la ventana](#hito-26-el-diseño-de-la-ventana) | — | 0 | ✅ cerrado |
 | [27. La navegación desde el medio](#hito-27-la-navegación-desde-el-medio) | — | 0 | ✅ cerrado |
 | [28. Un solo menú de herramientas](#hito-28-un-solo-menú-de-herramientas) | — | 0 | ✅ cerrado |
+| [29. Verificación de las herramientas](#hito-29-verificación-de-las-herramientas) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -696,7 +699,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     herramienta sirva apenas se abre un registro.
 - [x] **`psglab/tools/occupancy.py`** · ~~13 stubs~~ · V1_F–V5_F "Ocupación" ·
       `ViewerTool`
-  - Test: `tests/test_occupancy.py`, **37 tests en verde**, sin `pytestmark`.
+  - Test: `tests/test_occupancy.py`, **40 tests en verde**, sin `pytestmark`.
     Los 7 que ya estaban escritos —los ejemplos numéricos literales del
     pliego— pasaron **sin tocarlos**. **Con esto la suite queda sin ningún
     salteado.**
@@ -746,7 +749,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     interfaz tenga qué dibujar.
 - [x] **`psglab/tools/annotator.py`** · ~~9 stubs~~ · V1_F "Anotación" ·
       `ViewerTool`
-  - Test: `tests/test_annotator.py`, **27 tests en verde**.
+  - Test: `tests/test_annotator.py`, **28 tests en verde**.
   - **La conversión a muestras es lo que más importa** y tiene su test: en la
     ventana 1, el segundo 5 es la muestra 3500. Escribir la cuenta a mano deja
     la anotación en la ventana de al lado cuando la frecuencia no es redonda, y
@@ -1064,7 +1067,7 @@ ventana y no existía.
     pide filtrar **por tipo de canal** y `apply_filters()` recibe filtros por
     **nombre**, que es la firma general. Traducir de una a la otra es la regla
     del pliego, así que va en `analysis/` y no en el diálogo.
-  - Test: `tests/test_filters.py`, **53 tests en verde**.
+  - Test: `tests/test_filters.py`, **54 tests en verde**.
 - [x] **`psglab/ui/filter_panel.py`** · una fila por clase de canal
   - Sólo aparecen las clases que el registro tiene: ofrecer una fila de ECG en
     un registro sin ECG le pide al usuario que decida sobre algo que no existe.
@@ -2328,7 +2331,7 @@ lo mínimo.
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **194 tests en verde**.
+  - Test: `tests/test_entrega.py`, **199 tests en verde**.
 
 ### Lo que se midió
 
@@ -2400,7 +2403,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
   - Test: `tests/test_menus.py`, **35 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
-  - Test: `tests/test_entrega.py`, **194 tests en verde**: tildar
+  - Test: `tests/test_entrega.py`, **199 tests en verde**: tildar
     un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
     oculta.
 
@@ -2421,7 +2424,7 @@ amplitud también quedaban corridas.
 - [x] **El test no podía verlo**: `arrastrar()` armaba el evento con las tres
       posiciones iguales. Ahora lo arma como Qt, con `scenePosition()` relativa
       a la ventana.
-  - Test: `tests/test_entrega.py`, **194 tests en verde**, con que la
+  - Test: `tests/test_entrega.py`, **199 tests en verde**, con que la
     anotación empiece y termine a un píxel del mouse. Falla sin la corrección,
     corrida 7,5 s.
 
@@ -2447,9 +2450,9 @@ clic derecho**.
       Con «Anotar» activo, el clic derecho sobre una banda la borra, previa
       confirmación porque no hay deshacer. Entre dos superpuestas se borra la
       más corta, que es la que no se puede señalar en ningún otro lugar.
-  - Test: `tests/test_annotator.py`, **27 tests en verde**, con
+  - Test: `tests/test_annotator.py`, **28 tests en verde**, con
     `annotation_at()` y las bandas sin la herramienta activada.
-  - Test: `tests/test_entrega.py`, **194 tests en verde**, con eventos de Qt
+  - Test: `tests/test_entrega.py`, **199 tests en verde**, con eventos de Qt
     de verdad: las bandas al ir y volver de época con cada herramienta, y el
     clic derecho con la confirmación aceptada, rechazada y con otra
     herramienta activa. Fallan con la ventana anterior.
@@ -2462,6 +2465,88 @@ clic derecho**.
 - [ ] **La red del hito 20 no mira `tools/`.** Recorre las funciones públicas
       de `analysis/`, así que `delete_annotation()` quedó sin
       ningún camino desde la ventana sin que nada fallara.
+
+---
+
+## Hito 29: Verificación de las herramientas
+
+**Cerrado el 19 de septiembre de 2026.** Pedido del usuario: verificar que la
+Übersicht, el scoring, el hipnograma y los seis paneles de análisis funcionen,
+no tengan fugas y no tengan implementaciones que nadie use. Lo motivó el
+anotador, que parecía terminado y tenía cuatro fallas que la suite no veía (ver
+el [hito 28](#hito-28-un-solo-menú-de-herramientas)).
+
+**Cómo se buscó**, porque es lo que se puede repetir: una red automática de
+métodos públicos sin llamada, ahora también en `tools/` y en los paneles; un
+recorrido por la ventana con clics mandados por la ventana nativa y no
+fabricados; y tres clases de fuga. Las tres son memoria —un `weakref` al
+registro anterior después de abrir otro, y veinte ciclos con `tracemalloc`—,
+estado que pasa de un registro a otro, y excepciones que salen de un slot de Qt,
+capturadas con `sys.excepthook` porque PySide6 las imprime y sigue.
+
+**Lo que anda.** Ninguna traza sin atrapar con canal plano, un solo EEG, un
+registro más corto que una época, 100 Hz o un archivo de impedancias mal
+formado. Veinte ciclos de abrir y usar todo dejan estables los atajos, los
+listeners, los ítems de cada gráfico y la memoria. Las tres vías de impedancia
+llegan a la ventana.
+
+**No tiene stubs que contar.**
+
+- [x] **Abrir otro registro dejaba vivo el anterior.** El anotador y la
+      ocupación guardaban la sesión al apagarse; con dos noches grandes, el
+      doble de memoria. Ahora la sueltan, como las otras cuatro. La regla quedó
+      en `psglab/tools/README.md`.
+- [x] **Las líneas de la ocupación pasaban al registro nuevo**, con su
+      porcentaje, aunque eran fracciones de una página de otra señal. Se
+      descartan al activarla sobre otro registro, y se conservan si es el mismo.
+- [x] **Los paneles de análisis mostraban el registro anterior.** El espectro
+      decía «Espectro de «C3»» sobre un registro sin C3; la tabla de
+      impedancias listaba los canales viejos con el informe de los nuevos; y el
+      panel de filtros conservaba los sugeridos, así que en un registro de
+      100 Hz «Aplicar» pedía el notch de 50 Hz. Al abrir un registro se vacían
+      los resultados y se cargan filtros e impedancias del nuevo. Los
+      `clear_*()` de los paneles existían y sólo los llamaban los tests.
+- [x] **«Aplicar» sin ningún filtro reemplazaba la señal** por una copia
+      idéntica: decía «Se filtró la señal», habilitaba volver a la original y
+      descartaba la ICA ya ajustada. Pasaba al mostrar el panel desde
+      «Herramientas» sin cargarlo. Ahora avisa y no toca nada; la regla es
+      `FilterSettings.is_empty`.
+- [x] **El clic del hipnograma no tenía ningún test con eventos**, y tenía el
+      mismo error que el anotador hasta el hito 28: con los tres paneles de
+      abajo a la vista, caía en la época 4 en vez de la 3.
+  - Test: `tests/test_entrega.py`, **199 tests en verde**, con dos registros
+    de verdad. Los cinco fallan sin su corrección.
+  - Test: `tests/test_occupancy.py`, **40 tests en verde**.
+  - Test: `tests/test_annotator.py`, **28 tests en verde**.
+  - Test: `tests/test_filters.py`, **54 tests en verde**.
+
+### Lo que sigue abierto
+
+Cuatro decisiones de comportamiento, con la recomendación que se le hizo al
+usuario:
+
+- [ ] **Übersicht V3_F no tiene camino desde la ventana.**
+      `OverviewTool.set_span()` no lo llama nadie: la cantidad de ventanas
+      vecinas sólo se cambia editando `config.py`, y el pliego la pide
+      configurable y asimétrica. Se recomendó llevarla a la ventana de
+      configuración. `set_size()` tampoco se llama, pero V2_F se cumple
+      arrastrando el borde del panel.
+- [ ] **Los resultados de análisis sobreviven a un cambio de la señal.**
+      Después de filtrar, derivar o volver a la original, el espectro, la
+      métrica y la conectividad siguen mostrando lo calculado sobre la señal
+      anterior, sin decirlo. La ICA ya se descarta en ese caso; se recomendó
+      hacer lo mismo con los otros tres.
+- [ ] **Espectro, métrica, conectividad e ICA se muestran vacíos desde
+      «Herramientas»**, sin decir desde qué menú se piden. Se recomendó un
+      texto que lo diga.
+- [ ] **La red de caminos muertos sigue sin mirar `tools/` ni los paneles.**
+      El script de este hito la extendió y encontró `set_span()` y
+      `set_size()`; convertirlo en test exige una tabla de exenciones para los
+      accesores de sólo lectura que usan los tests.
+- [ ] **Resultados silenciosos con un canal plano**, sin traza pero sin
+      explicación: el espectro sale vacío en escala logarítmica, Higuchi da
+      `NaN` en todas las ventanas y la conectividad lo cuenta con 0 y baja el
+      promedio. Importar un archivo de impedancias vacío no hace nada ni avisa.
 
 ---
 

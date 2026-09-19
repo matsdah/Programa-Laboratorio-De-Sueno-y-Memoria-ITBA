@@ -70,6 +70,11 @@ class FilterSettings:
     lowpass_hz: float | None = None
     notch_hz: float | None = None
 
+    @property
+    def is_empty(self) -> bool:
+        """Si no activa ningún filtro: aplicarla deja el canal como estaba."""
+        return self.highpass_hz is None and self.lowpass_hz is None and self.notch_hz is None
+
 
 #: Frecuencia de la red eléctrica, que es la que hay que filtrar con el notch.
 #: 50 Hz en Argentina y en la mayor parte del mundo; 60 Hz en América del Norte

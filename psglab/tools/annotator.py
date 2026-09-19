@@ -56,7 +56,13 @@ class AnnotatorTool(ViewerTool):
 
         Viven en el `AnnotationSet` de la sesión, no acá: la herramienta es el
         gesto, no el dato. Por eso desactivarla no borra nada.
+
+        **Suelta la sesión**, como la lupa y la banda de amplitud. Conservarla
+        mantenía vivo el registro anterior después de abrir otro, que en una
+        noche entera son gigabytes. Apagada no la necesita: las bandas las
+        dibuja la ventana con `annotation_bands()` y su propia sesión.
         """
+        self._session = None
         self._activa = False
         self._desde = self._hasta = None
         self._pendiente = None

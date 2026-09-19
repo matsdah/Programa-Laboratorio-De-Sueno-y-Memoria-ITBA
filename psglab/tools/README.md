@@ -75,6 +75,14 @@ sólo se dibuja; los paneles tampoco, porque no compiten por el mouse.
 `name` tiene que ser único: si se repite, `@register_tool` eleva
 `DuplicateToolError` **al importar**, que es cuando conviene enterarse.
 
+**`deactivate()` suelta la sesión** (`self._session = None`). Abrir otro
+registro apaga todas las herramientas, y una que guarde la sesión mantiene vivo
+el registro anterior entero: con dos noches grandes, el doble de memoria. El
+anotador y la ocupación la guardaban hasta el hito 29. Lo que la herramienta
+quiera conservar al apagarse —las líneas de la ocupación, la cuenta de la
+lupa— no puede ser la sesión, y si depende del registro tiene que descartarse
+al activarse sobre otro: la ocupación lo sabe con una referencia débil.
+
 ## Dos detalles del diseño que conviene no revertir
 
 **Ni `Tool` ni `ViewerTool` heredan de `QObject`.** Son objetos comunes de

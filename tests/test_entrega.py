@@ -24,6 +24,7 @@ import dataclasses
 from pathlib import Path
 
 import numpy as np
+import pyqtgraph as pg
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QFont, QMouseEvent
@@ -46,6 +47,7 @@ from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
 from psglab.ui import main_window as main_window_mod  # noqa: E402
 from psglab.ui import preferences as preferencias_mod  # noqa: E402
 from psglab.ui import theme  # noqa: E402
+from psglab.ui.docks import ORDEN_DE_ANALISIS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
 
@@ -426,8 +428,12 @@ def evento_de_mouse(
     tipo: QEvent.Type,
     x: float,
     boton: Qt.MouseButton = Qt.MouseButton.LeftButton,
+    vista: pg.PlotWidget | None = None,
 ) -> QMouseEvent:
-    """Un evento de mouse sobre el visualizador, en `x` de la escena del gráfico.
+    """Un evento de mouse sobre un gráfico, en `x` de su escena.
+
+    El gráfico es el visualizador si no se pide otro: el hipnograma usa el
+    mismo camino.
 
     **Se arma como lo arma Qt**: posición relativa al viewport,
     `scenePosition()` relativa a la ventana de primer nivel y la global de la
@@ -435,11 +441,10 @@ def evento_de_mouse(
     el mismo punto, y el test no podía distinguir la posición del viewport de
     la de la ventana, que era justamente el error.
     """
-    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
-    viewport = ventana.signal_view.viewport()
-    local = QPointF(
-        ventana.signal_view.mapFromScene(QPointF(float(x), caja.center().y()))
-    )
+    vista = vista or ventana.signal_view
+    caja = vista.getPlotItem().vb.sceneBoundingRect()
+    viewport = vista.viewport()
+    local = QPointF(vista.mapFromScene(QPointF(float(x), caja.center().y())))
     en_ventana = QPointF(viewport.mapTo(viewport.window(), local.toPoint()))
     return QMouseEvent(
         tipo,
@@ -2970,3 +2975,125 @@ def test_el_programa_abre_solo_con_la_senal_y_los_canales(ventana: MainWindow):
     visibles = [clave for clave, dock in ventana.docks.items() if not dock.isHidden()]
 
     assert visibles == ["channels"]
+
+
+# -- El hipnograma, por el camino del mouse (V4_F) ----------------------------
+
+
+def test_el_clic_en_el_hipnograma_lleva_a_la_epoca_bajo_el_mouse(ventana: MainWindow):
+    """El mismo error que tenía el anotador: el clic se ubicaba con
+    `scenePosition()`, que en un evento de widget es la ventana y no la escena.
+    El hipnograma está abajo y a la derecha, así que caía cientos de píxeles
+    corrido. Nada lo verificaba con un evento de verdad."""
+    ventana.resize(1400, 800)
+    ventana.show()
+    # Los tres paneles de abajo, como se trabaja: solo, el hipnograma ocupa el
+    # ancho entero, arranca en el borde de la ventana y el error no se ve.
+    for dock in (ventana.overview_dock, ventana.scoring_dock, ventana.histogram_dock):
+        dock.show()
+    QApplication.processEvents()
+    vista = ventana.histogram_view
+    viewport = vista.viewport()
+    # Sin distancia entre el gráfico y el borde de la ventana, el test pasaría
+    # con el error puesto.
+    assert viewport.mapTo(ventana, viewport.rect().topLeft()).x() > 0
+
+    caja = vista.getPlotItem().vb.sceneBoundingRect()
+    x = caja.left() + caja.width() * 0.7
+    evento = evento_de_mouse(ventana, QEvent.Type.MouseButtonPress, x, vista=vista)
+    QApplication.instance().sendEvent(viewport, evento)
+
+    assert ventana.session.current_window == int(0.7 * VENTANAS)
+
+
+# -- Al abrir otro registro ---------------------------------------------------
+#
+# Lo que encontró la verificación de las herramientas: con un registro abierto
+# y otro recién abierto, lo del primero seguía a la vista o en memoria.
+
+
+def otro_registro(tmp_path: Path) -> Path:
+    """Otra frecuencia y otros canales: nada del primero le sirve."""
+    return escribir_brainvision(
+        tmp_path / "otro",
+        segundos=WINDOW_SECONDS * 2,
+        canales=[("Fz", "µV"), ("Cz", "µV")],
+        frecuencia=100.0,
+    )
+
+
+def test_abrir_otro_registro_suelta_el_anterior(ventana: MainWindow, tmp_path: Path):
+    """El anotador y la ocupación guardaban la sesión al apagarse, y con ella el
+    registro entero: con dos noches grandes, el doble de memoria."""
+    import gc
+    import weakref
+
+    for herramienta in ventana._tools:
+        ventana._toggle_tool(herramienta, True)
+    for herramienta in ventana._tools:
+        ventana._toggle_tool(herramienta, False)
+    anterior = weakref.ref(ventana.session.recording)
+
+    ventana.open_recording(otro_registro(tmp_path))
+    gc.collect()
+
+    assert anterior() is None
+
+
+def test_los_paneles_de_analisis_no_muestran_el_registro_anterior(
+    ventana: MainWindow, elige_canal, tmp_path: Path
+):
+    """El espectro decía «Espectro de «C3»» sobre un registro sin C3, y la
+    tabla de impedancias listaba los canales viejos con el informe de los
+    nuevos."""
+    elige_canal("C3", "C3", "permutation_entropy", "Delta")
+    ventana.show_psd_dialog()
+    ventana.show_complexity_dialog()
+    ventana.show_connectivity_dialog()
+    ventana.show_impedance_dialog()
+
+    ventana.open_recording(otro_registro(tmp_path))
+
+    assert ventana.psd_panel.channels() == []
+    assert ventana.psd_panel.band_powers() == {}
+    assert ventana.metric_panel.channels() == []
+    assert ventana.connectivity_panel.axis_labels() == []
+    for clave, titulo in ORDEN_DE_ANALISIS:
+        assert ventana.docks[clave].windowTitle() == titulo
+    assert ventana.impedance_panel.channels() == ["Fz", "Cz"]
+    assert not ventana.carteles
+
+
+def test_el_panel_de_filtros_es_del_registro_abierto(ventana: MainWindow, tmp_path: Path):
+    """Conservaba los sugeridos del registro anterior: en uno de 100 Hz,
+    «Aplicar» pedía el notch de 50 Hz y terminaba en un cartel."""
+    ventana.show_filter_dialog()
+    ventana.open_recording(otro_registro(tmp_path))
+
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert not ventana.carteles
+    assert ventana.accion_señal_original.isEnabled()
+
+
+def test_aplicar_sin_ningun_filtro_no_toca_la_señal(ventana_con_dos_eeg: MainWindow):
+    """Reemplazaba la señal por una copia idéntica, decía «Se filtró la señal»
+    y descartaba la ICA ya ajustada."""
+    from psglab.ui.filter_panel import CAMPOS
+
+    ventana = ventana_con_dos_eeg
+    ventana.show_ica_dialog()
+    ventana.show_filter_dialog()
+    tabla = ventana.filter_panel.tabla
+    for fila in range(tabla.topLevelItemCount()):
+        for columna in range(1, len(CAMPOS) + 1):
+            tabla.topLevelItem(fila).setText(columna, "")
+    antes = ventana.session.recording
+
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert ventana.session.recording is antes
+    assert ventana._ica is not None
+    assert not ventana.accion_señal_original.isEnabled()
+    assert len(ventana.carteles) == 1
+

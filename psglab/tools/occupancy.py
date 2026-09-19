@@ -21,6 +21,7 @@ Cubre del pliego: V1_F, V2_F, V3_F, V4_F, V5_F de "Herramienta de ocupación
 de la página".
 """
 
+import weakref
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -122,9 +123,21 @@ class OccupancyTool(ViewerTool):
         #: La que el usuario está arrastrando ahora mismo. Se dibuja, pero no
         #: cuenta para el total hasta que suelte el botón.
         self._en_curso: OccupancyLine | None = None
+        #: De qué sesión son las líneas. **Débil a propósito**: una referencia
+        #: común mantendría vivo el registro anterior, que es justo lo que
+        #: `deactivate()` evita soltando `_session`.
+        self._sesion_de_las_lineas: weakref.ref[Session] | None = None
 
     def activate(self, session: Session) -> None:
         """Activa el modo de dibujo de líneas (V1_F)."""
+        # **Las líneas de otro registro no miden nada acá.** Son fracciones de
+        # una página de otra señal, y sin esto reaparecían sobre el registro
+        # nuevo con su porcentaje. Con el mismo registro se conservan: apagar
+        # y volver a prender no pierde la medición.
+        anterior = self._sesion_de_las_lineas() if self._sesion_de_las_lineas else None
+        if anterior is not session:
+            self._lineas.clear()
+        self._sesion_de_las_lineas = weakref.ref(session)
         self._session = session
         self._activa = True
         # La página sobre la que van a quedar ancladas las líneas que se
@@ -139,8 +152,15 @@ class OccupancyTool(ViewerTool):
         Conservarlas es deliberado: el usuario puede querer mirar la señal sin
         la herramienta activa y volver, y perder las mediciones al desactivar
         sería una sorpresa desagradable. Las borra el cambio de ventana (V5_F),
-        que es cuando dejan de significar algo.
+        que es cuando dejan de significar algo, o volver a activarla sobre otro
+        registro.
+
+        **Suelta la sesión**, como la lupa y la banda de amplitud: conservarla
+        mantenía vivo el registro anterior después de abrir otro. Apagada no la
+        necesita, porque reanclar las líneas usa la página que llega a
+        `on_view_changed()`.
         """
+        self._session = None
         self._activa = False
         self._en_curso = None
         self.notify_changed()

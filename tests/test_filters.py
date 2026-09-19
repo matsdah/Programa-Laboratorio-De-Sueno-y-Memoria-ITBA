@@ -530,3 +530,13 @@ def test_quedarse_sin_memoria_sale_como_error_del_programa(monkeypatch):
 
     with pytest.raises(PsgLabError):
         apply_filters(armar_registro(), {"C3": FilterSettings(lowpass_hz=20.0)})
+
+
+def test_una_configuracion_sin_filtros_se_reconoce_vacia():
+    """Es lo que la ventana consulta antes de filtrar: aplicar una configuración
+    vacía reemplazaba la señal por una copia idéntica y decía que había filtrado."""
+    assert FilterSettings().is_empty
+    assert not FilterSettings(highpass_hz=0.3).is_empty
+    assert not FilterSettings(lowpass_hz=35.0).is_empty
+    assert not FilterSettings(notch_hz=50.0).is_empty
+

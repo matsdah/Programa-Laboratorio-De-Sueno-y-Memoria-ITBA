@@ -498,3 +498,38 @@ def test_avisa_cuando_cambia_lo_dibujado(sesion: Session):
 
     assert len(avisos) >= 4
     assert all(aviso is tool for aviso in avisos)
+
+
+# -- Al pasar de un registro a otro ------------------------------------------
+
+
+def test_apagarla_suelta_la_sesion(sesion: Session, herramienta: OccupancyTool):
+    """Conservarla mantenía vivo el registro anterior después de abrir otro."""
+    herramienta.deactivate()
+    # Ningún atributo la guarda. No se prueba con un `weakref` porque la
+    # fixture de pytest la sigue sosteniendo; eso lo mide `test_entrega.py`
+    # con dos registros de verdad.
+    assert all(valor is not sesion for valor in vars(herramienta).values())
+
+
+def test_las_lineas_sobreviven_a_apagarla_y_prenderla(
+    sesion: Session, herramienta: OccupancyTool
+):
+    """Es lo que promete `deactivate()`: apagar para mirar la señal y volver."""
+    arrastrar(herramienta, 0.0, 15.0)
+    herramienta.deactivate()
+    herramienta.activate(sesion)
+    assert len(herramienta.lines()) == 1
+
+
+def test_las_lineas_de_otro_registro_no_pasan_al_nuevo(
+    sesion: Session, sesion_larga: Session, herramienta: OccupancyTool
+):
+    """Son fracciones de una página de otra señal: reaparecían sobre el registro
+    nuevo con su porcentaje."""
+    arrastrar(herramienta, 0.0, 15.0)
+    herramienta.deactivate()
+    herramienta.activate(sesion_larga)
+    assert herramienta.lines() == []
+    assert herramienta.total_percentage() == 0.0
+
