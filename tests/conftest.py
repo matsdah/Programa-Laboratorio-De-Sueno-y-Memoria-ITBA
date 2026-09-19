@@ -114,12 +114,30 @@ RESOLUCION_BV_UV = 0.5
 FRECUENCIA_BV = 250.0
 
 
+#: Cuántos µV vale cada unidad que el BrainVision sintético sabe escribir. Como
+#: `UV_POR_UNIDAD_EDF`, **es la tabla del test** y lleva grafías que MNE no
+#: convierte —`uv`, `mv`, la mu griega— junto a las que sí. Una unidad que no
+#: está —"C", la vacía— se escribe como antes: los números en µV.
+UV_POR_UNIDAD_BV: dict[str, float] = {
+    "µV": 1.0,
+    "uV": 1.0,
+    "uv": 1.0,
+    "μV": 1.0,
+    "mV": 1e3,
+    "mv": 1e3,
+    "V": 1e6,
+    "nV": 1e-3,
+}
+
+
 def escribir_brainvision(
     carpeta: pathlib.Path,
     segundos: float,
     canales: list[tuple[str, str]] | None = None,
     impedancias: dict[str, float | None] | None = None,
     frecuencia: float = FRECUENCIA_BV,
+    codepage: str | None = "UTF-8",
+    coordenadas: bool = False,
 ) -> pathlib.Path:
     """Escribe un BrainVision completo y devuelve la ruta de su `.vhdr`.
 
@@ -150,6 +168,18 @@ def escribir_brainvision(
     puede reproducir sin poder escribir un archivo a 100 Hz. Vale cualquier
     frecuencia que divida un millón, por el `SamplingInterval` entero de más
     arriba; 100 Hz da 10000 µs exactos.
+
+    **Lo que agregó el hito 33**, para probar la escala contra la regla de MNE:
+
+    - La señal se escribe **en la unidad que declara cada canal**: la
+      resolución de la cabecera es `RESOLUCION_BV_UV` pasada a esa unidad, así
+      que leerla bien es recuperar los mismos µV con cualquier grafía de
+      `UV_POR_UNIDAD_BV`. Hasta ahí se escribía siempre en µV, y un canal
+      declarado en mV salía mil veces más grande que lo sintetizado.
+    - `codepage=None` omite la línea `Codepage=`, que es como MNE decide
+      decodificar en UTF-8.
+    - `coordenadas=True` agrega una sección `[Coordinates]`, cuyas líneas
+      también empiezan con `Ch<n>=` y no hablan de unidades.
     """
     carpeta.mkdir(parents=True, exist_ok=True)
     # Los tres por omisión cubren una clase de señal cada uno, que es lo que
@@ -181,7 +211,7 @@ def escribir_brainvision(
         "Brain Vision Data Exchange Header File Version 1.0",
         "",
         "[Common Infos]",
-        "Codepage=UTF-8",
+        *([f"Codepage={codepage}"] if codepage else []),
         "DataFile=sintetico.eeg",
         "MarkerFile=sintetico.vmrk",
         "DataFormat=BINARY",
@@ -195,7 +225,12 @@ def escribir_brainvision(
         "[Channel Infos]",
     ]
     for numero, (nombre, unidad) in enumerate(canales, start=1):
-        cabecera.append(f"Ch{numero}={nombre},,{RESOLUCION_BV_UV},{unidad}")
+        # Las mismas cuentas, con la resolución expresada en la unidad del canal.
+        resolucion = RESOLUCION_BV_UV / UV_POR_UNIDAD_BV.get(unidad, 1.0)
+        cabecera.append(f"Ch{numero}={nombre},,{resolucion:.10g},{unidad}")
+    if coordenadas:
+        cabecera += ["", "[Coordinates]"]
+        cabecera += [f"Ch{numero}=1,{numero * 10},0" for numero in range(1, len(canales) + 1)]
     # **La tabla de impedancias vive en `[Comment]`**, que es donde el formato
     # la pone y donde MNE la busca. `None` se escribe `???`, que es como el
     # `.vhdr` marca un electrodo que nadie midió: es el caso que separa "sin
@@ -245,7 +280,26 @@ PICOS_EDF_UV: tuple[float, ...] = (50.0, 30.0, 20.0, 40.0, 60.0)
 #: **Es la tabla del test, escrita a mano**: si el escritor usara la de
 #: `utils/units.py`, que es la que usa el lector, un factor equivocado se
 #: cancelaría solo y el test pasaría sin verificar nada.
-UV_POR_UNIDAD_EDF: dict[str, float] = {"uV": 1.0, "µV": 1.0, "mV": 1e3, "V": 1e6}
+#:
+#: **Lleva grafías que MNE no convierte** —`uv`, `UV`, `mv`, `nV`— junto a las
+#: que sí, y la mu de Shift-JIS de los equipos japoneses, que MNE sí reconoce.
+#: Leer bien es recuperar los mismos µV en todas: es lo que el hito 33 encontró
+#: roto, porque MNE compara la grafía exacta y el lector no.
+UV_POR_UNIDAD_EDF: dict[str, float] = {
+    "uV": 1.0,
+    "µV": 1.0,
+    "\x83\xcaV": 1.0,
+    "uv": 1.0,
+    "UV": 1.0,
+    "mV": 1e3,
+    "mv": 1e3,
+    "V": 1e6,
+    "nV": 1e-3,
+}
+
+#: Etiqueta del canal de anotaciones de EDF+. `escribir_edf()` escribe ahí
+#: anotaciones de tiempo vacías en vez de una señal.
+ANOTACIONES_EDF = "EDF Annotations"
 
 #: Lo que vale un canal que no es eléctrico —una temperatura en "DegC"— en su
 #: propia unidad. Oscila medio grado alrededor de este valor, así que un factor
@@ -305,6 +359,9 @@ def escribir_edf(
             `UV_POR_UNIDAD_EDF` lleva un coseno de pico `PICOS_EDF_UV[i]` µV,
             **escrito en su propia unidad**: leerlo bien es recuperar esos µV. Uno
             con otra unidad oscila alrededor de `TEMPERATURA_EDF`, sin convertir.
+            Uno llamado `ANOTACIONES_EDF` no es una señal: lleva las
+            anotaciones de tiempo de EDF+, vacías, y el archivo pasa a ser
+            EDF+. MNE lo excluye, así que corre las posiciones de los demás.
         inicio: la fecha y hora de la cabecera.
 
     El coseno tiene una décima de la frecuencia del canal, así que su primera
@@ -318,12 +375,15 @@ def escribir_edf(
         ("EMG submental", "uV", FRECUENCIA_EDF),
     ]
 
-    senales: list[np.ndarray] = []
+    senales: list[np.ndarray | None] = []
     rangos: list[tuple[str, str]] = []
-    for posicion, (_, unidad, frecuencia) in enumerate(canales):
+    for posicion, (nombre, unidad, frecuencia) in enumerate(canales):
         muestras = int(frecuencia * segundos)
         oscilacion = np.cos(2 * np.pi * (frecuencia / 10) * np.arange(muestras) / frecuencia)
-        if unidad in UV_POR_UNIDAD_EDF:
+        if nombre == ANOTACIONES_EDF:
+            senales.append(None)
+            rangos.append(("-1", "1"))
+        elif unidad in UV_POR_UNIDAD_EDF:
             pico = PICOS_EDF_UV[posicion % len(PICOS_EDF_UV)] / UV_POR_UNIDAD_EDF[unidad]
             senales.append(pico * oscilacion)
             rangos.append((_numero_edf(-2 * pico), _numero_edf(2 * pico)))
@@ -340,7 +400,7 @@ def escribir_edf(
             _campo_edf(inicio.strftime("%d.%m.%y"), 8),
             _campo_edf(inicio.strftime("%H.%M.%S"), 8),
             _campo_edf(str(256 * (cantidad + 1)), 8),
-            _campo_edf("", 44),
+            _campo_edf("EDF+C" if any(n == ANOTACIONES_EDF for n, _, _ in canales) else "", 44),
             _campo_edf(str(segundos), 8),
             _campo_edf("1", 8),
             _campo_edf(str(cantidad), 4),
@@ -366,7 +426,17 @@ def escribir_edf(
     # número antes de recortarlo a ocho caracteres, el lector, que sólo ve el
     # recortado, recuperaría otra amplitud.
     digitales: list[np.ndarray] = []
-    for senal, (minimo, maximo) in zip(senales, rangos):
+    for (_, _, frecuencia), senal, (minimo, maximo) in zip(canales, senales, rangos):
+        if senal is None:
+            # Una anotación de tiempo por registro, "+<segundo>" y dos
+            # separadores, rellenada con ceros hasta el largo del canal.
+            largo = 2 * int(frecuencia)
+            tal = b"".join(
+                f"+{registro}\x14\x14\x00".encode("ascii").ljust(largo, b"\x00")
+                for registro in range(segundos)
+            )
+            digitales.append(np.frombuffer(tal, dtype="<i2").reshape(segundos, -1))
+            continue
         bajo, alto = float(minimo), float(maximo)
         cuentas = np.round((senal - bajo) / (alto - bajo) * 65535 - 32768)
         digitales.append(cuentas.astype("<i2").reshape(segundos, -1))

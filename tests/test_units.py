@@ -42,6 +42,14 @@ def test_los_microvoltios_no_se_tocan():
     assert to_microvolts(75.0, "µV") == 75.0
 
 
+@pytest.mark.parametrize("unidad", ["nV", "nv", "nanovolt", "nanovolts"])
+def test_los_nanovoltios_se_convierten_por_una_milesima(unidad: str):
+    """Desde el hito 33. MNE reconoce "nV" en BrainVision, y sin esta fila el
+    lector trataba el canal como no eléctrico y lo dejaba en volts con la
+    etiqueta "nV"."""
+    assert to_microvolts(1000.0, unidad) == pytest.approx(1.0)
+
+
 def test_el_signo_negativo_se_conserva():
     """La señal oscila alrededor de cero: media onda es negativa."""
     assert to_microvolts(-2.5, "mV") == pytest.approx(-2500.0)

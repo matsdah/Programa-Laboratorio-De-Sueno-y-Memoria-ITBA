@@ -245,7 +245,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
 
 - [x] **`psglab/utils/units.py`** · ~~4 stubs~~ · sostiene la escala en µV de
       V1_P "Visualización" y la banda de V1_F "Herramienta de amplitud"
-  - Test: `tests/test_units.py`, **27 tests en verde**.
+  - Test: `tests/test_units.py`, **31 tests en verde**.
   - La mitad de los tests son de **entrada sucia**, no de aritmética: las
     cabeceras de EDF y BrainVision escriben la unidad de formas variadas, y
     confundir "no reconozco esto" con "esto vale 1" deja la señal mal escalada
@@ -409,7 +409,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader`, `read_recording` y `load_all_readers` corren al
     importar. **No convertirlos en stubs.**
-  - Test: `tests/test_readers.py`, **56 tests en verde**, que cubre este módulo
+  - Test: `tests/test_readers.py`, **74 tests en verde**, que cubre este módulo
     y los dos de abajo. El autodescubrimiento y el despacho se testean con un
     lector de mentira, sin ningún archivo real.
 - [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
@@ -2763,19 +2763,38 @@ ya advertía.
       no se ejercitaba en ninguna de las seis combinaciones. Es lo que deja
       testear los tres ítems que siguen: el escritor ya reproduce los dos
       primeros.
-  - Test: `tests/test_readers.py`, **56 tests en verde**, once de ellos
-    nuevos y sin depender de `data/`.
-- [ ] **La escala depende de cómo se escriba la unidad.** `is_electrical()` no
-      distingue mayúsculas y MNE sí: sólo convierte `uV`, `µV` y `mV` escritos
-      así. Un canal que declara `uv` llega 10⁶ veces más grande, uno en `mv`,
-      10³, y un canal de BrainVision en `nV` queda en volts con la etiqueta
-      `nV`. Pasa en los dos lectores. Hay que decidir el factor con el mismo
-      criterio que MNE. Conviene preguntarle al laboratorio cómo escriben la
-      unidad sus equipos: no cambia el arreglo, pero sí su urgencia.
-- [ ] **Dos canales de un EDF con la misma etiqueta quedan en volts.** MNE los
-      renombra (`EEG-0`, `EEG-1`), `_leer_cabecera()` los busca por nombre, no
-      los encuentra, y el lector los deja sin unidad, sin convertir y como
-      `OTHER`. Indexar la cabecera por posición.
+  - Test: `tests/test_readers.py`, **74 tests en verde**. Este ítem sumó
+    once que no dependen de `data/`, y el arreglo de la escala, dieciocho más.
+- [x] **La escala dependía de cómo se escribiera la unidad.** `is_electrical()`
+      no distingue mayúsculas y MNE sí: sólo convierte `uV`, `µV` y `mV`
+      escritos así. Un canal que declaraba `uv` llegaba 10⁶ veces más grande,
+      uno en `mv`, 10³, y un canal de BrainVision en `nV` quedaba en volts con
+      la etiqueta `nV`. Pasaba en los dos lectores.
+      - **El factor sale ahora de lo que hizo MNE con cada canal**: si lo llevó
+        a volts, de volt a microvolt; si lo dejó como venía y la unidad es
+        eléctrica, desde su unidad; si no, queda nativo. La regla de MNE está
+        copiada en `_UNIDADES_QUE_MNE_PASA_A_VOLTS` de cada lector, carácter por
+        carácter, y los tests escriben cada grafía: si una versión de MNE la
+        cambia, fallan.
+      - `utils/units.py` reconoce los nanovoltios, y una unidad eléctrica
+        ambigua —«MV»— deja el canal como vino, con su unidad, en vez de
+        inventarle un factor o impedir abrir el registro entero.
+      - **Encontrado en el camino**: un `.vhdr` sin `Codepage` escrito en UTF-8
+        dejaba **todos** los canales en volts, con la unidad «ÂµV» y fuera del
+        EEG. MNE lo decodifica en UTF-8 y el lector en latin-1. El lector
+        decodifica y parsea ahora como MNE: UTF-8 por omisión, sólo
+        `[Channel Infos]`, y la unidad sin recortar.
+      - Queda preguntarle al laboratorio cómo escriben la unidad sus equipos:
+        dice si algún registro ya scoreado se vio con otra escala.
+  - Test: `tests/test_units.py`, **31 tests en verde**, con los nanovoltios.
+- [x] **Dos canales de un EDF con la misma etiqueta quedaban en volts.** MNE
+      los renombra (`EEG-0`, `EEG-1`), `_leer_cabecera()` los buscaba por
+      nombre, no los encontraba, y el lector los dejaba sin unidad, sin
+      convertir y como `OTHER`. La cabecera se empareja ahora **por posición**,
+      sacando los canales de anotaciones como los saca MNE; y si no se puede
+      emparejar, el registro no se abre, porque sin la unidad no hay escala
+      que no sea adivinada. El BrainVision también empareja por posición.
+  - Con los lectores anteriores fallan diecisiete de los tests nuevos.
 - [ ] **Un EDF truncado se abre sin avisar.** Con la mitad del archivo sale la
       mitad de la noche: `verbose="ERROR"` calla el aviso de MNE, y la cabecera
       dice cuántos registros de datos tendría que haber.

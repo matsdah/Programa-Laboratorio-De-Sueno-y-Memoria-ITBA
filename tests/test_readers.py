@@ -49,12 +49,15 @@ from psglab.utils.errors import UnreadableFileError, UnsupportedFormatError
 from psglab.utils.units import MICROVOLT
 
 from conftest import (
+    ANOTACIONES_EDF,
     FRECUENCIA_BV,
     FRECUENCIA_EDF,
     PICOS_EDF_UV,
     RESOLUCION_BV_UV,
     TEMPERATURA_EDF,
+    UV_POR_UNIDAD_BV,
     UV_POR_UNIDAD_EDF,
+    escribir_brainvision,
     escribir_edf,
 )
 
@@ -505,6 +508,52 @@ def test_el_sintetico_dura_lo_que_dice_su_cabecera(brainvision_sintetico: Path):
     assert registro.n_samples == int(FRECUENCIA_BV * 3)
 
 
+@pytest.mark.parametrize("unidad", sorted(UV_POR_UNIDAD_BV))
+def test_la_senal_del_brainvision_queda_en_microvoltios(tmp_path: Path, unidad: str):
+    """**Cada grafía, escrita en su unidad, vuelve a los mismos µV** (hito 33).
+
+    MNE convierte a volts las que reconoce —`µV` con el signo micro, `uV`,
+    `mV`, `nV`— y deja como vienen las demás: `uv`, `mv`, la mu griega. El
+    lector multiplicaba de volt a microvolt en los dos casos, y un canal en `uv`
+    llegaba un millón de veces más grande; uno en `nV` quedaba en volts con la
+    etiqueta `nV`.
+    """
+    vhdr = escribir_brainvision(tmp_path, segundos=3, canales=[("C3", unidad)])
+    registro = read_recording(vhdr)
+
+    assert registro.channels[0].unit == MICROVOLT
+    pico = float(np.max(np.abs(registro.data[0])))
+    assert pico == pytest.approx(50.0, abs=RESOLUCION_BV_UV), (
+        f"con la unidad {unidad!r} el pico sale {pico} µV y se escribieron 50"
+    )
+
+
+def test_un_vhdr_sin_codepage_se_decodifica_como_lo_hace_mne(tmp_path: Path):
+    """Sin `Codepage`, MNE prueba UTF-8 y entiende "µV"; el lector probaba
+    latin-1, leía "Âµ" y no convertía: los tres canales quedaban en volts,
+    con la unidad "ÂµV" y fuera del EEG. Encontrado en el hito 33."""
+    vhdr = escribir_brainvision(tmp_path, segundos=3, codepage=None)
+    registro = read_recording(vhdr)
+
+    assert [canal.unit for canal in registro.channels] == [MICROVOLT] * 3
+    assert registro.channel_by_name("C3").kind is ChannelKind.EEG
+    pico = float(np.max(np.abs(registro.data[0])))
+    assert pico == pytest.approx(50.0, abs=RESOLUCION_BV_UV)
+
+
+def test_las_coordenadas_no_pisan_las_unidades(tmp_path: Path):
+    """`[Coordinates]` también tiene líneas `Ch<n>=`, y no hablan de unidades.
+    Leyendo la cabecera por posición, sin mirar la sección, un canal en mV se
+    quedaba con la unidad por omisión."""
+    vhdr = escribir_brainvision(
+        tmp_path, segundos=3, canales=[("C3", "mv"), ("C4", "µV")], coordenadas=True
+    )
+    registro = read_recording(vhdr)
+
+    picos = [float(np.max(np.abs(fila))) for fila in registro.data]
+    assert picos == pytest.approx([50.0, 30.0], abs=RESOLUCION_BV_UV)
+
+
 # -- Cuarta parte: el EDF sintético, que también corre en todas partes --------
 #
 # Lo mismo que la tercera, para el otro formato. Hasta el hito 33 el lector de
@@ -532,9 +581,11 @@ def test_la_senal_del_edf_queda_en_microvoltios(tmp_path: Path, unidad: str):
     """**El gemelo sintético de `test_la_senal_electrica_queda_en_microvoltios`.**
 
     Una unidad por caso, con la señal escrita en esa unidad. MNE entrega volts
-    para las que reconoce y el lector las lleva a µV: si alguna de las dos
-    conversiones se aplicara de más o de menos, el pico se va por un factor mil
-    o un millón.
+    para las grafías que reconoce y deja como vienen las demás, y el lector
+    tiene que saber cuál de las dos cosas pasó: si se equivoca, el pico se va
+    por un factor mil o un millón. `uv`, `UV`, `mv` y `nV` son las que el hito
+    33 encontró rotas; la mu de Shift-JIS es la que MNE sí reconoce y la
+    detección de unidades no.
     """
     edf = escribir_edf(tmp_path, segundos=3, canales=[("EEG C3-A2", unidad, FRECUENCIA_EDF)])
     registro = read_recording(edf)
@@ -613,3 +664,65 @@ def test_las_clases_se_detectan_sobre_el_edf_sintetico(edf_sintetico: Path):
         "EOG izquierdo": ChannelKind.EOG,
         "EMG submental": ChannelKind.EMG,
     }
+
+
+def test_dos_canales_del_edf_con_la_misma_etiqueta_quedan_en_microvoltios(tmp_path: Path):
+    """**El otro error de escala del hito 33.** MNE renombra los repetidos
+    (`EEG-0`, `EEG-1`), y la cabecera se buscaba por nombre: no los encontraba y
+    los dejaba en volts, sin unidad y fuera del EEG. Ahora se empareja por
+    posición."""
+    edf = escribir_edf(
+        tmp_path,
+        segundos=3,
+        canales=[("EEG", "uV", FRECUENCIA_EDF), ("EEG", "mV", FRECUENCIA_EDF)],
+    )
+    registro = read_recording(edf)
+
+    assert registro.channel_names() == ["EEG-0", "EEG-1"]
+    assert [canal.unit for canal in registro.channels] == [MICROVOLT, MICROVOLT]
+    picos = [float(np.max(np.abs(fila))) for fila in registro.data]
+    assert picos == pytest.approx(list(PICOS_EDF_UV[:2]), rel=1e-3)
+
+
+def test_el_canal_de_anotaciones_no_corre_las_unidades(tmp_path: Path):
+    """MNE saca de la señal el canal `EDF Annotations` de un EDF+, y el lector
+    tiene que sacarlo igual para que las posiciones de la cabecera coincidan: si
+    no, el canal de después se quedaría con la unidad y la frecuencia del de
+    anotaciones."""
+    edf = escribir_edf(
+        tmp_path,
+        segundos=3,
+        canales=[
+            ("EEG C3-A2", "uV", FRECUENCIA_EDF),
+            (ANOTACIONES_EDF, "", 30.0),
+            ("EMG submental", "mV", FRECUENCIA_EDF),
+        ],
+    )
+    registro = read_recording(edf)
+
+    assert registro.channel_names() == ["EEG C3-A2", "EMG submental"]
+    emg = registro.channel_by_name("EMG submental")
+    assert emg.unit == MICROVOLT
+    assert emg.original_sampling_rate == FRECUENCIA_EDF
+    # El pico sale de la posición en el archivo, que es la tercera.
+    assert float(np.max(np.abs(registro.data[emg.index]))) == pytest.approx(
+        PICOS_EDF_UV[2], rel=1e-3
+    )
+
+
+def test_una_unidad_ambigua_queda_como_vino(tmp_path: Path):
+    """«MV» puede ser mega o mili, y `utils/units.py` se niega a adivinar. El
+    canal queda con los números del archivo y con su unidad a la vista, en vez
+    de convertirse con un factor inventado o de impedir abrir el registro
+    entero por un solo canal."""
+    edf = escribir_edf(
+        tmp_path,
+        segundos=3,
+        canales=[("EEG C3-A2", "uV", FRECUENCIA_EDF), ("EMG submental", "MV", FRECUENCIA_EDF)],
+    )
+    registro = read_recording(edf)
+    emg = registro.channel_by_name("EMG submental")
+
+    assert emg.unit == "MV"
+    assert float(registro.data[emg.index].max()) == pytest.approx(TEMPERATURA_EDF + 0.5, abs=1e-3)
+    assert registro.channels[0].unit == MICROVOLT

@@ -17,8 +17,11 @@ convertido igual que los que sí la declaran. Tratar la unidad vacía como "no
 sé" —que es lo que corresponde en EDF— dejaría un canal de EEG sin convertir, un
 millón de veces más chico que sus vecinos.
 
-Igual que en EDF, **MNE entrega volts** para lo que reconoce como voltaje, así
-que la conversión de acá es de volt a microvolt.
+Igual que en EDF, **MNE entrega volts** para lo que reconoce como voltaje y deja
+como viene lo que no reconoce, así que el factor de cada canal depende de qué
+hizo MNE con él: de volt a microvolt si lo convirtió, desde su unidad si no. La
+regla de MNE distingue mayúsculas y grafías, y la de `utils/units.py` no: ver
+`_UNIDADES_QUE_MNE_PASA_A_VOLTS` y el docstring de `readers/edf.py` (hito 33).
 
 **Límite conocido, medido sobre el archivo de prueba.** Para las unidades que no
 son de voltaje, MNE aplica el prefijo SI de forma inconsistente: escaló un canal
@@ -31,9 +34,10 @@ mide —EEG, EOG y EMG— son de voltaje y para ésos la conversión es exacta.
 Cubre del pliego: V1_F de "Importación de archivos".
 """
 
-from pathlib import Path
-
+import configparser
 import math
+import re
+from pathlib import Path
 from typing import Final
 
 import mne
@@ -42,12 +46,21 @@ import numpy as np
 from psglab.core.recording import Channel, Recording
 from psglab.readers.base import Reader, register_reader
 from psglab.readers.channel_types import detect_channel_kind
-from psglab.utils.errors import UnreadableFileError
+from psglab.utils.errors import UnknownUnitError, UnreadableFileError
 from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
 
 #: Unidad en la que MNE entrega los canales de voltaje. Ver `readers/edf.py`,
 #: donde está medido contra el rango físico de la cabecera.
 _UNIDAD_DE_MNE = "V"
+
+#: Las unidades que MNE lleva a volts al leer un BrainVision, exactamente como
+#: las compara él: son las de voltaje de su `_unit_dict` (MNE 1.12), con el
+#: signo micro y no la mu griega. Las demás grafías —`uv`, `μV` con la mu
+#: griega— las deja como vienen, y el lector las convierte desde su unidad. Es
+#: la misma regla que en `readers/edf.py`, con la tabla de este formato.
+_UNIDADES_QUE_MNE_PASA_A_VOLTS: frozenset[str] = frozenset(
+    {"V", "µV", "uV", "mV", "nV"}
+)
 
 #: Lo que significa el campo de unidad vacío en la línea `Ch<n>=` del `.vhdr`.
 _UNIDAD_POR_DEFECTO = MICROVOLT
@@ -114,7 +127,7 @@ def _impedancias_declaradas(crudo: object, nombres: list[str]) -> dict[str, floa
 
 
 def _decodificar_cabecera(crudo: bytes) -> str:
-    """Decodifica el `.vhdr` respetando la codificación que él mismo declara.
+    """Decodifica el `.vhdr` **como lo decodifica MNE**.
 
     La cabecera trae una línea `Codepage=` en `[Common Infos]`. **Ignorarla no
     es cosmético**: el archivo de prueba de MNE declara UTF-8, y leerlo como
@@ -123,56 +136,89 @@ def _decodificar_cabecera(crudo: bytes) -> str:
     23 canales de EEG quedaban **sin convertir**, un millón de veces más chicos,
     y además clasificados como OTHER porque el veto de la unidad se los comía.
 
-    Sin declaración se usa latin-1, que es el valor tradicional del formato y
-    además nunca falla: cualquier byte es un carácter válido.
+    **Sin declaración se usa UTF-8, y si no se puede, latin-1**, que es la
+    regla de MNE (`_aux_hdr_info`). Hasta el hito 33 acá se usaba latin-1
+    directamente, y con un `.vhdr` sin `Codepage` escrito en UTF-8 pasaba lo
+    mismo que arriba, por el otro lado: MNE entendía "µV" y convertía a volts,
+    y este lector leía otra unidad y no convertía. Lo que importa no es cuál
+    decodificación es la correcta sino **que sea la misma que la de MNE**: la
+    unidad sólo sirve para saber qué hizo MNE con la señal.
     """
-    sondeo = crudo[:4096].decode("ascii", errors="ignore")
-    declarada = ""
-    for linea in sondeo.splitlines():
-        if linea.lower().startswith("codepage="):
-            declarada = linea.partition("=")[2].strip()
-            break
-
-    for codec in (declarada, "latin-1"):
-        if not codec:
-            continue
-        try:
-            return crudo.decode(codec)
-        except (LookupError, UnicodeDecodeError):
-            continue
-    return crudo.decode("latin-1", errors="replace")
+    declarada = re.search(r"Codepage=(.+)", crudo.decode("ascii", errors="ignore"), re.IGNORECASE)
+    codepage = declarada.group(1).strip() if declarada else "utf-8"
+    # BrainAmp Recorder escribe "ANSI", que Python no conoce con ese nombre.
+    if codepage == "ANSI":
+        codepage = "cp1252"
+    try:
+        return crudo.decode(codepage)
+    except (LookupError, UnicodeDecodeError):
+        return crudo.decode("latin-1")
 
 
-def _unidades_declaradas(path: Path) -> dict[str, str]:
-    """Unidad de cada canal, leída de las líneas `Ch<n>=` del `.vhdr`.
+def _unidades_declaradas(path: Path) -> dict[int, str]:
+    """Unidad de cada canal **por posición**, leída como la lee MNE.
 
     MNE consume la unidad al convertir y después no la expone: `info["chs"]`
     dice "V" para todos los canales, **incluidos los que no convirtió**. Está
     medido en `readers/edf.py`, donde ese metadato afirmaba que una temperatura
     en grados estaba en volts.
 
-    Devuelve un diccionario vacío si la cabecera no se puede interpretar: son
-    datos accesorios y perderlos es mejor que no poder abrir el archivo.
+    Se replica el parseo de MNE (hito 33), porque la unidad sólo sirve para
+    saber qué hizo él con cada canal:
+
+    - sólo la sección `[Channel Infos]` y nada de lo que sigue a `[Comment]`;
+      las líneas `Ch<n>=` de `[Coordinates]` tienen otro significado;
+    - la posición sale del `<n>` de `Ch<n>`, que es como MNE ordena sus canales,
+      y no del nombre, que MNE modifica —cambia `\\1` por coma—;
+    - la unidad va **sin recortar** y sin el `\\xc2` que deja un UTF-8 leído como
+      latin-1, que es lo único que MNE le quita. Vacía o ausente es µV.
+
+    Returns:
+        La unidad de cada posición, o un diccionario vacío si la cabecera no se
+        puede leer.
     """
-    unidades: dict[str, str] = {}
     try:
         crudo = path.read_bytes()
     except OSError:
         return {}
     texto = _decodificar_cabecera(crudo)
+    # La primera línea es la del formato y no es de configuración.
+    cuerpo = texto.split("\n", 1)[1] if "\n" in texto else ""
+    parametros = cuerpo.split("[Comment]", 1)[0]
+    lector = configparser.ConfigParser(interpolation=None)
+    try:
+        lector.read_string(parametros)
+        filas = lector.items("Channel Infos")
+    except configparser.Error:
+        return {}
 
-    for linea in texto.splitlines():
-        if not linea.startswith("Ch") or "=" not in linea:
+    unidades: dict[int, str] = {}
+    for clave, valor in filas:
+        # `configparser` pasa las claves a minúscula: "Ch1" llega como "ch1".
+        numero = re.search(r"ch(\d+)", clave)
+        if numero is None:
             continue
-        etiqueta, _, resto = linea.partition("=")
-        if not etiqueta[2:].isdigit():
-            continue
-        campos = resto.split(",")
-        if not campos or not campos[0].strip():
-            continue
-        declarada = campos[3].strip() if len(campos) > 3 else ""
-        unidades[campos[0].strip()] = declarada or _UNIDAD_POR_DEFECTO
+        campos = valor.split(",")
+        declarada = campos[3].replace("\xc2", "") if len(campos) > 3 else ""
+        unidades[int(numero.group(1)) - 1] = declarada or _UNIDAD_POR_DEFECTO
     return unidades
+
+
+def _factor_a_microvoltios(unidad: str) -> float | None:
+    """Por cuánto multiplicar la fila que entregó MNE para tenerla en µV.
+
+    La misma regla que en `readers/edf.py`, con la tabla de este formato: si MNE
+    la llevó a volts, de volt a microvolt; si no y es eléctrica, desde su unidad;
+    si no es eléctrica, o es ambigua, None y queda como vino.
+    """
+    if unidad in _UNIDADES_QUE_MNE_PASA_A_VOLTS:
+        return conversion_factor(_UNIDAD_DE_MNE)
+    if not is_electrical(unidad):
+        return None
+    try:
+        return conversion_factor(unidad)
+    except UnknownUnitError:
+        return None
 
 
 @register_reader
@@ -222,22 +268,38 @@ class BrainVisionReader(Reader):
             )
 
         declaradas = _unidades_declaradas(path)
+        if not declaradas:
+            # Sin la unidad no se sabe qué hizo MNE con cada canal, y adivinar
+            # deja la señal corrida en un factor mil o un millón (hito 33).
+            raise UnreadableFileError(
+                f"No se pudo leer el registro '{path.name}': no se entiende en qué "
+                "unidad está cada canal.",
+                details="La sección [Channel Infos] del .vhdr no se pudo interpretar.",
+            )
         datos = np.asarray(crudo.get_data(), dtype=float)
 
         canales: list[Channel] = []
         for posicion, nombre in enumerate(crudo.ch_names):
-            unidad_declarada = declaradas.get(nombre, _UNIDAD_POR_DEFECTO)
-            if is_electrical(unidad_declarada):
+            # Por posición: un canal que MNE agrega y la cabecera no nombra
+            # —el de las exportaciones con cabecera ASCII— lo entrega en volts,
+            # que es lo que dice µV para esta regla.
+            unidad_declarada = declaradas.get(posicion, _UNIDAD_POR_DEFECTO)
+            factor = _factor_a_microvoltios(unidad_declarada)
+            if factor is not None:
                 # En sitio, por lo mismo que en `edf.py`: `to_microvolts()`
                 # copiaría el canal entero para descartarlo enseguida.
-                datos[posicion] *= conversion_factor(_UNIDAD_DE_MNE)
+                datos[posicion] *= factor
                 unidad_de_la_fila = MICROVOLT
             else:
                 unidad_de_la_fila = unidad_declarada
             canales.append(
                 Channel(
                     name=nombre,
-                    kind=detect_channel_kind(nombre, unidad_declarada),
+                    # Igual que en `edf.py`: si se convirtió, la detección recibe
+                    # µV y no una grafía que el veto de la unidad no reconozca.
+                    kind=detect_channel_kind(
+                        nombre, MICROVOLT if factor is not None else unidad_declarada
+                    ),
                     unit=unidad_de_la_fila,
                     index=posicion,
                     # BrainVision usa una sola frecuencia para todo el registro,
