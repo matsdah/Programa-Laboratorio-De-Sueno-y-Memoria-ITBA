@@ -810,3 +810,13 @@ def test_precalentar_no_lee_ningun_archivo(monkeypatch, registro_aislado):
     warm_up_readers()
 
     assert leidos == []
+
+
+@pytest.mark.parametrize("nombre", ["no_existe.edf", "no_existe.vhdr"])
+def test_un_archivo_que_no_esta_no_se_informa_como_danado(tmp_path: Path, nombre: str):
+    """Decir que está dañado manda a buscar el problema al lugar equivocado: el
+    archivo puede estar en otra carpeta, o el disco de la noche sin montar."""
+    with pytest.raises(UnreadableFileError) as error:
+        read_recording(tmp_path / nombre)
+
+    assert "no se encontró" in str(error.value).lower()

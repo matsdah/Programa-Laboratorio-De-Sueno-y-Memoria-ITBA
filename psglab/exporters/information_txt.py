@@ -162,7 +162,12 @@ def _seccion_de_scoring(recording: Recording, scoring: Scoring) -> list[str]:
 
     lineas += [
         "",
-        "Métricas por fase, sobre episodios continuos:",
+        # **Por qué se aclara** (hito 33): estas métricas cuentan ventanas
+        # completas y la tabla de arriba, la duración real, así que con la
+        # última ventana incompleta un único episodio de una fase puede
+        # promediar más que el total de esa fase. Los dos números son correctos
+        # y miden cosas distintas; sin esta línea, el informe se contradice.
+        "Métricas por fase, sobre episodios continuos de ventanas completas:",
         f"  {'fase':5} {'promedio':>18} {'desvío':>18} {'mediana':>18}",
     ]
     for fase, episodios in stage_episodes(scoring).items():

@@ -71,7 +71,11 @@ def _leer_lineas(path: Path) -> list[str]:
             details=f"{type(error).__name__}: {error}",
         ) from error
 
-    for codec in ("utf-8", "latin-1"):
+    # **"utf-8-sig" y no "utf-8"** (hito 33): lee igual un archivo sin marca de
+    # orden de bytes y le saca la marca al que la tiene. El Bloc de notas de
+    # Windows la escribe, y con ella la cabecera `# AASM` no se reconocía y la
+    # primera línea salía como "un valor que no es un número entero".
+    for codec in ("utf-8-sig", "latin-1"):
         try:
             return crudo.decode(codec).splitlines()
         except UnicodeDecodeError:
@@ -156,6 +160,8 @@ def read_scoring(
 
     lleva_numero = _lleva_numero_de_ventana(datos)
     scoring = Scoring(n_windows, elegida)
+    #: En qué línea se vio cada ventana, para poder nombrar las dos si se repite.
+    vistas: dict[int, int] = {}
 
     for posicion, (numero_de_linea, linea) in enumerate(datos):
         campos = linea.split()
@@ -190,6 +196,28 @@ def read_scoring(
                 f"El scoring de '{path.name}' no corresponde a este registro: nombra la "
                 f"ventana {indice + 1} y el registro tiene {n_windows}.",
                 details=f"Línea {numero_de_linea}: {linea!r}.",
+            )
+
+        # **Dos líneas para la misma ventana** (hito 33). Pasaba en silencio y
+        # ganaba la última, así que el scoring que se veía dependía del orden
+        # del archivo. Sólo puede pasar con el formato de tres campos: sin el
+        # número de ventana, la posición de la línea es la ventana.
+        if indice in vistas:
+            raise UnreadableFileError(
+                f"El scoring de '{path.name}' nombra dos veces la ventana "
+                f"{indice + 1}, así que no se sabe cuál de las dos vale.",
+                details=f"Línea {numero_de_linea}: {linea!r}; ya estaba en la {vistas[indice]}.",
+            )
+        vistas[indice] = numero_de_linea
+
+        # El arousal es una marca: está puesta o no lo está. Cualquier otro
+        # número se tomaba como puesta, así que un archivo con un 2 o un -1 se
+        # leía sin avisar y el scoring decía algo que el archivo no dice.
+        if arousal not in (0, 1):
+            raise UnreadableFileError(
+                f"La línea {numero_de_linea} de '{path.name}' marca el arousal con "
+                f"{arousal}, y sólo puede ser 0 o 1.",
+                details=f"Se leyó {linea!r}.",
             )
 
         try:

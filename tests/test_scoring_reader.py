@@ -358,3 +358,42 @@ def test_una_extension_desconocida_se_sigue_leyendo_como_scoring_txt(tmp_path):
     ruta.write_text("# AASM\n2 0\n", encoding="utf-8")
 
     assert read_scoring(ruta, 1).get(0).stage is SleepStage.N2
+
+
+# -- Lo que se leía sin avisar (hito 33) --------------------------------------
+
+
+def test_un_scoring_con_marca_de_orden_de_bytes_se_lee(tmp_path: Path):
+    """El Bloc de notas de Windows la escribe. Con ella, la cabecera `# AASM`
+    no se reconocía y la primera línea salía como «un valor que no es un número
+    entero»: el archivo no se podía importar de ninguna manera."""
+    archivo = tmp_path / "Scoring.txt"
+    archivo.write_text("\ufeff# AASM\n2 0\n3 1\n", encoding="utf-8")
+
+    scoring = read_scoring(archivo, 2)
+
+    assert scoring.nomenclature is Nomenclature.AASM
+    assert [fase.value for fase in scoring.stages()] == ["N2", "N3"]
+
+
+@pytest.mark.parametrize("marca", ["2", "-1", "7"])
+def test_un_arousal_que_no_es_cero_ni_uno_se_rechaza(tmp_path: Path, marca: str):
+    """Es una marca: está puesta o no. Cualquier número se tomaba como puesta,
+    así que el scoring decía algo que el archivo no dice."""
+    archivo = tmp_path / "Scoring.txt"
+    archivo.write_text(f"# AASM\n2 {marca}\n", encoding="utf-8")
+
+    with pytest.raises(UnreadableFileError):
+        read_scoring(archivo, 1)
+
+
+def test_una_ventana_nombrada_dos_veces_se_rechaza(tmp_path: Path):
+    """Con tres campos, dos líneas pueden nombrar la misma ventana: ganaba la
+    última, así que el scoring dependía del orden del archivo."""
+    archivo = tmp_path / "Scoring.txt"
+    archivo.write_text("# AASM\n1 2 0\n1 3 0\n", encoding="utf-8")
+
+    with pytest.raises(UnreadableFileError) as error:
+        read_scoring(archivo, 3)
+
+    assert "ventana 1" in str(error.value)

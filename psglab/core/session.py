@@ -811,7 +811,15 @@ class Session:
             tramo = self._recording.get_segment(inicio, fin, [nombre])
             if tramo.size == 0:
                 continue
-            self._offsets_uv[nombre] = float(np.mean(tramo))
+            # **Sin los valores que no son números** (hito 33). `np.mean` con un
+            # solo NaN devuelve NaN, y acá se escribía directo en el diccionario,
+            # salteando la guarda de `set_offset_uv()`: el canal se dejaba de
+            # dibujar y no había ningún cartel. Un canal entero sin valores
+            # finitos no tiene dónde apoyarse y se queda como está.
+            finitos = tramo[np.isfinite(tramo)]
+            if finitos.size == 0:
+                continue
+            self.set_offset_uv(nombre, float(np.mean(finitos)))
 
     def fit_to_pane(self, window_index: int | None = None) -> None:
         """Ajusta la escala de cada canal para que su señal entre en el carril.
@@ -839,7 +847,13 @@ class Session:
             tramo = self._recording.get_segment(inicio, fin, [nombre])
             if tramo.size == 0:
                 continue
-            apartamiento = float(np.max(np.abs(tramo - self.offset_uv(nombre))))
+            # Los valores que no son números se descartan, como en
+            # `center_offsets()`: con uno solo, el máximo salía NaN y el canal
+            # se quedaba sin ajustar aunque el resto de la ventana sirviera.
+            finitos = tramo[np.isfinite(tramo)]
+            if finitos.size == 0:
+                continue
+            apartamiento = float(np.max(np.abs(finitos - self.offset_uv(nombre))))
             if apartamiento <= 0.0 or not np.isfinite(apartamiento):
                 continue
             self.set_scale_uv(nombre, apartamiento)

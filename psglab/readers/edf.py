@@ -241,6 +241,13 @@ class EdfReader(Reader):
                 trae ninguna señal —el caso de un hipnograma, que es un EDF+ de
                 anotaciones y no un registro—.
         """
+        if not path.exists():
+            # Antes caía en el `except` de abajo y se informaba como dañado, que
+            # manda a buscar el problema al lugar equivocado (hito 33).
+            raise UnreadableFileError(
+                f"No se encontró el archivo '{path.name}'.",
+                details=f"No existe {path}.",
+            )
         try:
             crudo = mne.io.read_raw_edf(path, preload=True, verbose="ERROR")
         except Exception as error:  # noqa: BLE001 - MNE eleva de todo

@@ -248,6 +248,13 @@ class BrainVisionReader(Reader):
             UnreadableFileError: si falta el .eeg o el .vmrk que referencia la
                 cabecera, o si el archivo está corrupto.
         """
+        if not path.exists():
+            # Por lo mismo que en `edf.py`: informar "dañado" un archivo que no
+            # está manda a buscar el problema al lugar equivocado (hito 33).
+            raise UnreadableFileError(
+                f"No se encontró el archivo '{path.name}'.",
+                details=f"No existe {path}.",
+            )
         try:
             crudo = mne.io.read_raw_brainvision(path, preload=True, verbose="ERROR")
         except Exception as error:  # noqa: BLE001 - MNE eleva de todo

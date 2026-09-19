@@ -3662,3 +3662,57 @@ def test_una_banda_sobre_nyquist_sale_como_cartel(
 
     assert len(ventana.carteles) == 1
     assert f"{nyquist:g} Hz" in ventana.carteles[0]
+
+
+# -- Lo que se mostraba sin explicar (hito 33) -------------------------------
+
+
+def test_la_barra_de_estado_no_se_queda_calculando(ventana: MainWindow, elige_opciones):
+    """El aviso de «trabajando» no vencía y nadie lo borraba: con el resultado
+    ya en pantalla, la barra seguía diciendo que estaba calculando."""
+    elige_opciones(("Delta", True))
+
+    ventana.show_connectivity_dialog()
+
+    assert "…" not in ventana.statusBar().currentMessage()
+
+
+@pytest.mark.parametrize(
+    ("respuesta", "sobrescribe"),
+    [(QMessageBox.StandardButton.Yes, True), (QMessageBox.StandardButton.No, False)],
+)
+def test_el_nombre_sin_extension_pregunta_antes_de_pisar(
+    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado, monkeypatch,
+    respuesta, sobrescribe: bool,
+):
+    """La extensión se agrega **después** de que el diálogo confirmó, así que el
+    archivo que se iba a pisar no era el que el usuario vio: escribía «noche» y
+    se sobrescribía «noche.txt» sin preguntar."""
+    ya_estaba = tmp_path / "noche.txt"
+    ya_estaba.write_text("lo que habia antes", encoding="utf-8")
+    dialogo_de_guardado["respuesta"] = tmp_path / "noche"
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: respuesta))
+
+    ventana.export_scoring_dialog("txt")
+
+    piso = ya_estaba.read_text(encoding="utf-8") != "lo que habia antes"
+    assert piso is sobrescribe
+
+
+def test_el_espectro_dice_que_una_banda_queda_fuera(
+    ventana: MainWindow, elige_opciones
+):
+    """Una banda por encima de lo que el registro alcanza da potencia cero, y un
+    cero no se distingue de un cero real."""
+    nyquist = FRECUENCIA_BV / 2
+    ventana.apply_preferences(
+        ventana.current_preferences.with_bands(
+            {"Delta": (0.5, 4.0), "Alta": (nyquist + 10, nyquist + 40)}
+        )
+    )
+    elige_opciones(("C3", True))
+
+    ventana.show_psd_dialog()
+
+    assert "Alta" in ventana.psd_panel.caption()
+    assert f"{nyquist:g} Hz" in ventana.psd_panel.caption()

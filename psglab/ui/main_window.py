@@ -1850,13 +1850,18 @@ class MainWindow(QMainWindow):
         primera llamada de complejidad de cada sesión se lleva unos 21 s
         compilando**, cualquiera sea la medida, porque `antropy` arrastra
         `numba` y compila al importarse. Desde el hito 31 esa compilación se
-        adelanta en otro hilo al arrancar: ver `warm_up_analysis()`.
+        adelanta en otro hilo al arrancar: ver `warm_up_in_background()`.
 
         El cursor se pone antes de bloquear y Qt lo aplica en el acto; la barra
-        de estado queda con el aviso hasta que el cálculo termina.
+        de estado queda con el aviso **hasta que el cálculo termina, y no
+        después** (hito 33): el mensaje no vencía y nadie lo borraba, así que la
+        barra seguía diciendo «Calculando…» con el resultado ya en pantalla.
+        Sólo se borra si sigue siendo el suyo: el que termina bien deja el
+        propio, como «Se filtró la señal».
         """
+        aviso = f"{que_hace}…"
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        self.statusBar().showMessage(f"{que_hace}…")
+        self.statusBar().showMessage(aviso)
         # `processEvents` una sola vez, para que el cursor y el mensaje lleguen
         # a la pantalla antes de que el hilo se bloquee. No es un bucle de
         # eventos: no se procesa nada más hasta que el cálculo termina.
@@ -1865,6 +1870,8 @@ class MainWindow(QMainWindow):
             yield
         finally:
             QApplication.restoreOverrideCursor()
+            if self.statusBar().currentMessage() == aviso:
+                self.statusBar().clearMessage()
 
     # -- Análisis (Parte 2) --------------------------------------------------
 
@@ -2136,6 +2143,23 @@ class MainWindow(QMainWindow):
         descripcion = f"Espectro de «{canal}» — ventana {ventana + 1}"
         if self._planos_en_la_ventana(ventana, [canal]):
             descripcion += "<br>El canal está plano en esta ventana: no hay potencia que medir."
+        # **Una banda por encima de lo que el registro alcanza da cero**, y un
+        # cero no se distingue de un cero real: se dice cuáles y hasta dónde
+        # llega el archivo (hito 33). La regla es la misma que usa `band_power`:
+        # la banda es semiabierta, `[desde, hasta)`.
+        sin_medir = [
+            nombre
+            for nombre, (desde, hasta) in bandas.items()
+            if not ((frecuencias >= desde) & (frecuencias < hasta)).any()
+        ]
+        if sin_medir:
+            tope = self._session.recording.sampling_rate / 2
+            descripcion += (
+                f"<br>{self._nombrar(sin_medir)} "
+                f"{'queda' if len(sin_medir) == 1 else 'quedan'} fuera de lo que este "
+                f"registro puede medir, que llega hasta {tope:g} Hz: su potencia sale "
+                "en cero."
+            )
         self.psd_panel.set_caption(descripcion)
         self.psd_dialog.show()
         self.psd_dialog.raise_()
@@ -2596,6 +2620,18 @@ class MainWindow(QMainWindow):
         destino = Path(ruta)
         if destino.suffix.lower() != f".{fmt}":
             destino = destino.with_name(f"{destino.name}.{fmt}")
+            # **La extensión se agrega después de que el diálogo confirmó**, así
+            # que el archivo que se va a pisar no es el que el usuario vio: con
+            # «noche» escrito a mano, el diálogo pregunta por «noche» y el que
+            # se escribe es «noche.txt». Se pregunta de nuevo (hito 33).
+            if destino.exists():
+                respuesta = QMessageBox.question(
+                    self,
+                    "Ya existe",
+                    f"«{destino.name}» ya existe. ¿Reemplazarlo?",
+                )
+                if respuesta != QMessageBox.StandardButton.Yes:
+                    return
         self.export(kind, destino)
 
     def _go_to_window(self, window_index: int) -> None:

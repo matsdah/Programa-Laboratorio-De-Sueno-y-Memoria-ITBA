@@ -12,6 +12,8 @@ ventana, que es el motivo por el que `Session` vive en `core/` y no en `ui/`.
 
 from pathlib import Path
 
+import math
+
 import numpy as np
 import pytest
 
@@ -1169,3 +1171,55 @@ def test_lo_importado_esta_en_su_archivo(session):
     session.set_scoring(importado)
 
     assert not session.has_unexported_scoring()
+
+
+# -- Un canal con valores que no son números (hito 33) ------------------------
+
+
+def sesion_con_nan(recording: Recording, muestras: slice) -> Session:
+    """La misma sesión, con un tramo del primer canal sin valores."""
+    datos = np.array(recording.data, copy=True)
+    datos[0, muestras] = np.nan
+    con_nan = Recording(
+        file_path=recording.file_path,
+        channels=list(recording.channels),
+        data=datos,
+        sampling_rate=recording.sampling_rate,
+    )
+    return Session(
+        con_nan,
+        Scoring(VENTANAS_SINTETICAS, Nomenclature.AASM),
+        AnnotationSet(),
+    )
+
+
+def test_ajustar_el_offset_saltea_los_valores_que_no_son_numeros(recording, channel_names):
+    """`np.mean` con un solo NaN devuelve NaN, y se escribía directo en el
+    diccionario salteando la guarda de `set_offset_uv()`: el canal se dejaba de
+    dibujar y no había ningún cartel."""
+    sesion = sesion_con_nan(recording, slice(10, 20))
+
+    sesion.center_offsets(0)
+
+    assert math.isfinite(sesion.offset_uv(channel_names[0]))
+
+
+def test_un_canal_sin_ningun_valor_se_queda_como_estaba(recording, channel_names):
+    """No hay dónde apoyarlo, y dejarlo en NaN es peor que no moverlo."""
+    sesion = sesion_con_nan(recording, slice(None))
+
+    sesion.center_offsets(0)
+
+    assert sesion.offset_uv(channel_names[0]) == 0.0
+
+
+def test_ajustar_al_panel_saltea_los_valores_que_no_son_numeros(recording, channel_names):
+    """Con un NaN, el máximo salía NaN y el canal se quedaba sin ajustar aunque
+    el resto de la ventana sirviera."""
+    sesion = sesion_con_nan(recording, slice(10, 20))
+    antes = sesion.scale_uv(channel_names[0])
+
+    sesion.fit_to_pane(0)
+
+    assert sesion.scale_uv(channel_names[0]) != antes
+    assert math.isfinite(sesion.scale_uv(channel_names[0]))
