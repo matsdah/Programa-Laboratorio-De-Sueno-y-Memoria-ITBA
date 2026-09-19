@@ -122,3 +122,21 @@ def test_una_matriz_con_nan_no_rompe(panel: ConnectivityPanel):
     panel.set_matrix(np.full((2, 2), np.nan), ["A", "B"])
 
     assert panel.channels() == ["A", "B"]
+
+
+# -- La pista con el panel vacío (hito 30) --------------------------------------
+
+
+def test_la_pista_se_lee_con_el_panel_vacio(panel: ConnectivityPanel):
+    """Se puede mostrar sin resultado —desde «Herramientas», o después de que
+    cambió la señal— y un gráfico en blanco no dice qué hacer con él."""
+    panel.set_hint("Se pide desde Analizar")
+    assert panel.visible_hint() == "Se pide desde Analizar"
+
+
+def test_la_pista_se_va_con_un_resultado_y_vuelve_al_vaciarlo(panel: ConnectivityPanel):
+    panel.set_hint("Se pide desde Analizar")
+    panel.set_matrix(np.eye(2), ["C3", "C4"])
+    assert panel.visible_hint() == ""
+    panel.clear_matrix()
+    assert panel.visible_hint() == "Se pide desde Analizar"

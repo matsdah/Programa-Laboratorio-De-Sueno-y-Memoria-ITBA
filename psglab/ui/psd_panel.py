@@ -61,6 +61,9 @@ class PsdPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         """Crea el panel vacío, antes de que haya ningún espectro calculado."""
         super().__init__(parent)
+        #: Desde qué menú se pide lo que muestra este panel. Ver `set_hint()`.
+        self._pista: str = ""
+        self._pista_visible: bool = False
         self._curvas: dict[str, pg.PlotDataItem] = {}
         #: Los valores tal como se los pasaron, en µV²/Hz. **No se leen de la
         #: curva.** Con el eje en logarítmico, `PlotDataItem.getData()` devuelve
@@ -178,6 +181,7 @@ class PsdPanel(QWidget):
 
         if frecuencias.size:
             item.setXRange(float(frecuencias[0]), float(frecuencias[-1]), padding=0.02)
+        self._reflejar_pista()
 
     def set_method_description(self, text: str) -> None:
         """Dice con qué se estimó el espectro, arriba del gráfico.
@@ -232,6 +236,29 @@ class PsdPanel(QWidget):
         """Vacía la tabla de potencias."""
         self._potencias = {}
         self.tabla.setRowCount(0)
+
+    # -- Con el panel vacío ---------------------------------------------------
+
+    def set_hint(self, text: str) -> None:
+        """Lo que se lee mientras el panel está vacío: desde qué menú se pide.
+
+        **Existe porque el panel se puede mostrar sin resultado**: desde
+        «Herramientas», o después de que cambió la señal y el resultado se
+        descartó. Un gráfico en blanco no dice qué hacer con él. El texto lo
+        arma la ventana principal con `menus.menu_path()`, así que sigue al
+        menú si alguien lo renombra.
+        """
+        self._pista = text
+        self._reflejar_pista()
+
+    def visible_hint(self) -> str:
+        """La pista que se lee hoy, o vacío si el panel tiene un resultado."""
+        return self._pista if self._pista_visible else ""
+
+    def _reflejar_pista(self) -> None:
+        """Muestra la pista como título del gráfico, sólo con el panel vacío."""
+        self._pista_visible = bool(self._pista) and not self._curvas
+        self.grafico.getPlotItem().setTitle(self._pista if self._pista_visible else None)
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 

@@ -124,7 +124,7 @@ from psglab.ui import preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.docks import ORDEN_DE_ANALISIS, build_docks
 from psglab.ui.icons import icon
-from psglab.ui.menus import build_menus, duration_text
+from psglab.ui.menus import build_menus, duration_text, menu_path
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.playback import PlaybackClock
@@ -324,6 +324,28 @@ class MainWindow(QMainWindow):
         `_build_tools_menu()`.
         """
         build_menus(self)
+        self._poner_pistas()
+
+    def _poner_pistas(self) -> None:
+        """Les dice a los paneles de resultados desde qué menú se piden.
+
+        Se ven con el panel vacío: al mostrarlo desde «Herramientas», o después
+        de que un cambio de la señal descartó el resultado. Las rutas salen del
+        menú armado con `menu_path()`, así que siguen al menú si se lo renombra.
+        """
+        pistas = (
+            (self.psd_panel, ("show_psd_dialog",)),
+            (self.metric_panel, ("show_complexity_dialog", "show_connectivity_night_dialog")),
+            (self.connectivity_panel, ("show_connectivity_dialog",)),
+            (self.ica_panel, ("show_ica_dialog",)),
+        )
+        for panel, metodos in pistas:
+            rutas = [ruta for ruta in (menu_path(self, m) for m in metodos) if ruta]
+            if rutas:
+                # **Una ruta por renglón.** El título de pyqtgraph no corta
+                # líneas, y las dos de la métrica juntas no entran en el ancho
+                # de la pila de análisis.
+                panel.set_hint("Se pide desde " + "<br>o desde ".join(rutas))
 
     def _build_tools_menu(self) -> None:
         """Crea las herramientas y sus entradas en el menú Herramientas.
@@ -814,16 +836,33 @@ class MainWindow(QMainWindow):
         impedancias— se cargan con la del registro nuevo, que no calcula nada.
         La ICA la olvida `_olvidar_ica()`.
         """
-        self.psd_panel.clear_spectrum()
-        self.psd_panel.clear_band_powers()
-        self.metric_panel.clear_metric()
-        self.connectivity_panel.clear_matrix()
-        # Los títulos decían de qué canal y qué ventana era el resultado.
+        self._olvidar_resultados()
         for clave, titulo in ORDEN_DE_ANALISIS:
             self.docks[clave].setWindowTitle(titulo)
         if self._session is not None:
             self.filter_panel.set_recording(self._session.recording)
         self._cargar_impedancias()
+
+    def _olvidar_resultados(self) -> None:
+        """Vacía el espectro, la métrica y la conectividad, con sus títulos.
+
+        Se llama al abrir un registro y **cada vez que cambia la señal**:
+        filtrar, derivar, re-referenciar, aplicar la ICA o volver a la
+        original. Hasta el hito 30, después de filtrar el espectro seguía
+        mostrando el de la señal sin filtrar, con el mismo título y sin decir
+        nada. Es la misma regla que `_olvidar_ica()` aplica a la descomposición:
+        un resultado de una señal que ya no está no se muestra como si fuera de
+        ésta. Se vacía en vez de recalcularlo porque recalcular es trabajo que
+        nadie pidió; el panel vacío dice desde dónde se vuelve a pedir.
+        """
+        self.psd_panel.clear_spectrum()
+        self.psd_panel.clear_band_powers()
+        self.metric_panel.clear_metric()
+        self.connectivity_panel.clear_matrix()
+        # Los títulos decían de qué canal y qué ventana era el resultado.
+        titulos = dict(ORDEN_DE_ANALISIS)
+        for clave in ("psd", "metric", "connectivity"):
+            self.docks[clave].setWindowTitle(titulos[clave])
 
     def open_scoring(self, path: Path) -> None:
         """Importa un scoring existente sobre el registro abierto (V3_F).
@@ -1539,6 +1578,11 @@ class MainWindow(QMainWindow):
         # tipografía de la aplicación: hay que avisarles.
         self.signal_view.apply_font(fuente)
         self.psd_panel.set_log_power(prefs.psd_log_power)
+        # V3_F de la Übersicht. `set_span()` estuvo sin ningún camino desde la
+        # ventana hasta el hito 30: la cantidad sólo se cambiaba en `config.py`.
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.set_span(prefs.overview_before, prefs.overview_after)
 
     def _aplicar_colores_de_clase(self, sesion: Session) -> None:
         """Pone en la sesión los colores que el usuario eligió por clase.
@@ -1698,6 +1742,7 @@ class MainWindow(QMainWindow):
         # señal es la de antes y la ICA sigue siendo válida. La reproducción
         # se detiene por lo mismo: la página puede haber cambiado de largo.
         self._olvidar_ica()
+        self._olvidar_resultados()
         self.playback.stop()
         self.accion_señal_original.setEnabled(True)
         self.refresh()
@@ -2230,8 +2275,10 @@ class MainWindow(QMainWindow):
         self.signal_view.set_session(self._session)
         self.channel_selector.set_recording(self._registro_original)
         # Deshacer también cambia la señal, así que la descomposición que hubiera
-        # se ajustó sobre la procesada y ya no corresponde.
+        # se ajustó sobre la procesada y ya no corresponde. Lo mismo los
+        # resultados de análisis.
         self._olvidar_ica()
+        self._olvidar_resultados()
         self.playback.stop()
         self.accion_señal_original.setEnabled(False)
         self.refresh()

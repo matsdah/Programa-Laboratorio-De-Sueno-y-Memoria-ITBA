@@ -21,8 +21,9 @@ esquemas que el usuario pide guardar.
 Avisa por callbacks y no por señales de Qt, igual que los paneles de análisis y
 las herramientas: la ventana principal los cablea.
 
-Cubre del pliego: ningún ID. Es infraestructura de presentación que agregó el
-refactor de la interfaz.
+Cubre del pliego: V3_F de "Herramienta Übersicht", que es donde se elige cuántas
+ventanas vecinas muestra el panel de contexto. Lo demás es infraestructura de
+presentación que agregó el refactor de la interfaz.
 """
 
 from collections.abc import Callable
@@ -65,6 +66,7 @@ from psglab.ui import theme
 from psglab.ui.menus import duration_text
 from psglab.ui.preferences import (
     MAX_FONT_SIZE,
+    MAX_OVERVIEW_WINDOWS,
     MIN_FONT_SIZE,
     Preferences,
     load_scheme,
@@ -718,8 +720,17 @@ class SettingsDialog(QDialog):
     # -- Otras ---------------------------------------------------------------------
 
     def _armar_otras(self) -> QWidget:
+        """Dos grupos, porque se aplican en momentos distintos.
+
+        Lo de abrir un registro espera al próximo; el panel de contexto cambia
+        enseguida. Un solo cartel de «se aplican la próxima vez» sobre los dos
+        habría mentido sobre el segundo.
+        """
         solapa = QWidget()
-        formulario = QFormLayout(solapa)
+        columna = QVBoxLayout(solapa)
+        al_abrir = QGroupBox("Al abrir un registro")
+        columna.addWidget(al_abrir)
+        formulario = QFormLayout(al_abrir)
         formulario.addRow(
             QLabel("Se aplican la próxima vez que se abra un registro.")
         )
@@ -743,6 +754,26 @@ class SettingsDialog(QDialog):
             )
         )
         formulario.addRow("", self.open_clock_axis)
+
+        # V3_F de la Übersicht: cuántas ventanas vecinas, de cada lado por
+        # separado, porque el pliego la pide asimétrica.
+        contexto = QGroupBox("Panel de contexto (Übersicht)")
+        columna.addWidget(contexto)
+        vecinas = QFormLayout(contexto)
+        self.overview_before = QSpinBox()
+        self.overview_after = QSpinBox()
+        for campo, control, texto in (
+            ("overview_before", self.overview_before, "Ventanas anteriores:"),
+            ("overview_after", self.overview_after, "Ventanas posteriores:"),
+        ):
+            control.setRange(0, MAX_OVERVIEW_WINDOWS)
+            control.valueChanged.connect(
+                lambda valor, campo=campo: self._cambiar(
+                    self._prefs.with_changes(**{campo: int(valor)})
+                )
+            )
+            vecinas.addRow(texto, control)
+        columna.addStretch(1)
         return solapa
 
     def _cambiar_pagina(self, _indice: int) -> None:
@@ -775,6 +806,8 @@ class SettingsDialog(QDialog):
             self.open_nomenclature.findData(self._prefs.open_nomenclature)
         )
         self.open_clock_axis.setChecked(self._prefs.open_clock_axis)
+        self.overview_before.setValue(self._prefs.overview_before)
+        self.overview_after.setValue(self._prefs.overview_after)
 
     # -- Tipografía ---------------------------------------------------------------
 

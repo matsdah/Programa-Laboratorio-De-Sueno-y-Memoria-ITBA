@@ -258,8 +258,9 @@ rechazar antes de dar por terminado un cambio:
 - Todos los módulos del paquete se pueden importar. Es lo único que ejercita la
   capa `ui/`.
 
-Los tres que agregó el **hito 20** son la red contra lo que hasta entonces se
-buscaba a mano, y las dos veces que se buscó así se escapó algo:
+Los tres que agregó el **hito 20**, más el que sumó el **hito 30**, son la red
+contra lo que hasta entonces se buscaba a mano, y las dos veces que se buscó así
+se escapó algo:
 
 - **Toda función pública de `analysis/` tiene que llegar a la ventana**, o
   figurar en `SOLO_BIBLIOTECA` con su motivo. Lo que mira es que el nombre **se
@@ -268,6 +269,12 @@ buscaba a mano, y las dos veces que se buscó así se escapó algo:
   agregar una función a `analysis/`, o la consume la interfaz o hay que
   declararla —y una exención que disfrace un hueco de decisión tomada es peor
   que el hueco: lo vuelve invisible y encima parece revisado—.
+- **Lo mismo para los métodos públicos de `tools/` y de los paneles**
+  (`ui/*_panel.py`), desde el hito 30: o algo de `psglab/` los usa, o figuran
+  en `SIN_CAMINO_A_PROPOSITO` con su motivo, o en `HUECOS_ABIERTOS`, y
+  entonces tienen que estar nombrados en `docs/TODO.md`. Es la red que habría
+  encontrado `delete_annotation()` y `OverviewTool.set_span()`, que eran
+  métodos y no funciones.
 - La cuenta de hitos que declaran los documentos es la de la tabla de progreso
   del TODO, y con una forma fija: `<numeral> hitos … del 0 al N`. Se exige a
   `README.md`, `docs/TODO.md`, `docs/EXPLICACION.txt` y `docs/README.md`. **A

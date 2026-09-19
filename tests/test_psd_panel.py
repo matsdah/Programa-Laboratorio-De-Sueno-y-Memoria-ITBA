@@ -242,3 +242,21 @@ def test_el_eje_de_potencia_se_puede_pasar_a_lineal(panel: PsdPanel):
 
     panel.set_log_power(True)
     assert panel.uses_log_power
+
+
+# -- La pista con el panel vacío (hito 30) --------------------------------------
+
+
+def test_la_pista_se_lee_con_el_panel_vacio(panel: PsdPanel):
+    """Se puede mostrar sin resultado —desde «Herramientas», o después de que
+    cambió la señal— y un gráfico en blanco no dice qué hacer con él."""
+    panel.set_hint("Se pide desde Analizar")
+    assert panel.visible_hint() == "Se pide desde Analizar"
+
+
+def test_la_pista_se_va_con_un_resultado_y_vuelve_al_vaciarlo(panel: PsdPanel):
+    panel.set_hint("Se pide desde Analizar")
+    panel.set_spectrum(np.array([1.0, 2.0]), np.array([[1.0, 2.0]]), ["C3"])
+    assert panel.visible_hint() == ""
+    panel.clear_spectrum()
+    assert panel.visible_hint() == "Se pide desde Analizar"

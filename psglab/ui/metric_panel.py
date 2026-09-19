@@ -53,6 +53,9 @@ class MetricPanel(pg.PlotWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         """Crea el panel vacío, antes de que haya ninguna métrica calculada."""
         super().__init__(parent)
+        #: Desde qué menú se pide lo que muestra este panel. Ver `set_hint()`.
+        self._pista: str = ""
+        self._pista_visible: bool = False
         self._series: dict[str, np.ndarray] = {}
         self._curvas: dict[str, pg.PlotDataItem] = {}
         self._etiqueta: str = ""
@@ -107,10 +110,34 @@ class MetricPanel(pg.PlotWidget):
         if self._series:
             largo = max(len(v) for v in self._series.values())
             item.setXRange(1, max(largo, 1), padding=0.01)
+        self._reflejar_pista()
 
     def clear_metric(self) -> None:
         """Deja el panel vacío."""
         self.set_metric("", {})
+
+    # -- Con el panel vacío ---------------------------------------------------
+
+    def set_hint(self, text: str) -> None:
+        """Lo que se lee mientras el panel está vacío: desde qué menú se pide.
+
+        **Existe porque el panel se puede mostrar sin resultado**: desde
+        «Herramientas», o después de que cambió la señal y el resultado se
+        descartó. Un gráfico en blanco no dice qué hacer con él. El texto lo
+        arma la ventana principal con `menus.menu_path()`, así que sigue al
+        menú si alguien lo renombra.
+        """
+        self._pista = text
+        self._reflejar_pista()
+
+    def visible_hint(self) -> str:
+        """La pista que se lee hoy, o vacío si el panel tiene un resultado."""
+        return self._pista if self._pista_visible else ""
+
+    def _reflejar_pista(self) -> None:
+        """Muestra la pista como título del gráfico, sólo con el panel vacío."""
+        self._pista_visible = bool(self._pista) and not self._series
+        self.getPlotItem().setTitle(self._pista if self._pista_visible else None)
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 

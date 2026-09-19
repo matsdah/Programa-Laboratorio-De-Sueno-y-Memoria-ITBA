@@ -579,3 +579,28 @@ def test_elegir_un_color_que_no_se_distingue_avisa_sin_impedirlo(
 
     assert ultima(cambios).scheme().signals == "#f4f4f4"
     assert "señales" in dialogo.contrast_notice.text()
+
+
+# -- El panel de contexto (V3_F de la Übersicht) ---------------------------------
+
+
+def test_elegir_las_ventanas_vecinas_por_separado(dialogo: SettingsDialog, cambios):
+    """El pliego pide la cantidad configurable **y asimétrica**."""
+    dialogo.overview_before.setValue(3)
+    dialogo.overview_after.setValue(0)
+
+    assert (ultima(cambios).overview_before, ultima(cambios).overview_after) == (3, 0)
+
+
+def test_las_ventanas_vecinas_se_muestran_sin_avisar(dialogo: SettingsDialog, cambios):
+    dialogo.set_preferences(Preferences().with_changes(overview_before=4, overview_after=2))
+
+    assert (dialogo.overview_before.value(), dialogo.overview_after.value()) == (4, 2)
+    assert cambios == []
+
+
+def test_no_se_pueden_pedir_mas_vecinas_que_el_tope(dialogo: SettingsDialog):
+    from psglab.ui.preferences import MAX_OVERVIEW_WINDOWS
+
+    assert dialogo.overview_before.maximum() == MAX_OVERVIEW_WINDOWS
+    assert dialogo.overview_after.minimum() == 0

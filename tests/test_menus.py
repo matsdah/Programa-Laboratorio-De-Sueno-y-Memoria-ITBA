@@ -453,3 +453,19 @@ def test_el_atajo_se_muestra_pero_no_se_registra_en_la_accion(ventana: MainWindo
     ninguno: mostrar el atajo rompería el atajo."""
     for accion in _todas_las_acciones(ventana):
         assert accion.shortcut().isEmpty(), accion.text()
+
+
+# -- La ruta de un menú, para los paneles vacíos ---------------------------------
+
+
+def test_la_ruta_de_menu_se_lee_como_la_ve_el_usuario(ventana: MainWindow):
+    """Sin el `&` del acelerador, sin «…» y sin el atajo."""
+    from psglab.ui.menus import menu_path
+
+    assert menu_path(ventana, "show_psd_dialog") == "Analizar › Espectro de la ventana"
+
+
+def test_un_metodo_sin_menu_no_tiene_ruta(ventana: MainWindow):
+    from psglab.ui.menus import menu_path
+
+    assert menu_path(ventana, "no_existe") is None

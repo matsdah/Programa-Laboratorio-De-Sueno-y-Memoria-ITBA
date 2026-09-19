@@ -3097,3 +3097,85 @@ def test_aplicar_sin_ningun_filtro_no_toca_la_señal(ventana_con_dos_eeg: MainWi
     assert not ventana.accion_señal_original.isEnabled()
     assert len(ventana.carteles) == 1
 
+
+# -- Hito 30: las decisiones de la verificación -------------------------------
+
+
+def test_la_cantidad_de_vecinas_de_la_ubersicht_se_elige_en_la_configuracion(
+    ventana: MainWindow,
+):
+    """V3_F no tenía camino desde la ventana: `set_span()` no lo llamaba nadie y
+    la cantidad sólo se cambiaba editando `config.py`."""
+    ventana.show()
+    ventana.overview_dock.show()
+    ventana._go_to_window(3)
+
+    ventana.apply_preferences(
+        ventana.current_preferences.with_changes(overview_before=2, overview_after=0)
+    )
+
+    mostradas = [(v.index, v.is_current) for v in ventana._tools["overview"].windows()]
+    assert mostradas == [(1, False), (2, False), (3, True)]
+    assert len(ventana.overview_panel.rectangles()) == 3
+
+
+@pytest.mark.parametrize("clave", ["psd", "metric", "connectivity", "ica"])
+def test_un_panel_vacio_dice_desde_donde_se_pide(ventana: MainWindow, clave: str):
+    """Desde «Herramientas» los paneles de resultados aparecían en blanco.
+
+    **La ruta que dice tiene que llevar al panel**: se la sigue en el menú de
+    verdad y se comprueba que lo muestra. Así la pista no puede quedar
+    mandando a una entrada renombrada.
+    """
+    from psglab.ui.menus import menu_path
+
+    panel = getattr(ventana, f"{clave}_panel")
+    ventana.docks[clave].toggleViewAction().trigger()
+    pista = panel.visible_hint()
+    assert pista.startswith("Se pide desde ")
+
+    # Una ruta por renglón: la métrica tiene dos.
+    rutas = [
+        renglon.removeprefix("o desde ")
+        for renglon in pista.removeprefix("Se pide desde ").split("<br>")
+    ]
+    for ruta in rutas:
+        metodo = next(
+            accion.data()
+            for de_la_barra in ventana.menuBar().actions()
+            if de_la_barra.menu() is not None
+            for accion in de_la_barra.menu().actions()
+            if accion.data() and menu_path(ventana, accion.data()) == ruta
+        )
+        assert metodo.startswith("show_") and metodo.endswith("_dialog")
+
+
+def test_filtrar_vacia_los_resultados_de_la_señal_anterior(
+    ventana: MainWindow, elige_canal
+):
+    """Después de filtrar, el espectro seguía siendo el de la señal sin filtrar,
+    con el mismo título y sin decirlo."""
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+    assert ventana.psd_panel.channels() == ["C3"]
+
+    ventana.show_filter_dialog()
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert ventana.psd_panel.channels() == []
+    assert ventana.psd_dialog.windowTitle() == "Espectro"
+    assert ventana.psd_panel.visible_hint().startswith("Se pide desde ")
+
+
+def test_volver_a_la_original_vacia_los_resultados_de_la_procesada(
+    ventana: MainWindow, elige_canal
+):
+    ventana.show_filter_dialog()
+    ventana.filter_panel.boton_aplicar.click()
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+
+    ventana.restore_original_recording()
+
+    assert ventana.psd_panel.channels() == []
+    assert not ventana.carteles

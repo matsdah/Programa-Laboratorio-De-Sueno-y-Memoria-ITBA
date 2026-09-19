@@ -2,7 +2,7 @@
 
 | Archivo | Para qué sirve | Cuándo se toca |
 |---|---|---|
-| [`TODO.md`](TODO.md) | **La cola de trabajo.** Qué falta, ordenado por dependencias en hitos. Es el único lugar que lleva estado. Hoy: las dos Partes cerradas, el refactor de la interfaz, el ajuste de su barra de menú, la reproducción, el trabajo de rendimiento, el diseño de la ventana, la navegación desde el medio, el menú único de herramientas y la verificación de las herramientas, con los treinta hitos (del 0 al 29). | Al empezar y al cerrar cada módulo. |
+| [`TODO.md`](TODO.md) | **La cola de trabajo.** Qué falta, ordenado por dependencias en hitos. Es el único lugar que lleva estado. Hoy: las dos Partes cerradas, el refactor de la interfaz, el ajuste de su barra de menú, la reproducción, el trabajo de rendimiento, el diseño de la ventana, la navegación desde el medio, el menú único de herramientas, la verificación de las herramientas y sus decisiones, con los treinta y un hitos (del 0 al 30). | Al empezar y al cerrar cada módulo. |
 | [`ARQUITECTURA.md`](ARQUITECTURA.md) | **Decisiones de diseño y sus motivos.** Capas, puntos de extensión, licencias, convenciones de código. | Cada vez que se revisa una decisión: hay que anotar el motivo del cambio. |
 | [`TRAZABILIDAD.md`](TRAZABILIDAD.md) | **Requisito del pliego → archivo responsable.** | Cada vez que se agrega una funcionalidad, **en el mismo commit**. |
 | [`EXPLICACION.txt`](EXPLICACION.txt) | Explicación general del programa en texto plano, para quien no lee código. Su sección 8 lista lo que falta definir. | Cuando el cliente cierra una ambigüedad. |

@@ -234,3 +234,21 @@ def test_vaciar_el_panel_tambien_borra_la_curva(panel: IcaPanel):
     panel.clear_components()
 
     assert panel.time_course_data() is None
+
+
+# -- La pista con el panel vacío (hito 30) --------------------------------------
+
+
+def test_la_pista_se_lee_con_el_panel_vacio(panel: IcaPanel):
+    """Se puede mostrar sin resultado —desde «Herramientas», o después de que
+    cambió la señal— y un gráfico en blanco no dice qué hacer con él."""
+    panel.set_hint("Se pide desde Analizar")
+    assert panel.visible_hint() == "Se pide desde Analizar"
+
+
+def test_la_pista_se_va_con_un_resultado_y_vuelve_al_vaciarlo(panel: IcaPanel):
+    panel.set_hint("Se pide desde Analizar")
+    panel.set_components([{"C3": 0.5, "C4": -0.5}])
+    assert panel.visible_hint() == ""
+    panel.clear_components()
+    assert panel.visible_hint() == "Se pide desde Analizar"

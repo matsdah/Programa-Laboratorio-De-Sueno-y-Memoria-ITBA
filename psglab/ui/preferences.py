@@ -26,7 +26,12 @@ from pathlib import Path
 from typing import Final
 
 from psglab.analysis.psd import DEFAULT_BANDS, METHODS, validate_band
-from psglab.config import DEFAULT_VIEW_SECONDS, MIN_VIEW_SECONDS
+from psglab.config import (
+    DEFAULT_VIEW_SECONDS,
+    MIN_VIEW_SECONDS,
+    OVERVIEW_WINDOWS_AFTER,
+    OVERVIEW_WINDOWS_BEFORE,
+)
 from psglab.core.nomenclature import Nomenclature
 from psglab.ui.theme import (
     DEFAULT_SCHEME_NAME,
@@ -53,6 +58,11 @@ APP_DIRNAME: Final[str] = "psglab"
 #: deja de entrar en la pantalla o deja de leerse.
 MIN_FONT_SIZE: Final[int] = 6
 MAX_FONT_SIZE: Final[int] = 48
+
+#: Cuántas ventanas vecinas puede mostrar la Übersicht de cada lado. El pliego
+#: no pone un tope; éste es el de la pantalla: con cinco de cada lado son once
+#: ventanas en un panel que suele tener unos 225 px, y más ya no se distinguen.
+MAX_OVERVIEW_WINDOWS: Final[int] = 5
 
 
 @dataclass(frozen=True)
@@ -87,6 +97,10 @@ class Preferences:
             trae la suya** y ésta no la pisa.
         open_clock_axis: si el histograma arranca en hora real. Sólo se aplica
             si el registro informa su hora de inicio.
+        overview_before: cuántas ventanas anteriores muestra la Übersicht
+            (V3_F). De 0 a `MAX_OVERVIEW_WINDOWS`; cero no muestra ese lado.
+        overview_after: cuántas posteriores. Es independiente de la anterior:
+            el pliego la pide asimétrica.
 
     **Todo valor se comprueba al construir.** Es el criterio de
     `core/recording.py`: rechazar al armar el objeto lo que después no se puede
@@ -110,6 +124,8 @@ class Preferences:
     open_view_seconds: float = DEFAULT_VIEW_SECONDS
     open_nomenclature: str = Nomenclature.AASM.name
     open_clock_axis: bool = False
+    overview_before: int = OVERVIEW_WINDOWS_BEFORE
+    overview_after: int = OVERVIEW_WINDOWS_AFTER
 
     def __post_init__(self) -> None:
         """Rechaza lo que el programa no podría usar. Ver el docstring de la clase."""
@@ -142,6 +158,12 @@ class Preferences:
             _rechazar("la nomenclatura al abrir", self.open_nomenclature)
         if not isinstance(self.open_clock_axis, bool):
             _rechazar("el eje del histograma al abrir", self.open_clock_axis)
+        for que, valor in (
+            ("las ventanas anteriores del contexto", self.overview_before),
+            ("las ventanas posteriores del contexto", self.overview_after),
+        ):
+            if not (_es_entero(valor) and 0 <= valor <= MAX_OVERVIEW_WINDOWS):
+                _rechazar(f"{que} (entre 0 y {MAX_OVERVIEW_WINDOWS})", valor)
 
     def with_changes(self, **changes: object) -> "Preferences":
         """Las mismas preferencias con algunos campos cambiados, ya comprobados.
@@ -449,6 +471,8 @@ _LECTORES: Final[dict[str, object]] = {
     "open_view_seconds": _identidad,
     "open_nomenclature": _identidad,
     "open_clock_axis": _identidad,
+    "overview_before": _identidad,
+    "overview_after": _identidad,
 }
 
 
@@ -494,6 +518,8 @@ def save(preferences: Preferences, path: Path | None = None) -> None:
     datos["open_view_seconds"] = preferences.open_view_seconds
     datos["open_nomenclature"] = preferences.open_nomenclature
     datos["open_clock_axis"] = preferences.open_clock_axis
+    datos["overview_before"] = preferences.overview_before
+    datos["overview_after"] = preferences.overview_after
 
     temporal = destino.with_name(destino.name + ".tmp")
     try:

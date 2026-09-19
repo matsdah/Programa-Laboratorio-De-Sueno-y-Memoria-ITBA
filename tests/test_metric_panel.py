@@ -168,3 +168,21 @@ def test_dos_canales_no_comparten_color(panel: MetricPanel):
     ]
 
     assert len(set(colores)) == len(colores)
+
+
+# -- La pista con el panel vacío (hito 30) --------------------------------------
+
+
+def test_la_pista_se_lee_con_el_panel_vacio(panel: MetricPanel):
+    """Se puede mostrar sin resultado —desde «Herramientas», o después de que
+    cambió la señal— y un gráfico en blanco no dice qué hacer con él."""
+    panel.set_hint("Se pide desde Analizar")
+    assert panel.visible_hint() == "Se pide desde Analizar"
+
+
+def test_la_pista_se_va_con_un_resultado_y_vuelve_al_vaciarlo(panel: MetricPanel):
+    panel.set_hint("Se pide desde Analizar")
+    panel.set_metric("Entropía", {"C3": np.array([0.5, 0.6])})
+    assert panel.visible_hint() == ""
+    panel.clear_metric()
+    assert panel.visible_hint() == "Se pide desde Analizar"
