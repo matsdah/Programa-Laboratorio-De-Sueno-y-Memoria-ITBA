@@ -51,7 +51,7 @@ from psglab.ui.docks import ORDEN_DE_ANALISIS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
 
-from conftest import FRECUENCIA_BV, escribir_brainvision  # noqa: E402
+from conftest import FRECUENCIA_BV, escribir_brainvision, escribir_edf  # noqa: E402
 
 #: Ventanas del registro de prueba. Cinco alcanzan para scorear una fase
 #: distinta en cada una y que sobre alguna sin scorear.
@@ -3543,3 +3543,42 @@ def test_el_cartel_de_verdad_ofrece_las_tres_salidas(ventana: MainWindow, monkey
     assert visto["por_omision"] == "Exportar…"
     assert visto["escape"] == "Cancelar"
     assert "cerrar el programa" in visto["texto"]
+
+
+# -- Un archivo que trae menos de lo que declara (hito 33) --------------------
+
+
+@pytest.fixture
+def avisos_de_lectura(monkeypatch) -> list[list[str]]:
+    """Anota cada cartel de avisos en vez de mostrarlo: es modal."""
+    mostrados: list[list[str]] = []
+    monkeypatch.setattr(
+        MainWindow, "_mostrar_avisos_de_lectura", lambda _v, avisos: mostrados.append(avisos)
+    )
+    return mostrados
+
+
+def test_abrir_un_edf_truncado_lo_abre_y_lo_dice(
+    ventana: MainWindow, avisos_de_lectura, tmp_path: Path
+):
+    """Media noche se veía igual que una noche entera. Ahora se abre lo que hay
+    y un cartel dice cuánto falta."""
+    edf = escribir_edf(tmp_path / "truncado", segundos=90)
+    # Cabecera de cuatro bloques de 256 bytes; registros de 600 bytes.
+    edf.write_bytes(edf.read_bytes()[: 1024 + 40 * 600 + 300])
+
+    ventana.open_recording(edf)
+
+    assert ventana.session.recording.duration_seconds == pytest.approx(40.0)
+    assert len(avisos_de_lectura) == 1
+    assert "40 s" in avisos_de_lectura[0][0] and "1 min 30 s" in avisos_de_lectura[0][0]
+    assert not ventana.carteles
+
+
+def test_un_registro_entero_no_muestra_avisos(
+    ventana: MainWindow, avisos_de_lectura, tmp_path: Path
+):
+    ventana.open_recording(escribir_edf(tmp_path / "entero", segundos=90))
+
+    assert avisos_de_lectura == []
+    assert ventana.session.recording.duration_seconds == pytest.approx(90.0)

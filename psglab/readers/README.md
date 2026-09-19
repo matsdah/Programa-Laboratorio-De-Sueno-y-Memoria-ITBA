@@ -80,9 +80,15 @@ vuelve a verificar:
 2. **La clase de cada canal ya viene detectada**, con
    `channel_types.detect_channel_kind()`.
 
-Si el archivo está corrupto o incompleto, elevá `UnreadableFileError` con un
-mensaje en español; si ningún lector registrado maneja la extensión,
-`read_recording()` ya eleva `UnsupportedFormatError` por su cuenta.
+Si el archivo está corrupto, elevá `UnreadableFileError` con un mensaje en
+español; si ningún lector registrado maneja la extensión, `read_recording()` ya
+eleva `UnsupportedFormatError` por su cuenta.
+
+**Si se pudo leer pero con reservas** —un archivo que trae menos de lo que
+declara su cabecera—, no se eleva: se devuelve lo que hay y se agrega un
+mensaje para el investigador a la lista `metadata[IMPORT_WARNINGS_KEY]`, de
+`base.py`. La ventana los muestra después de abrir el registro, sin saber de
+qué formato vino. Hoy lo usa el EDF truncado (hito 33).
 
 ## El scoring de otros programas
 

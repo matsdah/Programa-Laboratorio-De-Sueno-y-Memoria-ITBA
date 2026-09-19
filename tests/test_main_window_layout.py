@@ -168,6 +168,8 @@ PRIVADOS_QUE_LA_SUITE_USA: frozenset[str] = frozenset(
         "_aplicar_analisis",
         # El cartel del scoring sin exportar, que es modal (hito 33).
         "_preguntar_por_el_scoring",
+        # El cartel de un archivo que trae menos de lo que declara (hito 33).
+        "_mostrar_avisos_de_lectura",
     }
 )
 

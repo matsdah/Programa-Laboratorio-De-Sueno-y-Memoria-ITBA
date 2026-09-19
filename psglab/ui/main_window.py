@@ -118,7 +118,7 @@ from psglab.exporters import DEFAULT_FILENAMES
 from psglab.exporters.annotations_txt import export_annotations
 from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_formats import SCORING_FORMATS, export_scoring_as
-from psglab.readers.base import file_dialog_filter, read_recording
+from psglab.readers.base import IMPORT_WARNINGS_KEY, file_dialog_filter, read_recording
 from psglab.readers.scoring_reader import read_scoring
 from psglab.tools.amplitude_band import AmplitudeBandTool
 from psglab.tools.annotator import AnnotatorTool, annotation_bands
@@ -835,6 +835,24 @@ class MainWindow(QMainWindow):
         if self._preferencias.open_clock_axis and registro.start_time is not None:
             self.accion_eje_en_hora.setChecked(True)
         self.refresh()
+        # **Lo que el lector pudo leer con reservas**, después de dibujar: el
+        # registro ya está abierto y el cartel explica lo que se ve (hito 33).
+        avisos = registro.metadata.get(IMPORT_WARNINGS_KEY)
+        if avisos:
+            self._mostrar_avisos_de_lectura([str(aviso) for aviso in avisos])
+
+    def _mostrar_avisos_de_lectura(self, avisos: list[str]) -> None:
+        """Muestra lo que el investigador tiene que saber del archivo que abrió.
+
+        **No es `_show_error()`**: el registro se abrió y se puede trabajar con
+        él, así que el cartel no dice "No se pudo completar la operación". Está
+        aparte para que los tests lo contesten, porque es modal.
+        """
+        cartel = QMessageBox(self)
+        cartel.setIcon(QMessageBox.Icon.Warning)
+        cartel.setWindowTitle("El registro se abrió con avisos")
+        cartel.setText("\n\n".join(avisos))
+        cartel.exec()
 
     def _reiniciar_paneles_de_analisis(self) -> None:
         """Deja los paneles de análisis como corresponden al registro recién abierto.

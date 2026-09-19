@@ -36,6 +36,7 @@ import pytest
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.readers import base
 from psglab.readers.base import (
+    IMPORT_WARNINGS_KEY,
     Reader,
     available_readers,
     file_dialog_filter,
@@ -726,3 +727,46 @@ def test_una_unidad_ambigua_queda_como_vino(tmp_path: Path):
     assert emg.unit == "MV"
     assert float(registro.data[emg.index].max()) == pytest.approx(TEMPERATURA_EDF + 0.5, abs=1e-3)
     assert registro.channels[0].unit == MICROVOLT
+
+
+def truncar_edf(edf: Path, registros_que_quedan: int, bytes_por_registro: int) -> None:
+    """Deja la cabecera y esa cantidad de registros de datos, más medio registro
+    suelto: es como queda una copia interrumpida."""
+    canales = int(edf.read_bytes()[252:256].strip())
+    cabecera = 256 * (canales + 1)
+    largo = cabecera + registros_que_quedan * bytes_por_registro + bytes_por_registro // 2
+    edf.write_bytes(edf.read_bytes()[:largo])
+
+
+def test_un_edf_truncado_se_abre_con_lo_que_trae_y_avisa(tmp_path: Path):
+    """**Hito 33.** MNE lee los registros que hay y avisa sólo por consola, así
+    que abrir media noche no se distinguía de abrir una noche entera. Se abre
+    igual —lo que llegó puede ser todo lo que hay— y el aviso lo dice."""
+    edf = escribir_edf(tmp_path, segundos=10)
+    # Tres canales a 100 Hz: 300 muestras de dos bytes por registro de un segundo.
+    truncar_edf(edf, registros_que_quedan=4, bytes_por_registro=600)
+
+    registro = read_recording(edf)
+
+    assert registro.n_samples == 4 * int(FRECUENCIA_EDF)
+    (aviso,) = registro.metadata[IMPORT_WARNINGS_KEY]
+    assert "sintetico.edf" in aviso
+    assert "4 s" in aviso and "10 s" in aviso
+
+
+def test_un_edf_entero_no_avisa(edf_sintetico: Path):
+    assert IMPORT_WARNINGS_KEY not in read_recording(edf_sintetico).metadata
+
+
+def test_un_edf_que_no_dice_cuantos_registros_tiene_no_avisa(tmp_path: Path):
+    """Mientras graba, un equipo escribe -1 registros: el formato dice que se
+    deducen del tamaño, y eso no es un archivo incompleto."""
+    edf = escribir_edf(tmp_path, segundos=3)
+    crudo = bytearray(edf.read_bytes())
+    crudo[236:244] = b"-1      "
+    edf.write_bytes(bytes(crudo))
+
+    registro = read_recording(edf)
+
+    assert registro.n_samples == 3 * int(FRECUENCIA_EDF)
+    assert IMPORT_WARNINGS_KEY not in registro.metadata

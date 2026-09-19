@@ -22,6 +22,7 @@ import importlib
 import pkgutil
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Final
 
 from psglab.core.recording import Recording
 from psglab.utils.errors import UnsupportedFormatError
@@ -33,6 +34,18 @@ _REGISTRY: list[type["Reader"]] = []
 #: Si `load_all_readers()` ya recorrió el paquete. Evita releer el directorio
 #: en cada apertura de archivo.
 _REGISTRY_CARGADO: bool = False
+
+#: Clave de `Recording.metadata` donde un lector deja **lo que el investigador
+#: tiene que saber aunque el archivo se haya podido abrir**: una lista de
+#: mensajes en español, dirigidos a él. La ventana los muestra después de
+#: abrir el registro.
+#:
+#: Existe desde el hito 33, por el EDF truncado: MNE lee lo que hay y avisa por
+#: consola, así que abrir media noche no se distinguía de abrir una noche
+#: entera. **No es un error**: el archivo se abre, porque lo que llegó puede ser
+#: todo lo que el investigador tiene. Es de este módulo y no de un lector
+#: porque la ventana no sabe de qué formato vino la señal.
+IMPORT_WARNINGS_KEY: Final[str] = "import_warnings"
 
 
 class Reader(ABC):
@@ -68,8 +81,12 @@ class Reader(ABC):
         La señal se devuelve siempre en microvoltios y con la clase de cada
         canal ya detectada (ver `channel_types.detect_channel_kind`).
 
+        Lo que se pudo leer con reservas —un archivo que trae menos de lo que
+        declara— se avisa en `metadata[IMPORT_WARNINGS_KEY]` y no se eleva.
+
         Raises:
-            UnreadableFileError: si el archivo está corrupto o incompleto.
+            UnreadableFileError: si el archivo está corrupto, o tan incompleto
+                que no queda nada que leer.
         """
 
 

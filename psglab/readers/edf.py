@@ -38,6 +38,13 @@ convierte en `raw.annotations`, así que no hay que descartarlo a mano. Sí hay
 que contemplar que un archivo que **sólo** tenga ese canal —un hipnograma, como
 el `SC4001EC-Hypnogram.edf` de la Sleep-EDF— vuelva sin ningún canal.
 
+**Un EDF truncado se abre, pero avisa** (hito 33). Una copia interrumpida deja
+el archivo más corto de lo que dice su cabecera, y MNE lee los registros de
+datos que hay y avisa sólo por consola: sin más, abrir media noche no se
+distinguía de abrir una noche entera. Se abre igual, porque lo que llegó puede
+ser todo lo que el investigador tiene, y el aviso viaja en
+`metadata[IMPORT_WARNINGS_KEY]` para que la ventana lo muestre.
+
 Cubre del pliego: V2_F de "Importación de archivos".
 """
 
@@ -47,7 +54,7 @@ import mne
 import numpy as np
 
 from psglab.core.recording import Channel, Recording
-from psglab.readers.base import Reader, register_reader
+from psglab.readers.base import IMPORT_WARNINGS_KEY, Reader, register_reader
 from psglab.readers.channel_types import detect_channel_kind
 from psglab.utils.errors import UnknownUnitError, UnreadableFileError
 from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
@@ -77,6 +84,8 @@ _CANALES_DE_ANOTACIONES: frozenset[str] = frozenset({"EDF Annotations", "BDF Ann
 #: Posiciones de la cabecera EDF, en bytes. El formato está congelado desde 1992
 #: y por eso conviene leerla a mano: es más estable que apoyarse en los
 #: atributos privados de MNE, que son los únicos que exponen estos dos datos.
+_OFFSET_BYTES_DE_CABECERA = 184
+_OFFSET_CANTIDAD_DE_REGISTROS = 236
 _OFFSET_DURACION_REGISTRO = 244
 _OFFSET_CANTIDAD_DE_SENALES = 252
 _INICIO_CABECERA_DE_SENALES = 256
@@ -137,6 +146,55 @@ def _leer_cabecera(path: Path) -> list[tuple[str, str, float | None]]:
         )
         for etiqueta, unidad, n in zip(etiquetas, unidades, muestras)
     ]
+
+
+def _duracion_declarada_si_falta(path: Path) -> float | None:
+    """Los segundos que declara la cabecera, si el archivo trae menos que eso.
+
+    Compara la cantidad de registros de datos que dice la cabecera con los que
+    entran en el tamaño del archivo: cada registro ocupa dos bytes por muestra
+    de cada canal, anotaciones incluidas.
+
+    Returns:
+        La duración declarada, o None si el archivo está entero o si no se puede
+        saber: mientras un equipo graba, la cantidad de registros vale -1, y
+        entonces el propio formato dice que se deduce del tamaño.
+    """
+    try:
+        with path.open("rb") as archivo:
+            archivo.seek(_OFFSET_BYTES_DE_CABECERA)
+            bytes_de_cabecera = int(archivo.read(8).strip().decode("latin-1"))
+            archivo.seek(_OFFSET_CANTIDAD_DE_REGISTROS)
+            declarados = int(archivo.read(8).strip().decode("latin-1"))
+            archivo.seek(_OFFSET_DURACION_REGISTRO)
+            duracion = _numero(archivo.read(8))
+            archivo.seek(_OFFSET_CANTIDAD_DE_SENALES)
+            cantidad = int(archivo.read(4).strip().decode("latin-1"))
+            archivo.seek(_INICIO_CABECERA_DE_SENALES + cantidad * 216)
+            por_registro = sum(
+                int(archivo.read(8).strip().decode("latin-1")) for _ in range(cantidad)
+            )
+        tamano = path.stat().st_size
+    except (OSError, ValueError):
+        return None
+    if declarados <= 0 or por_registro <= 0 or duracion is None or duracion <= 0:
+        return None
+    presentes = (tamano - bytes_de_cabecera) // (2 * por_registro)
+    if presentes >= declarados:
+        return None
+    return declarados * duracion
+
+
+def _duracion_legible(segundos: float) -> str:
+    """Una duración para un cartel: 7 h 58 min, 12 min 30 s o 45 s."""
+    total = int(round(segundos))
+    horas, resto = divmod(total, 3600)
+    minutos, sueltos = divmod(resto, 60)
+    if horas:
+        return f"{horas} h {minutos:02d} min"
+    if minutos:
+        return f"{minutos} min {sueltos:02d} s"
+    return f"{sueltos} s"
 
 
 def _factor_a_microvoltios(unidad: str) -> float | None:
@@ -247,6 +305,15 @@ class EdfReader(Reader):
             metadatos["edf_annotations"] = [
                 (float(a["onset"]), float(a["duration"]), str(a["description"]))
                 for a in crudo.annotations
+            ]
+        declarada = _duracion_declarada_si_falta(path)
+        if declarada is not None:
+            leida = datos.shape[1] / float(crudo.info["sfreq"])
+            metadatos[IMPORT_WARNINGS_KEY] = [
+                f"«{path.name}» está incompleto: trae {_duracion_legible(leida)} de "
+                f"los {_duracion_legible(declarada)} que declara su cabecera. Se abrió "
+                "lo que hay; el resto no está en el archivo, probablemente porque se "
+                "copió o se grabó a medias."
             ]
 
         return Recording(
