@@ -34,9 +34,11 @@ herramientas buscando caminos muertos y fugas, y el
 decisiones que dejó. El **[hito 31](#hito-31-el-recorrido-manual)** corrigió lo
 que encontró el usuario al recorrer el programa con un registro real, y el
 **[hito 32](#hito-32-los-pendientes-del-todo)** resolvió los pendientes que
-quedaban. Son **treinta y tres hitos**, del 0 al 32,
-que son las filas de la tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
-dentro del hito al que le toca, casi todo en los tres últimos.
+quedaban. El **[hito 33](#hito-33-la-auditoría-del-19-de-septiembre)**, abierto,
+ordena lo que encontró la auditoría del 19 de septiembre. Son **treinta y
+cuatro hitos**, del 0 al 33, que son las filas de la tabla de progreso; están
+cerrados todos menos el último, y lo que sigue abierto de los anteriores está
+anotado dentro del hito al que le toca.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
 34 requisitos se podían usar desde el programa corriendo, no sólo desde sus
@@ -137,6 +139,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [30. Las decisiones de la verificación](#hito-30-las-decisiones-de-la-verificación) | — | 0 | ✅ cerrado |
 | [31. El recorrido manual](#hito-31-el-recorrido-manual) | — | 0 | ✅ cerrado |
 | [32. Los pendientes del TODO](#hito-32-los-pendientes-del-todo) | — | 0 | ✅ cerrado |
+| [33. La auditoría del 19 de septiembre](#hito-33-la-auditoría-del-19-de-septiembre) | — | 0 | ⬜ abierto |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -406,7 +409,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader`, `read_recording` y `load_all_readers` corren al
     importar. **No convertirlos en stubs.**
-  - Test: `tests/test_readers.py`, **45 tests en verde**, que cubre este módulo
+  - Test: `tests/test_readers.py`, **56 tests en verde**, que cubre este módulo
     y los dos de abajo. El autodescubrimiento y el despacho se testean con un
     lector de mentira, sin ningún archivo real.
 - [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
@@ -2726,6 +2729,118 @@ le hizo, y mantuvo afuera las operaciones largas.
       argumento, y los que lo llaman hoy le pasan enteros.
 - [ ] **El hipnograma y la Übersicht** siguen esperando la confirmación del
       usuario (ver el hito 31).
+
+---
+
+## Hito 33: La auditoría del 19 de septiembre
+
+**Abierto el 19 de septiembre de 2026.** Una auditoría del backend y de cómo
+llega a la ventana, pedida por el usuario: la suite entera, recorridos por la
+ventana con eventos de Qt, archivos sintéticos con casos límite, memoria y
+rendimiento. **No tiene archivo propio**, como la del 8 de septiembre: sus
+hallazgos viven acá, en el orden en que conviene atacarlos.
+
+**Lo que quedó probado que anda.** La suite pasa entera, sin salteados en una
+máquina con `data/`. Doce escenarios de memoria —abrir registros, navegar,
+reproducir, anotar, prender herramientas, abrir paneles, analizar y exportar,
+cientos de veces— no crecen después del calentamiento, y ningún registro ni
+ninguna ventana sobrevive a su reemplazo. Los cuatro formatos de scoring
+vuelven idénticos, y un archivo roto no toca la sesión abierta.
+
+**Una regresión de rendimiento que no era.** El banco dio el doble de tiempo
+por cuadro que en el hito 27; corriendo los dos árboles intercalados, midieron
+lo mismo. La máquina llegó a enlentecerse dos veces y media **dentro de una
+misma corrida**, así que un número del banco sólo vale contra otro intercalado
+con él, que es lo que el [hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar)
+ya advertía.
+
+**No tiene stubs que contar.**
+
+- [x] **Un EDF sintético para el CI.** `escribir_edf()`, en
+      `tests/conftest.py`, es el gemelo de `escribir_brainvision()`: cada canal
+      en su propia unidad y a su propia frecuencia. Hasta acá el lector de EDF
+      sólo corría contra `data/`, que el CI no tiene, así que la conversión a µV
+      no se ejercitaba en ninguna de las seis combinaciones. Es lo que deja
+      testear los tres ítems que siguen: el escritor ya reproduce los dos
+      primeros.
+  - Test: `tests/test_readers.py`, **56 tests en verde**, once de ellos
+    nuevos y sin depender de `data/`.
+- [ ] **La escala depende de cómo se escriba la unidad.** `is_electrical()` no
+      distingue mayúsculas y MNE sí: sólo convierte `uV`, `µV` y `mV` escritos
+      así. Un canal que declara `uv` llega 10⁶ veces más grande, uno en `mv`,
+      10³, y un canal de BrainVision en `nV` queda en volts con la etiqueta
+      `nV`. Pasa en los dos lectores. Hay que decidir el factor con el mismo
+      criterio que MNE. Conviene preguntarle al laboratorio cómo escriben la
+      unidad sus equipos: no cambia el arreglo, pero sí su urgencia.
+- [ ] **Dos canales de un EDF con la misma etiqueta quedan en volts.** MNE los
+      renombra (`EEG-0`, `EEG-1`), `_leer_cabecera()` los busca por nombre, no
+      los encuentra, y el lector los deja sin unidad, sin convertir y como
+      `OTHER`. Indexar la cabecera por posición.
+- [ ] **Un EDF truncado se abre sin avisar.** Con la mitad del archivo sale la
+      mitad de la noche: `verbose="ERROR"` calla el aviso de MNE, y la cabecera
+      dice cuántos registros de datos tendría que haber.
+- [ ] **Una fila de bandas mal formada en las preferencias impide arrancar.**
+      `_leer_bandas()` eleva `IndexError`, que no está entre lo que
+      `_con_campos_nuevos()` atrapa, y `create_application()` sólo atrapa
+      `PsgLabError`. Alcanza con `{"psd_bands": [["Delta", 0.5]]}`, y el módulo
+      supone que el archivo se edita a mano.
+- [ ] **Abrir otro registro o cerrar la ventana descarta el scoring sin
+      preguntar.** No hay `closeEvent` ni ninguna marca de cambios sin exportar.
+      **Espera una decisión del usuario**; la recomendación es un cartel con
+      Exportar, Descartar y Cancelar, sin autoguardado.
+- [ ] **La conectividad deja escapar un `ValueError` de MNE** cuando la banda
+      no tiene ninguna frecuencia por debajo de Nyquist: una banda del usuario
+      de 55 a 90 Hz sobre un registro de 100 Hz. No sale ningún cartel y la
+      traza va a la consola. Validar la banda contra la frecuencia en
+      `_validar_banda()`.
+- [ ] **La primera apertura de cada sesión del programa congela unos 9 s**, y
+      la segunda tarda 0,6. Son las importaciones perezosas de MNE:
+      `mne.io.brainvision` arrastra `mne.viz` y `matplotlib`. El hilo de
+      `warm_up_analysis()` puede importarlas también.
+- [ ] **Lo que se lee sin avisar o se muestra sin explicar**:
+  - Un `Scoring.txt` con BOM no se importa: `_leer_lineas()` decodifica con
+    `utf-8` y no con `utf-8-sig`.
+  - `Session.center_offsets()` guarda un desplazamiento NaN si la ventana
+    tiene uno, salteando la guarda de `set_offset_uv()`.
+  - El lector de `Scoring.txt` toma cualquier arousal distinto de cero como
+    marcado, y con tres campos una ventana repetida pisa a la anterior.
+  - Una banda por encima de Nyquist da potencia 0 en vez de decir que no se
+    puede medir.
+  - `Informacion.txt` promedia los episodios en ventanas completas y suma las
+    fases en duración real: con la última ventana incompleta, un único
+    episodio de N2 promedia más que el total de N2.
+  - Un archivo inexistente se informa como dañado.
+  - La barra de estado queda en «Calculando…» después de un análisis.
+  - Un NaN en la señal se acepta sin aviso y los filtros lo esparcen: diez
+    muestras terminan en unas treinta mil.
+  - Un esquema propio inválido descarta todas las preferencias, y unas
+    preferencias rotas se ignoran sin cartel.
+  - `_export_dialog()` agrega la extensión **después** de que el diálogo
+    confirmó la sobrescritura. Sin probar: depende del diálogo de cada
+    plataforma.
+- [ ] **Lo que dicen los documentos y el código no**:
+  - `tools/base.py` y `tools/README.md` todavía dicen en un lugar que la `x`
+    de `ViewerTool` son segundos de la ventana; son del registro desde el
+    hito 22.
+  - `core/README.md` cuenta seis módulos y lista ocho; `tests/README.md` y
+    `ui/README.md` dicen que `ui/` casi no tiene tests; `ci.yml` dice que la
+    suite tarda segundos.
+  - `SOLO_BIBLIOTECA` exime a `unidad_de_salida()` diciendo que la consultan
+    los análisis, y no la llama nadie; `analysis/README.md` dice que
+    `band_powers_by_window()` alimenta los gráficos de la noche, y no tiene
+    camino desde la ventana.
+  - `Session.set_active_tool()` no la llama la ventana, así que
+    `active_tool` es siempre `None`.
+
+### Lo que sigue abierto
+
+- [ ] **Los registros densos siguen sin entrar en el cuadro**: con 32 canales a
+      1000 Hz y página de 5 min, unos 100 ms contra los 40 del reloj. Es el
+      pendiente del [hito 27](#hito-27-la-navegación-desde-el-medio), medido de
+      nuevo.
+- [ ] **Lo largo sigue en el hilo de la interfaz**: la conectividad de la noche,
+      entre 15 y 18 s sobre ocho horas; la ICA, 9 s; filtrar, 2,5 s. Es la
+      decisión del hito 32, ahora con números.
 
 ---
 

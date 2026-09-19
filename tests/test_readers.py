@@ -13,13 +13,19 @@ explícito**, visible con `python -m pytest -rs`. Saltearlos en silencio sería 
 verde por omisión que este repositorio combate; bajarlos en el workflow ataría
 el verde a que PhysioNet esté disponible.
 
-Los tests de archivo real son los únicos que verifican lo que de verdad hacía
-falta medir en el hito 4: que la señal salga en la escala correcta. MNE entrega
-**volts** para los canales cuya unidad reconoce, y confundirse ahí deja la señal
-un millón de veces más chica sin que se note en pantalla. Por eso el test compara
-la amplitud contra el rango físico que declara la cabecera, **leyéndola por su
-cuenta** y no con el parser del propio lector: usar el mismo código de los dos
-lados no verificaría nada.
+Los tests de archivo real verifican lo que de verdad hacía falta medir en el
+hito 4: que la señal salga en la escala correcta. MNE entrega **volts** para
+los canales cuya unidad reconoce, y confundirse ahí deja la señal un millón de
+veces más chica sin que se note en pantalla. Por eso el test compara la amplitud
+contra el rango físico que declara la cabecera, **leyéndola por su cuenta** y no
+con el parser del propio lector: usar el mismo código de los dos lados no
+verificaría nada.
+
+Como esa mitad no corre en el CI, las dos últimas partes repiten lo esencial con
+archivos sintéticos que se escriben en el momento: un BrainVision y, desde el
+hito 33, un EDF. No reemplazan a los reales —verifican que sepamos leer lo que
+escribimos nosotros, no lo que escribe un equipo—, pero hacen que los dos
+lectores se ejecuten en las seis combinaciones del CI.
 """
 
 from pathlib import Path
@@ -42,7 +48,15 @@ from psglab.readers.edf import EdfReader
 from psglab.utils.errors import UnreadableFileError, UnsupportedFormatError
 from psglab.utils.units import MICROVOLT
 
-from conftest import FRECUENCIA_BV, RESOLUCION_BV_UV
+from conftest import (
+    FRECUENCIA_BV,
+    FRECUENCIA_EDF,
+    PICOS_EDF_UV,
+    RESOLUCION_BV_UV,
+    TEMPERATURA_EDF,
+    UV_POR_UNIDAD_EDF,
+    escribir_edf,
+)
 
 RAIZ = Path(__file__).resolve().parent.parent
 DATOS = RAIZ / "data"
@@ -489,3 +503,113 @@ def test_el_sintetico_dura_lo_que_dice_su_cabecera(brainvision_sintetico: Path):
     registro = read_recording(brainvision_sintetico)
 
     assert registro.n_samples == int(FRECUENCIA_BV * 3)
+
+
+# -- Cuarta parte: el EDF sintético, que también corre en todas partes --------
+#
+# Lo mismo que la tercera, para el otro formato. Hasta el hito 33 el lector de
+# EDF sólo corría contra `data/`, así que en el CI la conversión a µV —el test
+# que justifica todo este archivo— no se ejercitaba nunca. La fixture
+# `edf_sintetico` y `escribir_edf()` escriben el archivo en el momento, **cada
+# canal en su propia unidad**: leerlo bien es recuperar los µV que se
+# sintetizaron. Tampoco reemplazan a los de archivo real.
+
+
+def test_el_edf_sintetico_se_lee(edf_sintetico: Path):
+    registro = read_recording(edf_sintetico)
+
+    assert registro.n_channels == 3
+    assert registro.sampling_rate == FRECUENCIA_EDF
+    assert registro.n_samples == int(FRECUENCIA_EDF * 3)
+
+
+def test_el_despacho_reconoce_el_edf(edf_sintetico: Path):
+    assert EdfReader().can_read(edf_sintetico)
+
+
+@pytest.mark.parametrize("unidad", sorted(UV_POR_UNIDAD_EDF))
+def test_la_senal_del_edf_queda_en_microvoltios(tmp_path: Path, unidad: str):
+    """**El gemelo sintético de `test_la_senal_electrica_queda_en_microvoltios`.**
+
+    Una unidad por caso, con la señal escrita en esa unidad. MNE entrega volts
+    para las que reconoce y el lector las lleva a µV: si alguna de las dos
+    conversiones se aplicara de más o de menos, el pico se va por un factor mil
+    o un millón.
+    """
+    edf = escribir_edf(tmp_path, segundos=3, canales=[("EEG C3-A2", unidad, FRECUENCIA_EDF)])
+    registro = read_recording(edf)
+
+    assert registro.channels[0].unit == MICROVOLT
+    pico = float(np.max(np.abs(registro.data[0])))
+    assert pico == pytest.approx(PICOS_EDF_UV[0], rel=1e-3), (
+        f"con la unidad {unidad!r} el pico sale {pico} µV y se escribieron "
+        f"{PICOS_EDF_UV[0]}: un factor 10^3 o 10^6 es una conversión de más o de menos"
+    )
+
+
+def test_cada_canal_del_edf_conserva_su_amplitud(edf_sintetico: Path):
+    """Tres picos distintos: una escala equivocada se ve en los tres, y una
+    permutación de canales, en uno solo."""
+    registro = read_recording(edf_sintetico)
+    picos = [float(np.max(np.abs(fila))) for fila in registro.data]
+
+    assert picos == pytest.approx(list(PICOS_EDF_UV[:3]), rel=1e-3)
+
+
+def test_un_canal_no_electrico_del_edf_conserva_su_escala(tmp_path: Path):
+    """El gemelo de `test_los_canales_que_no_son_electricos_conservan_su_escala`:
+    una temperatura sigue en grados, con su unidad y fuera del EEG."""
+    edf = escribir_edf(
+        tmp_path,
+        segundos=3,
+        canales=[
+            ("EEG C3-A2", "uV", FRECUENCIA_EDF),
+            ("Temp rectal", "DegC", FRECUENCIA_EDF),
+        ],
+    )
+    registro = read_recording(edf)
+    temperatura = registro.channel_by_name("Temp rectal")
+
+    assert temperatura.unit == "DegC"
+    assert temperatura.kind is ChannelKind.OTHER
+    valores = registro.data[temperatura.index]
+    assert float(valores.max()) == pytest.approx(TEMPERATURA_EDF + 0.5, abs=1e-3)
+
+
+def test_un_edf_con_frecuencias_mixtas_se_unifica_y_las_recuerda(tmp_path: Path):
+    """El gemelo de `test_la_matriz_tiene_una_sola_frecuencia_aunque_el_archivo_no`.
+
+    MNE sobremuestrea el canal de 1 Hz a 100 Hz sin avisar; lo que el lector
+    agrega es no perder de dónde venía cada fila.
+    """
+    edf = escribir_edf(
+        tmp_path,
+        segundos=10,
+        canales=[("EEG C3-A2", "uV", 100.0), ("EMG submental", "uV", 1.0)],
+    )
+    registro = read_recording(edf)
+
+    assert registro.sampling_rate == 100.0
+    assert registro.n_samples == 1000
+    assert [c.original_sampling_rate for c in registro.channels] == [100.0, 1.0]
+
+
+def test_el_edf_sintetico_informa_su_hora_de_inicio(edf_sintetico: Path):
+    """La que escribió `escribir_edf()`: el 7 de septiembre de 2026 a las 23."""
+    inicio = read_recording(edf_sintetico).start_time
+
+    assert inicio is not None
+    assert (inicio.year, inicio.month, inicio.day, inicio.hour, inicio.minute) == (
+        2026, 9, 7, 23, 0,
+    )
+
+
+def test_las_clases_se_detectan_sobre_el_edf_sintetico(edf_sintetico: Path):
+    registro = read_recording(edf_sintetico)
+    clases = {canal.name: canal.kind for canal in registro.channels}
+
+    assert clases == {
+        "EEG C3-A2": ChannelKind.EEG,
+        "EOG izquierdo": ChannelKind.EOG,
+        "EMG submental": ChannelKind.EMG,
+    }

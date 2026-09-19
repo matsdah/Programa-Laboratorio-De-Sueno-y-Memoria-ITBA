@@ -231,6 +231,161 @@ def brainvision_sintetico(tmp_path) -> pathlib.Path:
     return escribir_brainvision(tmp_path / "brainvision", segundos=3)
 
 
+#: Frecuencia del EDF sintético por omisión: la de la Sleep-EDF, el registro
+#: real con que se probó el lector. El formato guarda cuántas muestras entran
+#: en cada registro de datos, que acá dura un segundo, así que cualquier
+#: frecuencia entera se representa exacta, sin el problema del BrainVision.
+FRECUENCIA_EDF = 100.0
+
+#: El pico de cada canal del EDF sintético, en µV, por posición. Distintos entre
+#: sí por lo mismo que en el BrainVision: una permutación de canales se ve.
+PICOS_EDF_UV: tuple[float, ...] = (50.0, 30.0, 20.0, 40.0, 60.0)
+
+#: Cuántos µV vale cada unidad eléctrica que el EDF sintético sabe escribir.
+#: **Es la tabla del test, escrita a mano**: si el escritor usara la de
+#: `utils/units.py`, que es la que usa el lector, un factor equivocado se
+#: cancelaría solo y el test pasaría sin verificar nada.
+UV_POR_UNIDAD_EDF: dict[str, float] = {"uV": 1.0, "µV": 1.0, "mV": 1e3, "V": 1e6}
+
+#: Lo que vale un canal que no es eléctrico —una temperatura en "DegC"— en su
+#: propia unidad. Oscila medio grado alrededor de este valor, así que un factor
+#: de conversión aplicado por error lo saca de cualquier rango plausible.
+TEMPERATURA_EDF = 36.5
+
+
+def _campo_edf(texto: str, ancho: int) -> bytes:
+    """Un campo de la cabecera EDF, en latin-1 y rellenado con espacios.
+
+    Latin-1 y no ASCII por el micro de "µV": es como lo escriben los equipos que
+    no usan "uV", y como lo decodifica MNE.
+    """
+    crudo = texto.encode("latin-1")
+    if len(crudo) > ancho:
+        raise ValueError(f"{texto!r} no entra en los {ancho} bytes del campo")
+    return crudo.ljust(ancho, b" ")
+
+
+def _numero_edf(valor: float) -> str:
+    """El número más preciso que entra en los ocho caracteres de un campo EDF."""
+    for decimales in range(7, 0, -1):
+        texto = f"{valor:.{decimales}f}".rstrip("0").rstrip(".")
+        if len(texto) <= 8:
+            return texto
+    texto = f"{valor:.0f}"
+    if len(texto) > 8:
+        raise ValueError(f"{valor} no entra en los ocho caracteres de un campo EDF")
+    return texto
+
+
+def escribir_edf(
+    carpeta: pathlib.Path,
+    segundos: int,
+    canales: list[tuple[str, str, float]] | None = None,
+    inicio: datetime = datetime(2026, 9, 7, 23, 0, 0),
+) -> pathlib.Path:
+    """Escribe un EDF sintético y devuelve su ruta.
+
+    **Por qué existe.** Hasta el hito 33 el lector de EDF sólo se ejercitaba con
+    el registro de `data/`, que el CI no tiene: la conversión a microvoltios,
+    que es lo que justifica el lector, no corría en ninguna de las seis
+    combinaciones de sistema y versión de Python. La auditoría del 19 de
+    septiembre de 2026 encontró justo ahí dos errores de escala. Es el mismo
+    hueco que `escribir_brainvision()` cerró para el otro formato.
+
+    El formato permite escribirlo sin ninguna dependencia: una cabecera de
+    campos de texto de ancho fijo y después la señal como `int16` en registros
+    de datos. Acá cada registro dura un segundo.
+
+    Args:
+        carpeta: dónde escribirlo; se crea si no existe.
+        segundos: cuántos registros de datos de un segundo lleva el archivo.
+        canales: `(nombre, unidad, frecuencia)` de cada canal. **La frecuencia
+            puede ser distinta por canal**, como en la Sleep-EDF, que trae canales
+            a 100 Hz y a 1 Hz. Un canal cuya unidad está en
+            `UV_POR_UNIDAD_EDF` lleva un coseno de pico `PICOS_EDF_UV[i]` µV,
+            **escrito en su propia unidad**: leerlo bien es recuperar esos µV. Uno
+            con otra unidad oscila alrededor de `TEMPERATURA_EDF`, sin convertir.
+        inicio: la fecha y hora de la cabecera.
+
+    El coseno tiene una décima de la frecuencia del canal, así que su primera
+    muestra es exactamente el pico: los tests afirman el pico sin la tolerancia
+    de un seno muestreado.
+    """
+    carpeta.mkdir(parents=True, exist_ok=True)
+    canales = canales or [
+        ("EEG C3-A2", "uV", FRECUENCIA_EDF),
+        ("EOG izquierdo", "uV", FRECUENCIA_EDF),
+        ("EMG submental", "uV", FRECUENCIA_EDF),
+    ]
+
+    senales: list[np.ndarray] = []
+    rangos: list[tuple[str, str]] = []
+    for posicion, (_, unidad, frecuencia) in enumerate(canales):
+        muestras = int(frecuencia * segundos)
+        oscilacion = np.cos(2 * np.pi * (frecuencia / 10) * np.arange(muestras) / frecuencia)
+        if unidad in UV_POR_UNIDAD_EDF:
+            pico = PICOS_EDF_UV[posicion % len(PICOS_EDF_UV)] / UV_POR_UNIDAD_EDF[unidad]
+            senales.append(pico * oscilacion)
+            rangos.append((_numero_edf(-2 * pico), _numero_edf(2 * pico)))
+        else:
+            senales.append(TEMPERATURA_EDF + 0.5 * oscilacion)
+            rangos.append((_numero_edf(TEMPERATURA_EDF - 1), _numero_edf(TEMPERATURA_EDF + 1)))
+
+    cantidad = len(canales)
+    cabecera = b"".join(
+        [
+            _campo_edf("0", 8),
+            _campo_edf("X X X X", 80),
+            _campo_edf("Startdate X X X X", 80),
+            _campo_edf(inicio.strftime("%d.%m.%y"), 8),
+            _campo_edf(inicio.strftime("%H.%M.%S"), 8),
+            _campo_edf(str(256 * (cantidad + 1)), 8),
+            _campo_edf("", 44),
+            _campo_edf(str(segundos), 8),
+            _campo_edf("1", 8),
+            _campo_edf(str(cantidad), 4),
+        ]
+    )
+    # Los campos de cada canal van agrupados por campo, no por canal: primero
+    # todas las etiquetas, después todos los transductores, y así.
+    por_campo = [
+        [_campo_edf(nombre, 16) for nombre, _, _ in canales],
+        [_campo_edf("", 80) for _ in canales],
+        [_campo_edf(unidad, 8) for _, unidad, _ in canales],
+        [_campo_edf(minimo, 8) for minimo, _ in rangos],
+        [_campo_edf(maximo, 8) for _, maximo in rangos],
+        [_campo_edf("-32768", 8) for _ in canales],
+        [_campo_edf("32767", 8) for _ in canales],
+        [_campo_edf("", 80) for _ in canales],
+        [_campo_edf(str(int(frecuencia)), 8) for _, _, frecuencia in canales],
+        [_campo_edf("", 32) for _ in canales],
+    ]
+    cabecera += b"".join(b"".join(campo) for campo in por_campo)
+
+    # Físico → digital con el rango **tal como quedó escrito**: si se usara el
+    # número antes de recortarlo a ocho caracteres, el lector, que sólo ve el
+    # recortado, recuperaría otra amplitud.
+    digitales: list[np.ndarray] = []
+    for senal, (minimo, maximo) in zip(senales, rangos):
+        bajo, alto = float(minimo), float(maximo)
+        cuentas = np.round((senal - bajo) / (alto - bajo) * 65535 - 32768)
+        digitales.append(cuentas.astype("<i2").reshape(segundos, -1))
+    cuerpo = b"".join(
+        b"".join(canal[registro].tobytes() for canal in digitales)
+        for registro in range(segundos)
+    )
+
+    edf = carpeta / "sintetico.edf"
+    edf.write_bytes(cabecera + cuerpo)
+    return edf
+
+
+@pytest.fixture
+def edf_sintetico(tmp_path) -> pathlib.Path:
+    """Tres segundos de EDF sintético, tres canales a 100 Hz en µV."""
+    return escribir_edf(tmp_path / "edf", segundos=3)
+
+
 #: Clase de cada canal de `channel_names`, en su mismo orden. Está acá y no en
 #: cada test porque `registro_sintetico` la necesita y hasta el hito 10 cada
 #: archivo se la escribía sola: diez de ellos arman un `Recording` a mano.

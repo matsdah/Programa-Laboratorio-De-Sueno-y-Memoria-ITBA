@@ -83,7 +83,9 @@ septiembre) y
 septiembre, al cerrarse la Parte 1) son fotos fechadas de lo que se encontró
 revisando el repositorio entero. **La tercera, del 8 de septiembre, no tiene
 archivo propio**: sus hallazgos se repartieron entre los hitos 19, 20 y 21 del
-TODO, que es donde hay que ir a buscarlos. Antes de abrir un hito conviene
+TODO, que es donde hay que ir a buscarlos. La cuarta, del 19 de septiembre,
+tampoco: lo que encontró está en el hito 33, en el orden en que conviene
+atacarlo. Antes de abrir un hito conviene
 leer sus bloques "Medido en la auditoría", que están citados dentro del TODO en
 el hito al que le tocan. No son bugs abiertos sino decisiones que ese hito tiene
 que tomar: firmas que no pueden ser correctas en `statistics.py`, `Session` sin
