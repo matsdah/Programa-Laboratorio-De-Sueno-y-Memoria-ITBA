@@ -59,7 +59,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_nomenclature.py` | Las dos nomenclaturas, la conversión entre ellas y los códigos de `Scoring.txt`. |
 | `test_recording.py` | El registro en memoria y lo que no deja construir. |
 | `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
-| `test_session.py` | Navegación, canales y amplitud, sin abrir una ventana. |
+| `test_session.py` | Navegación, canales y amplitud, sin abrir una ventana, y qué cuenta como scoring sin exportar. |
 | `test_annotations.py` | Los eventos sobre la señal: qué se borra y qué se dibuja. |
 | `test_channel_types.py` | Que cada canal se clasifique solo: EEG, EOG, EMG, ECG u otro. |
 | `test_readers.py` | El despacho por formato, y que la señal de un EDF y un BrainVision salga en la escala correcta. |

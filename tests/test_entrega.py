@@ -3346,3 +3346,200 @@ def test_importar_impedancias_de_un_archivo_vacio_avisa(
     assert ventana.impedance_panel.values() == antes
     assert len(ventana.carteles) == 1
     assert "impedancias.txt" in ventana.carteles[0]
+
+
+# -- El scoring sin exportar (hito 33) ----------------------------------------
+#
+# Hasta la auditoría del 19 de septiembre, cerrar la ventana o abrir otro
+# registro descartaba el scoring sin preguntar. El cartel es modal, así que acá
+# se lo contesta con `cartel_del_scoring`; el último test arma el de verdad.
+
+
+@pytest.fixture
+def cartel_del_scoring(monkeypatch):
+    """Contesta el cartel con la respuesta que se fije y anota cada pregunta."""
+    estado: dict[str, object] = {"respuesta": "cancelar", "preguntas": []}
+
+    def responder(_ventana: MainWindow, al_hacer: str) -> str:
+        estado["preguntas"].append(al_hacer)
+        return str(estado["respuesta"])
+
+    monkeypatch.setattr(MainWindow, "_preguntar_por_el_scoring", responder)
+    return estado
+
+
+def scorear_algo(ventana: MainWindow) -> None:
+    from psglab.core.nomenclature import SleepStage
+
+    ventana._go_to_window(1)
+    ventana.score_current_window(SleepStage.N2)
+
+
+def test_cerrar_sin_nada_scoreado_no_pregunta(ventana: MainWindow, cartel_del_scoring):
+    ventana.show()
+
+    assert ventana.close()
+    assert cartel_del_scoring["preguntas"] == []
+
+
+def test_cancelar_deja_la_ventana_abierta_con_el_scoring(
+    ventana: MainWindow, cartel_del_scoring
+):
+    ventana.show()
+    scorear_algo(ventana)
+
+    assert not ventana.close()
+    assert ventana.isVisible()
+    assert cartel_del_scoring["preguntas"] == ["cerrar el programa"]
+    assert ventana.session.scoring.scored_windows() == 1
+    cartel_del_scoring["respuesta"] = "descartar"
+    ventana.close()
+
+
+def test_descartar_cierra(ventana: MainWindow, cartel_del_scoring):
+    ventana.show()
+    scorear_algo(ventana)
+    cartel_del_scoring["respuesta"] = "descartar"
+
+    assert ventana.close()
+
+
+def test_exportar_escribe_el_scoring_y_despues_cierra(
+    ventana: MainWindow, cartel_del_scoring, dialogo_de_guardado, tmp_path: Path
+):
+    ventana.show()
+    scorear_algo(ventana)
+    cartel_del_scoring["respuesta"] = "exportar"
+    dialogo_de_guardado["respuesta"] = tmp_path / "noche"
+
+    assert ventana.close()
+    assert (tmp_path / "noche.txt").read_text(encoding="utf-8").splitlines()[2] == "2 0"
+
+
+def test_cancelar_el_guardado_no_cierra(
+    ventana: MainWindow, cartel_del_scoring, dialogo_de_guardado
+):
+    """Elegir «Exportar…» y después cancelar el diálogo es no haber exportado:
+    cerrar igual perdería lo que el usuario quiso guardar."""
+    ventana.show()
+    scorear_algo(ventana)
+    cartel_del_scoring["respuesta"] = "exportar"
+
+    assert not ventana.close()
+    cartel_del_scoring["respuesta"] = "descartar"
+    ventana.close()
+
+
+def test_un_guardado_que_falla_no_cierra(
+    ventana: MainWindow, cartel_del_scoring, dialogo_de_guardado, tmp_path: Path
+):
+    ventana.show()
+    scorear_algo(ventana)
+    cartel_del_scoring["respuesta"] = "exportar"
+    dialogo_de_guardado["respuesta"] = tmp_path / "no" / "existe" / "noche.txt"
+
+    assert not ventana.close()
+    assert len(ventana.carteles) == 1
+    cartel_del_scoring["respuesta"] = "descartar"
+    ventana.close()
+
+
+def test_lo_ya_exportado_no_se_pregunta(
+    ventana: MainWindow, cartel_del_scoring, tmp_path: Path
+):
+    ventana.show()
+    scorear_algo(ventana)
+    ventana.export("scoring", tmp_path / "Scoring.txt")
+
+    assert ventana.close()
+    assert cartel_del_scoring["preguntas"] == []
+
+
+def test_abrir_otro_registro_pregunta_y_cancelar_conserva_la_sesion(
+    ventana: MainWindow, cartel_del_scoring, tmp_path: Path
+):
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 3)
+    scorear_algo(ventana)
+    antes = ventana.session
+
+    ventana.open_recording(otro)
+
+    assert cartel_del_scoring["preguntas"] == ["abrir «sintetico.vhdr»"]
+    assert ventana.session is antes
+    assert ventana.session.scoring.scored_windows() == 1
+
+
+def test_abrir_otro_registro_y_descartar_lo_abre(
+    ventana: MainWindow, cartel_del_scoring, tmp_path: Path
+):
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 3)
+    scorear_algo(ventana)
+    cartel_del_scoring["respuesta"] = "descartar"
+
+    ventana.open_recording(otro)
+
+    assert ventana.session.n_windows == 3
+    assert ventana.session.scoring.scored_windows() == 0
+
+
+def test_abrir_otro_registro_y_exportar_guarda_antes_de_abrirlo(
+    ventana: MainWindow, cartel_del_scoring, dialogo_de_guardado, tmp_path: Path
+):
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 3)
+    scorear_algo(ventana)
+    cartel_del_scoring["respuesta"] = "exportar"
+    dialogo_de_guardado["respuesta"] = tmp_path / "Scoring.txt"
+
+    ventana.open_recording(otro)
+
+    assert (tmp_path / "Scoring.txt").exists()
+    assert ventana.session.n_windows == 3
+
+
+def test_un_registro_que_no_se_puede_abrir_no_pregunta(
+    ventana: MainWindow, cartel_del_scoring, tmp_path: Path
+):
+    """Se pregunta después de leer: si el archivo nuevo está roto, la sesión
+    anterior sigue y no hay nada que perder."""
+    roto = tmp_path / "roto.edf"
+    roto.write_bytes(b"0" * 300)
+    scorear_algo(ventana)
+    antes = ventana.session
+
+    ventana.open_recording(roto)
+
+    assert cartel_del_scoring["preguntas"] == []
+    assert ventana.session is antes
+    assert len(ventana.carteles) == 1
+
+
+def test_el_cartel_de_verdad_ofrece_las_tres_salidas(ventana: MainWindow, monkeypatch):
+    """El de verdad, sin mostrarlo: se le hace clic a cada botón.
+
+    **Exportar es el botón por omisión y Escape es cancelar**: un Enter apurado
+    no puede costar la noche.
+    """
+    visto: dict[str, object] = {}
+
+    def exec_sin_mostrar(cartel: QMessageBox) -> int:
+        botones = {b.text(): b for b in cartel.buttons()}
+        visto["botones"] = set(botones)
+        visto["por_omision"] = cartel.defaultButton().text()
+        visto["escape"] = cartel.escapeButton().text()
+        visto["texto"] = cartel.informativeText()
+        botones[visto["elegir"]].click()
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", exec_sin_mostrar)
+    for texto, respuesta in (
+        ("Exportar…", "exportar"),
+        ("Descartar", "descartar"),
+        ("Cancelar", "cancelar"),
+    ):
+        visto["elegir"] = texto
+        assert ventana._preguntar_por_el_scoring("cerrar el programa") == respuesta
+
+    assert visto["botones"] == {"Exportar…", "Descartar", "Cancelar"}
+    assert visto["por_omision"] == "Exportar…"
+    assert visto["escape"] == "Cancelar"
+    assert "cerrar el programa" in visto["texto"]

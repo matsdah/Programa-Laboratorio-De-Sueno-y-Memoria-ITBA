@@ -56,7 +56,7 @@ from pathlib import Path
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPointF, Qt
-from PySide6.QtGui import QAction, QFont, QMouseEvent
+from PySide6.QtGui import QAction, QCloseEvent, QFont, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -789,6 +789,12 @@ class MainWindow(QMainWindow):
             self._show_error(error)
             return
 
+        # **Lo que se perdería con la sesión anterior, antes de soltarla**
+        # (hito 33). Va después de leer y no antes: si el archivo nuevo no se
+        # puede abrir, la sesión anterior sigue y no hay nada que preguntar.
+        if not self._puede_descartarse_el_scoring(f"abrir «{path.name}»"):
+            return
+
         # Las herramientas activas siguen guardando la sesión que recibieron
         # en `activate()`: si no se las suelta, la ocupación seguiría midiendo
         # sobre el registro anterior y el histograma dibujaría su scoring.
@@ -929,6 +935,9 @@ class MainWindow(QMainWindow):
                 export_scoring_as(
                     self._session.scoring, path, self._session.recording.start_time
                 )
+                # Después de escribir y no antes: si falló, el trabajo sigue sin
+                # estar en ningún archivo y cerrar tiene que seguir preguntando.
+                self._session.mark_scoring_exported()
             elif kind == "annotations":
                 export_annotations(self._session.annotations, path)
             elif kind == "information":
@@ -963,6 +972,81 @@ class MainWindow(QMainWindow):
             )
             return
         self.statusBar().showMessage(f"Se exportó {path.name}", 5000)
+
+    # -- El scoring sin exportar (hito 33) ---------------------------------
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Cerrar la ventana es cerrar el programa: antes, el scoring sin exportar.
+
+        Hasta el hito 33 no había este método y la ventana se cerraba sin
+        preguntar nada, con la noche scoreada adentro. Si el usuario cancela,
+        la ventana queda abierta como estaba, reproducción incluida.
+        """
+        if not self._puede_descartarse_el_scoring("cerrar el programa"):
+            event.ignore()
+            return
+        self.playback.stop()
+        super().closeEvent(event)
+
+    def _puede_descartarse_el_scoring(self, al_hacer: str) -> bool:
+        """Si se puede seguir sin perder scoring que el usuario no exportó.
+
+        **El programa no autoguarda**, por decisión del usuario en el hito 33:
+        guardar a escondidas obliga a elegir dónde y en qué formato por él. Así
+        que cuando algo va a soltar la sesión —cerrar, abrir otro registro— y
+        `Session.has_unexported_scoring()` dice que hay trabajo que no está en
+        ningún archivo, se pregunta con tres salidas:
+
+        - **Exportar…** abre el mismo diálogo que Ctrl+S y sigue sólo si el
+          scoring quedó escrito. Cancelar ese diálogo, o que escribir falle,
+          deja todo como estaba.
+        - **Descartar** sigue y lo pierde, que es lo que el usuario eligió.
+        - **Cancelar**, o cerrar el cartel, no hace nada.
+
+        Args:
+            al_hacer: lo que se está por hacer, para el texto del cartel:
+                "cerrar el programa", "abrir «noche.edf»".
+        """
+        if self._session is None or not self._session.has_unexported_scoring():
+            return True
+        respuesta = self._preguntar_por_el_scoring(al_hacer)
+        if respuesta == "descartar":
+            return True
+        if respuesta == "exportar":
+            self.export_scoring_dialog()
+            return not self._session.has_unexported_scoring()
+        return False
+
+    def _preguntar_por_el_scoring(self, al_hacer: str) -> str:
+        """Muestra el cartel y devuelve "exportar", "descartar" o "cancelar".
+
+        Está aparte de la decisión para que los tests puedan contestarlo: el
+        cartel es modal y, sin nadie que lo cierre, colgaría la suite.
+
+        **Exportar es el botón por omisión y Escape es cancelar**: un Enter
+        apurado no puede costar la noche, y apretar Escape es arrepentirse de
+        cerrar, no de haber scoreado.
+        """
+        nombre = self._session.recording.file_path.name if self._session else ""
+        cartel = QMessageBox(self)
+        cartel.setIcon(QMessageBox.Icon.Warning)
+        cartel.setWindowTitle("Scoring sin exportar")
+        cartel.setText(f"El scoring de «{nombre}» tiene cambios que no se exportaron.")
+        cartel.setInformativeText(
+            f"Si no lo exportás, se pierden al {al_hacer}. ¿Exportarlo antes?"
+        )
+        exportar = cartel.addButton("Exportar…", QMessageBox.ButtonRole.AcceptRole)
+        descartar = cartel.addButton("Descartar", QMessageBox.ButtonRole.DestructiveRole)
+        cancelar = cartel.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+        cartel.setDefaultButton(exportar)
+        cartel.setEscapeButton(cancelar)
+        cartel.exec()
+        elegido = cartel.clickedButton()
+        if elegido is exportar:
+            return "exportar"
+        if elegido is descartar:
+            return "descartar"
+        return "cancelar"
 
     def refresh(self) -> None:
         """Redibuja todos los paneles a partir del estado de la sesión.

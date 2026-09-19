@@ -25,8 +25,9 @@ from psglab.config import (
     MIN_SCALE_UV,
 )
 from psglab.core.annotations import AnnotationSet
+from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Recording
-from psglab.core.scoring import Scoring
+from psglab.core.scoring import EpochScore, Scoring
 from psglab.core.viewport import Viewport
 from psglab.core.windows import (
     count_windows,
@@ -110,6 +111,10 @@ class Session:
 
         self._recording = recording
         self._scoring = scoring
+        #: Cómo estaba el scoring la última vez que quedó en un archivo: al
+        #: abrir el registro, al importarlo o al exportarlo. Ver
+        #: `has_unexported_scoring()`.
+        self._scoring_a_salvo = self._foto_del_scoring()
         self._annotations = annotations
         self._current_window = 0
         self._visible_channels: list[str] = recording.channel_names()
@@ -222,6 +227,54 @@ class Session:
                 ),
             )
         self._scoring = scoring
+        # Lo que se importó está en el archivo del que vino: cerrar ahora no
+        # pierde nada de él.
+        self._scoring_a_salvo = self._foto_del_scoring()
+
+    # -- Lo que se perdería al cerrar (hito 33) ------------------------------
+
+    def _foto_del_scoring(self) -> tuple[Nomenclature, tuple[EpochScore, ...]]:
+        """El contenido del scoring, para compararlo después.
+
+        `EpochScore` es inmutable, así que la foto no cambia aunque el scoring
+        sí: guardarla es guardar referencias, no copiar ventanas.
+        """
+        return (
+            self._scoring.nomenclature,
+            tuple(self._scoring.get(i) for i in range(self._scoring.n_windows)),
+        )
+
+    def has_unexported_scoring(self) -> bool:
+        """Si el scoring tiene trabajo que no está en ningún archivo.
+
+        **Es lo que la ventana pregunta antes de cerrar o de abrir otro
+        registro** (hito 33): el programa no autoguarda, así que lo que no se
+        exportó se pierde con la sesión. Hasta la auditoría del 19 de
+        septiembre de 2026 no preguntaba nada, y una noche scoreada se perdía
+        con un Ctrl+O.
+
+        Compara contra cómo estaba el scoring la última vez que quedó en un
+        archivo —al abrir el registro, al importar un scoring o al exportarlo—,
+        y no contra una marca que se prende al escribir: scorear una ventana y
+        volverla a como estaba no es un cambio.
+
+        **Un scoring vacío no tiene nada que perder**, aunque haya cambiado de
+        nomenclatura: sin ninguna fase ni ningún arousal, exportarlo daría un
+        archivo sin contenido. El arousal cuenta como trabajo aunque la ventana
+        no tenga fase, porque es independiente de ella (V2_F).
+        """
+        nomenclatura, ventanas = self._foto_del_scoring()
+        if not any(ventana.is_scored or ventana.arousal for ventana in ventanas):
+            return False
+        return (nomenclatura, ventanas) != self._scoring_a_salvo
+
+    def mark_scoring_exported(self) -> None:
+        """Registra que el scoring, tal como está, quedó escrito en un archivo.
+
+        La llama la ventana después de exportarlo bien, y no antes: si escribir
+        falló, el trabajo sigue sin estar en ningún lado.
+        """
+        self._scoring_a_salvo = self._foto_del_scoring()
 
     def set_recording(self, recording: Recording) -> None:
         """Reemplaza el registro por uno procesado, sin perder la sesión.

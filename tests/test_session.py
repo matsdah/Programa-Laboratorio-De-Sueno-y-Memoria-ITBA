@@ -1081,3 +1081,91 @@ def test_si_la_pagina_no_cambia_no_se_avisa_a_las_herramientas(session):
 def test_un_cursor_que_no_es_un_instante_se_rechaza(session, hostil):
     with pytest.raises(PsgLabError):
         session.move_playhead(hostil)
+
+
+# -- Lo que se perdería al cerrar (hito 33) ----------------------------------
+#
+# La ventana pregunta antes de cerrar o de abrir otro registro, y lo que decide
+# si hay algo que preguntar vive acá: es una regla, y se testea sin ventana.
+
+
+def test_un_registro_recien_abierto_no_tiene_nada_sin_exportar(session):
+    assert not session.has_unexported_scoring()
+
+
+def test_scorear_deja_trabajo_sin_exportar(session):
+    from psglab.core.nomenclature import SleepStage
+
+    session.scoring.set_stage(3, SleepStage.N2)
+
+    assert session.has_unexported_scoring()
+
+
+def test_un_arousal_sin_fase_tambien_es_trabajo(session):
+    """El arousal es independiente de la fase (V2_F): marcarlo en una ventana
+    sin scorear también se perdería."""
+    session.scoring.set_arousal(3, True)
+
+    assert session.has_unexported_scoring()
+
+
+def test_exportar_deja_el_scoring_a_salvo(session):
+    from psglab.core.nomenclature import SleepStage
+
+    session.scoring.set_stage(3, SleepStage.N2)
+    session.mark_scoring_exported()
+
+    assert not session.has_unexported_scoring()
+
+
+def test_un_cambio_despues_de_exportar_vuelve_a_contar(session):
+    from psglab.core.nomenclature import SleepStage
+
+    session.scoring.set_stage(3, SleepStage.N2)
+    session.mark_scoring_exported()
+    session.scoring.set_stage(4, SleepStage.N3)
+
+    assert session.has_unexported_scoring()
+
+
+def test_volver_una_ventana_a_como_estaba_no_es_un_cambio(session):
+    """Se compara contra lo que quedó en el archivo, no contra una marca que se
+    prende al escribir: preguntar por un cambio que se deshizo es ruido."""
+    from psglab.core.nomenclature import SleepStage
+
+    session.scoring.set_stage(3, SleepStage.N2)
+    session.mark_scoring_exported()
+    session.scoring.set_stage(3, SleepStage.N3)
+    session.scoring.set_stage(3, SleepStage.N2)
+
+    assert not session.has_unexported_scoring()
+
+
+def test_cambiar_la_nomenclatura_de_un_scoring_exportado_es_un_cambio(session):
+    """El archivo quedó en la otra nomenclatura: el que se ve ya no es ése."""
+    from psglab.core.nomenclature import SleepStage
+
+    session.scoring.set_stage(3, SleepStage.N2)
+    session.mark_scoring_exported()
+    session.scoring.change_nomenclature(Nomenclature.RK)
+
+    assert session.has_unexported_scoring()
+
+
+def test_un_scoring_vacio_no_tiene_nada_que_perder(session):
+    """Cambiar de nomenclatura sin haber scoreado nada no es trabajo: exportarlo
+    daría un archivo sin ninguna fase."""
+    session.scoring.change_nomenclature(Nomenclature.RK)
+
+    assert not session.has_unexported_scoring()
+
+
+def test_lo_importado_esta_en_su_archivo(session):
+    """Un scoring importado vino de un archivo: cerrar no lo pierde."""
+    from psglab.core.nomenclature import SleepStage
+
+    importado = Scoring(VENTANAS_SINTETICAS, Nomenclature.AASM)
+    importado.set_stage(0, SleepStage.N2)
+    session.set_scoring(importado)
+
+    assert not session.has_unexported_scoring()

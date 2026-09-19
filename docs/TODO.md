@@ -349,7 +349,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **126 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **135 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `set_scoring()` se agregó en el hito 6, para V3_F: importar un scoring no
     es abrir otro registro, así que sustituye adentro en vez de armar otra
@@ -2327,7 +2327,7 @@ lo mínimo.
       una sola vez y devuelve el instante recortado, para que la interfaz no
       repita el recorte. No llama a `_seguir_a_la_epoca()`: con una página de
       menos de 30 s, `containing()` la sacaría del medio.
-  - Test: `tests/test_session.py`, **126 tests en verde**.
+  - Test: `tests/test_session.py`, **135 tests en verde**.
   - Test: `tests/test_contratos.py`, **959 tests en verde**, con su
     fila en `CONTRATOS` y en `RECHAZOS_OBLIGATORIOS`: un NaN no puede pasar.
 - [x] **Una línea marca el cursor**, creada una vez y después movida, por la
@@ -2342,7 +2342,7 @@ lo mínimo.
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**.
+  - Test: `tests/test_entrega.py`, **227 tests en verde**.
 
 ### Lo que se midió
 
@@ -2414,7 +2414,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
   - Test: `tests/test_menus.py`, **37 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**: tildar
+  - Test: `tests/test_entrega.py`, **227 tests en verde**: tildar
     un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
     oculta.
 
@@ -2435,7 +2435,7 @@ amplitud también quedaban corridas.
 - [x] **El test no podía verlo**: `arrastrar()` armaba el evento con las tres
       posiciones iguales. Ahora lo arma como Qt, con `scenePosition()` relativa
       a la ventana.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**, con que la
+  - Test: `tests/test_entrega.py`, **227 tests en verde**, con que la
     anotación empiece y termine a un píxel del mouse. Falla sin la corrección,
     corrida 7,5 s.
 
@@ -2463,7 +2463,7 @@ clic derecho**.
       más corta, que es la que no se puede señalar en ningún otro lugar.
   - Test: `tests/test_annotator.py`, **28 tests en verde**, con
     `annotation_at()` y las bandas sin la herramienta activada.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**, con eventos de Qt
+  - Test: `tests/test_entrega.py`, **227 tests en verde**, con eventos de Qt
     de verdad: las bandas al ir y volver de época con cada herramienta, y el
     clic derecho con la confirmación aceptada, rechazada y con otra
     herramienta activa. Fallan con la ventana anterior.
@@ -2525,7 +2525,7 @@ llegan a la ventana.
 - [x] **El clic del hipnograma no tenía ningún test con eventos**, y tenía el
       mismo error que el anotador hasta el hito 28: con los tres paneles de
       abajo a la vista, caía en la época 4 en vez de la 3.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**, con dos registros
+  - Test: `tests/test_entrega.py`, **227 tests en verde**, con dos registros
     de verdad. Los cinco fallan sin su corrección.
   - Test: `tests/test_occupancy.py`, **40 tests en verde**.
   - Test: `tests/test_annotator.py`, **28 tests en verde**.
@@ -2596,7 +2596,7 @@ todas con la recomendación que se le hizo.
       métodos y no sólo funciones: son `SIN_CAMINO_A_PROPOSITO` y
       `HUECOS_ABIERTOS` en `tests/test_consistencia.py`. Un hueco abierto no se
       exime: tiene que figurar por su nombre en este archivo.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**. Los siete nuevos
+  - Test: `tests/test_entrega.py`, **227 tests en verde**. Los siete nuevos
     fallan con la ventana anterior.
   - Test: `tests/test_preferences.py`, **54 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **73 tests en verde**.
@@ -2664,7 +2664,7 @@ tiempo.
       tarda 0,3 s. Pedida apenas abierto el registro todavía espera lo que le
       falta a la compilación: 4,6 s. Lempel-Ziv tarda 2,7 s por el cálculo en
       sí, compilado o no.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**: el menú no cambia
+  - Test: `tests/test_entrega.py`, **227 tests en verde**: el menú no cambia
     después de los cuatro análisis, y `main.py` precalienta y la suite no.
   - Test: `tests/test_connectivity_panel.py`, **16 tests en verde**.
   - Test: `tests/test_filter_panel.py`, **20 tests en verde**, y
@@ -2712,7 +2712,7 @@ le hizo, y mantuvo afuera las operaciones largas.
       es de la ventana.
 - [x] **`HUECOS_ABIERTOS` queda vacía**: los cuatro métodos que encontró la red
       del hito 30 tienen camino desde la ventana.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**, con un registro que
+  - Test: `tests/test_entrega.py`, **227 tests en verde**, con un registro que
     tiene un canal en cero.
   - Test: `tests/test_recording.py`, **40 tests en verde**, y
     `tests/test_contratos.py`, **959 tests en verde**.
@@ -2784,10 +2784,28 @@ ya advertía.
       `_con_campos_nuevos()` atrapa, y `create_application()` sólo atrapa
       `PsgLabError`. Alcanza con `{"psd_bands": [["Delta", 0.5]]}`, y el módulo
       supone que el archivo se edita a mano.
-- [ ] **Abrir otro registro o cerrar la ventana descarta el scoring sin
-      preguntar.** No hay `closeEvent` ni ninguna marca de cambios sin exportar.
-      **Espera una decisión del usuario**; la recomendación es un cartel con
-      Exportar, Descartar y Cancelar, sin autoguardado.
+- [x] **Abrir otro registro o cerrar la ventana descartaba el scoring sin
+      preguntar.** No había `closeEvent` ni ninguna marca de cambios sin
+      exportar. El usuario eligió **un cartel con Exportar…, Descartar y
+      Cancelar, sin autoguardado**: guardar a escondidas obliga a elegir por él
+      dónde y en qué formato.
+      - La regla es de `core/`: `Session.has_unexported_scoring()` compara el
+        scoring contra cómo estaba la última vez que quedó en un archivo —al
+        abrir, al importar, al exportar—, así que deshacer un cambio no cuenta
+        y un scoring vacío no tiene nada que perder. `export()` llama a
+        `mark_scoring_exported()` sólo si escribir anduvo.
+      - «Exportar…» abre el mismo diálogo que Ctrl+S y sigue sólo si el
+        scoring quedó escrito: cancelar el diálogo o que falle escribir deja
+        todo como estaba. Exportar es el botón por omisión y Escape cancela.
+      - Al abrir otro registro se pregunta **después de leerlo**: si el archivo
+        nuevo está roto, la sesión anterior sigue y no hay nada que preguntar.
+  - Test: `tests/test_session.py`, **135 tests en verde**, con nueve sobre qué
+    cuenta como trabajo sin exportar.
+  - Test: `tests/test_entrega.py`, **227 tests en verde**, con doce por la
+    ventana: cerrar y abrir otro registro con cada una de las tres
+    respuestas, un guardado cancelado o fallido, y el cartel de verdad con sus
+    tres botones. Con la ventana anterior fallan once; el que pasa igual es el
+    que afirma que sin nada scoreado no se pregunta.
 - [ ] **La conectividad deja escapar un `ValueError` de MNE** cuando la banda
       no tiene ninguna frecuencia por debajo de Nyquist: una banda del usuario
       de 55 a 90 Hz sobre un registro de 100 Hz. No sale ningún cartel y la
@@ -2841,6 +2859,14 @@ ya advertía.
 - [ ] **Lo largo sigue en el hilo de la interfaz**: la conectividad de la noche,
       entre 15 y 18 s sobre ocho horas; la ICA, 9 s; filtrar, 2,5 s. Es la
       decisión del hito 32, ahora con números.
+- [ ] **El cartel del scoring no cubre las anotaciones.** Mira sólo el scoring,
+      que es lo que la ventana exporta: Anotaciones.txt salió del menú en el
+      [hito 23](#hito-23-ajustes-de-la-barra-de-menú), así que una sesión con
+      eventos anotados y nada scoreado se sigue cerrando sin preguntar. Decidir
+      si el cartel también las cuenta es del usuario.
+- [ ] **Importar un scoring encima de uno sin exportar lo reemplaza sin
+      preguntar.** Es la misma pérdida por otro camino, y quedó fuera del pedido
+      del hito, que nombraba cerrar y abrir otro registro.
 
 ---
 
