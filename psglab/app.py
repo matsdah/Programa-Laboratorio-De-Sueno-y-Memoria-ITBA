@@ -22,15 +22,16 @@ def _esquema_guardado() -> theme.ColorScheme:
     """El esquema que el usuario eligió la última vez, o el de fábrica.
 
     **Un archivo de preferencias roto no puede impedir que el programa arranque**,
-    así que el error se atrapa acá y se sigue con el esquema por omisión. Es la
-    única vez en todo el proyecto que un `PsgLabError` no llega a la pantalla, y
-    la razón es que en este momento todavía no hay ninguna: la `QApplication`
-    recién se está construyendo y la ventana no existe.
+    así que el error se atrapa acá y se sigue con el esquema por omisión. Acá no
+    llega a la pantalla porque todavía no hay ninguna: la `QApplication` recién
+    se está construyendo y la ventana no existe. El cartel lo muestra después
+    `MainWindow.apply_saved_preferences()`, que vuelve a leer el mismo archivo
+    con la ventana ya armada (hito 33).
 
-    El usuario no se queda sin señal: ve el programa en los colores de fábrica,
-    y elegir un esquema desde el menú vuelve a escribir el archivo, con lo que
-    el problema se corrige solo. Preferir un cartel a esto costaría diferir el
-    arranque de la ventana para poder mostrarlo.
+    **Hasta el hito 33 esta garantía tenía un agujero**: `load()` sólo elevaba
+    `PsgLabError` para los errores del archivo entero, pero una banda mal
+    escrita elevaba `IndexError`, que pasaba por acá y el programa no arrancaba.
+    Ahora `load()` atrapa por campo todo lo que un valor de JSON puede provocar.
 
     **Se llama sólo desde `create_application()`, que a su vez sólo se llama
     desde `main.py`.** Es deliberado: si lo hiciera `create_main_window()`, la

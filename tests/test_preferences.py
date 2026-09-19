@@ -145,6 +145,51 @@ def test_los_errores_del_modulo_son_del_programa():
     assert issubclass(InvalidPreferencesError, PsgLabError)
 
 
+#: Lo que un archivo editado a mano puede traer en cualquier campo: cada tipo de
+#: JSON, y las formas casi correctas de una banda o de un esquema.
+VALORES_HOSTILES: tuple[object, ...] = (
+    [], {}, "x", "", 7, -3, 2.5, True, None,
+    [[1]], [["Delta", 0.5]], [["a", 1, 2, 3]], [None], {"a": 1},
+    {"background": [1]}, {"name": {}},
+)
+
+#: Todos los campos que `load()` lee del archivo.
+CAMPOS_GUARDADOS: list[str] = sorted(set(preferences._LECTORES) | {"scheme_name", "custom_scheme"})
+
+
+@pytest.mark.parametrize("campo", CAMPOS_GUARDADOS)
+def test_ningun_valor_de_un_campo_impide_arrancar(archivo: Path, campo: str):
+    """**Hito 33.** El arranque atrapa `PsgLabError` y nada más, en
+    `create_application()` y en la ventana, así que `load()` sólo puede elevar
+    eso. Una banda de dos números elevaba `IndexError` y **el programa no
+    abría** hasta borrar a mano un archivo escondido en el perfil."""
+    crudos = []
+    for valor in VALORES_HOSTILES:
+        archivo.write_text(json.dumps({campo: valor}), encoding="utf-8")
+        try:
+            preferences.load(archivo)
+        except PsgLabError:
+            pass
+        except Exception as error:  # noqa: BLE001 - es lo que el test busca
+            crudos.append(f"{valor!r} → {type(error).__name__}: {error}")
+
+    assert not crudos, "\n".join(crudos)
+
+
+def test_una_banda_de_dos_numeros_vuelve_a_las_de_fabrica_sin_llevarse_el_resto(
+    archivo: Path,
+):
+    """El caso que encontró la auditoría del 19 de septiembre."""
+    archivo.write_text(
+        json.dumps({"psd_bands": [["Delta", 0.5]], "font_size": 14}), encoding="utf-8"
+    )
+
+    leidas = preferences.load(archivo)
+
+    assert leidas.psd_bands is None
+    assert leidas.font_size == 14
+
+
 # -- Esquemas en archivos sueltos --------------------------------------------
 
 

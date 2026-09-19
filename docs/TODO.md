@@ -1800,7 +1800,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       canal toma su color. **El esquema Claro deja el programa exactamente como
       era.**
   - Test: `tests/test_theme.py`, **82 tests en verde**.
-  - Test: `tests/test_preferences.py`, **54 tests en verde**.
+  - Test: `tests/test_preferences.py`, **71 tests en verde**.
 - [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
       y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
@@ -2008,7 +2008,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
       `apply_saved_layout()` pasó a `apply_saved_preferences()` y ya no
       restaura nada, y la ventana dejó de guardar la disposición al cerrar.
   - Test: `tests/test_docks.py`, **39 tests en verde**.
-  - Test: `tests/test_preferences.py`, **54 tests en verde**.
+  - Test: `tests/test_preferences.py`, **71 tests en verde**.
 - [x] **Los botones de página.** ≪ ‹ › ≫ en la barra de abajo, con chevrones
       para que no se confundan con los triángulos de la época.
       `Viewport.at_start` y `Viewport.at_end` dicen cuándo apagarlos.
@@ -2342,7 +2342,7 @@ lo mínimo.
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **229 tests en verde**.
+  - Test: `tests/test_entrega.py`, **231 tests en verde**.
 
 ### Lo que se midió
 
@@ -2414,7 +2414,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
   - Test: `tests/test_menus.py`, **37 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
-  - Test: `tests/test_entrega.py`, **229 tests en verde**: tildar
+  - Test: `tests/test_entrega.py`, **231 tests en verde**: tildar
     un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
     oculta.
 
@@ -2435,7 +2435,7 @@ amplitud también quedaban corridas.
 - [x] **El test no podía verlo**: `arrastrar()` armaba el evento con las tres
       posiciones iguales. Ahora lo arma como Qt, con `scenePosition()` relativa
       a la ventana.
-  - Test: `tests/test_entrega.py`, **229 tests en verde**, con que la
+  - Test: `tests/test_entrega.py`, **231 tests en verde**, con que la
     anotación empiece y termine a un píxel del mouse. Falla sin la corrección,
     corrida 7,5 s.
 
@@ -2463,7 +2463,7 @@ clic derecho**.
       más corta, que es la que no se puede señalar en ningún otro lugar.
   - Test: `tests/test_annotator.py`, **28 tests en verde**, con
     `annotation_at()` y las bandas sin la herramienta activada.
-  - Test: `tests/test_entrega.py`, **229 tests en verde**, con eventos de Qt
+  - Test: `tests/test_entrega.py`, **231 tests en verde**, con eventos de Qt
     de verdad: las bandas al ir y volver de época con cada herramienta, y el
     clic derecho con la confirmación aceptada, rechazada y con otra
     herramienta activa. Fallan con la ventana anterior.
@@ -2525,7 +2525,7 @@ llegan a la ventana.
 - [x] **El clic del hipnograma no tenía ningún test con eventos**, y tenía el
       mismo error que el anotador hasta el hito 28: con los tres paneles de
       abajo a la vista, caía en la época 4 en vez de la 3.
-  - Test: `tests/test_entrega.py`, **229 tests en verde**, con dos registros
+  - Test: `tests/test_entrega.py`, **231 tests en verde**, con dos registros
     de verdad. Los cinco fallan sin su corrección.
   - Test: `tests/test_occupancy.py`, **40 tests en verde**.
   - Test: `tests/test_annotator.py`, **28 tests en verde**.
@@ -2596,9 +2596,9 @@ todas con la recomendación que se le hizo.
       métodos y no sólo funciones: son `SIN_CAMINO_A_PROPOSITO` y
       `HUECOS_ABIERTOS` en `tests/test_consistencia.py`. Un hueco abierto no se
       exime: tiene que figurar por su nombre en este archivo.
-  - Test: `tests/test_entrega.py`, **229 tests en verde**. Los siete nuevos
+  - Test: `tests/test_entrega.py`, **231 tests en verde**. Los siete nuevos
     fallan con la ventana anterior.
-  - Test: `tests/test_preferences.py`, **54 tests en verde**.
+  - Test: `tests/test_preferences.py`, **71 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **73 tests en verde**.
   - Test: `tests/test_menus.py`, **37 tests en verde**.
   - Test: `tests/test_psd_panel.py`, **25 tests en verde**; y dos por panel en
@@ -2664,7 +2664,7 @@ tiempo.
       tarda 0,3 s. Pedida apenas abierto el registro todavía espera lo que le
       falta a la compilación: 4,6 s. Lempel-Ziv tarda 2,7 s por el cálculo en
       sí, compilado o no.
-  - Test: `tests/test_entrega.py`, **229 tests en verde**: el menú no cambia
+  - Test: `tests/test_entrega.py`, **231 tests en verde**: el menú no cambia
     después de los cuatro análisis, y `main.py` precalienta y la suite no.
   - Test: `tests/test_connectivity_panel.py`, **16 tests en verde**.
   - Test: `tests/test_filter_panel.py`, **20 tests en verde**, y
@@ -2712,12 +2712,12 @@ le hizo, y mantuvo afuera las operaciones largas.
       es de la ventana.
 - [x] **`HUECOS_ABIERTOS` queda vacía**: los cuatro métodos que encontró la red
       del hito 30 tienen camino desde la ventana.
-  - Test: `tests/test_entrega.py`, **229 tests en verde**, con un registro que
+  - Test: `tests/test_entrega.py`, **231 tests en verde**, con un registro que
     tiene un canal en cero.
   - Test: `tests/test_recording.py`, **40 tests en verde**, y
     `tests/test_contratos.py`, **959 tests en verde**.
   - Test: `tests/test_magnifier.py`, **27 tests en verde**;
-    `tests/test_preferences.py`, **54 tests en verde**;
+    `tests/test_preferences.py`, **71 tests en verde**;
     `tests/test_settings_dialog.py`, **73 tests en verde**.
 
 ### Lo que sigue abierto
@@ -2810,13 +2810,26 @@ ya advertía.
         «trae 4 h 10 min de los 8 h 00 min que declara su cabecera».
   - Test: `tests/test_readers.py`, **77 tests en verde**, con el truncado, el
     entero y el de -1 registros.
-  - Test: `tests/test_entrega.py`, **229 tests en verde**, abriéndolos por la
+  - Test: `tests/test_entrega.py`, **231 tests en verde**, abriéndolos por la
     ventana.
-- [ ] **Una fila de bandas mal formada en las preferencias impide arrancar.**
-      `_leer_bandas()` eleva `IndexError`, que no está entre lo que
+- [x] **Una fila de bandas mal formada en las preferencias impedía arrancar.**
+      `_leer_bandas()` elevaba `IndexError`, que no estaba entre lo que
       `_con_campos_nuevos()` atrapa, y `create_application()` sólo atrapa
-      `PsgLabError`. Alcanza con `{"psd_bands": [["Delta", 0.5]]}`, y el módulo
-      supone que el archivo se edita a mano.
+      `PsgLabError`. Alcanzaba con `{"psd_bands": [["Delta", 0.5]]}`, y el
+      módulo supone que el archivo se edita a mano.
+      - `_leer_bandas()` comprueba la forma de cada fila, y cada campo atrapa
+        todo lo que un valor de JSON puede provocar: un campo roto vuelve al de
+        fábrica, como ya prometía el docstring.
+      - **Un archivo dañado ahora se avisa al arrancar.** `load()` armaba el
+        mensaje para el investigador y nadie lo mostraba; lo muestra
+        `apply_saved_preferences()` con la ventana ya a la vista.
+  - Test: `tests/test_preferences.py`, **71 tests en verde**, con un barrido
+    que le pone a cada campo guardado todos los tipos de JSON y exige que
+    `load()` no eleve nada que no sea `PsgLabError`. Con el módulo anterior
+    falla sólo `psd_bands`, con cuatro de esos valores.
+  - Test: `tests/test_entrega.py`, **231 tests en verde**, con el arranque
+    y el cartel. El del cartel encontró que el `except ... as error` borra la
+    variable antes de que el temporizador la use.
 - [x] **Abrir otro registro o cerrar la ventana descartaba el scoring sin
       preguntar.** No había `closeEvent` ni ninguna marca de cambios sin
       exportar. El usuario eligió **un cartel con Exportar…, Descartar y
@@ -2834,7 +2847,7 @@ ya advertía.
         nuevo está roto, la sesión anterior sigue y no hay nada que preguntar.
   - Test: `tests/test_session.py`, **135 tests en verde**, con nueve sobre qué
     cuenta como trabajo sin exportar.
-  - Test: `tests/test_entrega.py`, **229 tests en verde**, con doce por la
+  - Test: `tests/test_entrega.py`, **231 tests en verde**, con doce por la
     ventana: cerrar y abrir otro registro con cada una de las tres
     respuestas, un guardado cancelado o fallido, y el cartel de verdad con sus
     tres botones. Con la ventana anterior fallan once; el que pasa igual es el
@@ -2864,8 +2877,9 @@ ya advertía.
   - La barra de estado queda en «Calculando…» después de un análisis.
   - Un NaN en la señal se acepta sin aviso y los filtros lo esparcen: diez
     muestras terminan en unas treinta mil.
-  - Un esquema propio inválido descarta todas las preferencias, y unas
-    preferencias rotas se ignoran sin cartel.
+  - Un esquema propio inválido descarta todas las preferencias. Es lo que fija
+    `test_un_esquema_propio_ilegible_avisa`, y desde este hito al menos avisa
+    al arrancar; queda decidir si debería perderse sólo el esquema.
   - `_export_dialog()` agrega la extensión **después** de que el diálogo
     confirmó la sobrescritura. Sin probar: depende del diálogo de cada
     plataforma.

@@ -55,7 +55,7 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QObject, QPointF, Qt
+from PySide6.QtCore import QEvent, QObject, QPointF, Qt, QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QFont, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -1486,12 +1486,20 @@ class MainWindow(QMainWindow):
         siempre con la vista de fábrica, por decisión del usuario.
 
         No eleva: unas preferencias que no se pueden leer se descartan y la
-        ventana abre con las de fábrica.
+        ventana abre con las de fábrica. **Pero lo dice** (hito 33): `load()`
+        arma el mensaje para el investigador y hasta ahí nadie lo mostraba, así
+        que un archivo roto se perdía sin aviso la primera vez que se cambiaba
+        algo. El cartel sale en la vuelta siguiente del ciclo de eventos, con la
+        ventana ya a la vista y no delante de una ventana que todavía no existe.
         """
         self._es_la_ventana_del_usuario = True
         try:
             guardadas = preferences.load()
-        except PsgLabError:
+        except PsgLabError as error:
+            # En otra variable: Python borra `error` al salir del `except`, y el
+            # cartel se arma recién en la vuelta siguiente del ciclo de eventos.
+            aviso = error
+            QTimer.singleShot(0, lambda: self._show_error(aviso))
             return
         # El esquema ya lo aplicó `create_application()`; lo demás de la
         # ventana de configuración se aplica acá, que es el único lugar donde

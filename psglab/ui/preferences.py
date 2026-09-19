@@ -76,6 +76,19 @@ MAX_MAGNIFIER_RADIUS_SECONDS: Final[float] = 10.0
 MIN_MAGNIFIER_ZOOM: Final[float] = 1.0
 MAX_MAGNIFIER_ZOOM: Final[float] = 20.0
 
+#: Lo que puede elevar un campo del archivo cuando trae un valor que no sirve:
+#: el rechazo del constructor, o lo que eleva Python al tratar como lista lo
+#: que es un número, o como texto lo que es un objeto. **Un campo roto vuelve
+#: a su valor de fábrica y el programa arranca igual**; ver `load()`.
+_ERRORES_DE_UN_CAMPO: Final[tuple[type[Exception], ...]] = (
+    PsgLabError,
+    TypeError,
+    ValueError,
+    IndexError,
+    KeyError,
+    AttributeError,
+)
+
 
 @dataclass(frozen=True)
 class Preferences:
@@ -455,22 +468,38 @@ def _con_campos_nuevos(base: Preferences, datos: dict[str, object]) -> Preferenc
 
     La comprobación no se reescribe acá: se le pregunta al constructor de
     `Preferences`, que es donde vive.
+
+    **Atrapa todo lo que un valor de JSON puede provocar** (hito 33): el archivo
+    se edita a mano y un campo puede traer cualquier cosa. Hasta ahí atrapaba
+    sólo `TypeError` y `ValueError`, y una banda de dos números elevaba
+    `IndexError`, que atravesaba `load()` y **el programa no arrancaba**.
     """
     for nombre, convertir in _LECTORES.items():
         if nombre not in datos:
             continue
         try:
             base = base.with_changes(**{nombre: convertir(datos[nombre])})
-        except (InvalidPreferencesError, TypeError, ValueError):
+        except _ERRORES_DE_UN_CAMPO:
             continue
     return base
 
 
 def _leer_bandas(valor: object) -> tuple[tuple[str, float, float], ...] | None:
-    """Del JSON —una lista de [nombre, desde, hasta]— a lo que guarda la clase."""
+    """Del JSON —una lista de [nombre, desde, hasta]— a lo que guarda la clase.
+
+    Comprueba la forma antes de desarmar cada fila; que los valores sirvan lo
+    decide el constructor de `Preferences`.
+    """
     if valor is None:
         return None
-    return tuple((fila[0], fila[1], fila[2]) for fila in valor)  # type: ignore[index, union-attr]
+    if not isinstance(valor, list):
+        raise TypeError("se esperaba una lista de bandas")
+    filas = []
+    for fila in valor:
+        if not isinstance(fila, list) or len(fila) != 3:
+            raise ValueError("cada banda es [nombre, desde, hasta]")
+        filas.append((fila[0], fila[1], fila[2]))
+    return tuple(filas)
 
 
 def _leer_colores(valor: object) -> tuple[tuple[str, str], ...]:

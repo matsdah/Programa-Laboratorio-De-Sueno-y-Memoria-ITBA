@@ -3582,3 +3582,52 @@ def test_un_registro_entero_no_muestra_avisos(
 
     assert avisos_de_lectura == []
     assert ventana.session.recording.duration_seconds == pytest.approx(90.0)
+
+
+# -- Un archivo de preferencias roto no impide arrancar (hito 33) ------------
+
+
+def test_una_banda_mal_escrita_en_las_preferencias_no_impide_arrancar(
+    qt_app, tmp_path: Path, monkeypatch
+):
+    """El caso de la auditoría: con `[["Delta", 0.5]]` en el archivo,
+    `create_application()` elevaba `IndexError` y el programa no abría. Ahora
+    arranca, esa banda vuelve a las de fábrica y el resto se conserva."""
+    import json
+
+    from psglab.app import _esquema_guardado
+
+    archivo = tmp_path / "preferencias.json"
+    archivo.write_text(
+        json.dumps({"psd_bands": [["Delta", 0.5]], "overview_before": 2}), encoding="utf-8"
+    )
+    monkeypatch.setattr(preferencias_mod, "preferences_path", lambda: archivo)
+
+    assert isinstance(_esquema_guardado(), theme.ColorScheme)
+    nueva = create_main_window(saved_preferences=True)
+
+    assert nueva.current_preferences.psd_bands is None
+    assert nueva.current_preferences.overview_before == 2
+    nueva.close()
+
+
+def test_un_archivo_de_preferencias_danado_se_avisa_al_arrancar(
+    qt_app, tmp_path: Path, monkeypatch
+):
+    """`load()` escribe el mensaje para el investigador y hasta el hito 33 nadie
+    lo mostraba: el archivo roto se perdía sin aviso la primera vez que se
+    cambiaba algo. Sale con la ventana ya armada, en la vuelta siguiente del
+    ciclo de eventos."""
+    archivo = tmp_path / "preferencias.json"
+    archivo.write_text("{esto no es json", encoding="utf-8")
+    monkeypatch.setattr(preferencias_mod, "preferences_path", lambda: archivo)
+    carteles: list[str] = []
+    monkeypatch.setattr(MainWindow, "_show_error", lambda _v, error: carteles.append(str(error)))
+
+    nueva = create_main_window(saved_preferences=True)
+    assert carteles == []
+    QApplication.processEvents()
+
+    assert len(carteles) == 1 and "preferencias" in carteles[0]
+    assert archivo.read_text(encoding="utf-8") == "{esto no es json"
+    nueva.close()
