@@ -228,6 +228,15 @@ class BrainVisionReader(Reader):
     format_name = "BrainVision"
     extensions = (".vhdr",)
 
+    @classmethod
+    def warm_up(cls) -> None:
+        """Importa el lector de BrainVision de MNE, que carga recién al usarlo.
+
+        Ver `Reader.warm_up()`. Éste es el que más arrastra: por
+        `mne.channels.montage` entran `mne.viz` y `matplotlib`.
+        """
+        import mne.io.brainvision  # noqa: F401 - importarlo es el trabajo
+
     def read(self, path: Path) -> Recording:
         """Carga un registro BrainVision a partir de su archivo .vhdr.
 

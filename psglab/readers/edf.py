@@ -224,6 +224,15 @@ class EdfReader(Reader):
     format_name = "European Data Format"
     extensions = (".edf",)
 
+    @classmethod
+    def warm_up(cls) -> None:
+        """Importa el lector de EDF de MNE, que `mne.io` carga recién al usarlo.
+
+        Ver `Reader.warm_up()`: es la mayor parte de los 9 s que tardaba la
+        primera apertura de cada sesión del programa.
+        """
+        import mne.io.edf  # noqa: F401 - importarlo es el trabajo
+
     def read(self, path: Path) -> Recording:
         """Carga un registro EDF.
 

@@ -74,6 +74,27 @@ class Reader(ABC):
         """
         return path.suffix.lower() in self.extensions
 
+    @classmethod
+    def warm_up(cls) -> None:
+        """Paga por adelantado lo que la primera lectura tarda de más.
+
+        **No hace nada por defecto**, como los métodos de evento de `Tool`: un
+        lector que no tenga nada que adelantar no tiene que saber que esto
+        existe.
+
+        Lo que tiene que adelantar un lector que se apoya en MNE son sus
+        importaciones perezosas: `mne.io` carga el módulo de cada formato recién
+        la primera vez que se lo usa, y ahí adentro entran `mne.viz`,
+        `matplotlib` y media `scipy`. Medido en el hito 33: de los 9,2 s de la
+        primera lectura de un proceso, 8,65 eran eso, con la ventana congelada
+        en lo primero que hace el usuario. La segunda lectura del mismo archivo
+        tardaba 18 ms.
+
+        La llama `warm_up_readers()` en el hilo de precalentamiento. Si el
+        usuario abre un registro mientras tanto, el lock de importación de
+        Python lo hace esperar lo que falte: no se importa dos veces.
+        """
+
     @abstractmethod
     def read(self, path: Path) -> Recording:
         """Carga el archivo y devuelve el registro.
@@ -137,6 +158,21 @@ def load_all_readers() -> None:
         if module.name not in no_son_lectores:
             importlib.import_module(f"psglab.readers.{module.name}")
     _REGISTRY_CARGADO = True
+
+
+def warm_up_readers() -> None:
+    """Adelanta lo que la primera lectura de cada formato tarda de más.
+
+    Recorre los lectores registrados y le pide a cada uno que caliente lo suyo:
+    **qué hay que adelantar lo sabe el formato**, no esta función, igual que
+    pasa con la lectura. Un lector nuevo no tiene que hacer nada si no tiene
+    nada que pagar por adelantado.
+
+    La llama la ventana en el hilo de precalentamiento, y nunca la suite: ver
+    `MainWindow.warm_up_in_background()`.
+    """
+    for reader_cls in available_readers():
+        reader_cls.warm_up()
 
 
 def available_readers() -> list[type[Reader]]:

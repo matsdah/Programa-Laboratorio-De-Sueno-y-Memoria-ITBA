@@ -3216,15 +3216,20 @@ def test_calcular_no_renombra_el_menu_de_herramientas(
 
 
 def test_main_py_precalienta_en_segundo_plano(qt_app, monkeypatch):
-    """La primera medida de complejidad compilaba `antropy` con la ventana
-    congelada. `main.py` pide compilarlo al arrancar, en otro hilo."""
+    """Las dos esperas que se cobraban la primera vez: las importaciones que
+    los lectores le piden a MNE al abrir el primer registro, y la compilación
+    de `antropy`. `main.py` las pide al arrancar, en otro hilo."""
     import threading
 
     from psglab.ui import main_window as modulo
 
-    hilos: list[str] = []
+    hecho: list[str] = []
     monkeypatch.setattr(
-        modulo, "warm_up", lambda: hilos.append(threading.current_thread().name)
+        modulo, "warm_up_readers",
+        lambda: hecho.append(f"lectores:{threading.current_thread().name}"),
+    )
+    monkeypatch.setattr(
+        modulo, "warm_up", lambda: hecho.append(f"antropy:{threading.current_thread().name}")
     )
 
     create_main_window(warm_up=True)
@@ -3232,7 +3237,9 @@ def test_main_py_precalienta_en_segundo_plano(qt_app, monkeypatch):
         if hilo.name == "precalentar-analisis":
             hilo.join(timeout=5)
 
-    assert hilos == ["precalentar-analisis"]
+    # **Los lectores primero**: abrir un registro es lo primero que hace el
+    # usuario, y compilar `antropy` no lo tiene esperando a él.
+    assert hecho == ["lectores:precalentar-analisis", "antropy:precalentar-analisis"]
 
 
 def test_la_suite_no_precalienta(qt_app, monkeypatch):
@@ -3241,6 +3248,7 @@ def test_la_suite_no_precalienta(qt_app, monkeypatch):
 
     llamadas: list[bool] = []
     monkeypatch.setattr(modulo, "warm_up", lambda: llamadas.append(True))
+    monkeypatch.setattr(modulo, "warm_up_readers", lambda: llamadas.append(True))
 
     create_main_window()
 

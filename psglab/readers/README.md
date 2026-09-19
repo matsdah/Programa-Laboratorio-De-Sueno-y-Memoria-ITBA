@@ -52,6 +52,13 @@ construye recorriendo el registro (`file_dialog_filter()`).
 Sobrescribilo sólo si tu formato necesita inspeccionar el contenido del archivo
 para decidir.
 
+`warm_up()` tampoco hace nada por defecto. Sobrescribilo **si tu formato paga
+algo caro la primera vez**, para que lo pague el hilo de precalentamiento y no
+el usuario: los dos lectores que hay importan ahí el módulo que `mne.io` carga
+recién al usarlo, que eran 8,65 de los 9,2 s de la primera apertura de cada
+sesión (hito 33). Se adelantan importaciones, nunca lecturas: no toca el disco
+del usuario.
+
 **No hace falta acordarse de importar el módulo nuevo**: `load_all_readers()`
 recorre el paquete e importa lo que encuentre, y `read_recording()` y
 `file_dialog_filter()` la llaman antes de consultar el registro.

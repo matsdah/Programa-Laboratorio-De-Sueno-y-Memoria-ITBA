@@ -146,9 +146,10 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "show_impedance_dialog",
         "load_impedances_dialog",
         "show_ica_dialog",
-        # La compilación de `antropy` en segundo plano, que pide `main.py` por
-        # `create_main_window(warm_up=True)` (hito 31).
-        "warm_up_analysis",
+        # Lo que se precalienta en segundo plano —los lectores y la compilación
+        # de `antropy`—, que pide `main.py` por
+        # `create_main_window(warm_up=True)` (hitos 31 y 33).
+        "warm_up_in_background",
         # El contador de la lupa, desde «Herramientas» (hito 32).
         "reset_magnifier_count",
     }

@@ -96,9 +96,11 @@ def create_main_window(saved_preferences: bool = False, warm_up: bool = False) -
             programa abre siempre con la vista de fábrica. Por omisión está apagado para que la suite
             de tests no lea ni escriba el archivo de preferencias de quien la
             corre, que la volvería dependiente de la máquina.
-        warm_up: si se compila en segundo plano lo que la primera medida de
-            complejidad tardaba segundos en compilar. **También lo prende sólo
-            `main.py`**: cada ventana de la suite lanzaría un hilo.
+        warm_up: si se paga en segundo plano lo que se cobraba la primera vez:
+            las importaciones perezosas que los lectores le pedían a MNE al
+            abrir el primer registro, y la compilación que `antropy` hace al
+            importarse. **También lo prende sólo `main.py`**: cada ventana de
+            la suite lanzaría un hilo.
 
     Returns:
         La ventana principal, todavía sin mostrar.
@@ -112,5 +114,5 @@ def create_main_window(saved_preferences: bool = False, warm_up: bool = False) -
     if saved_preferences:
         ventana.apply_saved_preferences()
     if warm_up:
-        ventana.warm_up_analysis()
+        ventana.warm_up_in_background()
     return ventana

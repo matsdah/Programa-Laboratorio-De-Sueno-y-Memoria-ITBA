@@ -118,7 +118,12 @@ from psglab.exporters import DEFAULT_FILENAMES
 from psglab.exporters.annotations_txt import export_annotations
 from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_formats import SCORING_FORMATS, export_scoring_as
-from psglab.readers.base import IMPORT_WARNINGS_KEY, file_dialog_filter, read_recording
+from psglab.readers.base import (
+    IMPORT_WARNINGS_KEY,
+    file_dialog_filter,
+    read_recording,
+    warm_up_readers,
+)
 from psglab.readers.scoring_reader import read_scoring
 from psglab.tools.amplitude_band import AmplitudeBandTool
 from psglab.tools.annotator import AnnotatorTool, annotation_bands
@@ -198,6 +203,16 @@ def _primero_que_toma_foco(widget: QWidget | None) -> QWidget | None:
         if candidato.focusPolicy() & Qt.FocusPolicy.TabFocus and candidato.isEnabled():
             return candidato
     return None
+
+
+def _precalentar() -> None:
+    """Lo que corre el hilo de `MainWindow.warm_up_in_background()`, en orden.
+
+    Está suelto y no adentro de la ventana porque no la toca: si tocara algo de
+    Qt desde otro hilo habría que pensarlo mucho más.
+    """
+    warm_up_readers()
+    warm_up()
 
 
 class MainWindow(QMainWindow):
@@ -1799,20 +1814,28 @@ class MainWindow(QMainWindow):
 
     # -- Las esperas largas --------------------------------------------------
 
-    def warm_up_analysis(self) -> None:
-        """Compila en segundo plano lo que la primera medida de complejidad pagaba.
+    def warm_up_in_background(self) -> None:
+        """Paga en otro hilo las dos esperas que se cobraban a la primera vez.
 
-        Ver `analysis.complexity.warm_up()`: importar `antropy` compila todo con
-        `numba`, y eso congelaba la ventana 7 s la primera vez que se pedía una
-        medida. En otro hilo no la congela: medido en el hito 31, el hilo de la
-        interfaz sigue respondiendo con algún tirón de hasta 65 ms, y leer un
-        registro mientras tanto tarda lo mismo.
+        **Los lectores primero**, porque abrir un registro es lo primero que
+        hace el usuario: `mne.io` carga el módulo de cada formato recién al
+        usarlo, y eso eran 8,65 de los 9,2 s de la primera lectura de cada
+        sesión del programa, con la ventana congelada (hito 33). La segunda
+        lectura del mismo archivo tardaba 18 ms.
+
+        **Después `antropy`**, que compila con `numba` al importarse: 7 s en
+        esta máquina, 21 s en la del hito 17, y los pagaba la primera medida de
+        complejidad. En otro hilo no congela la ventana: medido en el hito 31,
+        la interfaz sigue respondiendo con algún tirón de hasta 65 ms.
+
+        Si el usuario llega antes que el hilo, el lock de importación de Python
+        lo hace esperar lo que falte y nada se importa dos veces.
 
         `daemon` para que cerrar el programa no espere a que termine. **Lo
         lanza sólo `main.py`**, por `create_main_window(warm_up=True)`: cada
         ventana de la suite de tests lanzaría un hilo.
         """
-        threading.Thread(target=warm_up, name="precalentar-analisis", daemon=True).start()
+        threading.Thread(target=_precalentar, name="precalentar-analisis", daemon=True).start()
 
     @contextmanager
     def _trabajando(self, que_hace: str) -> Iterator[None]:

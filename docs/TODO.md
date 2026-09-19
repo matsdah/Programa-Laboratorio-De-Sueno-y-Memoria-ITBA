@@ -409,7 +409,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader`, `read_recording` y `load_all_readers` corren al
     importar. **No convertirlos en stubs.**
-  - Test: `tests/test_readers.py`, **77 tests en verde**, que cubre este módulo
+  - Test: `tests/test_readers.py`, **80 tests en verde**, que cubre este módulo
     y los dos de abajo. El autodescubrimiento y el despacho se testean con un
     lector de mentira, sin ningún archivo real.
 - [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
@@ -2763,7 +2763,7 @@ ya advertía.
       no se ejercitaba en ninguna de las seis combinaciones. Es lo que deja
       testear los tres ítems que siguen: el escritor ya reproduce los dos
       primeros.
-  - Test: `tests/test_readers.py`, **77 tests en verde**. Este ítem sumó
+  - Test: `tests/test_readers.py`, **80 tests en verde**. Este ítem sumó
     once que no dependen de `data/`, y el arreglo de la escala, dieciocho más.
 - [x] **La escala dependía de cómo se escribiera la unidad.** `is_electrical()`
       no distingue mayúsculas y MNE sí: sólo convierte `uV`, `µV` y `mV`
@@ -2808,7 +2808,7 @@ ya advertía.
         `readers/base.py` que puede usar cualquier lector, y la ventana lo
         muestra después de abrir con su propio cartel, que no es el de error:
         «trae 4 h 10 min de los 8 h 00 min que declara su cabecera».
-  - Test: `tests/test_readers.py`, **77 tests en verde**, con el truncado, el
+  - Test: `tests/test_readers.py`, **80 tests en verde**, con el truncado, el
     entero y el de -1 registros.
   - Test: `tests/test_entrega.py`, **233 tests en verde**, abriéndolos por la
     ventana.
@@ -2875,10 +2875,28 @@ ya advertía.
   - Test: `tests/test_entrega.py`, **233 tests en verde**, con el cartel desde
     los dos menús de conectividad. Con el módulo anterior fallan los seis que
     rechazan.
-- [ ] **La primera apertura de cada sesión del programa congela unos 9 s**, y
-      la segunda tarda 0,6. Son las importaciones perezosas de MNE:
-      `mne.io.brainvision` arrastra `mne.viz` y `matplotlib`. El hilo de
-      `warm_up_analysis()` puede importarlas también.
+- [x] **La primera apertura de cada sesión del programa congelaba unos 9 s**, y
+      la segunda tardaba 0,6. Eran las importaciones perezosas de MNE:
+      `mne.io` carga el módulo de cada formato recién al usarlo, y
+      `mne.io.brainvision` arrastra `mne.viz` y `matplotlib`. Medido con
+      cProfile: 8,65 de los 9,2 s.
+      - **Lo paga ahora el hilo que ya existía**, que pasó a llamarse
+        `warm_up_in_background()` porque dejó de ser sólo de análisis. Los
+        lectores van primero: abrir un registro es lo primero que hace el
+        usuario, y `antropy` no lo tiene esperando a él. Si llega antes que el
+        hilo, el lock de importación de Python lo hace esperar lo que falte.
+      - **Qué adelantar lo sabe cada formato**, no la ventana: `Reader.warm_up()`
+        no hace nada por defecto, como los métodos de evento de `Tool`, y los
+        dos lectores importan ahí su módulo de MNE. `warm_up_readers()` los
+        recorre.
+      - Medido en esta máquina, con procesos limpios: la primera apertura pasó
+        de **5058 ms a 256 ms**, y la segunda queda en 53. El hilo tarda 21,6 s
+        en total —3,3 los lectores y 14,4 `antropy`—, en segundo plano.
+  - Test: `tests/test_readers.py`, **80 tests en verde**, con lo que queda
+    importado, el lector que no adelanta nada y que precalentar no lea ningún
+    archivo.
+  - Test: `tests/test_entrega.py`, **233 tests en verde**, con el orden de los
+    dos precalentamientos y con que la suite no precaliente.
 - [ ] **Lo que se lee sin avisar o se muestra sin explicar**:
   - Un `Scoring.txt` con BOM no se importa: `_leer_lineas()` decodifica con
     `utf-8` y no con `utf-8-sig`.

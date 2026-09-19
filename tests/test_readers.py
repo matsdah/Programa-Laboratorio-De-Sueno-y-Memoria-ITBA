@@ -770,3 +770,43 @@ def test_un_edf_que_no_dice_cuantos_registros_tiene_no_avisa(tmp_path: Path):
 
     assert registro.n_samples == 3 * int(FRECUENCIA_EDF)
     assert IMPORT_WARNINGS_KEY not in registro.metadata
+
+
+# -- Precalentar los lectores (hito 33) --------------------------------------
+
+
+def test_precalentar_deja_importado_lo_que_mne_carga_al_usarlo():
+    """**De los 9,2 s de la primera lectura de un proceso, 8,65 eran esto**:
+    `mne.io` carga el módulo de cada formato recién la primera vez que se lo
+    usa, con la ventana congelada en lo primero que hace el usuario."""
+    import sys
+
+    from psglab.readers.base import warm_up_readers
+
+    warm_up_readers()
+
+    assert "mne.io.edf" in sys.modules
+    assert "mne.io.brainvision" in sys.modules
+
+
+def test_un_lector_que_no_tiene_nada_que_adelantar_no_hace_nada(registro_aislado):
+    """`Reader.warm_up()` no hace nada por defecto, como los métodos de evento
+    de `Tool`: un formato nuevo no tiene que saber que existe."""
+    from psglab.readers.base import warm_up_readers
+
+    register_reader(LectorDeMentira)
+
+    warm_up_readers()  # No eleva.
+
+
+def test_precalentar_no_lee_ningun_archivo(monkeypatch, registro_aislado):
+    """Adelanta importaciones, no lecturas: no puede tocar el disco del usuario."""
+    from psglab.readers.base import warm_up_readers
+
+    leidos: list[Path] = []
+    monkeypatch.setattr(LectorDeMentira, "read", lambda self, path: leidos.append(path))
+    register_reader(LectorDeMentira)
+
+    warm_up_readers()
+
+    assert leidos == []
