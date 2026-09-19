@@ -119,6 +119,19 @@ herramienta quiere mostrar, llama a `notify_changed()`; la ventana principal
 está enganchada ahí y le pasa el resultado a
 `SignalView.set_overlays()`, que es lo único que traduce a píxeles.
 
+**Lo que se dibuja no es lo de quien avisó.** Ante cualquier aviso la ventana
+recompone: las bandas de las anotaciones de la página —`annotation_bands()`, de
+`annotator.py`—, más los overlays de **la herramienta activa**. Las anotaciones
+van siempre porque son datos del registro y no parte del gesto que las creó.
+Antes se dibujaba lo de la última herramienta que avisaba, aunque estuviera
+apagada, y activar la lupa borraba las anotaciones de la pantalla. La ventana
+recompone también cuando cambia la página, porque cambian las anotaciones que
+entran en ella.
+
+Con «Anotar» activo, el clic derecho sobre una banda la borra, previa
+confirmación. La herramienta encuentra cuál es con `annotation_at()` y la
+ventana hace la pregunta, porque `tools/` no abre diálogos.
+
 Tres consecuencias que valen la pena:
 
 - Una herramienta gráfica **se testea sin pantalla**: se le mandan eventos de

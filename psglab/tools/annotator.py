@@ -165,44 +165,36 @@ class AnnotatorTool(ViewerTool):
         self._session.annotations.remove(annotation)
         self.notify_changed()
 
+    def annotation_at(self, x: float) -> Annotation | None:
+        """La anotación que cae bajo un punto, para borrarla con el clic derecho.
+
+        `x` en segundos desde el inicio del registro, como el resto de los
+        eventos de mouse. Si hay varias superpuestas se elige **la más corta**:
+        es la única que no se puede señalar en ningún otro lugar, porque la
+        larga asoma a los costados de la corta y la corta no asoma de ningún
+        lado.
+
+        Returns:
+            La anotación, o `None` si no hay ninguna ahí o no hay registro.
+        """
+        if self._session is None:
+            return None
+        muestra = seconds_to_sample_absolute(x, self._session.recording.sampling_rate)
+        debajo = self._session.annotations.in_range(muestra, muestra + 1)
+        if not debajo:
+            return None
+        return min(debajo, key=lambda anotacion: anotacion.duration_samples)
+
     def overlays(self) -> Sequence[Overlay]:
-        """Las bandas de los eventos de la ventana actual, más la selección en curso.
+        """Las bandas de los eventos de la página, más la selección en curso.
 
-        Cada banda ocupa todo el alto de la ventana de scoring, como pide el
-        pliego, para que se vea sin importar qué canales estén visibles; por eso
-        un `SpanOverlay` sólo lleva el tramo horizontal y no una altura.
-
-        Las anotaciones guardadas vienen en muestras y se devuelven en segundos
-        desde el inicio de la ventana, con
-        `core.windows.sample_to_seconds()`.
+        Las bandas son las de `annotation_bands()`, que la ventana principal
+        dibuja también con la herramienta apagada. Lo único propio del gesto es
+        la selección que se está arrastrando.
         """
         if self._session is None:
             return ()
-
-        fs = self._session.recording.sampling_rate
-        # **El filtro es la pagina visible, no la epoca.** Con una pagina de
-        # cuatro horas, filtrar por la epoca dibujaria solo las bandas de una de
-        # las 480 que hay en pantalla y las otras 479 apareceria vacias aunque
-        # tengan eventos: la herramienta mintiendo sobre lo que hay.
-        pagina = self._session.viewport
-        inicio, fin = seconds_to_samples(
-            pagina.start_seconds,
-            pagina.end_seconds,
-            fs,
-            self._session.recording.n_samples,
-        )
-        conjunto = self._session.annotations
-
-        bandas = [
-            SpanOverlay(
-                tool_name=self.name,
-                start_seconds=sample_to_seconds_absolute(anotacion.onset_sample, fs),
-                end_seconds=sample_to_seconds_absolute(anotacion.end_sample, fs),
-                label=anotacion.label,
-                color=anotacion.color or conjunto.color_of(anotacion.label),
-            )
-            for anotacion in conjunto.in_range(inicio, fin)
-        ]
+        bandas = list(annotation_bands(self._session))
 
         # La selección en curso se dibuja sin clase todavía: el usuario tiene
         # que ver qué está marcando antes de que se le pregunte qué es.
@@ -217,3 +209,41 @@ class AnnotatorTool(ViewerTool):
                 )
             )
         return tuple(bandas)
+
+
+def annotation_bands(session: Session) -> tuple[SpanOverlay, ...]:
+    """Las bandas de las anotaciones que caen en la página visible.
+
+    **Es una función y no un método** porque se dibujan siempre, esté o no
+    activa la herramienta: una anotación es un dato del registro, no parte del
+    gesto que la creó. Hasta que se separó, sólo se veían con «Anotar» activo, y
+    desaparecían al activar la lupa.
+
+    Cada banda ocupa todo el alto del gráfico, como pide el pliego, para que se
+    vea sin importar qué canales estén visibles; por eso un `SpanOverlay` sólo
+    lleva el tramo horizontal y no una altura. Las posiciones se guardan en
+    muestras y se devuelven en segundos absolutos.
+    """
+    fs = session.recording.sampling_rate
+    # **El filtro es la pagina visible, no la epoca.** Con una pagina de
+    # cuatro horas, filtrar por la epoca dibujaria solo las bandas de una de
+    # las 480 que hay en pantalla y las otras 479 apareceria vacias aunque
+    # tengan eventos: la herramienta mintiendo sobre lo que hay.
+    pagina = session.viewport
+    inicio, fin = seconds_to_samples(
+        pagina.start_seconds,
+        pagina.end_seconds,
+        fs,
+        session.recording.n_samples,
+    )
+    conjunto = session.annotations
+    return tuple(
+        SpanOverlay(
+            tool_name=AnnotatorTool.name,
+            start_seconds=sample_to_seconds_absolute(anotacion.onset_sample, fs),
+            end_seconds=sample_to_seconds_absolute(anotacion.end_sample, fs),
+            label=anotacion.label,
+            color=anotacion.color or conjunto.color_of(anotacion.label),
+        )
+        for anotacion in conjunto.in_range(inicio, fin)
+    )

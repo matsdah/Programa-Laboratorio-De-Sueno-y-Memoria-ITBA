@@ -53,8 +53,8 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QObject, Qt
-from PySide6.QtGui import QAction, QFont
+from PySide6.QtCore import QEvent, QObject, QPointF, Qt
+from PySide6.QtGui import QAction, QFont, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -113,8 +113,8 @@ from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_formats import SCORING_FORMATS, export_scoring_as
 from psglab.readers.base import file_dialog_filter, read_recording
 from psglab.readers.scoring_reader import read_scoring
-from psglab.tools.annotator import AnnotatorTool
-from psglab.tools.base import Tool, ViewerTool
+from psglab.tools.annotator import AnnotatorTool, annotation_bands
+from psglab.tools.base import Overlay, Tool, ViewerTool
 from psglab.tools.histogram import HistogramTool
 from psglab.tools.magnifier import MagnifierTool
 from psglab.tools.occupancy import OccupancyTool
@@ -160,6 +160,20 @@ _BOTONES = {
 }
 
 
+def _en_escena(vista: pg.PlotWidget, evento: QMouseEvent) -> QPointF:
+    """La posición de un evento de mouse del viewport, en la escena de la vista.
+
+    **No es `evento.scenePosition()`.** En un `QMouseEvent` de widget, Qt llama
+    "escena" a la ventana de primer nivel, no a la `QGraphicsScene` de
+    pyqtgraph: el valor trae sumado todo lo que hay a la izquierda y arriba del
+    gráfico. Con el selector de canales abierto eran 280 px, y la selección del
+    anotador arrancaba varios segundos a la derecha del mouse. Los tests no lo
+    veían porque armaban el evento con las tres posiciones iguales.
+    """
+    return vista.mapToScene(evento.position().toPoint())
+
+
+
 #: Cuántas muestras tiene que abarcar una página, sumando los canales visibles,
 #: para que dibujarla muestre el cursor de espera. Veinte millones son unos
 #: 250 ms sobre la máquina de desarrollo: por debajo la espera no se nota, y
@@ -193,6 +207,9 @@ class MainWindow(QMainWindow):
         #: apagarla.
         self._tool_actions: dict[str, QAction] = {}
         self._active_viewer_tool: ViewerTool | None = None
+        #: Lo último que se le pasó a `signal_view.set_overlays()`. Ver
+        #: `_al_cambiar_la_pagina()`.
+        self._overlays_dibujados: tuple[Overlay, ...] = ()
         #: La descomposición ICA ajustada, mientras el panel está abierto.
         self._ica: object | None = None
         #: Las preferencias vigentes. **Arrancan en los valores de fábrica y no
@@ -419,17 +436,17 @@ class MainWindow(QMainWindow):
         ):
             return False
 
-        # **En coordenadas de escena, no del viewport.** `seconds_at_pixel()`
-        # resuelve con `mapSceneToView()`, así que darle un `position()` sería
-        # mezclar dos sistemas que hoy coinciden y no tienen por qué.
-        segundos = self.signal_view.seconds_at_pixel(evento.scenePosition().x())
+        # **En coordenadas de escena, y convertidas por la vista.** Ver
+        # `_en_escena()`: `scenePosition()` no es la escena de pyqtgraph.
+        punto = _en_escena(self.signal_view, evento)
+        segundos = self.signal_view.seconds_at_pixel(punto.x())
         # **En microvoltios, que es lo que `ViewerTool` documenta recibir.**
         # Hasta el hito 9 acá iba la coordenada cruda del gráfico, con un
         # comentario que afirmaba que ninguna herramienta usaba la `y`. La usan
         # tres, y la peor consecuencia era que la ocupación borraba una línea
         # con cualquier clic, porque comparaba su tolerancia de 10 µV contra un
         # rango de 0 a 1.
-        y = self.signal_view.microvolts_at_pixel(evento.scenePosition().y())
+        y = self.signal_view.microvolts_at_pixel(punto.y())
 
         if evento.type() == QEvent.Type.MouseMove:
             herramienta.on_mouse_move(segundos, y)
@@ -437,6 +454,8 @@ class MainWindow(QMainWindow):
             boton = _BOTONES.get(evento.button(), "left")
             if evento.type() == QEvent.Type.MouseButtonPress:
                 herramienta.on_mouse_press(segundos, y, boton)
+                if isinstance(herramienta, AnnotatorTool) and boton == "right":
+                    self._borrar_anotacion(herramienta, segundos)
             else:
                 herramienta.on_mouse_release(segundos, y, boton)
                 # **Acá se cierra el lazo de V1_F de "Anotación".** La
@@ -458,7 +477,7 @@ class MainWindow(QMainWindow):
         if caja.width() <= 0:
             return
         # De escena, igual que `caja`, que es un `sceneBoundingRect()`.
-        fraccion = (evento.scenePosition().x() - caja.left()) / caja.width()
+        fraccion = (_en_escena(self.histogram_view, evento).x() - caja.left()) / caja.width()
         herramienta.on_click(min(1.0, max(0.0, fraccion)))
 
     def _finish_annotation(self, herramienta: AnnotatorTool) -> None:
@@ -507,10 +526,76 @@ class MainWindow(QMainWindow):
             contexto.refresh()
         self.statusBar().showMessage(f"Se anotó «{clase}»", 5000)
 
+    def _borrar_anotacion(self, herramienta: AnnotatorTool, segundos: float) -> None:
+        """Borra la anotación que está bajo el clic derecho, confirmándolo antes.
+
+        **Pregunta** porque no hay deshacer, y una anotación es trabajo del
+        investigador: un clic derecho de más no puede costarle un evento que
+        tardó en encontrar. Un clic derecho donde no hay nada no hace nada.
+        """
+        anotacion = herramienta.annotation_at(segundos)
+        if anotacion is None:
+            return
+        respuesta = QMessageBox.question(
+            self,
+            "Borrar anotación",
+            f"¿Borrar la anotación «{anotacion.label}»?",
+        )
+        if respuesta != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            herramienta.delete_annotation(anotacion)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        # Igual que al anotar: la Übersicht marca qué ventanas tienen eventos.
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.refresh()
+        self.statusBar().showMessage(f"Se borró «{anotacion.label}»", 5000)
+
+    def _redibujar_overlays(self) -> None:
+        """Dibuja las anotaciones de la página y lo de la herramienta activa.
+
+        **Las anotaciones se dibujan siempre**, esté activa la herramienta que
+        esté: son datos del registro. Hasta que se decidió así, el visualizador
+        mostraba lo de **la última herramienta que avisó**, aunque estuviera
+        apagada, y las bandas desaparecían al activar la lupa o cuando la
+        ocupación se reanclaba al desplazar la página.
+
+        Con «Anotar» activo se dibuja su `overlays()`, que ya trae las bandas
+        más la selección en curso.
+        """
+        self._overlays_dibujados = self._overlays_a_dibujar()
+        self.signal_view.set_overlays(self._overlays_dibujados)
+
+    def _overlays_a_dibujar(self) -> tuple[Overlay, ...]:
+        """Lo que `_redibujar_overlays()` dibuja, sin dibujarlo."""
+        if self._session is None:
+            return ()
+        activa = self._active_viewer_tool
+        if isinstance(activa, AnnotatorTool):
+            return tuple(activa.overlays())
+        overlays = annotation_bands(self._session)
+        if activa is not None:
+            overlays += tuple(activa.overlays())
+        return overlays
+
+    def _al_cambiar_la_pagina(self, _viewport: object) -> None:
+        """Las bandas son de la página, así que moverla puede cambiar cuáles van.
+
+        **Sólo redibuja si cambió algo**: la reproducción mueve la página en
+        cada cuadro, con 40 ms de presupuesto, y las bandas están en segundos
+        absolutos, así que desplazarse no las mueve. Rehacerlas en cada cuadro
+        sería gastar el presupuesto en dibujar lo mismo.
+        """
+        if self._overlays_a_dibujar() != self._overlays_dibujados:
+            self._redibujar_overlays()
+
     def _on_tool_changed(self, tool: Tool) -> None:
         """Una herramienta avisó de que cambió lo que quiere mostrar."""
         if isinstance(tool, ViewerTool):
-            self.signal_view.set_overlays(tool.overlays())
+            self._redibujar_overlays()
         elif isinstance(tool, HistogramTool):
             self._redraw_histogram()
         elif isinstance(tool, OverviewTool):
@@ -584,6 +669,7 @@ class MainWindow(QMainWindow):
         for herramienta in self._tools.values():
             herramienta.deactivate()
         self._active_viewer_tool = None
+        self._redibujar_overlays()
 
     def _activate_panel_tools(self) -> None:
         """Enciende las herramientas que son paneles, no modos del mouse.
@@ -633,6 +719,9 @@ class MainWindow(QMainWindow):
             herramienta.deactivate()
             if herramienta is self._active_viewer_tool:
                 self._active_viewer_tool = None
+        # La herramienta avisó mientras todavía figuraba como activa: sin esto
+        # quedaría dibujado lo suyo con ella ya apagada.
+        self._redibujar_overlays()
         self._update_tool_readout()
 
     # -- Acciones del usuario -----------------------------------------------
@@ -692,6 +781,9 @@ class MainWindow(QMainWindow):
         for herramienta in self._tools.values():
             sesion.add_window_listener(herramienta.on_window_changed)
             sesion.add_view_listener(herramienta.on_view_changed)
+        # **Después de las herramientas**: la ocupación se reancla en su
+        # `on_view_changed()`, y las bandas se comparan contra lo ya reanclado.
+        sesion.add_view_listener(self._al_cambiar_la_pagina)
 
         self._aplicar_colores_de_clase(sesion)
         self.signal_view.set_session(sesion)
@@ -1445,13 +1537,8 @@ class MainWindow(QMainWindow):
         contexto = self._tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
-        # **Sólo si el anotador es el que está dibujando.** El visualizador
-        # muestra lo de una herramienta por vez y quien avisa reemplaza todo:
-        # avisar desde el anotador con la ocupación activa borraba sus líneas
-        # de la pantalla, aunque siguieran medidas.
-        anotador = self._tools.get("annotator")
-        if anotador is not None and anotador is self._active_viewer_tool:
-            anotador.notify_changed()
+        # Las bandas llevan el color de su clase.
+        self._redibujar_overlays()
 
     @property
     def session(self) -> Session | None:

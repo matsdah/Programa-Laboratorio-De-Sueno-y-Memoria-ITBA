@@ -27,7 +27,7 @@ import numpy as np
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QFont, QMouseEvent
-from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog
+from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
 
 pytest.importorskip("pyqtgraph")
 
@@ -40,6 +40,7 @@ from psglab.config import (  # noqa: E402
 from psglab.analysis.ica import apply_ica  # noqa: E402
 from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
+from psglab.core.annotations import Annotation  # noqa: E402
 from psglab.core.nomenclature import stages_of  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
 from psglab.ui import main_window as main_window_mod  # noqa: E402
@@ -420,27 +421,59 @@ def test_el_icono_de_abrir_se_redibuja_con_el_esquema(ventana: MainWindow):
 # verde con el programa roto, que fue exactamente lo que ocurrió en el hito 6.
 
 
-def arrastrar(ventana: MainWindow, desde_x: float, hasta_x: float) -> None:
-    """Presiona, mueve y suelta el botón izquierdo sobre el visualizador."""
+def evento_de_mouse(
+    ventana: MainWindow,
+    tipo: QEvent.Type,
+    x: float,
+    boton: Qt.MouseButton = Qt.MouseButton.LeftButton,
+) -> QMouseEvent:
+    """Un evento de mouse sobre el visualizador, en `x` de la escena del gráfico.
+
+    **Se arma como lo arma Qt**: posición relativa al viewport,
+    `scenePosition()` relativa a la ventana de primer nivel y la global de la
+    pantalla. Hasta que se corrigió el corrimiento del anotador las tres eran
+    el mismo punto, y el test no podía distinguir la posición del viewport de
+    la de la ventana, que era justamente el error.
+    """
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
     viewport = ventana.signal_view.viewport()
+    local = QPointF(
+        ventana.signal_view.mapFromScene(QPointF(float(x), caja.center().y()))
+    )
+    en_ventana = QPointF(viewport.mapTo(viewport.window(), local.toPoint()))
+    return QMouseEvent(
+        tipo,
+        local,
+        en_ventana,
+        QPointF(viewport.mapToGlobal(local.toPoint())),
+        boton,
+        boton,
+        Qt.KeyboardModifier.NoModifier,
+    )
 
-    def evento(tipo: QEvent.Type, x: float) -> QMouseEvent:
-        punto = QPointF(float(x), caja.center().y())
-        return QMouseEvent(
-            tipo,
-            punto,
-            punto,
-            punto,
-            Qt.MouseButton.LeftButton,
-            Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-        )
 
+def arrastrar(ventana: MainWindow, desde_x: float, hasta_x: float) -> None:
+    """Presiona, mueve y suelta el botón izquierdo sobre el visualizador."""
+    viewport = ventana.signal_view.viewport()
     aplicacion = QApplication.instance()
-    aplicacion.sendEvent(viewport, evento(QEvent.Type.MouseButtonPress, desde_x))
-    aplicacion.sendEvent(viewport, evento(QEvent.Type.MouseMove, hasta_x))
-    aplicacion.sendEvent(viewport, evento(QEvent.Type.MouseButtonRelease, hasta_x))
+    for tipo, x in (
+        (QEvent.Type.MouseButtonPress, desde_x),
+        (QEvent.Type.MouseMove, hasta_x),
+        (QEvent.Type.MouseButtonRelease, hasta_x),
+    ):
+        aplicacion.sendEvent(viewport, evento_de_mouse(ventana, tipo, x))
+
+
+def clic_derecho(ventana: MainWindow, segundos: float) -> None:
+    """Un clic derecho sobre el visualizador, en un segundo del registro."""
+    vista = ventana.signal_view.getPlotItem().vb
+    x = vista.mapViewToScene(QPointF(segundos, 0.0)).x()
+    viewport = ventana.signal_view.viewport()
+    aplicacion = QApplication.instance()
+    for tipo in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonRelease):
+        aplicacion.sendEvent(
+            viewport, evento_de_mouse(ventana, tipo, x, Qt.MouseButton.RightButton)
+        )
 
 
 @pytest.fixture
@@ -493,6 +526,152 @@ def test_la_anotacion_cae_en_la_ventana_en_la_que_se_hizo(
     inicio = ventana.session.annotations.all()[0].onset_sample
     por_ventana = FRECUENCIA_BV * WINDOW_SECONDS
     assert 3 * por_ventana <= inicio < 4 * por_ventana
+
+
+def test_la_anotacion_empieza_y_termina_bajo_el_mouse(
+    ventana: MainWindow, elige_clase
+):
+    """**El síntoma que reportó el usuario**: la selección empezaba a la
+    derecha del mouse, corrida por el ancho del selector de canales, porque se
+    tomaba `scenePosition()` —que en un evento de widget es la ventana— como
+    si fuera la escena de pyqtgraph."""
+    ventana.resize(1400, 800)
+    ventana.show()
+    QApplication.processEvents()
+    viewport = ventana.signal_view.viewport()
+    # Sin distancia entre el gráfico y el borde de la ventana, el test no
+    # distinguiría una posición de la otra y pasaría con el error puesto.
+    assert viewport.mapTo(ventana, viewport.rect().topLeft()).x() > 0
+
+    vista = ventana.signal_view.getPlotItem().vb
+    caja = vista.sceneBoundingRect()
+    ventana._toggle_tool("annotator", True)
+    desde_x = caja.left() + caja.width() * 0.25
+    hasta_x = caja.left() + caja.width() * 0.35
+
+    arrastrar(ventana, desde_x, hasta_x)
+
+    anotacion = ventana.session.annotations.all()[0]
+    fs = ventana.session.recording.sampling_rate
+    # Un píxel de tolerancia: el evento llega redondeado a píxel entero.
+    un_pixel = ventana.session.viewport.span_seconds / caja.width()
+    for muestra, x in (
+        (anotacion.onset_sample, desde_x),
+        (anotacion.end_sample, hasta_x),
+    ):
+        esperado = vista.mapSceneToView(QPointF(x, 0.0)).x()
+        assert abs(muestra / fs - esperado) <= un_pixel
+
+
+
+def bandas_dibujadas(ventana: MainWindow) -> list[tuple[float, float]]:
+    """Los tramos de las bandas que el visualizador tiene en pantalla."""
+    import pyqtgraph as pg
+
+    return [
+        tuple(round(v, 3) for v in dibujado.getRegion())
+        for dibujado in ventana.signal_view._overlay_items
+        if isinstance(dibujado, pg.LinearRegionItem)
+    ]
+
+
+def anotar_en(
+    ventana: MainWindow, desde: float, hasta: float, clase: str = "Arousal"
+) -> Annotation:
+    """Agrega una anotación directo a la sesión, sin pasar por el gesto."""
+    fs = ventana.session.recording.sampling_rate
+    anotacion = Annotation(
+        label=clase,
+        onset_sample=int(desde * fs),
+        duration_samples=int((hasta - desde) * fs),
+    )
+    ventana.session.annotations.add(anotacion)
+    return anotacion
+
+
+def test_las_bandas_siguen_a_la_pagina(ventana: MainWindow):
+    """Pasar de época con la flecha cambia qué bandas van. Hasta que se
+    corrigió, seguían dibujadas las de la página anterior."""
+    anotar_en(ventana, 10.0, 12.0)
+    anotar_en(ventana, 40.0, 43.0)
+    ventana._toggle_tool("annotator", True)
+
+    ventana._go_to_window(1)
+    assert bandas_dibujadas(ventana) == [(40.0, 43.0)]
+    ventana._go_to_window(0)
+    assert bandas_dibujadas(ventana) == [(10.0, 12.0)]
+
+
+@pytest.mark.parametrize("otra", [None, "magnifier", "occupancy", "amplitude_band"])
+def test_las_anotaciones_se_ven_con_cualquier_herramienta(
+    ventana: MainWindow, otra: str | None
+):
+    """Decidido con el usuario: una anotación es un dato del registro y se ve
+    siempre. Antes se veía lo de la última herramienta que avisó, y activar la
+    lupa las borraba de la pantalla."""
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("annotator", True)
+    ventana._toggle_tool("annotator", False)
+    if otra is not None:
+        ventana._toggle_tool(otra, True)
+
+    assert (10.0, 12.0) in bandas_dibujadas(ventana)
+    # Y siguen a la página con esa herramienta activa: ir y volver es lo que
+    # las perdía, porque nadie volvía a pedirlas.
+    ventana._go_to_window(1)
+    assert (10.0, 12.0) not in bandas_dibujadas(ventana)
+    ventana._go_to_window(0)
+    assert (10.0, 12.0) in bandas_dibujadas(ventana)
+
+
+def test_el_clic_derecho_borra_la_anotacion(ventana: MainWindow, monkeypatch):
+    preguntas: list[str] = []
+
+    def responder(_padre, _titulo, texto, *_args, **_kwargs):
+        preguntas.append(texto)
+        return QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(responder))
+    anotar_en(ventana, 10.0, 12.0, "Spindle")
+    queda = anotar_en(ventana, 20.0, 22.0)
+    ventana._toggle_tool("annotator", True)
+
+    clic_derecho(ventana, 11.0)
+
+    assert ventana.session.annotations.all() == [queda]
+    assert (10.0, 12.0) not in bandas_dibujadas(ventana)
+    assert "Spindle" in preguntas[0]
+    assert not ventana.carteles
+
+
+def test_el_clic_derecho_pregunta_antes_de_borrar(ventana: MainWindow, monkeypatch):
+    """No hay deshacer: un clic de más no puede costar un evento."""
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        staticmethod(lambda *_a, **_k: QMessageBox.StandardButton.No),
+    )
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("annotator", True)
+
+    clic_derecho(ventana, 11.0)
+
+    assert len(ventana.session.annotations.all()) == 1
+
+
+def test_el_clic_derecho_sin_anotar_no_borra(ventana: MainWindow, monkeypatch):
+    """Sólo con «Anotar» activo: con otra herramienta el clic es suyo."""
+
+    def no_deberia_preguntar(*_a, **_k):
+        pytest.fail("con la lupa activa, el clic derecho no puede borrar")
+
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(no_deberia_preguntar))
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("magnifier", True)
+
+    clic_derecho(ventana, 11.0)
+
+    assert len(ventana.session.annotations.all()) == 1
 
 
 def test_se_puede_crear_una_clase_nueva_al_vuelo(ventana: MainWindow, elige_clase):

@@ -746,7 +746,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     interfaz tenga qué dibujar.
 - [x] **`psglab/tools/annotator.py`** · ~~9 stubs~~ · V1_F "Anotación" ·
       `ViewerTool`
-  - Test: `tests/test_annotator.py`, **21 tests en verde**.
+  - Test: `tests/test_annotator.py`, **27 tests en verde**.
   - **La conversión a muestras es lo que más importa** y tiene su test: en la
     ventana 1, el segundo 5 es la muestra 3500. Escribir la cuenta a mano deja
     la anotación en la ventana de al lado cuando la frecuencia no es redonda, y
@@ -2328,7 +2328,7 @@ lo mínimo.
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **185 tests en verde**.
+  - Test: `tests/test_entrega.py`, **194 tests en verde**.
 
 ### Lo que se midió
 
@@ -2400,9 +2400,68 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
   - Test: `tests/test_menus.py`, **35 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
-  - Test: `tests/test_entrega.py`, **185 tests en verde**: tildar
+  - Test: `tests/test_entrega.py`, **194 tests en verde**: tildar
     un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
     oculta.
+
+### Corrección: la selección de «Anotar» arrancaba a la derecha del mouse
+
+Reportado por el usuario al probar la herramienta. **Afectaba a todas las
+herramientas del mouse, no sólo al anotador**, y al clic del hipnograma.
+`MainWindow.eventFilter()` tomaba `evento.scenePosition()` como si fuera la
+escena de pyqtgraph, y en un `QMouseEvent` de widget es la **ventana de primer
+nivel**: traía sumado todo lo que hay a la izquierda del gráfico. Con el
+selector de canales abierto eran 280 px, unos 7,5 s en una página de 30 s. En
+vertical pasaba lo mismo con la barra de menú, así que la lupa y la banda de
+amplitud también quedaban corridas.
+
+- [x] **La posición la convierte la vista**, con `_en_escena()`, que es
+      `mapToScene(evento.position())`. Se usa en el visualizador y en el
+      hipnograma.
+- [x] **El test no podía verlo**: `arrastrar()` armaba el evento con las tres
+      posiciones iguales. Ahora lo arma como Qt, con `scenePosition()` relativa
+      a la ventana.
+  - Test: `tests/test_entrega.py`, **194 tests en verde**, con que la
+    anotación empiece y termine a un píxel del mouse. Falla sin la corrección,
+    corrida 7,5 s.
+
+### Las anotaciones, de punta a punta
+
+Revisando si el anotador funcionaba entero aparecieron tres huecos más. El
+usuario decidió que **las anotaciones se ven siempre** y que **se borran con el
+clic derecho**.
+
+- [x] **Las bandas no seguían a la página.** Sólo se repintaban cuando una
+      herramienta avisaba, y el anotador no escucha `on_view_changed()`: al
+      pasar de época con la flecha quedaban las de la página anterior. La
+      ventana escucha ahora el cambio de página y **redibuja sólo si cambió qué
+      bandas van**. La reproducción mueve la página en cada cuadro, y las
+      bandas están en segundos absolutos, así que en general no cambian.
+- [x] **Se veía lo de la última herramienta que avisó**, aunque estuviera
+      apagada: activar la lupa, o que la ocupación se reanclara al desplazarse,
+      borraba las anotaciones de la pantalla. `_redibujar_overlays()` compone
+      siempre las bandas de `annotation_bands()` con los overlays de la
+      herramienta activa.
+- [x] **No se podía borrar una anotación desde la ventana**:
+      `AnnotatorTool.delete_annotation()` existía y nada de `ui/` la llamaba.
+      Con «Anotar» activo, el clic derecho sobre una banda la borra, previa
+      confirmación porque no hay deshacer. Entre dos superpuestas se borra la
+      más corta, que es la que no se puede señalar en ningún otro lugar.
+  - Test: `tests/test_annotator.py`, **27 tests en verde**, con
+    `annotation_at()` y las bandas sin la herramienta activada.
+  - Test: `tests/test_entrega.py`, **194 tests en verde**, con eventos de Qt
+    de verdad: las bandas al ir y volver de época con cada herramienta, y el
+    clic derecho con la confirmación aceptada, rechazada y con otra
+    herramienta activa. Fallan con la ventana anterior.
+
+### Lo que sigue abierto
+
+- [ ] **Una anotación no se puede corregir**, sólo borrar y volver a hacer:
+      cambiarle la clase o arrastrar sus bordes queda para cuando el
+      laboratorio lo pida.
+- [ ] **La red del hito 20 no mira `tools/`.** Recorre las funciones públicas
+      de `analysis/`, así que `delete_annotation()` quedó sin
+      ningún camino desde la ventana sin que nada fallara.
 
 ---
 
