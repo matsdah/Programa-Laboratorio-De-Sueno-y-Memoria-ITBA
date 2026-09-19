@@ -69,6 +69,14 @@ vuelve a verificar:
 1. **La señal va en microvoltios.** La conversión se hace acá, una sola vez, con
    [`psglab/utils/units.py`](../utils/README.md). A partir de este punto nadie
    más se pregunta por la unidad.
+
+   **Si el lector se apoya en MNE, el factor depende de qué hizo MNE con cada
+   canal**, y no sólo de la unidad declarada: MNE lleva a volts las grafías que
+   reconoce, comparándolas con mayúsculas, y deja las demás como vienen. Los
+   dos lectores copian esa regla en `_UNIDADES_QUE_MNE_PASA_A_VOLTS`, leen la
+   cabecera como la lee MNE y la emparejan con sus canales **por posición**,
+   porque MNE renombra los repetidos. Confundir las dos cosas dejaba un canal en
+   `uv` un millón de veces más grande (hito 33).
 2. **La clase de cada canal ya viene detectada**, con
    `channel_types.detect_channel_kind()`.
 

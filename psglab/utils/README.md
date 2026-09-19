@@ -16,7 +16,7 @@ capa vuelve a preguntarse por la unidad: si un valor viaja por `core/`, `ui/` o
 `analysis/`, está en microvoltios.
 
 Los archivos declaran su unidad de formas variadas (`uV`, `µV`, `microvolt`,
-`V`, `mV`), así que la normalización es explícita y tolerante:
+`V`, `mV`, `nV`), así que la normalización es explícita y tolerante:
 `normalize_unit_name()` unifica las variantes y `TO_MICROVOLTS` guarda los
 factores.
 

@@ -34,9 +34,11 @@ herramientas buscando caminos muertos y fugas, y el
 decisiones que dejó. El **[hito 31](#hito-31-el-recorrido-manual)** corrigió lo
 que encontró el usuario al recorrer el programa con un registro real, y el
 **[hito 32](#hito-32-los-pendientes-del-todo)** resolvió los pendientes que
-quedaban. Son **treinta y tres hitos**, del 0 al 32,
-que son las filas de la tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
-dentro del hito al que le toca, casi todo en los tres últimos.
+quedaban. El **[hito 33](#hito-33-la-auditoría-del-19-de-septiembre)**, abierto,
+ordena lo que encontró la auditoría del 19 de septiembre. Son **treinta y
+cuatro hitos**, del 0 al 33, que son las filas de la tabla de progreso; están
+cerrados todos menos el último, y lo que sigue abierto de los anteriores está
+anotado dentro del hito al que le toca.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
 34 requisitos se podían usar desde el programa corriendo, no sólo desde sus
@@ -137,6 +139,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [30. Las decisiones de la verificación](#hito-30-las-decisiones-de-la-verificación) | — | 0 | ✅ cerrado |
 | [31. El recorrido manual](#hito-31-el-recorrido-manual) | — | 0 | ✅ cerrado |
 | [32. Los pendientes del TODO](#hito-32-los-pendientes-del-todo) | — | 0 | ✅ cerrado |
+| [33. La auditoría del 19 de septiembre](#hito-33-la-auditoría-del-19-de-septiembre) | — | 0 | ⬜ abierto |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -242,7 +245,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
 
 - [x] **`psglab/utils/units.py`** · ~~4 stubs~~ · sostiene la escala en µV de
       V1_P "Visualización" y la banda de V1_F "Herramienta de amplitud"
-  - Test: `tests/test_units.py`, **27 tests en verde**.
+  - Test: `tests/test_units.py`, **31 tests en verde**.
   - La mitad de los tests son de **entrada sucia**, no de aritmética: las
     cabeceras de EDF y BrainVision escriben la unidad de formas variadas, y
     confundir "no reconozco esto" con "esto vale 1" deja la señal mal escalada
@@ -346,7 +349,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
 
 - [x] **`psglab/core/session.py`** · ~~19 stubs~~ · V1_F "Navegación";
       V2_P, V3_P, V4_F "Histograma", V5_F "Visualización"
-  - Test: `tests/test_session.py`, **126 tests en verde**. Navegación y amplitud
+  - Test: `tests/test_session.py`, **135 tests en verde**. Navegación y amplitud
     son testeables sin GUI: ese es el motivo de que `Session` viva en `core/`.
   - `set_scoring()` se agregó en el hito 6, para V3_F: importar un scoring no
     es abrir otro registro, así que sustituye adentro en vez de armar otra
@@ -406,7 +409,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader`, `read_recording` y `load_all_readers` corren al
     importar. **No convertirlos en stubs.**
-  - Test: `tests/test_readers.py`, **45 tests en verde**, que cubre este módulo
+  - Test: `tests/test_readers.py`, **74 tests en verde**, que cubre este módulo
     y los dos de abajo. El autodescubrimiento y el despacho se testean con un
     lector de mentira, sin ningún archivo real.
 - [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
@@ -2324,7 +2327,7 @@ lo mínimo.
       una sola vez y devuelve el instante recortado, para que la interfaz no
       repita el recorte. No llama a `_seguir_a_la_epoca()`: con una página de
       menos de 30 s, `containing()` la sacaría del medio.
-  - Test: `tests/test_session.py`, **126 tests en verde**.
+  - Test: `tests/test_session.py`, **135 tests en verde**.
   - Test: `tests/test_contratos.py`, **959 tests en verde**, con su
     fila en `CONTRATOS` y en `RECHAZOS_OBLIGATORIOS`: un NaN no puede pasar.
 - [x] **Una línea marca el cursor**, creada una vez y después movida, por la
@@ -2339,7 +2342,7 @@ lo mínimo.
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**.
+  - Test: `tests/test_entrega.py`, **227 tests en verde**.
 
 ### Lo que se midió
 
@@ -2411,7 +2414,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
   - Test: `tests/test_menus.py`, **37 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**: tildar
+  - Test: `tests/test_entrega.py`, **227 tests en verde**: tildar
     un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
     oculta.
 
@@ -2432,7 +2435,7 @@ amplitud también quedaban corridas.
 - [x] **El test no podía verlo**: `arrastrar()` armaba el evento con las tres
       posiciones iguales. Ahora lo arma como Qt, con `scenePosition()` relativa
       a la ventana.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**, con que la
+  - Test: `tests/test_entrega.py`, **227 tests en verde**, con que la
     anotación empiece y termine a un píxel del mouse. Falla sin la corrección,
     corrida 7,5 s.
 
@@ -2460,7 +2463,7 @@ clic derecho**.
       más corta, que es la que no se puede señalar en ningún otro lugar.
   - Test: `tests/test_annotator.py`, **28 tests en verde**, con
     `annotation_at()` y las bandas sin la herramienta activada.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**, con eventos de Qt
+  - Test: `tests/test_entrega.py`, **227 tests en verde**, con eventos de Qt
     de verdad: las bandas al ir y volver de época con cada herramienta, y el
     clic derecho con la confirmación aceptada, rechazada y con otra
     herramienta activa. Fallan con la ventana anterior.
@@ -2522,7 +2525,7 @@ llegan a la ventana.
 - [x] **El clic del hipnograma no tenía ningún test con eventos**, y tenía el
       mismo error que el anotador hasta el hito 28: con los tres paneles de
       abajo a la vista, caía en la época 4 en vez de la 3.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**, con dos registros
+  - Test: `tests/test_entrega.py`, **227 tests en verde**, con dos registros
     de verdad. Los cinco fallan sin su corrección.
   - Test: `tests/test_occupancy.py`, **40 tests en verde**.
   - Test: `tests/test_annotator.py`, **28 tests en verde**.
@@ -2593,7 +2596,7 @@ todas con la recomendación que se le hizo.
       métodos y no sólo funciones: son `SIN_CAMINO_A_PROPOSITO` y
       `HUECOS_ABIERTOS` en `tests/test_consistencia.py`. Un hueco abierto no se
       exime: tiene que figurar por su nombre en este archivo.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**. Los siete nuevos
+  - Test: `tests/test_entrega.py`, **227 tests en verde**. Los siete nuevos
     fallan con la ventana anterior.
   - Test: `tests/test_preferences.py`, **54 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **73 tests en verde**.
@@ -2661,7 +2664,7 @@ tiempo.
       tarda 0,3 s. Pedida apenas abierto el registro todavía espera lo que le
       falta a la compilación: 4,6 s. Lempel-Ziv tarda 2,7 s por el cálculo en
       sí, compilado o no.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**: el menú no cambia
+  - Test: `tests/test_entrega.py`, **227 tests en verde**: el menú no cambia
     después de los cuatro análisis, y `main.py` precalienta y la suite no.
   - Test: `tests/test_connectivity_panel.py`, **16 tests en verde**.
   - Test: `tests/test_filter_panel.py`, **20 tests en verde**, y
@@ -2709,7 +2712,7 @@ le hizo, y mantuvo afuera las operaciones largas.
       es de la ventana.
 - [x] **`HUECOS_ABIERTOS` queda vacía**: los cuatro métodos que encontró la red
       del hito 30 tienen camino desde la ventana.
-  - Test: `tests/test_entrega.py`, **215 tests en verde**, con un registro que
+  - Test: `tests/test_entrega.py`, **227 tests en verde**, con un registro que
     tiene un canal en cero.
   - Test: `tests/test_recording.py`, **40 tests en verde**, y
     `tests/test_contratos.py`, **959 tests en verde**.
@@ -2726,6 +2729,163 @@ le hizo, y mantuvo afuera las operaciones largas.
       argumento, y los que lo llaman hoy le pasan enteros.
 - [ ] **El hipnograma y la Übersicht** siguen esperando la confirmación del
       usuario (ver el hito 31).
+
+---
+
+## Hito 33: La auditoría del 19 de septiembre
+
+**Abierto el 19 de septiembre de 2026.** Una auditoría del backend y de cómo
+llega a la ventana, pedida por el usuario: la suite entera, recorridos por la
+ventana con eventos de Qt, archivos sintéticos con casos límite, memoria y
+rendimiento. **No tiene archivo propio**, como la del 8 de septiembre: sus
+hallazgos viven acá, en el orden en que conviene atacarlos.
+
+**Lo que quedó probado que anda.** La suite pasa entera, sin salteados en una
+máquina con `data/`. Doce escenarios de memoria —abrir registros, navegar,
+reproducir, anotar, prender herramientas, abrir paneles, analizar y exportar,
+cientos de veces— no crecen después del calentamiento, y ningún registro ni
+ninguna ventana sobrevive a su reemplazo. Los cuatro formatos de scoring
+vuelven idénticos, y un archivo roto no toca la sesión abierta.
+
+**Una regresión de rendimiento que no era.** El banco dio el doble de tiempo
+por cuadro que en el hito 27; corriendo los dos árboles intercalados, midieron
+lo mismo. La máquina llegó a enlentecerse dos veces y media **dentro de una
+misma corrida**, así que un número del banco sólo vale contra otro intercalado
+con él, que es lo que el [hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar)
+ya advertía.
+
+**No tiene stubs que contar.**
+
+- [x] **Un EDF sintético para el CI.** `escribir_edf()`, en
+      `tests/conftest.py`, es el gemelo de `escribir_brainvision()`: cada canal
+      en su propia unidad y a su propia frecuencia. Hasta acá el lector de EDF
+      sólo corría contra `data/`, que el CI no tiene, así que la conversión a µV
+      no se ejercitaba en ninguna de las seis combinaciones. Es lo que deja
+      testear los tres ítems que siguen: el escritor ya reproduce los dos
+      primeros.
+  - Test: `tests/test_readers.py`, **74 tests en verde**. Este ítem sumó
+    once que no dependen de `data/`, y el arreglo de la escala, dieciocho más.
+- [x] **La escala dependía de cómo se escribiera la unidad.** `is_electrical()`
+      no distingue mayúsculas y MNE sí: sólo convierte `uV`, `µV` y `mV`
+      escritos así. Un canal que declaraba `uv` llegaba 10⁶ veces más grande,
+      uno en `mv`, 10³, y un canal de BrainVision en `nV` quedaba en volts con
+      la etiqueta `nV`. Pasaba en los dos lectores.
+      - **El factor sale ahora de lo que hizo MNE con cada canal**: si lo llevó
+        a volts, de volt a microvolt; si lo dejó como venía y la unidad es
+        eléctrica, desde su unidad; si no, queda nativo. La regla de MNE está
+        copiada en `_UNIDADES_QUE_MNE_PASA_A_VOLTS` de cada lector, carácter por
+        carácter, y los tests escriben cada grafía: si una versión de MNE la
+        cambia, fallan.
+      - `utils/units.py` reconoce los nanovoltios, y una unidad eléctrica
+        ambigua —«MV»— deja el canal como vino, con su unidad, en vez de
+        inventarle un factor o impedir abrir el registro entero.
+      - **Encontrado en el camino**: un `.vhdr` sin `Codepage` escrito en UTF-8
+        dejaba **todos** los canales en volts, con la unidad «ÂµV» y fuera del
+        EEG. MNE lo decodifica en UTF-8 y el lector en latin-1. El lector
+        decodifica y parsea ahora como MNE: UTF-8 por omisión, sólo
+        `[Channel Infos]`, y la unidad sin recortar.
+      - Queda preguntarle al laboratorio cómo escriben la unidad sus equipos:
+        dice si algún registro ya scoreado se vio con otra escala.
+  - Test: `tests/test_units.py`, **31 tests en verde**, con los nanovoltios.
+- [x] **Dos canales de un EDF con la misma etiqueta quedaban en volts.** MNE
+      los renombra (`EEG-0`, `EEG-1`), `_leer_cabecera()` los buscaba por
+      nombre, no los encontraba, y el lector los dejaba sin unidad, sin
+      convertir y como `OTHER`. La cabecera se empareja ahora **por posición**,
+      sacando los canales de anotaciones como los saca MNE; y si no se puede
+      emparejar, el registro no se abre, porque sin la unidad no hay escala
+      que no sea adivinada. El BrainVision también empareja por posición.
+  - Con los lectores anteriores fallan diecisiete de los tests nuevos.
+- [ ] **Un EDF truncado se abre sin avisar.** Con la mitad del archivo sale la
+      mitad de la noche: `verbose="ERROR"` calla el aviso de MNE, y la cabecera
+      dice cuántos registros de datos tendría que haber.
+- [ ] **Una fila de bandas mal formada en las preferencias impide arrancar.**
+      `_leer_bandas()` eleva `IndexError`, que no está entre lo que
+      `_con_campos_nuevos()` atrapa, y `create_application()` sólo atrapa
+      `PsgLabError`. Alcanza con `{"psd_bands": [["Delta", 0.5]]}`, y el módulo
+      supone que el archivo se edita a mano.
+- [x] **Abrir otro registro o cerrar la ventana descartaba el scoring sin
+      preguntar.** No había `closeEvent` ni ninguna marca de cambios sin
+      exportar. El usuario eligió **un cartel con Exportar…, Descartar y
+      Cancelar, sin autoguardado**: guardar a escondidas obliga a elegir por él
+      dónde y en qué formato.
+      - La regla es de `core/`: `Session.has_unexported_scoring()` compara el
+        scoring contra cómo estaba la última vez que quedó en un archivo —al
+        abrir, al importar, al exportar—, así que deshacer un cambio no cuenta
+        y un scoring vacío no tiene nada que perder. `export()` llama a
+        `mark_scoring_exported()` sólo si escribir anduvo.
+      - «Exportar…» abre el mismo diálogo que Ctrl+S y sigue sólo si el
+        scoring quedó escrito: cancelar el diálogo o que falle escribir deja
+        todo como estaba. Exportar es el botón por omisión y Escape cancela.
+      - Al abrir otro registro se pregunta **después de leerlo**: si el archivo
+        nuevo está roto, la sesión anterior sigue y no hay nada que preguntar.
+  - Test: `tests/test_session.py`, **135 tests en verde**, con nueve sobre qué
+    cuenta como trabajo sin exportar.
+  - Test: `tests/test_entrega.py`, **227 tests en verde**, con doce por la
+    ventana: cerrar y abrir otro registro con cada una de las tres
+    respuestas, un guardado cancelado o fallido, y el cartel de verdad con sus
+    tres botones. Con la ventana anterior fallan once; el que pasa igual es el
+    que afirma que sin nada scoreado no se pregunta.
+- [ ] **La conectividad deja escapar un `ValueError` de MNE** cuando la banda
+      no tiene ninguna frecuencia por debajo de Nyquist: una banda del usuario
+      de 55 a 90 Hz sobre un registro de 100 Hz. No sale ningún cartel y la
+      traza va a la consola. Validar la banda contra la frecuencia en
+      `_validar_banda()`.
+- [ ] **La primera apertura de cada sesión del programa congela unos 9 s**, y
+      la segunda tarda 0,6. Son las importaciones perezosas de MNE:
+      `mne.io.brainvision` arrastra `mne.viz` y `matplotlib`. El hilo de
+      `warm_up_analysis()` puede importarlas también.
+- [ ] **Lo que se lee sin avisar o se muestra sin explicar**:
+  - Un `Scoring.txt` con BOM no se importa: `_leer_lineas()` decodifica con
+    `utf-8` y no con `utf-8-sig`.
+  - `Session.center_offsets()` guarda un desplazamiento NaN si la ventana
+    tiene uno, salteando la guarda de `set_offset_uv()`.
+  - El lector de `Scoring.txt` toma cualquier arousal distinto de cero como
+    marcado, y con tres campos una ventana repetida pisa a la anterior.
+  - Una banda por encima de Nyquist da potencia 0 en vez de decir que no se
+    puede medir.
+  - `Informacion.txt` promedia los episodios en ventanas completas y suma las
+    fases en duración real: con la última ventana incompleta, un único
+    episodio de N2 promedia más que el total de N2.
+  - Un archivo inexistente se informa como dañado.
+  - La barra de estado queda en «Calculando…» después de un análisis.
+  - Un NaN en la señal se acepta sin aviso y los filtros lo esparcen: diez
+    muestras terminan en unas treinta mil.
+  - Un esquema propio inválido descarta todas las preferencias, y unas
+    preferencias rotas se ignoran sin cartel.
+  - `_export_dialog()` agrega la extensión **después** de que el diálogo
+    confirmó la sobrescritura. Sin probar: depende del diálogo de cada
+    plataforma.
+- [ ] **Lo que dicen los documentos y el código no**:
+  - `tools/base.py` y `tools/README.md` todavía dicen en un lugar que la `x`
+    de `ViewerTool` son segundos de la ventana; son del registro desde el
+    hito 22.
+  - `core/README.md` cuenta seis módulos y lista ocho; `tests/README.md` y
+    `ui/README.md` dicen que `ui/` casi no tiene tests; `ci.yml` dice que la
+    suite tarda segundos.
+  - `SOLO_BIBLIOTECA` exime a `unidad_de_salida()` diciendo que la consultan
+    los análisis, y no la llama nadie; `analysis/README.md` dice que
+    `band_powers_by_window()` alimenta los gráficos de la noche, y no tiene
+    camino desde la ventana.
+  - `Session.set_active_tool()` no la llama la ventana, así que
+    `active_tool` es siempre `None`.
+
+### Lo que sigue abierto
+
+- [ ] **Los registros densos siguen sin entrar en el cuadro**: con 32 canales a
+      1000 Hz y página de 5 min, unos 100 ms contra los 40 del reloj. Es el
+      pendiente del [hito 27](#hito-27-la-navegación-desde-el-medio), medido de
+      nuevo.
+- [ ] **Lo largo sigue en el hilo de la interfaz**: la conectividad de la noche,
+      entre 15 y 18 s sobre ocho horas; la ICA, 9 s; filtrar, 2,5 s. Es la
+      decisión del hito 32, ahora con números.
+- [ ] **El cartel del scoring no cubre las anotaciones.** Mira sólo el scoring,
+      que es lo que la ventana exporta: Anotaciones.txt salió del menú en el
+      [hito 23](#hito-23-ajustes-de-la-barra-de-menú), así que una sesión con
+      eventos anotados y nada scoreado se sigue cerrando sin preguntar. Decidir
+      si el cartel también las cuenta es del usuario.
+- [ ] **Importar un scoring encima de uno sin exportar lo reemplaza sin
+      preguntar.** Es la misma pérdida por otro camino, y quedó fuera del pedido
+      del hito, que nombraba cerrar y abrir otro registro.
 
 ---
 

@@ -52,7 +52,7 @@ conoce las flechas del teclado.
 
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
-| `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. `export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos. | V4_F de "Archivo de salida" |
+| `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. `export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos. Antes de cerrar o de abrir otro registro pregunta por el scoring sin exportar —Exportar…, Descartar o Cancelar—; la regla de qué cuenta es de `Session`. | V4_F de "Archivo de salida" |
 | `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** Marca la época con una banda y, reproduciendo, el cursor con una línea: las dos se crean una vez y se mueven. | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
 | `channel_selector.py` | Elegir cuántos y cuáles canales se ven, agrupados por clase. | V3_P, V4_F de "Visualización" |
 | `grid.py` | La grilla de fondo, los tres fondos elegibles y las líneas de cero de los canales. **Todas las líneas son un solo objeto de la escena**: como objetos sueltos costaban 0,8 ms por línea y por cuadro. | V1_P, V2_F de "Diseño de la interfaz" |

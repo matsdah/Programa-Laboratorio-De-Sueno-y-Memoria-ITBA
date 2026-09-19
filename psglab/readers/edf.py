@@ -14,14 +14,24 @@ remuestrear acá. Lo que sí hay que hacer es **no perder el dato**: un EMG de
 frecuencia real el investigador vería una señal de aspecto normal sin forma de
 saberlo. Va en `Channel.original_sampling_rate`, que se lee de la cabecera.
 
-**MNE devuelve volts, no lo que dice la cabecera.** Para los canales cuya unidad
-reconoce aplica él mismo la dimensión física y entrega **volts**: el canal
-`EEG Fpz-Cz`, que la cabecera declara en ±192 uV, sale como ±0,000192. Los que
-no reconoce —una temperatura en "DegC", un marcador sin unidad— los deja en su
-escala nativa. Por eso la conversión de acá es siempre **de volt a microvolt** y
-no la que correspondería a la unidad del archivo: aplicar
-`conversion_factor("uV")`, que vale 1, dejaría la señal en volts, un millón de
-veces más chica, y en pantalla con autoescala seguiría pareciendo una señal.
+**MNE devuelve volts, no lo que dice la cabecera, pero sólo a veces.** Para los
+canales cuya unidad reconoce aplica él mismo la dimensión física y entrega
+**volts**: el canal `EEG Fpz-Cz`, que la cabecera declara en ±192 uV, sale como
+±0,000192. Los que no reconoce los deja en la unidad del archivo. Por eso el
+factor de cada canal **depende de qué hizo MNE con él**, y no sólo de la
+unidad declarada:
+
+- si MNE lo llevó a volts, se multiplica de volt a microvolt;
+- si lo dejó como venía y la unidad es eléctrica, se convierte desde esa unidad;
+- si no es eléctrica —una temperatura en "DegC", un marcador sin unidad— queda
+  en su escala nativa, con su unidad.
+
+**La regla de MNE distingue mayúsculas y la de `utils/units.py` no**, y ése fue
+el error que encontró la auditoría del hito 33: MNE sólo convierte `uV`, `µV` y
+`mV` escritos así, y un canal declarado en `uv` llegaba sin convertir, se
+multiplicaba igual de volt a microvolt y quedaba 10⁶ veces más grande. La regla
+de MNE está copiada en `_UNIDADES_QUE_MNE_PASA_A_VOLTS`; si una versión futura
+la cambia, lo detectan los tests del EDF sintético, que escriben cada grafía.
 
 **El canal de anotaciones de EDF+ no es una señal.** MNE ya lo excluye solo y lo
 convierte en `raw.annotations`, así que no hay que descartarlo a mano. Sí hay
@@ -39,12 +49,30 @@ import numpy as np
 from psglab.core.recording import Channel, Recording
 from psglab.readers.base import Reader, register_reader
 from psglab.readers.channel_types import detect_channel_kind
-from psglab.utils.errors import UnreadableFileError
+from psglab.utils.errors import UnknownUnitError, UnreadableFileError
 from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
 
 #: Unidad en la que MNE entrega los canales que reconoce como eléctricos. No es
 #: la que declara el archivo: es la del SI, que MNE usa internamente.
 _UNIDAD_DE_MNE = "V"
+
+#: Las grafías de unidad que MNE lleva a volts al leer un EDF, **exactamente
+#: como las compara él**: con mayúsculas y sin normalizar. Copiadas de
+#: `mne/io/edf/edf.py` (MNE 1.12): la mu griega, el signo micro, la mu de
+#: Shift-JIS, `uV` y `mV`. `V` se agrega porque ya está en volts: MNE le
+#: aplica un factor 1 y el resultado es el mismo.
+#:
+#: **Es la mitad de la regla que no se puede deducir de `utils/units.py`**, que
+#: normaliza a minúscula: `uv` es microvoltios para las dos, pero MNE no lo
+#: convierte y entrega los números tal cual. Ver el docstring del módulo.
+_UNIDADES_QUE_MNE_PASA_A_VOLTS: frozenset[str] = frozenset(
+    {"μV", "µV", "\x83\xcaV", "uV", "mV", "V"}
+)
+
+#: Etiquetas de los canales de anotaciones de EDF+ y BDF+. MNE los excluye de
+#: la señal comparando la etiqueta exacta, y hay que excluirlos igual para que
+#: las posiciones de la cabecera coincidan con las de MNE.
+_CANALES_DE_ANOTACIONES: frozenset[str] = frozenset({"EDF Annotations", "BDF Annotations"})
 
 #: Posiciones de la cabecera EDF, en bytes. El formato está congelado desde 1992
 #: y por eso conviene leerla a mano: es más estable que apoyarse en los
@@ -54,42 +82,81 @@ _OFFSET_CANTIDAD_DE_SENALES = 252
 _INICIO_CABECERA_DE_SENALES = 256
 
 
-def _leer_cabecera(path: Path) -> dict[str, tuple[str, float | None]]:
-    """Unidad declarada y frecuencia real de cada canal, leídas del archivo.
+def _numero(campo: bytes) -> float | None:
+    """Un campo numérico de la cabecera, o None si no se puede interpretar."""
+    try:
+        return float(campo.strip().decode("latin-1"))
+    except ValueError:
+        return None
 
-    MNE no expone ninguna de las dos después de unificar las frecuencias: la
-    unidad la consume al convertir a volts, y la cantidad de muestras por
-    registro sólo vive en un atributo privado.
 
-    Se indexa **por nombre y no por posición**: si el archivo trae un canal
-    "EDF Annotations", MNE lo excluye y las posiciones dejan de coincidir.
+def _leer_cabecera(path: Path) -> list[tuple[str, str, float | None]]:
+    """Etiqueta, unidad declarada y frecuencia real de cada canal, **en orden**.
 
-    Devuelve un diccionario vacío si la cabecera no se puede interpretar. **No
-    es un error**: son datos accesorios, y perderlos es mejor que no poder abrir
-    un archivo que MNE sí sabe leer.
+    MNE no expone la unidad ni la frecuencia después de leer: la unidad la
+    consume al convertir a volts, y la cantidad de muestras por registro sólo
+    vive en un atributo privado.
+
+    **Se devuelve por posición y no por nombre** (hito 33). Hasta ahí era un
+    diccionario por etiqueta, y un archivo con dos canales `EEG` perdía los dos:
+    MNE los renombra `EEG-0` y `EEG-1`, la búsqueda no los encontraba y quedaban
+    sin unidad, en volts y fuera del EEG. MNE conserva el orden de la cabecera y
+    sólo saca los canales de anotaciones, así que quien llama los saca igual y
+    empareja por posición.
+
+    Las etiquetas y las unidades se recortan **como las recorta MNE**, sobre los
+    bytes y antes de decodificar, para que las grafías coincidan con las que él
+    compara. La frecuencia es accesoria: si su campo no se entiende, queda en
+    None y el canal se lee igual.
+
+    Returns:
+        Una fila por canal de la cabecera, anotaciones incluidas, o la lista
+        vacía si el archivo no se puede leer.
     """
     try:
         with path.open("rb") as archivo:
             archivo.seek(_OFFSET_DURACION_REGISTRO)
-            duracion = float(archivo.read(8))
+            duracion = _numero(archivo.read(8))
             archivo.seek(_OFFSET_CANTIDAD_DE_SENALES)
-            cantidad = int(archivo.read(4))
+            cantidad = int(archivo.read(4).strip().decode("latin-1"))
 
             archivo.seek(_INICIO_CABECERA_DE_SENALES)
-            nombres = [archivo.read(16).decode("latin-1").strip() for _ in range(cantidad)]
+            etiquetas = [archivo.read(16).strip().decode("latin-1") for _ in range(cantidad)]
             archivo.seek(_INICIO_CABECERA_DE_SENALES + cantidad * 96)
-            unidades = [archivo.read(8).decode("latin-1").strip() for _ in range(cantidad)]
+            unidades = [archivo.read(8).strip().decode("latin-1") for _ in range(cantidad)]
             archivo.seek(_INICIO_CABECERA_DE_SENALES + cantidad * 216)
-            muestras = [int(archivo.read(8)) for _ in range(cantidad)]
-    except (OSError, ValueError, UnicodeDecodeError):
-        return {}
+            muestras = [_numero(archivo.read(8)) for _ in range(cantidad)]
+    except (OSError, ValueError):
+        return []
 
-    if duracion <= 0:
-        return {nombre: (unidad, None) for nombre, unidad in zip(nombres, unidades)}
-    return {
-        nombre: (unidad, n / duracion)
-        for nombre, unidad, n in zip(nombres, unidades, muestras)
-    }
+    return [
+        (
+            etiqueta,
+            unidad,
+            n / duracion if n is not None and duracion is not None and duracion > 0 else None,
+        )
+        for etiqueta, unidad, n in zip(etiquetas, unidades, muestras)
+    ]
+
+
+def _factor_a_microvoltios(unidad: str) -> float | None:
+    """Por cuánto multiplicar la fila que entregó MNE para tenerla en µV.
+
+    Returns:
+        El factor, o None si el canal no es eléctrico y queda en su escala.
+        **Una unidad eléctrica ambigua también da None** —"MV", que puede ser
+        mega o mili—: `conversion_factor()` se niega a adivinarla, y el canal
+        queda como vino y con su unidad a la vista en vez de impedir abrir el
+        registro entero por uno solo.
+    """
+    if unidad in _UNIDADES_QUE_MNE_PASA_A_VOLTS:
+        return conversion_factor(_UNIDAD_DE_MNE)
+    if not is_electrical(unidad):
+        return None
+    try:
+        return conversion_factor(unidad)
+    except UnknownUnitError:
+        return None
 
 
 @register_reader
@@ -124,28 +191,51 @@ class EdfReader(Reader):
                 details="El EDF sólo contiene el canal de anotaciones de EDF+.",
             )
 
-        cabecera = _leer_cabecera(path)
+        # Los canales de señal de la cabecera, en el orden en que los entrega
+        # MNE: el de la cabecera sin los de anotaciones.
+        cabecera = [
+            (unidad, frecuencia)
+            for etiqueta, unidad, frecuencia in _leer_cabecera(path)
+            if etiqueta not in _CANALES_DE_ANOTACIONES
+        ]
+        if len(cabecera) != len(crudo.ch_names):
+            # **La unidad no es un dato accesorio**: sin ella no se sabe si la
+            # fila está en volts o en la unidad del archivo, y adivinar deja la
+            # señal corrida en un factor mil o un millón. Hasta el hito 33 este
+            # caso seguía con todo sin convertir.
+            raise UnreadableFileError(
+                f"No se pudo leer el registro '{path.name}': no se entiende en qué "
+                "unidad está cada canal.",
+                details=(
+                    f"La cabecera describe {len(cabecera)} canales de señal y MNE "
+                    f"leyó {len(crudo.ch_names)}."
+                ),
+            )
         datos = np.asarray(crudo.get_data(), dtype=float)
 
         canales: list[Channel] = []
         for posicion, nombre in enumerate(crudo.ch_names):
-            unidad_declarada, frecuencia_original = cabecera.get(nombre, ("", None))
-            if is_electrical(unidad_declarada):
-                # MNE ya aplicó la dimensión física del archivo y entregó volts.
+            unidad_declarada, frecuencia_original = cabecera[posicion]
+            factor = _factor_a_microvoltios(unidad_declarada)
+            if factor is not None:
                 # **En sitio**: `to_microvolts()` devuelve un array nuevo, y sobre
                 # el registro de prueba eso eran 42 ms por canal en copias que se
-                # descartaban enseguida. El factor sale del mismo lugar.
-                datos[posicion] *= conversion_factor(_UNIDAD_DE_MNE)
+                # descartaban enseguida.
+                datos[posicion] *= factor
                 unidad_de_la_fila = MICROVOLT
             else:
                 unidad_de_la_fila = unidad_declarada
             canales.append(
                 Channel(
                     name=nombre,
-                    # La clase se deduce de la unidad **declarada**, no de la de
-                    # la fila: es la del archivo la que dice que un canal en
-                    # grados no puede ser un EEG.
-                    kind=detect_channel_kind(nombre, unidad_declarada),
+                    # La clase se deduce de la unidad del archivo: es la que dice
+                    # que un canal en grados no puede ser un EEG. Si el canal se
+                    # convirtió se le pasa µV, porque MNE reconoce grafías —la mu
+                    # de Shift-JIS— que la detección no, y el veto de la unidad
+                    # dejaría fuera del EEG un canal que sí lo es.
+                    kind=detect_channel_kind(
+                        nombre, MICROVOLT if factor is not None else unidad_declarada
+                    ),
                     unit=unidad_de_la_fila,
                     index=posicion,
                     original_sampling_rate=frecuencia_original,

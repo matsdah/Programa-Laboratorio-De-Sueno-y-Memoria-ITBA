@@ -56,6 +56,12 @@ TO_MICROVOLTS: Final[dict[str, float]] = {
     "µv": 1.0,
     "microvolt": 1.0,
     "microvolts": 1.0,
+    # **Desde el hito 33.** MNE reconoce "nV" en BrainVision y lo lleva a volts;
+    # sin esta fila el lector lo trataba como un canal no eléctrico y dejaba
+    # una señal en volts con la etiqueta "nV", mil millones de veces corrida.
+    "nv": 1e-3,
+    "nanovolt": 1e-3,
+    "nanovolts": 1e-3,
 }
 
 

@@ -48,6 +48,14 @@ perdería, y además dejaría a las herramientas ya activadas apuntando a la
 vieja —guardan la que recibieron en `activate()`—, así que el histograma
 dibujaría el scoring anterior sin que nada fallara.
 
+**`Session` sabe si hay scoring sin exportar**, con
+`has_unexported_scoring()`: lo compara contra cómo estaba la última vez que
+quedó en un archivo —al abrir el registro, al importar un scoring o al
+exportarlo, que es cuando la ventana llama a `mark_scoring_exported()`—. Es lo
+que la ventana pregunta antes de cerrar o de abrir otro registro, y vive acá
+porque decidir qué cuenta como trabajo es una regla: deshacer un cambio no
+cuenta, y un scoring sin ninguna fase ni arousal no tiene nada que perder.
+
 **`Session` avisa sola cuando cambia de ventana**, por `add_window_listener()`.
 Son callbacks y no señales de Qt, por el mismo motivo que en `tools/base.py`.
 Quien navega no tiene que acordarse de avisarle a nadie: son tres las

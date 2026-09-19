@@ -47,7 +47,7 @@ verde por omisión, que es peor que dar rojo.
 
 | Archivo | Qué verifica |
 |---|---|
-| `conftest.py` | Fixtures compartidas: señal sintética y nombres de canal. |
+| `conftest.py` | Fixtures compartidas: señal sintética y nombres de canal, y los dos escritores de archivos sintéticos —`escribir_brainvision()` y `escribir_edf()`— que hacen correr los lectores en el CI, donde `data/` no existe. |
 | `test_consistencia.py` | **El repositorio, no un componente.** Ver abajo. |
 | `test_errors.py` | Que el mensaje y la causa técnica viajen separados, y que un solo `except` las atrape todas. |
 | `test_validation.py` | Que un NaN no atraviese una guarda numérica. |
@@ -59,7 +59,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_nomenclature.py` | Las dos nomenclaturas, la conversión entre ellas y los códigos de `Scoring.txt`. |
 | `test_recording.py` | El registro en memoria y lo que no deja construir. |
 | `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
-| `test_session.py` | Navegación, canales y amplitud, sin abrir una ventana. |
+| `test_session.py` | Navegación, canales y amplitud, sin abrir una ventana, y qué cuenta como scoring sin exportar. |
 | `test_annotations.py` | Los eventos sobre la señal: qué se borra y qué se dibuja. |
 | `test_channel_types.py` | Que cada canal se clasifique solo: EEG, EOG, EMG, ECG u otro. |
 | `test_readers.py` | El despacho por formato, y que la señal de un EDF y un BrainVision salga en la escala correcta. |

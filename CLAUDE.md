@@ -77,13 +77,14 @@ y el README de su carpeta también.
 qué falta. Duplicar el avance en los dos lugares garantiza que se
 desincronicen.
 
-Las auditorías tampoco: [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (4 de
-septiembre) y
-[`docs/AUDITORIA-2026-09-07.md`](docs/AUDITORIA-2026-09-07.md) (7 de
-septiembre, al cerrarse la Parte 1) son fotos fechadas de lo que se encontró
-revisando el repositorio entero. **La tercera, del 8 de septiembre, no tiene
-archivo propio**: sus hallazgos se repartieron entre los hitos 19, 20 y 21 del
-TODO, que es donde hay que ir a buscarlos. Antes de abrir un hito conviene
+Las auditorías tampoco. Las dos primeras —4 de septiembre, y 7 al cerrarse la
+Parte 1— eran fotos fechadas con archivo propio en `docs/`, y el usuario las
+borró el 19 de septiembre dándolas por resueltas: siguen en el historial, con
+`git log --all -- docs/AUDITORIA.md`. **La tercera, del 8 de septiembre, nunca
+tuvo archivo**: sus hallazgos se repartieron entre los hitos 19, 20 y 21 del
+TODO, que es donde hay que ir a buscarlos. La cuarta, del 19 de septiembre,
+tampoco: lo que encontró está en el hito 33, en el orden en que conviene
+atacarlo. Antes de abrir un hito conviene
 leer sus bloques "Medido en la auditoría", que están citados dentro del TODO en
 el hito al que le tocan. No son bugs abiertos sino decisiones que ese hito tiene
 que tomar: firmas que no pueden ser correctas en `statistics.py`, `Session` sin
