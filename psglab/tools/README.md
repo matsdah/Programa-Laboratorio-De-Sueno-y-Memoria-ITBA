@@ -75,6 +75,15 @@ sólo se dibuja; los paneles tampoco, porque no compiten por el mouse.
 `name` tiene que ser único: si se repite, `@register_tool` eleva
 `DuplicateToolError` **al importar**, que es cuando conviene enterarse.
 
+**`deactivate()` suelta la sesión** (`self._session = None`). Abrir otro
+registro apaga todas las herramientas, y una que guarde la sesión mantiene vivo
+el registro anterior entero: con dos noches grandes, el doble de memoria. El
+anotador y la ocupación la guardaban hasta el hito 29. Lo que la herramienta
+quiera conservar al apagarse —las líneas de la ocupación, la cuenta de la
+lupa— no puede ser la sesión, y si depende del registro tiene que descartarse
+al activarse sobre otro: la ocupación y la lupa (desde el hito 32) lo saben
+con una referencia débil.
+
 ## Dos detalles del diseño que conviene no revertir
 
 **Ni `Tool` ni `ViewerTool` heredan de `QObject`.** Son objetos comunes de
@@ -118,6 +127,19 @@ microvoltios**: no hay ningún objeto de Qt adentro. Cuando cambia lo que la
 herramienta quiere mostrar, llama a `notify_changed()`; la ventana principal
 está enganchada ahí y le pasa el resultado a
 `SignalView.set_overlays()`, que es lo único que traduce a píxeles.
+
+**Lo que se dibuja no es lo de quien avisó.** Ante cualquier aviso la ventana
+recompone: las bandas de las anotaciones de la página —`annotation_bands()`, de
+`annotator.py`—, más los overlays de **la herramienta activa**. Las anotaciones
+van siempre porque son datos del registro y no parte del gesto que las creó.
+Antes se dibujaba lo de la última herramienta que avisaba, aunque estuviera
+apagada, y activar la lupa borraba las anotaciones de la pantalla. La ventana
+recompone también cuando cambia la página, porque cambian las anotaciones que
+entran en ella.
+
+Con «Anotar» activo, el clic derecho sobre una banda la borra, previa
+confirmación. La herramienta encuentra cuál es con `annotation_at()` y la
+ventana hace la pregunta, porque `tools/` no abre diálogos.
 
 Tres consecuencias que valen la pena:
 

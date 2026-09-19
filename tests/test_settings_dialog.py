@@ -579,3 +579,57 @@ def test_elegir_un_color_que_no_se_distingue_avisa_sin_impedirlo(
 
     assert ultima(cambios).scheme().signals == "#f4f4f4"
     assert "señales" in dialogo.contrast_notice.text()
+
+
+# -- El panel de contexto (V3_F de la Übersicht) ---------------------------------
+
+
+def test_elegir_las_ventanas_vecinas_por_separado(dialogo: SettingsDialog, cambios):
+    """El pliego pide la cantidad configurable **y asimétrica**."""
+    dialogo.overview_before.setValue(3)
+    dialogo.overview_after.setValue(0)
+
+    assert (ultima(cambios).overview_before, ultima(cambios).overview_after) == (3, 0)
+
+
+def test_las_ventanas_vecinas_se_muestran_sin_avisar(dialogo: SettingsDialog, cambios):
+    dialogo.set_preferences(Preferences().with_changes(overview_before=4, overview_after=2))
+
+    assert (dialogo.overview_before.value(), dialogo.overview_after.value()) == (4, 2)
+    assert cambios == []
+
+
+def test_no_se_pueden_pedir_mas_vecinas_que_el_tope(dialogo: SettingsDialog):
+    from psglab.ui.preferences import MAX_OVERVIEW_WINDOWS
+
+    assert dialogo.overview_before.maximum() == MAX_OVERVIEW_WINDOWS
+    assert dialogo.overview_after.minimum() == 0
+
+
+# -- Los ajustes de las herramientas (hito 32) ------------------------------------
+
+
+@pytest.mark.parametrize(
+    "control, campo, valor",
+    [
+        ("amplitude_band", "amplitude_band_uv", 100.0),
+        ("magnifier_radius", "magnifier_radius_seconds", 2.5),
+        ("magnifier_zoom", "magnifier_zoom", 8.0),
+    ],
+)
+def test_cada_ajuste_de_herramienta_se_aplica(
+    dialogo: SettingsDialog, cambios, control: str, campo: str, valor: float
+):
+    getattr(dialogo, control).setValue(valor)
+
+    assert getattr(ultima(cambios), campo) == pytest.approx(valor)
+
+
+def test_los_ajustes_de_herramienta_se_muestran_sin_avisar(dialogo: SettingsDialog, cambios):
+    dialogo.set_preferences(
+        Preferences().with_changes(amplitude_band_uv=120.0, magnifier_zoom=6.0)
+    )
+
+    assert dialogo.amplitude_band.value() == 120.0
+    assert dialogo.magnifier_zoom.value() == 6.0
+    assert cambios == []

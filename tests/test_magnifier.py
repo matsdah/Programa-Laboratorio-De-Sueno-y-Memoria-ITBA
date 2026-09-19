@@ -177,3 +177,32 @@ def test_avisa_cuando_cambia_lo_que_hay_que_mostrar(sesion: Session):
 
     assert len(avisos) == 4
     assert all(aviso is tool for aviso in avisos)
+
+
+# -- La cuenta es del registro (hito 32) ---------------------------------------
+
+
+def test_apagarla_y_prenderla_conserva_la_cuenta(lupa: MagnifierTool, sesion: Session):
+    lupa.on_mouse_press(1.0, 0.0, "left")
+    lupa.deactivate()
+    lupa.activate(sesion)
+    assert lupa.click_count == 1
+
+
+def test_otro_registro_arranca_la_cuenta_de_cero(lupa: MagnifierTool):
+    """Pasaba de un registro al siguiente, igual que las líneas de la ocupación
+    hasta el hito 29."""
+    lupa.on_mouse_press(1.0, 0.0, "left")
+    lupa.deactivate()
+    otro = Session(
+        Recording(
+            file_path=Path("otra.edf"),
+            channels=[Channel("C4", ChannelKind.EEG, "µV", 0)],
+            data=np.zeros((1, 3000)),
+            sampling_rate=100.0,
+        ),
+        Scoring(1, Nomenclature.AASM),
+        AnnotationSet(),
+    )
+    lupa.activate(otro)
+    assert lupa.click_count == 0

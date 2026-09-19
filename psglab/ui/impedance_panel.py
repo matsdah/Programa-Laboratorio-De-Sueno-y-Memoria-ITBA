@@ -21,12 +21,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
     QPushButton,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -37,6 +39,27 @@ from PySide6.QtWidgets import (
 #: pasaría por el mejor valor posible y una celda vacía se lee como un olvido
 #: de la pantalla, no del electrodo.
 SIN_MEDIR: str = "sin medir"
+
+
+class FixedColumnDelegate(QStyledItemDelegate):
+    """Una columna que se ve y no se edita: la del nombre de cada fila.
+
+    **`QTreeWidgetItem` no tiene permisos por columna**: marcar una fila
+    editable deja editar todas sus celdas, también el nombre. Acá eso era un
+    bug y no un detalle: `values()` usa el texto de la primera columna como
+    nombre del canal, así que renombrar una fila asignaba la impedancia a un
+    canal inexistente y dejaba el verdadero «sin medir». El panel de filtros lo
+    usa por lo mismo, para la clase de canal (hito 31).
+    """
+
+    def createEditor(
+        self,
+        parent: QWidget,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> QWidget | None:
+        """Ningún editor: la celda no se puede cambiar."""
+        return None
 
 
 class ImpedancePanel(QWidget):
@@ -56,6 +79,7 @@ class ImpedancePanel(QWidget):
         self.tabla = QTreeWidget()
         self.tabla.setHeaderLabels(["Canal", "Impedancia (kΩ)"])
         self.tabla.setRootIsDecorated(False)
+        self.tabla.setItemDelegateForColumn(0, FixedColumnDelegate(self.tabla))
         self.tabla.itemChanged.connect(self._al_editar)
 
         self.boton_archivo = QPushButton("Importar de un archivo…")

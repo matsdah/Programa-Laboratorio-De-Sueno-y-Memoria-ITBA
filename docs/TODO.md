@@ -27,7 +27,14 @@ lo que propuso y midió un lienzo de diseño: el reparto de los paneles, un
 esquema nuevo y dos detalles. El **[hito 27](#hito-27-la-navegación-desde-el-medio)**
 dejó ocho controles en la barra y hace que la reproducción se cuente desde el
 medio del gráfico, y el **[hito 28](#hito-28-un-solo-menú-de-herramientas)**
-fundió «Paneles» con «Herramientas». Son **veintinueve hitos**, del 0 al 28,
+fundió «Paneles» con «Herramientas». El
+**[hito 29](#hito-29-verificación-de-las-herramientas)** recorrió nueve
+herramientas buscando caminos muertos y fugas, y el
+**[hito 30](#hito-30-las-decisiones-de-la-verificación)** tomó las cuatro
+decisiones que dejó. El **[hito 31](#hito-31-el-recorrido-manual)** corrigió lo
+que encontró el usuario al recorrer el programa con un registro real, y el
+**[hito 32](#hito-32-los-pendientes-del-todo)** resolvió los pendientes que
+quedaban. Son **treinta y tres hitos**, del 0 al 32,
 que son las filas de la tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
 dentro del hito al que le toca, casi todo en los tres últimos.
 
@@ -126,6 +133,10 @@ nada**. Un verde por omisión es peor que un rojo.
 | [26. El diseño de la ventana](#hito-26-el-diseño-de-la-ventana) | — | 0 | ✅ cerrado |
 | [27. La navegación desde el medio](#hito-27-la-navegación-desde-el-medio) | — | 0 | ✅ cerrado |
 | [28. Un solo menú de herramientas](#hito-28-un-solo-menú-de-herramientas) | — | 0 | ✅ cerrado |
+| [29. Verificación de las herramientas](#hito-29-verificación-de-las-herramientas) | — | 0 | ✅ cerrado |
+| [30. Las decisiones de la verificación](#hito-30-las-decisiones-de-la-verificación) | — | 0 | ✅ cerrado |
+| [31. El recorrido manual](#hito-31-el-recorrido-manual) | — | 0 | ✅ cerrado |
+| [32. Los pendientes del TODO](#hito-32-los-pendientes-del-todo) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -264,7 +275,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     S3 y S4 caen los dos en N3 y que volver no puede distinguirlos.
 - [x] **`psglab/core/recording.py`** · ~~7 stubs~~ · soporte de V1_F/V2_F/V3_F
       "Importación" y V4_F "Visualización"
-  - Test: `tests/test_recording.py`, **36 tests en verde**, sobre la fixture
+  - Test: `tests/test_recording.py`, **40 tests en verde**, sobre la fixture
     `synthetic_signal` de `conftest.py`.
   - **`__post_init__` rechaza un registro incoherente consigo mismo**: matriz
     que no es 2-D, canales que no coinciden con las filas, frecuencia no
@@ -696,7 +707,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     herramienta sirva apenas se abre un registro.
 - [x] **`psglab/tools/occupancy.py`** · ~~13 stubs~~ · V1_F–V5_F "Ocupación" ·
       `ViewerTool`
-  - Test: `tests/test_occupancy.py`, **37 tests en verde**, sin `pytestmark`.
+  - Test: `tests/test_occupancy.py`, **40 tests en verde**, sin `pytestmark`.
     Los 7 que ya estaban escritos —los ejemplos numéricos literales del
     pliego— pasaron **sin tocarlos**. **Con esto la suite queda sin ningún
     salteado.**
@@ -715,7 +726,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     diagonal larga se borraría desde muy lejos de donde está dibujada.
 - [x] **`psglab/tools/magnifier.py`** · ~~9 stubs~~ · V1_F, V2_F "Lupa" ·
       `ViewerTool`
-  - Test: `tests/test_magnifier.py`, **25 tests en verde**. El contador se
+  - Test: `tests/test_magnifier.py`, **27 tests en verde**. El contador se
     testea sin dibujar nada, que es el motivo de que la herramienta no herede
     de `QObject`.
   - **No dibuja antes de que el mouse entre al visualizador**: un círculo en una
@@ -746,7 +757,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     interfaz tenga qué dibujar.
 - [x] **`psglab/tools/annotator.py`** · ~~9 stubs~~ · V1_F "Anotación" ·
       `ViewerTool`
-  - Test: `tests/test_annotator.py`, **21 tests en verde**.
+  - Test: `tests/test_annotator.py`, **28 tests en verde**.
   - **La conversión a muestras es lo que más importa** y tiene su test: en la
     ventana 1, el segundo 5 es la muestra 3500. Escribir la cuenta a mano deja
     la anotación en la ventana de al lado cuando la frecuencia no es redonda, y
@@ -1064,7 +1075,7 @@ ventana y no existía.
     pide filtrar **por tipo de canal** y `apply_filters()` recibe filtros por
     **nombre**, que es la firma general. Traducir de una a la otra es la regla
     del pliego, así que va en `analysis/` y no en el diálogo.
-  - Test: `tests/test_filters.py`, **53 tests en verde**.
+  - Test: `tests/test_filters.py`, **54 tests en verde**.
 - [x] **`psglab/ui/filter_panel.py`** · una fila por clase de canal
   - Sólo aparecen las clases que el registro tiene: ofrecer una fila de ECG en
     un registro sin ECG le pide al usuario que decida sobre algo que no existe.
@@ -1072,7 +1083,7 @@ ventana y no existía.
     cero está rechazado río abajo.
   - **Abrir el panel no filtra nada.** Un menú que filtre con sólo abrirse le
     cambiaría la señal a alguien que entró a mirar qué había.
-  - Test: `tests/test_filter_panel.py`, **19 tests en verde**, más seis por la
+  - Test: `tests/test_filter_panel.py`, **20 tests en verde**, más seis por la
     ventana en `tests/test_entrega.py`.
 
 ---
@@ -1115,7 +1126,7 @@ ventana y no existía.
     `PlotDataItem.getData()` devuelve el log₁₀ de lo que se dibujó, así que una
     potencia de 1e-6 volvía como -6. El panel guarda ahora la magnitud en su
     unidad, que es la misma solución que `signal_view.py` usa con los píxeles.
-  - Test: `tests/test_psd_panel.py`, **23 tests en verde**.
+  - Test: `tests/test_psd_panel.py`, **25 tests en verde**.
 
 ---
 
@@ -1144,7 +1155,7 @@ mostrarse.
     correcto: la dimensión fractal de algo sin variación no está definida. Un
     canal desconectado es un caso real, así que está documentado que ahí el NaN
     significa "esta medida no existe para esta señal" y no "faltaron datos".
-  - Test: `tests/test_complexity.py`, **35 tests en verde**.
+  - Test: `tests/test_complexity.py`, **36 tests en verde**.
 - [x] **`psglab/analysis/connectivity.py`** · ~~3 stubs~~ · sección "Conectividad"
   - **La predicción del plan era falsa y medirla lo mostró.** Se esperaba que
     dos canales idénticos dieran wPLI 0; dan 0,39. Con señales exactamente
@@ -1172,7 +1183,7 @@ mostrarse.
     complejidad plausible y bajo, indistinguible a ojo de una medición real.
   - El eje va en **base 1**, como el histograma: desde 0 quedaría desplazado una
     ventana respecto de él.
-  - Test: `tests/test_metric_panel.py`, **16 tests en verde**.
+  - Test: `tests/test_metric_panel.py`, **18 tests en verde**.
 - [x] **`psglab/ui/connectivity_panel.py`** · el mapa de calor de la matriz
   - **La matriz es la salida real del requisito**: mostrar sólo su promedio
     diría cuánta conectividad hay pero no entre qué canales.
@@ -1181,7 +1192,7 @@ mostrarse.
   - **La escala de color es fija de 0 a 1.** Con escala automática, dos ventanas
     con conectividades muy distintas se verían iguales, y comparar ventanas es
     justamente lo que el investigador hace.
-  - Test: `tests/test_connectivity_panel.py`, **10 tests en verde**.
+  - Test: `tests/test_connectivity_panel.py`, **16 tests en verde**.
 
 > **Lo que costó cada medida, medido** sobre una ventana de 30 s a 256 Hz y
 > extrapolado a las 2650 de un registro real. Es lo que decidió la interfaz:
@@ -1241,7 +1252,7 @@ mostrarse.
     aplicada a otra quitaría un componente que el usuario nunca miró.
   - Pasa por `_aplicar_analisis()`, el camino único del menú, así que se puede
     volver a la señal original. Es la única red que hay.
-  - Test: `tests/test_ica_panel.py`, **20 tests en verde**.
+  - Test: `tests/test_ica_panel.py`, **22 tests en verde**.
 
 ---
 
@@ -1289,7 +1300,7 @@ mostrarse.
     de la pantalla, no del electrodo.
   - Importar de un archivo **agrega, no reemplaza**: un laboratorio puede tener
     medido medio montaje.
-  - Test: `tests/test_impedance_panel.py`, **16 tests en verde**.
+  - Test: `tests/test_impedance_panel.py`, **17 tests en verde**.
 
 > **Lo que sigue abierto, y ahora está mejor planteado.** La pregunta ya no es
 > "de dónde salen" sino **cuál de las tres usa el laboratorio**, y de eso
@@ -1786,13 +1797,13 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       canal toma su color. **El esquema Claro deja el programa exactamente como
       era.**
   - Test: `tests/test_theme.py`, **82 tests en verde**.
-  - Test: `tests/test_preferences.py`, **42 tests en verde**.
+  - Test: `tests/test_preferences.py`, **54 tests en verde**.
 - [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
       y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
       un menú «&Análisis» se reescribió para verificar cada acción, que es lo
       que protegía.
-  - Test: `tests/test_menus.py`, **35 tests en verde**.
+  - Test: `tests/test_menus.py`, **37 tests en verde**.
 - [x] **Fase 3 — Paneles acoplables.** La señal es el widget central y los otros
       diez paneles se mueven, se apilan o se cierran; la disposición se guarda
       al cerrar. Los seis paneles de análisis conservaron el nombre de su
@@ -1828,7 +1839,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       de anotaciones, Espectro de potencia, Otras y Tipografía. Todo se aplica
       en el momento. `psd.validate_band()` pasó a ser pública, para que la regla
       de qué banda es válida siga siendo una sola.
-  - Test: `tests/test_settings_dialog.py`, **66 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **73 tests en verde**.
 - [x] **Fase 9 — Cierre.** La conectividad de la noche entera, que era el
       pendiente del [hito 20](#hito-20-la-red). Los menús muestran los atajos
       sin registrarlos otra vez, F6 recorre los paneles, y el contraste de los
@@ -1916,7 +1927,7 @@ reorganiza lo que ya andaba.
       repetía la solapa Colores de esa misma ventana.
 - [x] **La barra de menú deja de ser la nativa**, para que en macOS no
       desaparezcan el botón de abrir ni «Configuración», que no tiene submenú.
-  - Test: `tests/test_menus.py`, **35 tests en verde**.
+  - Test: `tests/test_menus.py`, **37 tests en verde**.
   - Test: `tests/test_icons.py`, **31 tests en verde**.
 
 ### El scoring en cuatro formatos
@@ -1994,7 +2005,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
       `apply_saved_layout()` pasó a `apply_saved_preferences()` y ya no
       restaura nada, y la ventana dejó de guardar la disposición al cerrar.
   - Test: `tests/test_docks.py`, **39 tests en verde**.
-  - Test: `tests/test_preferences.py`, **42 tests en verde**.
+  - Test: `tests/test_preferences.py`, **54 tests en verde**.
 - [x] **Los botones de página.** ≪ ‹ › ≫ en la barra de abajo, con chevrones
       para que no se confundan con los triángulos de la época.
       `Viewport.at_start` y `Viewport.at_end` dicen cuándo apagarlos.
@@ -2241,7 +2252,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       17,5–22,2 ms con Claro y 13,1–21,0 con Papel: la hoja no cuesta
       repintado.
   - Test: `tests/test_theme.py`, **82 tests en verde**.
-  - Test: `tests/test_settings_dialog.py`, **66 tests en verde**, con el
+  - Test: `tests/test_settings_dialog.py`, **73 tests en verde**, con el
     botón nuevo de «Fondo de la ventana».
 - [x] **Las tipografías IBM Plex**, Sans y Mono, en `psglab/resources/fonts/`
       con su licencia, la OFL 1.1. `ui/fonts.py` las registra al arrancar; si
@@ -2263,7 +2274,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       cambia, y hay un test que lo compara— y `describe_method()` arma la línea
       con ellas. Del multitaper no afirma un ancho de banda, porque lo fija MNE.
   - Test: `tests/test_psd.py`, **56 tests en verde**.
-  - Test: `tests/test_psd_panel.py`, **23 tests en verde**.
+  - Test: `tests/test_psd_panel.py`, **25 tests en verde**.
 
 ### Lo que sigue abierto
 
@@ -2314,7 +2325,7 @@ lo mínimo.
       repita el recorte. No llama a `_seguir_a_la_epoca()`: con una página de
       menos de 30 s, `containing()` la sacaría del medio.
   - Test: `tests/test_session.py`, **126 tests en verde**.
-  - Test: `tests/test_contratos.py`, **947 tests en verde**, con su
+  - Test: `tests/test_contratos.py`, **959 tests en verde**, con su
     fila en `CONTRATOS` y en `RECHAZOS_OBLIGATORIOS`: un NaN no puede pasar.
 - [x] **Una línea marca el cursor**, creada una vez y después movida, por la
       regla del hito 25. `mark_window()` mueve la banda de la época sin tocar la
@@ -2328,7 +2339,7 @@ lo mínimo.
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **185 tests en verde**.
+  - Test: `tests/test_entrega.py`, **215 tests en verde**.
 
 ### Lo que se midió
 
@@ -2397,12 +2408,324 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
 - [x] `HistogramTool.label` pasa a «Hipnograma». El módulo, la clase y los IDs
       del pliego siguen diciendo «histograma»: son identificadores y
       trazabilidad.
-  - Test: `tests/test_menus.py`, **35 tests en verde**, con que
+  - Test: `tests/test_menus.py`, **37 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
-  - Test: `tests/test_entrega.py`, **185 tests en verde**: tildar
+  - Test: `tests/test_entrega.py`, **215 tests en verde**: tildar
     un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
     oculta.
+
+### Corrección: la selección de «Anotar» arrancaba a la derecha del mouse
+
+Reportado por el usuario al probar la herramienta. **Afectaba a todas las
+herramientas del mouse, no sólo al anotador**, y al clic del hipnograma.
+`MainWindow.eventFilter()` tomaba `evento.scenePosition()` como si fuera la
+escena de pyqtgraph, y en un `QMouseEvent` de widget es la **ventana de primer
+nivel**: traía sumado todo lo que hay a la izquierda del gráfico. Con el
+selector de canales abierto eran 280 px, unos 7,5 s en una página de 30 s. En
+vertical pasaba lo mismo con la barra de menú, así que la lupa y la banda de
+amplitud también quedaban corridas.
+
+- [x] **La posición la convierte la vista**, con `_en_escena()`, que es
+      `mapToScene(evento.position())`. Se usa en el visualizador y en el
+      hipnograma.
+- [x] **El test no podía verlo**: `arrastrar()` armaba el evento con las tres
+      posiciones iguales. Ahora lo arma como Qt, con `scenePosition()` relativa
+      a la ventana.
+  - Test: `tests/test_entrega.py`, **215 tests en verde**, con que la
+    anotación empiece y termine a un píxel del mouse. Falla sin la corrección,
+    corrida 7,5 s.
+
+### Las anotaciones, de punta a punta
+
+Revisando si el anotador funcionaba entero aparecieron tres huecos más. El
+usuario decidió que **las anotaciones se ven siempre** y que **se borran con el
+clic derecho**.
+
+- [x] **Las bandas no seguían a la página.** Sólo se repintaban cuando una
+      herramienta avisaba, y el anotador no escucha `on_view_changed()`: al
+      pasar de época con la flecha quedaban las de la página anterior. La
+      ventana escucha ahora el cambio de página y **redibuja sólo si cambió qué
+      bandas van**. La reproducción mueve la página en cada cuadro, y las
+      bandas están en segundos absolutos, así que en general no cambian.
+- [x] **Se veía lo de la última herramienta que avisó**, aunque estuviera
+      apagada: activar la lupa, o que la ocupación se reanclara al desplazarse,
+      borraba las anotaciones de la pantalla. `_redibujar_overlays()` compone
+      siempre las bandas de `annotation_bands()` con los overlays de la
+      herramienta activa.
+- [x] **No se podía borrar una anotación desde la ventana**:
+      `AnnotatorTool.delete_annotation()` existía y nada de `ui/` la llamaba.
+      Con «Anotar» activo, el clic derecho sobre una banda la borra, previa
+      confirmación porque no hay deshacer. Entre dos superpuestas se borra la
+      más corta, que es la que no se puede señalar en ningún otro lugar.
+  - Test: `tests/test_annotator.py`, **28 tests en verde**, con
+    `annotation_at()` y las bandas sin la herramienta activada.
+  - Test: `tests/test_entrega.py`, **215 tests en verde**, con eventos de Qt
+    de verdad: las bandas al ir y volver de época con cada herramienta, y el
+    clic derecho con la confirmación aceptada, rechazada y con otra
+    herramienta activa. Fallan con la ventana anterior.
+
+### Lo que sigue abierto
+
+- [ ] **Una anotación no se puede corregir**, sólo borrar y volver a hacer:
+      cambiarle la clase o arrastrar sus bordes queda para cuando el
+      laboratorio lo pida.
+- [ ] **La red del hito 20 no mira `tools/`.** Recorre las funciones públicas
+      de `analysis/`, así que `delete_annotation()` quedó sin
+      ningún camino desde la ventana sin que nada fallara.
+
+---
+
+## Hito 29: Verificación de las herramientas
+
+**Cerrado el 19 de septiembre de 2026.** Pedido del usuario: verificar que la
+Übersicht, el scoring, el hipnograma y los seis paneles de análisis funcionen,
+no tengan fugas y no tengan implementaciones que nadie use. Lo motivó el
+anotador, que parecía terminado y tenía cuatro fallas que la suite no veía (ver
+el [hito 28](#hito-28-un-solo-menú-de-herramientas)).
+
+**Cómo se buscó**, porque es lo que se puede repetir: una red automática de
+métodos públicos sin llamada, ahora también en `tools/` y en los paneles; un
+recorrido por la ventana con clics mandados por la ventana nativa y no
+fabricados; y tres clases de fuga. Las tres son memoria —un `weakref` al
+registro anterior después de abrir otro, y veinte ciclos con `tracemalloc`—,
+estado que pasa de un registro a otro, y excepciones que salen de un slot de Qt,
+capturadas con `sys.excepthook` porque PySide6 las imprime y sigue.
+
+**Lo que anda.** Ninguna traza sin atrapar con canal plano, un solo EEG, un
+registro más corto que una época, 100 Hz o un archivo de impedancias mal
+formado. Veinte ciclos de abrir y usar todo dejan estables los atajos, los
+listeners, los ítems de cada gráfico y la memoria. Las tres vías de impedancia
+llegan a la ventana.
+
+**No tiene stubs que contar.**
+
+- [x] **Abrir otro registro dejaba vivo el anterior.** El anotador y la
+      ocupación guardaban la sesión al apagarse; con dos noches grandes, el
+      doble de memoria. Ahora la sueltan, como las otras cuatro. La regla quedó
+      en `psglab/tools/README.md`.
+- [x] **Las líneas de la ocupación pasaban al registro nuevo**, con su
+      porcentaje, aunque eran fracciones de una página de otra señal. Se
+      descartan al activarla sobre otro registro, y se conservan si es el mismo.
+- [x] **Los paneles de análisis mostraban el registro anterior.** El espectro
+      decía «Espectro de «C3»» sobre un registro sin C3; la tabla de
+      impedancias listaba los canales viejos con el informe de los nuevos; y el
+      panel de filtros conservaba los sugeridos, así que en un registro de
+      100 Hz «Aplicar» pedía el notch de 50 Hz. Al abrir un registro se vacían
+      los resultados y se cargan filtros e impedancias del nuevo. Los
+      `clear_*()` de los paneles existían y sólo los llamaban los tests.
+- [x] **«Aplicar» sin ningún filtro reemplazaba la señal** por una copia
+      idéntica: decía «Se filtró la señal», habilitaba volver a la original y
+      descartaba la ICA ya ajustada. Pasaba al mostrar el panel desde
+      «Herramientas» sin cargarlo. Ahora avisa y no toca nada; la regla es
+      `FilterSettings.is_empty`.
+- [x] **El clic del hipnograma no tenía ningún test con eventos**, y tenía el
+      mismo error que el anotador hasta el hito 28: con los tres paneles de
+      abajo a la vista, caía en la época 4 en vez de la 3.
+  - Test: `tests/test_entrega.py`, **215 tests en verde**, con dos registros
+    de verdad. Los cinco fallan sin su corrección.
+  - Test: `tests/test_occupancy.py`, **40 tests en verde**.
+  - Test: `tests/test_annotator.py`, **28 tests en verde**.
+  - Test: `tests/test_filters.py`, **54 tests en verde**.
+
+### Lo que sigue abierto
+
+Cuatro decisiones de comportamiento, con la recomendación que se le hizo al
+usuario:
+
+- [x] **Übersicht V3_F no tenía camino desde la ventana** (resuelto en el
+      [hito 30](#hito-30-las-decisiones-de-la-verificación)).
+      `OverviewTool.set_span()` no lo llama nadie: la cantidad de ventanas
+      vecinas sólo se cambia editando `config.py`, y el pliego la pide
+      configurable y asimétrica. Se recomendó llevarla a la ventana de
+      configuración. `set_size()` tampoco se llama, pero V2_F se cumple
+      arrastrando el borde del panel.
+- [x] **Los resultados de análisis sobrevivían a un cambio de la señal**
+      (resuelto en el hito 30).
+      Después de filtrar, derivar o volver a la original, el espectro, la
+      métrica y la conectividad siguen mostrando lo calculado sobre la señal
+      anterior, sin decirlo. La ICA ya se descarta en ese caso; se recomendó
+      hacer lo mismo con los otros tres.
+- [x] **Espectro, métrica, conectividad e ICA se mostraban vacíos desde
+      «Herramientas»** (resuelto en el hito 30), sin decir desde qué menú se piden. Se recomendó un
+      texto que lo diga.
+- [x] **La red de caminos muertos no miraba `tools/` ni los paneles**
+      (resuelto en el hito 30).
+      El script de este hito la extendió y encontró `set_span()` y
+      `set_size()`; convertirlo en test exige una tabla de exenciones para los
+      accesores de sólo lectura que usan los tests.
+- [x] (Resuelto en el [hito 32](#hito-32-los-pendientes-del-todo).)
+      **Resultados silenciosos con un canal plano**, sin traza pero sin
+      explicación: el espectro sale vacío en escala logarítmica, Higuchi da
+      `NaN` en todas las ventanas y la conectividad lo cuenta con 0 y baja el
+      promedio. Importar un archivo de impedancias vacío no hace nada ni avisa.
+
+---
+
+## Hito 30: Las decisiones de la verificación
+
+**Cerrado el 19 de septiembre de 2026.** Las cuatro decisiones que dejó abiertas
+el [hito 29](#hito-29-verificación-de-las-herramientas). El usuario las tomó
+todas con la recomendación que se le hizo.
+
+**No tiene stubs que contar.**
+
+- [x] **V3_F de la Übersicht, desde la configuración.** «Otras» tiene ahora dos
+      grupos: lo que se aplica al abrir un registro y el panel de contexto, que
+      se aplica enseguida. Ventanas anteriores y posteriores se eligen por
+      separado, porque el pliego la pide asimétrica, de 0 a
+      `MAX_OVERVIEW_WINDOWS` (5): con más, las ventanas del panel ya no se
+      distinguen. Se guardan en las preferencias y `_aplicar_preferencias()`
+      llama a `OverviewTool.set_span()`, que no tenía ningún camino.
+- [x] **Cambiar la señal vacía los resultados.** Filtrar, derivar,
+      re-referenciar, aplicar la ICA o volver a la original llama a
+      `_olvidar_resultados()`, que vacía el espectro, la métrica y la
+      conectividad con sus títulos. Es la regla que `_olvidar_ica()` ya aplicaba
+      a la descomposición. Se vacían en vez de recalcularse, porque recalcular es
+      trabajo que nadie pidió.
+- [x] **Un panel vacío dice desde dónde se pide.** Espectro, métrica,
+      conectividad e ICA muestran «Se pide desde Analizar › …» como título
+      mientras no tienen resultado. La ruta se lee del menú armado con
+      `menus.menu_path()` y no se escribe a mano, y un test la sigue en el menú
+      de verdad: renombrar una entrada no puede dejar al panel mandando a buscar
+      algo que no existe.
+- [x] **La red de caminos muertos mira también `tools/` y los paneles**, con
+      métodos y no sólo funciones: son `SIN_CAMINO_A_PROPOSITO` y
+      `HUECOS_ABIERTOS` en `tests/test_consistencia.py`. Un hueco abierto no se
+      exime: tiene que figurar por su nombre en este archivo.
+  - Test: `tests/test_entrega.py`, **215 tests en verde**. Los siete nuevos
+    fallan con la ventana anterior.
+  - Test: `tests/test_preferences.py`, **54 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **73 tests en verde**.
+  - Test: `tests/test_menus.py`, **37 tests en verde**.
+  - Test: `tests/test_psd_panel.py`, **25 tests en verde**; y dos por panel en
+    `tests/test_metric_panel.py` (**18 tests en verde**),
+    `tests/test_connectivity_panel.py` (**16 tests en verde**) y
+    `tests/test_ica_panel.py` (**22 tests en verde**).
+
+### Lo que sigue abierto
+
+La red nueva encontró cuatro métodos de herramientas sin camino desde la
+ventana. **Son `HUECOS_ABIERTOS`**: hacen algo que el usuario podría querer, y
+decidir si lo ofrece es del usuario.
+
+- [x] (Resuelto en el hito 32.) **La lupa: `reset_count()`.** El contador de picos no se podía poner en
+      cero, aunque `deactivate()` promete que para eso está. Además la cuenta
+      pasa de un registro al siguiente, como pasaban las líneas de la ocupación
+      hasta el hito 29.
+- [x] (Resuelto en el hito 32.) **La banda de amplitud: `set_height_uv()`.** Su docstring la deja
+      configurable porque hay criterios con otros umbrales que 75 µV, y la
+      ventana no la ofrece.
+- [x] (Resuelto en el hito 32.) **La lupa: `set_radius_seconds()` y `set_zoom()`.** El tamaño del círculo
+      y el aumento no se pueden cambiar.
+
+---
+
+## Hito 31: El recorrido manual
+
+**Cerrado el 19 de septiembre de 2026.** El usuario recorrió el programa con un
+registro real después de los hitos 28 a 30. Anotar, el espectro y los filtros
+anduvieron bien. Reportó cuatro cosas, y todas tenían una causa concreta que la
+suite no podía ver: dependían del menú real, del arrastre del mouse o del
+tiempo.
+
+**No tiene stubs que contar.**
+
+- [x] **Los nombres de «Herramientas» cambiaban al calcular algo.** La ventana
+      le ponía al dock un título como «Espectro de «C3» — ventana 1», y Qt usa
+      ese título como texto de la entrada del panel en el menú. La descripción
+      va ahora en el gráfico, con `set_caption()` en los paneles de espectro,
+      métrica y conectividad, donde el hito 30 ya ponía la pista con el panel
+      vacío. Con más de seis canales, la conectividad de la noche los cuenta en
+      vez de nombrarlos.
+- [x] **La barra de color de la conectividad saltaba.** `ColorBarItem`
+      redondea los extremos a enteros por omisión, y la escala va de 0 a 1:
+      todo arrastre volvía a su lugar o saltaba al otro extremo. Ahora va de a
+      centésimos y sin salir del rango. La imagen se dibuja con los niveles de
+      la barra, así que el contraste que elige el usuario se conserva al pedir
+      otra ventana; vaciar el panel lo vuelve a 0–1.
+- [x] **Se podía editar el nombre de la fila en Filtrar**, y también en
+      Impedancia, donde era un bug: `values()` toma el nombre del canal de esa
+      celda, así que renombrarla asignaba la impedancia a un canal inexistente.
+      `QTreeWidgetItem` no tiene permisos por columna; `FixedColumnDelegate`
+      deja la primera columna fija en los dos paneles.
+- [x] **La primera métrica congelaba la ventana.** `antropy` compila con
+      `numba` al importarse: 7,3 s medidos en esta máquina, 21 s en la del
+      hito 17. El usuario eligió precalentar: `main.py` pide
+      `create_main_window(warm_up=True)`, que importa `antropy` en un hilo al
+      arrancar. Medido: mientras compila, el hilo de la interfaz sigue
+      respondiendo, con tirones ocasionales de hasta 65 ms, y leer dos
+      registros tarda 3,4 s contra 3,3 s sin compilar. La suite no lo prende.
+      **Lo que gana**, con el registro de `data/` (2650 épocas): la primera
+      entropía de permutación tardaba 6,4 s y, con la compilación terminada,
+      tarda 0,3 s. Pedida apenas abierto el registro todavía espera lo que le
+      falta a la compilación: 4,6 s. Lempel-Ziv tarda 2,7 s por el cálculo en
+      sí, compilado o no.
+  - Test: `tests/test_entrega.py`, **215 tests en verde**: el menú no cambia
+    después de los cuatro análisis, y `main.py` precalienta y la suite no.
+  - Test: `tests/test_connectivity_panel.py`, **16 tests en verde**.
+  - Test: `tests/test_filter_panel.py`, **20 tests en verde**, y
+    `tests/test_impedance_panel.py`, **17 tests en verde**.
+  - Test: `tests/test_complexity.py`, **36 tests en verde**.
+
+### Lo que sigue abierto
+
+- [x] (Decidido en el hito 32: se quedan así.) **Las demás operaciones largas siguen congelando la ventana**: leer un
+      registro, la conectividad de la noche, la ICA. El usuario eligió
+      precalentar y nada más; moverlas a otro hilo quedó descartado por ahora.
+- [ ] **El hipnograma y la Übersicht no los pudo verificar el usuario**, porque
+      no conoce su funcionamiento. Se le explicó cómo probarlos; queda por
+      confirmar.
+
+---
+
+## Hito 32: Los pendientes del TODO
+
+**Cerrado el 19 de septiembre de 2026.** Los pendientes que dejaron abiertos los
+hitos 29 a 31. El usuario tomó las cuatro decisiones con la recomendación que se
+le hizo, y mantuvo afuera las operaciones largas.
+
+**No tiene stubs que contar.**
+
+- [x] **El contador de la lupa es del registro.** Activarla sobre otro lo
+      vuelve a cero, con la misma referencia débil que usa la ocupación; apagarla
+      y prenderla lo conserva. «Poner en cero el contador de la lupa» está en
+      «Herramientas», en el último bloque junto a «Restaurar la disposición»:
+      las dos vuelven algo a su estado inicial, y ninguna es un modo del mouse.
+- [x] **La altura de la banda y el radio y el aumento de la lupa se eligen en
+      Configuración › Otras**, en un grupo «Herramientas» que se aplica
+      enseguida. Por omisión siguen los de siempre, y la banda, la del pliego.
+      La descripción de la banda dice ahora cuál es la de fábrica en vez de
+      afirmar la vigente.
+- [x] **Los paneles explican el canal plano.** La regla es
+      `Recording.flat_channels()`: exactamente constante en el tramo, sin
+      umbral, porque un umbral sería una decisión clínica. El espectro, la
+      conectividad de la ventana y las dos medidas de la noche lo dicen en su
+      descripción; los números no cambian. Recorrer la noche para contar las
+      épocas planas suma 41 ms con un canal y 177 ms con siete, en el registro
+      de `data/`.
+- [x] **Importar un archivo de impedancias vacío avisa.** La biblioteca sigue
+      devolviendo un diccionario vacío, que es lo que fija su test; el cartel
+      es de la ventana.
+- [x] **`HUECOS_ABIERTOS` queda vacía**: los cuatro métodos que encontró la red
+      del hito 30 tienen camino desde la ventana.
+  - Test: `tests/test_entrega.py`, **215 tests en verde**, con un registro que
+    tiene un canal en cero.
+  - Test: `tests/test_recording.py`, **40 tests en verde**, y
+    `tests/test_contratos.py`, **959 tests en verde**.
+  - Test: `tests/test_magnifier.py`, **27 tests en verde**;
+    `tests/test_preferences.py`, **54 tests en verde**;
+    `tests/test_settings_dialog.py`, **73 tests en verde**.
+
+### Lo que sigue abierto
+
+- [ ] **`Recording.get_segment()` no valida el tipo de sus extremos.** Lo
+      encontró la red de contratos al probar `flat_channels()`: un `None` como
+      `start_sample` sale como `TypeError` crudo. `flat_channels()` lo valida
+      antes de llamarlo; `get_segment()` no tiene fila en `CONTRATOS` para ese
+      argumento, y los que lo llaman hoy le pasan enteros.
+- [ ] **El hipnograma y la Übersicht** siguen esperando la confirmación del
+      usuario (ver el hito 31).
 
 ---
 

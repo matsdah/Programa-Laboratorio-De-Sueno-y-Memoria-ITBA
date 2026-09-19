@@ -221,6 +221,11 @@ def test_todo_lo_de_la_configuracion_vuelve_igual(archivo: Path):
             open_view_seconds=300.0,
             open_nomenclature="RK",
             open_clock_axis=True,
+            overview_before=3,
+            overview_after=0,
+            amplitude_band_uv=100.0,
+            magnifier_radius_seconds=2.5,
+            magnifier_zoom=8.0,
         )
         .with_bands({"Lenta": (0.3, 1.0), "Huso": (11.0, 16.0)})
         .with_annotation_color("Spindle", "#ff8800")
@@ -283,6 +288,16 @@ def test_cambiar_el_color_de_una_clase_reemplaza_el_anterior():
         ("open_view_seconds", float("nan")),
         ("open_nomenclature", "AASM 2007"),
         ("open_clock_axis", 1),
+        ("overview_before", -1),
+        ("overview_after", preferences.MAX_OVERVIEW_WINDOWS + 1),
+        ("overview_before", 1.5),
+        ("overview_after", True),
+        ("amplitude_band_uv", 0.0),
+        ("amplitude_band_uv", float("inf")),
+        ("amplitude_band_uv", preferences.MAX_AMPLITUDE_BAND_UV + 1),
+        ("magnifier_radius_seconds", 0.0),
+        ("magnifier_zoom", 0.5),
+        ("magnifier_zoom", "grande"),
     ],
 )
 def test_un_valor_que_no_se_puede_usar_se_rechaza(campo: str, valor: object):
@@ -359,3 +374,25 @@ def test_la_disposicion_no_se_escribe(archivo: Path):
     preferences.save(preferences.Preferences(), archivo)
 
     assert "window_state" not in json.loads(archivo.read_text(encoding="utf-8"))
+
+
+def test_la_ubersicht_arranca_con_los_vecinos_de_config():
+    """Sin haber tocado nada, el contexto es el de siempre: una de cada lado."""
+    from psglab.config import OVERVIEW_WINDOWS_AFTER, OVERVIEW_WINDOWS_BEFORE
+
+    valores = preferences.Preferences()
+    assert (valores.overview_before, valores.overview_after) == (
+        OVERVIEW_WINDOWS_BEFORE,
+        OVERVIEW_WINDOWS_AFTER,
+    )
+
+
+def test_las_herramientas_arrancan_con_sus_valores_de_siempre():
+    """La banda, la del pliego; la lupa, la de la herramienta."""
+    from psglab.config import AMPLITUDE_BAND_UV
+    from psglab.tools.magnifier import RADIO_INICIAL_SEGUNDOS, ZOOM_INICIAL
+
+    valores = preferences.Preferences()
+    assert valores.amplitude_band_uv == AMPLITUDE_BAND_UV
+    assert valores.magnifier_radius_seconds == RADIO_INICIAL_SEGUNDOS
+    assert valores.magnifier_zoom == ZOOM_INICIAL

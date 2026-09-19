@@ -21,7 +21,7 @@ from psglab.utils.errors import (
     DuplicateChannelError,
     InvalidRecordingError,
 )
-from psglab.utils.validation import check_finite
+from psglab.utils.validation import check_finite, check_index
 
 
 class ChannelKind(Enum):
@@ -407,3 +407,52 @@ class Recording:
 
         tramo.flags.writeable = False
         return tramo
+
+    def flat_channels(
+        self,
+        start_sample: int,
+        stop_sample: int,
+        channel_names: list[str] | None = None,
+    ) -> list[str]:
+        """Qué canales no varían en un tramo: un electrodo desconectado, típicamente.
+
+        **Existe para que los análisis puedan explicarse** (hito 32). Con un
+        canal plano el espectro sale en cero, la dimensión de Higuchi no existe
+        y la conectividad cuenta 0 y baja el promedio: las tres respuestas son
+        correctas, y sin decir por qué parecen un error del programa. La regla
+        vive acá para que los tres paneles usen la misma.
+
+        Plano es **exactamente** constante, no "casi": un umbral sería una
+        decisión clínica que el pliego no toma, y el cuantizado del conversor
+        hace que un electrodo suelto dé justo el mismo valor muestra a muestra.
+
+        Args:
+            start_sample: primera muestra incluida.
+            stop_sample: primera muestra excluida.
+            channel_names: los canales a mirar. `None` mira todos.
+
+        Returns:
+            Los nombres de los canales planos, en el orden pedido. Un tramo
+            vacío no tiene ningún canal plano.
+
+        Raises:
+            ChannelNotFoundError, InvalidRecordingError: los de `get_segment()`,
+                que valida el tramo y los canales. Los extremos se comprueban
+                antes de pedírselo: `get_segment()` compara sin mirar el tipo, y
+                un `None` saldría como `TypeError`.
+        """
+        for nombre, valor in (("start_sample", start_sample), ("stop_sample", stop_sample)):
+            check_index(
+                valor,
+                error=InvalidRecordingError,
+                message="Se pidió un tramo de señal que no existe en el registro.",
+                details=f"{nombre} tiene que ser un número entero de muestras.",
+            )
+        tramo = self.get_segment(start_sample, stop_sample, channel_names)
+        nombres = self.channel_names() if channel_names is None else list(channel_names)
+        return [
+            nombre
+            for nombre, fila in zip(nombres, tramo)
+            if fila.size and float(np.ptp(fila)) == 0.0
+        ]
+

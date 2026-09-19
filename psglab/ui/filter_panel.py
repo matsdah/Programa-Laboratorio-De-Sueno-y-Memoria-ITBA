@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
 
 from psglab.analysis.filters import FilterSettings, default_for
 from psglab.core.recording import ChannelKind, Recording
+from psglab.ui.impedance_panel import FixedColumnDelegate
 
 #: Cómo se llama cada clase de canal en la pantalla. El enum está en inglés
 #: —convención del proyecto— y todo lo que ve el usuario, en español.
@@ -73,6 +74,8 @@ class FilterPanel(QWidget):
         self.tabla = QTreeWidget()
         self.tabla.setHeaderLabels(["Canales", *(rotulo for rotulo, _ in CAMPOS)])
         self.tabla.setRootIsDecorated(False)
+        # La clase de canal es la fila, no un dato: se ve y no se edita.
+        self.tabla.setItemDelegateForColumn(0, FixedColumnDelegate(self.tabla))
 
         self.boton_aplicar = QPushButton("Aplicar")
         self.boton_sugeridos = QPushButton("Restaurar sugeridos")

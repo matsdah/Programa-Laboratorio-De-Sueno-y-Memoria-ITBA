@@ -25,7 +25,7 @@ from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
 from psglab.core.windows import seconds_to_sample_absolute
-from psglab.tools.annotator import AnnotatorTool
+from psglab.tools.annotator import AnnotatorTool, annotation_bands
 from psglab.tools.base import SpanOverlay
 from psglab.utils.errors import PsgLabError
 
@@ -182,6 +182,68 @@ def test_una_anotacion_se_puede_borrar(anotador: AnnotatorTool, sesion: Session)
     assert sesion.annotations.all() == []
 
 
+
+# -- Borrar con el clic derecho -----------------------------------------------
+
+
+def anotar(sesion: Session, desde: float, hasta: float, clase: str = "Arousal") -> Annotation:
+    anotacion = Annotation(
+        label=clase,
+        onset_sample=seconds_to_sample_absolute(desde, FRECUENCIA),
+        duration_samples=seconds_to_sample_absolute(hasta - desde, FRECUENCIA),
+    )
+    sesion.annotations.add(anotacion)
+    return anotacion
+
+
+def test_encuentra_la_anotacion_bajo_el_clic(anotador: AnnotatorTool, sesion: Session):
+    anotacion = anotar(sesion, 35.0, 38.0)
+    assert anotador.annotation_at(36.5) == anotacion
+
+
+def test_donde_no_hay_anotacion_no_encuentra_nada(
+    anotador: AnnotatorTool, sesion: Session
+):
+    """Un clic derecho en la señal limpia no puede borrar nada."""
+    anotar(sesion, 35.0, 38.0)
+    assert anotador.annotation_at(34.0) is None
+    # El final es abierto, igual que `AnnotationSet.in_range()`.
+    assert anotador.annotation_at(38.0) is None
+
+
+def test_entre_dos_superpuestas_elige_la_mas_corta(
+    anotador: AnnotatorTool, sesion: Session
+):
+    """La larga se puede señalar a los costados de la corta; la corta, en
+    ningún otro lugar."""
+    anotar(sesion, 30.0, 50.0, "Arousal")
+    corta = anotar(sesion, 40.0, 41.0, "Spindle")
+    assert anotador.annotation_at(40.5) == corta
+
+
+def test_sin_registro_no_encuentra_nada():
+    assert AnnotatorTool().annotation_at(5.0) is None
+
+
+# -- Las bandas, con la herramienta apagada ------------------------------------
+
+
+def test_las_bandas_no_dependen_de_la_herramienta(sesion: Session):
+    """Una anotación es un dato del registro: la ventana la dibuja esté o no
+    activa «Anotar», así que las bandas no pueden pedir una herramienta
+    activada."""
+    anotar(sesion, 5.0, 8.0)
+    (banda,) = annotation_bands(sesion)
+    assert (banda.start_seconds, banda.end_seconds) == (5.0, 8.0)
+
+
+def test_la_herramienta_dibuja_las_mismas_bandas(
+    anotador: AnnotatorTool, sesion: Session
+):
+    anotar(sesion, 5.0, 8.0)
+    assert tuple(anotador.overlays()) == annotation_bands(sesion)
+
+
 def test_anotar_sin_registro_abierto_es_un_error_del_programa():
     """La ventana principal atrapa `PsgLabError`; un `AttributeError` sobre
     `None` le llegaría al investigador como una traza."""
@@ -291,6 +353,18 @@ def test_desactivarla_conserva_las_anotaciones(
 
     anotador.deactivate()
     assert len(sesion.annotations.all()) == 1
+
+
+
+def test_desactivarla_suelta_la_sesion(anotador: AnnotatorTool, sesion: Session):
+    """Conservarla mantenía vivo el registro anterior después de abrir otro.
+    Las anotaciones no se pierden: viven en la sesión, no en la herramienta."""
+    anotar(sesion, 5.0, 8.0)
+    anotador.deactivate()
+    # Ningún atributo la guarda. No se prueba con un `weakref` porque la
+    # fixture de pytest la sigue sosteniendo; eso lo mide `test_entrega.py`
+    # con dos registros de verdad.
+    assert all(valor is not sesion for valor in vars(anotador).values())
 
 
 def test_desactivarla_descarta_la_seleccion_a_medias(anotador: AnnotatorTool):

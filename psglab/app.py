@@ -79,7 +79,7 @@ def create_application(argv: list[str]) -> QApplication:
     return aplicacion
 
 
-def create_main_window(saved_preferences: bool = False) -> MainWindow:
+def create_main_window(saved_preferences: bool = False, warm_up: bool = False) -> MainWindow:
     """Crea la ventana principal con todos sus paneles y herramientas.
 
     No hay que enumerar acá ni las herramientas ni los formatos: cada registro
@@ -95,6 +95,9 @@ def create_main_window(saved_preferences: bool = False) -> MainWindow:
             programa abre siempre con la vista de fábrica. Por omisión está apagado para que la suite
             de tests no lea ni escriba el archivo de preferencias de quien la
             corre, que la volvería dependiente de la máquina.
+        warm_up: si se compila en segundo plano lo que la primera medida de
+            complejidad tardaba segundos en compilar. **También lo prende sólo
+            `main.py`**: cada ventana de la suite lanzaría un hilo.
 
     Returns:
         La ventana principal, todavía sin mostrar.
@@ -107,4 +110,6 @@ def create_main_window(saved_preferences: bool = False) -> MainWindow:
     ventana = MainWindow()
     if saved_preferences:
         ventana.apply_saved_preferences()
+    if warm_up:
+        ventana.warm_up_analysis()
     return ventana

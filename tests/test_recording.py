@@ -407,3 +407,33 @@ def test_un_tramo_de_longitud_cero_es_valido_y_sale_vacio(recording):
     tramo = recording.get_segment(100, 100)
     assert tramo.shape == (recording.n_channels, 0)
 
+
+# -- Canales planos (hito 32) ------------------------------------------------------
+
+
+def registro_con_un_plano() -> Recording:
+    datos = np.vstack([np.zeros(1000), np.sin(np.arange(1000) / 10.0)])
+    datos[0, 600:] = np.arange(400)  # plano hasta la muestra 600, después no
+    return Recording(
+        file_path=Path("planos.edf"),
+        channels=[Channel("C3", ChannelKind.EEG, "µV", 0), Channel("C4", ChannelKind.EEG, "µV", 1)],
+        data=datos,
+        sampling_rate=100.0,
+    )
+
+
+def test_un_canal_sin_variacion_esta_plano():
+    assert registro_con_un_plano().flat_channels(0, 500) == ["C3"]
+
+
+def test_plano_es_por_tramo():
+    """Un electrodo se puede soltar a mitad de la noche."""
+    assert registro_con_un_plano().flat_channels(500, 1000) == []
+
+
+def test_se_pueden_pedir_algunos_canales():
+    assert registro_con_un_plano().flat_channels(0, 500, ["C4"]) == []
+
+
+def test_un_tramo_vacio_no_tiene_canales_planos():
+    assert registro_con_un_plano().flat_channels(200, 200) == []

@@ -24,10 +24,11 @@ import dataclasses
 from pathlib import Path
 
 import numpy as np
+import pyqtgraph as pg
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QFont, QMouseEvent
-from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog
+from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
 
 pytest.importorskip("pyqtgraph")
 
@@ -40,11 +41,13 @@ from psglab.config import (  # noqa: E402
 from psglab.analysis.ica import apply_ica  # noqa: E402
 from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
+from psglab.core.annotations import Annotation  # noqa: E402
 from psglab.core.nomenclature import stages_of  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
 from psglab.ui import main_window as main_window_mod  # noqa: E402
 from psglab.ui import preferences as preferencias_mod  # noqa: E402
 from psglab.ui import theme  # noqa: E402
+from psglab.ui.docks import ORDEN_DE_ANALISIS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
 
@@ -420,27 +423,62 @@ def test_el_icono_de_abrir_se_redibuja_con_el_esquema(ventana: MainWindow):
 # verde con el programa roto, que fue exactamente lo que ocurrió en el hito 6.
 
 
+def evento_de_mouse(
+    ventana: MainWindow,
+    tipo: QEvent.Type,
+    x: float,
+    boton: Qt.MouseButton = Qt.MouseButton.LeftButton,
+    vista: pg.PlotWidget | None = None,
+) -> QMouseEvent:
+    """Un evento de mouse sobre un gráfico, en `x` de su escena.
+
+    El gráfico es el visualizador si no se pide otro: el hipnograma usa el
+    mismo camino.
+
+    **Se arma como lo arma Qt**: posición relativa al viewport,
+    `scenePosition()` relativa a la ventana de primer nivel y la global de la
+    pantalla. Hasta que se corrigió el corrimiento del anotador las tres eran
+    el mismo punto, y el test no podía distinguir la posición del viewport de
+    la de la ventana, que era justamente el error.
+    """
+    vista = vista or ventana.signal_view
+    caja = vista.getPlotItem().vb.sceneBoundingRect()
+    viewport = vista.viewport()
+    local = QPointF(vista.mapFromScene(QPointF(float(x), caja.center().y())))
+    en_ventana = QPointF(viewport.mapTo(viewport.window(), local.toPoint()))
+    return QMouseEvent(
+        tipo,
+        local,
+        en_ventana,
+        QPointF(viewport.mapToGlobal(local.toPoint())),
+        boton,
+        boton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+
 def arrastrar(ventana: MainWindow, desde_x: float, hasta_x: float) -> None:
     """Presiona, mueve y suelta el botón izquierdo sobre el visualizador."""
-    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
     viewport = ventana.signal_view.viewport()
-
-    def evento(tipo: QEvent.Type, x: float) -> QMouseEvent:
-        punto = QPointF(float(x), caja.center().y())
-        return QMouseEvent(
-            tipo,
-            punto,
-            punto,
-            punto,
-            Qt.MouseButton.LeftButton,
-            Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-        )
-
     aplicacion = QApplication.instance()
-    aplicacion.sendEvent(viewport, evento(QEvent.Type.MouseButtonPress, desde_x))
-    aplicacion.sendEvent(viewport, evento(QEvent.Type.MouseMove, hasta_x))
-    aplicacion.sendEvent(viewport, evento(QEvent.Type.MouseButtonRelease, hasta_x))
+    for tipo, x in (
+        (QEvent.Type.MouseButtonPress, desde_x),
+        (QEvent.Type.MouseMove, hasta_x),
+        (QEvent.Type.MouseButtonRelease, hasta_x),
+    ):
+        aplicacion.sendEvent(viewport, evento_de_mouse(ventana, tipo, x))
+
+
+def clic_derecho(ventana: MainWindow, segundos: float) -> None:
+    """Un clic derecho sobre el visualizador, en un segundo del registro."""
+    vista = ventana.signal_view.getPlotItem().vb
+    x = vista.mapViewToScene(QPointF(segundos, 0.0)).x()
+    viewport = ventana.signal_view.viewport()
+    aplicacion = QApplication.instance()
+    for tipo in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonRelease):
+        aplicacion.sendEvent(
+            viewport, evento_de_mouse(ventana, tipo, x, Qt.MouseButton.RightButton)
+        )
 
 
 @pytest.fixture
@@ -493,6 +531,152 @@ def test_la_anotacion_cae_en_la_ventana_en_la_que_se_hizo(
     inicio = ventana.session.annotations.all()[0].onset_sample
     por_ventana = FRECUENCIA_BV * WINDOW_SECONDS
     assert 3 * por_ventana <= inicio < 4 * por_ventana
+
+
+def test_la_anotacion_empieza_y_termina_bajo_el_mouse(
+    ventana: MainWindow, elige_clase
+):
+    """**El síntoma que reportó el usuario**: la selección empezaba a la
+    derecha del mouse, corrida por el ancho del selector de canales, porque se
+    tomaba `scenePosition()` —que en un evento de widget es la ventana— como
+    si fuera la escena de pyqtgraph."""
+    ventana.resize(1400, 800)
+    ventana.show()
+    QApplication.processEvents()
+    viewport = ventana.signal_view.viewport()
+    # Sin distancia entre el gráfico y el borde de la ventana, el test no
+    # distinguiría una posición de la otra y pasaría con el error puesto.
+    assert viewport.mapTo(ventana, viewport.rect().topLeft()).x() > 0
+
+    vista = ventana.signal_view.getPlotItem().vb
+    caja = vista.sceneBoundingRect()
+    ventana._toggle_tool("annotator", True)
+    desde_x = caja.left() + caja.width() * 0.25
+    hasta_x = caja.left() + caja.width() * 0.35
+
+    arrastrar(ventana, desde_x, hasta_x)
+
+    anotacion = ventana.session.annotations.all()[0]
+    fs = ventana.session.recording.sampling_rate
+    # Un píxel de tolerancia: el evento llega redondeado a píxel entero.
+    un_pixel = ventana.session.viewport.span_seconds / caja.width()
+    for muestra, x in (
+        (anotacion.onset_sample, desde_x),
+        (anotacion.end_sample, hasta_x),
+    ):
+        esperado = vista.mapSceneToView(QPointF(x, 0.0)).x()
+        assert abs(muestra / fs - esperado) <= un_pixel
+
+
+
+def bandas_dibujadas(ventana: MainWindow) -> list[tuple[float, float]]:
+    """Los tramos de las bandas que el visualizador tiene en pantalla."""
+    import pyqtgraph as pg
+
+    return [
+        tuple(round(v, 3) for v in dibujado.getRegion())
+        for dibujado in ventana.signal_view._overlay_items
+        if isinstance(dibujado, pg.LinearRegionItem)
+    ]
+
+
+def anotar_en(
+    ventana: MainWindow, desde: float, hasta: float, clase: str = "Arousal"
+) -> Annotation:
+    """Agrega una anotación directo a la sesión, sin pasar por el gesto."""
+    fs = ventana.session.recording.sampling_rate
+    anotacion = Annotation(
+        label=clase,
+        onset_sample=int(desde * fs),
+        duration_samples=int((hasta - desde) * fs),
+    )
+    ventana.session.annotations.add(anotacion)
+    return anotacion
+
+
+def test_las_bandas_siguen_a_la_pagina(ventana: MainWindow):
+    """Pasar de época con la flecha cambia qué bandas van. Hasta que se
+    corrigió, seguían dibujadas las de la página anterior."""
+    anotar_en(ventana, 10.0, 12.0)
+    anotar_en(ventana, 40.0, 43.0)
+    ventana._toggle_tool("annotator", True)
+
+    ventana._go_to_window(1)
+    assert bandas_dibujadas(ventana) == [(40.0, 43.0)]
+    ventana._go_to_window(0)
+    assert bandas_dibujadas(ventana) == [(10.0, 12.0)]
+
+
+@pytest.mark.parametrize("otra", [None, "magnifier", "occupancy", "amplitude_band"])
+def test_las_anotaciones_se_ven_con_cualquier_herramienta(
+    ventana: MainWindow, otra: str | None
+):
+    """Decidido con el usuario: una anotación es un dato del registro y se ve
+    siempre. Antes se veía lo de la última herramienta que avisó, y activar la
+    lupa las borraba de la pantalla."""
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("annotator", True)
+    ventana._toggle_tool("annotator", False)
+    if otra is not None:
+        ventana._toggle_tool(otra, True)
+
+    assert (10.0, 12.0) in bandas_dibujadas(ventana)
+    # Y siguen a la página con esa herramienta activa: ir y volver es lo que
+    # las perdía, porque nadie volvía a pedirlas.
+    ventana._go_to_window(1)
+    assert (10.0, 12.0) not in bandas_dibujadas(ventana)
+    ventana._go_to_window(0)
+    assert (10.0, 12.0) in bandas_dibujadas(ventana)
+
+
+def test_el_clic_derecho_borra_la_anotacion(ventana: MainWindow, monkeypatch):
+    preguntas: list[str] = []
+
+    def responder(_padre, _titulo, texto, *_args, **_kwargs):
+        preguntas.append(texto)
+        return QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(responder))
+    anotar_en(ventana, 10.0, 12.0, "Spindle")
+    queda = anotar_en(ventana, 20.0, 22.0)
+    ventana._toggle_tool("annotator", True)
+
+    clic_derecho(ventana, 11.0)
+
+    assert ventana.session.annotations.all() == [queda]
+    assert (10.0, 12.0) not in bandas_dibujadas(ventana)
+    assert "Spindle" in preguntas[0]
+    assert not ventana.carteles
+
+
+def test_el_clic_derecho_pregunta_antes_de_borrar(ventana: MainWindow, monkeypatch):
+    """No hay deshacer: un clic de más no puede costar un evento."""
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        staticmethod(lambda *_a, **_k: QMessageBox.StandardButton.No),
+    )
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("annotator", True)
+
+    clic_derecho(ventana, 11.0)
+
+    assert len(ventana.session.annotations.all()) == 1
+
+
+def test_el_clic_derecho_sin_anotar_no_borra(ventana: MainWindow, monkeypatch):
+    """Sólo con «Anotar» activo: con otra herramienta el clic es suyo."""
+
+    def no_deberia_preguntar(*_a, **_k):
+        pytest.fail("con la lupa activa, el clic derecho no puede borrar")
+
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(no_deberia_preguntar))
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("magnifier", True)
+
+    clic_derecho(ventana, 11.0)
+
+    assert len(ventana.session.annotations.all()) == 1
 
 
 def test_se_puede_crear_una_clase_nueva_al_vuelo(ventana: MainWindow, elige_clase):
@@ -1113,7 +1297,7 @@ def test_el_espectro_es_el_de_la_ventana_que_se_esta_mirando(
 
     ventana.show_psd_dialog()
 
-    assert "ventana 4" in ventana.psd_dialog.windowTitle()
+    assert "ventana 4" in ventana.psd_panel.caption()
 
 
 def test_el_pico_cae_donde_esta_la_onda(ventana: MainWindow, elige_canal):
@@ -1269,7 +1453,7 @@ def test_el_titulo_dice_la_ventana_y_el_promedio(ventana: MainWindow, elige_opci
 
     ventana.show_connectivity_dialog()
 
-    titulo = ventana.connectivity_dialog.windowTitle()
+    titulo = ventana.connectivity_panel.caption()
     assert "ventana 3" in titulo
     assert "promedio" in titulo
 
@@ -2308,7 +2492,7 @@ def test_el_titulo_dice_la_banda_y_entre_que_canales(
 
     ventana.show_connectivity_night_dialog()
 
-    titulo = ventana.metric_dialog.windowTitle()
+    titulo = ventana.metric_panel.caption()
     assert "Theta" in titulo
     assert "noche" in titulo
     for canal in ventana.session.visible_channels:
@@ -2791,3 +2975,374 @@ def test_el_programa_abre_solo_con_la_senal_y_los_canales(ventana: MainWindow):
     visibles = [clave for clave, dock in ventana.docks.items() if not dock.isHidden()]
 
     assert visibles == ["channels"]
+
+
+# -- El hipnograma, por el camino del mouse (V4_F) ----------------------------
+
+
+def test_el_clic_en_el_hipnograma_lleva_a_la_epoca_bajo_el_mouse(ventana: MainWindow):
+    """El mismo error que tenía el anotador: el clic se ubicaba con
+    `scenePosition()`, que en un evento de widget es la ventana y no la escena.
+    El hipnograma está abajo y a la derecha, así que caía cientos de píxeles
+    corrido. Nada lo verificaba con un evento de verdad."""
+    ventana.resize(1400, 800)
+    ventana.show()
+    # Los tres paneles de abajo, como se trabaja: solo, el hipnograma ocupa el
+    # ancho entero, arranca en el borde de la ventana y el error no se ve.
+    for dock in (ventana.overview_dock, ventana.scoring_dock, ventana.histogram_dock):
+        dock.show()
+    QApplication.processEvents()
+    vista = ventana.histogram_view
+    viewport = vista.viewport()
+    # Sin distancia entre el gráfico y el borde de la ventana, el test pasaría
+    # con el error puesto.
+    assert viewport.mapTo(ventana, viewport.rect().topLeft()).x() > 0
+
+    caja = vista.getPlotItem().vb.sceneBoundingRect()
+    x = caja.left() + caja.width() * 0.7
+    evento = evento_de_mouse(ventana, QEvent.Type.MouseButtonPress, x, vista=vista)
+    QApplication.instance().sendEvent(viewport, evento)
+
+    assert ventana.session.current_window == int(0.7 * VENTANAS)
+
+
+# -- Al abrir otro registro ---------------------------------------------------
+#
+# Lo que encontró la verificación de las herramientas: con un registro abierto
+# y otro recién abierto, lo del primero seguía a la vista o en memoria.
+
+
+def otro_registro(tmp_path: Path) -> Path:
+    """Otra frecuencia y otros canales: nada del primero le sirve."""
+    return escribir_brainvision(
+        tmp_path / "otro",
+        segundos=WINDOW_SECONDS * 2,
+        canales=[("Fz", "µV"), ("Cz", "µV")],
+        frecuencia=100.0,
+    )
+
+
+def test_abrir_otro_registro_suelta_el_anterior(ventana: MainWindow, tmp_path: Path):
+    """El anotador y la ocupación guardaban la sesión al apagarse, y con ella el
+    registro entero: con dos noches grandes, el doble de memoria."""
+    import gc
+    import weakref
+
+    for herramienta in ventana._tools:
+        ventana._toggle_tool(herramienta, True)
+    for herramienta in ventana._tools:
+        ventana._toggle_tool(herramienta, False)
+    anterior = weakref.ref(ventana.session.recording)
+
+    ventana.open_recording(otro_registro(tmp_path))
+    gc.collect()
+
+    assert anterior() is None
+
+
+def test_los_paneles_de_analisis_no_muestran_el_registro_anterior(
+    ventana: MainWindow, elige_canal, tmp_path: Path
+):
+    """El espectro decía «Espectro de «C3»» sobre un registro sin C3, y la
+    tabla de impedancias listaba los canales viejos con el informe de los
+    nuevos."""
+    elige_canal("C3", "C3", "permutation_entropy", "Delta")
+    ventana.show_psd_dialog()
+    ventana.show_complexity_dialog()
+    ventana.show_connectivity_dialog()
+    ventana.show_impedance_dialog()
+
+    ventana.open_recording(otro_registro(tmp_path))
+
+    assert ventana.psd_panel.channels() == []
+    assert ventana.psd_panel.band_powers() == {}
+    assert ventana.metric_panel.channels() == []
+    assert ventana.connectivity_panel.axis_labels() == []
+    for clave, titulo in ORDEN_DE_ANALISIS:
+        assert ventana.docks[clave].windowTitle() == titulo
+    assert ventana.impedance_panel.channels() == ["Fz", "Cz"]
+    assert not ventana.carteles
+
+
+def test_el_panel_de_filtros_es_del_registro_abierto(ventana: MainWindow, tmp_path: Path):
+    """Conservaba los sugeridos del registro anterior: en uno de 100 Hz,
+    «Aplicar» pedía el notch de 50 Hz y terminaba en un cartel."""
+    ventana.show_filter_dialog()
+    ventana.open_recording(otro_registro(tmp_path))
+
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert not ventana.carteles
+    assert ventana.accion_señal_original.isEnabled()
+
+
+def test_aplicar_sin_ningun_filtro_no_toca_la_señal(ventana_con_dos_eeg: MainWindow):
+    """Reemplazaba la señal por una copia idéntica, decía «Se filtró la señal»
+    y descartaba la ICA ya ajustada."""
+    from psglab.ui.filter_panel import CAMPOS
+
+    ventana = ventana_con_dos_eeg
+    ventana.show_ica_dialog()
+    ventana.show_filter_dialog()
+    tabla = ventana.filter_panel.tabla
+    for fila in range(tabla.topLevelItemCount()):
+        for columna in range(1, len(CAMPOS) + 1):
+            tabla.topLevelItem(fila).setText(columna, "")
+    antes = ventana.session.recording
+
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert ventana.session.recording is antes
+    assert ventana._ica is not None
+    assert not ventana.accion_señal_original.isEnabled()
+    assert len(ventana.carteles) == 1
+
+
+# -- Hito 30: las decisiones de la verificación -------------------------------
+
+
+def test_la_cantidad_de_vecinas_de_la_ubersicht_se_elige_en_la_configuracion(
+    ventana: MainWindow,
+):
+    """V3_F no tenía camino desde la ventana: `set_span()` no lo llamaba nadie y
+    la cantidad sólo se cambiaba editando `config.py`."""
+    ventana.show()
+    ventana.overview_dock.show()
+    ventana._go_to_window(3)
+
+    ventana.apply_preferences(
+        ventana.current_preferences.with_changes(overview_before=2, overview_after=0)
+    )
+
+    mostradas = [(v.index, v.is_current) for v in ventana._tools["overview"].windows()]
+    assert mostradas == [(1, False), (2, False), (3, True)]
+    assert len(ventana.overview_panel.rectangles()) == 3
+
+
+@pytest.mark.parametrize("clave", ["psd", "metric", "connectivity", "ica"])
+def test_un_panel_vacio_dice_desde_donde_se_pide(ventana: MainWindow, clave: str):
+    """Desde «Herramientas» los paneles de resultados aparecían en blanco.
+
+    **La ruta que dice tiene que llevar al panel**: se la sigue en el menú de
+    verdad y se comprueba que lo muestra. Así la pista no puede quedar
+    mandando a una entrada renombrada.
+    """
+    from psglab.ui.menus import menu_path
+
+    panel = getattr(ventana, f"{clave}_panel")
+    ventana.docks[clave].toggleViewAction().trigger()
+    pista = panel.visible_hint()
+    assert pista.startswith("Se pide desde ")
+
+    # Una ruta por renglón: la métrica tiene dos.
+    rutas = [
+        renglon.removeprefix("o desde ")
+        for renglon in pista.removeprefix("Se pide desde ").split("<br>")
+    ]
+    for ruta in rutas:
+        metodo = next(
+            accion.data()
+            for de_la_barra in ventana.menuBar().actions()
+            if de_la_barra.menu() is not None
+            for accion in de_la_barra.menu().actions()
+            if accion.data() and menu_path(ventana, accion.data()) == ruta
+        )
+        assert metodo.startswith("show_") and metodo.endswith("_dialog")
+
+
+def test_filtrar_vacia_los_resultados_de_la_señal_anterior(
+    ventana: MainWindow, elige_canal
+):
+    """Después de filtrar, el espectro seguía siendo el de la señal sin filtrar,
+    con el mismo título y sin decirlo."""
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+    assert ventana.psd_panel.channels() == ["C3"]
+
+    ventana.show_filter_dialog()
+    ventana.filter_panel.boton_aplicar.click()
+
+    assert ventana.psd_panel.channels() == []
+    assert ventana.psd_panel.caption() == ""
+    assert ventana.psd_panel.visible_hint().startswith("Se pide desde ")
+
+
+def test_volver_a_la_original_vacia_los_resultados_de_la_procesada(
+    ventana: MainWindow, elige_canal
+):
+    ventana.show_filter_dialog()
+    ventana.filter_panel.boton_aplicar.click()
+    elige_canal("C3")
+    ventana.show_psd_dialog()
+
+    ventana.restore_original_recording()
+
+    assert ventana.psd_panel.channels() == []
+    assert not ventana.carteles
+
+
+# -- Hito 31: lo que encontró el recorrido manual ----------------------------
+
+
+def textos_de_herramientas(ventana: MainWindow) -> list[str]:
+    return [accion.text() for accion in ventana.tools_menu.actions()]
+
+
+def test_calcular_no_renombra_el_menu_de_herramientas(
+    ventana: MainWindow, elige_opciones
+):
+    """El título de un dock es el texto de su entrada en «Herramientas», y la
+    ventana se lo cambiaba con cada cálculo: el menú decía «Espectro de «C3» —
+    ventana 1». La descripción va ahora en el panel."""
+    antes = textos_de_herramientas(ventana)
+    canal = ventana.session.visible_channels[0]
+    elige_opciones(
+        (canal, True),
+        (canal, True), ("permutation_entropy", True),
+        ("Delta", True),
+        ("Delta", True),
+    )
+
+    ventana.show_psd_dialog()
+    assert f"«{canal}»" in ventana.psd_panel.caption()
+    ventana.show_complexity_dialog()
+    ventana.show_connectivity_dialog()
+    assert "Delta" in ventana.connectivity_panel.caption()
+    ventana.show_connectivity_night_dialog()
+    assert "noche" in ventana.metric_panel.caption()
+
+    assert textos_de_herramientas(ventana) == antes
+    assert not ventana.carteles
+
+
+def test_main_py_precalienta_en_segundo_plano(qt_app, monkeypatch):
+    """La primera medida de complejidad compilaba `antropy` con la ventana
+    congelada. `main.py` pide compilarlo al arrancar, en otro hilo."""
+    import threading
+
+    from psglab.ui import main_window as modulo
+
+    hilos: list[str] = []
+    monkeypatch.setattr(
+        modulo, "warm_up", lambda: hilos.append(threading.current_thread().name)
+    )
+
+    create_main_window(warm_up=True)
+    for hilo in threading.enumerate():
+        if hilo.name == "precalentar-analisis":
+            hilo.join(timeout=5)
+
+    assert hilos == ["precalentar-analisis"]
+
+
+def test_la_suite_no_precalienta(qt_app, monkeypatch):
+    """Cada ventana de la suite lanzaría un hilo."""
+    from psglab.ui import main_window as modulo
+
+    llamadas: list[bool] = []
+    monkeypatch.setattr(modulo, "warm_up", lambda: llamadas.append(True))
+
+    create_main_window()
+
+    assert llamadas == []
+
+
+# -- Hito 32: los pendientes del TODO -----------------------------------------
+
+
+def test_el_contador_de_la_lupa_se_pone_en_cero_desde_el_menu(ventana: MainWindow):
+    lupa = ventana._tools["magnifier"]
+    ventana._toggle_tool("magnifier", True)
+    lupa.on_mouse_press(1.0, 0.0, "left")
+    lupa.on_mouse_press(2.0, 0.0, "left")
+    accion = next(
+        a for a in ventana.tools_menu.actions() if a.data() == "reset_magnifier_count"
+    )
+
+    accion.trigger()
+
+    assert lupa.click_count == 0
+    assert "0" in ventana.tool_readout.text()
+
+
+def test_los_ajustes_de_herramienta_llegan_a_las_herramientas(ventana: MainWindow):
+    ventana.apply_preferences(
+        ventana.current_preferences.with_changes(
+            amplitude_band_uv=100.0, magnifier_radius_seconds=2.5, magnifier_zoom=8.0
+        )
+    )
+
+    assert ventana._tools["amplitude_band"].height_uv == 100.0
+    ventana._toggle_tool("magnifier", True)
+    ventana._tools["magnifier"].on_mouse_move(10.0, 0.0)
+    (circulo,) = ventana._tools["magnifier"].overlays()
+    assert (circulo.radius_seconds, circulo.zoom) == (2.5, 8.0)
+
+
+@pytest.fixture
+def ventana_con_un_plano(qt_app, tmp_path, monkeypatch):
+    """Dos EEG, el primero en cero: un electrodo desconectado."""
+    carteles: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+    )
+    principal = create_main_window()
+    vhdr = escribir_brainvision(
+        tmp_path / "plano",
+        segundos=WINDOW_SECONDS * 3,
+        canales=[("C3", "µV"), ("C4", "µV"), ("EOG-izq", "µV")],
+    )
+    eeg = vhdr.with_suffix(".eeg")
+    datos = np.frombuffer(eeg.read_bytes(), dtype="<i2").reshape(-1, 3).copy()
+    datos[:, 0] = 0
+    eeg.write_bytes(datos.tobytes())
+    principal.open_recording(vhdr)
+    principal.carteles = carteles
+    return principal
+
+
+def test_el_espectro_de_un_canal_plano_lo_dice(ventana_con_un_plano, elige_opciones):
+    """Salía un gráfico vacío en escala logarítmica, sin explicación."""
+    elige_opciones(("C3", True))
+    ventana_con_un_plano.show_psd_dialog()
+    assert "plano" in ventana_con_un_plano.psd_panel.caption()
+
+    elige_opciones(("C4", True))
+    ventana_con_un_plano.show_psd_dialog()
+    assert "plano" not in ventana_con_un_plano.psd_panel.caption()
+
+
+def test_la_conectividad_dice_que_canal_plano_baja_el_promedio(
+    ventana_con_un_plano, elige_opciones
+):
+    elige_opciones(("Delta", True))
+    ventana_con_un_plano.show_connectivity_dialog()
+    assert "«C3»" in ventana_con_un_plano.connectivity_panel.caption()
+    assert "baja el promedio" in ventana_con_un_plano.connectivity_panel.caption()
+
+
+def test_la_metrica_de_un_canal_plano_lo_dice(ventana_con_un_plano, elige_opciones):
+    """Higuchi da NaN en todas las ventanas, y el panel quedaba vacío."""
+    elige_opciones(("C3", True), ("higuchi_fractal_dimension", True))
+    ventana_con_un_plano.show_complexity_dialog()
+    assert "«C3» está plano en 3 de 3 ventanas" in ventana_con_un_plano.metric_panel.caption()
+
+
+def test_importar_impedancias_de_un_archivo_vacio_avisa(
+    ventana: MainWindow, tmp_path: Path, monkeypatch
+):
+    """Devolvía un diccionario vacío, que es correcto como biblioteca, y la
+    ventana no hacía nada ni decía nada."""
+    vacio = tmp_path / "impedancias.txt"
+    vacio.write_text("# sólo un comentario\n", encoding="utf-8")
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(vacio), ""))
+    )
+    ventana.show_impedance_dialog()
+    antes = ventana.impedance_panel.values()
+
+    ventana.load_impedances_dialog()
+
+    assert ventana.impedance_panel.values() == antes
+    assert len(ventana.carteles) == 1
+    assert "impedancias.txt" in ventana.carteles[0]

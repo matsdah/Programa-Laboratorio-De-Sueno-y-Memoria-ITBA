@@ -1081,6 +1081,171 @@ def test_las_exenciones_de_biblioteca_siguen_existiendo():
     )
 
 
+# -- La misma red, para las herramientas y los paneles (hito 30) ------------
+#
+# La del hito 20 mira **funciones** de `analysis/`, y los caminos muertos que
+# aparecieron después eran **métodos**: `AnnotatorTool.delete_annotation()`
+# (hito 28), `OverviewTool.set_span()` y los `clear_*()` de los paneles de
+# análisis (hito 29). Ninguno era un stub y todos tenían sus tests en verde.
+
+
+#: Métodos públicos de `tools/` y de los paneles que nada de `psglab/` llama, con
+#: el motivo. **Casi todos son accesores de sólo lectura** que existen para que
+#: un test pueda afirmar qué muestra un panel sin mirar píxeles: es la decisión
+#: que documentan `PsdPanel.band_ranges()` y `IcaPanel.topography_bars()`.
+SIN_CAMINO_A_PROPOSITO: dict[str, str] = {
+    **{
+        f"psglab/ui/{archivo}::{clase}.{metodo}": (
+            "accesor de sólo lectura: lo que muestra el panel se afirma en un "
+            "test sin mirar píxeles."
+        )
+        for archivo, clase, metodos in (
+            ("connectivity_panel.py", "ConnectivityPanel",
+             ("visible_hint", "caption", "axis_labels", "color_range")),
+            ("filter_panel.py", "FilterPanel", ("kinds", "displayed_value")),
+            ("ica_panel.py", "IcaPanel",
+             ("visible_hint", "component_count", "topography_bars", "time_course_data")),
+            ("impedance_panel.py", "ImpedancePanel",
+             ("unmeasured", "displayed_value", "report_text")),
+            ("metric_panel.py", "MetricPanel",
+             ("visible_hint", "caption", "window_positions", "gap_windows",
+              "metric_label")),
+            ("overview_panel.py", "OverviewPanel", ("current_index",)),
+            ("psd_panel.py", "PsdPanel",
+             ("visible_hint", "caption", "method_description", "band_powers",
+              "band_ranges", "curve_data", "uses_log_power")),
+            ("scoring_panel.py", "ScoringPanel", ("status",)),
+        )
+        for metodo in metodos
+    },
+    "psglab/ui/ica_panel.py::IcaPanel.set_excluded": (
+        "atajo para marcar por programa: el usuario marca tildando la lista, que "
+        "es lo que lee `excluded()` al aplicar."
+    ),
+    "psglab/tools/occupancy.py::OccupancyTool.add_line": (
+        "su docstring lo dice: existe para testear el porcentaje sin simular el "
+        "gesto. La ventana agrega líneas arrastrando."
+    ),
+    "psglab/tools/overview.py::OverviewTool.set_size": (
+        "V2_F se cumple arrastrando el borde del panel, que es un dock y crece "
+        "con él. `set_size()` valida un tamaño pedido por programa y nadie lo "
+        "pide."
+    ),
+}
+
+#: Métodos sin camino desde la ventana que **sí son un hueco**: hacen algo que el
+#: usuario podría querer y no tiene cómo. No se eximen: cada uno tiene que
+#: figurar por su nombre en `docs/TODO.md`, que es donde se decide. Salir de
+#: esta tabla es conectarlo a la ventana o pasarlo a la de arriba con su motivo.
+#:
+#: **Hoy está vacía**: los cuatro que encontró el hito 30 —`reset_count()`,
+#: `set_height_uv()`, `set_radius_seconds()` y `set_zoom()`— se conectaron en el
+#: hito 32. La tabla se queda para el próximo.
+HUECOS_ABIERTOS: dict[str, str] = {}
+
+
+def metodos_publicos_de_herramientas_y_paneles() -> list[str]:
+    """Cada método público de `tools/` y de `ui/*_panel.py`, como `ruta::Clase.metodo`.
+
+    Quedan afuera los que llama Qt por su cuenta —`paintEvent()`,
+    `sizeHint()`, el `createEditor()` de un delegate—, que nunca aparecen
+    escritos en el código que los usa.
+    """
+    archivos = sorted((RAIZ / "psglab" / "tools").glob("*.py")) + sorted(
+        (RAIZ / "psglab" / "ui").glob("*_panel.py")
+    )
+    encontrados: list[str] = []
+    for archivo in archivos:
+        arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+        for clase in (n for n in arbol.body if isinstance(n, ast.ClassDef)):
+            for nodo in clase.body:
+                if (
+                    isinstance(nodo, ast.FunctionDef)
+                    and not nodo.name.startswith("_")
+                    and not nodo.name.endswith("Event")
+                    and nodo.name not in ("sizeHint", "minimumSizeHint", "createEditor")
+                ):
+                    encontrados.append(f"{ruta_relativa(archivo)}::{clase.name}.{nodo.name}")
+    return encontrados
+
+
+def nombres_que_usa_el_paquete() -> set[str]:
+    """Todo nombre que `psglab/` usa: atributos, nombres y cadenas.
+
+    **Más ancho que `nombres_que_usa_la_interfaz()`**, por dos motivos. Un método
+    de una herramienta puede llamarlo la propia herramienta —`self.clear()`— y
+    eso es un camino tan real como uno desde la ventana. Y los atajos se
+    despachan por texto: `shortcuts.ACTIONS` nombra métodos como cadenas.
+
+    La contra es que un nombre común —`refresh`— se da por usado aunque lo use
+    otra clase. Es la misma limitación de la red del hito 20.
+    """
+    usados: set[str] = set()
+    for archivo in (RAIZ / "psglab").rglob("*.py"):
+        for nodo in ast.walk(ast.parse(archivo.read_text(encoding="utf-8"))):
+            if isinstance(nodo, ast.Name):
+                usados.add(nodo.id)
+            elif isinstance(nodo, ast.Attribute):
+                usados.add(nodo.attr)
+            elif isinstance(nodo, ast.Constant) and isinstance(nodo.value, str):
+                if nodo.value.isidentifier():
+                    usados.add(nodo.value)
+    return usados
+
+
+def test_cada_metodo_de_herramientas_y_paneles_tiene_quien_lo_llame():
+    """Ningún método de `tools/` ni de un panel puede quedar sin camino en silencio.
+
+    O algo de `psglab/` lo usa, o figura en `SIN_CAMINO_A_PROPOSITO` con su
+    motivo, o en `HUECOS_ABIERTOS`, que lo obliga a estar en el TODO.
+    """
+    usados = nombres_que_usa_el_paquete()
+    declarados = set(SIN_CAMINO_A_PROPOSITO) | set(HUECOS_ABIERTOS)
+    huerfanos = [
+        objetivo
+        for objetivo in metodos_publicos_de_herramientas_y_paneles()
+        if objetivo.rsplit(".", 1)[1] not in usados and objetivo not in declarados
+    ]
+    assert not huerfanos, (
+        "estos métodos públicos no los llama nada de psglab/ y no figuran en "
+        "SIN_CAMINO_A_PROPOSITO ni en HUECOS_ABIERTOS, así que son código que "
+        f"ningún usuario del programa puede ejecutar: {huerfanos}"
+    )
+
+
+def test_cada_hueco_abierto_esta_en_el_todo():
+    """Un hueco que no está en el TODO no lo va a decidir nadie."""
+    todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
+    ausentes = [
+        objetivo
+        for objetivo in HUECOS_ABIERTOS
+        if f"{objetivo.rsplit('.', 1)[1]}()" not in todo
+    ]
+    assert not ausentes, f"estos huecos abiertos no figuran en docs/TODO.md: {ausentes}"
+
+
+def test_las_exenciones_de_herramientas_y_paneles_siguen_existiendo():
+    """Lo mismo que `test_las_exenciones_de_biblioteca_siguen_existiendo()`.
+
+    Una fila que apunte a un método borrado tapa uno nuevo por accidente, y una
+    que sobre —el método ya tiene camino— deja de verificar lo que se acaba de
+    conectar.
+    """
+    reales = set(metodos_publicos_de_herramientas_y_paneles())
+    usados = nombres_que_usa_el_paquete()
+    problemas: list[str] = []
+    for nombre_de_tabla, tabla in (
+        ("SIN_CAMINO_A_PROPOSITO", SIN_CAMINO_A_PROPOSITO),
+        ("HUECOS_ABIERTOS", HUECOS_ABIERTOS),
+    ):
+        for objetivo in tabla:
+            if objetivo not in reales:
+                problemas.append(f"{nombre_de_tabla} nombra algo que no existe: {objetivo}")
+            elif objetivo.rsplit(".", 1)[1] in usados:
+                problemas.append(f"{nombre_de_tabla} exime algo que ya tiene camino: {objetivo}")
+    assert not problemas, "\n".join(problemas)
+
+
 #: Documentos que declaran **cuántos hitos** tiene el proyecto. Cada uno lo dice
 #: en su propia frase, y las cuatro se desincronizaron a la vez: decían
 #: "diecisiete" con diecinueve filas en la tabla de progreso.
@@ -1124,7 +1289,12 @@ def test_la_cuenta_de_hitos_que_declaran_los_documentos_es_la_de_la_tabla():
         # Se quitan los asteriscos y se juntan los renglones: la frase puede
         # venir en negrita y partida por un salto de línea.
         texto = re.sub(r"\s+", " ", (RAIZ / nombre).read_text(encoding="utf-8").replace("*", ""))
-        declarado = re.search(r"([a-záéíóúñ]+) hitos[^.]{0,40}?del 0 al (\d+)", texto)
+        # **El numeral puede ser de tres palabras**: "treinta y un hitos". Con
+        # una sola el chequeo leía "un" al llegar al hito 30, el mismo tropiezo
+        # que tuvo la cuenta de archivos de test al pasar de treinta.
+        declarado = re.search(
+            r"((?:[a-záéíóúñ]+ y )?[a-záéíóúñ]+) hitos[^.]{0,40}?del 0 al (\d+)", texto
+        )
         if declarado is None:
             problemas.append(
                 f"{nombre} ya no dice cuántos hitos hay con la frase que el "

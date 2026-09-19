@@ -33,9 +33,11 @@ class AmplitudeBandTool(ViewerTool):
     #: mano: este texto lo lee el usuario en la barra de estado al pasar por
     #: el menú Herramientas, y si alguien cambiara la constante, un literal
     #: acá le mentiría.
+    #: Desde el hito 32 la altura se elige en la configuración, así que el
+    #: texto dice cuál es la de fábrica y no afirma la vigente.
     description = (
-        f"Banda de {AMPLITUDE_BAND_UV:.0f} {MICROVOLT} "
-        "para comparar la amplitud de la señal"
+        "Banda para comparar la amplitud de la señal: "
+        f"{AMPLITUDE_BAND_UV:.0f} {MICROVOLT}, salvo que se cambie en la configuración"
     )
     exclusive = False  # Sólo se dibuja: no compite por el clic del mouse.
 

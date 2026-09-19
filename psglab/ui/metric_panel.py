@@ -53,6 +53,11 @@ class MetricPanel(pg.PlotWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         """Crea el panel vacío, antes de que haya ninguna métrica calculada."""
         super().__init__(parent)
+        #: Desde qué menú se pide lo que muestra este panel. Ver `set_hint()`.
+        self._pista: str = ""
+        self._pista_visible: bool = False
+        #: Qué es el resultado que se muestra. Ver `set_caption()`.
+        self._titulo: str = ""
         self._series: dict[str, np.ndarray] = {}
         self._curvas: dict[str, pg.PlotDataItem] = {}
         self._etiqueta: str = ""
@@ -107,10 +112,52 @@ class MetricPanel(pg.PlotWidget):
         if self._series:
             largo = max(len(v) for v in self._series.values())
             item.setXRange(1, max(largo, 1), padding=0.01)
+        self._reflejar_titulo()
 
     def clear_metric(self) -> None:
         """Deja el panel vacío."""
+        self._titulo = ""
         self.set_metric("", {})
+
+    # -- Con el panel vacío ---------------------------------------------------
+
+    def set_hint(self, text: str) -> None:
+        """Lo que se lee mientras el panel está vacío: desde qué menú se pide.
+
+        **Existe porque el panel se puede mostrar sin resultado**: desde
+        «Herramientas», o después de que cambió la señal y el resultado se
+        descartó. Un gráfico en blanco no dice qué hacer con él. El texto lo
+        arma la ventana principal con `menus.menu_path()`, así que sigue al
+        menú si alguien lo renombra.
+        """
+        self._pista = text
+        self._reflejar_titulo()
+
+    def visible_hint(self) -> str:
+        """La pista que se lee hoy, o vacío si el panel tiene un resultado."""
+        return self._pista if self._pista_visible else ""
+
+    def set_caption(self, text: str) -> None:
+        """Qué es el resultado que se muestra: el canal, la ventana, la banda.
+
+        **Va en el gráfico y no en el título del panel.** Hasta el hito 31 la
+        ventana principal se lo ponía al dock con `setWindowTitle()`, y Qt usa
+        ese título como texto de la entrada del panel en «Herramientas»: el
+        menú se renombraba con cada cálculo.
+        """
+        self._titulo = text
+        self._reflejar_titulo()
+
+    def caption(self) -> str:
+        """La descripción del resultado que se muestra, o vacío."""
+        return self._titulo
+
+    def _reflejar_titulo(self) -> None:
+        """El título del gráfico: la pista con el panel vacío, la descripción si no."""
+        vacio = not self._series
+        self._pista_visible = bool(self._pista) and vacio
+        texto = self._pista if vacio else self._titulo
+        self.getPlotItem().setTitle(texto or None)
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 

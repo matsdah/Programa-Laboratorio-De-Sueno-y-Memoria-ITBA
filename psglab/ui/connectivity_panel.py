@@ -40,6 +40,11 @@ class ConnectivityPanel(pg.PlotWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         """Crea el panel vacío, antes de que haya ninguna matriz calculada."""
         super().__init__(parent)
+        #: Desde qué menú se pide lo que muestra este panel. Ver `set_hint()`.
+        self._pista: str = ""
+        self._pista_visible: bool = False
+        #: Qué es el resultado que se muestra. Ver `set_caption()`.
+        self._titulo: str = ""
         self._matriz: np.ndarray | None = None
         self._canales: list[str] = []
 
@@ -51,8 +56,17 @@ class ConnectivityPanel(pg.PlotWidget):
         item.invertY(True)
         # La barra de color explica qué significa cada tono. Sin ella el mapa
         # es bonito y no dice nada.
+        #
+        # **Se arrastra de a centésimos y sin salir de 0 a 1.** Por omisión
+        # `ColorBarItem` redondea los extremos a enteros, y sobre esta escala
+        # eso hacía que cualquier arrastre volviera a su lugar o saltara al
+        # otro extremo. Arrastrarla sirve para resaltar diferencias chicas
+        # entre pares de canales.
         self._barra = pg.ColorBarItem(
-            values=(_MINIMO, _MAXIMO), colorMap=pg.colormap.get("viridis")
+            values=(_MINIMO, _MAXIMO),
+            colorMap=pg.colormap.get("viridis"),
+            limits=(_MINIMO, _MAXIMO),
+            rounding=0.01,
         )
         self._barra.setImageItem(self._imagen, insert_in=item)
 
@@ -70,7 +84,10 @@ class ConnectivityPanel(pg.PlotWidget):
         self._matriz = datos
         self._canales = list(channel_names)
 
-        self._imagen.setImage(datos, levels=(_MINIMO, _MAXIMO))
+        # Con los niveles que tenga la barra y no con 0 a 1: si el usuario la
+        # ajustó, la matriz nueva se ve con el mismo contraste que la anterior,
+        # y la barra no queda diciendo otra cosa que la imagen.
+        self._imagen.setImage(datos, levels=self._barra.levels())
         item = self.getPlotItem()
         # Los ticks van en el centro de cada celda, que es donde el usuario
         # espera leerlos: en el borde, un nombre queda entre dos filas.
@@ -79,14 +96,59 @@ class ConnectivityPanel(pg.PlotWidget):
         ]
         item.getAxis("bottom").setTicks([marcas])
         item.getAxis("left").setTicks([marcas])
+        self._reflejar_titulo()
 
     def clear_matrix(self) -> None:
         """Deja el panel vacío."""
+        self._titulo = ""
         self._matriz = None
         self._canales = []
         self._imagen.clear()
+        # Sin matriz no hay contraste que conservar: la próxima arranca de 0 a 1.
+        self._barra.setLevels((_MINIMO, _MAXIMO))
         self.getPlotItem().getAxis("bottom").setTicks(None)
         self.getPlotItem().getAxis("left").setTicks(None)
+        self._reflejar_titulo()
+
+    # -- Con el panel vacío ---------------------------------------------------
+
+    def set_hint(self, text: str) -> None:
+        """Lo que se lee mientras el panel está vacío: desde qué menú se pide.
+
+        **Existe porque el panel se puede mostrar sin resultado**: desde
+        «Herramientas», o después de que cambió la señal y el resultado se
+        descartó. Un gráfico en blanco no dice qué hacer con él. El texto lo
+        arma la ventana principal con `menus.menu_path()`, así que sigue al
+        menú si alguien lo renombra.
+        """
+        self._pista = text
+        self._reflejar_titulo()
+
+    def visible_hint(self) -> str:
+        """La pista que se lee hoy, o vacío si el panel tiene un resultado."""
+        return self._pista if self._pista_visible else ""
+
+    def set_caption(self, text: str) -> None:
+        """Qué es el resultado que se muestra: el canal, la ventana, la banda.
+
+        **Va en el gráfico y no en el título del panel.** Hasta el hito 31 la
+        ventana principal se lo ponía al dock con `setWindowTitle()`, y Qt usa
+        ese título como texto de la entrada del panel en «Herramientas»: el
+        menú se renombraba con cada cálculo.
+        """
+        self._titulo = text
+        self._reflejar_titulo()
+
+    def caption(self) -> str:
+        """La descripción del resultado que se muestra, o vacío."""
+        return self._titulo
+
+    def _reflejar_titulo(self) -> None:
+        """El título del gráfico: la pista con el panel vacío, la descripción si no."""
+        vacio = self._matriz is None
+        self._pista_visible = bool(self._pista) and vacio
+        texto = self._pista if vacio else self._titulo
+        self.getPlotItem().setTitle(texto or None)
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 

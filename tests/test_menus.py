@@ -317,9 +317,9 @@ def test_herramientas_tiene_todos_los_paneles(ventana: MainWindow):
 
     for dock in ventana.docks.values():
         assert dock.toggleViewAction() in acciones
-    assert [a for a in acciones if not a.isSeparator()][-1].text() == (
-        "&Restaurar la disposición"
-    )
+    # Restaurar va en el último bloque; qué más va ahí lo fija
+    # `test_herramientas_va_en_cuatro_bloques`.
+    assert "&Restaurar la disposición" in [a.text() for a in bloques(ventana.tools_menu)[-1]]
 
 
 def test_herramientas_va_en_cuatro_bloques(ventana: MainWindow):
@@ -336,7 +336,12 @@ def test_herramientas_va_en_cuatro_bloques(ventana: MainWindow):
         if clave not in de_analisis
     ]
     assert analisis == [ventana.docks[clave].toggleViewAction() for clave in de_analisis]
-    assert [a.text() for a in restaurar] == ["&Restaurar la disposición"]
+    # Lo que vuelve a su estado inicial: la disposición y, desde el hito 32, el
+    # contador de la lupa, que no es un modo del mouse.
+    assert [a.text() for a in restaurar] == [
+        "&Restaurar la disposición",
+        "Poner en &cero el contador de la lupa",
+    ]
 
 
 def test_ninguna_entrada_de_herramientas_se_repite(ventana: MainWindow):
@@ -453,3 +458,19 @@ def test_el_atajo_se_muestra_pero_no_se_registra_en_la_accion(ventana: MainWindo
     ninguno: mostrar el atajo rompería el atajo."""
     for accion in _todas_las_acciones(ventana):
         assert accion.shortcut().isEmpty(), accion.text()
+
+
+# -- La ruta de un menú, para los paneles vacíos ---------------------------------
+
+
+def test_la_ruta_de_menu_se_lee_como_la_ve_el_usuario(ventana: MainWindow):
+    """Sin el `&` del acelerador, sin «…» y sin el atajo."""
+    from psglab.ui.menus import menu_path
+
+    assert menu_path(ventana, "show_psd_dialog") == "Analizar › Espectro de la ventana"
+
+
+def test_un_metodo_sin_menu_no_tiene_ruta(ventana: MainWindow):
+    from psglab.ui.menus import menu_path
+
+    assert menu_path(ventana, "no_existe") is None

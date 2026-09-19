@@ -128,6 +128,32 @@ def _agregar(
     return accion
 
 
+def menu_path(window: "MainWindow", method_name: str) -> str | None:
+    """La ruta de menú que ejecuta un método de la ventana, como la lee el usuario.
+
+    Por ejemplo «Analizar › Espectro de la ventana». La usan los paneles vacíos
+    para decir desde dónde se piden, y **se lee del menú armado y no se escribe
+    a mano**: renombrar una entrada no puede dejar a un panel mandando al
+    usuario a buscar algo que ya no existe.
+
+    Returns:
+        La ruta, o None si ninguna acción de la barra ejecuta ese método.
+    """
+    for de_la_barra in window.menuBar().actions():
+        menu = de_la_barra.menu()
+        if menu is None:
+            continue
+        for accion in menu.actions():
+            if accion.data() == method_name:
+                return f"{_legible(menu.title())} › {_legible(accion.text())}"
+    return None
+
+
+def _legible(texto: str) -> str:
+    """El texto de un menú sin el atajo, sin el `&` del acelerador y sin «…»."""
+    return texto.split("\t")[0].replace("&", "").rstrip("…").strip()
+
+
 def _mostrar_atajos(window: "MainWindow") -> None:
     """Escribe al lado de cada acción el atajo que la ejecuta, si tiene uno.
 
@@ -337,6 +363,9 @@ def _herramientas(window: "MainWindow") -> None:
         menu.addAction(window.docks[clave].toggleViewAction())
     menu.addSeparator()
     _agregar(menu, "&Restaurar la disposición", window.restore_default_layout)
+    # **Junto a restaurar, y no con los modos del mouse**: no es un modo sino
+    # algo que vuelve a su estado inicial, como la disposición (hito 32).
+    _agregar(menu, "Poner en &cero el contador de la lupa", window.reset_magnifier_count)
 
 
 def _montaje(window: "MainWindow") -> None:

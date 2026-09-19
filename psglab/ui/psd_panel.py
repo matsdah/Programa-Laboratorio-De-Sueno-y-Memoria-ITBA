@@ -61,6 +61,11 @@ class PsdPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         """Crea el panel vacío, antes de que haya ningún espectro calculado."""
         super().__init__(parent)
+        #: Desde qué menú se pide lo que muestra este panel. Ver `set_hint()`.
+        self._pista: str = ""
+        self._pista_visible: bool = False
+        #: Qué es el resultado que se muestra. Ver `set_caption()`.
+        self._titulo: str = ""
         self._curvas: dict[str, pg.PlotDataItem] = {}
         #: Los valores tal como se los pasaron, en µV²/Hz. **No se leen de la
         #: curva.** Con el eje en logarítmico, `PlotDataItem.getData()` devuelve
@@ -178,6 +183,7 @@ class PsdPanel(QWidget):
 
         if frecuencias.size:
             item.setXRange(float(frecuencias[0]), float(frecuencias[-1]), padding=0.02)
+        self._reflejar_titulo()
 
     def set_method_description(self, text: str) -> None:
         """Dice con qué se estimó el espectro, arriba del gráfico.
@@ -193,6 +199,7 @@ class PsdPanel(QWidget):
 
     def clear_spectrum(self) -> None:
         """Deja el panel vacío, como antes del primer cálculo."""
+        self._titulo = ""
         self.set_spectrum(np.array([]), np.empty((0, 0)), [])
         self.metodo.setText("")
 
@@ -232,6 +239,46 @@ class PsdPanel(QWidget):
         """Vacía la tabla de potencias."""
         self._potencias = {}
         self.tabla.setRowCount(0)
+
+    # -- Con el panel vacío ---------------------------------------------------
+
+    def set_hint(self, text: str) -> None:
+        """Lo que se lee mientras el panel está vacío: desde qué menú se pide.
+
+        **Existe porque el panel se puede mostrar sin resultado**: desde
+        «Herramientas», o después de que cambió la señal y el resultado se
+        descartó. Un gráfico en blanco no dice qué hacer con él. El texto lo
+        arma la ventana principal con `menus.menu_path()`, así que sigue al
+        menú si alguien lo renombra.
+        """
+        self._pista = text
+        self._reflejar_titulo()
+
+    def visible_hint(self) -> str:
+        """La pista que se lee hoy, o vacío si el panel tiene un resultado."""
+        return self._pista if self._pista_visible else ""
+
+    def set_caption(self, text: str) -> None:
+        """Qué es el resultado que se muestra: el canal, la ventana, la banda.
+
+        **Va en el gráfico y no en el título del panel.** Hasta el hito 31 la
+        ventana principal se lo ponía al dock con `setWindowTitle()`, y Qt usa
+        ese título como texto de la entrada del panel en «Herramientas»: el
+        menú se renombraba con cada cálculo.
+        """
+        self._titulo = text
+        self._reflejar_titulo()
+
+    def caption(self) -> str:
+        """La descripción del resultado que se muestra, o vacío."""
+        return self._titulo
+
+    def _reflejar_titulo(self) -> None:
+        """El título del gráfico: la pista con el panel vacío, la descripción si no."""
+        vacio = not self._curvas
+        self._pista_visible = bool(self._pista) and vacio
+        texto = self._pista if vacio else self._titulo
+        self.grafico.getPlotItem().setTitle(texto or None)
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 

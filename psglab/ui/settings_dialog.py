@@ -21,8 +21,9 @@ esquemas que el usuario pide guardar.
 Avisa por callbacks y no por señales de Qt, igual que los paneles de análisis y
 las herramientas: la ventana principal los cablea.
 
-Cubre del pliego: ningún ID. Es infraestructura de presentación que agregó el
-refactor de la interfaz.
+Cubre del pliego: V3_F de "Herramienta Übersicht", que es donde se elige cuántas
+ventanas vecinas muestra el panel de contexto. Lo demás es infraestructura de
+presentación que agregó el refactor de la interfaz.
 """
 
 from collections.abc import Callable
@@ -36,6 +37,7 @@ from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
     QColorDialog,
+    QDoubleSpinBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -64,13 +66,21 @@ from psglab.core.nomenclature import Nomenclature
 from psglab.ui import theme
 from psglab.ui.menus import duration_text
 from psglab.ui.preferences import (
+    MAX_AMPLITUDE_BAND_UV,
     MAX_FONT_SIZE,
+    MAX_MAGNIFIER_RADIUS_SECONDS,
+    MAX_MAGNIFIER_ZOOM,
+    MAX_OVERVIEW_WINDOWS,
+    MIN_AMPLITUDE_BAND_UV,
     MIN_FONT_SIZE,
+    MIN_MAGNIFIER_RADIUS_SECONDS,
+    MIN_MAGNIFIER_ZOOM,
     Preferences,
     load_scheme,
     save_scheme,
 )
 from psglab.utils.errors import InvalidPreferencesError, PsgLabError
+from psglab.utils.units import MICROVOLT
 
 #: Las cinco solapas, en el orden en que aparecen.
 TAB_TITLES: tuple[str, ...] = (
@@ -718,8 +728,17 @@ class SettingsDialog(QDialog):
     # -- Otras ---------------------------------------------------------------------
 
     def _armar_otras(self) -> QWidget:
+        """Dos grupos, porque se aplican en momentos distintos.
+
+        Lo de abrir un registro espera al próximo; el panel de contexto cambia
+        enseguida. Un solo cartel de «se aplican la próxima vez» sobre los dos
+        habría mentido sobre el segundo.
+        """
         solapa = QWidget()
-        formulario = QFormLayout(solapa)
+        columna = QVBoxLayout(solapa)
+        al_abrir = QGroupBox("Al abrir un registro")
+        columna.addWidget(al_abrir)
+        formulario = QFormLayout(al_abrir)
         formulario.addRow(
             QLabel("Se aplican la próxima vez que se abra un registro.")
         )
@@ -743,6 +762,53 @@ class SettingsDialog(QDialog):
             )
         )
         formulario.addRow("", self.open_clock_axis)
+
+        # V3_F de la Übersicht: cuántas ventanas vecinas, de cada lado por
+        # separado, porque el pliego la pide asimétrica.
+        contexto = QGroupBox("Panel de contexto (Übersicht)")
+        columna.addWidget(contexto)
+        vecinas = QFormLayout(contexto)
+        self.overview_before = QSpinBox()
+        self.overview_after = QSpinBox()
+        for campo, control, texto in (
+            ("overview_before", self.overview_before, "Ventanas anteriores:"),
+            ("overview_after", self.overview_after, "Ventanas posteriores:"),
+        ):
+            control.setRange(0, MAX_OVERVIEW_WINDOWS)
+            control.valueChanged.connect(
+                lambda valor, campo=campo: self._cambiar(
+                    self._prefs.with_changes(**{campo: int(valor)})
+                )
+            )
+            vecinas.addRow(texto, control)
+
+        # Hito 32: tres ajustes que las herramientas tenían y la ventana no
+        # ofrecía. Se aplican enseguida, como el panel de contexto.
+        herramientas = QGroupBox("Herramientas")
+        columna.addWidget(herramientas)
+        ajustes = QFormLayout(herramientas)
+        self.amplitude_band = QDoubleSpinBox()
+        self.magnifier_radius = QDoubleSpinBox()
+        self.magnifier_zoom = QDoubleSpinBox()
+        for campo, control, texto, minimo, maximo, paso, decimales, sufijo in (
+            ("amplitude_band_uv", self.amplitude_band, "Altura de la banda de amplitud:",
+             MIN_AMPLITUDE_BAND_UV, MAX_AMPLITUDE_BAND_UV, 5.0, 0, f" {MICROVOLT}"),
+            ("magnifier_radius_seconds", self.magnifier_radius, "Radio de la lupa:",
+             MIN_MAGNIFIER_RADIUS_SECONDS, MAX_MAGNIFIER_RADIUS_SECONDS, 0.1, 1, " s"),
+            ("magnifier_zoom", self.magnifier_zoom, "Aumento de la lupa:",
+             MIN_MAGNIFIER_ZOOM, MAX_MAGNIFIER_ZOOM, 0.5, 1, " ×"),
+        ):
+            control.setRange(minimo, maximo)
+            control.setSingleStep(paso)
+            control.setDecimals(decimales)
+            control.setSuffix(sufijo)
+            control.valueChanged.connect(
+                lambda valor, campo=campo: self._cambiar(
+                    self._prefs.with_changes(**{campo: float(valor)})
+                )
+            )
+            ajustes.addRow(texto, control)
+        columna.addStretch(1)
         return solapa
 
     def _cambiar_pagina(self, _indice: int) -> None:
@@ -775,6 +841,11 @@ class SettingsDialog(QDialog):
             self.open_nomenclature.findData(self._prefs.open_nomenclature)
         )
         self.open_clock_axis.setChecked(self._prefs.open_clock_axis)
+        self.overview_before.setValue(self._prefs.overview_before)
+        self.overview_after.setValue(self._prefs.overview_after)
+        self.amplitude_band.setValue(self._prefs.amplitude_band_uv)
+        self.magnifier_radius.setValue(self._prefs.magnifier_radius_seconds)
+        self.magnifier_zoom.setValue(self._prefs.magnifier_zoom)
 
     # -- Tipografía ---------------------------------------------------------------
 
