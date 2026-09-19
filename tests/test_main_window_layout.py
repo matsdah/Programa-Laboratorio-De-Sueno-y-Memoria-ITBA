@@ -144,6 +144,9 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "show_impedance_dialog",
         "load_impedances_dialog",
         "show_ica_dialog",
+        # La compilación de `antropy` en segundo plano, que pide `main.py` por
+        # `create_main_window(warm_up=True)` (hito 31).
+        "warm_up_analysis",
     }
 )
 

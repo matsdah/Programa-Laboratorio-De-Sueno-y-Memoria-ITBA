@@ -96,6 +96,21 @@ MEASURES: Final[tuple[str, ...]] = (
 MIN_SAMPLES: Final[int] = 256
 
 
+def warm_up() -> None:
+    """Deja `antropy` importado, que es lo que más tarda de la primera medida.
+
+    **Importarlo es compilarlo.** `antropy` declara la firma de cada función con
+    `@jit`, así que `numba` compila todo en el `import`, y no al primer uso:
+    7 s en la máquina de desarrollo, 21 s en la del hito 17. Esa espera la
+    pagaba la primera medida de cada sesión, con la ventana congelada.
+
+    La interfaz la llama en otro hilo al arrancar, y cuando el usuario pide una
+    medida ya está hecha. Si la pide antes, el lock de importación de Python
+    lo hace esperar lo que falta: no se compila dos veces.
+    """
+    import antropy  # noqa: F401
+
+
 def _como_array(signal: np.ndarray, nombre: str = "signal") -> np.ndarray:
     """Convierte a array de una dimensión, o rechaza como `PsgLabError`.
 

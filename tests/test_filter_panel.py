@@ -256,3 +256,34 @@ def test_restaurar_sugeridos_respeta_la_frecuencia(panel: FilterPanel):
     panel.restore_defaults()
 
     assert panel.settings()[ChannelKind.EEG].notch_hz is None
+
+
+# -- La primera columna no se edita (hito 31) --------------------------------------
+
+
+def se_edita(tabla, fila, columna: int) -> bool:
+    from PySide6.QtWidgets import QAbstractItemView, QApplication
+
+    tabla.editItem(fila, columna)
+    QApplication.processEvents()
+    editando = tabla.state() == QAbstractItemView.State.EditingState
+    tabla.setFocus()
+    QApplication.processEvents()
+    return editando
+
+
+def test_el_nombre_de_la_fila_no_se_edita(panel_cargado):
+    """`QTreeWidgetItem` no tiene permisos por columna: marcar la fila editable
+    dejaba cambiar también su nombre."""
+    tabla = panel_cargado.tabla
+    tabla.show()
+    fila = tabla.topLevelItem(0)
+
+    assert not se_edita(tabla, fila, 0)
+    assert se_edita(tabla, fila, 1)
+
+
+@pytest.fixture
+def panel_cargado(panel: FilterPanel) -> FilterPanel:
+    panel.set_recording(registro([("C3", ChannelKind.EEG), ("EOG", ChannelKind.EOG)]))
+    return panel

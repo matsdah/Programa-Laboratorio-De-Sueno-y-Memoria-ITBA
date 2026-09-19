@@ -1297,7 +1297,7 @@ def test_el_espectro_es_el_de_la_ventana_que_se_esta_mirando(
 
     ventana.show_psd_dialog()
 
-    assert "ventana 4" in ventana.psd_dialog.windowTitle()
+    assert "ventana 4" in ventana.psd_panel.caption()
 
 
 def test_el_pico_cae_donde_esta_la_onda(ventana: MainWindow, elige_canal):
@@ -1453,7 +1453,7 @@ def test_el_titulo_dice_la_ventana_y_el_promedio(ventana: MainWindow, elige_opci
 
     ventana.show_connectivity_dialog()
 
-    titulo = ventana.connectivity_dialog.windowTitle()
+    titulo = ventana.connectivity_panel.caption()
     assert "ventana 3" in titulo
     assert "promedio" in titulo
 
@@ -2492,7 +2492,7 @@ def test_el_titulo_dice_la_banda_y_entre_que_canales(
 
     ventana.show_connectivity_night_dialog()
 
-    titulo = ventana.metric_dialog.windowTitle()
+    titulo = ventana.metric_panel.caption()
     assert "Theta" in titulo
     assert "noche" in titulo
     for canal in ventana.session.visible_channels:
@@ -3163,7 +3163,7 @@ def test_filtrar_vacia_los_resultados_de_la_señal_anterior(
     ventana.filter_panel.boton_aplicar.click()
 
     assert ventana.psd_panel.channels() == []
-    assert ventana.psd_dialog.windowTitle() == "Espectro"
+    assert ventana.psd_panel.caption() == ""
     assert ventana.psd_panel.visible_hint().startswith("Se pide desde ")
 
 
@@ -3179,3 +3179,69 @@ def test_volver_a_la_original_vacia_los_resultados_de_la_procesada(
 
     assert ventana.psd_panel.channels() == []
     assert not ventana.carteles
+
+
+# -- Hito 31: lo que encontró el recorrido manual ----------------------------
+
+
+def textos_de_herramientas(ventana: MainWindow) -> list[str]:
+    return [accion.text() for accion in ventana.tools_menu.actions()]
+
+
+def test_calcular_no_renombra_el_menu_de_herramientas(
+    ventana: MainWindow, elige_opciones
+):
+    """El título de un dock es el texto de su entrada en «Herramientas», y la
+    ventana se lo cambiaba con cada cálculo: el menú decía «Espectro de «C3» —
+    ventana 1». La descripción va ahora en el panel."""
+    antes = textos_de_herramientas(ventana)
+    canal = ventana.session.visible_channels[0]
+    elige_opciones(
+        (canal, True),
+        (canal, True), ("permutation_entropy", True),
+        ("Delta", True),
+        ("Delta", True),
+    )
+
+    ventana.show_psd_dialog()
+    assert f"«{canal}»" in ventana.psd_panel.caption()
+    ventana.show_complexity_dialog()
+    ventana.show_connectivity_dialog()
+    assert "Delta" in ventana.connectivity_panel.caption()
+    ventana.show_connectivity_night_dialog()
+    assert "noche" in ventana.metric_panel.caption()
+
+    assert textos_de_herramientas(ventana) == antes
+    assert not ventana.carteles
+
+
+def test_main_py_precalienta_en_segundo_plano(qt_app, monkeypatch):
+    """La primera medida de complejidad compilaba `antropy` con la ventana
+    congelada. `main.py` pide compilarlo al arrancar, en otro hilo."""
+    import threading
+
+    from psglab.ui import main_window as modulo
+
+    hilos: list[str] = []
+    monkeypatch.setattr(
+        modulo, "warm_up", lambda: hilos.append(threading.current_thread().name)
+    )
+
+    create_main_window(warm_up=True)
+    for hilo in threading.enumerate():
+        if hilo.name == "precalentar-analisis":
+            hilo.join(timeout=5)
+
+    assert hilos == ["precalentar-analisis"]
+
+
+def test_la_suite_no_precalienta(qt_app, monkeypatch):
+    """Cada ventana de la suite lanzaría un hilo."""
+    from psglab.ui import main_window as modulo
+
+    llamadas: list[bool] = []
+    monkeypatch.setattr(modulo, "warm_up", lambda: llamadas.append(True))
+
+    create_main_window()
+
+    assert llamadas == []

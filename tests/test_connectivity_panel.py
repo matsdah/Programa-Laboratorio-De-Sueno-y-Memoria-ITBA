@@ -140,3 +140,37 @@ def test_la_pista_se_va_con_un_resultado_y_vuelve_al_vaciarlo(panel: Connectivit
     assert panel.visible_hint() == ""
     panel.clear_matrix()
     assert panel.visible_hint() == "Se pide desde Analizar"
+
+
+# -- La barra de color (hito 31) ---------------------------------------------------
+
+
+def test_la_barra_no_sale_de_cero_a_uno(panel: ConnectivityPanel):
+    """Sin límites se podía arrastrar a cualquier lado."""
+    panel._barra.setLevels((-0.5, 2.0))
+    assert panel._barra.levels() == (0.0, 1.0)
+
+
+def test_la_barra_se_arrastra_de_a_centesimos(panel: ConnectivityPanel):
+    """Redondeaba a enteros, y sobre una escala de 0 a 1 eso hacía que todo
+    arrastre volviera a su lugar o saltara al otro extremo."""
+    assert panel._barra.rounding == pytest.approx(0.01)
+
+
+def test_una_matriz_nueva_conserva_el_contraste_elegido(panel: ConnectivityPanel):
+    panel.set_matrix(np.eye(2), ["C3", "C4"])
+    panel._barra.setLevels((0.2, 0.8))
+
+    panel.set_matrix(np.eye(2) * 0.5, ["C3", "C4"])
+
+    assert panel._barra.levels() == (0.2, 0.8)
+    assert tuple(panel._imagen.levels) == pytest.approx((0.2, 0.8))
+
+
+def test_vaciar_el_panel_devuelve_la_barra_a_cero_uno(panel: ConnectivityPanel):
+    panel.set_matrix(np.eye(2), ["C3", "C4"])
+    panel._barra.setLevels((0.2, 0.8))
+
+    panel.clear_matrix()
+
+    assert panel._barra.levels() == (0.0, 1.0)

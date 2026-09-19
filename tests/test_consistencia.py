@@ -1101,18 +1101,19 @@ SIN_CAMINO_A_PROPOSITO: dict[str, str] = {
         )
         for archivo, clase, metodos in (
             ("connectivity_panel.py", "ConnectivityPanel",
-             ("visible_hint", "axis_labels", "color_range")),
+             ("visible_hint", "caption", "axis_labels", "color_range")),
             ("filter_panel.py", "FilterPanel", ("kinds", "displayed_value")),
             ("ica_panel.py", "IcaPanel",
              ("visible_hint", "component_count", "topography_bars", "time_course_data")),
             ("impedance_panel.py", "ImpedancePanel",
              ("unmeasured", "displayed_value", "report_text")),
             ("metric_panel.py", "MetricPanel",
-             ("visible_hint", "window_positions", "gap_windows", "metric_label")),
+             ("visible_hint", "caption", "window_positions", "gap_windows",
+              "metric_label")),
             ("overview_panel.py", "OverviewPanel", ("current_index",)),
             ("psd_panel.py", "PsdPanel",
-             ("visible_hint", "method_description", "band_powers", "band_ranges",
-              "curve_data", "uses_log_power")),
+             ("visible_hint", "caption", "method_description", "band_powers",
+              "band_ranges", "curve_data", "uses_log_power")),
             ("scoring_panel.py", "ScoringPanel", ("status",)),
         )
         for metodo in metodos
@@ -1158,7 +1159,8 @@ def metodos_publicos_de_herramientas_y_paneles() -> list[str]:
     """Cada método público de `tools/` y de `ui/*_panel.py`, como `ruta::Clase.metodo`.
 
     Quedan afuera los que llama Qt por su cuenta —`paintEvent()`,
-    `sizeHint()`—, que nunca aparecen escritos en el código que los usa.
+    `sizeHint()`, el `createEditor()` de un delegate—, que nunca aparecen
+    escritos en el código que los usa.
     """
     archivos = sorted((RAIZ / "psglab" / "tools").glob("*.py")) + sorted(
         (RAIZ / "psglab" / "ui").glob("*_panel.py")
@@ -1172,7 +1174,7 @@ def metodos_publicos_de_herramientas_y_paneles() -> list[str]:
                     isinstance(nodo, ast.FunctionDef)
                     and not nodo.name.startswith("_")
                     and not nodo.name.endswith("Event")
-                    and nodo.name not in ("sizeHint", "minimumSizeHint")
+                    and nodo.name not in ("sizeHint", "minimumSizeHint", "createEditor")
                 ):
                     encontrados.append(f"{ruta_relativa(archivo)}::{clase.name}.{nodo.name}")
     return encontrados

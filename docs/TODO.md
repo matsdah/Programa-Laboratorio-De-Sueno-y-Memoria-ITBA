@@ -31,7 +31,9 @@ fundió «Paneles» con «Herramientas». El
 **[hito 29](#hito-29-verificación-de-las-herramientas)** recorrió nueve
 herramientas buscando caminos muertos y fugas, y el
 **[hito 30](#hito-30-las-decisiones-de-la-verificación)** tomó las cuatro
-decisiones que dejó. Son **treinta y un hitos**, del 0 al 30,
+decisiones que dejó. El **[hito 31](#hito-31-el-recorrido-manual)** corrigió lo
+que encontró el usuario al recorrer el programa con un registro real. Son
+**treinta y dos hitos**, del 0 al 31,
 que son las filas de la tabla de progreso, y están todos cerrados; lo que sigue abierto está anotado
 dentro del hito al que le toca, casi todo en los tres últimos.
 
@@ -132,6 +134,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [28. Un solo menú de herramientas](#hito-28-un-solo-menú-de-herramientas) | — | 0 | ✅ cerrado |
 | [29. Verificación de las herramientas](#hito-29-verificación-de-las-herramientas) | — | 0 | ✅ cerrado |
 | [30. Las decisiones de la verificación](#hito-30-las-decisiones-de-la-verificación) | — | 0 | ✅ cerrado |
+| [31. El recorrido manual](#hito-31-el-recorrido-manual) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1078,7 +1081,7 @@ ventana y no existía.
     cero está rechazado río abajo.
   - **Abrir el panel no filtra nada.** Un menú que filtre con sólo abrirse le
     cambiaría la señal a alguien que entró a mirar qué había.
-  - Test: `tests/test_filter_panel.py`, **19 tests en verde**, más seis por la
+  - Test: `tests/test_filter_panel.py`, **20 tests en verde**, más seis por la
     ventana en `tests/test_entrega.py`.
 
 ---
@@ -1150,7 +1153,7 @@ mostrarse.
     correcto: la dimensión fractal de algo sin variación no está definida. Un
     canal desconectado es un caso real, así que está documentado que ahí el NaN
     significa "esta medida no existe para esta señal" y no "faltaron datos".
-  - Test: `tests/test_complexity.py`, **35 tests en verde**.
+  - Test: `tests/test_complexity.py`, **36 tests en verde**.
 - [x] **`psglab/analysis/connectivity.py`** · ~~3 stubs~~ · sección "Conectividad"
   - **La predicción del plan era falsa y medirla lo mostró.** Se esperaba que
     dos canales idénticos dieran wPLI 0; dan 0,39. Con señales exactamente
@@ -1187,7 +1190,7 @@ mostrarse.
   - **La escala de color es fija de 0 a 1.** Con escala automática, dos ventanas
     con conectividades muy distintas se verían iguales, y comparar ventanas es
     justamente lo que el investigador hace.
-  - Test: `tests/test_connectivity_panel.py`, **12 tests en verde**.
+  - Test: `tests/test_connectivity_panel.py`, **16 tests en verde**.
 
 > **Lo que costó cada medida, medido** sobre una ventana de 30 s a 256 Hz y
 > extrapolado a las 2650 de un registro real. Es lo que decidió la interfaz:
@@ -1295,7 +1298,7 @@ mostrarse.
     de la pantalla, no del electrodo.
   - Importar de un archivo **agrega, no reemplaza**: un laboratorio puede tener
     medido medio montaje.
-  - Test: `tests/test_impedance_panel.py`, **16 tests en verde**.
+  - Test: `tests/test_impedance_panel.py`, **17 tests en verde**.
 
 > **Lo que sigue abierto, y ahora está mejor planteado.** La pregunta ya no es
 > "de dónde salen" sino **cuál de las tres usa el laboratorio**, y de eso
@@ -2334,7 +2337,7 @@ lo mínimo.
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **206 tests en verde**.
+  - Test: `tests/test_entrega.py`, **209 tests en verde**.
 
 ### Lo que se midió
 
@@ -2406,7 +2409,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
   - Test: `tests/test_menus.py`, **37 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
-  - Test: `tests/test_entrega.py`, **206 tests en verde**: tildar
+  - Test: `tests/test_entrega.py`, **209 tests en verde**: tildar
     un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
     oculta.
 
@@ -2427,7 +2430,7 @@ amplitud también quedaban corridas.
 - [x] **El test no podía verlo**: `arrastrar()` armaba el evento con las tres
       posiciones iguales. Ahora lo arma como Qt, con `scenePosition()` relativa
       a la ventana.
-  - Test: `tests/test_entrega.py`, **206 tests en verde**, con que la
+  - Test: `tests/test_entrega.py`, **209 tests en verde**, con que la
     anotación empiece y termine a un píxel del mouse. Falla sin la corrección,
     corrida 7,5 s.
 
@@ -2455,7 +2458,7 @@ clic derecho**.
       más corta, que es la que no se puede señalar en ningún otro lugar.
   - Test: `tests/test_annotator.py`, **28 tests en verde**, con
     `annotation_at()` y las bandas sin la herramienta activada.
-  - Test: `tests/test_entrega.py`, **206 tests en verde**, con eventos de Qt
+  - Test: `tests/test_entrega.py`, **209 tests en verde**, con eventos de Qt
     de verdad: las bandas al ir y volver de época con cada herramienta, y el
     clic derecho con la confirmación aceptada, rechazada y con otra
     herramienta activa. Fallan con la ventana anterior.
@@ -2517,7 +2520,7 @@ llegan a la ventana.
 - [x] **El clic del hipnograma no tenía ningún test con eventos**, y tenía el
       mismo error que el anotador hasta el hito 28: con los tres paneles de
       abajo a la vista, caía en la época 4 en vez de la 3.
-  - Test: `tests/test_entrega.py`, **206 tests en verde**, con dos registros
+  - Test: `tests/test_entrega.py`, **209 tests en verde**, con dos registros
     de verdad. Los cinco fallan sin su corrección.
   - Test: `tests/test_occupancy.py`, **40 tests en verde**.
   - Test: `tests/test_annotator.py`, **28 tests en verde**.
@@ -2587,14 +2590,14 @@ todas con la recomendación que se le hizo.
       métodos y no sólo funciones: son `SIN_CAMINO_A_PROPOSITO` y
       `HUECOS_ABIERTOS` en `tests/test_consistencia.py`. Un hueco abierto no se
       exime: tiene que figurar por su nombre en este archivo.
-  - Test: `tests/test_entrega.py`, **206 tests en verde**. Los siete nuevos
+  - Test: `tests/test_entrega.py`, **209 tests en verde**. Los siete nuevos
     fallan con la ventana anterior.
   - Test: `tests/test_preferences.py`, **47 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **69 tests en verde**.
   - Test: `tests/test_menus.py`, **37 tests en verde**.
   - Test: `tests/test_psd_panel.py`, **25 tests en verde**; y dos por panel en
     `tests/test_metric_panel.py` (**18 tests en verde**),
-    `tests/test_connectivity_panel.py` (**12 tests en verde**) y
+    `tests/test_connectivity_panel.py` (**16 tests en verde**) y
     `tests/test_ica_panel.py` (**22 tests en verde**).
 
 ### Lo que sigue abierto
@@ -2612,6 +2615,64 @@ decidir si lo ofrece es del usuario.
       ventana no la ofrece.
 - [ ] **La lupa: `set_radius_seconds()` y `set_zoom()`.** El tamaño del círculo
       y el aumento no se pueden cambiar.
+
+---
+
+## Hito 31: El recorrido manual
+
+**Cerrado el 19 de septiembre de 2026.** El usuario recorrió el programa con un
+registro real después de los hitos 28 a 30. Anotar, el espectro y los filtros
+anduvieron bien. Reportó cuatro cosas, y todas tenían una causa concreta que la
+suite no podía ver: dependían del menú real, del arrastre del mouse o del
+tiempo.
+
+**No tiene stubs que contar.**
+
+- [x] **Los nombres de «Herramientas» cambiaban al calcular algo.** La ventana
+      le ponía al dock un título como «Espectro de «C3» — ventana 1», y Qt usa
+      ese título como texto de la entrada del panel en el menú. La descripción
+      va ahora en el gráfico, con `set_caption()` en los paneles de espectro,
+      métrica y conectividad, donde el hito 30 ya ponía la pista con el panel
+      vacío. Con más de seis canales, la conectividad de la noche los cuenta en
+      vez de nombrarlos.
+- [x] **La barra de color de la conectividad saltaba.** `ColorBarItem`
+      redondea los extremos a enteros por omisión, y la escala va de 0 a 1:
+      todo arrastre volvía a su lugar o saltaba al otro extremo. Ahora va de a
+      centésimos y sin salir del rango. La imagen se dibuja con los niveles de
+      la barra, así que el contraste que elige el usuario se conserva al pedir
+      otra ventana; vaciar el panel lo vuelve a 0–1.
+- [x] **Se podía editar el nombre de la fila en Filtrar**, y también en
+      Impedancia, donde era un bug: `values()` toma el nombre del canal de esa
+      celda, así que renombrarla asignaba la impedancia a un canal inexistente.
+      `QTreeWidgetItem` no tiene permisos por columna; `FixedColumnDelegate`
+      deja la primera columna fija en los dos paneles.
+- [x] **La primera métrica congelaba la ventana.** `antropy` compila con
+      `numba` al importarse: 7,3 s medidos en esta máquina, 21 s en la del
+      hito 17. El usuario eligió precalentar: `main.py` pide
+      `create_main_window(warm_up=True)`, que importa `antropy` en un hilo al
+      arrancar. Medido: mientras compila, el hilo de la interfaz sigue
+      respondiendo, con tirones ocasionales de hasta 65 ms, y leer dos
+      registros tarda 3,4 s contra 3,3 s sin compilar. La suite no lo prende.
+      **Lo que gana**, con el registro de `data/` (2650 épocas): la primera
+      entropía de permutación tardaba 6,4 s y, con la compilación terminada,
+      tarda 0,3 s. Pedida apenas abierto el registro todavía espera lo que le
+      falta a la compilación: 4,6 s. Lempel-Ziv tarda 2,7 s por el cálculo en
+      sí, compilado o no.
+  - Test: `tests/test_entrega.py`, **209 tests en verde**: el menú no cambia
+    después de los cuatro análisis, y `main.py` precalienta y la suite no.
+  - Test: `tests/test_connectivity_panel.py`, **16 tests en verde**.
+  - Test: `tests/test_filter_panel.py`, **20 tests en verde**, y
+    `tests/test_impedance_panel.py`, **17 tests en verde**.
+  - Test: `tests/test_complexity.py`, **36 tests en verde**.
+
+### Lo que sigue abierto
+
+- [ ] **Las demás operaciones largas siguen congelando la ventana**: leer un
+      registro, la conectividad de la noche, la ICA. El usuario eligió
+      precalentar y nada más; moverlas a otro hilo quedó descartado por ahora.
+- [ ] **El hipnograma y la Übersicht no los pudo verificar el usuario**, porque
+      no conoce su funcionamiento. Se le explicó cómo probarlos; queda por
+      confirmar.
 
 ---
 

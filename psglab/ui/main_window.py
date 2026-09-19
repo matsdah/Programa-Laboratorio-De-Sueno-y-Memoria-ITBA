@@ -47,6 +47,7 @@ siempre: este archivo es el contenedor que reúne las demás funcionalidades sin
 implementar ninguna, y cada una vive en su módulo.
 """
 
+import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -85,7 +86,7 @@ from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
 from psglab.analysis.derivation import derive
-from psglab.analysis.complexity import MEASURES, complexity_by_window
+from psglab.analysis.complexity import MEASURES, complexity_by_window, warm_up
 from psglab.analysis.connectivity import (
     average_connectivity,
     compute_connectivity,
@@ -122,7 +123,7 @@ from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
 from psglab.ui import preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
-from psglab.ui.docks import ORDEN_DE_ANALISIS, build_docks
+from psglab.ui.docks import build_docks
 from psglab.ui.icons import icon
 from psglab.ui.menus import build_menus, duration_text, menu_path
 from psglab.ui.navigation import NavigationBar
@@ -837,8 +838,6 @@ class MainWindow(QMainWindow):
         La ICA la olvida `_olvidar_ica()`.
         """
         self._olvidar_resultados()
-        for clave, titulo in ORDEN_DE_ANALISIS:
-            self.docks[clave].setWindowTitle(titulo)
         if self._session is not None:
             self.filter_panel.set_recording(self._session.recording)
         self._cargar_impedancias()
@@ -859,10 +858,6 @@ class MainWindow(QMainWindow):
         self.psd_panel.clear_band_powers()
         self.metric_panel.clear_metric()
         self.connectivity_panel.clear_matrix()
-        # Los títulos decían de qué canal y qué ventana era el resultado.
-        titulos = dict(ORDEN_DE_ANALISIS)
-        for clave in ("psd", "metric", "connectivity"):
-            self.docks[clave].setWindowTitle(titulos[clave])
 
     def open_scoring(self, path: Path) -> None:
         """Importa un scoring existente sobre el registro abierto (V3_F).
@@ -1667,6 +1662,21 @@ class MainWindow(QMainWindow):
 
     # -- Las esperas largas --------------------------------------------------
 
+    def warm_up_analysis(self) -> None:
+        """Compila en segundo plano lo que la primera medida de complejidad pagaba.
+
+        Ver `analysis.complexity.warm_up()`: importar `antropy` compila todo con
+        `numba`, y eso congelaba la ventana 7 s la primera vez que se pedía una
+        medida. En otro hilo no la congela: medido en el hito 31, el hilo de la
+        interfaz sigue respondiendo con algún tirón de hasta 65 ms, y leer un
+        registro mientras tanto tarda lo mismo.
+
+        `daemon` para que cerrar el programa no espere a que termine. **Lo
+        lanza sólo `main.py`**, por `create_main_window(warm_up=True)`: cada
+        ventana de la suite de tests lanzaría un hilo.
+        """
+        threading.Thread(target=warm_up, name="precalentar-analisis", daemon=True).start()
+
     @contextmanager
     def _trabajando(self, que_hace: str) -> Iterator[None]:
         """Avisa que el programa está trabajando durante una espera larga.
@@ -1679,8 +1689,8 @@ class MainWindow(QMainWindow):
         Y no alcanzaba con elegir medidas rápidas: el hito 17 midió que **la
         primera llamada de complejidad de cada sesión se lleva unos 21 s
         compilando**, cualquiera sea la medida, porque `antropy` arrastra
-        `numba` y el compilado ocurre al primer uso. Esa espera la paga
-        siempre alguien.
+        `numba` y compila al importarse. Desde el hito 31 esa compilación se
+        adelanta en otro hilo al arrancar: ver `warm_up_analysis()`.
 
         El cursor se pone antes de bloquear y Qt lo aplica en el acto; la barra
         de estado queda con el aviso hasta que el cálculo termina.
@@ -1910,9 +1920,10 @@ class MainWindow(QMainWindow):
         # Las bandas son las de la configuración: las convencionales mientras el
         # usuario no las cambie.
         self.psd_panel.set_band_powers(potencias_por_banda)
-        self.psd_dialog.setWindowTitle(
-            f"Espectro de «{canal}» — ventana {ventana + 1}"
-        )
+        # **La descripción va en el panel y no en el título del dock**, que Qt
+        # usa como texto de la entrada en «Herramientas»: el menú se renombraba
+        # con cada cálculo (hito 31).
+        self.psd_panel.set_caption(f"Espectro de «{canal}» — ventana {ventana + 1}")
         self.psd_dialog.show()
         self.psd_dialog.raise_()
 
@@ -1948,7 +1959,7 @@ class MainWindow(QMainWindow):
             return
 
         self.metric_panel.set_metric(medida, series)
-        self.metric_dialog.setWindowTitle(f"{medida} — «{canal}»")
+        self.metric_panel.set_caption(f"{medida} — «{canal}»")
         self.metric_dialog.show()
         self.metric_dialog.raise_()
 
@@ -1996,7 +2007,7 @@ class MainWindow(QMainWindow):
 
         self.connectivity_panel.set_matrix(matriz, canales)
         promedio = average_connectivity(matriz)
-        self.connectivity_dialog.setWindowTitle(
+        self.connectivity_panel.set_caption(
             f"Conectividad en {banda} — ventana {ventana + 1} — "
             f"promedio {promedio:.3f}".replace(".", ",", 1)
         )
@@ -2058,8 +2069,13 @@ class MainWindow(QMainWindow):
         self.metric_panel.set_metric(
             etiqueta, {f"Promedio de {len(canales)} canales": promedios}
         )
-        self.metric_dialog.setWindowTitle(
-            f"{etiqueta} a lo largo de la noche — {', '.join(canales)}"
+        # Los canales van en su renglón, y con más de seis se cuentan en vez de
+        # nombrarse: treinta y dos nombres no entran en el ancho del gráfico.
+        promediados = (
+            ", ".join(canales) if len(canales) <= 6 else f"{len(canales)} canales visibles"
+        )
+        self.metric_panel.set_caption(
+            f"{etiqueta} a lo largo de la noche<br>{promediados}"
         )
         self.metric_dialog.show()
         self.metric_dialog.raise_()

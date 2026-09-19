@@ -325,3 +325,14 @@ def test_measures_y_el_mapa_interno_no_se_pueden_separar():
     from psglab.analysis.complexity import _POR_NOMBRE
 
     assert set(_POR_NOMBRE) == set(MEASURES)
+
+
+def test_precalentar_deja_antropy_importado():
+    """Importarlo es compilarlo: es lo que la interfaz adelanta al arrancar."""
+    import sys
+
+    from psglab.analysis.complexity import warm_up
+
+    warm_up()
+
+    assert "antropy" in sys.modules
