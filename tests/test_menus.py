@@ -317,9 +317,9 @@ def test_herramientas_tiene_todos_los_paneles(ventana: MainWindow):
 
     for dock in ventana.docks.values():
         assert dock.toggleViewAction() in acciones
-    assert [a for a in acciones if not a.isSeparator()][-1].text() == (
-        "&Restaurar la disposición"
-    )
+    # Restaurar va en el último bloque; qué más va ahí lo fija
+    # `test_herramientas_va_en_cuatro_bloques`.
+    assert "&Restaurar la disposición" in [a.text() for a in bloques(ventana.tools_menu)[-1]]
 
 
 def test_herramientas_va_en_cuatro_bloques(ventana: MainWindow):
@@ -336,7 +336,12 @@ def test_herramientas_va_en_cuatro_bloques(ventana: MainWindow):
         if clave not in de_analisis
     ]
     assert analisis == [ventana.docks[clave].toggleViewAction() for clave in de_analisis]
-    assert [a.text() for a in restaurar] == ["&Restaurar la disposición"]
+    # Lo que vuelve a su estado inicial: la disposición y, desde el hito 32, el
+    # contador de la lupa, que no es un modo del mouse.
+    assert [a.text() for a in restaurar] == [
+        "&Restaurar la disposición",
+        "Poner en &cero el contador de la lupa",
+    ]
 
 
 def test_ninguna_entrada_de_herramientas_se_repite(ventana: MainWindow):

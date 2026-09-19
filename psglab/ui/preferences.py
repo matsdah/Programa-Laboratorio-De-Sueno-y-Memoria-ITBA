@@ -27,12 +27,14 @@ from typing import Final
 
 from psglab.analysis.psd import DEFAULT_BANDS, METHODS, validate_band
 from psglab.config import (
+    AMPLITUDE_BAND_UV,
     DEFAULT_VIEW_SECONDS,
     MIN_VIEW_SECONDS,
     OVERVIEW_WINDOWS_AFTER,
     OVERVIEW_WINDOWS_BEFORE,
 )
 from psglab.core.nomenclature import Nomenclature
+from psglab.tools.magnifier import RADIO_INICIAL_SEGUNDOS, ZOOM_INICIAL
 from psglab.ui.theme import (
     DEFAULT_SCHEME_NAME,
     ColorScheme,
@@ -63,6 +65,16 @@ MAX_FONT_SIZE: Final[int] = 48
 #: no pone un tope; éste es el de la pantalla: con cinco de cada lado son once
 #: ventanas en un panel que suele tener unos 225 px, y más ya no se distinguen.
 MAX_OVERVIEW_WINDOWS: Final[int] = 5
+
+#: Rangos de los ajustes de las herramientas (hito 32). Los valores por omisión
+#: son los de siempre —la banda, la del pliego—; los rangos son los de la
+#: pantalla: fuera de ellos la banda o la lupa dejan de servir para mirar.
+MIN_AMPLITUDE_BAND_UV: Final[float] = 5.0
+MAX_AMPLITUDE_BAND_UV: Final[float] = 500.0
+MIN_MAGNIFIER_RADIUS_SECONDS: Final[float] = 0.1
+MAX_MAGNIFIER_RADIUS_SECONDS: Final[float] = 10.0
+MIN_MAGNIFIER_ZOOM: Final[float] = 1.0
+MAX_MAGNIFIER_ZOOM: Final[float] = 20.0
 
 
 @dataclass(frozen=True)
@@ -101,6 +113,10 @@ class Preferences:
             (V3_F). De 0 a `MAX_OVERVIEW_WINDOWS`; cero no muestra ese lado.
         overview_after: cuántas posteriores. Es independiente de la anterior:
             el pliego la pide asimétrica.
+        amplitude_band_uv: la altura de la banda de amplitud, en µV. Arranca en
+            la del pliego; hay criterios que usan otros umbrales.
+        magnifier_radius_seconds: el radio de la lupa, en segundos de señal.
+        magnifier_zoom: cuánto amplía la lupa. 1 es sin aumento.
 
     **Todo valor se comprueba al construir.** Es el criterio de
     `core/recording.py`: rechazar al armar el objeto lo que después no se puede
@@ -126,6 +142,9 @@ class Preferences:
     open_clock_axis: bool = False
     overview_before: int = OVERVIEW_WINDOWS_BEFORE
     overview_after: int = OVERVIEW_WINDOWS_AFTER
+    amplitude_band_uv: float = AMPLITUDE_BAND_UV
+    magnifier_radius_seconds: float = RADIO_INICIAL_SEGUNDOS
+    magnifier_zoom: float = ZOOM_INICIAL
 
     def __post_init__(self) -> None:
         """Rechaza lo que el programa no podría usar. Ver el docstring de la clase."""
@@ -164,6 +183,16 @@ class Preferences:
         ):
             if not (_es_entero(valor) and 0 <= valor <= MAX_OVERVIEW_WINDOWS):
                 _rechazar(f"{que} (entre 0 y {MAX_OVERVIEW_WINDOWS})", valor)
+        for que, valor, minimo, maximo in (
+            ("la altura de la banda de amplitud", self.amplitude_band_uv,
+             MIN_AMPLITUDE_BAND_UV, MAX_AMPLITUDE_BAND_UV),
+            ("el radio de la lupa", self.magnifier_radius_seconds,
+             MIN_MAGNIFIER_RADIUS_SECONDS, MAX_MAGNIFIER_RADIUS_SECONDS),
+            ("el aumento de la lupa", self.magnifier_zoom,
+             MIN_MAGNIFIER_ZOOM, MAX_MAGNIFIER_ZOOM),
+        ):
+            if not (_es_numero(valor) and math.isfinite(valor) and minimo <= valor <= maximo):
+                _rechazar(f"{que} (entre {minimo:g} y {maximo:g})", valor)
 
     def with_changes(self, **changes: object) -> "Preferences":
         """Las mismas preferencias con algunos campos cambiados, ya comprobados.
@@ -473,6 +502,9 @@ _LECTORES: Final[dict[str, object]] = {
     "open_clock_axis": _identidad,
     "overview_before": _identidad,
     "overview_after": _identidad,
+    "amplitude_band_uv": _identidad,
+    "magnifier_radius_seconds": _identidad,
+    "magnifier_zoom": _identidad,
 }
 
 
@@ -520,6 +552,9 @@ def save(preferences: Preferences, path: Path | None = None) -> None:
     datos["open_clock_axis"] = preferences.open_clock_axis
     datos["overview_before"] = preferences.overview_before
     datos["overview_after"] = preferences.overview_after
+    datos["amplitude_band_uv"] = preferences.amplitude_band_uv
+    datos["magnifier_radius_seconds"] = preferences.magnifier_radius_seconds
+    datos["magnifier_zoom"] = preferences.magnifier_zoom
 
     temporal = destino.with_name(destino.name + ".tmp")
     try:

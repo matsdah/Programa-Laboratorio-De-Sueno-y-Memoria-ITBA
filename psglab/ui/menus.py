@@ -363,6 +363,9 @@ def _herramientas(window: "MainWindow") -> None:
         menu.addAction(window.docks[clave].toggleViewAction())
     menu.addSeparator()
     _agregar(menu, "&Restaurar la disposición", window.restore_default_layout)
+    # **Junto a restaurar, y no con los modos del mouse**: no es un modo sino
+    # algo que vuelve a su estado inicial, como la disposición (hito 32).
+    _agregar(menu, "Poner en &cero el contador de la lupa", window.reset_magnifier_count)
 
 
 def _montaje(window: "MainWindow") -> None:

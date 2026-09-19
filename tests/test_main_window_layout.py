@@ -60,8 +60,10 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # El reloj de la reproducción, que los tests hacen avanzar a mano.
         "playback",
         # Los seis paneles de análisis y sus contenedores. **El panel y el
-        # contenedor son atributos distintos a propósito**: los tests preguntan
-        # por el título del contenedor y por el contenido del panel.
+        # contenedor son atributos distintos a propósito**: los tests muestran
+        # el contenedor y preguntan por el contenido del panel. El título del
+        # contenedor es fijo desde el hito 31: es el texto de su entrada en
+        # «Herramientas».
         "psd_panel",
         "psd_dialog",
         "metric_panel",
@@ -147,6 +149,8 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         # La compilación de `antropy` en segundo plano, que pide `main.py` por
         # `create_main_window(warm_up=True)` (hito 31).
         "warm_up_analysis",
+        # El contador de la lupa, desde «Herramientas» (hito 32).
+        "reset_magnifier_count",
     }
 )
 

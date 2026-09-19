@@ -11,6 +11,7 @@ picos de la señal y la herramienta lleva la cuenta.
 Cubre del pliego: V1_F, V2_F de "Herramienta Lupa".
 """
 
+import weakref
 from collections.abc import Sequence
 
 from psglab.core.session import Session
@@ -48,9 +49,21 @@ class MagnifierTool(ViewerTool):
         self._radius_seconds: float = RADIO_INICIAL_SEGUNDOS
         self._zoom: float = ZOOM_INICIAL
         self._clicks: int = 0
+        #: De qué registro es la cuenta. **Débil**, por lo mismo que en la
+        #: ocupación: una referencia común mantendría vivo el registro anterior.
+        self._sesion_de_la_cuenta: weakref.ref[Session] | None = None
 
     def activate(self, session: Session) -> None:
-        """Empieza a publicar la lupa y queda a la espera del mouse."""
+        """Empieza a publicar la lupa y queda a la espera del mouse.
+
+        **La cuenta es del registro**: activarla sobre otro la vuelve a cero.
+        Hasta el hito 32 pasaba de un registro al siguiente, igual que las
+        líneas de la ocupación hasta el hito 29.
+        """
+        anterior = self._sesion_de_la_cuenta() if self._sesion_de_la_cuenta else None
+        if anterior is not session:
+            self._clicks = 0
+        self._sesion_de_la_cuenta = weakref.ref(session)
         self._session = session
         self.notify_changed()
 
@@ -60,7 +73,7 @@ class MagnifierTool(ViewerTool):
         Conservar la cuenta es deliberado: el usuario cuenta picos, apaga la
         lupa para ver la señal sin el círculo encima, y vuelve. Reiniciarla al
         desactivar le perdería el trabajo sin avisar; para eso está
-        `reset_count()`.
+        `reset_count()`, que desde el hito 32 se pide en «Herramientas».
         """
         self._session = None
         self._x_seconds = None

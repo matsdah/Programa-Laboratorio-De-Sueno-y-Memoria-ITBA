@@ -124,6 +124,8 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("channel_by_name", lambda v: registro().channel_by_name(v)),
         ("channels_of_kind", lambda v: registro().channels_of_kind(v)),
         ("get_segment(channel_names=...)", lambda v: registro().get_segment(0, 10, [v])),
+        ("flat_channels(channel_names=...)", lambda v: registro().flat_channels(0, 10, [v])),
+        ("flat_channels(start_sample=...)", lambda v: registro().flat_channels(v, 10)),
         ("Recording(original_sampling_rate=...)", lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0, v)], np.zeros((1, 10)), 100.0)),
     ],
     "psglab/core/scoring.py": [

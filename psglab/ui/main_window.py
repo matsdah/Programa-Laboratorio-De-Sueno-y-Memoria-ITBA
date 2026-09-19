@@ -48,6 +48,7 @@ implementar ninguna, y cada una vive en su módulo.
 """
 
 import threading
+from collections import Counter
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -107,13 +108,19 @@ from psglab.analysis.impedance import (
 from psglab.analysis.filters import apply_filters, settings_for_kinds
 from psglab.analysis.psd import band_power, compute_psd, describe_method
 from psglab.analysis.reference import average_reference, rereference
-from psglab.core.windows import count_windows, epoch_to_seconds, window_to_clock_time
+from psglab.core.windows import (
+    count_windows,
+    epoch_to_seconds,
+    window_to_clock_time,
+    window_to_samples,
+)
 from psglab.exporters import DEFAULT_FILENAMES
 from psglab.exporters.annotations_txt import export_annotations
 from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_formats import SCORING_FORMATS, export_scoring_as
 from psglab.readers.base import file_dialog_filter, read_recording
 from psglab.readers.scoring_reader import read_scoring
+from psglab.tools.amplitude_band import AmplitudeBandTool
 from psglab.tools.annotator import AnnotatorTool, annotation_bands
 from psglab.tools.base import Overlay, Tool, ViewerTool
 from psglab.tools.histogram import HistogramTool
@@ -1341,6 +1348,18 @@ class MainWindow(QMainWindow):
             return
         self.set_amplitude_scale(valor)
 
+    def reset_magnifier_count(self) -> None:
+        """Pone en cero el contador de picos de la lupa (V2_F de la Lupa).
+
+        `MagnifierTool.reset_count()` existía y ningún menú lo llamaba, aunque
+        la lupa prometía que para eso estaba: la cuenta sólo se podía perder
+        cerrando el programa (hito 32).
+        """
+        lupa = self._tools.get("magnifier")
+        if isinstance(lupa, MagnifierTool):
+            lupa.reset_count()
+            self._update_tool_readout()
+
     def restore_default_layout(self) -> None:
         """Vuelve a la disposición de paneles con la que el programa abre.
 
@@ -1578,6 +1597,14 @@ class MainWindow(QMainWindow):
         contexto = self._tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.set_span(prefs.overview_before, prefs.overview_after)
+        # Hito 32: los tres `set_*` tampoco tenían ningún camino desde la ventana.
+        banda = self._tools.get("amplitude_band")
+        if isinstance(banda, AmplitudeBandTool):
+            banda.set_height_uv(prefs.amplitude_band_uv)
+        lupa = self._tools.get("magnifier")
+        if isinstance(lupa, MagnifierTool):
+            lupa.set_radius_seconds(prefs.magnifier_radius_seconds)
+            lupa.set_zoom(prefs.magnifier_zoom)
 
     def _aplicar_colores_de_clase(self, sesion: Session) -> None:
         """Pone en la sesión los colores que el usuario eligió por clase.
@@ -1861,6 +1888,56 @@ class MainWindow(QMainWindow):
             lambda registro: average_reference(registro),
         )
 
+    # -- El canal plano (hito 32) -------------------------------------------
+    #
+    # Con un canal plano el espectro sale en cero, la dimensión de Higuchi no
+    # existe y la conectividad cuenta 0: las tres respuestas son correctas, y sin
+    # explicarlas parecen un error del programa. Los números no cambian; la
+    # regla de qué es plano es `Recording.flat_channels()`.
+
+    def _planos_en_la_ventana(self, ventana: int, canales: list[str]) -> list[str]:
+        """Cuáles de esos canales están planos en una época."""
+        if self._session is None:
+            return []
+        registro = self._session.recording
+        inicio, fin = window_to_samples(ventana, registro.sampling_rate)
+        return registro.flat_channels(inicio, fin, canales)
+
+    def _ventanas_planas(self, canales: list[str]) -> Counter[str]:
+        """En cuántas épocas de la noche está plano cada canal que lo esté alguna vez.
+
+        Recorre la noche una sola vez con todos los canales: con el registro de
+        prueba son 2650 épocas, y cada una es un recorte sin copia.
+        """
+        planas: Counter[str] = Counter()
+        if self._session is None:
+            return planas
+        registro = self._session.recording
+        for ventana in range(count_windows(registro.n_samples, registro.sampling_rate)):
+            planas.update(self._planos_en_la_ventana(ventana, canales))
+        return planas
+
+    def _nota_de_la_noche(self, series: dict[str, np.ndarray]) -> str:
+        """El renglón que explica los ceros y los huecos de una medida de la noche."""
+        total = max((len(v) for v in series.values()), default=0)
+        planas = self._ventanas_planas(list(series))
+        if planas:
+            canal, cuantas = planas.most_common(1)[0]
+            return (
+                f"<br>«{canal}» está plano en {cuantas} de {total} ventanas: ahí la "
+                "medida vale 0 o no existe."
+            )
+        huecos = max((int(np.isnan(v).sum()) for v in series.values()), default=0)
+        if huecos:
+            return f"<br>{huecos} de {total} ventanas sin valor: son demasiado cortas para medir."
+        return ""
+
+    @staticmethod
+    def _nombrar(canales: list[str]) -> str:
+        """«C3», «C4» y «O1», como se nombran los canales en el resto del programa."""
+        nombres = [f"«{canal}»" for canal in canales]
+        return nombres[0] if len(nombres) == 1 else ", ".join(nombres[:-1]) + " y " + nombres[-1]
+
     def show_psd_dialog(self) -> None:
         """Calcula el espectro de la ventana actual y lo muestra (V1_F de PSD).
 
@@ -1923,7 +2000,10 @@ class MainWindow(QMainWindow):
         # **La descripción va en el panel y no en el título del dock**, que Qt
         # usa como texto de la entrada en «Herramientas»: el menú se renombraba
         # con cada cálculo (hito 31).
-        self.psd_panel.set_caption(f"Espectro de «{canal}» — ventana {ventana + 1}")
+        descripcion = f"Espectro de «{canal}» — ventana {ventana + 1}"
+        if self._planos_en_la_ventana(ventana, [canal]):
+            descripcion += "<br>El canal está plano en esta ventana: no hay potencia que medir."
+        self.psd_panel.set_caption(descripcion)
         self.psd_dialog.show()
         self.psd_dialog.raise_()
 
@@ -1959,7 +2039,9 @@ class MainWindow(QMainWindow):
             return
 
         self.metric_panel.set_metric(medida, series)
-        self.metric_panel.set_caption(f"{medida} — «{canal}»")
+        self.metric_panel.set_caption(
+            f"{medida} — «{canal}»" + self._nota_de_la_noche(series)
+        )
         self.metric_dialog.show()
         self.metric_dialog.raise_()
 
@@ -2007,10 +2089,17 @@ class MainWindow(QMainWindow):
 
         self.connectivity_panel.set_matrix(matriz, canales)
         promedio = average_connectivity(matriz)
-        self.connectivity_panel.set_caption(
+        descripcion = (
             f"Conectividad en {banda} — ventana {ventana + 1} — "
             f"promedio {promedio:.3f}".replace(".", ",", 1)
         )
+        planos = self._planos_en_la_ventana(ventana, canales)
+        if planos:
+            descripcion += (
+                f"<br>{'Plano' if len(planos) == 1 else 'Planos'} en esta ventana: "
+                f"{self._nombrar(planos)}. Su conectividad cuenta 0 y baja el promedio."
+            )
+        self.connectivity_panel.set_caption(descripcion)
         self.connectivity_dialog.show()
         self.connectivity_dialog.raise_()
 
@@ -2074,8 +2163,15 @@ class MainWindow(QMainWindow):
         promediados = (
             ", ".join(canales) if len(canales) <= 6 else f"{len(canales)} canales visibles"
         )
+        planos = self._ventanas_planas(canales)
+        nota = ""
+        if planos:
+            nota = (
+                f"<br>Con tramos planos: {self._nombrar(list(planos))}. Ahí su "
+                "conectividad cuenta 0 y baja el promedio."
+            )
         self.metric_panel.set_caption(
-            f"{etiqueta} a lo largo de la noche<br>{promediados}"
+            f"{etiqueta} a lo largo de la noche<br>{promediados}{nota}"
         )
         self.metric_dialog.show()
         self.metric_dialog.raise_()
@@ -2165,6 +2261,18 @@ class MainWindow(QMainWindow):
             cargadas = load_impedances_from_file(Path(ruta))
         except PsgLabError as error:
             self._show_error(error)
+            return
+        # **Un archivo sin impedancias no es un error de la biblioteca**, que
+        # devuelve un diccionario vacío, pero sí una sorpresa: sin este aviso
+        # importarlo no hacía nada y no decía nada (hito 32).
+        if not cargadas:
+            self._show_error(
+                PsgLabError(
+                    f"«{Path(ruta).name}» no trae ninguna impedancia, así que no se "
+                    "cambió nada.",
+                    details="El archivo está vacío o sólo tiene comentarios.",
+                )
+            )
             return
 
         # Se conserva lo que ya estaba escrito a mano: el archivo agrega, no

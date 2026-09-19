@@ -3245,3 +3245,104 @@ def test_la_suite_no_precalienta(qt_app, monkeypatch):
     create_main_window()
 
     assert llamadas == []
+
+
+# -- Hito 32: los pendientes del TODO -----------------------------------------
+
+
+def test_el_contador_de_la_lupa_se_pone_en_cero_desde_el_menu(ventana: MainWindow):
+    lupa = ventana._tools["magnifier"]
+    ventana._toggle_tool("magnifier", True)
+    lupa.on_mouse_press(1.0, 0.0, "left")
+    lupa.on_mouse_press(2.0, 0.0, "left")
+    accion = next(
+        a for a in ventana.tools_menu.actions() if a.data() == "reset_magnifier_count"
+    )
+
+    accion.trigger()
+
+    assert lupa.click_count == 0
+    assert "0" in ventana.tool_readout.text()
+
+
+def test_los_ajustes_de_herramienta_llegan_a_las_herramientas(ventana: MainWindow):
+    ventana.apply_preferences(
+        ventana.current_preferences.with_changes(
+            amplitude_band_uv=100.0, magnifier_radius_seconds=2.5, magnifier_zoom=8.0
+        )
+    )
+
+    assert ventana._tools["amplitude_band"].height_uv == 100.0
+    ventana._toggle_tool("magnifier", True)
+    ventana._tools["magnifier"].on_mouse_move(10.0, 0.0)
+    (circulo,) = ventana._tools["magnifier"].overlays()
+    assert (circulo.radius_seconds, circulo.zoom) == (2.5, 8.0)
+
+
+@pytest.fixture
+def ventana_con_un_plano(qt_app, tmp_path, monkeypatch):
+    """Dos EEG, el primero en cero: un electrodo desconectado."""
+    carteles: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+    )
+    principal = create_main_window()
+    vhdr = escribir_brainvision(
+        tmp_path / "plano",
+        segundos=WINDOW_SECONDS * 3,
+        canales=[("C3", "µV"), ("C4", "µV"), ("EOG-izq", "µV")],
+    )
+    eeg = vhdr.with_suffix(".eeg")
+    datos = np.frombuffer(eeg.read_bytes(), dtype="<i2").reshape(-1, 3).copy()
+    datos[:, 0] = 0
+    eeg.write_bytes(datos.tobytes())
+    principal.open_recording(vhdr)
+    principal.carteles = carteles
+    return principal
+
+
+def test_el_espectro_de_un_canal_plano_lo_dice(ventana_con_un_plano, elige_opciones):
+    """Salía un gráfico vacío en escala logarítmica, sin explicación."""
+    elige_opciones(("C3", True))
+    ventana_con_un_plano.show_psd_dialog()
+    assert "plano" in ventana_con_un_plano.psd_panel.caption()
+
+    elige_opciones(("C4", True))
+    ventana_con_un_plano.show_psd_dialog()
+    assert "plano" not in ventana_con_un_plano.psd_panel.caption()
+
+
+def test_la_conectividad_dice_que_canal_plano_baja_el_promedio(
+    ventana_con_un_plano, elige_opciones
+):
+    elige_opciones(("Delta", True))
+    ventana_con_un_plano.show_connectivity_dialog()
+    assert "«C3»" in ventana_con_un_plano.connectivity_panel.caption()
+    assert "baja el promedio" in ventana_con_un_plano.connectivity_panel.caption()
+
+
+def test_la_metrica_de_un_canal_plano_lo_dice(ventana_con_un_plano, elige_opciones):
+    """Higuchi da NaN en todas las ventanas, y el panel quedaba vacío."""
+    elige_opciones(("C3", True), ("higuchi_fractal_dimension", True))
+    ventana_con_un_plano.show_complexity_dialog()
+    assert "«C3» está plano en 3 de 3 ventanas" in ventana_con_un_plano.metric_panel.caption()
+
+
+def test_importar_impedancias_de_un_archivo_vacio_avisa(
+    ventana: MainWindow, tmp_path: Path, monkeypatch
+):
+    """Devolvía un diccionario vacío, que es correcto como biblioteca, y la
+    ventana no hacía nada ni decía nada."""
+    vacio = tmp_path / "impedancias.txt"
+    vacio.write_text("# sólo un comentario\n", encoding="utf-8")
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(vacio), ""))
+    )
+    ventana.show_impedance_dialog()
+    antes = ventana.impedance_panel.values()
+
+    ventana.load_impedances_dialog()
+
+    assert ventana.impedance_panel.values() == antes
+    assert len(ventana.carteles) == 1
+    assert "impedancias.txt" in ventana.carteles[0]

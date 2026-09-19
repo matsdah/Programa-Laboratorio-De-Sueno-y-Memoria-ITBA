@@ -81,7 +81,8 @@ el registro anterior entero: con dos noches grandes, el doble de memoria. El
 anotador y la ocupación la guardaban hasta el hito 29. Lo que la herramienta
 quiera conservar al apagarse —las líneas de la ocupación, la cuenta de la
 lupa— no puede ser la sesión, y si depende del registro tiene que descartarse
-al activarse sobre otro: la ocupación lo sabe con una referencia débil.
+al activarse sobre otro: la ocupación y la lupa (desde el hito 32) lo saben
+con una referencia débil.
 
 ## Dos detalles del diseño que conviene no revertir
 

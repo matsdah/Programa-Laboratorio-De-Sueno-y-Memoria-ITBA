@@ -604,3 +604,32 @@ def test_no_se_pueden_pedir_mas_vecinas_que_el_tope(dialogo: SettingsDialog):
 
     assert dialogo.overview_before.maximum() == MAX_OVERVIEW_WINDOWS
     assert dialogo.overview_after.minimum() == 0
+
+
+# -- Los ajustes de las herramientas (hito 32) ------------------------------------
+
+
+@pytest.mark.parametrize(
+    "control, campo, valor",
+    [
+        ("amplitude_band", "amplitude_band_uv", 100.0),
+        ("magnifier_radius", "magnifier_radius_seconds", 2.5),
+        ("magnifier_zoom", "magnifier_zoom", 8.0),
+    ],
+)
+def test_cada_ajuste_de_herramienta_se_aplica(
+    dialogo: SettingsDialog, cambios, control: str, campo: str, valor: float
+):
+    getattr(dialogo, control).setValue(valor)
+
+    assert getattr(ultima(cambios), campo) == pytest.approx(valor)
+
+
+def test_los_ajustes_de_herramienta_se_muestran_sin_avisar(dialogo: SettingsDialog, cambios):
+    dialogo.set_preferences(
+        Preferences().with_changes(amplitude_band_uv=120.0, magnifier_zoom=6.0)
+    )
+
+    assert dialogo.amplitude_band.value() == 120.0
+    assert dialogo.magnifier_zoom.value() == 6.0
+    assert cambios == []

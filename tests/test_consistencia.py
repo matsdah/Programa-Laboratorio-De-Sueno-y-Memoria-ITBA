@@ -1137,22 +1137,11 @@ SIN_CAMINO_A_PROPOSITO: dict[str, str] = {
 #: usuario podría querer y no tiene cómo. No se eximen: cada uno tiene que
 #: figurar por su nombre en `docs/TODO.md`, que es donde se decide. Salir de
 #: esta tabla es conectarlo a la ventana o pasarlo a la de arriba con su motivo.
-HUECOS_ABIERTOS: dict[str, str] = {
-    "psglab/tools/magnifier.py::MagnifierTool.reset_count": (
-        "el contador de picos no se puede poner en cero, y `deactivate()` "
-        "promete que para eso está este método."
-    ),
-    "psglab/tools/amplitude_band.py::AmplitudeBandTool.set_height_uv": (
-        "su docstring dice que la altura se deja configurable porque hay "
-        "criterios con otros umbrales, y la ventana no la ofrece."
-    ),
-    "psglab/tools/magnifier.py::MagnifierTool.set_radius_seconds": (
-        "el tamaño del círculo de la lupa no se puede cambiar."
-    ),
-    "psglab/tools/magnifier.py::MagnifierTool.set_zoom": (
-        "el aumento de la lupa no se puede cambiar."
-    ),
-}
+#:
+#: **Hoy está vacía**: los cuatro que encontró el hito 30 —`reset_count()`,
+#: `set_height_uv()`, `set_radius_seconds()` y `set_zoom()`— se conectaron en el
+#: hito 32. La tabla se queda para el próximo.
+HUECOS_ABIERTOS: dict[str, str] = {}
 
 
 def metodos_publicos_de_herramientas_y_paneles() -> list[str]:
