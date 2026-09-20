@@ -14,7 +14,8 @@ Este archivo está en español, como el resto de la documentación del proyecto
 BrainVision, se navega y se scorea, las herramientas andan y los análisis de la
 Parte 2 se piden desde la ventana. **Qué se puede pedir desde la ventana y qué
 quedó sólo para un script vive en [`docs/TODO.md`](docs/TODO.md)** —hoy
-Anotaciones.txt e Informacion.txt son lo segundo—. La Parte 2 tiene
+Informacion.txt es lo segundo, y Anotaciones.txt no está en el menú pero se
+puede guardar desde el cartel del trabajo sin exportar—. La Parte 2 tiene
 dependencias propias que **hay que instalar**; ver "Comandos".
 
 **Cuántos hitos hay, cuál está abierto y qué quedó sin resolver vive sólo en

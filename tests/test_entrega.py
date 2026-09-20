@@ -263,11 +263,19 @@ def test_exportar_con_una_extension_que_no_es_de_ningun_formato_avisa(
 @pytest.fixture
 def dialogo_de_guardado(monkeypatch):
     """Responde el diálogo de guardado con la ruta que se fije, y anota con
-    qué nombre propuesto y qué filtro se abrió."""
-    estado: dict[str, object] = {"respuesta": "", "llamadas": []}
+    qué nombre propuesto y qué filtro se abrió.
+
+    **`respuestas` contesta distinto cada vez**, en orden: el cartel del
+    trabajo sin exportar abre un diálogo por cada cosa en juego, y con una sola
+    ruta el segundo archivo pisaría al primero.
+    """
+    estado: dict[str, object] = {"respuesta": "", "respuestas": [], "llamadas": []}
 
     def responder(_padre, _titulo, propuesto, filtro, *_a, **_k) -> tuple[str, str]:
         estado["llamadas"].append((propuesto, filtro))
+        pendientes = estado["respuestas"]
+        if pendientes:
+            return str(pendientes.pop(0)), ""
         return str(estado["respuesta"]), ""
 
     monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(responder))
@@ -3411,23 +3419,32 @@ def test_importar_impedancias_de_un_archivo_vacio_avisa(
     assert "impedancias.txt" in ventana.carteles[0]
 
 
-# -- El scoring sin exportar (hito 33) ----------------------------------------
+# -- El trabajo sin exportar (hito 33) ----------------------------------------
 #
 # Hasta la auditoría del 19 de septiembre, cerrar la ventana o abrir otro
 # registro descartaba el scoring sin preguntar. El cartel es modal, así que acá
 # se lo contesta con `cartel_del_scoring`; el último test arma el de verdad.
+#
+# **Y las anotaciones cuentan igual**, desde el cierre del hito: el cartel
+# miraba sólo el scoring, que es lo único que el menú exporta, así que una
+# sesión con eventos anotados y ninguna fase puesta se cerraba sin preguntar.
 
 
 @pytest.fixture
 def cartel_del_scoring(monkeypatch):
-    """Contesta el cartel con la respuesta que se fije y anota cada pregunta."""
-    estado: dict[str, object] = {"respuesta": "cancelar", "preguntas": []}
+    """Contesta el cartel con la respuesta que se fije y anota cada pregunta.
 
-    def responder(_ventana: MainWindow, al_hacer: str) -> str:
+    Guarda también **qué estaba en juego** en cada una, que es lo que decide el
+    texto del cartel y qué diálogos de guardado se abren.
+    """
+    estado: dict[str, object] = {"respuesta": "cancelar", "preguntas": [], "en_juego": []}
+
+    def responder(_ventana: MainWindow, al_hacer: str, en_juego: list[str]) -> str:
         estado["preguntas"].append(al_hacer)
+        estado["en_juego"].append(list(en_juego))
         return str(estado["respuesta"])
 
-    monkeypatch.setattr(MainWindow, "_preguntar_por_el_scoring", responder)
+    monkeypatch.setattr(MainWindow, "_preguntar_por_el_trabajo", responder)
     return estado
 
 
@@ -3658,6 +3675,119 @@ def test_un_scoring_que_no_se_puede_leer_no_pregunta(
     assert len(ventana.carteles) == 1
 
 
+def anotar_algo(ventana: MainWindow, cuantas: int = 1) -> None:
+    """Marca eventos como los marca el anotador: sobre el conjunto de la sesión."""
+    for numero in range(cuantas):
+        ventana.session.annotations.add(
+            Annotation("Spindle", onset_sample=100 * (numero + 1), duration_samples=50)
+        )
+
+
+def test_cerrar_con_anotaciones_y_nada_scoreado_pregunta(
+    ventana: MainWindow, cartel_del_scoring
+):
+    """**El hueco que dejó el cartel del hito 33.** Miraba sólo el scoring, que
+    es lo único que el menú exporta, así que una noche de eventos anotados sin
+    ninguna fase puesta se cerraba sin preguntar nada."""
+    ventana.show()
+    anotar_algo(ventana, cuantas=3)
+
+    assert not ventana.close()
+    assert cartel_del_scoring["preguntas"] == ["cerrar el programa"]
+    assert cartel_del_scoring["en_juego"] == [["annotations"]]
+    cartel_del_scoring["respuesta"] = "descartar"
+    ventana.close()
+
+
+def test_el_cartel_nombra_lo_que_esta_en_juego(ventana: MainWindow, monkeypatch):
+    """Decir «el scoring» sobre una sesión que sólo tiene anotaciones manda a
+    buscar al lugar equivocado lo que se va a perder."""
+    textos: list[str] = []
+
+    def exec_sin_mostrar(cartel: QMessageBox) -> int:
+        # Sin clic en ningún botón: `_preguntar_por_el_trabajo()` devuelve
+        # "cancelar", que acá no importa. Lo que se mira es el texto.
+        textos.append(cartel.text())
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", exec_sin_mostrar)
+    anotar_algo(ventana, cuantas=2)
+    for en_juego in (["scoring"], ["annotations"], ["scoring", "annotations"]):
+        ventana._preguntar_por_el_trabajo("cerrar el programa", en_juego)
+
+    assert textos[0].startswith("El scoring de ")
+    assert textos[1].startswith("Las 2 anotaciones de ")
+    assert textos[2].startswith("El scoring y las 2 anotaciones de ")
+
+
+def test_exportar_desde_el_cartel_guarda_las_anotaciones(
+    ventana: MainWindow, cartel_del_scoring, dialogo_de_guardado, tmp_path: Path
+):
+    """**Avisar de una pérdida sin ofrecer cómo evitarla es peor que no
+    avisar**: Anotaciones.txt no está en el menú desde el hito 23, así que sin
+    esto el cartel sería un callejón sin salida."""
+    ventana.show()
+    anotar_algo(ventana)
+    cartel_del_scoring["respuesta"] = "exportar"
+    dialogo_de_guardado["respuesta"] = tmp_path / NOMBRES["annotations"]
+
+    assert ventana.close()
+    escrito = (tmp_path / NOMBRES["annotations"]).read_text(encoding="utf-8")
+    assert "Spindle" in escrito
+    ((propuesto, _),) = dialogo_de_guardado["llamadas"]
+    assert propuesto == NOMBRES["annotations"]
+
+
+def test_con_scoring_y_anotaciones_se_guardan_los_dos(
+    ventana: MainWindow, cartel_del_scoring, dialogo_de_guardado, tmp_path: Path
+):
+    """Un diálogo por cada cosa en juego, el scoring primero."""
+    ventana.show()
+    scorear_algo(ventana)
+    anotar_algo(ventana)
+    cartel_del_scoring["respuesta"] = "exportar"
+    dialogo_de_guardado["respuestas"] = [
+        tmp_path / NOMBRES["scoring"],
+        tmp_path / NOMBRES["annotations"],
+    ]
+
+    assert ventana.close()
+    assert cartel_del_scoring["en_juego"] == [["scoring", "annotations"]]
+    assert [propuesto for propuesto, _ in dialogo_de_guardado["llamadas"]] == [
+        NOMBRES["scoring"],
+        NOMBRES["annotations"],
+    ]
+    assert (tmp_path / NOMBRES["scoring"]).exists()
+    assert "Spindle" in (tmp_path / NOMBRES["annotations"]).read_text(encoding="utf-8")
+
+
+def test_cancelar_el_guardado_de_las_anotaciones_no_cierra(
+    ventana: MainWindow, cartel_del_scoring, dialogo_de_guardado, tmp_path: Path
+):
+    """Con el scoring guardado y las anotaciones no, todavía hay algo que
+    perder: cerrar igual sería perderlo después de haber elegido guardarlo."""
+    ventana.show()
+    scorear_algo(ventana)
+    anotar_algo(ventana)
+    cartel_del_scoring["respuesta"] = "exportar"
+    dialogo_de_guardado["respuestas"] = [tmp_path / NOMBRES["scoring"], ""]
+
+    assert not ventana.close()
+    cartel_del_scoring["respuesta"] = "descartar"
+    ventana.close()
+
+
+def test_las_anotaciones_ya_exportadas_no_se_preguntan(
+    ventana: MainWindow, cartel_del_scoring, tmp_path: Path
+):
+    ventana.show()
+    anotar_algo(ventana)
+    ventana.export("annotations", tmp_path / NOMBRES["annotations"])
+
+    assert ventana.close()
+    assert cartel_del_scoring["preguntas"] == []
+
+
 def test_el_cartel_de_verdad_ofrece_las_tres_salidas(ventana: MainWindow, monkeypatch):
     """El de verdad, sin mostrarlo: se le hace clic a cada botón.
 
@@ -3682,7 +3812,10 @@ def test_el_cartel_de_verdad_ofrece_las_tres_salidas(ventana: MainWindow, monkey
         ("Cancelar", "cancelar"),
     ):
         visto["elegir"] = texto
-        assert ventana._preguntar_por_el_scoring("cerrar el programa") == respuesta
+        assert (
+            ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
+            == respuesta
+        )
 
     assert visto["botones"] == {"Exportar…", "Descartar", "Cancelar"}
     assert visto["por_omision"] == "Exportar…"

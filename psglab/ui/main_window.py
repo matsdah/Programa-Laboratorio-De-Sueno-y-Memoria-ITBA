@@ -814,7 +814,7 @@ class MainWindow(QMainWindow):
         # **Lo que se perdería con la sesión anterior, antes de soltarla**
         # (hito 33). Va después de leer y no antes: si el archivo nuevo no se
         # puede abrir, la sesión anterior sigue y no hay nada que preguntar.
-        if not self._puede_descartarse_el_scoring(f"abrir «{path.name}»"):
+        if not self._puede_descartarse_el_trabajo(f"abrir «{path.name}»"):
             return
 
         # Las herramientas activas siguen guardando la sesión que recibieron
@@ -949,7 +949,7 @@ class MainWindow(QMainWindow):
             # pisa nada. Nada de lo que hace el cartel eleva hacia afuera
             # —`export()` atrapa lo suyo—, así que vive adentro de este `try`
             # sin cambiarle el sentido.
-            if not self._puede_descartarse_el_scoring(f"importar «{path.name}»"):
+            if not self._puede_descartarse_el_trabajo(f"importar «{path.name}»"):
                 return
             # **Se sustituye adentro de la sesión, no se arma otra.** Importar
             # un scoring no es abrir otro registro: el usuario sigue parado en
@@ -971,10 +971,12 @@ class MainWindow(QMainWindow):
         El diálogo de guardado propone el nombre de archivo que fija el pliego,
         tomándolo de `psglab.exporters.DEFAULT_FILENAMES`.
 
-        **Desde la ventana sólo se pide el scoring**: Anotaciones.txt e
-        Informacion.txt salieron del menú el 16 de septiembre de 2026, pero
-        este método los sigue escribiendo, y es la vía para pedirlos desde un
-        script.
+        **Del menú sólo se pide el scoring**: Anotaciones.txt e
+        Informacion.txt salieron de ahí el 16 de septiembre de 2026, pero este
+        método los sigue escribiendo, y es la vía para pedirlos desde un
+        script. Anotaciones.txt tiene además una puerta más en la ventana
+        desde el cierre del hito 33: el cartel del trabajo sin exportar, que
+        ofrece guardarlas antes de perderlas.
 
         Args:
             kind: "scoring", "annotations" o "information".
@@ -993,6 +995,8 @@ class MainWindow(QMainWindow):
                 self._session.mark_scoring_exported()
             elif kind == "annotations":
                 export_annotations(self._session.annotations, path)
+                # Por el mismo motivo que el scoring: recién cuando se escribió.
+                self._session.mark_annotations_exported()
             elif kind == "information":
                 export_information(
                     self._session.recording,
@@ -1026,7 +1030,7 @@ class MainWindow(QMainWindow):
             return
         self.statusBar().showMessage(f"Se exportó {path.name}", 5000)
 
-    # -- El scoring sin exportar (hito 33) ---------------------------------
+    # -- El trabajo sin exportar (hito 33) ---------------------------------
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Cerrar la ventana es cerrar el programa: antes, el scoring sin exportar.
@@ -1035,43 +1039,69 @@ class MainWindow(QMainWindow):
         preguntar nada, con la noche scoreada adentro. Si el usuario cancela,
         la ventana queda abierta como estaba, reproducción incluida.
         """
-        if not self._puede_descartarse_el_scoring("cerrar el programa"):
+        if not self._puede_descartarse_el_trabajo("cerrar el programa"):
             event.ignore()
             return
         self.playback.stop()
         super().closeEvent(event)
 
-    def _puede_descartarse_el_scoring(self, al_hacer: str) -> bool:
-        """Si se puede seguir sin perder scoring que el usuario no exportó.
+    def _lo_que_se_perderia(self) -> list[str]:
+        """Qué archivos de salida tienen trabajo que no está en ningún lado.
+
+        Devuelve claves de `export()`, en el orden en que se ofrecen: primero
+        el scoring, que es el trabajo principal.
+        """
+        if self._session is None:
+            return []
+        en_juego: list[str] = []
+        if self._session.has_unexported_scoring():
+            en_juego.append("scoring")
+        if self._session.has_unexported_annotations():
+            en_juego.append("annotations")
+        return en_juego
+
+    def _puede_descartarse_el_trabajo(self, al_hacer: str) -> bool:
+        """Si se puede seguir sin perder trabajo que el usuario no exportó.
 
         **El programa no autoguarda**, por decisión del usuario en el hito 33:
         guardar a escondidas obliga a elegir dónde y en qué formato por él. Así
-        que cuando algo va a soltar el scoring —cerrar, abrir otro registro,
-        importar uno encima— y `Session.has_unexported_scoring()` dice que hay
-        trabajo que no está en ningún archivo, se pregunta con tres salidas:
+        que cuando algo va a soltar la sesión —cerrar, abrir otro registro,
+        importar un scoring encima— y quedó trabajo fuera de todo archivo, se
+        pregunta con tres salidas:
 
-        - **Exportar…** abre el mismo diálogo que Ctrl+S y sigue sólo si el
-          scoring quedó escrito. Cancelar ese diálogo, o que escribir falle,
-          deja todo como estaba.
+        - **Exportar…** abre el diálogo de guardado de **cada cosa en juego** y
+          sigue sólo si no quedó nada sin exportar. Cancelar un diálogo, o que
+          escribir falle, deja todo como estaba.
         - **Descartar** sigue y lo pierde, que es lo que el usuario eligió.
         - **Cancelar**, o cerrar el cartel, no hace nada.
+
+        **Las anotaciones cuentan desde el cierre del hito 33.** El cartel
+        miraba sólo el scoring, que es lo único que la ventana ofrece exportar
+        desde el menú, así que una sesión con eventos anotados y ninguna fase
+        puesta se cerraba sin preguntar. Que Anotaciones.txt no esté en el menú
+        —decisión del hito 23, sin confirmar con el cliente— no puede
+        significar que se pierda en silencio: el cartel las exporta, con el
+        mismo diálogo que el scoring, porque avisar de una pérdida sin ofrecer
+        cómo evitarla es peor que no avisar.
 
         Args:
             al_hacer: lo que se está por hacer, para el texto del cartel:
                 "cerrar el programa", "abrir «noche.edf»",
                 "importar «Scoring.txt»".
         """
-        if self._session is None or not self._session.has_unexported_scoring():
+        en_juego = self._lo_que_se_perderia()
+        if not en_juego:
             return True
-        respuesta = self._preguntar_por_el_scoring(al_hacer)
+        respuesta = self._preguntar_por_el_trabajo(al_hacer, en_juego)
         if respuesta == "descartar":
             return True
         if respuesta == "exportar":
-            self.export_scoring_dialog()
-            return not self._session.has_unexported_scoring()
+            for que in en_juego:
+                self._export_dialog(que)
+            return not self._lo_que_se_perderia()
         return False
 
-    def _preguntar_por_el_scoring(self, al_hacer: str) -> str:
+    def _preguntar_por_el_trabajo(self, al_hacer: str, en_juego: list[str]) -> str:
         """Muestra el cartel y devuelve "exportar", "descartar" o "cancelar".
 
         Está aparte de la decisión para que los tests puedan contestarlo: el
@@ -1080,14 +1110,24 @@ class MainWindow(QMainWindow):
         **Exportar es el botón por omisión y Escape es cancelar**: un Enter
         apurado no puede costar la noche, y apretar Escape es arrepentirse de
         cerrar, no de haber scoreado.
+
+        **El texto nombra lo que está en juego**, que no siempre es lo mismo:
+        decir "el scoring" sobre una sesión que sólo tiene anotaciones manda a
+        buscar al lugar equivocado lo que se va a perder.
         """
         nombre = self._session.recording.file_path.name if self._session else ""
+        anotaciones = len(self._session.annotations.all()) if self._session else 0
+        que_hay = {
+            ("scoring",): "El scoring",
+            ("annotations",): f"Las {anotaciones} anotaciones",
+            ("scoring", "annotations"): f"El scoring y las {anotaciones} anotaciones",
+        }[tuple(en_juego)]
         cartel = QMessageBox(self)
         cartel.setIcon(QMessageBox.Icon.Warning)
-        cartel.setWindowTitle("Scoring sin exportar")
-        cartel.setText(f"El scoring de «{nombre}» tiene cambios que no se exportaron.")
+        cartel.setWindowTitle("Trabajo sin exportar")
+        cartel.setText(f"{que_hay} de «{nombre}» no se exportaron.")
         cartel.setInformativeText(
-            f"Si no lo exportás, se pierden al {al_hacer}. ¿Exportarlo antes?"
+            f"Si no los exportás, se pierden al {al_hacer}. ¿Exportarlos antes?"
         )
         exportar = cartel.addButton("Exportar…", QMessageBox.ButtonRole.AcceptRole)
         descartar = cartel.addButton("Descartar", QMessageBox.ButtonRole.DestructiveRole)

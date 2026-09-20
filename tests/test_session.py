@@ -23,7 +23,7 @@ from psglab.config import (
     MAX_SCALE_UV,
     MIN_SCALE_UV,
 )
-from psglab.core.annotations import AnnotationSet
+from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
@@ -1171,6 +1171,60 @@ def test_lo_importado_esta_en_su_archivo(session):
     session.set_scoring(importado)
 
     assert not session.has_unexported_scoring()
+
+
+def test_anotar_deja_trabajo_sin_exportar(session):
+    """**La otra mitad del trabajo.** El cartel miraba sólo el scoring, así que
+    una noche de eventos anotados sin ninguna fase se perdía sin preguntar."""
+    session.annotations.add(Annotation("Spindle", 100, 50))
+
+    assert session.has_unexported_annotations()
+
+
+def test_un_registro_recien_abierto_no_tiene_anotaciones_sin_exportar(session):
+    assert not session.has_unexported_annotations()
+
+
+def test_exportar_deja_las_anotaciones_a_salvo(session):
+    session.annotations.add(Annotation("Spindle", 100, 50))
+    session.mark_annotations_exported()
+
+    assert not session.has_unexported_annotations()
+
+
+def test_una_anotacion_mas_despues_de_exportar_vuelve_a_contar(session):
+    session.annotations.add(Annotation("Spindle", 100, 50))
+    session.mark_annotations_exported()
+    session.annotations.add(Annotation("Complejo K", 300, 50))
+
+    assert session.has_unexported_annotations()
+
+
+def test_anotar_y_borrarla_no_es_un_cambio(session):
+    """La misma regla que deshacer una fase: se compara contra el archivo."""
+    session.annotations.add(Annotation("Spindle", 100, 50))
+    session.annotations.remove_at(0)
+
+    assert not session.has_unexported_annotations()
+
+
+def test_sin_ninguna_anotacion_no_hay_nada_que_perder(session):
+    """Borrarlas todas después de exportarlas no es trabajo que guardar:
+    exportarlas daría un archivo sin eventos. Es lo que decide el scoring
+    vacío, sobre la otra mitad."""
+    session.annotations.add(Annotation("Spindle", 100, 50))
+    session.mark_annotations_exported()
+    session.annotations.remove_at(0)
+
+    assert not session.has_unexported_annotations()
+
+
+def test_definir_una_clase_no_es_trabajo_sin_exportar(session):
+    """Los exportadores escriben anotaciones y no clases, y el color elegido
+    vive en las preferencias, que sí se guardan solas."""
+    session.annotations.add_label("Apnea", "#123456")
+
+    assert not session.has_unexported_annotations()
 
 
 # -- Un canal con valores que no son números (hito 33) ------------------------

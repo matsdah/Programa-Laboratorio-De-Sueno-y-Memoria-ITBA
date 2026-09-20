@@ -220,7 +220,10 @@ def _scoring(window: "MainWindow") -> None:
     Las exportaciones se arman recorriendo `SCORING_FORMATS`, así que un
     formato nuevo aparece solo. **Anotaciones.txt e Informacion.txt ya no se
     ofrecen desde acá**, por decisión del 16 de septiembre de 2026:
-    `MainWindow.export()` los sigue escribiendo, pero sólo desde un script.
+    `MainWindow.export()` los sigue escribiendo, pero del menú no se piden.
+    Anotaciones.txt tiene una salida de emergencia desde el hito 33 —el cartel
+    del trabajo sin exportar ofrece guardarlas antes de perderlas—, que no es
+    lo mismo que poder pedirlas cuando uno quiere.
     """
     scoring = window.menuBar().addMenu("&Scoring")
     _agregar(scoring, "&Importar scoring…", window.open_scoring_dialog)

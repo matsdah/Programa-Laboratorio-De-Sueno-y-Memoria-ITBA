@@ -24,7 +24,7 @@ from psglab.config import (
     MAX_SCALE_UV,
     MIN_SCALE_UV,
 )
-from psglab.core.annotations import AnnotationSet
+from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Recording
 from psglab.core.scoring import EpochScore, Scoring
@@ -116,6 +116,9 @@ class Session:
         #: `has_unexported_scoring()`.
         self._scoring_a_salvo = self._foto_del_scoring()
         self._annotations = annotations
+        #: Y cómo estaban las anotaciones, por el mismo motivo. Ver
+        #: `has_unexported_annotations()`.
+        self._anotaciones_a_salvo = self._foto_de_las_anotaciones()
         self._current_window = 0
         self._visible_channels: list[str] = recording.channel_names()
         self._selected_channels: list[str] = []
@@ -275,6 +278,49 @@ class Session:
         falló, el trabajo sigue sin estar en ningún lado.
         """
         self._scoring_a_salvo = self._foto_del_scoring()
+
+    def _foto_de_las_anotaciones(self) -> tuple[Annotation, ...]:
+        """Las anotaciones tal como están, para compararlas después.
+
+        `Annotation` es inmutable y `all()` las devuelve ordenadas, así que la
+        foto es estable: guardarla es guardar referencias.
+
+        **Las clases y sus colores quedan afuera a propósito.** Definir una
+        clase no es trabajo que se pierda al cerrar: los exportadores escriben
+        anotaciones y no clases, y el color que el usuario eligió vive en sus
+        preferencias, que sí se guardan solas.
+        """
+        return tuple(self._annotations.all())
+
+    def has_unexported_annotations(self) -> bool:
+        """Si hay eventos anotados que no están en ningún archivo.
+
+        **Es la misma regla que `has_unexported_scoring()`, sobre la otra
+        mitad del trabajo.** El cartel del hito 33 miraba sólo el scoring, que
+        es lo que la ventana ofrece exportar desde el menú, así que una sesión
+        con una noche de eventos anotados y ninguna fase puesta se cerraba sin
+        preguntar nada.
+
+        Compara contra cómo estaban la última vez que quedaron en un archivo
+        —al abrir el registro o al exportarlas—, así que agregar una anotación
+        y borrarla no cuenta.
+
+        **Sin ninguna anotación no hay nada que perder**, aunque antes las
+        hubiera: exportarlas daría un archivo sin eventos. Es la misma decisión
+        que toma el scoring vacío.
+        """
+        actuales = self._foto_de_las_anotaciones()
+        if not actuales:
+            return False
+        return actuales != self._anotaciones_a_salvo
+
+    def mark_annotations_exported(self) -> None:
+        """Registra que las anotaciones, tal como están, quedaron escritas.
+
+        La llama la ventana después de exportarlas bien, por el mismo motivo
+        que `mark_scoring_exported()`.
+        """
+        self._anotaciones_a_salvo = self._foto_de_las_anotaciones()
 
     def set_recording(self, recording: Recording) -> None:
         """Reemplaza el registro por uno procesado, sin perder la sesión.

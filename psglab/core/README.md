@@ -48,14 +48,20 @@ perdería, y además dejaría a las herramientas ya activadas apuntando a la
 vieja —guardan la que recibieron en `activate()`—, así que el histograma
 dibujaría el scoring anterior sin que nada fallara.
 
-**`Session` sabe si hay scoring sin exportar**, con
-`has_unexported_scoring()`: lo compara contra cómo estaba la última vez que
-quedó en un archivo —al abrir el registro, al importar un scoring o al
-exportarlo, que es cuando la ventana llama a `mark_scoring_exported()`—. Es lo
-que la ventana pregunta antes de cerrar, de abrir otro registro o de importar
-un scoring encima, y vive acá
+**`Session` sabe si hay trabajo sin exportar**, con
+`has_unexported_scoring()` y `has_unexported_annotations()`: compara cada mitad
+contra cómo estaba la última vez que quedó en un archivo —al abrir el registro,
+al importar un scoring o al exportarlo, que es cuando la ventana llama a
+`mark_scoring_exported()` o a `mark_annotations_exported()`—. Es lo que la
+ventana pregunta antes de cerrar, de abrir otro registro o de importar un
+scoring encima, y vive acá
 porque decidir qué cuenta como trabajo es una regla: deshacer un cambio no
-cuenta, y un scoring sin ninguna fase ni arousal no tiene nada que perder.
+cuenta, y ni un scoring sin ninguna fase ni arousal ni un registro sin ninguna
+anotación tienen algo que perder.
+
+Las **anotaciones entraron al cerrarse el hito 33**, con las mismas reglas:
+definir una clase de evento no es trabajo que se pierda —los exportadores
+escriben anotaciones y no clases— y anotar algo y borrarlo tampoco.
 
 **`Session` avisa sola cuando cambia de ventana**, por `add_window_listener()`.
 Son callbacks y no señales de Qt, por el mismo motivo que en `tools/base.py`.
