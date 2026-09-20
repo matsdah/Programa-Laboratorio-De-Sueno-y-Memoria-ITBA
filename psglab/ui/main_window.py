@@ -1622,6 +1622,12 @@ class MainWindow(QMainWindow):
         self.open_button.setIcon(icon("abrir", theme.icon_ink(scheme)))
         self.overview_panel.update()
         self._redraw_histogram()
+        # **La tilde del menú, cuando el esquema no vino del menú**: lo elige
+        # también el archivo de preferencias al arrancar, y desde el hito 35 el
+        # menú «Ver» es el único lugar donde se ve cuál está puesto.
+        accion = self.acciones_de_esquema.get(scheme.name)
+        if accion is not None and not accion.isChecked():
+            accion.setChecked(True)
 
         self._preferencias = self._preferencias.with_scheme(scheme)
         if remember:

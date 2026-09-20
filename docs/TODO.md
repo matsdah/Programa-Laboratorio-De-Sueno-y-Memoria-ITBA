@@ -37,9 +37,12 @@ que encontró el usuario al recorrer el programa con un registro real, y el
 quedaban. El **[hito 33](#hito-33-la-auditoría-del-19-de-septiembre)**, abierto,
 ordena lo que encontró la auditoría del 19 de septiembre, y el
 **[hito 34](#hito-34-el-rediseño-de-la-pantalla-principal)** llevó a la ventana
-el diseño que el usuario aprobó. Son **treinta y cinco hitos**, del 0 al 34,
-que son las filas de la tabla de progreso; está abierto sólo el 33, y lo que
-sigue abierto de los anteriores está anotado dentro del hito al que le toca.
+el diseño que el usuario aprobó, y el
+**[hito 35](#hito-35-dos-esquemas-y-ninguna-perilla)** dejó los colores en dos
+esquemas y sacó la solapa que los editaba. Son **treinta y seis hitos**, del 0
+al 35, que son las filas de la tabla de progreso; está abierto sólo el 33, y lo
+que sigue abierto de los anteriores está anotado dentro del hito al que le
+toca.
 
 **El 34 se hizo con el 33 abierto**, y es la única vez que pasa. Lo que le
 queda al 33 no es código contra el que se pudiera escribir de más: son una
@@ -148,6 +151,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [32. Los pendientes del TODO](#hito-32-los-pendientes-del-todo) | — | 0 | ✅ cerrado |
 | [33. La auditoría del 19 de septiembre](#hito-33-la-auditoría-del-19-de-septiembre) | — | 0 | ⬜ abierto |
 | [34. El rediseño de la pantalla principal](#hito-34-el-rediseño-de-la-pantalla-principal) | — | 0 | ✅ cerrado |
+| [35. Dos esquemas y ninguna perilla](#hito-35-dos-esquemas-y-ninguna-perilla) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -616,7 +620,7 @@ la regla vive en `core/`.
 > usuario las líneas que acaba de dibujar sin que se haya movido a ningún lado.
 
 - [x] **`psglab/ui/grid.py`** · ~~4 stubs~~ · V1_P, V2_F "Diseño de la interfaz"
-  - Test: `tests/test_grid.py`, **23 tests en verde**. No dibuja píxeles:
+  - Test: `tests/test_grid.py`, **19 tests en verde**. No dibuja píxeles:
     calcula posiciones, así que se puede afirmar sobre la grilla sin mirar una
     pantalla.
   - Las posiciones **se multiplican, no se acumulan**: sumar 0,5 sesenta veces
@@ -1807,14 +1811,14 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       Las curvas no tenían pluma y salían todas del mismo gris; ahora cada
       canal toma su color. **El esquema Claro deja el programa exactamente como
       era.**
-  - Test: `tests/test_theme.py`, **108 tests en verde**.
-  - Test: `tests/test_preferences.py`, **71 tests en verde**.
+  - Test: `tests/test_theme.py`, **60 tests en verde**.
+  - Test: `tests/test_preferences.py`, **66 tests en verde**.
 - [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
       y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
       un menú «&Análisis» se reescribió para verificar cada acción, que es lo
       que protegía.
-  - Test: `tests/test_menus.py`, **37 tests en verde**.
+  - Test: `tests/test_menus.py`, **40 tests en verde**.
 - [x] **Fase 3 — Paneles acoplables.** La señal es el widget central y los otros
       diez paneles se mueven, se apilan o se cierran; la disposición se guarda
       al cerrar. Los seis paneles de análisis conservaron el nombre de su
@@ -1850,7 +1854,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       de anotaciones, Espectro de potencia, Otras y Tipografía. Todo se aplica
       en el momento. `psd.validate_band()` pasó a ser pública, para que la regla
       de qué banda es válida siga siendo una sola.
-  - Test: `tests/test_settings_dialog.py`, **77 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **46 tests en verde**.
 - [x] **Fase 9 — Cierre.** La conectividad de la noche entera, que era el
       pendiente del [hito 20](#hito-20-la-red). Los menús muestran los atajos
       sin registrarlos otra vez, F6 recorre los paneles, y el contraste de los
@@ -1938,7 +1942,7 @@ reorganiza lo que ya andaba.
       repetía la solapa Colores de esa misma ventana.
 - [x] **La barra de menú deja de ser la nativa**, para que en macOS no
       desaparezcan el botón de abrir ni «Configuración», que no tiene submenú.
-  - Test: `tests/test_menus.py`, **37 tests en verde**.
+  - Test: `tests/test_menus.py`, **40 tests en verde**.
   - Test: `tests/test_icons.py`, **31 tests en verde**.
 
 ### El scoring en cuatro formatos
@@ -1972,7 +1976,7 @@ reorganiza lo que ya andaba.
       y deja el aspecto nativo, que sigue al sistema. `theme.icon_ink()` elige
       la tinta, y la usan los dos lugares que dibujan iconos. Venía del hito
       22; apareció al dibujar el icono de abrir.
-  - Test: `tests/test_theme.py`, **108 tests en verde**.
+  - Test: `tests/test_theme.py`, **60 tests en verde**.
 
 ### Lo que queda por confirmar
 
@@ -2021,7 +2025,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
       `apply_saved_layout()` pasó a `apply_saved_preferences()` y ya no
       restaura nada, y la ventana dejó de guardar la disposición al cerrar.
   - Test: `tests/test_docks.py`, **39 tests en verde**.
-  - Test: `tests/test_preferences.py`, **71 tests en verde**.
+  - Test: `tests/test_preferences.py`, **66 tests en verde**.
 - [x] **Los botones de página.** ≪ ‹ › ≫ en la barra de abajo, con chevrones
       para que no se confundan con los triángulos de la época.
       `Viewport.at_start` y `Viewport.at_end` dicen cuándo apagarlos.
@@ -2131,7 +2135,7 @@ puntos, relleno y decimación propia, y nada de eso se usa acá.
       un único `_LineasDeFondo` las dibuja todas en su `paint()`. **Las líneas
       de cero de los canales se mudaron ahí**: eran otra `InfiniteLine` por
       canal, con el mismo costo.
-  - Test: `tests/test_grid.py`, **23 tests en verde**, con el de regresión que
+  - Test: `tests/test_grid.py`, **19 tests en verde**, con el de regresión que
     exige que sea **un** objeto y no uno por línea.
 - [x] **La banda de la época se mueve, no se rehace.** Se crea una vez y
       después sólo se le pide el rango, que además casi siempre es el mismo.
@@ -2267,14 +2271,14 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       Intercalados en el mismo proceso, un paso de reproducción de 30 s dio
       17,5–22,2 ms con Claro y 13,1–21,0 con Papel: la hoja no cuesta
       repintado.
-  - Test: `tests/test_theme.py`, **108 tests en verde**.
-  - Test: `tests/test_settings_dialog.py`, **77 tests en verde**, con el
+  - Test: `tests/test_theme.py`, **60 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **46 tests en verde**, con el
     botón nuevo de «Fondo de la ventana».
 - [x] **Las tipografías IBM Plex**, Sans y Mono, en `psglab/resources/fonts/`
       con su licencia, la OFL 1.1. `ui/fonts.py` las registra al arrancar; si
       faltan, el programa arranca igual. El control de licencias del CI no las
       ve, porque sólo mira pip: están anotadas en `docs/ARQUITECTURA.md`.
-  - Test: `tests/test_fonts.py`, **10 tests en verde**.
+  - Test: `tests/test_fonts.py`, **11 tests en verde**.
 
 ### Los detalles
 
@@ -2424,7 +2428,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
 - [x] `HistogramTool.label` pasa a «Hipnograma». El módulo, la clase y los IDs
       del pliego siguen diciendo «histograma»: son identificadores y
       trazabilidad.
-  - Test: `tests/test_menus.py`, **37 tests en verde**, con que
+  - Test: `tests/test_menus.py`, **40 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
   - Test: `tests/test_entrega.py`, **258 tests en verde**: tildar
@@ -2611,9 +2615,9 @@ todas con la recomendación que se le hizo.
       exime: tiene que figurar por su nombre en este archivo.
   - Test: `tests/test_entrega.py`, **258 tests en verde**. Los siete nuevos
     fallan con la ventana anterior.
-  - Test: `tests/test_preferences.py`, **71 tests en verde**.
-  - Test: `tests/test_settings_dialog.py`, **77 tests en verde**.
-  - Test: `tests/test_menus.py`, **37 tests en verde**.
+  - Test: `tests/test_preferences.py`, **66 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **46 tests en verde**.
+  - Test: `tests/test_menus.py`, **40 tests en verde**.
   - Test: `tests/test_psd_panel.py`, **25 tests en verde**; y dos por panel en
     `tests/test_metric_panel.py` (**18 tests en verde**),
     `tests/test_connectivity_panel.py` (**16 tests en verde**) y
@@ -2730,8 +2734,8 @@ le hizo, y mantuvo afuera las operaciones largas.
   - Test: `tests/test_recording.py`, **44 tests en verde**, y
     `tests/test_contratos.py`, **962 tests en verde**.
   - Test: `tests/test_magnifier.py`, **27 tests en verde**;
-    `tests/test_preferences.py`, **71 tests en verde**;
-    `tests/test_settings_dialog.py`, **77 tests en verde**.
+    `tests/test_preferences.py`, **66 tests en verde**;
+    `tests/test_settings_dialog.py`, **46 tests en verde**.
 
 ### Lo que sigue abierto
 
@@ -2836,7 +2840,7 @@ ya advertía.
       - **Un archivo dañado ahora se avisa al arrancar.** `load()` armaba el
         mensaje para el investigador y nadie lo mostraba; lo muestra
         `apply_saved_preferences()` con la ventana ya a la vista.
-  - Test: `tests/test_preferences.py`, **71 tests en verde**, con un barrido
+  - Test: `tests/test_preferences.py`, **66 tests en verde**, con un barrido
     que le pone a cada campo guardado todos los tipos de JSON y exige que
     `load()` no eleve nada que no sea `PsgLabError`. Con el módulo anterior
     falla sólo `psd_bands`, con cuatro de esos valores.
@@ -3046,10 +3050,11 @@ ya advertía.
     `IEEE_FLOAT_32`: es el único de los dos formatos que puede traerlas.
   - Test: `tests/test_entrega.py`, **258 tests en verde**, con el cartel por la
     ventana. Seis fallan sin la corrección.
-- [ ] **Un esquema propio inválido descarta todas las preferencias.** Es lo que
-      fija `test_un_esquema_propio_ilegible_avisa`, y desde este hito al menos
-      avisa al arrancar; **queda decidir con el usuario** si debería perderse
-      sólo el esquema y conservarse el resto.
+- [x] **Un esquema propio inválido descartaba todas las preferencias.** La
+      pregunta se cerró sola en el [hito 35](#hito-35-dos-esquemas-y-ninguna-perilla):
+      **ya no hay esquemas propios**. Un archivo viejo que traiga uno se lee
+      igual —el nombre cae en el de fábrica y `custom_scheme` se ignora— en vez
+      de impedir arrancar, que era exactamente lo que el ítem quería evitar.
 
 ### Lo que sigue abierto
 
@@ -3105,11 +3110,11 @@ tecla.
         de la fase marcada **se elige midiendo el contraste**, no por esquema:
         el blanco que se lee sobre el azul profundo desaparece sobre el ámbar
         del esquema oscuro.
-  - Test: `tests/test_theme.py`, **108 tests en verde**, con la escala de
+  - Test: `tests/test_theme.py`, **60 tests en verde**, con la escala de
     fases, las reglas por fase y el contraste de los dos esquemas nuevos, que
     el control de accesibilidad recorre solo porque mira `theme.SCHEMES`.
-  - Test: `tests/test_preferences.py`, **71 tests en verde**, y
-    `tests/test_settings_dialog.py`, **77 tests en verde**: los dos afirmaban
+  - Test: `tests/test_preferences.py`, **66 tests en verde**, y
+    `tests/test_settings_dialog.py`, **46 tests en verde**: los dos afirmaban
     «Claro» donde querían decir «el esquema de fábrica».
 
 ### Lo que entró después del sistema visual
@@ -3128,7 +3133,7 @@ tecla.
         archivo siempre escribe `font_family`, y `_con_campos_nuevos()` sólo
         saltea lo que no está. El diseño nuevo lo ve quien instala de cero o
         quien lo elige en Configuración → Tipografía.
-  - Test: `tests/test_fonts.py`, **10 tests en verde**, con la familia
+  - Test: `tests/test_fonts.py`, **11 tests en verde**, con la familia
     disponible y con una que no existe.
   - Test: `tests/test_entrega.py`, **258 tests en verde**, con la tipografía
     aplicada y con la que no está. Los cuatro fallan sin la corrección.
@@ -3205,6 +3210,77 @@ tecla.
   cambiaría `windowTitle()`, que es lo que ocho tests de entrega afirman.
 - **El marco de la ventana, los menús desplegados y los diálogos de archivo**
   los dibuja el sistema operativo.
+
+---
+
+## Hito 35: Dos esquemas y ninguna perilla
+
+**Cerrado el 20 de septiembre de 2026.** Sale de probar el hito 34 con un
+registro de verdad: el usuario abrió el programa, **no vio ningún cambio** y
+avisó. Su archivo de preferencias tenía `"scheme_name": "Claro"` guardado, y
+«Claro» era justamente el esquema que no ponía hoja de estilo y dejaba el
+aspecto nativo de Qt. El rediseño estaba, y su propia configuración lo tapaba
+entero.
+
+Eligió Sereno y Nocturno desde la configuración, le gustaron, y **pidió que
+fueran los únicos**: reducir la personalización de colores al mínimo, de manera
+que sólo se pueda cambiar entre esos dos.
+
+**El problema de fondo que eso resuelve** es el que el aviso dejó a la vista:
+con ocho esquemas y cada color editable, el programa tenía infinitos aspectos
+posibles y **ninguno garantizado**. El control de contraste sólo alcanzaba a
+los de fábrica, y el que se armaba a mano podía dejar la señal casi invisible
+con un cartel al costado. Dos esquemas verificados y ninguna perilla es menos
+programa y más garantía: lo que se ve en una máquina del laboratorio es lo que
+se ve en todas.
+
+**No tiene stubs que contar.**
+
+- [x] **Quedan dos esquemas.** Se fueron Claro, Oscuro, NK, Azul sobre gris,
+      ECG y Papel, y con ellos la paleta que sólo usaba «Azul sobre gris».
+      - **La hoja de estilo dejó de tener un caso especial**: «Claro» devolvía
+        la cadena vacía para quedar nativo, y los iconos tenían que sacar su
+        tinta de la paleta de Qt por eso mismo. Sin ese esquema, las dos
+        funciones son lo que dicen ser.
+- [x] **Los esquemas no se editan.** Se fue la solapa Colores entera: los doce
+      botones de color, la paleta de canales, la línea de base, «un color
+      distinto por canal», el aviso de contraste y Guardar…/Cargar….
+      - Con ella se fueron `scheme_to_dict()`, `scheme_from_dict()`,
+        `save_scheme()`, `load_scheme()` y el campo `custom_scheme`: sin
+        esquemas propios no hay nada que serializar, y el archivo de
+        preferencias guarda el **nombre**.
+      - **Un archivo viejo sigue cargando.** El nombre que ya no existe cae en
+        el de fábrica y `custom_scheme` se ignora, como ya se ignoraba
+        `window_state` desde el hito 24. Eso cierra además el ítem del hito 33
+        sobre el esquema propio ilegible: la pregunta ya no se puede hacer.
+      - Lo que queda configurable de color es **el de cada clase de evento**,
+        que es otra cosa: no es el aspecto del programa sino el dato de una
+        anotación.
+- [x] **Elegir esquema pasó al menú «Ver».** Dos entradas excluyentes, al lado
+      de los tres fondos de grilla, que es lo otro que cambia cómo se ve la
+      señal. La ventana de configuración bajó a cuatro solapas.
+      - La tilde se pone también cuando el esquema **no** vino del menú —al
+        aplicar el archivo de preferencias al arrancar—, que es el único otro
+        camino que queda.
+- [x] **Se fue la grilla cuadriculada del esquema ECG.** Era lo único que usaba
+      `ecg_grid`, y el pliego no la pide: sus tres fondos —blanco, sólo las
+      líneas de 3 s, las dos densidades— son verticales y siguen donde estaban.
+  - Test: `tests/test_theme.py`, **60 tests en verde**; `tests/test_grid.py`,
+    **19 tests en verde**; `tests/test_settings_dialog.py`, **46 tests en
+    verde**; `tests/test_preferences.py`, **66 tests en verde**;
+    `tests/test_menus.py`, **40 tests en verde**, con las dos entradas nuevas y
+    su exclusividad. Entre los cinco se borraron treinta y seis tests de lo que
+    dejó de existir.
+
+### Lo que este hito deja anotado
+
+- **Un esquema nuevo es sumarlo a `SCHEMES`**, y el control de contraste lo
+  enrola solo porque recorre ese diccionario. Una perilla de color, en cambio,
+  es volver atrás una decisión tomada.
+- **El archivo de preferencias no migra.** Quien ya tenía el programa conserva
+  lo que había elegido, salvo que ese esquema ya no exista, en cuyo caso ve el
+  de fábrica. El usuario dijo explícitamente que las instalaciones viejas no le
+  importan.
 
 ---
 

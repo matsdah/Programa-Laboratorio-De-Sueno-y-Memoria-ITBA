@@ -694,7 +694,7 @@ def test_cambiar_de_esquema_repinta_la_banda(vista: SignalView, sesion: Session)
 
     anterior = theme.current()
     try:
-        theme.set_current(theme.ECG)
+        theme.set_current(theme.NOCTURNO)
         vista.apply_scheme()
         assert vista._epoca.brush.color().name() != antes
     finally:
@@ -761,7 +761,7 @@ def test_cambiar_de_esquema_repinta_el_cursor(vista: SignalView, sesion: Session
 
     anterior = theme.current()
     try:
-        theme.set_current(theme.ECG)
+        theme.set_current(theme.NOCTURNO)
         vista.apply_scheme()
         assert vista._cursor.pen.color().name() != antes
     finally:

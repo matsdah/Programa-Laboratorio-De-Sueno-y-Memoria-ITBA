@@ -211,11 +211,11 @@ def test_cambiar_de_esquema_repinta_los_iconos(barra):
     antes = barra._siguiente.icon().cacheKey()
     antes_de_reproducir = barra._reproducir.icon().cacheKey()
 
-    theme.set_current(theme.OSCURO)
+    theme.set_current(theme.NOCTURNO)
     try:
         barra.apply_scheme()
     finally:
-        theme.set_current(theme.CLARO)
+        theme.set_current(theme.SERENO)
 
     assert barra._siguiente.icon().cacheKey() != antes
     assert barra._reproducir.icon().cacheKey() != antes_de_reproducir

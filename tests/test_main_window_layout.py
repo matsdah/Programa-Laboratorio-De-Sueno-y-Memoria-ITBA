@@ -34,6 +34,10 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # Acciones de menú que los tests prenden y apagan.
         "accion_eje_en_hora",
         "accion_señal_original",
+        # Los dos esquemas, en el menú «Ver» desde el hito 35: la ventana
+        # necesita poder tildar el que aplique, venga del menú o del archivo
+        # de preferencias.
+        "acciones_de_esquema",
         # El menú que se puebla desde el registro de herramientas.
         "tools_menu",
         # El botón de la esquina de la barra de menú, que abre un registro. El

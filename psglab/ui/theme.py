@@ -8,22 +8,23 @@ en cinco módulos. Cambiar de aspecto era editar código en seis lugares.
 **Los colores no salen de `psglab/config.py`, y es a propósito.** Ese archivo
 guarda lo que fija el pliego, y el pliego no dice nada de colores: pide tres
 fondos de grilla y nada más. Con qué color se distingue un canal de otro es del
-programa, no del requisito, y por eso vive acá y lo puede cambiar el usuario.
+programa, no del requisito, y por eso vive acá.
 
-Un esquema es un valor inmutable. Nadie lo edita: se elige otro. Eso es lo que
-permite que guardar un esquema sea escribir un archivo y cargarlo, leerlo, sin
-ningún estado a medio camino.
+Un esquema es un valor inmutable y **no se puede editar**: se elige uno de los
+dos. Hasta el hito 35 eran ocho y cada color se cambiaba uno por uno, así que
+el programa tenía infinitos aspectos posibles y ninguno garantizado —el control
+de contraste sólo alcanzaba a los de fábrica—. Dos esquemas verificados y
+ninguna perilla es menos programa y más garantía.
 
 Cubre del pliego: ningún ID. Es infraestructura de presentación; el único
 requisito visual que el pliego fija, los tres fondos de grilla, lo cubre
 `psglab/ui/grid.py`.
 """
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import Final
 
 import pyqtgraph as pg
-from PySide6.QtGui import QGuiApplication, QPalette
 
 from psglab.utils.errors import UnknownColorSchemeError
 
@@ -53,18 +54,6 @@ _PALETA_OSCURA: Final[tuple[str, ...]] = (
     # **Era `#6060ff`**, y sobre el gris del esquema oscuro daba un contraste
     # de 2,42: el canal azul casi no se distinguía del fondo. Éste da 3,39.
     "#8080ff",
-)
-
-#: La paleta para fondos grises. **Un gris necesita colores más oscuros que el
-#: blanco**: con la paleta clara, el dorado daba 2,41 sobre el esquema «Azul
-#: sobre gris». Son los mismos tonos, oscurecidos hasta pasar el mínimo.
-_PALETA_SOBRE_GRIS: Final[tuple[str, ...]] = (
-    "#123a75",
-    "#2c5a20",
-    "#6b5412",
-    "#7a3a14",
-    "#521575",
-    "#135a55",
 )
 
 #: El color de cada fase sobre fondo claro. **La profundidad es la
@@ -169,29 +158,21 @@ class ColorScheme:
         overview_border: borde de las ventanas vecinas.
         overview_current_border: borde de la ventana actual.
         overview_text: número de ventana.
-        ecg_grid: si la grilla es **cuadriculada**, como el papel de un
-            electrocardiograma, en vez de tener sólo líneas verticales. Es la
-            opción "Grilla: Normal / ECG" de la referencia. Va en el esquema y
-            no aparte porque el esquema ECG la trae prendida, y separarlas
-            obligaría a elegir dos cosas para obtener el aspecto que el nombre
-            promete.
         chrome: fondo de la ventana —la barra de menú, la de estado, los
             paneles y sus títulos—, cuando es distinto del de las áreas de
-            dibujo. **Vacío es «el mismo que `background`»**, que es lo que
-            hacen todos los esquemas anteriores al hito 26: la hoja de estilo
-            sale idéntica.
+            dibujo. **Vacío es «el mismo que `background`»**, y la hoja de
+            estilo sale igual que si se lo hubiera escrito.
         numeric_font: la tipografía de las lecturas numéricas (ver
             `READOUT_PROPERTY`), o vacío para usar la de siempre. Va en el
-            esquema por el mismo argumento que `ecg_grid`: el esquema «Papel»
-            la trae puesta, y separarlas obligaría a elegir dos cosas para
-            obtener el aspecto que el nombre promete.
+            esquema y no aparte porque es parte del aspecto que el nombre del
+            esquema promete, como los colores.
         stage_colors: qué color tiene cada fase de sueño, como (valor de
-            `SleepStage`, color). **Vacío significa «una sola tinta»**, que es
-            como se dibujaba el hipnograma hasta que esto existió, y es lo que
-            traen los seis esquemas anteriores: inventarles una escala de fases
-            a NK o a ECG sería cambiarles el aspecto que su nombre promete. Los
-            dos esquemas nuevos sí la traen, y de ahí salen el hipnograma, la
-            franja de posición y los botones de fase.
+            `SleepStage`, color). De acá salen el hipnograma, la franja de
+            posición y los botones de fase. **Vacío significa «una sola
+            tinta»**, que es como se dibujaba el hipnograma hasta el hito 34:
+            los dos esquemas de hoy la traen, y el campo sigue admitiendo el
+            vacío porque un esquema puede querer no distinguirlas —imprimir en
+            blanco y negro, por ejemplo—.
 
     **No tiene los colores de las reglas ni del rectángulo del mouse**, que la
     referencia sí trae: todavía no hay nada que los dibuje. Entran con la
@@ -214,7 +195,6 @@ class ColorScheme:
     overview_border: str
     overview_current_border: str
     overview_text: str
-    ecg_grid: bool = False
     chrome: str | None = None
     numeric_font: str | None = None
     stage_colors: tuple[tuple[str, str], ...] = ()
@@ -253,122 +233,6 @@ class ColorScheme:
                 return color
         return None
 
-
-CLARO: Final[ColorScheme] = ColorScheme(
-    name="Claro",
-    background="#ffffff",
-    foreground="#000000",
-    signals="#1a1a1a",
-    vary_signal_colors=True,
-    signal_palette=_PALETA_CLARA,
-    baseline="#d0d0d0",
-    coarse_grid="#a0a0a0",
-    fine_grid="#dcdcdc",
-    accent="#4a90e6",
-    overview_background="#f2f2f2",
-    overview_current="#c8d8ec",
-    overview_border="#8a8a8a",
-    overview_current_border="#2c5a8c",
-    overview_text="#333333",
-)
-
-OSCURO: Final[ColorScheme] = ColorScheme(
-    name="Oscuro",
-    background="#3c3c3c",
-    foreground="#f0f0f0",
-    signals="#ffff00",
-    vary_signal_colors=True,
-    signal_palette=_PALETA_OSCURA,
-    baseline="#6e6e6e",
-    coarse_grid="#8c8c8c",
-    fine_grid="#565656",
-    accent="#63b3ff",
-    overview_background="#2e2e2e",
-    overview_current="#3f5a76",
-    overview_border="#7a7a7a",
-    overview_current_border="#9cc4ea",
-    overview_text="#e0e0e0",
-)
-
-NK: Final[ColorScheme] = ColorScheme(
-    name="NK",
-    background="#000000",
-    foreground="#d0d0d0",
-    signals="#ffffff",
-    vary_signal_colors=False,
-    signal_palette=_PALETA_OSCURA,
-    baseline="#404040",
-    coarse_grid="#5a5a5a",
-    fine_grid="#303030",
-    accent="#ffffff",
-    overview_background="#101010",
-    overview_current="#303030",
-    overview_border="#505050",
-    overview_current_border="#b0b0b0",
-    overview_text="#d0d0d0",
-)
-
-AZUL_SOBRE_GRIS: Final[ColorScheme] = ColorScheme(
-    name="Azul sobre gris",
-    background="#c8c8c8",
-    foreground="#1a1a2e",
-    signals="#00008b",
-    vary_signal_colors=False,
-    signal_palette=_PALETA_SOBRE_GRIS,
-    baseline="#a8a8a8",
-    coarse_grid="#8a8a9a",
-    fine_grid="#b8b8c4",
-    accent="#00008b",
-    overview_background="#bcbcbc",
-    overview_current="#9aa8c8",
-    overview_border="#8a8a8a",
-    overview_current_border="#00008b",
-    overview_text="#1a1a2e",
-)
-
-ECG: Final[ColorScheme] = ColorScheme(
-    name="ECG",
-    background="#fff4f4",
-    foreground="#5a1a1a",
-    signals="#101010",
-    vary_signal_colors=False,
-    signal_palette=_PALETA_CLARA,
-    baseline="#e8b4b4",
-    coarse_grid="#e08080",
-    fine_grid="#f2c4c4",
-    accent="#b02020",
-    overview_background="#fbeaea",
-    overview_current="#f2c4c4",
-    overview_border="#d09090",
-    overview_current_border="#b02020",
-    overview_text="#5a1a1a",
-    ecg_grid=True,
-)
-
-#: El aspecto del lienzo de diseño del hito 26: las áreas de dibujo en blanco,
-#: como en Claro, y la ventana alrededor en un gris cálido, para que la señal se
-#: despegue del resto sin competir con ella. Las cifras van en IBM Plex Mono,
-#: que el programa trae consigo (ver `fonts.py`); si no está, Qt usa la de
-#: siempre sin avisar, que es lo que corresponde a una preferencia visual.
-PAPEL: Final[ColorScheme] = ColorScheme(
-    name="Papel",
-    background="#ffffff",
-    foreground="#1a1a1a",
-    signals="#1a1a1a",
-    vary_signal_colors=False,
-    signal_palette=_PALETA_CLARA,
-    baseline="#d0d0d0",
-    coarse_grid="#a0a0a0",
-    fine_grid="#dcdcdc",
-    accent="#2c5a8c",
-    overview_background="#f2f2f2",
-    overview_current="#c8d8ec",
-    overview_border="#8a8a8a",
-    overview_current_border="#2c5a8c",
-    overview_text="#333333",
-    chrome="#ebe8e2",
-    numeric_font="IBM Plex Mono",
-)
 
 #: **Los dos esquemas del rediseño de la pantalla principal.** Salen de medir
 #: lo que tenía el programa: «Claro» es blanco puro con tinta negra, que sobre
@@ -432,11 +296,18 @@ NOCTURNO: Final[ColorScheme] = ColorScheme(
     stage_colors=_FASES_OSCURAS,
 )
 
-#: Los esquemas de fábrica, por nombre. El orden es el que ve el usuario en el
-#: menú, y arranca por el que reproduce el aspecto histórico del programa.
+#: Los esquemas del programa, por nombre. El orden es el que ve el usuario en
+#: el menú «Ver».
+#:
+#: **Son dos y no se pueden editar**, por decisión del usuario en el hito 35.
+#: Antes eran ocho y cada color se podía cambiar uno por uno, con lo que el
+#: programa tenía infinitos aspectos posibles y ninguno garantizado: el control
+#: de contraste sólo alcanzaba a los de fábrica, y el que se armaba a mano
+#: podía dejar la señal invisible con un aviso al costado. Dos esquemas
+#: verificados y ninguna perilla es menos programa y más garantía.
 SCHEMES: Final[dict[str, ColorScheme]] = {
     esquema.name: esquema
-    for esquema in (SERENO, NOCTURNO, CLARO, OSCURO, NK, AZUL_SOBRE_GRIS, ECG, PAPEL)
+    for esquema in (SERENO, NOCTURNO)
 }
 
 #: Con cuál arranca el programa la primera vez. **Es Sereno desde el rediseño
@@ -539,9 +410,6 @@ def stylesheet(scheme: ColorScheme) -> str:
             "No se pudo armar la hoja de estilo porque no es un esquema válido.",
             details=f"Se recibió un objeto de tipo {type(scheme).__name__}.",
         )
-    if scheme is CLARO:
-        return ""
-
     fondo = scheme.background
     texto = scheme.foreground
     borde = scheme.coarse_grid
@@ -636,11 +504,11 @@ def stylesheet(scheme: ColorScheme) -> str:
 def icon_ink(scheme: ColorScheme) -> str:
     """El color con que se dibujan los iconos bajo este esquema.
 
-    Es el texto del esquema, **salvo en Claro**. Ése no aplica hoja de estilo
-    y deja el aspecto nativo, que sigue el modo claro u oscuro del sistema: con
-    Windows en modo oscuro, el negro de Claro dejaba los iconos negros sobre
-    una barra negra. Ahí la tinta es la del texto de la aplicación, que Qt ya
-    eligió para ese fondo.
+    Es el texto del esquema, y desde el hito 35 nada más que eso. Hasta
+    entonces había un esquema —«Claro»— que no aplicaba hoja de estilo y dejaba
+    el aspecto nativo del sistema, y ahí la tinta tenía que salir de la paleta
+    de Qt: con Windows en modo oscuro, el negro de ese esquema dejaba los
+    iconos negros sobre una barra negra. Sin ese caso, la función es el campo.
 
     Raises:
         UnknownColorSchemeError: si lo que se pasa no es un `ColorScheme`.
@@ -650,8 +518,6 @@ def icon_ink(scheme: ColorScheme) -> str:
             "No se pudo elegir el color de los iconos porque no es un esquema válido.",
             details=f"Se recibió un objeto de tipo {type(scheme).__name__}.",
         )
-    if scheme is CLARO and QGuiApplication.instance() is not None:
-        return QGuiApplication.palette().color(QPalette.ColorRole.WindowText).name()
     return scheme.foreground
 
 
@@ -669,132 +535,6 @@ def scheme_by_name(name: str) -> ColorScheme:
             details=f"Los disponibles son: {', '.join(SCHEMES)}.",
         )
     return SCHEMES[name]
-
-
-def scheme_to_dict(scheme: ColorScheme) -> dict[str, object]:
-    """Pasa un esquema a algo que se pueda escribir en un archivo.
-
-    Raises:
-        UnknownColorSchemeError: si lo que se pasa no es un `ColorScheme`.
-    """
-    if not isinstance(scheme, ColorScheme):
-        raise UnknownColorSchemeError(
-            "No se pudo guardar el esquema de color porque no es un esquema válido.",
-            details=f"Se recibió un objeto de tipo {type(scheme).__name__}.",
-        )
-    datos: dict[str, object] = {}
-    for campo in fields(ColorScheme):
-        valor = getattr(scheme, campo.name)
-        datos[campo.name] = list(valor) if isinstance(valor, tuple) else valor
-    return datos
-
-
-def scheme_from_dict(data: dict[str, object]) -> ColorScheme:
-    """Reconstruye un esquema desde lo que se leyó de un archivo.
-
-    **Lo que falte se toma del esquema claro y lo que sobre se ignora.** Un
-    archivo guardado por una versión anterior, que no tenía algún campo, sigue
-    cargando en vez de rechazarse entero: el esquema es una preferencia visual,
-    y perderla porque el programa creció es peor que dibujar un color por
-    omisión.
-
-    Raises:
-        UnknownColorSchemeError: si no es un diccionario, o si algún campo
-            presente tiene un tipo con el que no se puede dibujar.
-    """
-    if not isinstance(data, dict):
-        raise UnknownColorSchemeError(
-            "El esquema de color no se pudo leer porque no tiene el formato esperado.",
-            details=f"Se esperaba un diccionario y se recibió {type(data).__name__}.",
-        )
-
-    valores: dict[str, object] = {}
-    for campo in fields(ColorScheme):
-        if campo.name not in data:
-            valores[campo.name] = getattr(CLARO, campo.name)
-            continue
-        valores[campo.name] = _valor_validado(campo.name, data[campo.name])
-    return ColorScheme(**valores)  # type: ignore[arg-type]
-
-
-def _valor_validado(nombre: str, valor: object) -> object:
-    """Comprueba que un campo leído de un archivo se pueda usar para dibujar.
-
-    Raises:
-        UnknownColorSchemeError: si el tipo no es el que ese campo necesita.
-    """
-    if nombre == "signal_palette":
-        if not isinstance(valor, (list, tuple)) or not all(
-            is_valid_color(color) for color in valor
-        ):
-            raise UnknownColorSchemeError(
-                "El esquema de color tiene una paleta que no se puede usar.",
-                details="«signal_palette» tiene que ser una lista de colores.",
-            )
-        return tuple(valor)
-    if nombre == "stage_colors":
-        if not isinstance(valor, (list, tuple)) or not all(
-            isinstance(fila, (list, tuple))
-            and len(fila) == 2
-            and isinstance(fila[0], str)
-            and is_valid_color(fila[1])
-            for fila in valor
-        ):
-            raise UnknownColorSchemeError(
-                "El esquema de color tiene una escala de fases que no se puede usar.",
-                details="«stage_colors» tiene que ser una lista de (fase, color).",
-            )
-        return tuple((str(fila[0]), str(fila[1])) for fila in valor)
-    if nombre == "vary_signal_colors":
-        if not isinstance(valor, bool):
-            raise UnknownColorSchemeError(
-                "El esquema de color tiene un valor que no se puede usar.",
-                details="«vary_signal_colors» tiene que ser verdadero o falso.",
-            )
-        return valor
-    if nombre == "name":
-        # Es el único campo de texto que **no** es un color: es lo que ve el
-        # usuario en el menú, así que basta con que haya algo escrito.
-        if not isinstance(valor, str) or not valor.strip():
-            raise UnknownColorSchemeError(
-                "El esquema de color no tiene nombre.",
-                details=f"«name» tiene que ser un texto no vacío; es {valor!r}.",
-            )
-        return valor
-    if nombre == "ecg_grid":
-        if not isinstance(valor, bool):
-            raise UnknownColorSchemeError(
-                "El esquema de color tiene un valor que no se puede usar.",
-                details="«ecg_grid» tiene que ser verdadero o falso.",
-            )
-        return valor
-    if nombre == "numeric_font":
-        if valor is not None and (not isinstance(valor, str) or not valor.strip()):
-            raise UnknownColorSchemeError(
-                "El esquema de color tiene una tipografía que no se puede usar.",
-                details=f"«numeric_font» tiene que ser un nombre, o estar vacío; es {valor!r}.",
-            )
-        return valor
-    if nombre == "chrome":
-        if valor is not None and not is_valid_color(valor):
-            raise UnknownColorSchemeError(
-                "El esquema de color tiene un fondo de ventana que no se puede usar.",
-                details=f"«chrome» tiene que ser un color, o estar vacío; es {valor!r}.",
-            )
-        return valor
-    if nombre == "baseline":
-        if valor is not None and not is_valid_color(valor):
-            raise UnknownColorSchemeError(
-                "El esquema de color tiene una línea de base que no se puede usar.",
-                details=f"«baseline» tiene que ser un color, o estar vacío; es {valor!r}.",
-            )
-        return valor
-    if not is_valid_color(valor):
-        raise UnknownColorSchemeError(
-            f"El esquema de color tiene un color que no se puede usar en «{nombre}».",
-            details=f"Se esperaba un color y se recibió {valor!r}.",
-        )
-    return valor
 
 
 def is_valid_color(value: object) -> bool:

@@ -418,10 +418,10 @@ def test_el_icono_de_abrir_se_redibuja_con_el_esquema(ventana: MainWindow):
 
     anterior = theme.current()
     try:
-        ventana.set_color_scheme(theme.OSCURO, remember=False)
+        ventana.set_color_scheme(theme.NOCTURNO, remember=False)
 
         actual = ventana.open_button.icon().pixmap(32, 32).toImage()
-        esperado = icon("abrir", theme.icon_ink(theme.OSCURO)).pixmap(32, 32).toImage()
+        esperado = icon("abrir", theme.icon_ink(theme.NOCTURNO)).pixmap(32, 32).toImage()
         assert actual == esperado
     finally:
         ventana.set_color_scheme(anterior, remember=False)
@@ -1001,12 +1001,17 @@ def test_la_franja_de_posicion_muestra_lo_scoreado(con_escala_de_fases: MainWind
 
 
 def test_un_esquema_sin_escala_de_fases_no_pinta_nada(con_escala_de_fases: MainWindow):
-    """Los seis esquemas anteriores tienen que seguir viéndose como antes."""
+    """El campo admite el vacío, y entonces el hipnograma y la franja se
+    dibujan como antes del hito 34: con una sola tinta."""
+    import dataclasses
+
     ventana = con_escala_de_fases
     ventana._go_to_window(1)
     ventana.score_current_window(SleepStage.N2)
 
-    ventana.set_color_scheme(theme.OSCURO, remember=False)
+    ventana.set_color_scheme(
+        dataclasses.replace(theme.SERENO, stage_colors=()), remember=False
+    )
 
     assert barras_de_fase(ventana) == []
     assert ventana.navigation.strip._colores == ()
@@ -2276,7 +2281,7 @@ def test_elegir_un_esquema_tampoco_escribe_el_archivo(
     ventana."""
     anterior = theme.current()
     try:
-        ventana.set_color_scheme(theme.OSCURO)
+        ventana.set_color_scheme(theme.NOCTURNO)
         assert escrituras == []
     finally:
         ventana.set_color_scheme(anterior, remember=False)
@@ -2574,20 +2579,16 @@ def test_el_color_elegido_en_la_configuracion_llega_a_la_sesion(ventana: MainWin
 def test_volver_a_abrir_la_configuracion_refleja_lo_cambiado_afuera(
     ventana: MainWindow,
 ):
-    """Un esquema que cambia sin pasar por la configuración —el menú de
-    esquemas lo hacía hasta el hito 23; hoy, `set_color_scheme()` llamado
-    desde otro lado— tiene que verse al reabrirla."""
-    ventana.show_settings_dialog()
-    ventana.settings_dialog.close()
+    """Un esquema que cambia sin pasar por el menú —al aplicar el archivo de
+    preferencias, por ejemplo— tiene que quedar tildado igual: desde el hito 35
+    el menú «Ver» es el único lugar donde se ve cuál está puesto."""
     anterior = theme.current()
     try:
-        ventana.set_color_scheme(theme.ECG, remember=False)
+        ventana.set_color_scheme(theme.NOCTURNO, remember=False)
 
-        ventana.show_settings_dialog()
-
-        assert ventana.settings_dialog.grid_ecg.isChecked()
+        assert ventana.acciones_de_esquema["Nocturno"].isChecked()
+        assert not ventana.acciones_de_esquema["Sereno"].isChecked()
     finally:
-        ventana.settings_dialog.close()
         ventana.set_color_scheme(anterior, remember=False)
 
 

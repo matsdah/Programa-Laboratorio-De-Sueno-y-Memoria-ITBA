@@ -41,8 +41,6 @@ from psglab.ui.theme import (
     ColorScheme,
     is_valid_color,
     scheme_by_name,
-    scheme_from_dict,
-    scheme_to_dict,
 )
 from psglab.utils.errors import InvalidPreferencesError, PsgLabError
 
@@ -100,11 +98,9 @@ class Preferences:
     puede dejar el objeto a medio actualizar si algo falla en el medio.
 
     Attributes:
-        scheme_name: nombre del esquema de color elegido. Se guarda el nombre y
-            no el esquema entero mientras sea uno de fábrica, para que
-            mejorarlos en una versión nueva alcance a quien ya los eligió.
-        custom_scheme: el esquema completo, cuando el usuario lo modificó y ya
-            no es ninguno de fábrica. None mientras use uno de los cinco.
+        scheme_name: nombre del esquema de color elegido, uno de los dos que
+            hay. **Se guarda el nombre y no el esquema**, así que mejorar los
+            colores en una versión nueva alcanza a quien ya lo eligió.
         font_family: la tipografía de la interfaz, o None para la del sistema.
             **Arranca en la que el programa empaqueta** (hito 34), que es la del
             diseño; si los archivos no estuvieran, la ventana se queda con la
@@ -147,7 +143,6 @@ class Preferences:
     """
 
     scheme_name: str = DEFAULT_SCHEME_NAME
-    custom_scheme: ColorScheme | None = None
     font_family: str | None = UI_FONT_FAMILY
     font_size: int | None = None
     psd_method: str = METHODS[0]
@@ -293,26 +288,19 @@ class Preferences:
         devuelve el de fábrica. Quedarse sin colores no es motivo para no
         arrancar.
         """
-        if self.custom_scheme is not None:
-            return self.custom_scheme
         try:
             return scheme_by_name(self.scheme_name)
         except PsgLabError:
             return scheme_by_name(DEFAULT_SCHEME_NAME)
 
     def with_scheme(self, scheme: ColorScheme) -> "Preferences":
-        """Las mismas preferencias con otro esquema elegido.
+        """Las mismas preferencias con el otro esquema elegido.
 
-        Si el esquema es uno de fábrica se guarda sólo su nombre; si no, se
-        guarda entero.
+        Se guarda el nombre. Un esquema que no sea uno de los dos no se
+        rechaza acá: `scheme()` lo resuelve al leer, devolviendo el de fábrica
+        si el nombre ya no existe.
         """
-        try:
-            de_fabrica = scheme_by_name(scheme.name) == scheme
-        except PsgLabError:
-            de_fabrica = False
-        if de_fabrica:
-            return replace(self, scheme_name=scheme.name, custom_scheme=None)
-        return replace(self, scheme_name=scheme.name, custom_scheme=scheme)
+        return replace(self, scheme_name=scheme.name)
 
 
 def _rechazar(que: str, valor: object) -> None:
@@ -451,14 +439,11 @@ def load(path: Path | None = None) -> Preferences:
     if not isinstance(nombre, str):
         nombre = DEFAULT_SCHEME_NAME
 
-    propio = datos.get("custom_scheme")
-    esquema = scheme_from_dict(propio) if isinstance(propio, dict) else None
-
-    # **Una clave `window_state` se ignora**, sin error. Es la disposición de
-    # paneles que se guardaba hasta el hito 24, y los archivos de antes la
-    # siguen trayendo: desde entonces el programa abre siempre con la vista de
-    # fábrica.
-    base = Preferences(scheme_name=nombre, custom_scheme=esquema)
+    # **Las claves que ya no existen se ignoran**, sin error: `window_state`,
+    # la disposición de paneles que se guardaba hasta el hito 24, y
+    # `custom_scheme`, el esquema editado a mano que se quitó en el 35. Un
+    # archivo viejo las sigue trayendo y eso no puede impedir arrancar.
+    base = Preferences(scheme_name=nombre)
     return _con_campos_nuevos(base, datos)
 
 
@@ -564,8 +549,6 @@ def save(preferences: Preferences, path: Path | None = None) -> None:
         "version": FORMAT_VERSION,
         "scheme_name": preferences.scheme_name,
     }
-    if preferences.custom_scheme is not None:
-        datos["custom_scheme"] = scheme_to_dict(preferences.custom_scheme)
     # Los campos de la ventana de configuración. **Se escriben siempre**, aunque
     # tengan el valor de fábrica: el archivo es también lo que alguien abre
     # para ver qué puede cambiar. Una versión anterior del programa los ignora,
@@ -603,47 +586,3 @@ def save(preferences: Preferences, path: Path | None = None) -> None:
         ) from error
 
 
-def load_scheme(path: Path) -> ColorScheme:
-    """Lee un esquema de color de un archivo suelto.
-
-    Es lo que hace el botón "Cargar" de la referencia. Un esquema es un archivo
-    propio y no una entrada de las preferencias justamente para que el
-    laboratorio pueda pasarse uno por correo y que todas las máquinas se vean
-    igual.
-
-    Raises:
-        InvalidPreferencesError: si el archivo no se puede leer o no es un JSON.
-        UnknownColorSchemeError: si es un JSON pero no describe un esquema.
-    """
-    try:
-        datos = json.loads(Path(path).read_text(encoding="utf-8"))
-    except OSError as error:
-        raise InvalidPreferencesError(
-            "No se pudo abrir el archivo de esquema de color.",
-            details=f"No se pudo leer {path}: {error}",
-        ) from error
-    except json.JSONDecodeError as error:
-        raise InvalidPreferencesError(
-            "El archivo no es un esquema de color válido.",
-            details=f"{path} no es un JSON válido: {error}",
-        ) from error
-    return scheme_from_dict(datos)
-
-
-def save_scheme(path: Path, scheme: ColorScheme) -> None:
-    """Escribe un esquema de color en un archivo suelto.
-
-    Raises:
-        UnknownColorSchemeError: si no es un `ColorScheme`.
-        InvalidPreferencesError: si no se pudo escribir.
-    """
-    datos = scheme_to_dict(scheme)
-    try:
-        Path(path).write_text(
-            json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-    except OSError as error:
-        raise InvalidPreferencesError(
-            "No se pudo guardar el esquema de color.",
-            details=f"No se pudo escribir {path}: {error}",
-        ) from error

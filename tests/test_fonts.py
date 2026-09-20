@@ -33,9 +33,12 @@ def test_registrar_dos_veces_no_las_vuelve_a_cargar(qt_app):
     assert fonts._registradas == cargados
 
 
-def test_la_tipografia_de_papel_es_una_que_el_programa_trae(qt_app):
-    """Si el esquema nombrara una que no está, Qt usaría otra sin avisar."""
-    assert theme.PAPEL.numeric_font in fonts.register_bundled_fonts()
+@pytest.mark.parametrize("nombre", list(theme.SCHEMES))
+def test_la_tipografia_numerica_es_una_que_el_programa_trae(qt_app, nombre: str):
+    """Si un esquema nombrara una que no está, Qt usaría otra sin avisar."""
+    esquema = theme.SCHEMES[nombre]
+
+    assert esquema.numeric_font in fonts.register_bundled_fonts()
 
 
 def test_la_de_la_interfaz_tambien(qt_app):

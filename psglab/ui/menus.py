@@ -63,6 +63,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QActionGroup
 from PySide6.QtWidgets import QToolButton
 
 from psglab.config import AMPLITUDE_PRESETS_UV, VIEW_TIMESCALE_PRESETS
@@ -328,6 +329,28 @@ def _ver(window: "MainWindow") -> None:
             estilo.value,
             lambda _=False, e=estilo: window.signal_view.grid.set_style(e),
         )
+
+    ver.addSeparator()
+    # **Los dos esquemas** (hito 35). Estaban en la solapa Colores de la ventana
+    # de configuración, junto con la edición de cada color; al quedar sólo la
+    # elección entre dos, una solapa entera para dos botones era más camino que
+    # el que ahorraba. Acá quedan al lado de los tres fondos de grilla, que es
+    # lo otro que cambia cómo se ve la señal.
+    #
+    # Son un grupo exclusivo, como los fondos: elegir uno destilda el otro sin
+    # que nadie lo maneje a mano.
+    grupo = QActionGroup(window)
+    grupo.setExclusive(True)
+    window.acciones_de_esquema = {}
+    for nombre in theme.SCHEMES:
+        accion = ver.addAction(nombre)
+        accion.setCheckable(True)
+        accion.setActionGroup(grupo)
+        accion.triggered.connect(
+            lambda _=False, n=nombre: window.set_color_scheme(theme.scheme_by_name(n))
+        )
+        window.acciones_de_esquema[nombre] = accion
+    window.acciones_de_esquema[theme.current().name].setChecked(True)
 
     ver.addSeparator()
     # V2_F del histograma: el pliego pide poder elegir el eje.

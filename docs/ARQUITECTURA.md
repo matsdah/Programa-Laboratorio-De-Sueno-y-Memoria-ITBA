@@ -394,7 +394,7 @@ Dos advertencias sobre estos números, para quien los vuelva a medir:
 
 ### Contraste de los esquemas de color — WCAG 2.1, verificado por test
 
-Los ocho esquemas de fábrica se comprueban contra los umbrales de **WCAG
+Los dos esquemas del programa se comprueban contra los umbrales de **WCAG
 2.1**: 4,5 a 1 para el texto (criterio 1.4.3) y 3 a 1 para lo que hay que
 distinguir de un vistazo, que en este programa son las curvas, la paleta de
 canales y —desde el hito 34— la escala de fases (criterio 1.4.11).
@@ -439,9 +439,28 @@ paleta compartida habría cambiado el esquema claro sin motivo.
 tienen que verse menos que la señal: exigirles 3 a 1 las volvería tan
 llamativas como lo que están ayudando a medir.
 
-**Un esquema propio con poco contraste se permite**, con un aviso en la ventana
-de configuración. Puede ser buscado —para imprimir, por ejemplo—, pero quien lo
-elige tiene que saberlo.
+### Por qué son dos esquemas y no se editan
+
+Hasta el hito 35 eran ocho, cada color se cambiaba uno por uno y un esquema
+propio con poco contraste se permitía con un aviso al costado. El resultado era
+que **el programa tenía infinitos aspectos posibles y ninguno garantizado**: el
+control de arriba sólo alcanzaba a los de fábrica, y el que se armaba a mano
+podía dejar la señal casi invisible con un cartel que nadie lee dos veces.
+
+El usuario decidió quedarse con los dos del rediseño y ninguna perilla. Lo que
+se gana no es sólo código de menos: **lo que se ve en una máquina del
+laboratorio es lo que se ve en todas**, y las dos combinaciones posibles están
+medidas. Lo que se pierde —un esquema para imprimir en blanco y negro, o uno
+armado para una pantalla concreta— no lo pidió nadie en doce hitos de
+interfaz. Si alguna vez hace falta, vuelve como un esquema más en la lista,
+verificado como los dos que hay, y no como una perilla por color.
+
+Con eso se fueron también el archivo suelto de esquema —`save_scheme` y
+`load_scheme`, la vía para pasarse uno por correo—, el campo `custom_scheme`
+de las preferencias y la grilla cuadriculada del esquema ECG, que era lo único
+que la usaba. Un archivo de preferencias viejo que traiga cualquiera de esas
+claves **sigue cargando**: el nombre que ya no existe cae en el de fábrica y lo
+demás se ignora.
 
 ## Convenciones de código
 

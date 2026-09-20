@@ -38,13 +38,19 @@ def esquema_restaurado():
 # -- Los esquemas de fábrica -------------------------------------------------
 
 
-def test_estan_los_ocho_esquemas():
-    """Los dos del rediseño van primeros, que es el orden del menú: Sereno es
-    con el que arranca el programa. Detrás quedan los seis anteriores, en su
-    orden de siempre, empezando por el que reproduce el aspecto histórico."""
-    assert list(theme.SCHEMES) == [
-        "Sereno", "Nocturno", "Claro", "Oscuro", "NK", "Azul sobre gris", "ECG", "Papel",
-    ]
+def test_son_dos_esquemas_y_nada_mas():
+    """**Eran ocho y cada color se podía editar** hasta el hito 35, así que el
+    programa tenía infinitos aspectos posibles y ninguno garantizado: el
+    control de contraste sólo alcanzaba a los de fábrica. Dos verificados y
+    ninguna perilla es menos programa y más garantía."""
+    assert list(theme.SCHEMES) == ["Sereno", "Nocturno"]
+
+
+def test_un_esquema_no_se_puede_guardar_ni_leer_de_un_archivo():
+    """La contracara de lo anterior: sin esquemas propios no hay nada que
+    serializar, y el archivo de preferencias guarda el **nombre**."""
+    assert not hasattr(theme, "scheme_to_dict")
+    assert not hasattr(theme, "scheme_from_dict")
 
 
 def test_cada_esquema_se_llama_como_su_clave():
@@ -92,14 +98,14 @@ def test_un_esquema_no_se_puede_modificar():
     """Se reparte entre seis widgets: si alguno pudiera escribirle encima, el
     resto quedaría dibujando con un esquema que ya no es el elegido."""
     with pytest.raises(dataclasses.FrozenInstanceError):
-        theme.CLARO.background = "#000000"  # type: ignore[misc]
+        theme.SERENO.background = "#000000"  # type: ignore[misc]
 
 
 # -- El color de cada canal --------------------------------------------------
 
 
 def test_los_canales_toman_colores_distintos():
-    colores = [theme.OSCURO.color_for_channel(i) for i in range(4)]
+    colores = [theme.NOCTURNO.color_for_channel(i) for i in range(4)]
 
     assert len(set(colores)) == 4
 
@@ -107,19 +113,22 @@ def test_los_canales_toman_colores_distintos():
 def test_la_paleta_cicla_en_vez_de_quedarse_sin_color():
     """Con más canales que colores dos van a repetir, y repetir es mejor que
     quedarse sin color: es lo mismo que hace `AnnotationSet.color_of()`."""
-    largo = len(theme.OSCURO.signal_palette)
+    largo = len(theme.NOCTURNO.signal_palette)
 
-    assert theme.OSCURO.color_for_channel(largo) == theme.OSCURO.color_for_channel(0)
+    assert theme.NOCTURNO.color_for_channel(largo) == theme.NOCTURNO.color_for_channel(0)
 
 
 def test_sin_variar_colores_todos_los_canales_son_iguales():
-    assert theme.NK.vary_signal_colors is False
-    assert theme.NK.color_for_channel(0) == theme.NK.signals
-    assert theme.NK.color_for_channel(3) == theme.NK.signals
+    """Los dos esquemas varían el color por canal; el campo existe igual, para
+    quien quiera todas las curvas del mismo color."""
+    esquema = dataclasses.replace(theme.SERENO, vary_signal_colors=False)
+
+    assert esquema.color_for_channel(0) == esquema.signals
+    assert esquema.color_for_channel(3) == esquema.signals
 
 
 def test_una_paleta_vacia_no_deja_al_canal_sin_color():
-    esquema = dataclasses.replace(theme.OSCURO, signal_palette=())
+    esquema = dataclasses.replace(theme.NOCTURNO, signal_palette=())
 
     assert esquema.color_for_channel(0) == esquema.signals
 
@@ -128,9 +137,9 @@ def test_una_paleta_vacia_no_deja_al_canal_sin_color():
 
 
 def test_elegir_un_esquema_lo_deja_como_el_actual():
-    theme.set_current(theme.ECG)
+    theme.set_current(theme.NOCTURNO)
 
-    assert theme.current() is theme.ECG
+    assert theme.current() is theme.NOCTURNO
 
 
 def test_elegir_algo_que_no_es_un_esquema_avisa():
@@ -145,7 +154,7 @@ def test_un_esquema_inexistente_avisa_y_dice_cuales_hay():
         theme.scheme_by_name("Fluorescente")
 
     assert "Fluorescente" in str(fallo.value)
-    assert "Claro" in (fallo.value.details or "")
+    assert "Sereno" in (fallo.value.details or "")
 
 
 def test_pedir_un_esquema_con_algo_que_no_es_texto_avisa():
@@ -173,15 +182,12 @@ def test_los_esquemas_del_rediseno_traen_escala_de_fases(esquema: theme.ColorSch
         assert esquema.color_for_stage(fase) is not None
 
 
-@pytest.mark.parametrize(
-    "esquema",
-    [theme.CLARO, theme.OSCURO, theme.NK, theme.AZUL_SOBRE_GRIS, theme.ECG, theme.PAPEL],
-    ids=lambda e: e.name,
-)
-def test_los_seis_anteriores_no_cambian_de_aspecto(esquema: theme.ColorScheme):
-    """Inventarles una escala de fases a NK o a ECG sería cambiarles el aspecto
-    que su nombre promete. Sin escala se dibuja como se dibujaba."""
-    assert esquema.stage_colors == ()
+def test_un_esquema_sin_escala_no_distingue_las_fases():
+    """El campo admite el vacío a propósito: un esquema puede querer no
+    distinguirlas —imprimir en blanco y negro, por ejemplo— y entonces las tres
+    cosas que la usan se dibujan con una sola tinta, como antes del hito 34."""
+    esquema = dataclasses.replace(theme.SERENO, stage_colors=())
+
     assert esquema.color_for_stage("N2") is None
 
 
@@ -228,20 +234,15 @@ def esquema_con_fases(request: pytest.FixtureRequest) -> theme.ColorScheme:
     return request.param
 
 
-def test_el_esquema_claro_no_pone_hoja_de_estilo():
-    """Devolver la cadena vacía le devuelve a Qt su apariencia nativa, que es
-    exactamente como se veía el programa antes de que existiera este módulo."""
-    assert theme.stylesheet(theme.CLARO) == ""
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=lambda e: e.name)
+def test_los_dos_esquemas_pintan_los_widgets(esquema: theme.ColorScheme):
+    """Sin esto, el árbol de canales y el panel de scoring quedan con el gris
+    de fábrica de Qt sobre el fondo del esquema, y la ventana a dos colores.
 
-
-@pytest.mark.parametrize(
-    "esquema",
-    [theme.OSCURO, theme.NK, theme.AZUL_SOBRE_GRIS, theme.ECG, theme.PAPEL],
-    ids=lambda e: e.name,
-)
-def test_los_demas_esquemas_pintan_los_widgets(esquema: theme.ColorScheme):
-    """Sin esto, un esquema oscuro deja el árbol de canales y el panel de
-    scoring en claro y la ventana queda a dos colores."""
+    **Hasta el hito 35 había un esquema que no ponía hoja de estilo**, «Claro»,
+    y dejaba el aspecto nativo del sistema. Se fue con los otros cinco: ahora
+    los dos que hay se pintan enteros.
+    """
     hoja = theme.stylesheet(esquema)
 
     assert esquema.background in hoja
@@ -250,32 +251,31 @@ def test_los_demas_esquemas_pintan_los_widgets(esquema: theme.ColorScheme):
         assert widget in hoja
 
 
-def test_papel_pinta_la_ventana_con_su_propio_fondo():
-    """La señal en blanco y la ventana alrededor en gris cálido."""
-    hoja = theme.stylesheet(theme.PAPEL)
+def test_la_ventana_se_pinta_con_su_propio_fondo():
+    """El lienzo de la señal y la ventana alrededor son dos colores distintos:
+    es lo que despega la señal del resto."""
+    hoja = theme.stylesheet(theme.SERENO)
 
-    assert f"QWidget {{ background-color: {theme.PAPEL.chrome};" in hoja
-    assert theme.PAPEL.background in hoja
-
-
-@pytest.mark.parametrize(
-    "esquema",
-    [theme.OSCURO, theme.NK, theme.AZUL_SOBRE_GRIS, theme.ECG],
-    ids=lambda e: e.name,
-)
-def test_sin_fondo_de_ventana_la_hoja_es_la_de_antes(esquema: theme.ColorScheme):
-    """Un `chrome` vacío es «el mismo que el fondo»: los esquemas de antes del
-    hito 26 no pueden haber cambiado."""
-    igual_al_fondo = dataclasses.replace(esquema, chrome=esquema.background)
-
-    assert theme.stylesheet(igual_al_fondo) == theme.stylesheet(esquema)
+    assert f"QWidget {{ background-color: {theme.SERENO.chrome};" in hoja
+    assert theme.SERENO.background in hoja
 
 
-def test_papel_da_su_tipografia_a_las_lecturas():
-    hoja = theme.stylesheet(theme.PAPEL)
+def test_sin_fondo_de_ventana_propio_la_hoja_es_la_misma():
+    """`chrome` vacío es «el mismo que el fondo», y la hoja sale igual que si
+    se lo hubiera escrito."""
+    sin_chrome = dataclasses.replace(theme.NOCTURNO, chrome=None)
+    con_chrome = dataclasses.replace(
+        theme.NOCTURNO, chrome=theme.NOCTURNO.background
+    )
+
+    assert theme.stylesheet(sin_chrome) == theme.stylesheet(con_chrome)
+
+
+def test_las_lecturas_toman_la_tipografia_del_esquema():
+    hoja = theme.stylesheet(theme.SERENO)
 
     assert f'QLabel[{theme.READOUT_PROPERTY}="true"]' in hoja
-    assert theme.PAPEL.numeric_font in hoja
+    assert theme.SERENO.numeric_font in hoja
 
 
 def test_la_hoja_lleva_una_regla_por_fase(esquema_con_fases: theme.ColorScheme):
@@ -315,7 +315,9 @@ def test_la_tinta_de_la_fase_marcada_se_elige_midiendo(
 
 
 def test_un_esquema_sin_fases_no_genera_ninguna_regla():
-    assert "fase=" not in theme.stylesheet(theme.OSCURO)
+    sin_escala = dataclasses.replace(theme.NOCTURNO, stage_colors=())
+
+    assert "fase=" not in theme.stylesheet(sin_escala)
 
 
 def test_la_hoja_pinta_los_paneles_y_sus_solapas():
@@ -338,100 +340,20 @@ def test_el_foco_del_teclado_se_ve():
 
 
 def test_sin_tipografia_numerica_no_hay_regla_para_las_lecturas():
-    assert theme.READOUT_PROPERTY not in theme.stylesheet(theme.OSCURO)
+    sin_mono = dataclasses.replace(theme.NOCTURNO, numeric_font=None)
+
+    assert theme.READOUT_PROPERTY not in theme.stylesheet(sin_mono)
 
 
 def test_un_fondo_de_ventana_poco_legible_se_detecta():
-    esquema = dataclasses.replace(theme.PAPEL, chrome="#2a2a2a")
+    esquema = dataclasses.replace(theme.SERENO, chrome="#2a2a2a")
 
     assert "el texto de la ventana" in [que for que, _ in theme.low_contrast_elements(esquema)]
-
-
-def test_un_fondo_de_ventana_mal_escrito_se_rechaza_al_leerlo():
-    datos = theme.scheme_to_dict(theme.PAPEL) | {"chrome": "gris"}
-
-    with pytest.raises(UnknownColorSchemeError):
-        theme.scheme_from_dict(datos)
-
-
-def test_una_tipografia_numerica_vacia_se_rechaza_al_leerla():
-    datos = theme.scheme_to_dict(theme.PAPEL) | {"numeric_font": "  "}
-
-    with pytest.raises(UnknownColorSchemeError):
-        theme.scheme_from_dict(datos)
 
 
 def test_armar_la_hoja_de_algo_que_no_es_un_esquema_avisa():
     with pytest.raises(UnknownColorSchemeError):
         theme.stylesheet("Oscuro")  # type: ignore[arg-type]
-
-
-# -- Guardar y volver a leer -------------------------------------------------
-
-
-@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=lambda e: e.name)
-def test_ida_y_vuelta_devuelve_el_mismo_esquema(esquema: theme.ColorScheme):
-    assert theme.scheme_from_dict(theme.scheme_to_dict(esquema)) == esquema
-
-
-def test_la_paleta_vuelve_como_tupla():
-    """En el archivo es una lista, y en el esquema tiene que ser inmutable como
-    todo lo demás."""
-    vuelto = theme.scheme_from_dict(theme.scheme_to_dict(theme.OSCURO))
-
-    assert isinstance(vuelto.signal_palette, tuple)
-
-
-def test_un_campo_que_falta_se_toma_del_esquema_claro():
-    """Un archivo guardado por una versión anterior sigue cargando: perder la
-    preferencia porque el programa creció es peor que dibujar un color de
-    fábrica."""
-    datos = theme.scheme_to_dict(theme.OSCURO)
-    del datos["accent"]
-
-    assert theme.scheme_from_dict(datos).accent == theme.CLARO.accent
-
-
-def test_un_campo_que_sobra_se_ignora():
-    datos = theme.scheme_to_dict(theme.OSCURO)
-    datos["color_de_las_reglas"] = "#ff00ff"
-
-    assert theme.scheme_from_dict(datos) == theme.OSCURO
-
-
-def test_la_linea_de_base_puede_estar_apagada():
-    datos = theme.scheme_to_dict(theme.OSCURO)
-    datos["baseline"] = None
-
-    assert theme.scheme_from_dict(datos).baseline is None
-
-
-@pytest.mark.parametrize(
-    "campo, valor",
-    [
-        ("background", 3),
-        ("vary_signal_colors", "sí"),
-        ("signal_palette", "#ffffff"),
-        ("signal_palette", [1, 2]),
-        ("baseline", 7),
-    ],
-)
-def test_un_valor_con_el_que_no_se_puede_dibujar_avisa(campo: str, valor: object):
-    datos = theme.scheme_to_dict(theme.CLARO)
-    datos[campo] = valor
-
-    with pytest.raises(UnknownColorSchemeError):
-        theme.scheme_from_dict(datos)
-
-
-def test_algo_que_no_es_un_diccionario_avisa():
-    with pytest.raises(UnknownColorSchemeError):
-        theme.scheme_from_dict(["#ffffff"])  # type: ignore[arg-type]
-
-
-def test_guardar_algo_que_no_es_un_esquema_avisa():
-    with pytest.raises(UnknownColorSchemeError):
-        theme.scheme_to_dict({"background": "#ffffff"})  # type: ignore[arg-type]
 
 
 # -- Qué cuenta como color ----------------------------------------------------------
@@ -445,39 +367,6 @@ def test_un_color_que_pyqtgraph_sabe_dibujar_es_valido(color: str):
 @pytest.mark.parametrize("color", ["gris oscuro", "", "   ", None, 3, "#12"])
 def test_lo_que_no_se_puede_dibujar_no_es_un_color(color: object):
     assert not theme.is_valid_color(color)
-
-
-def test_un_esquema_con_un_color_mal_escrito_se_rechaza_al_leerlo():
-    """**El error que llegaba como traza.** Antes sólo se comprobaba que fuera
-    texto, así que «gris oscuro» se cargaba sin quejas y al aplicarlo el
-    investigador veía `ValueError: Unable to convert gris oscuro to QColor`."""
-    datos = theme.scheme_to_dict(theme.OSCURO)
-    datos["background"] = "gris oscuro"
-
-    with pytest.raises(UnknownColorSchemeError, match="background"):
-        theme.scheme_from_dict(datos)
-
-
-def test_una_paleta_con_un_color_mal_escrito_se_rechaza():
-    datos = theme.scheme_to_dict(theme.OSCURO)
-    datos["signal_palette"] = ["#ff0000", "verdecito"]
-
-    with pytest.raises(UnknownColorSchemeError):
-        theme.scheme_from_dict(datos)
-
-
-def test_el_esquema_ecg_trae_la_grilla_cuadriculada():
-    """Es lo que su nombre promete, y separarlo obligaría a elegir dos cosas."""
-    assert theme.ECG.ecg_grid
-    assert not theme.CLARO.ecg_grid
-    assert not theme.OSCURO.ecg_grid
-
-
-def test_un_esquema_guardado_antes_de_la_grilla_ecg_sigue_cargando():
-    datos = theme.scheme_to_dict(theme.OSCURO)
-    del datos["ecg_grid"]
-
-    assert theme.scheme_from_dict(datos) == theme.OSCURO
 
 
 # -- Contraste --------------------------------------------------------------------------
@@ -509,7 +398,7 @@ def test_medir_el_contraste_de_algo_que_no_es_un_color_avisa():
 
 def test_un_color_de_canal_que_no_se_distingue_se_detecta():
     esquema = dataclasses.replace(
-        theme.OSCURO, signal_palette=("#ffff00", "#404040")
+        theme.NOCTURNO, signal_palette=("#ffff00", "#404040")
     )
 
     bajos = theme.low_contrast_elements(esquema)
@@ -520,30 +409,20 @@ def test_un_color_de_canal_que_no_se_distingue_se_detecta():
 
 def test_un_texto_poco_legible_se_detecta_con_el_umbral_del_texto():
     """3,5 a 1 alcanza para una curva y no para un texto."""
-    esquema = dataclasses.replace(theme.CLARO, foreground="#8a8a8a")
+    esquema = dataclasses.replace(theme.SERENO, foreground="#8a8a8a")
 
-    assert theme.contrast_ratio("#8a8a8a", theme.CLARO.background) > 3.0
+    assert theme.contrast_ratio("#8a8a8a", theme.SERENO.background) > 3.0
     assert "el texto de los gráficos" in [que for que, _ in theme.low_contrast_elements(esquema)]
 
 
 # -- El color de los iconos ------------------------------------------------------
 
 
-@pytest.mark.parametrize("nombre", [n for n in theme.SCHEMES if n != "Claro"])
+@pytest.mark.parametrize("nombre", list(theme.SCHEMES))
 def test_los_iconos_toman_el_texto_del_esquema(nombre: str):
     esquema = theme.SCHEMES[nombre]
 
     assert theme.icon_ink(esquema) == esquema.foreground
-
-
-def test_con_claro_los_iconos_siguen_al_sistema(qt_app):
-    """Claro deja el aspecto nativo, que puede ser oscuro: con el negro del
-    esquema, los iconos quedaban negros sobre una barra negra."""
-    from PySide6.QtGui import QGuiApplication, QPalette
-
-    esperado = QGuiApplication.palette().color(QPalette.ColorRole.WindowText).name()
-
-    assert theme.icon_ink(theme.CLARO) == esperado
 
 
 def test_el_color_de_los_iconos_pide_un_esquema():

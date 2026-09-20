@@ -28,6 +28,7 @@ from PySide6.QtWidgets import QMenu, QToolBar, QToolButton
 pytest.importorskip("pyqtgraph")
 
 import psglab.ui.menus as menus  # noqa: E402
+from psglab.ui import theme  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.exporters.scoring_formats import SCORING_FORMATS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
@@ -363,6 +364,41 @@ def test_una_herramienta_con_panel_esta_como_su_panel(
 
     assert entrada is ventana.docks[clave].toggleViewAction()
     assert clave not in ventana._tool_actions
+
+
+def test_los_dos_esquemas_estan_en_ver(ventana: MainWindow):
+    """**Estaban en la solapa Colores** hasta el hito 35, junto con la edición
+    de cada color. Al quedar sólo la elección entre dos, una solapa entera era
+    más camino que el que ahorraba; acá quedan al lado de los tres fondos de
+    grilla, que es lo otro que cambia cómo se ve la señal."""
+    ver = menu_llamado(ventana, "&Ver")
+    textos = [a.text() for a in ver.actions()]
+
+    for nombre in theme.SCHEMES:
+        assert nombre in textos
+
+
+def test_elegir_un_esquema_desde_el_menu_lo_aplica(ventana: MainWindow):
+    anterior = theme.current()
+    try:
+        ventana.acciones_de_esquema["Nocturno"].trigger()
+
+        assert theme.current() is theme.NOCTURNO
+    finally:
+        ventana.set_color_scheme(anterior, remember=False)
+
+
+def test_los_esquemas_son_excluyentes(ventana: MainWindow):
+    """Elegir uno destilda el otro sin que nadie lo maneje a mano: es lo mismo
+    que hacen los tres fondos de grilla."""
+    anterior = theme.current()
+    try:
+        ventana.acciones_de_esquema["Nocturno"].trigger()
+
+        tildados = [n for n, a in ventana.acciones_de_esquema.items() if a.isChecked()]
+        assert tildados == ["Nocturno"]
+    finally:
+        ventana.set_color_scheme(anterior, remember=False)
 
 
 def test_ver_ya_no_tiene_submenus(ventana: MainWindow):

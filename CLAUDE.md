@@ -462,10 +462,10 @@ hito 23 es la única vía para activar una herramienta: **no hay barra de
 herramientas**. Abrir un registro es el botón de la esquina de la barra de menú
 (`window.open_button`), no un menú.
 
-Los colores salen de `ui/theme.py` (esquemas inmutables, con el contraste de los
-de fábrica verificado contra WCAG 2.1) y lo que el usuario elige, de
-`ui/preferences.py`, que lo guarda en un JSON de su perfil. No es `config.py`:
-aquél fija el pliego, esto es lo que se elige.
+Los colores salen de `ui/theme.py` (dos esquemas inmutables, con su contraste
+verificado contra WCAG 2.1) y lo que el usuario elige, de `ui/preferences.py`,
+que lo guarda en un JSON de su perfil. No es `config.py`: aquél fija el pliego,
+esto es lo que se elige.
 
 Del esquema sale también **el color de cada fase de sueño** (`stage_colors`),
 que pinta el hipnograma, la franja de posición y el botón de scoring con la
@@ -489,9 +489,15 @@ Cinco reglas de esta capa que no se ven leyendo un solo archivo:
   exige que cada README nombre sus archivos recorren la carpeta sin entrar en
   subcarpetas: un `ui/panels/` dejaría funciones de `analysis/` como huérfanas.
 - **No se agrega una opción de configuración que nada consuma.** Por eso la
-  ventana de configuración tiene cinco solapas y no las siete de la referencia:
-  Cursores y Calibración entran cuando existan las reglas y la conversión a
-  milímetros que configurarían.
+  ventana de configuración tiene cuatro solapas y no las siete de la
+  referencia: Cursores y Calibración entran cuando existan las reglas y la
+  conversión a milímetros que configurarían.
+- **Los colores no se configuran.** Hay dos esquemas —Sereno y Nocturno—, se
+  eligen desde el menú «Ver» y no se pueden editar. Eran ocho y con cada color
+  editable hasta el hito 35, y eso significaba infinitos aspectos posibles y
+  ninguno garantizado: el control de contraste sólo alcanzaba a los de fábrica.
+  Agregar un esquema es sumarlo a `SCHEMES` —el control de contraste lo enrola
+  solo—; agregar una perilla de color es volver atrás una decisión tomada.
 - **Un cuadro tiene 40 ms de presupuesto**, que es lo que pide el reloj de la
   reproducción. El hito 25 los consiguió con tres decisiones que se deshacen
   sin querer: la grilla es **un solo objeto** de la escena y no una
