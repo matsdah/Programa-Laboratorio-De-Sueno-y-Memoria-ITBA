@@ -437,3 +437,45 @@ def test_se_pueden_pedir_algunos_canales():
 
 def test_un_tramo_vacio_no_tiene_canales_planos():
     assert registro_con_un_plano().flat_channels(200, 200) == []
+
+
+# -- Muestras sin valor (hito 33) --------------------------------------------
+
+
+def registro_con_sin_valor() -> Recording:
+    """Tres canales: uno con NaN, uno con un infinito y uno sano."""
+    datos = np.vstack([np.sin(np.arange(1000) / 10.0) for _ in range(3)])
+    datos[0, 10:22] = np.nan
+    datos[1, 500] = np.inf
+    return Recording(
+        file_path=Path("rotas.vhdr"),
+        channels=[
+            Channel("C3", ChannelKind.EEG, "µV", 0),
+            Channel("C4", ChannelKind.EEG, "µV", 1),
+            Channel("O1", ChannelKind.EEG, "µV", 2),
+        ],
+        data=datos,
+        sampling_rate=100.0,
+    )
+
+
+def test_se_cuentan_las_muestras_sin_valor_de_cada_canal():
+    assert registro_con_sin_valor().non_finite_channels() == {"C3": 12, "C4": 1}
+
+
+def test_un_registro_sano_no_tiene_ninguna(registro_sintetico: Recording):
+    assert registro_sintetico.non_finite_channels() == {}
+
+
+def test_un_infinito_cuenta_igual_que_un_nan():
+    """Los dos rompen lo mismo, y para el investigador los dos son «esta
+    muestra no tiene valor»."""
+    registro = registro_con_sin_valor()
+    registro.data[2, 0] = -np.inf
+
+    assert registro.non_finite_channels()["O1"] == 1
+
+
+def test_los_canales_salen_en_el_orden_del_registro():
+    """El aviso los nombra en ese orden, que es el de la pantalla."""
+    assert list(registro_con_sin_valor().non_finite_channels()) == ["C3", "C4"]

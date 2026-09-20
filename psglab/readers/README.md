@@ -97,6 +97,14 @@ mensaje para el investigador a la lista `metadata[IMPORT_WARNINGS_KEY]`, de
 `base.py`. La ventana los muestra después de abrir el registro, sin saber de
 qué formato vino. Hoy lo usa el EDF truncado (hito 33).
 
+**Lo que no depende del formato no lo revisa cada lector.** Las muestras sin
+valor —NaN o infinito— las cuenta `read_recording()` sobre el registro ya
+armado, con `Recording.non_finite_channels()`, y suma su aviso a los que el
+lector haya dejado. Así vale para cualquier formato, el que se agregue mañana
+incluido: el EDF guarda enteros y no puede traerlas, pero un BrainVision en
+`IEEE_FLOAT_32` sí. Cuesta el 3 % de lo que tarda abrir un registro de 22 h,
+medido en el hito 33.
+
 ## El scoring de otros programas
 
 `scoring_formats.py` lee un hipnograma como el de la Sleep-EDF, un XML del

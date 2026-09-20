@@ -138,6 +138,7 @@ def escribir_brainvision(
     frecuencia: float = FRECUENCIA_BV,
     codepage: str | None = "UTF-8",
     coordenadas: bool = False,
+    sin_valor: dict[str, range] | None = None,
 ) -> pathlib.Path:
     """Escribe un BrainVision completo y devuelve la ruta de su `.vhdr`.
 
@@ -180,6 +181,12 @@ def escribir_brainvision(
       decodificar en UTF-8.
     - `coordenadas=True` agrega una sección `[Coordinates]`, cuyas líneas
       también empiezan con `Ch<n>=` y no hablan de unidades.
+    - `sin_valor={"C3": range(10, 20)}` deja esas muestras en NaN, y para eso
+      escribe el archivo en `IEEE_FLOAT_32` en vez de `INT_16`. **Es el único
+      formato de los dos que puede traerlas**: el EDF guarda enteros, así que
+      un NaN no le entra ni por un archivo dañado. Las cuentas son las mismas y
+      la cabecera no cambia más que en esa línea, así que un test que pida
+      muestras sin valor sigue leyendo los mismos µV en el resto de la señal.
     """
     carpeta.mkdir(parents=True, exist_ok=True)
     # Los tres por omisión cubren una clase de señal cada uno, que es lo que
@@ -202,7 +209,13 @@ def escribir_brainvision(
             )
         ]
     )
-    cuentas = np.round(microvoltios / RESOLUCION_BV_UV).astype("<i2")
+    cuentas = np.round(microvoltios / RESOLUCION_BV_UV)
+    if sin_valor:
+        posiciones = {nombre: numero for numero, (nombre, _) in enumerate(canales)}
+        for nombre, muestras_rotas in sin_valor.items():
+            cuentas[posiciones[nombre], list(muestras_rotas)] = np.nan
+    binario = "IEEE_FLOAT_32" if sin_valor else "INT_16"
+    cuentas = cuentas.astype("<f4" if sin_valor else "<i2")
     # MULTIPLEXED es canal por canal dentro de cada instante, así que se
     # transpone antes de volcar los bytes.
     (carpeta / "sintetico.eeg").write_bytes(cuentas.T.tobytes(order="C"))
@@ -220,7 +233,7 @@ def escribir_brainvision(
         f"SamplingInterval={int(1_000_000 / frecuencia)}",
         "",
         "[Binary Infos]",
-        "BinaryFormat=INT_16",
+        f"BinaryFormat={binario}",
         "",
         "[Channel Infos]",
     ]

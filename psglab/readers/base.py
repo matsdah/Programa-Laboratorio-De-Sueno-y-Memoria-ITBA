@@ -103,7 +103,10 @@ class Reader(ABC):
         canal ya detectada (ver `channel_types.detect_channel_kind`).
 
         Lo que se pudo leer con reservas —un archivo que trae menos de lo que
-        declara— se avisa en `metadata[IMPORT_WARNINGS_KEY]` y no se eleva.
+        declara— se avisa en `metadata[IMPORT_WARNINGS_KEY]` y no se eleva. Lo
+        que no depende del formato no hace falta que lo mire cada lector: las
+        muestras sin valor las revisa `read_recording()` sobre el registro ya
+        armado.
 
         Raises:
             UnreadableFileError: si el archivo está corrupto, o tan incompleto
@@ -215,12 +218,76 @@ def file_dialog_filter() -> str:
     return ";;".join(entradas)
 
 
+#: Cuántos canales sin valor se nombran en el aviso antes de resumir el resto.
+#: Con un electrodo suelto son uno o dos; con un archivo mal convertido pueden
+#: ser todos, y un cartel con treinta y dos nombres no se lee.
+_CANALES_QUE_SE_NOMBRAN: Final[int] = 5
+
+
+def _aviso_de_muestras_sin_valor(registro: Recording) -> str | None:
+    """Qué decirle al investigador si el registro trae NaN o infinitos.
+
+    **Es del despacho y no de un lector** (hito 33), por dos motivos. Uno, que
+    ningún formato está a salvo: el EDF guarda enteros y no puede traerlos,
+    pero un BrainVision en `IEEE_FLOAT_32` sí, y el formato que se agregue
+    mañana no tiene por qué acordarse de mirarlo. Dos, que la regla de qué
+    cuenta como muestra sin valor vive en `Recording.non_finite_channels()`, no
+    acá.
+
+    Returns:
+        El mensaje, o None si el registro no tiene ninguna.
+    """
+    cuentas = registro.non_finite_channels()
+    if not cuentas:
+        return None
+    muestras = registro.data.shape[1]
+    if len(cuentas) == 1:
+        canal, cuantas = next(iter(cuentas.items()))
+        donde = f"en «{canal}»: {cuantas} de sus {muestras} muestras"
+    else:
+        nombrados = [
+            f"{canal} ({cuantas})"
+            for canal, cuantas in list(cuentas.items())[:_CANALES_QUE_SE_NOMBRAN]
+        ]
+        resto = len(cuentas) - len(nombrados)
+        if resto:
+            nombrados.append(f"y otros {resto}")
+        donde = (
+            f"en {len(cuentas)} de sus {len(registro.channels)} canales, sobre "
+            f"{muestras} muestras cada uno: {', '.join(nombrados)}"
+        )
+    return (
+        f"«{registro.file_path.name}» trae muestras sin valor (NaN o infinito) "
+        f"{donde}. No se ven en la pantalla y contagian lo que las toque: "
+        "filtrar las esparce por la señal, la referencia promedio las pasa a "
+        "todos los canales y la PSD de esa época sale entera sin valor."
+    )
+
+
+def _agregar_aviso(registro: Recording, aviso: str) -> None:
+    """Suma un aviso a los que el lector ya haya dejado, sin pisarlos.
+
+    Un EDF truncado **y** con muestras sin valor tiene dos cosas que decir, y
+    la ventana las muestra juntas.
+    """
+    anteriores = registro.metadata.get(IMPORT_WARNINGS_KEY)
+    avisos = list(anteriores) if isinstance(anteriores, list) else []
+    avisos.append(aviso)
+    registro.metadata[IMPORT_WARNINGS_KEY] = avisos
+
+
 def read_recording(path: Path) -> Recording:
     """Carga un registro eligiendo automáticamente el lector adecuado.
 
     Es la única función que el resto del programa necesita conocer para
-    importar un archivo. El despacho y el
-    `read()` de cada formato.
+    importar un archivo: elige el lector por `can_read()` y le pide el
+    `read()`.
+
+    **Y revisa lo que salió**, antes de devolverlo: si la señal trae muestras
+    sin valor se suma el aviso de `_aviso_de_muestras_sin_valor()`. Cuesta 80
+    ms sobre el registro de prueba de 22 h —el 3 % de lo que tarda abrirlo— y
+    es lo que separa un archivo dañado de uno sano, que hasta el hito 33 se
+    veían igual en la pantalla.
 
     Raises:
         UnsupportedFormatError: si ningún lector registrado maneja el archivo.
@@ -228,7 +295,11 @@ def read_recording(path: Path) -> Recording:
     for reader_cls in available_readers():
         reader = reader_cls()
         if reader.can_read(path):
-            return reader.read(path)
+            registro = reader.read(path)
+            aviso = _aviso_de_muestras_sin_valor(registro)
+            if aviso is not None:
+                _agregar_aviso(registro, aviso)
+            return registro
     known_extensions = sorted({ext for cls in _REGISTRY for ext in cls.extensions})
     raise UnsupportedFormatError(
         f"No se puede abrir '{path.name}': el formato no está soportado.",

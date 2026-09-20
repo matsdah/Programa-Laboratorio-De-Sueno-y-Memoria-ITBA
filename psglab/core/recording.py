@@ -408,6 +408,43 @@ class Recording:
         tramo.flags.writeable = False
         return tramo
 
+    def non_finite_channels(self) -> dict[str, int]:
+        """Cuántas muestras sin valor —NaN o infinito— tiene cada canal.
+
+        **Existe para que el registro se pueda avisar al abrirlo** (hito 33).
+        Una muestra sin valor no se ve en la pantalla —la curva se corta— y
+        contagia todo lo que la toque: un filtro la esparce a lo largo de la
+        señal, la referencia promedio la pasa a **todos** los canales y la PSD
+        de esa época sale entera sin valor. Diez muestras terminaron en unas
+        treinta mil, medido en la auditoría del 19 de septiembre de 2026.
+
+        Es la misma clase de diagnóstico que `flat_channels()`, y vive acá por
+        el mismo motivo: decidir qué cuenta como señal utilizable es una regla
+        y no un detalle de un lector. La diferencia es que ésta mira el
+        registro entero, porque lo que la pregunta va a decidir es un aviso al
+        importar y no la explicación de un análisis.
+
+        **Se recorre canal por canal y no la matriz de una vez**, aunque numpy
+        sepa hacerlo con `axis=1`: cada fila se compara sola, así que el
+        arreglo temporal de booleanos es de un canal y no del registro. Medido
+        sobre el registro de prueba de 22 h y 445 MB: 80 ms contra 175, y un
+        temporal de 8 MB contra 55.
+
+        Returns:
+            Los canales que tienen al menos una muestra sin valor, por nombre y
+            con cuántas, en el orden en que están en el registro. Un registro
+            sano devuelve un diccionario vacío.
+        """
+        # `isfinite` y no `isnan`: un infinito rompe lo mismo y se cuela por los
+        # mismos lugares —una división por cero en la escala del archivo—, y
+        # para el investigador las dos cosas son "esta muestra no tiene valor".
+        cuentas: dict[str, int] = {}
+        for canal, fila in zip(self.channels, self.data):
+            sin_valor = int(np.count_nonzero(~np.isfinite(fila)))
+            if sin_valor:
+                cuentas[canal.name] = sin_valor
+        return cuentas
+
     def flat_channels(
         self,
         start_sample: int,

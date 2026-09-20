@@ -20,7 +20,7 @@ ubicó mal.
 
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
-| `recording.py` | El registro cargado en memoria: `Recording`, `Channel`, `ChannelKind`. `flat_channels()` dice qué canales no varían en un tramo, para que los análisis lo expliquen. | Soporte de V1_F–V3_F de "Importación", V4_F de "Visualización" |
+| `recording.py` | El registro cargado en memoria: `Recording`, `Channel`, `ChannelKind`. `flat_channels()` dice qué canales no varían en un tramo, para que los análisis lo expliquen, y `non_finite_channels()`, cuántas muestras sin valor tiene cada uno, para avisarlo al importar. | Soporte de V1_F–V3_F de "Importación", V4_F de "Visualización" |
 | `session.py` | Estado de trabajo del usuario. **Es el objeto central.** | V1_F de "Navegación"; V2_P, V3_P, V5_F de "Visualización"; V4_F del histograma |
 | `scoring.py` | Fase y arousal de cada ventana: `Scoring`, `EpochScore`. | V1_F, V2_F, V3_F de "Scoring" |
 | `nomenclature.py` | Rechtschaffen y Kales frente a AASM: `Nomenclature`, `SleepStage`, conversión entre ambas. | V1_F, V3_F de "Scoring"; V3_F del histograma |

@@ -820,3 +820,94 @@ def test_un_archivo_que_no_esta_no_se_informa_como_danado(tmp_path: Path, nombre
         read_recording(tmp_path / nombre)
 
     assert "no se encontró" in str(error.value).lower()
+
+
+# -- Quinta parte: las muestras sin valor (hito 33) ---------------------------
+#
+# Un NaN no se ve en la pantalla —la curva se corta— y contagia todo lo que lo
+# toque: la auditoría del 19 de septiembre de 2026 metió diez y salieron unas
+# treinta mil después de filtrar. Lo revisa `read_recording()` sobre el
+# registro ya armado, así que vale para cualquier formato, el que se agregue
+# mañana incluido.
+
+
+def test_un_brainvision_con_nan_se_abre_y_lo_dice(tmp_path: Path):
+    """Se abre igual: lo que llegó puede ser lo único que el investigador
+    tiene, como con el EDF truncado."""
+    vhdr = escribir_brainvision(tmp_path, segundos=3, sin_valor={"C3": range(10, 22)})
+
+    registro = read_recording(vhdr)
+
+    assert registro.non_finite_channels() == {"C3": 12}
+    (aviso,) = registro.metadata[IMPORT_WARNINGS_KEY]
+    assert "C3" in aviso and "12 de sus 750 muestras" in aviso
+
+
+def test_el_resto_de_la_señal_sigue_en_microvoltios(tmp_path: Path):
+    """El archivo pasa a `IEEE_FLOAT_32` para poder traer el NaN, y eso no
+    puede cambiarle la escala a los canales sanos."""
+    vhdr = escribir_brainvision(tmp_path, segundos=3, sin_valor={"C3": range(10, 22)})
+
+    registro = read_recording(vhdr)
+
+    picos = [float(np.max(np.abs(fila))) for fila in registro.data[1:]]
+    assert picos == pytest.approx([30.0, 20.0], abs=RESOLUCION_BV_UV)
+
+
+def test_un_registro_sano_no_avisa_nada(brainvision_sintetico: Path):
+    assert IMPORT_WARNINGS_KEY not in read_recording(brainvision_sintetico).metadata
+
+
+def test_varios_canales_se_resumen_en_un_solo_aviso(tmp_path: Path):
+    vhdr = escribir_brainvision(
+        tmp_path,
+        segundos=3,
+        canales=[(f"C{i}", "µV") for i in range(7)],
+        sin_valor={f"C{i}": range(i + 1) for i in range(7)},
+    )
+
+    (aviso,) = read_recording(vhdr).metadata[IMPORT_WARNINGS_KEY]
+
+    assert "en 7 de sus 7 canales" in aviso
+    # Cinco por nombre y el resto contado: un cartel con treinta y dos no se lee.
+    assert "C0 (1)" in aviso and "C4 (5)" in aviso
+    assert "C5" not in aviso and "y otros 2" in aviso
+
+
+def test_el_aviso_no_pisa_el_que_dejo_el_lector(registro_aislado, tmp_path: Path):
+    """Un archivo incompleto **y** con muestras sin valor tiene dos cosas que
+    decir, y la ventana las muestra juntas."""
+
+    class LectorQueAvisa(LectorDeMentira):
+        def read(self, path: Path) -> Recording:
+            registro = registro_sintetico(path)
+            registro.data[0, :5] = np.nan
+            registro.metadata[IMPORT_WARNINGS_KEY] = ["el archivo está incompleto"]
+            return registro
+
+    register_reader(LectorQueAvisa)
+
+    avisos = read_recording(tmp_path / "noche.mentira").metadata[IMPORT_WARNINGS_KEY]
+
+    assert avisos[0] == "el archivo está incompleto"
+    assert "sin valor" in avisos[1]
+
+
+def test_revisar_la_señal_no_la_copia(registro_aislado, tmp_path: Path):
+    """Sobre una noche entera, copiarla para revisarla serían cientos de MB.
+
+    La cuenta se hace fila por fila justamente para no armar un temporal del
+    tamaño del registro; acá se comprueba lo que se puede comprobar sin medir
+    memoria: que la señal que devuelve el lector es la misma matriz.
+    """
+    class LectorQueMarca(LectorDeMentira):
+        def read(self, path: Path) -> Recording:
+            registro = registro_sintetico(path)
+            LectorQueMarca.matriz = registro.data
+            return registro
+
+    register_reader(LectorQueMarca)
+
+    registro = read_recording(tmp_path / "noche.mentira")
+
+    assert registro.data is LectorQueMarca.matriz

@@ -3729,6 +3729,39 @@ def test_un_registro_entero_no_muestra_avisos(
     assert ventana.session.recording.duration_seconds == pytest.approx(90.0)
 
 
+# -- Un registro con muestras sin valor (hito 33) ----------------------------
+
+
+def test_abrir_un_registro_con_nan_lo_abre_y_lo_dice(
+    ventana: MainWindow, avisos_de_lectura, tmp_path: Path
+):
+    """Un NaN no se ve: la curva se corta y nada lo distingue de una pausa.
+
+    La auditoría metió diez muestras y después de filtrar eran unas treinta
+    mil, con la PSD de esa época entera sin valor y ningún cartel en el medio.
+    """
+    vhdr = escribir_brainvision(
+        tmp_path / "rotas", segundos=WINDOW_SECONDS * 3, sin_valor={"C3": range(10, 20)}
+    )
+
+    ventana.open_recording(vhdr)
+
+    assert ventana.session.recording.non_finite_channels() == {"C3": 10}
+    (avisos,) = avisos_de_lectura
+    assert "C3" in avisos[0] and "sin valor" in avisos[0]
+    assert not ventana.carteles
+
+
+def test_un_registro_sano_no_avisa_de_muestras_sin_valor(
+    ventana: MainWindow, avisos_de_lectura, tmp_path: Path
+):
+    ventana.open_recording(
+        escribir_brainvision(tmp_path / "sano", segundos=WINDOW_SECONDS * 3)
+    )
+
+    assert avisos_de_lectura == []
+
+
 # -- Un archivo de preferencias roto no impide arrancar (hito 33) ------------
 
 
