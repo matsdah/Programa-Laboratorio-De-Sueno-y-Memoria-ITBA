@@ -252,7 +252,7 @@ class ViewerTool(Tool):
         """Se apretó un botón del mouse sobre el visualizador.
 
         Args:
-            x: segundos desde el inicio de la ventana.
+            x: segundos desde el inicio del registro.
             y: microvoltios.
             button: "left", "right" o "middle".
         """

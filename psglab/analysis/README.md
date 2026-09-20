@@ -30,7 +30,10 @@ desde un script del laboratorio sin abrir el programa.
 Varias funciones vienen en dos sabores: una sobre una ventana concreta
 (`compute_psd`, `compute_connectivity`) y otra sobre el registro entero
 (`band_powers_by_window`, `complexity_by_window`, `connectivity_by_window`). La
-segunda es la que alimenta los gráficos a lo largo de la noche.
+segunda es la que alimenta los gráficos a lo largo de la noche, **salvo
+`band_powers_by_window()`**, que no tiene camino desde la ventana: el hito 19
+eligió mostrar la potencia por banda **de la ventana** en el panel del
+espectro. Está en la tabla de abajo.
 
 ## Lo que la interfaz no ofrece, a propósito
 
@@ -43,6 +46,7 @@ existiendo y testeadas para los scripts del laboratorio.
 |---|---|
 | `derivation.derive_montage()` | El menú deriva de a un par con `derive()`, que es el pedido real. Un montaje entero se escribe en un script. Decidido en el hito 19. |
 | `complexity.sample_entropy()` | Medida sobre el registro real tarda más de cinco minutos contra menos de cinco segundos las otras tres. `MEDIDAS_RAPIDAS` la deja fuera del barrido. |
+| `psd.band_powers_by_window()` | El hito 19 eligió mostrar la potencia por banda **de la ventana**, en el panel del espectro, y no el barrido de la noche. Queda para un script. Faltaba en esta tabla hasta el hito 33. |
 
 `ui/main_window.py` **no debe importar lo que no llama**: hasta el hito 19
 importaba `derive_montage` sin usarla, y eso hacía parecer consumido un camino

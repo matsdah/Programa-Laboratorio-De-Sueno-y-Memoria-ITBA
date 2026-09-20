@@ -987,9 +987,13 @@ SOLO_BIBLIOTECA: dict[str, str] = {
     "psglab/analysis/mne_bridge.py::from_raw": (
         "la otra mitad del puente, por el mismo motivo que to_raw()."
     ),
+    # **Decía que la consultaban los análisis y no la llamaba nadie** hasta el
+    # hito 33, que hizo cierta la exención en vez de corregirle el texto:
+    # `from_raw()` arma cada canal con ella, así que la regla de la unidad se
+    # escribe una sola vez.
     "psglab/analysis/mne_bridge.py::unidad_de_salida": (
-        "la consultan los análisis para no volver a razonar la regla de la "
-        "unidad; no hay nada que mostrar."
+        "la aplica from_raw() al reconstruir cada canal, y los análisis pueden "
+        "consultarla sin repetir la regla; no hay nada que mostrar."
     ),
     "psglab/analysis/psd.py::band_powers_by_window": (
         "el hito 19 eligió mostrar la potencia por banda **de la ventana** en "

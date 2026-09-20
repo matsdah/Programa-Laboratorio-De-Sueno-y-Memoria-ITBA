@@ -140,6 +140,32 @@ def test_la_unidad_de_salida_dice_la_regla(mixto: Recording):
     assert unidad_de_salida(mixto.channels[1]) == "DegC"
 
 
+def test_la_vuelta_aplica_la_regla_de_la_unidad(mixto: Recording):
+    """**`from_raw()` la aplica, en vez de repetirla** (hito 33).
+
+    Un canal eléctrico declarado en otra grafía vuelve en la del programa: los
+    datos salen en µV de las dos maneras, así que la etiqueta que discrepaba
+    no rompía nada, pero dejaba a `unidad_de_salida()` sin ningún llamador y a
+    la regla escrita en dos lugares que podían separarse.
+    """
+    en_ascii = Recording(
+        file_path=mixto.file_path,
+        channels=[
+            Channel("C3", ChannelKind.EEG, "uV", 0),
+            mixto.channels[1],
+        ],
+        data=mixto.data,
+        sampling_rate=mixto.sampling_rate,
+        start_time=mixto.start_time,
+    )
+
+    vuelta = from_raw(to_raw(en_ascii), en_ascii)
+
+    assert vuelta.channels[0].unit == MICROVOLT
+    assert vuelta.channels[1].unit == "DegC"
+    assert np.allclose(vuelta.data, en_ascii.data)
+
+
 # -- Lo que MNE necesita saber -----------------------------------------------
 
 

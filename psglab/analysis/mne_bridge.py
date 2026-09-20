@@ -190,7 +190,12 @@ def from_raw(raw: Any, original: Recording) -> Recording:
             Channel(
                 name=viejo.name,
                 kind=viejo.kind,
-                unit=viejo.unit,
+                # **La regla de la unidad se escribe una sola vez** (hito 33).
+                # Acá se repetía —el canal salía con la unidad que traía— y
+                # `unidad_de_salida()` quedaba sin llamar, con una exención que
+                # afirmaba que los análisis la consultaban. Para un canal
+                # eléctrico el resultado es el mismo, en la grafía de siempre.
+                unit=unidad_de_salida(viejo),
                 index=posicion,
                 original_sampling_rate=viejo.original_sampling_rate,
             )
@@ -209,8 +214,9 @@ def from_raw(raw: Any, original: Recording) -> Recording:
 def unidad_de_salida(canal: Channel) -> str:
     """En qué unidad queda un canal después de pasar por MNE.
 
-    Existe para que los análisis no tengan que volver a razonar la regla: los
-    eléctricos vuelven a microvoltios y el resto conserva la suya.
+    Existe para que la regla se escriba una sola vez: los eléctricos vuelven a
+    microvoltios y el resto conserva la suya. La aplica `from_raw()` al
+    reconstruir cada canal, y los análisis pueden consultarla sin repetirla.
 
     Raises:
         InvalidRecordingError: si no se le pasa un `Channel`.

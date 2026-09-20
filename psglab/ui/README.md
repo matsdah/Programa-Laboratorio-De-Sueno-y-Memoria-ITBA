@@ -179,11 +179,16 @@ La lección quedó en `tests/test_entrega.py`: **los gestos se mandan como
 eventos de Qt al viewport, no llamando a la herramienta.** Llamando a la
 herramienta, los mismos tests pasan en verde con el programa roto.
 
-**Los widgets de esta capa no llevan tests unitarios**, y por eso se la mantiene
-delgada: dibujar no se puede verificar sin mirar una pantalla, así que todo lo
-que valga la pena verificar debería poder verificarse desde `core/`, `tools/` o
-`exporters/`. No es un olvido del TODO, y lo que ejercita el resto es
-`test_todos_los_modulos_del_paquete_se_pueden_importar`.
+**El dibujo de esta capa no lleva tests**, y por eso se la mantiene delgada: no
+se puede verificar sin mirar una pantalla, así que todo lo que valga la pena
+verificar debería poder verificarse desde `core/`, `tools/` o `exporters/`.
+
+**Lo que no dibuja sí los lleva, y hoy son casi todos**: veinte de los
+veintidós módulos de la carpeta tienen test propio. Los dos que no —
+`main_window.py` y `channel_selector.py`— figuran en `SIN_TEST_PROPIO`, y al
+primero lo recorre `test_entrega.py` por la ventana. La frase de este párrafo
+decía que ninguno llevaba test y se quedó vieja mientras la lista crecía: lo
+encontró la auditoría del 19 de septiembre de 2026.
 
 **La regla se acotó en el hito 6, y conviene saber por qué.** Se había fijado con
 la carpeta vacía; al escribirla se vio que hay piezas que **no dibujan nada** y

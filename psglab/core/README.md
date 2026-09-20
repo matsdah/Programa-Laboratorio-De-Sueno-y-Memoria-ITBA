@@ -66,9 +66,9 @@ visible.
 
 El programa habla en varias unidades a la vez: el usuario piensa en **ventanas
 de 30 segundos**, el archivo guarda **muestras** (los "puntos" del pliego), las
-herramientas reciben **segundos** desde el inicio de la ventana, el medidor de
-ocupación trabaja en **fracción de ventana** y el histograma muestra la **hora
-de la noche**.
+herramientas reciben **segundos desde el inicio del registro**, el medidor de
+ocupación trabaja en **fracción de la página** y el histograma muestra la
+**hora de la noche**.
 
 Todas esas conversiones viven acá, para que no aparezcan cuentas de
 `* 30 * fs` repartidas por el código. Si necesitás pasar de una unidad a otra,
@@ -116,8 +116,9 @@ cambiar una línea. Ver el [hito 0 del TODO](../../docs/TODO.md#hito-0-desbloque
 ## Estado
 
 Pendientes **0 stubs**: la carpeta está **terminada**, con los hitos 1, 2 y 3
-del [TODO](../../docs/TODO.md) cerrados. Sus seis módulos tienen su test
-corriendo.
+del [TODO](../../docs/TODO.md) cerrados. Sus **ocho** módulos tienen su test
+corriendo: los seis de aquellos hitos más `viewport.py` y `decimation.py`, que
+llegaron con el refactor de la interfaz y que este párrafo no contaba.
 
 **Toda esta capa funciona y se puede testear sin abrir una ventana**, que es el
 pago concreto de que `core/` no importe `ui/`. Es el primer punto en que el

@@ -714,6 +714,8 @@ class MainWindow(QMainWindow):
         for herramienta in self._tools.values():
             herramienta.deactivate()
         self._active_viewer_tool = None
+        if self._session is not None:
+            self._session.set_active_tool(None)
         self._redibujar_overlays()
 
     def _activate_panel_tools(self) -> None:
@@ -764,6 +766,11 @@ class MainWindow(QMainWindow):
             herramienta.deactivate()
             if herramienta is self._active_viewer_tool:
                 self._active_viewer_tool = None
+        # **La sesión lleva cuál es la exclusiva activa** y hasta el hito 33 no
+        # se lo decía nadie: `Session.active_tool` era siempre None, con su
+        # docstring explicando un estado que no existía.
+        if herramienta.exclusive:
+            self._session.set_active_tool(name if activa else None)
         # La herramienta avisó mientras todavía figuraba como activa: sin esto
         # quedaría dibujado lo suyo con ella ya apagada.
         self._redibujar_overlays()

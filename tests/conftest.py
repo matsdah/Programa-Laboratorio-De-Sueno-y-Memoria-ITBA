@@ -141,8 +141,8 @@ def escribir_brainvision(
 ) -> pathlib.Path:
     """Escribe un BrainVision completo y devuelve la ruta de su `.vhdr`.
 
-    **Por qué existe.** Los quince tests que leen el registro de `data/` son los
-    únicos que ejercitan el lector de punta a punta, y se saltean en el CI
+    **Por qué existe.** Los tests que leen el registro de `data/` eran los
+    únicos que ejercitaban el lector de punta a punta, y se saltean en el CI
     porque `data/` está en el `.gitignore`: son registros de participantes. El
     resultado era que el lector de BrainVision no se ejecutaba en ninguna de las
     seis combinaciones de sistema y versión de Python que corre el CI.

@@ -153,9 +153,10 @@ Dos de sus tests merecen mención:
   sin verificar. Necesita el mapa `COBERTURA_DE_TESTS`: **al agregar un archivo
   de test hay que agregarle su fila**, y hay un test que lo verifica.
 - **`test_todos_los_modulos_del_paquete_se_pueden_importar`** es lo único que
-  ejercita `psglab/ui/`, porque la interfaz no lleva tests unitarios. Sin él, un
-  error de importación en la capa gráfica —una biblioteca de sistema que falta
-  en Linux— no aparecería hasta que alguien abriera el programa.
+  ejercita los dos módulos de `psglab/ui/` sin test propio, y la única red
+  contra un error de importación en la capa gráfica —una biblioteca de sistema
+  que falta en Linux—, que si no aparecería recién cuando alguien abriera el
+  programa.
 - **`test_cada_funcion_de_analysis_llega_a_la_ventana`**, del hito 20, cierra el
   hueco que costó los hitos 9 y 19: una función pública con sus tests en verde
   que **ningún usuario puede ejecutar**. Mira que el nombre *se use* en
@@ -240,10 +241,15 @@ hitos 10 a 18 son los de esa mitad.
 > contar y **la prosa no la mira nadie**, que es justo lo que dice el docstring
 > de `test_lo_que_tests_readme_dice_de_la_suite_es_cierto`.
 
-**De `psglab/ui/` se testea lo que no dibuja**, y el dibujo no. Diez de sus
-catorce módulos tienen test propio: los atajos, la grilla, los **cuatro**
-conversores desde píxeles de `signal_view.py` y los siete paneles. Los otros
-cuatro —`main_window.py`, `navigation.py`, `scoring_panel.py` y
-`channel_selector.py`— figuran en `SIN_TEST_PROPIO`, y al primero lo recorre
-`test_entrega.py` por la ventana. Es deliberado y está explicado en
-[`ui/README.md`](../psglab/ui/README.md#estado).
+**De `psglab/ui/` se testea lo que no dibuja**, y el dibujo no. **Veinte de sus
+veintidós módulos tienen test propio**: los atajos, la grilla, los **cuatro**
+conversores desde píxeles de `signal_view.py`, los paneles, los menús, el
+reloj de la reproducción, los esquemas de color y las preferencias. Los otros
+dos —`main_window.py` y `channel_selector.py`— figuran en `SIN_TEST_PROPIO`, y
+al primero lo recorre `test_entrega.py` por la ventana. Es deliberado y está
+explicado en [`ui/README.md`](../psglab/ui/README.md#estado).
+
+> Este párrafo decía "diez de sus catorce" y nombraba como exentos a
+> `navigation.py` y `scoring_panel.py`, que ganaron su test en los hitos 27 y
+> 26. La cuenta la lleva `SIN_TEST_PROPIO`, que sí se verifica; la prosa se
+> quedó vieja y la encontró la auditoría del 19 de septiembre de 2026.

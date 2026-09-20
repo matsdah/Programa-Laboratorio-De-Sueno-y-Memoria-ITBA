@@ -28,9 +28,12 @@ El pliego agrupa bajo "herramienta" cosas que se comportan distinto, y el códig
 las separa **porque el sistema de coordenadas no es el mismo**:
 
 - **`ViewerTool`** — actúa con el mouse sobre la ventana de la señal. Sus
-  métodos reciben `x` en **segundos desde el inicio de la ventana de 30 s** e
-  `y` en **microvoltios**. Son la banda de amplitud, la ocupación, la lupa y el
-  anotador.
+  métodos reciben `x` en **segundos desde el inicio del registro** e `y` en
+  **microvoltios**. Son la banda de amplitud, la ocupación, la lupa y el
+  anotador. **Eran segundos desde el inicio de la ventana de 30 s hasta el
+  refactor de la interfaz** (hito 22), y una herramienta escrita con esa regla
+  produce tramos corridos sin que nada falle: lo único común a la época y a la
+  página es el inicio del registro.
 - **`Tool`** — panel con su propia zona de pantalla y su propio sistema de
   coordenadas. Son la Übersicht y el histograma; un clic en el histograma no
   cae "en el segundo 12 de la ventana", cae **en la ventana 340 de la noche**.
@@ -166,15 +169,19 @@ para recentrarse y el histograma para mover su indicador.
 
 ## Las unidades que no son segundos
 
-`ViewerTool` entrega **segundos** desde el inicio de la ventana. Dos
+`ViewerTool` entrega **segundos** desde el inicio del registro. Dos
 herramientas necesitan otra cosa, y **no escriben la cuenta**: se la piden a
 `psglab/core/windows.py`, que es el único lugar donde se convierte entre
 unidades.
 
 | Herramienta | Necesita | Función |
 |---|---|---|
-| Ocupación | fracción de ventana (0 a 1) | `seconds_to_window_fraction()` |
-| Anotador | muestras del registro | `seconds_to_sample()` |
+| Ocupación | fracción **de la página** (0 a 1) | `seconds_to_view_fraction()` |
+| Anotador | muestras del registro | `seconds_to_sample_absolute()` |
+
+La ocupación mide sobre la página y no sobre la época desde el refactor de la
+interfaz: es lo que se está mirando, que es de lo que habla el pliego cuando
+dice "ocupación de la página".
 
 No es un detalle de estilo. `OccupancyLine` con segundos crudos informa 3000 %
 de ocupación —su propio docstring lo advierte— y una anotación calculada como

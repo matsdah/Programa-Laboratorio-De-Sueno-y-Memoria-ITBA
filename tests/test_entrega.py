@@ -877,6 +877,53 @@ def test_apagar_la_herramienta_limpia_el_cartel(ventana: MainWindow):
     assert ventana.tool_readout.text() == ""
 
 
+# -- Lo que la sesión sabe de las herramientas -------------------------------
+#
+# `Session.active_tool` existía con su docstring y su test desde el hito 6, y
+# la ventana no se lo decía nunca: era `None` pasara lo que pasara. El hito 33
+# lo conectó, que es el mismo hallazgo de siempre —código correcto sin ningún
+# camino desde la pantalla— visto desde `core/`.
+
+
+def test_la_sesion_sabe_cual_es_la_herramienta_activa(ventana: MainWindow):
+    """Prender una herramienta del menú se lo dice a la sesión."""
+    ventana._toggle_tool("magnifier", True)
+    assert ventana.session.active_tool == "magnifier"
+
+    # La exclusividad vale también acá: prender otra sustituye, no suma.
+    ventana._toggle_tool("annotator", True)
+    assert ventana.session.active_tool == "annotator"
+
+    ventana._toggle_tool("annotator", False)
+    assert ventana.session.active_tool is None
+
+
+def test_un_panel_no_desplaza_a_la_herramienta_del_mouse(ventana: MainWindow):
+    """`active_tool` es **la exclusiva**, y el histograma no lo es.
+
+    Prender un panel no puede tapar a la lupa, porque no compite con ella por
+    el clic: el usuario sigue con la lupa en la mano.
+    """
+    ventana._toggle_tool("magnifier", True)
+    ventana._toggle_tool("histogram", True)
+
+    assert ventana.session.active_tool == "magnifier"
+
+
+def test_abrir_otro_registro_deja_la_sesion_sin_herramienta(
+    ventana: MainWindow, tmp_path: Path
+):
+    """Las herramientas se sueltan al cambiar de registro, y la sesión que
+    queda atrás tiene que decir lo mismo que la barra: ninguna activa."""
+    ventana._toggle_tool("magnifier", True)
+    anterior = ventana.session
+
+    ventana.open_recording(otro_registro(tmp_path))
+
+    assert anterior.active_tool is None
+    assert ventana.session.active_tool is None
+
+
 # -- El eje del histograma (V2_F del histograma) -----------------------------
 #
 # Faltaba entero hasta el hito 9: `set_time_axis()` prendía un booleano que no

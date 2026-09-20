@@ -524,8 +524,11 @@ Cinco reglas de esta capa que no se ven leyendo un solo archivo:
 - **Nunca commitear registros de participantes.** El `.gitignore` ya excluye
   `data/`, `registros/`, `*.edf`, `*.vhdr`, `*.vmrk`, `*.eeg`, los tres
   archivos de salida y el scoring en CSV y XML. En `data/` hay registros de prueba locales (un EDF y un
-  BrainVision) que sirven para probar la importación a mano; **ningún test debe
-  leerlos**, por la regla de abajo.
+  BrainVision) que sirven para probar la importación a mano. **Hay tests que
+  los leen**, todos detrás de un `skipif` que los saltea donde no están —el CI
+  incluido—, así que **ningún test nuevo puede depender de ellos**: lo que
+  tiene que quedar verificado se escribe con señal sintética, por la regla de
+  abajo.
 - Los tests usan **señal sintética generada en el momento** (fixtures en
   `tests/conftest.py`), nunca registros reales. Además de la privacidad, un
   registro sintético tiene resultado conocido de antemano: una onda de 10 Hz

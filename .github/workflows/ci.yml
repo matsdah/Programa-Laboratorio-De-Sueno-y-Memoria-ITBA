@@ -47,8 +47,9 @@ jobs:
   tests:
     name: Tests · ${{ matrix.os }} · Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
-    # La suite tarda segundos; lo que puede irse a horas es una resolución de
-    # pip con retroceso. Sin tope, GitHub la deja correr seis horas.
+    # La suite tarda unos minutos —la mayor parte, `test_entrega.py`, que arma
+    # una ventana por test—; lo que puede irse a horas es una resolución de pip
+    # con retroceso. Sin tope, GitHub la deja correr seis horas.
     timeout-minutes: 20
     strategy:
       # Sin fail-fast: si algo falla sólo en macOS, queremos ver igual el
@@ -96,8 +97,8 @@ jobs:
       #
       # Al empezar la Parte 2 el cálculo se da vuelta: sin esto,
       # `complexity.py` y `connectivity.py` quedarían como el único código del
-      # proyecto que no se ejercita en ningún lado. Seis de los ocho módulos de
-      # `analysis/` no las necesitan; estos dos sí.
+      # proyecto que no se ejercita en ningún lado. Siete de los nueve módulos
+      # de `analysis/` no las necesitan; estos dos sí.
       #
       # Si la instalación se vuelve un problema en algún Python de la matriz,
       # la salida es un job aparte en una sola combinación, **no** volver a
