@@ -53,6 +53,14 @@ def dialogo(qt_app, cambios: list[Preferences], errores: list[PsgLabError]):
     ventana.deleteLater()
 
 
+#: El esquema con el que arranca el diálogo, que es el de fábrica. **Se pide
+#: por `DEFAULT_SCHEME_NAME` y no por su nombre**: estos tests hablan del
+#: esquema con que se abre la ventana de configuración, y escribirlo a mano los
+#: hacía fallar el día que cambió —de «Claro» a «Sereno», en el rediseño de la
+#: pantalla principal—.
+DE_FABRICA = theme.scheme_by_name(theme.DEFAULT_SCHEME_NAME)
+
+
 def ultima(cambios: list[Preferences]) -> Preferences:
     assert cambios, "la ventana no avisó ningún cambio"
     return cambios[-1]
@@ -134,7 +142,7 @@ def test_elegir_un_esquema_de_fabrica(dialogo: SettingsDialog, nombre: str):
 
 
 def test_elegir_el_esquema_que_ya_estaba_no_avisa(dialogo: SettingsDialog, cambios):
-    dialogo.scheme_buttons[theme.CLARO.name].click()
+    dialogo.scheme_buttons[DE_FABRICA.name].click()
 
     assert cambios == []
 
@@ -142,13 +150,13 @@ def test_elegir_el_esquema_que_ya_estaba_no_avisa(dialogo: SettingsDialog, cambi
 def test_cambiar_un_color_deja_de_llamarse_como_el_de_fabrica(
     dialogo: SettingsDialog, cambios
 ):
-    """Si conservara el nombre, el menú diría «Claro» sobre algo que ya no es el
-    claro."""
+    """Si conservara el nombre, el menú diría «Sereno» sobre algo que ya no es
+    Sereno."""
     dialogo.color_buttons["background"].choose("#123456")
 
     esquema = ultima(cambios).scheme()
     assert esquema.background == "#123456"
-    assert esquema.name == theme.CLARO.name + MODIFIED_SUFFIX
+    assert esquema.name == DE_FABRICA.name + MODIFIED_SUFFIX
     assert dialogo.scheme_label.text().endswith(MODIFIED_SUFFIX)
 
 
@@ -156,9 +164,9 @@ def test_volver_al_color_original_vuelve_a_ser_el_de_fabrica(
     dialogo: SettingsDialog, cambios
 ):
     dialogo.color_buttons["background"].choose("#123456")
-    dialogo.color_buttons["background"].choose(theme.CLARO.background)
+    dialogo.color_buttons["background"].choose(DE_FABRICA.background)
 
-    assert ultima(cambios).scheme() == theme.CLARO
+    assert ultima(cambios).scheme() == DE_FABRICA
     assert ultima(cambios).custom_scheme is None
 
 
@@ -166,7 +174,7 @@ def test_modificar_dos_veces_no_acumula_el_sufijo(dialogo: SettingsDialog, cambi
     dialogo.color_buttons["background"].choose("#123456")
     dialogo.color_buttons["signals"].choose("#654321")
 
-    assert ultima(cambios).scheme().name == theme.CLARO.name + MODIFIED_SUFFIX
+    assert ultima(cambios).scheme().name == DE_FABRICA.name + MODIFIED_SUFFIX
 
 
 def test_la_grilla_ecg_se_prende_y_se_apaga(dialogo: SettingsDialog, cambios):
@@ -182,7 +190,7 @@ def test_variar_el_color_por_canal(dialogo: SettingsDialog, cambios):
 
     assert (
         ultima(cambios).scheme().vary_signal_colors
-        != theme.CLARO.vary_signal_colors
+        != DE_FABRICA.vary_signal_colors
     )
 
 
@@ -205,7 +213,7 @@ def test_un_color_de_la_paleta_se_cambia_en_su_lugar(dialogo: SettingsDialog, ca
 
     paleta = ultima(cambios).scheme().signal_palette
     assert paleta[1] == "#abcdef"
-    assert paleta[0] == theme.CLARO.signal_palette[0]
+    assert paleta[0] == DE_FABRICA.signal_palette[0]
 
 
 def test_hay_un_boton_por_color_de_la_paleta(dialogo: SettingsDialog):

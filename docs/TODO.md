@@ -35,10 +35,18 @@ decisiones que dejó. El **[hito 31](#hito-31-el-recorrido-manual)** corrigió l
 que encontró el usuario al recorrer el programa con un registro real, y el
 **[hito 32](#hito-32-los-pendientes-del-todo)** resolvió los pendientes que
 quedaban. El **[hito 33](#hito-33-la-auditoría-del-19-de-septiembre)**, abierto,
-ordena lo que encontró la auditoría del 19 de septiembre. Son **treinta y
-cuatro hitos**, del 0 al 33, que son las filas de la tabla de progreso; están
-cerrados todos menos el último, y lo que sigue abierto de los anteriores está
+ordena lo que encontró la auditoría del 19 de septiembre, y el
+**[hito 34](#hito-34-el-rediseño-de-la-pantalla-principal)**, también abierto,
+lleva a la ventana el diseño que el usuario aprobó. Son **treinta y cinco
+hitos**, del 0 al 34, que son las filas de la tabla de progreso; están cerrados
+todos menos los dos últimos, y lo que sigue abierto de los anteriores está
 anotado dentro del hito al que le toca.
+
+**El 34 empieza con el 33 abierto**, y es la única vez que pasa. Lo que le
+queda al 33 no es código contra el que se pudiera escribir de más: son una
+decisión del usuario sobre las preferencias y dos ítems de rendimiento que son
+hitos propios. La regla existe para no escribir contra algo que todavía no se
+puede testear, y acá no es el caso.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
 34 requisitos se podían usar desde el programa corriendo, no sólo desde sus
@@ -140,6 +148,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [31. El recorrido manual](#hito-31-el-recorrido-manual) | — | 0 | ✅ cerrado |
 | [32. Los pendientes del TODO](#hito-32-los-pendientes-del-todo) | — | 0 | ✅ cerrado |
 | [33. La auditoría del 19 de septiembre](#hito-33-la-auditoría-del-19-de-septiembre) | — | 0 | ⬜ abierto |
+| [34. El rediseño de la pantalla principal](#hito-34-el-rediseño-de-la-pantalla-principal) | — | 0 | ⬜ abierto |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -3052,6 +3061,80 @@ ya advertía.
 - [ ] **Lo largo sigue en el hilo de la interfaz**: la conectividad de la noche,
       entre 15 y 18 s sobre ocho horas; la ICA, 9 s; filtrar, 2,5 s. Es la
       decisión del hito 32, ahora con números.
+
+---
+
+## Hito 34: El rediseño de la pantalla principal
+
+**Abierto el 20 de septiembre de 2026.** Sale de un canvas de cinco artboards
+que el usuario aprobó —la ventana en dos esquemas, el estado trabajando con
+análisis, los controles y el sistema visual— y de lo que ese diseño encontró
+mirando el programa:
+
+- El esquema de arranque era **blanco puro con tinta negra**, que sobre ocho
+  horas de señal es el máximo de deslumbramiento posible.
+- **El programa no tenía colores de fase.** El hipnograma se dibujaba en una
+  sola tinta, así que reconocer una fase obligaba a leer el eje, y los cinco
+  botones de scoring eran grises indistinguibles entre sí.
+- La franja de posición decía dónde estoy y no cuánto llevo scoreado, que es
+  la otra mitad de la pregunta.
+
+**Las cuatro decisiones del usuario**, tomadas antes de empezar: el alcance es
+completo —repinte y las piezas nuevas—, Sereno pasa a ser el esquema de
+arranque, la interfaz arranca en IBM Plex Sans, y los botones de fase ganan
+tecla.
+
+**No tiene stubs que contar.**
+
+- [x] **El sistema visual**, en `psglab/ui/theme.py`.
+      - **`SERENO` y `NOCTURNO`**, dos `ColorScheme` más. Los seis anteriores
+        no se tocan y «Claro» sigue devolviendo el aspecto nativo de Qt, que es
+        la salida para quien no quiera nada de esto.
+      - **`stage_colors`**, el campo que no existía: qué color tiene cada fase.
+        La profundidad es la luminosidad —S1/N1 a S4/N3 recorren un mismo azul
+        de claro a oscuro— y las dos nomenclaturas comparten la escala, así que
+        cambiar de nomenclatura no cambia de colores. Vacío significa «una sola
+        tinta», que es como se dibujaba hasta ahora: por eso los seis esquemas
+        anteriores siguen viéndose igual.
+      - **Los tokens de forma** —radio, altura de control, anillo de foco— van
+        en el mismo módulo y no en uno nuevo: su único consumidor es
+        `stylesheet()`, y un módulo propio costaría cinco filas de tablas de
+        documentación para mover seis números.
+      - La hoja de estilo pinta ahora el **título de los paneles**, las
+        **solapas** de la pila de análisis, el **foco del teclado** —que era un
+        gris que casi no cambiaba— y una regla por fase. La tinta que va encima
+        de la fase marcada **se elige midiendo el contraste**, no por esquema:
+        el blanco que se lee sobre el azul profundo desaparece sobre el ámbar
+        del esquema oscuro.
+  - Test: `tests/test_theme.py`, **108 tests en verde**, con la escala de
+    fases, las reglas por fase y el contraste de los dos esquemas nuevos, que
+    el control de accesibilidad recorre solo porque mira `theme.SCHEMES`.
+  - Test: `tests/test_preferences.py`, **71 tests en verde**, y
+    `tests/test_settings_dialog.py`, **77 tests en verde**: los dos afirmaban
+    «Claro» donde querían decir «el esquema de fábrica».
+
+### Lo que falta de este hito
+
+- [ ] **La tipografía por omisión**: `Preferences.font_family` arranca en IBM
+      Plex Sans, que el programa ya empaqueta.
+- [ ] **Los botones de fase**: 46 px, la tecla en mono debajo y el color de su
+      fase.
+- [ ] **El hipnograma a color**, con la misma escala.
+- [ ] **La franja de posición con el scoring pintado**, cacheada en un
+      `QPixmap` para no pintar 2650 rectángulos por cuadro.
+- [ ] **La pestaña de la época** sobre la señal, con su número y su fase.
+- [ ] **Los atajos de fase**, mapeados por posición sobre `stages_of()`.
+
+### Lo que no va a quedar igual al diseño, y se sabe de antemano
+
+- **La columna de etiquetas de canal.** El artboard las pone en un margen
+  izquierdo, fuera del área de trazo; hoy son `TextItem` dentro del gráfico.
+  Un margen de verdad pide un `AxisItem` propio, que es un hito aparte.
+- **Las versalitas del rótulo de panel.** Qt no soporta `letter-spacing` ni
+  `text-transform` en su hoja de estilo, y escribir los títulos en mayúscula
+  cambiaría `windowTitle()`, que es lo que ocho tests de entrega afirman.
+- **El marco de la ventana, los menús desplegados y los diálogos de archivo**
+  los dibuja el sistema operativo.
 
 ---
 

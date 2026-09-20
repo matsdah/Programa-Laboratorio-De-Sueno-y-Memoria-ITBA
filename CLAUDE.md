@@ -467,6 +467,12 @@ de fábrica verificado contra WCAG 2.1) y lo que el usuario elige, de
 `ui/preferences.py`, que lo guarda en un JSON de su perfil. No es `config.py`:
 aquél fija el pliego, esto es lo que se elige.
 
+Del esquema sale también **el color de cada fase de sueño** (`stage_colors`),
+que pinta el hipnograma, la franja de posición y el botón de scoring con la
+misma escala. Un esquema puede no traerla, y entonces esas tres cosas se
+dibujan con una sola tinta, que es como se veían antes del hito 34. El motivo
+de que viva ahí y no en `core/` está en `docs/ARQUITECTURA.md`.
+
 Cinco reglas de esta capa que no se ven leyendo un solo archivo:
 
 - **Sólo `main.py` lee y escribe el archivo de preferencias**, a través de

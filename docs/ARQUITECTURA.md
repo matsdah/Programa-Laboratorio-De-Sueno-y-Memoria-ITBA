@@ -389,13 +389,37 @@ Dos advertencias sobre estos números, para quien los vuelva a medir:
 
 ### Contraste de los esquemas de color — WCAG 2.1, verificado por test
 
-Los seis esquemas de fábrica se comprueban contra los umbrales de **WCAG 2.1**:
-4,5 a 1 para el texto (criterio 1.4.3) y 3 a 1 para lo que hay que distinguir
-de un vistazo, que en este programa son las curvas y la paleta de canales
-(criterio 1.4.11). `theme.low_contrast_elements()` hace la cuenta y
-`tests/test_theme.py` exige que ningún esquema de fábrica tenga nada en esa
-lista. Un esquema con fondo de ventana propio —Papel, desde el hito 26— suma
-el texto sobre ese fondo a la cuenta.
+Los ocho esquemas de fábrica se comprueban contra los umbrales de **WCAG
+2.1**: 4,5 a 1 para el texto (criterio 1.4.3) y 3 a 1 para lo que hay que
+distinguir de un vistazo, que en este programa son las curvas, la paleta de
+canales y —desde el hito 34— la escala de fases (criterio 1.4.11).
+`theme.low_contrast_elements()` hace la cuenta y `tests/test_theme.py` exige
+que ningún esquema de fábrica tenga nada en esa lista. Un esquema con fondo de
+ventana propio —Papel, desde el hito 26— suma el texto sobre ese fondo a la
+cuenta.
+
+**El control se hereda solo**: recorre `theme.SCHEMES`, así que un esquema
+nuevo queda enrolado sin que nadie se acuerde de agregarlo. Los dos del hito 34
+entraron así.
+
+### Por qué el color de una fase vive en el esquema
+
+Hasta el hito 34 el programa no tenía ninguno: el hipnograma se dibujaba con
+una sola tinta. Al agregarlos había tres lugares posibles y uno solo es
+correcto.
+
+**No en `config.py`**, que guarda lo que fija el pliego: el pliego no dice nada
+de colores, igual que con la paleta de canales. **No en `core/nomenclature.py`**,
+donde vive `SleepStage`: el modelo no puede saber de presentación, y la regla
+de que `core/` no conoce `ui/` es lo que permite testear el scoring sin abrir
+una ventana. **Sí en `ColorScheme`**, porque el color de una fase depende del
+fondo sobre el que se dibuja —el azul profundo que se lee sobre papel
+desaparece sobre negro— y porque la misma escala tiene que pintar el
+hipnograma, la franja de posición y el botón: si viviera en cada uno, se
+separarían.
+
+El campo se pide por el **valor** de la fase (`"N2"`) y no por el miembro del
+enum, que es lo que evita que `ui/theme.py` importe `core/`.
 
 **Se eligió un estándar y no un criterio propio** porque un umbral inventado se
 discute cada vez que alguien no ve bien un color; uno publicado, no.

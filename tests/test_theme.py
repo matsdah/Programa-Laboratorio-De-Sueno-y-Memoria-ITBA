@@ -38,10 +38,13 @@ def esquema_restaurado():
 # -- Los esquemas de fábrica -------------------------------------------------
 
 
-def test_estan_los_seis_esquemas():
-    """Papel, el del lienzo de diseño del hito 26, va último: el orden del menú
-    arranca por el que reproduce el aspecto histórico del programa."""
-    assert list(theme.SCHEMES) == ["Claro", "Oscuro", "NK", "Azul sobre gris", "ECG", "Papel"]
+def test_estan_los_ocho_esquemas():
+    """Los dos del rediseño van primeros, que es el orden del menú: Sereno es
+    con el que arranca el programa. Detrás quedan los seis anteriores, en su
+    orden de siempre, empezando por el que reproduce el aspecto histórico."""
+    assert list(theme.SCHEMES) == [
+        "Sereno", "Nocturno", "Claro", "Oscuro", "NK", "Azul sobre gris", "ECG", "Papel",
+    ]
 
 
 def test_cada_esquema_se_llama_como_su_clave():
@@ -57,15 +60,20 @@ def test_el_de_fabrica_existe():
     assert theme.DEFAULT_SCHEME_NAME in theme.SCHEMES
 
 
-def test_el_de_fabrica_es_el_claro():
-    """Quien ya venía usando el programa no tiene por qué encontrárselo
-    cambiado sin haberlo pedido, aunque la referencia sea oscura."""
-    assert theme.scheme_by_name(theme.DEFAULT_SCHEME_NAME) is theme.CLARO
+def test_el_de_fabrica_es_sereno():
+    """Era «Claro» hasta el rediseño de la pantalla principal.
+
+    Sigue siendo el claro y no el oscuro por el mismo motivo de entonces: quien
+    abre el programa de noche elige Nocturno, y quien no, no tiene por qué
+    encontrarse la pantalla apagada. A quien ya lo venía usando no le cambia
+    nada, porque su archivo de preferencias trae el esquema que eligió.
+    """
+    assert theme.scheme_by_name(theme.DEFAULT_SCHEME_NAME) is theme.SERENO
 
 
 #: Los campos en los que `None` quiere decir algo: sin línea de base, la ventana
 #: del mismo color que el fondo, las lecturas con la tipografía de siempre.
-CAMPOS_OPCIONALES = {"baseline", "chrome", "numeric_font"}
+CAMPOS_OPCIONALES = {"baseline", "chrome", "numeric_font", "stage_colors"}
 
 
 def test_ningun_esquema_deja_campos_sin_definir():
@@ -151,7 +159,73 @@ def test_los_errores_del_modulo_son_del_programa():
     assert issubclass(UnknownColorSchemeError, PsgLabError)
 
 
+# -- El color de cada fase (rediseño de la pantalla principal) ---------------
+#
+# Es lo que el programa no tenía: el hipnograma se dibujaba en una sola tinta,
+# así que una fase no se reconocía sin leer el eje. La escala vive en el
+# esquema porque tiene que ser la misma en el hipnograma, en la franja de
+# posición y en el botón.
+
+
+@pytest.mark.parametrize("esquema", [theme.SERENO, theme.NOCTURNO], ids=lambda e: e.name)
+def test_los_esquemas_del_rediseno_traen_escala_de_fases(esquema: theme.ColorScheme):
+    for fase in ("W", "REM", "R", "S1", "S2", "S3", "S4", "N1", "N2", "N3", "MT"):
+        assert esquema.color_for_stage(fase) is not None
+
+
+@pytest.mark.parametrize(
+    "esquema",
+    [theme.CLARO, theme.OSCURO, theme.NK, theme.AZUL_SOBRE_GRIS, theme.ECG, theme.PAPEL],
+    ids=lambda e: e.name,
+)
+def test_los_seis_anteriores_no_cambian_de_aspecto(esquema: theme.ColorScheme):
+    """Inventarles una escala de fases a NK o a ECG sería cambiarles el aspecto
+    que su nombre promete. Sin escala se dibuja como se dibujaba."""
+    assert esquema.stage_colors == ()
+    assert esquema.color_for_stage("N2") is None
+
+
+def test_una_fase_que_el_esquema_no_conoce_no_tiene_color():
+    """`UNSCORED` es la que importa: no es una fila del histograma sino la
+    ausencia de una, y tiene que quedar en blanco (V1_P)."""
+    assert theme.SERENO.color_for_stage("-") is None
+
+
+def test_las_dos_nomenclaturas_comparten_la_escala():
+    """S2 y N2 son el mismo sueño con otro nombre: cambiar de nomenclatura no
+    puede cambiar de colores."""
+    for equivalentes in (("S1", "N1"), ("S2", "N2"), ("S4", "N3"), ("REM", "R")):
+        rk, aasm = equivalentes
+        assert theme.SERENO.color_for_stage(rk) == theme.SERENO.color_for_stage(aasm)
+
+
+def test_la_profundidad_es_la_luminosidad():
+    """La regla del diseño, afirmada: de S1 a S4 el azul se va oscureciendo
+    sobre fondo claro, que es lo que hace que la fase se lea sin leyenda."""
+    contrastes = [
+        theme.contrast_ratio(theme.SERENO.color_for_stage(fase), theme.SERENO.background)
+        for fase in ("S1", "S2", "S3", "S4")
+    ]
+
+    assert contrastes == sorted(contrastes)
+
+
+def test_una_fase_que_no_se_distingue_del_fondo_se_informa():
+    """Entra en el mismo control que los canales: es algo que se dibuja."""
+    esquema = dataclasses.replace(theme.SERENO, stage_colors=(("N2", "#fbfaf6"),))
+
+    problemas = dict(theme.low_contrast_elements(esquema))
+
+    assert "el color de la fase N2" in problemas
+
+
 # -- La hoja de estilo de los widgets de Qt ----------------------------------
+
+
+@pytest.fixture(params=[theme.SERENO, theme.NOCTURNO], ids=lambda e: e.name)
+def esquema_con_fases(request: pytest.FixtureRequest) -> theme.ColorScheme:
+    """Los dos que traen escala de fases, para no escribir dos veces el test."""
+    return request.param
 
 
 def test_el_esquema_claro_no_pone_hoja_de_estilo():
@@ -202,6 +276,65 @@ def test_papel_da_su_tipografia_a_las_lecturas():
 
     assert f'QLabel[{theme.READOUT_PROPERTY}="true"]' in hoja
     assert theme.PAPEL.numeric_font in hoja
+
+
+def test_la_hoja_lleva_una_regla_por_fase(esquema_con_fases: theme.ColorScheme):
+    """El botón de fase lleva la propiedad `fase` y el color sale de acá: así
+    no hay un color de fase escrito en el panel de scoring."""
+    hoja = theme.stylesheet(esquema_con_fases)
+
+    for fase, color in esquema_con_fases.stage_colors:
+        assert f'QPushButton[fase="{fase}"]' in hoja
+        assert color in hoja
+
+
+def test_el_relleno_de_la_fase_es_solo_de_la_marcada():
+    """Las cinco pintadas a la vez no dicen cuál es la de esta época."""
+    hoja = theme.stylesheet(theme.SERENO)
+    color = theme.SERENO.color_for_stage("N2")
+
+    marcada = f'QPushButton[fase="N2"]:checked {{ background-color: {color};'
+    assert marcada in hoja
+    assert f'QPushButton[fase="N2"] {{ background-color:' not in hoja
+
+
+@pytest.mark.parametrize(
+    ("esquema", "tinta"),
+    [(theme.SERENO, "#ffffff"), (theme.NOCTURNO, theme.NOCTURNO.background)],
+    ids=["Sereno", "Nocturno"],
+)
+def test_la_tinta_de_la_fase_marcada_se_elige_midiendo(
+    esquema: theme.ColorScheme, tinta: str
+):
+    """El blanco que se lee sobre el azul profundo desaparece sobre el ámbar
+    del esquema oscuro, así que no se elige por esquema sino por contraste."""
+    hoja = theme.stylesheet(esquema)
+    color = esquema.color_for_stage("W")
+
+    assert f"background-color: {color}; color: {tinta};" in hoja
+
+
+def test_un_esquema_sin_fases_no_genera_ninguna_regla():
+    assert "fase=" not in theme.stylesheet(theme.OSCURO)
+
+
+def test_la_hoja_pinta_los_paneles_y_sus_solapas():
+    """Los seis de análisis se apilan en solapas: sin regla propia, la pila y
+    el título del panel quedaban con el gris de fábrica de Qt sobre el fondo
+    del esquema."""
+    hoja = theme.stylesheet(theme.NOCTURNO)
+
+    assert "QDockWidget::title" in hoja
+    assert "QTabBar::tab" in hoja
+    assert f"border-radius: {theme.RADIO_DE_CONTROL}px" in hoja
+
+
+def test_el_foco_del_teclado_se_ve():
+    """Un cambio de fondo no alcanza: con el esquema aplicado, el control
+    enfocado se distinguía sólo por un gris que casi no cambiaba."""
+    hoja = theme.stylesheet(theme.SERENO)
+
+    assert f"border: {theme.ANILLO_DE_FOCO}px solid {theme.SERENO.accent}" in hoja
 
 
 def test_sin_tipografia_numerica_no_hay_regla_para_las_lecturas():

@@ -36,7 +36,7 @@ def archivo(tmp_path: Path) -> Path:
 
 
 def test_sin_haber_guardado_nada_se_usa_el_esquema_de_fabrica():
-    assert preferences.Preferences().scheme() is theme.CLARO
+    assert preferences.Preferences().scheme() is theme.SERENO
 
 
 def test_un_archivo_que_no_existe_no_es_un_error(tmp_path: Path):
@@ -122,13 +122,13 @@ def test_un_esquema_que_ya_no_existe_cae_en_el_de_fabrica(archivo: Path):
     no es motivo para no arrancar, así que esto **no** eleva."""
     archivo.write_text(json.dumps({"scheme_name": "Fluorescente"}), encoding="utf-8")
 
-    assert preferences.load(archivo).scheme() is theme.CLARO
+    assert preferences.load(archivo).scheme() is theme.SERENO
 
 
 def test_un_nombre_que_no_es_texto_cae_en_el_de_fabrica(archivo: Path):
     archivo.write_text(json.dumps({"scheme_name": 7}), encoding="utf-8")
 
-    assert preferences.load(archivo).scheme() is theme.CLARO
+    assert preferences.load(archivo).scheme() is theme.SERENO
 
 
 def test_un_esquema_propio_ilegible_avisa(archivo: Path):

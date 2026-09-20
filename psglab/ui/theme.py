@@ -67,6 +67,65 @@ _PALETA_SOBRE_GRIS: Final[tuple[str, ...]] = (
     "#135a55",
 )
 
+#: El color de cada fase sobre fondo claro. **La profundidad es la
+#: luminosidad**: el sueño recorre un mismo azul de claro a oscuro —S1/N1 hasta
+#: S4/N3— y las dos fases que no son un punto de esa escala salen de ella, la
+#: vigilia en ámbar y el REM en morado. Movement Time es gris: no es sueño.
+#:
+#: Es una tabla y no una paleta por posición como `signal_palette` porque acá
+#: el color **significa** algo: una fase tiene que verse igual en el hipnograma,
+#: en la franja de posición y en su botón, y las dos nomenclaturas comparten la
+#: escala —S2 y N2 son el mismo azul— para que cambiar de nomenclatura no
+#: cambie de colores.
+_FASES_CLARAS: Final[tuple[tuple[str, str], ...]] = (
+    ("W", "#9e5a22"),
+    ("REM", "#9c4a78"),
+    ("R", "#9c4a78"),
+    ("S1", "#55779f"),
+    ("N1", "#55779f"),
+    ("S2", "#3e6ba3"),
+    ("N2", "#3e6ba3"),
+    ("S3", "#2b5689"),
+    ("S4", "#21497a"),
+    ("N3", "#21497a"),
+    ("MT", "#5b6169"),
+)
+
+#: La misma escala sobre fondo oscuro, donde la profundidad se lee al revés:
+#: el sueño liviano es el azul más claro y el profundo el más saturado, porque
+#: sobre negro un azul oscuro desaparece. Los contrastes están medidos contra
+#: el fondo de `NOCTURNO` y contra su propio texto.
+_FASES_OSCURAS: Final[tuple[tuple[str, str], ...]] = (
+    ("W", "#e0a264"),
+    ("REM", "#d081ac"),
+    ("R", "#d081ac"),
+    ("S1", "#9fbde4"),
+    ("N1", "#9fbde4"),
+    ("S2", "#7ba5d8"),
+    ("N2", "#7ba5d8"),
+    ("S3", "#6494cb"),
+    ("S4", "#4f82be"),
+    ("N3", "#5b8fc9"),
+    ("MT", "#99a1ab"),
+)
+
+#: **Los tokens de forma del rediseño**: radio, alturas y espaciado de los
+#: controles. Viven acá y no en un módulo aparte porque su único consumidor es
+#: `stylesheet()`, que está diez líneas más abajo; un módulo propio costaría
+#: fila en la trazabilidad, fila en el README de la carpeta, archivo de test y
+#: dos filas más de tablas, a cambio de mover seis números.
+#:
+#: **No son colores y por eso no están en `ColorScheme`**: no cambian con el
+#: esquema. Un botón mide lo mismo de noche que de día.
+RADIO_DE_CONTROL: Final[int] = 7
+RADIO_DE_TARJETA: Final[int] = 10
+ALTO_DE_CONTROL: Final[int] = 30
+PADDING_DE_CONTROL: Final[str] = "4px 12px"
+#: El ancho del anillo con que se ve qué control tiene el foco del teclado. Es
+#: un borde y no un `outline`: Qt no dibuja `outline` en la mayoría de los
+#: widgets, así que un anillo escrito con él se perdería sin avisar.
+ANILLO_DE_FOCO: Final[int] = 2
+
 #: Contraste mínimo para texto, según WCAG 2.1 (criterio 1.4.3).
 MIN_TEXT_CONTRAST: Final[float] = 4.5
 
@@ -126,6 +185,13 @@ class ColorScheme:
             esquema por el mismo argumento que `ecg_grid`: el esquema «Papel»
             la trae puesta, y separarlas obligaría a elegir dos cosas para
             obtener el aspecto que el nombre promete.
+        stage_colors: qué color tiene cada fase de sueño, como (valor de
+            `SleepStage`, color). **Vacío significa «una sola tinta»**, que es
+            como se dibujaba el hipnograma hasta que esto existió, y es lo que
+            traen los seis esquemas anteriores: inventarles una escala de fases
+            a NK o a ECG sería cambiarles el aspecto que su nombre promete. Los
+            dos esquemas nuevos sí la traen, y de ahí salen el hipnograma, la
+            franja de posición y los botones de fase.
 
     **No tiene los colores de las reglas ni del rectángulo del mouse**, que la
     referencia sí trae: todavía no hay nada que los dibuje. Entran con la
@@ -151,6 +217,7 @@ class ColorScheme:
     ecg_grid: bool = False
     chrome: str | None = None
     numeric_font: str | None = None
+    stage_colors: tuple[tuple[str, str], ...] = ()
 
     def color_for_channel(self, position: int) -> str:
         """El color que le toca al canal dibujado en esa posición vertical.
@@ -165,6 +232,26 @@ class ColorScheme:
         if not self.vary_signal_colors or not self.signal_palette:
             return self.signals
         return self.signal_palette[position % len(self.signal_palette)]
+
+    def color_for_stage(self, stage_value: str) -> str | None:
+        """El color de una fase de sueño, o None si el esquema no tiene escala.
+
+        **None no es un error**: es el esquema diciendo que las fases se
+        dibujan con una sola tinta, como antes de que la escala existiera.
+        Quien llama decide con qué —el hipnograma con su curva, el botón con
+        el color de los demás botones—.
+
+        Se pide por el **valor** de `SleepStage` y no por el miembro para que
+        este módulo no tenga que importar `core.nomenclature`: la fase es del
+        modelo y el color es de la presentación, y sólo se cruzan acá.
+
+        Args:
+            stage_value: el `.value` de la fase, "N2" o "REM".
+        """
+        for nombre, color in self.stage_colors:
+            if nombre == stage_value:
+                return color
+        return None
 
 
 CLARO: Final[ColorScheme] = ColorScheme(
@@ -283,20 +370,87 @@ PAPEL: Final[ColorScheme] = ColorScheme(
     numeric_font="IBM Plex Mono",
 )
 
+#: **Los dos esquemas del rediseño de la pantalla principal.** Salen de medir
+#: lo que tenía el programa: «Claro» es blanco puro con tinta negra, que sobre
+#: ocho horas de señal es el máximo de deslumbramiento posible, y ninguno de
+#: los seis distinguía una fase de otra.
+#:
+#: Lo que cambia respecto de los anteriores:
+#:
+#: - El lienzo es un blanco **cálido** y la ventana alrededor un papel más
+#:   oscuro, así que la señal se despega del resto sin competir con ella.
+#: - Traen `stage_colors`, que es lo que pinta el hipnograma, la franja de
+#:   posición y los botones de fase con la misma escala.
+#: - Las cifras van en IBM Plex Mono, como «Papel»: un número que cambia no
+#:   puede saltar de ancho mientras se navega.
+#:
+#: **La paleta de canales se reusa tal cual.** Está verificada contra WCAG y
+#: cambiarla cambiaría lo que el investigador ve en el dato, que no es lo que
+#: un rediseño tiene que tocar.
+SERENO: Final[ColorScheme] = ColorScheme(
+    name="Sereno",
+    background="#fcfbf7",
+    foreground="#1a1c20",
+    signals="#1a1c20",
+    vary_signal_colors=True,
+    signal_palette=_PALETA_CLARA,
+    baseline="#e4e0d6",
+    coarse_grid="#d9d5ca",
+    fine_grid="#ece8dc",
+    accent="#1e6f68",
+    overview_background="#f6f4ef",
+    overview_current="#dceae7",
+    overview_border="#c9c4b6",
+    overview_current_border="#1e6f68",
+    overview_text="#5b6169",
+    chrome="#edebe4",
+    numeric_font="IBM Plex Mono",
+    stage_colors=_FASES_CLARAS,
+)
+
+#: El mismo diseño para el turno noche. **No es gris plano como «Oscuro»**: el
+#: fondo tira a azul y la ventana es más oscura que el lienzo, al revés que en
+#: Sereno, porque sobre negro lo que se hunde es el marco y no la señal.
+NOCTURNO: Final[ColorScheme] = ColorScheme(
+    name="Nocturno",
+    background="#0f1217",
+    foreground="#e7e9ec",
+    signals="#e7e9ec",
+    vary_signal_colors=True,
+    signal_palette=_PALETA_OSCURA,
+    baseline="#232a32",
+    coarse_grid="#2e3640",
+    fine_grid="#1a1f26",
+    accent="#58b7af",
+    overview_background="#1b1f25",
+    overview_current="#1c3a38",
+    overview_border="#333a43",
+    overview_current_border="#58b7af",
+    overview_text="#99a1ab",
+    chrome="#14171b",
+    numeric_font="IBM Plex Mono",
+    stage_colors=_FASES_OSCURAS,
+)
+
 #: Los esquemas de fábrica, por nombre. El orden es el que ve el usuario en el
 #: menú, y arranca por el que reproduce el aspecto histórico del programa.
 SCHEMES: Final[dict[str, ColorScheme]] = {
     esquema.name: esquema
-    for esquema in (CLARO, OSCURO, NK, AZUL_SOBRE_GRIS, ECG, PAPEL)
+    for esquema in (SERENO, NOCTURNO, CLARO, OSCURO, NK, AZUL_SOBRE_GRIS, ECG, PAPEL)
 }
 
-#: Con cuál arranca el programa la primera vez. **Es el claro y no el oscuro**,
-#: aunque la referencia sea oscura: quien ya venía usando el programa no tiene
-#: por qué encontrárselo cambiado sin haberlo pedido. Se elige otro desde el
-#: menú y queda guardado.
-DEFAULT_SCHEME_NAME: Final[str] = CLARO.name
+#: Con cuál arranca el programa la primera vez. **Es Sereno desde el rediseño
+#: de la pantalla principal**, y sigue siendo el claro y no el oscuro por el
+#: mismo motivo que antes: quien abre el programa de noche elige Nocturno, y
+#: quien no, no tiene por qué encontrarse la pantalla apagada.
+#:
+#: A quien ya venía usando el programa no le cambia nada: su archivo de
+#: preferencias trae el esquema que eligió, y esto sólo decide con cuál arranca
+#: una instalación nueva. «Claro» sigue estando, y sigue devolviendo el aspecto
+#: nativo de Qt.
+DEFAULT_SCHEME_NAME: Final[str] = SERENO.name
 
-_actual: ColorScheme = CLARO
+_actual: ColorScheme = SERENO
 
 
 def current() -> ColorScheme:
@@ -330,6 +484,34 @@ def set_current(scheme: ColorScheme) -> None:
     _actual = scheme
     pg.setConfigOption("background", scheme.background)
     pg.setConfigOption("foreground", scheme.foreground)
+
+
+def _reglas_de_las_fases(scheme: ColorScheme) -> str:
+    """Una regla de hoja de estilo por fase, con el color que le toca.
+
+    El botón de fase lleva la propiedad dinámica `fase` con el valor de su
+    `SleepStage`, así que el color no se escribe en el panel de scoring: sale
+    de acá, del esquema, como el de todo lo demás. Un esquema sin
+    `stage_colors` no genera ninguna regla y sus botones se ven como cualquier
+    otro, que es como se veían antes.
+
+    **La tinta de encima se elige midiendo**, no por esquema: la misma escala
+    de fases se usa sobre papel y sobre negro, y el blanco que se lee sobre el
+    azul profundo desaparece sobre el ámbar claro del esquema oscuro.
+    """
+    reglas: list[str] = []
+    for fase, color in scheme.stage_colors:
+        tinta = (
+            "#ffffff"
+            if contrast_ratio("#ffffff", color) >= contrast_ratio(scheme.background, color)
+            else scheme.background
+        )
+        reglas.append(
+            f'QPushButton[fase="{fase}"] {{ color: {color}; border-color: {color}; }}'
+            f'QPushButton[fase="{fase}"]:checked {{'
+            f" background-color: {color}; color: {tinta}; border-color: {color}; }}"
+        )
+    return "\n        ".join(reglas)
 
 
 def stylesheet(scheme: ColorScheme) -> str:
@@ -374,8 +556,31 @@ def stylesheet(scheme: ColorScheme) -> str:
         if scheme.numeric_font is not None
         else ""
     )
+    fases = _reglas_de_las_fases(scheme)
     return f"""
         QWidget {{ background-color: {ventana}; color: {texto}; }}
+        QDockWidget {{ titlebar-close-icon: none; titlebar-normal-icon: none; }}
+        QDockWidget::title {{
+            background-color: {ventana};
+            color: {texto};
+            border-bottom: 1px solid {borde};
+            padding: 5px 10px;
+            text-align: left;
+        }}
+        QTabBar::tab {{
+            background-color: {ventana};
+            color: {texto};
+            border: 1px solid transparent;
+            border-bottom: 0;
+            border-top-left-radius: {RADIO_DE_CONTROL}px;
+            border-top-right-radius: {RADIO_DE_CONTROL}px;
+            padding: 4px 10px;
+            margin-right: 2px;
+        }}
+        QTabBar::tab:selected {{
+            background-color: {fondo};
+            border-color: {borde};
+        }}
         QMenuBar, QMenu, QToolBar, QStatusBar {{
             background-color: {ventana}; color: {texto};
         }}
@@ -394,10 +599,17 @@ def stylesheet(scheme: ColorScheme) -> str:
             background-color: {fondo};
             color: {texto};
             border: 1px solid {borde};
-            padding: 2px 6px;
+            border-radius: {RADIO_DE_CONTROL}px;
+            padding: {PADDING_DE_CONTROL};
+            min-height: {ALTO_DE_CONTROL - 10}px;
+        }}
+        QPushButton:hover, QComboBox:hover {{ border-color: {scheme.accent}; }}
+        QPushButton:focus, QComboBox:focus, QLineEdit:focus, QSpinBox:focus {{
+            border: {ANILLO_DE_FOCO}px solid {scheme.accent};
         }}
         QPushButton:checked, QPushButton:pressed {{ background-color: {realce}; }}
         QPushButton:disabled {{ color: {borde}; }}
+        {fases}
         QTreeWidget, QTableWidget, QListWidget, QTextEdit, QPlainTextEdit {{
             background-color: {fondo};
             color: {texto};
@@ -520,6 +732,19 @@ def _valor_validado(nombre: str, valor: object) -> object:
                 details="«signal_palette» tiene que ser una lista de colores.",
             )
         return tuple(valor)
+    if nombre == "stage_colors":
+        if not isinstance(valor, (list, tuple)) or not all(
+            isinstance(fila, (list, tuple))
+            and len(fila) == 2
+            and isinstance(fila[0], str)
+            and is_valid_color(fila[1])
+            for fila in valor
+        ):
+            raise UnknownColorSchemeError(
+                "El esquema de color tiene una escala de fases que no se puede usar.",
+                details="«stage_colors» tiene que ser una lista de (fase, color).",
+            )
+        return tuple((str(fila[0]), str(fila[1])) for fila in valor)
     if nombre == "vary_signal_colors":
         if not isinstance(valor, bool):
             raise UnknownColorSchemeError(
@@ -648,6 +873,13 @@ def low_contrast_elements(scheme: ColorScheme) -> list[tuple[str, float]]:
     medidas += [
         (f"el color {posicion + 1} de los canales", color, scheme.background, MIN_GRAPHIC_CONTRAST)
         for posicion, color in enumerate(scheme.signal_palette)
+    ]
+    # **Las fases entran con el mismo criterio que los canales**: son algo que
+    # se dibuja y hay que distinguir del fondo, no texto. Un esquema sin escala
+    # no aporta ninguna medida, y por eso los seis anteriores no cambian.
+    medidas += [
+        (f"el color de la fase {fase}", color, scheme.background, MIN_GRAPHIC_CONTRAST)
+        for fase, color in scheme.stage_colors
     ]
     return [
         (que, round(contrast_ratio(color, fondo), 2))
