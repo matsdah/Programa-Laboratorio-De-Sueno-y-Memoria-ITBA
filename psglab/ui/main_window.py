@@ -2806,11 +2806,14 @@ class MainWindow(QMainWindow):
     def _amplitud_visible(self) -> str:
         """La amplitud que muestra la barra, entre los dos botones que la cambian.
 
-        **Una sola cuando todos los canales visibles comparten escala**, que es
-        lo normal; si el usuario le cambió la ganancia a uno solo (V5_F), la
-        barra no puede decir un número que valga para todos y dice «varias».
-        Inventar el del primero sería peor: el investigador leería 100 µV
-        mientras mira un canal a 250.
+        **Una sola cuando todos los canales visibles comparten escala**, y el
+        rango —«50–250 µV»— cuando no. Inventar el del primero sería peor: el
+        investigador leería 100 µV mientras mira un canal a 250.
+
+        **Decía «varias» y dejó de servir** cuando cada clase pasó a abrir con
+        su propia escala: la palabra era correcta y no decía nada, porque desde
+        entonces es lo que se lee siempre. El rango dice de dónde a dónde va lo
+        que se está mirando, y cuál es el de cada canal está en su carril.
         """
         if self._session is None:
             return ""
@@ -2821,7 +2824,7 @@ class MainWindow(QMainWindow):
         if not escalas:
             return ""
         if len(escalas) > 1:
-            return "varias"
+            return f"{min(escalas):.0f}–{format_amplitude(max(escalas))}"
         return format_amplitude(escalas.pop())
 
     def _escribir_el_identificador(self) -> None:

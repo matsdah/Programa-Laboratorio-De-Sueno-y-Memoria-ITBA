@@ -23,7 +23,7 @@ lo decida.
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMenu, QToolBar, QToolButton
+from PySide6.QtWidgets import QFrame, QMenu, QToolBar, QToolButton
 
 pytest.importorskip("pyqtgraph")
 
@@ -158,10 +158,20 @@ def test_el_menu_de_herramientas_queda_listo_para_poblarse(ventana: MainWindow):
 
 
 def test_el_boton_de_abrir_queda_en_la_esquina_de_la_barra(ventana: MainWindow):
+    """**La esquina es un contenedor y no el botón**: desde el hito 38 lleva
+    también la línea que separa «Abrir» de los menús, y la esquina de una
+    `QMenuBar` acepta un widget, uno solo."""
     esquina = ventana.menuBar().cornerWidget(Qt.Corner.TopLeftCorner)
 
     assert isinstance(ventana.open_button, QToolButton)
-    assert esquina is ventana.open_button
+    assert ventana.open_button.parent() is esquina
+
+
+def test_una_linea_separa_abrir_de_los_menus(ventana: MainWindow):
+    """Sin ella, «Abrir» se lee como el primero de la fila de menús."""
+    esquina = ventana.menuBar().cornerWidget(Qt.Corner.TopLeftCorner)
+
+    assert esquina.findChild(QFrame) is not None
 
 
 # -- El botón de abrir -------------------------------------------------------

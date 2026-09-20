@@ -259,11 +259,12 @@ rechazar antes de dar por terminado un cambio:
 - Todo módulo tiene test, figura en `SIN_TEST_PROPIO` o el TODO promete el suyo
   **por nombre de archivo**. Un módulo nuevo sin ninguna de las tres cosas hace
   fallar la suite. La exención **no es `ui/` entero**: son `app.py`, `config.py`
-  y dos módulos de `ui/` —`main_window.py` y `channel_selector.py`—.
-  `navigation.py` salió de la lista cuando ganó la franja de posición, que
-  traduce un clic a una ventana, y `scoring_panel.py` cuando ganó el pie con la
-  ventana y su fase. Los demás módulos de `ui/` tienen test propio, así que
-  agregar uno sin test rompe la suite.
+  y un módulo de `ui/`, `main_window.py`. `navigation.py` salió de la lista
+  cuando ganó la franja de posición, que traduce un clic a una ventana;
+  `scoring_panel.py` cuando ganó el pie con la ventana y su fase; y
+  `channel_selector.py` cuando el árbol pasó a ser una lista con un pie de
+  atajos por clase, que lleva estado propio. Los demás módulos de `ui/` tienen
+  test propio, así que agregar uno sin test rompe la suite.
 - Todo método público de `core/`, `utils/` y `analysis/` que reciba argumentos
   tiene su fila en `CONTRATOS` de `tests/test_contratos.py`, o figura en
   `SIN_CONTRATO` con el motivo. Son las tres capas donde vive la regla de
@@ -418,7 +419,11 @@ repintarlo por su cuenta.
 
 `psglab/config.py` es el punto único de verdad de las constantes del pliego
 (ventana de 30 s, grilla de 0,5 s y 3 s, banda de 75 µV, nombres de los tres
-archivos de salida). No repetir esos números en ningún otro módulo.
+archivos de salida). No repetir esos números en ningún otro módulo. Ahí vive
+también `DEFAULT_SCALE_BY_KIND_UV`, que no es del pliego pero es de la misma
+familia que los límites de la amplitud: **cada clase de canal abre con su
+escala**, y volver a una sola para todos deja al canal respiratorio tapando
+seis carriles.
 
 `psglab/core/windows.py` es el único lugar donde se convierte entre ventanas,
 muestras, segundos absolutos, fracción de página y hora de la noche, para que no

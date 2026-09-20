@@ -64,7 +64,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QActionGroup
-from PySide6.QtWidgets import QLabel, QToolButton
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QToolButton, QWidget
 
 from psglab.config import AMPLITUDE_PRESETS_UV, VIEW_TIMESCALE_PRESETS
 from psglab.exporters.scoring_formats import SCORING_FORMATS
@@ -85,6 +85,11 @@ if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
 #: Lado del icono de abrir, en píxeles. El de Qt por omisión, 16, deja la
 #: carpeta más chica que el texto de los menús de al lado.
 TAMANO_DEL_ICONO = 20
+
+#: La línea que separa «Abrir» de los menús: cuánto mide de alto y cuánto
+#: aire le queda a cada lado.
+ALTO_DEL_SEPARADOR = 20
+ESPACIO_DEL_SEPARADOR = 8
 
 
 def build_menus(window: "MainWindow") -> None:
@@ -214,7 +219,21 @@ def _abrir(window: "MainWindow") -> None:
         "Abrir registro" + (f" ({readable_key(tecla)})" if tecla is not None else "")
     )
     boton.clicked.connect(window.open_recording_dialog)
-    window.menuBar().setCornerWidget(boton, Qt.Corner.TopLeftCorner)
+
+    # **El botón y una línea vertical, no el botón solo.** «Abrir» no es un
+    # menú más y sin la línea se leía como el primero de la fila. Va en un
+    # contenedor porque la esquina de `QMenuBar` acepta un widget, uno solo.
+    contenedor = QWidget(window.menuBar())
+    fila = QHBoxLayout(contenedor)
+    fila.setContentsMargins(0, 0, 0, 0)
+    fila.setSpacing(ESPACIO_DEL_SEPARADOR)
+    fila.addWidget(boton)
+    separador = QFrame(contenedor)
+    separador.setFrameShape(QFrame.Shape.VLine)
+    separador.setFixedWidth(1)
+    separador.setFixedHeight(ALTO_DEL_SEPARADOR)
+    fila.addWidget(separador)
+    window.menuBar().setCornerWidget(contenedor, Qt.Corner.TopLeftCorner)
     window.open_button = boton
 
 

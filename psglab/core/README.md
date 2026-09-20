@@ -41,6 +41,12 @@ el manejo de amplitudes sin abrir una ventana.
 
 Cuando agregues estado de trabajo nuevo, va acá, no en un widget.
 
+**Cada clase de canal abre con su propia escala vertical**
+(`DEFAULT_SCALE_BY_KIND_UV`, en `config.py`), y las que no tienen una de uso
+corriente —Respiratorio, Otro— se miden sobre la primera época. Una sola escala
+para todos no puede servir: con los 100 µV de un EEG, un canal respiratorio se
+sale de su carril y tapa seis canales.
+
 **Se sustituye adentro, no se arma otra.** `set_scoring()` existe porque
 importar un scoring (V3_F) no es abrir otro registro: el usuario sigue parado
 en su ventana, con sus canales y sus amplitudes. Una `Session` nueva los

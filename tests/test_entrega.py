@@ -4142,14 +4142,19 @@ def test_la_barra_de_navegacion_muestra_la_amplitud(ventana: MainWindow):
     assert ventana.navigation._amplitud.text() == "200 µV"
 
 
-def test_con_amplitudes_distintas_la_barra_no_inventa_un_numero(ventana: MainWindow):
-    """V5_F deja cambiarle la ganancia a un canal solo. Decir la del primero
-    sería que el investigador lea 100 µV mirando un canal a 250."""
+def test_con_amplitudes_distintas_la_barra_muestra_el_rango(ventana: MainWindow):
+    """V5_F deja cambiarle la ganancia a un canal solo, y desde el hito 38 cada
+    clase abre con la suya, así que esto es lo normal y no la excepción.
+
+    **Decía «varias».** Era correcto y no decía nada: pasó a leerse siempre.
+    Decir la del primero sería peor todavía —el investigador leería 100 µV
+    mirando un canal a 400— y el de cada canal está en su carril."""
+    ventana.set_amplitude_scale(100.0)
     canal = ventana.session.visible_channels[0]
     ventana.session.set_scale_uv(canal, 400.0)
     ventana._reflejar_epoca()
 
-    assert ventana.navigation._amplitud.text() == "varias"
+    assert ventana.navigation._amplitud.text() == "100–400 µV"
 
 
 def test_los_extremos_del_registro_llegan_a_la_franja(ventana: MainWindow):

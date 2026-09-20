@@ -96,6 +96,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_signal_view.py": ("psglab/ui/signal_view.py",),
     "test_grid.py": ("psglab/ui/grid.py",),
     "test_channel_axis.py": ("psglab/ui/channel_axis.py",),
+    "test_channel_selector.py": ("psglab/ui/channel_selector.py",),
     "test_registry.py": (
         "psglab/tools/registry.py",
         "psglab/tools/base.py",
@@ -1597,7 +1598,6 @@ SIN_TEST_PROPIO: frozenset[str] = frozenset(
         "psglab/app.py",
         "psglab/config.py",
         "psglab/ui/main_window.py",
-        "psglab/ui/channel_selector.py",
     }
 )
 
