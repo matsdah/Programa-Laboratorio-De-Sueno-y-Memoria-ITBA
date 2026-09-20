@@ -64,7 +64,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QActionGroup
-from PySide6.QtWidgets import QToolButton
+from PySide6.QtWidgets import QLabel, QToolButton
 
 from psglab.config import AMPLITUDE_PRESETS_UV, VIEW_TIMESCALE_PRESETS
 from psglab.exporters.scoring_formats import SCORING_FORMATS
@@ -103,6 +103,7 @@ def build_menus(window: "MainWindow") -> None:
     """
     window.menuBar().setNativeMenuBar(False)
     _abrir(window)
+    _identificador(window)
     _scoring(window)
     _escala_de_tiempo(window)
     _amplitud(window)
@@ -195,11 +196,17 @@ def _abrir(window: "MainWindow") -> None:
 
     **El atajo va en el tooltip** y no como texto al lado, que es donde lo
     ponen los menús: un botón con icono no tiene columna de atajo.
+
+    **Lleva la palabra «Abrir» desde el hito 36.** Con el icono solo, lo único
+    que decía qué hacía era el tooltip, y en la esquina de una barra de menú
+    una carpeta suelta se lee como decoración. Es además el primer control que
+    usa quien abre el programa.
     """
     boton = QToolButton(window.menuBar())
     boton.setIcon(icon("abrir", theme.icon_ink(theme.current())))
     boton.setIconSize(QSize(TAMANO_DEL_ICONO, TAMANO_DEL_ICONO))
-    boton.setAutoRaise(True)
+    boton.setText("Abrir")
+    boton.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
     boton.setCursor(Qt.CursorShape.PointingHandCursor)
     boton.setAccessibleName("Abrir registro")
     tecla = key_for("open_recording_dialog")
@@ -209,6 +216,26 @@ def _abrir(window: "MainWindow") -> None:
     boton.clicked.connect(window.open_recording_dialog)
     window.menuBar().setCornerWidget(boton, Qt.Corner.TopLeftCorner)
     window.open_button = boton
+
+
+def _identificador(window: "MainWindow") -> None:
+    """Qué registro está abierto, en la otra esquina de la barra de menú.
+
+    **No estaba en ningún lado** hasta el hito 36: el nombre del archivo, su
+    frecuencia y cuántos canales tiene sólo se conseguían abriendo un panel de
+    análisis o mirando el título de la ventana, que el sistema puede recortar.
+    Con dos registros parecidos —la misma noche filtrada y sin filtrar— no
+    había forma de saber cuál se estaba mirando.
+
+    Es una lectura: el esquema le da la tipografía numérica, que es la que
+    hace que la frecuencia y las horas no bailen.
+    """
+    etiqueta = QLabel("Sin registro")
+    etiqueta.setProperty(theme.READOUT_PROPERTY, True)
+    etiqueta.setAccessibleName("Registro abierto")
+    etiqueta.setContentsMargins(0, 0, 10, 0)
+    window.menuBar().setCornerWidget(etiqueta, Qt.Corner.TopRightCorner)
+    window.recording_summary = etiqueta
 
 
 def _scoring(window: "MainWindow") -> None:

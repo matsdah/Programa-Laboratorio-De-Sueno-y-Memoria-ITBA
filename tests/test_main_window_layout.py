@@ -43,6 +43,8 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # El botón de la esquina de la barra de menú, que abre un registro. El
         # cambio de esquema le vuelve a dibujar el icono.
         "open_button",
+        # Qué registro está abierto, en la otra esquina de esa barra (hito 36).
+        "recording_summary",
         # Los paneles acoplables, por nombre, y los cuatro de trabajo.
         "docks",
         "channels_dock",

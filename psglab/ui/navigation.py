@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QSizePolicy,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -51,9 +52,20 @@ from psglab.ui.playback import DEFAULT_SPEED, PLAYBACK_SPEEDS, speed_text
 #: fase se lea: una franja de 14 px con tramos de colores parecía una regla.
 ALTO_DE_LA_FRANJA: int = 22
 
-#: Lado del botón de la barra. Compacto a propósito: son siete y comparten fila
-#: con la velocidad, la franja, la posición y el horario.
-LADO_DEL_BOTON: int = 26
+#: Lado del botón de la barra. **Era 26 hasta el hito 36**, que lo llevó al del
+#: diseño: con 26 el icono quedaba en 14 px y la fila entera se leía como una
+#: regleta de controles diminutos. Siguen siendo siete y siguen compartiendo
+#: fila con la velocidad, la franja y la amplitud.
+LADO_DEL_BOTON: int = 34
+
+#: Lo que separa un grupo de controles del siguiente. Tres grupos: transporte y
+#: velocidad, la franja, y la amplitud.
+ESPACIO_ENTRE_GRUPOS: int = 14
+
+#: Cuánto lugar se le reserva a la lectura de amplitud. Fijo a propósito: sin
+#: mínimo, los dos botones que la rodean se corren cada vez que pasa de tres a
+#: cuatro cifras.
+ANCHO_DE_LA_AMPLITUD: int = 58
 
 
 class PositionStrip(QWidget):
@@ -128,6 +140,13 @@ class PositionStrip(QWidget):
         esquema = theme.current()
         pixmap = QPixmap(self.size())
         pixmap.fill(QColor(esquema.overview_background))
+        # **Un borde**, como el de un campo: sin él la franja se confunde con
+        # la barra en cuanto la noche no está scoreada, que es justo cuando
+        # más hay que verla.
+        marco = QPainter(pixmap)
+        marco.setPen(QColor(esquema.overview_border))
+        marco.drawRect(0, 0, self.width() - 1, self.height() - 1)
+        marco.end()
         if self._colores and self._n_windows > 0:
             pintor = QPainter(pixmap)
             ancho = self.width()
@@ -236,10 +255,31 @@ class NavigationBar(QWidget):
         self.speed_selector.setCurrentIndex(PLAYBACK_SPEEDS.index(DEFAULT_SPEED))
 
         self.strip = PositionStrip()
+        #: Lo que dice el centro de la fila de abajo: la época y su horario.
         self._posicion = QLabel("Sin registro")
-        self._horario = QLabel("")
+        self._posicion.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        #: El horario de la época actual, o None si el registro no lo informa.
+        #: **Era un rótulo propio hasta el hito 36** y ahora es un dato: va en
+        #: la misma línea que la época, porque son la misma pregunta —dónde
+        #: estoy— contestada en dos unidades.
+        self._hora_de_la_epoca: str | None = None
+        #: Las horas de los dos extremos del registro, a los costados de la
+        #: franja: sin ellas la franja dice la proporción y no contra qué.
+        self._hora_inicial = QLabel("")
+        self._hora_final = QLabel("")
+        self._hora_final.setAlignment(Qt.AlignmentFlag.AlignRight)
+        #: La amplitud vigente, entre los dos botones que la cambian. Hasta el
+        #: hito 36 sólo se veía en el eje de cada canal.
+        self._amplitud = QLabel("")
+        self._amplitud.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._amplitud.setMinimumWidth(ANCHO_DE_LA_AMPLITUD)
         # Son lecturas: el esquema puede darles una tipografía numérica.
-        for lectura in (self._posicion, self._horario):
+        for lectura in (
+            self._posicion,
+            self._hora_inicial,
+            self._hora_final,
+            self._amplitud,
+        ):
             lectura.setProperty(theme.READOUT_PROPERTY, True)
 
         self._primera.clicked.connect(lambda: self._pedir(0))
@@ -253,9 +293,20 @@ class NavigationBar(QWidget):
         self._mas_amplitud.clicked.connect(self.amplitude_up_requested.emit)
         self._menos_amplitud.clicked.connect(self.amplitude_down_requested.emit)
         self.strip.window_requested.connect(self.window_requested.emit)
+        # **La acción primaria de la barra**, rellena con el acento: es la única
+        # que hace algo por sí sola y no un paso más de lo mismo. El color y la
+        # tinta los pone la hoja de estilo, que mide cuál se lee encima.
+        self._reproducir.setProperty("primario", True)
+        # **Y su icono con la tinta que se lee encima de ese relleno.** Lo
+        # crea `_boton()` con la del resto, que sobre el acento da 2,87 a 1:
+        # `apply_scheme()` lo arreglaba, pero sólo corre al cambiar de esquema,
+        # así que el botón arrancaba con el icono casi invisible. Se vio en una
+        # captura de la barra.
+        self.set_playing(False)
 
         caja = QHBoxLayout(self)
-        caja.setContentsMargins(4, 2, 4, 2)
+        caja.setContentsMargins(10, 4, 10, 4)
+        caja.setSpacing(3)
         # El orden que pidió el usuario en el hito 27: reproducir entre las dos
         # flechas, que es donde lo pone cualquier reproductor.
         for boton in (
@@ -266,15 +317,35 @@ class NavigationBar(QWidget):
             self._ultima,
         ):
             caja.addWidget(boton)
+        caja.addSpacing(ESPACIO_ENTRE_GRUPOS)
+        caja.addWidget(QLabel("Velocidad"))
         caja.addWidget(self.speed_selector)
-        caja.addSpacing(12)
-        for boton in (self._menos_amplitud, self._mas_amplitud):
-            caja.addWidget(boton)
-        caja.addSpacing(12)
-        caja.addWidget(self.strip, stretch=1)
-        caja.addSpacing(12)
-        caja.addWidget(self._posicion)
-        caja.addWidget(self._horario)
+        caja.addSpacing(ESPACIO_ENTRE_GRUPOS)
+
+        # **La franja y lo que dice de ella, en una columna** (hito 36). Las
+        # dos lecturas estaban sueltas al final de la fila, así que la
+        # proporción que dibuja la franja no tenía contra qué leerse: ahora los
+        # extremos del registro van a sus costados y la época, debajo del
+        # medio.
+        columna = QVBoxLayout()
+        columna.setContentsMargins(0, 0, 0, 0)
+        columna.setSpacing(2)
+        columna.addWidget(self.strip)
+        pie = QHBoxLayout()
+        pie.setContentsMargins(0, 0, 0, 0)
+        pie.addWidget(self._hora_inicial)
+        pie.addStretch(1)
+        pie.addWidget(self._posicion)
+        pie.addStretch(1)
+        pie.addWidget(self._hora_final)
+        columna.addLayout(pie)
+        caja.addLayout(columna, stretch=1)
+
+        caja.addSpacing(ESPACIO_ENTRE_GRUPOS)
+        caja.addWidget(QLabel("Amplitud"))
+        caja.addWidget(self._menos_amplitud)
+        caja.addWidget(self._amplitud)
+        caja.addWidget(self._mas_amplitud)
 
         self.set_position(0, 0)
 
@@ -293,7 +364,9 @@ class NavigationBar(QWidget):
         boton.setToolTip(ayuda)
         boton.setAccessibleName(ayuda)
         boton.setFixedSize(LADO_DEL_BOTON, LADO_DEL_BOTON)
-        boton.setFlat(True)
+        # **Sin `setFlat(True)`** desde el hito 36: un botón plano no dibuja
+        # marco, así que la hoja de estilo no le podía dar ni borde ni radio y
+        # los siete quedaban como iconos sueltos sobre la barra.
         boton.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         return boton
 
@@ -303,18 +376,22 @@ class NavigationBar(QWidget):
         Un icono es un mapa de bits ya pintado: cambiar de esquema oscuro a
         claro sin esto deja los triángulos claros sobre fondo claro.
         """
-        color = theme.icon_ink(theme.current())
+        esquema = theme.current()
+        color = theme.icon_ink(esquema)
         for boton, nombre in self._iconos.items():
             boton.setIcon(icon(nombre, color))
-        self._reproducir.setIcon(icon(self._icono_de_reproducir(), color))
+        self._reproducir.setIcon(
+            icon(self._icono_de_reproducir(), theme.ink_over(esquema, esquema.accent))
+        )
         self.strip.update()
 
     def set_playing(self, playing: bool) -> None:
         """Muestra el botón como «reproducir» o como «pausar»."""
         self._reproduciendo = bool(playing)
         ayuda = "Pausar" if self._reproduciendo else "Reproducir"
+        esquema = theme.current()
         self._reproducir.setIcon(
-            icon(self._icono_de_reproducir(), theme.icon_ink(theme.current()))
+            icon(self._icono_de_reproducir(), theme.ink_over(esquema, esquema.accent))
         )
         self._reproducir.setToolTip(ayuda)
         self._reproducir.setAccessibleName(ayuda)
@@ -339,10 +416,7 @@ class NavigationBar(QWidget):
         """
         self._window_index = window_index
         self._n_windows = n_windows
-        if n_windows <= 0:
-            self._posicion.setText("Sin registro")
-        else:
-            self._posicion.setText(f"Ventana {window_index + 1} de {n_windows}")
+        self._reflejar_posicion()
         self.strip.set_position(window_index, n_windows)
 
         hay_registro = n_windows > 0
@@ -354,9 +428,42 @@ class NavigationBar(QWidget):
         self._menos_amplitud.setEnabled(hay_registro)
         self._reproducir.setEnabled(hay_registro)
 
+    def _reflejar_posicion(self) -> None:
+        """Escribe el centro de la fila de abajo: la época y, si se sabe, su hora.
+
+        Los dos datos en una sola línea contestan la misma pregunta —dónde
+        estoy— en dos unidades, y separados obligaban a leer dos rincones de la
+        barra.
+        """
+        if self._n_windows <= 0:
+            self._posicion.setText("Sin registro")
+            return
+        texto = f"Ventana {self._window_index + 1} de {self._n_windows}"
+        hora = self._hora_de_la_epoca
+        self._posicion.setText(f"{hora} · {texto}" if hora else texto)
+
     def set_scoring(self, colors: Sequence[str | None]) -> None:
         """Le pasa a la franja con qué color pintar cada época."""
         self.strip.set_scoring(colors)
+
+    def set_amplitude(self, label: str) -> None:
+        """Muestra la amplitud vigente entre los dos botones que la cambian.
+
+        Es texto ya formateado y no un número: quién decide cómo se escribe una
+        amplitud es `utils.units`, y esta barra no convierte nada.
+        """
+        self._amplitud.setText(label)
+
+    def set_span(self, first: str | None, last: str | None) -> None:
+        """Las horas de los dos extremos del registro, a los costados de la franja.
+
+        Con `None` se ocultan, como el horario de la época: un registro que no
+        informa cuándo empezó no tiene horas que mostrar, y un cero en pantalla
+        invita a leerlo como medianoche.
+        """
+        for etiqueta, texto in ((self._hora_inicial, first), (self._hora_final, last)):
+            etiqueta.setText(texto or "")
+            etiqueta.setVisible(texto is not None)
 
     def set_clock_time(self, label: str | None) -> None:
         """Muestra el horario real de la ventana actual, si se conoce.
@@ -368,8 +475,8 @@ class NavigationBar(QWidget):
         Con `None` se **oculta** en vez de mostrar un guión o un cero: un
         horario vacío en pantalla invita a leerlo como medianoche.
         """
-        self._horario.setText(label or "")
-        self._horario.setVisible(label is not None)
+        self._hora_de_la_epoca = label
+        self._reflejar_posicion()
 
     def _pedir(self, window_index: int) -> None:
         """Pide una ventana, si existe.

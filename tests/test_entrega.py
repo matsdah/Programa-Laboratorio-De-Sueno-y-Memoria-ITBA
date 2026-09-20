@@ -2851,7 +2851,9 @@ def test_la_epoca_nueva_llega_a_la_barra_y_al_scoring(reproduccion: MainWindow):
     ventana.toggle_playback()
     ventana.playback.advanced.emit(WINDOW_SECONDS)
 
-    assert ventana.navigation._posicion.text() == f"Ventana 2 de {VENTANAS}"
+    # La lectura lleva también la hora desde el hito 36, cuando el registro la
+    # informa: son la misma pregunta en dos unidades.
+    assert ventana.navigation._posicion.text().endswith(f"Ventana 2 de {VENTANAS}")
     assert ventana.scoring_panel.status().startswith("Ventana 2 ")
 
 
@@ -4112,3 +4114,47 @@ def test_el_espectro_dice_que_una_banda_queda_fuera(
 
     assert "Alta" in ventana.psd_panel.caption()
     assert f"{nyquist:g} Hz" in ventana.psd_panel.caption()
+
+
+# -- Las dos barras dicen qué registro está abierto (hito 36) ----------------
+
+
+def test_la_barra_de_menu_identifica_el_registro(ventana: MainWindow):
+    """**No estaba en ningún lado.** Con dos registros parecidos —la misma
+    noche filtrada y sin filtrar— no había forma de saber cuál se miraba."""
+    resumen = ventana.recording_summary.text()
+
+    assert ventana.session.recording.file_path.name in resumen
+    assert "canales" in resumen
+
+
+def test_sin_registro_la_barra_de_menu_lo_dice(qt_app):
+    vacia = create_main_window()
+    try:
+        assert vacia.recording_summary.text() == "Sin registro"
+    finally:
+        vacia.close()
+
+
+def test_la_barra_de_navegacion_muestra_la_amplitud(ventana: MainWindow):
+    """Hasta el hito 36 la amplitud sólo se veía en el eje de cada canal."""
+    ventana.set_amplitude_scale(200.0)
+
+    assert ventana.navigation._amplitud.text() == "200 µV"
+
+
+def test_con_amplitudes_distintas_la_barra_no_inventa_un_numero(ventana: MainWindow):
+    """V5_F deja cambiarle la ganancia a un canal solo. Decir la del primero
+    sería que el investigador lea 100 µV mirando un canal a 250."""
+    canal = ventana.session.visible_channels[0]
+    ventana.session.set_scale_uv(canal, 400.0)
+    ventana._reflejar_epoca()
+
+    assert ventana.navigation._amplitud.text() == "varias"
+
+
+def test_los_extremos_del_registro_llegan_a_la_franja(ventana: MainWindow):
+    inicio = ventana.session.recording.start_time
+
+    assert ventana.navigation._hora_inicial.text() == inicio.strftime("%H:%M")
+    assert ventana.navigation._hora_final.text() != ""

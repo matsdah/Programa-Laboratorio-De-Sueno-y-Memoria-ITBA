@@ -357,6 +357,23 @@ def set_current(scheme: ColorScheme) -> None:
     pg.setConfigOption("foreground", scheme.foreground)
 
 
+def ink_over(scheme: ColorScheme, fill: str) -> str:
+    """La tinta que se lee sobre un relleno de ese color.
+
+    **Se elige midiendo y no por esquema**: la misma escala de fases se usa
+    sobre papel y sobre negro, y el blanco que se lee sobre el azul profundo
+    desaparece sobre el ámbar claro del esquema oscuro. Las dos candidatas son
+    el blanco y el fondo del esquema, que es la tinta más oscura de la que ese
+    esquema dispone.
+
+    La usan las reglas de las fases y el botón de reproducir, que es el único
+    relleno de acento de la barra de navegación.
+    """
+    if contrast_ratio("#ffffff", fill) >= contrast_ratio(scheme.background, fill):
+        return "#ffffff"
+    return scheme.background
+
+
 def _reglas_de_las_fases(scheme: ColorScheme) -> str:
     """Una regla de hoja de estilo por fase, con el color que le toca.
 
@@ -366,17 +383,11 @@ def _reglas_de_las_fases(scheme: ColorScheme) -> str:
     `stage_colors` no genera ninguna regla y sus botones se ven como cualquier
     otro, que es como se veían antes.
 
-    **La tinta de encima se elige midiendo**, no por esquema: la misma escala
-    de fases se usa sobre papel y sobre negro, y el blanco que se lee sobre el
-    azul profundo desaparece sobre el ámbar claro del esquema oscuro.
+    **La tinta de encima la elige `ink_over()`**, midiendo.
     """
     reglas: list[str] = []
     for fase, color in scheme.stage_colors:
-        tinta = (
-            "#ffffff"
-            if contrast_ratio("#ffffff", color) >= contrast_ratio(scheme.background, color)
-            else scheme.background
-        )
+        tinta = ink_over(scheme, color)
         reglas.append(
             f'QPushButton[fase="{fase}"] {{ color: {color}; border-color: {color}; }}'
             f'QPushButton[fase="{fase}"]:checked {{'
@@ -452,15 +463,24 @@ def stylesheet(scheme: ColorScheme) -> str:
         QMenuBar, QMenu, QToolBar, QStatusBar {{
             background-color: {ventana}; color: {texto};
         }}
+        QMenuBar {{ padding: 4px 6px; }}
+        QMenuBar::item {{ padding: 6px 10px; border-radius: 6px; }}
         QMenuBar::item:selected, QMenu::item:selected {{
             background-color: {realce};
         }}
         QMenu {{ border: 1px solid {borde}; }}
+        /* El botón de abrir: es un botón y no una entrada de menú, así que se
+           ve como los demás botones —caja, borde y radio— y no como texto. */
         QMenuBar QToolButton {{
-            border: none; border-radius: 3px; padding: 2px 6px;
+            background-color: {fondo};
+            border: 1px solid {borde};
+            border-radius: {RADIO_DE_CONTROL}px;
+            padding: 4px 10px;
+            margin: 0 8px 0 2px;
         }}
         QMenuBar QToolButton:hover, QMenuBar QToolButton:pressed {{
             background-color: {realce};
+            border-color: {scheme.accent};
         }}
         QToolBar {{ border-bottom: 1px solid {borde}; }}
         QPushButton, QComboBox, QLineEdit, QSpinBox {{
@@ -477,6 +497,11 @@ def stylesheet(scheme: ColorScheme) -> str:
         }}
         QPushButton:checked, QPushButton:pressed {{ background-color: {realce}; }}
         QPushButton:disabled {{ color: {borde}; }}
+        QPushButton[primario="true"] {{
+            background-color: {scheme.accent};
+            border-color: {scheme.accent};
+            color: {ink_over(scheme, scheme.accent)};
+        }}
         {fases}
         QTreeWidget, QTableWidget, QListWidget, QTextEdit, QPlainTextEdit {{
             background-color: {fondo};

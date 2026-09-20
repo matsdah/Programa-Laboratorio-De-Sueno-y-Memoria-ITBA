@@ -50,13 +50,14 @@ implementar ninguna, y cada una vive en su módulo.
 import threading
 from collections import Counter
 from collections.abc import Callable, Iterator
+from datetime import timedelta
 from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPointF, Qt, QTimer
-from PySide6.QtGui import QAction, QCloseEvent, QFont, QMouseEvent
+from PySide6.QtGui import QAction, QCloseEvent, QFont, QFontMetrics, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -152,6 +153,11 @@ from psglab.ui.settings_dialog import SettingsDialog
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
 from psglab.utils.errors import PsgLabError, UndeclaredNomenclatureError
+from psglab.utils.units import format_amplitude
+
+#: Lo que se le suma al ancho del identificador del registro para que no quede
+#: pegado al borde de la ventana ni a la última entrada del menú.
+_MARGEN_DEL_IDENTIFICADOR: int = 18
 
 #: Qué parte de la separación entre dos filas del hipnograma ocupa la barra de
 #: color de una fase. Menos de la mitad a propósito: la barra tiene que leerse
@@ -1180,6 +1186,12 @@ class MainWindow(QMainWindow):
         self.signal_view.mark_window(ventana)
         self.navigation.set_position(ventana, sesion.n_windows)
         self.navigation.set_clock_time(self._clock_label(ventana))
+        self.navigation.set_amplitude(self._amplitud_visible())
+        # Los extremos no cambian con la época, pero esto es lo que corre
+        # después de abrir un registro **y** después de cambiar de canales
+        # visibles, que es cuando pueden dejar de ser ciertos.
+        self.navigation.set_span(*self._horas_del_registro())
+        self._escribir_el_identificador()
         epoca = sesion.scoring.get(ventana)
         self.scoring_panel.set_current(epoca.stage, epoca.arousal, ventana)
         self._redraw_histogram()
@@ -2790,6 +2802,84 @@ class MainWindow(QMainWindow):
             self._session.set_selected_channels(channel_names)
         except PsgLabError as error:
             self._show_error(error)
+
+    def _amplitud_visible(self) -> str:
+        """La amplitud que muestra la barra, entre los dos botones que la cambian.
+
+        **Una sola cuando todos los canales visibles comparten escala**, que es
+        lo normal; si el usuario le cambió la ganancia a uno solo (V5_F), la
+        barra no puede decir un número que valga para todos y dice «varias».
+        Inventar el del primero sería peor: el investigador leería 100 µV
+        mientras mira un canal a 250.
+        """
+        if self._session is None:
+            return ""
+        escalas = {
+            self._session.scale_uv(nombre)
+            for nombre in self._session.visible_channels
+        }
+        if not escalas:
+            return ""
+        if len(escalas) > 1:
+            return "varias"
+        return format_amplitude(escalas.pop())
+
+    def _escribir_el_identificador(self) -> None:
+        """Pone el identificador del registro y **lo deja del ancho que necesita**.
+
+        `QMenuBar` le da a su widget de esquina el ancho que ese widget pide, y
+        una vez: sin esto se queda con el de «Sin registro» y el identificador
+        sale cortado. **El mínimo se calcula con las métricas de la fuente que
+        el rótulo tiene puesta** y no con `sizeHint()`, que se resuelve antes
+        de que la hoja de estilo le dé la tipografía numérica y devuelve un
+        ancho de otra tipografía.
+
+        Se vio en una captura de la barra; desde el código no se nota.
+        """
+        texto = self._describir_el_registro()
+        if texto == self.recording_summary.text():
+            return
+        self.recording_summary.setText(texto)
+        ancho = QFontMetrics(self.recording_summary.font()).horizontalAdvance(texto)
+        self.recording_summary.setFixedWidth(ancho + _MARGEN_DEL_IDENTIFICADOR)
+        # **Se lo vuelve a colgar**, que es lo único que le hace recalcular al
+        # `QMenuBar` dónde empieza su esquina: `updateGeometry()` no alcanza y
+        # el rótulo queda dibujado a partir del borde derecho de la ventana,
+        # con casi todo afuera.
+        self.menuBar().setCornerWidget(
+            self.recording_summary, Qt.Corner.TopRightCorner
+        )
+
+    def _describir_el_registro(self) -> str:
+        """Qué registro está abierto, para la esquina de la barra de menú.
+
+        Nombre del archivo, frecuencia, cuántos canales y de qué hora a qué
+        hora. Las horas sólo si el archivo las informa: un EDF puede no
+        traerlas, y un guion en su lugar se lee como un dato.
+        """
+        if self._session is None:
+            return "Sin registro"
+        registro = self._session.recording
+        partes = [
+            registro.file_path.name,
+            f"{registro.sampling_rate:g} Hz",
+            f"{registro.n_channels} canales",
+        ]
+        desde, hasta = self._horas_del_registro()
+        if desde is not None and hasta is not None:
+            partes.append(f"{desde} → {hasta}")
+        return "  ·  ".join(partes)
+
+    def _horas_del_registro(self) -> tuple[str | None, str | None]:
+        """Cuándo empieza y cuándo termina el registro, para los costados de la
+        franja. Las dos son None si el archivo no informa su hora de inicio."""
+        if self._session is None:
+            return (None, None)
+        inicio = self._session.recording.start_time
+        if inicio is None:
+            return (None, None)
+        fin = inicio + timedelta(seconds=self._session.recording.duration_seconds)
+        return (inicio.strftime("%H:%M"), fin.strftime("%H:%M"))
 
     def _clock_label(self, window_index: int) -> str | None:
         """La hora real de una ventana, si el registro informa cuándo empezó."""

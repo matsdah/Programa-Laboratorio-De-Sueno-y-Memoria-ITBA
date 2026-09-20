@@ -25,6 +25,7 @@ import pytest
 pytest.importorskip("pyqtgraph")
 
 import psglab.ui.navigation as navigation  # noqa: E402
+from psglab.ui.icons import icon  # noqa: E402
 import psglab.ui.theme as theme  # noqa: E402
 
 
@@ -194,15 +195,74 @@ def test_sin_registro_lo_dice_en_vez_de_mostrar_cero(barra):
     assert barra._posicion.text() == "Sin registro"
 
 
-def test_el_horario_se_oculta_si_el_registro_no_lo_informa(barra):
-    """Un horario vacío en pantalla invita a leerlo como medianoche."""
+def test_el_horario_va_con_la_epoca(barra):
+    """**Eran dos rótulos sueltos al final de la fila hasta el hito 36.** Los
+    dos contestan dónde estoy, en dos unidades, así que van en la misma línea,
+    debajo del medio de la franja."""
+    barra.set_position(0, 960)
+
     barra.set_clock_time("23:41:00")
-    assert barra._horario.text() == "23:41:00"
+
+    assert barra._posicion.text() == "23:41:00 · Ventana 1 de 960"
+
+
+def test_sin_horario_queda_sólo_la_epoca(barra):
+    """Un horario vacío en pantalla invita a leerlo como medianoche."""
+    barra.set_position(0, 960)
+    barra.set_clock_time("23:41:00")
 
     barra.set_clock_time(None)
 
-    assert barra._horario.text() == ""
-    assert barra._horario.isHidden()
+    assert barra._posicion.text() == "Ventana 1 de 960"
+
+
+def test_los_extremos_del_registro_van_a_los_costados(barra):
+    """Sin ellos la franja dice una proporción y no contra qué."""
+    barra.set_span("23:00", "07:30")
+
+    assert barra._hora_inicial.text() == "23:00"
+    assert barra._hora_final.text() == "07:30"
+
+
+def test_sin_horas_los_extremos_se_ocultan(barra):
+    barra.set_span("23:00", "07:30")
+
+    barra.set_span(None, None)
+
+    assert barra._hora_inicial.isHidden()
+    assert barra._hora_final.isHidden()
+
+
+def test_la_amplitud_se_ve_entre_sus_dos_botones(barra):
+    """Hasta el hito 36 sólo se veía en el eje de cada canal."""
+    barra.set_amplitude("100 µV")
+
+    assert barra._amplitud.text() == "100 µV"
+
+
+def test_el_icono_de_reproducir_se_lee_sobre_su_relleno(barra):
+    """**Arrancaba casi invisible.** `_boton()` lo crea con la tinta de los
+    demás, que sobre el acento da 2,87 a 1; `apply_scheme()` lo corregía, pero
+    sólo corre al cambiar de esquema, así que el botón recién construido —el
+    que ve quien abre el programa— tenía el icono en el color equivocado.
+
+    Lo encontró una captura de la barra, no un test: por eso ahora hay uno.
+    """
+    esquema = theme.current()
+    correcto = icon("reproducir", theme.ink_over(esquema, esquema.accent))
+
+    assert (
+        barra._reproducir.icon().pixmap(32, 32).toImage()
+        == correcto.pixmap(32, 32).toImage()
+    )
+
+
+def test_la_tinta_del_boton_primario_contrasta(barra):
+    """La regla, no el píxel: sobre el acento tiene que leerse."""
+    esquema = theme.current()
+    tinta = theme.ink_over(esquema, esquema.accent)
+
+    assert theme.contrast_ratio(tinta, esquema.accent) >= theme.MIN_GRAPHIC_CONTRAST
 
 
 def test_cambiar_de_esquema_repinta_los_iconos(barra):

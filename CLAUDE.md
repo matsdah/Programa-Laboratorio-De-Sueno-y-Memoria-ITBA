@@ -176,6 +176,20 @@ El de reparto **abre una ventana de verdad**, al revés que la suite: el plugin
 `offscreen` que fija `conftest.py` no usa el estilo nativo, que es justamente lo
 que decide cuánto mide un botón de fase.
 
+Hay una tercera herramienta que tampoco es un test, y que sirve para lo que
+ningún test puede afirmar: **cómo se ve**.
+
+```bash
+python -m tests.capturar_pantalla
+```
+
+Deja en el temporal un PNG de la ventana y de cada barra, con los dos esquemas.
+**No abre ninguna ventana en la pantalla** —`WA_DontShowOnScreen` maqueta el
+widget sin mapearlo— y tampoco corre offscreen, por el mismo motivo que el banco
+de reparto: sin estilo nativo la captura muestra cuadraditos en vez de letras.
+La primera vez que se usó encontró dos cosas que la suite daba por buenas: un
+rótulo cortado a un tercio y un icono a 2,87 de contraste sobre su relleno.
+
 En la consola de Windows los acentos de los mensajes salen como mojibake
 (`configuraci�n`) por la codepage cp1252. Es cosmético y no un bug del código:
 todo el texto que ve el usuario está en español y los archivos son UTF-8.
