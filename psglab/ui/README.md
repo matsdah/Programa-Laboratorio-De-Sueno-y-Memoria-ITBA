@@ -55,6 +55,7 @@ conoce las flechas del teclado.
 | `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. `export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos. Antes de cerrar, de abrir otro registro o de importar un scoring encima pregunta por el trabajo sin exportar —Exportar…, Descartar o Cancelar—, scoring y anotaciones, con un diálogo de guardado por cada cosa en juego; la regla de qué cuenta es de `Session`. Después de abrir uno muestra los avisos que dejó el lector, como el de un archivo truncado. | V4_F de "Archivo de salida" |
 | `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** Marca la época con una banda, su número y su fase con una pestaña en el borde, y —reproduciendo— el cursor con una línea: las tres se crean una vez y se mueven. | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
 | `channel_selector.py` | Elegir cuántos y cuáles canales se ven, agrupados por clase. | V3_P, V4_F de "Visualización" |
+| `channel_axis.py` | **El canalón**: la columna de la izquierda con el nombre, la clase y la escala de cada canal. Es el eje izquierdo del gráfico, no un ítem de la escena, y por eso tiene ancho propio que la señal no puede invadir. | V1_P, V4_F, V5_F de "Visualización" |
 | `grid.py` | La grilla de fondo, los tres fondos elegibles y las líneas de cero de los canales. **Todas las líneas son un solo objeto de la escena**: como objetos sueltos costaban 0,8 ms por línea y por cuadro. | V1_P, V2_F de "Diseño de la interfaz" |
 | `filter_panel.py` | Los filtros de cada clase de canal presente, sugeridos según la frecuencia del registro. La celda vacía desactiva ese filtro. | V1_F de "Filtración" |
 | `impedance_panel.py` | Tabla editable de impedancias por canal y el informe. La celda sin valor dice "sin medir", no "0". El nombre del canal no se edita: `FixedColumnDelegate`, que usa también el panel de filtros. | V1_F de "Impedancia" |
@@ -128,6 +129,25 @@ tabla a mano.
 Lo que sigue sin tecla es lo que no es una tecla. Un "deshacer", por ejemplo,
 es un subsistema completo (historial de cambios del scoring y de las
 anotaciones), y no está pedido.
+
+## `channel_axis.py`
+
+**El rótulo de un canal no puede vivir dentro del gráfico.** Hasta el hito 36
+cada nombre era un `pg.TextItem` apoyado sobre su carril, y la captura de la
+ventana entera mostró lo que ningún test veía: la señal se dibujaba encima y el
+rótulo no se leía. Moverlo no alcanza —mientras sea un ítem de la escena, vive
+en coordenadas del gráfico—, y por eso el canalón es un `AxisItem`: el eje es
+lo único a lo que pyqtgraph le descuenta ancho al `ViewBox`.
+
+Un widget al costado habría hecho lo mismo con el ancho, pero tendría que
+mantener su alineación vertical con los carriles a mano y se desalinearía con
+cada cambio de rango. El eje le pregunta al `ViewBox` dónde cae cada carril.
+
+**El nombre va en la tinta del texto y el color del canal en una muestra**, una
+barrita al borde. La paleta de canales está verificada contra
+`MIN_GRAPHIC_CONTRAST` —3,0— porque son trazos, y el color 3 de Sereno da 3,89
+sobre el fondo: como texto habría quedado por debajo de los 4,5 que pide WCAG
+2.1. La muestra sigue siendo un gráfico y conserva la identificación por color.
 
 ## `grid.py`
 

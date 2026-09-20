@@ -95,6 +95,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_shortcuts.py": ("psglab/ui/shortcuts.py",),
     "test_signal_view.py": ("psglab/ui/signal_view.py",),
     "test_grid.py": ("psglab/ui/grid.py",),
+    "test_channel_axis.py": ("psglab/ui/channel_axis.py",),
     "test_registry.py": (
         "psglab/tools/registry.py",
         "psglab/tools/base.py",

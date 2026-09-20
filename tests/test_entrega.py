@@ -2478,9 +2478,8 @@ def test_la_tipografia_elegida_llega_tambien_a_los_nombres_de_canal(
     _con(ventana, font_size=17)
 
     assert QApplication.font().pointSize() == 17
-    assert ventana.signal_view._labels
-    for etiqueta in ventana.signal_view._labels:
-        assert etiqueta.textItem.font().pointSize() == 17
+    assert ventana.signal_view.channel_axis.lanes()
+    assert ventana.signal_view.channel_axis._fuente.pointSize() == 17
 
 
 def test_se_puede_volver_a_la_tipografia_del_sistema(

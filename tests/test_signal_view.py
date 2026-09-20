@@ -40,6 +40,7 @@ from psglab.core.scoring import Scoring  # noqa: E402
 from psglab.core.session import Session  # noqa: E402
 from psglab.core.windows import seconds_to_sample  # noqa: E402
 from psglab.tools.base import CircleOverlay  # noqa: E402
+from psglab.ui.channel_axis import ANCHO_DEL_CANALON  # noqa: E402
 from psglab.ui import signal_view as modulo_de_la_vista  # noqa: E402
 from psglab.ui.signal_view import SignalView  # noqa: E402
 
@@ -219,23 +220,32 @@ def test_sin_sesion_la_muestra_es_cero(qt_app):
 # -- La etiqueta del canal (V4_F) ---------------------------------------------
 
 
-def test_la_etiqueta_lleva_el_nombre_y_la_clase(vista: SignalView):
+def test_el_canalon_lleva_un_renglon_por_canal_visible(vista: SignalView):
+    """El rótulo salió del área de trazo en el hito 37, pero sigue siendo lo que
+    dice qué canal es cada carril."""
+    assert [carril.name for carril in vista.channel_axis.lanes()] == [
+        "C3",
+        "EMG-menton",
+    ]
+
+
+def test_el_detalle_lleva_la_clase_y_la_escala(vista: SignalView):
     """El pliego pide mostrar la clase junto al nombre para saber qué se está
     viendo."""
-    assert vista.channel_label("C3") == "C3 (EEG)"
-    assert vista.channel_label("EMG-menton") == "EMG-menton (EMG)"
+    assert vista.channel_detail("C3").startswith("EEG · ")
+    assert vista.channel_detail("EMG-menton").startswith("EMG · ")
 
 
-def test_sin_registro_la_etiqueta_es_solo_el_nombre(qt_app):
-    """La clase la detecta el lector: antes de abrir un archivo no hay ninguna
-    que mostrar."""
-    assert SignalView().channel_label("C3") == "C3"
+def test_sin_registro_no_hay_detalle_que_mostrar(qt_app):
+    """La clase la detecta el lector y la escala la fija la sesión: antes de
+    abrir un archivo no existe ninguna de las dos."""
+    assert SignalView().channel_detail("C3") == ""
 
 
 def test_un_canal_que_el_registro_no_tiene_no_rompe_el_dibujo(vista: SignalView):
-    """Devuelve el nombre y sigue. Un canal que desapareció no puede voltear el
-    visualizador entero."""
-    assert vista.channel_label("no_existe") == "no_existe"
+    """Queda sin detalle y sigue. Un canal que desapareció no puede voltear el
+    visualizador entero: tanto la clase como la escala salen de buscarlo."""
+    assert vista.channel_detail("no_existe") == ""
 
 
 # -- La amplitud (V2_P, V5_F) -------------------------------------------------
@@ -263,7 +273,7 @@ def test_la_escala_mostrada_sigue_a_la_amplitud(vista: SignalView, sesion: Sessi
     """V5_F: la referencia en µV tiene que reflejar la amplitud real del canal."""
     vista.increase_amplitude()
     escala = sesion.scale_uv("C3")
-    assert f"{escala:.0f}" in vista._labels[0].toPlainText()
+    assert f"{escala:.0f}" in vista.channel_axis.lanes()[0].detail
 
 
 def test_cambiar_la_amplitud_sin_registro_no_rompe(qt_app):
@@ -586,30 +596,49 @@ def test_la_cache_de_envolventes_tiene_tope(
 def test_los_nombres_de_canal_se_ven_en_cualquier_epoca(
     vista: SignalView, sesion: Session, epoca: int
 ):
-    """**Regresión de la escala de tiempo libre.**
+    """**Regresión de la escala de tiempo libre, y de cómo dejó de existir.**
 
     Los nombres se creaban en x = 0 y ahí quedaban. Con el eje en segundos
     absolutos, desde la segunda época el cero queda fuera de la pantalla y los
-    carriles aparecían sin nombre: el investigador no podía saber qué canal
-    estaba mirando. Ningún test lo cubría porque todos miraban la época 0.
+    carriles aparecían sin nombre. Se arregló arrastrándolos al borde izquierdo
+    en cada dibujo; desde el hito 37 son el canalón, que no vive en
+    coordenadas del gráfico, así que la página ya no los puede dejar afuera.
     """
     sesion.go_to_window(epoca)
     vista.show_window(epoca)
-    desde, hasta = vista.getPlotItem().vb.viewRange()[0]
 
-    for etiqueta in vista._labels:
-        assert desde <= etiqueta.pos().x() <= hasta
+    assert len(vista.channel_axis.lanes()) == len(sesion.visible_channels)
 
 
-def test_los_nombres_de_canal_siguen_a_la_pagina_al_desplazar(
+def test_ningun_nombre_de_canal_se_dibuja_sobre_la_senal(
+    vista: SignalView, sesion: Session
+):
+    """**La regresión que motivó el canalón.**
+
+    Los rótulos eran `pg.TextItem` apoyados en el carril, o sea adentro del
+    área de trazo, y la captura de la ventana entera los mostró cruzados por su
+    propia onda. Hoy la señal no puede taparlos porque no comparten píxeles: el
+    `ViewBox` arranca después del ancho que el eje reservó.
+    """
+    textos = [
+        item.toPlainText()
+        for item in vista.getPlotItem().items
+        if isinstance(item, pg.TextItem)
+    ]
+    for nombre in sesion.visible_channels:
+        assert not any(nombre in texto for texto in textos)
+
+    assert vista.getPlotItem().vb.geometry().left() >= ANCHO_DEL_CANALON
+
+
+def test_el_area_de_trazo_arranca_despues_del_canalon(
     vista_larga: SignalView, sesion_larga: Session
 ):
-    """Desplazar sin cambiar de época también mueve el origen de la pantalla."""
+    """Desplazar la página no le devuelve al gráfico el ancho del canalón."""
     sesion_larga.set_viewport(sesion_larga.viewport.with_span(300.0).panned(1200.0))
     vista_larga.draw_viewport()
-    desde, hasta = vista_larga.getPlotItem().vb.viewRange()[0]
 
-    assert desde <= vista_larga._labels[0].pos().x() <= hasta
+    assert vista_larga.getPlotItem().vb.geometry().left() >= ANCHO_DEL_CANALON
 
 
 # -- Las líneas de cero las dibuja la grilla (hito 25) -----------------------

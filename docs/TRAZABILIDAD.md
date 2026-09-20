@@ -33,11 +33,11 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_P | Ventana de 30 s con ojos, C3, C4 y EMG; nº de ventana y total; nombres; escala en µV | `psglab/ui/signal_view.py`, `psglab/ui/navigation.py` (nº de ventana), `psglab/core/windows.py` (cuenta de ventanas), `psglab/utils/units.py` (µV) |
+| V1_P | Ventana de 30 s con ojos, C3, C4 y EMG; nº de ventana y total; nombres; escala en µV | `psglab/ui/signal_view.py`, `psglab/ui/channel_axis.py` (nombres y escala), `psglab/ui/navigation.py` (nº de ventana), `psglab/core/windows.py` (cuenta de ventanas), `psglab/utils/units.py` (µV) |
 | V2_P | Aumentar la amplitud con flechas y con botón; escala adaptada | `psglab/ui/signal_view.py`, `psglab/core/session.py`, `psglab/ui/shortcuts.py` (flechas) |
 | V3_P | Elegir cuántos y cuáles canales visualizar | `psglab/ui/channel_selector.py` (elección), `psglab/ui/signal_view.py` (dibujo), `psglab/core/session.py` (estado) |
-| V4_F | Cualquier canal sin límite de tipo, con detección automática de clase | `psglab/readers/channel_types.py`, `psglab/ui/signal_view.py`, `psglab/ui/channel_selector.py`, `psglab/core/recording.py` (`ChannelKind`) |
-| V5_F | Amplitud de todos los canales, o sólo de los seleccionados | `psglab/core/session.py`, `psglab/ui/signal_view.py`, `psglab/ui/channel_selector.py` (selección), `psglab/ui/shortcuts.py` (flechas) |
+| V4_F | Cualquier canal sin límite de tipo, con detección automática de clase | `psglab/readers/channel_types.py`, `psglab/ui/signal_view.py`, `psglab/ui/channel_axis.py` (la clase junto al nombre), `psglab/ui/channel_selector.py`, `psglab/core/recording.py` (`ChannelKind`) |
+| V5_F | Amplitud de todos los canales, o sólo de los seleccionados | `psglab/core/session.py`, `psglab/ui/signal_view.py`, `psglab/ui/channel_axis.py` (la escala de cada canal), `psglab/ui/channel_selector.py` (selección), `psglab/ui/shortcuts.py` (flechas) |
 
 ### Navegación en la señal
 

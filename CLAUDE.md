@@ -188,7 +188,8 @@ Deja en el temporal un PNG de la ventana y de cada barra, con los dos esquemas.
 widget sin mapearlo— y tampoco corre offscreen, por el mismo motivo que el banco
 de reparto: sin estilo nativo la captura muestra cuadraditos en vez de letras.
 La primera vez que se usó encontró dos cosas que la suite daba por buenas: un
-rótulo cortado a un tercio y un icono a 2,87 de contraste sobre su relleno.
+rótulo cortado a un tercio y un icono a 2,87 de contraste sobre su relleno. La
+segunda, el nombre de cada canal dibujado encima de su propia señal.
 
 En la consola de Windows los acentos de los mensajes salen como mojibake
 (`configuraci�n`) por la codepage cp1252. Es cosmético y no un bug del código:
@@ -499,6 +500,11 @@ Cinco reglas de esta capa que no se ven leyendo un solo archivo:
   `ui/shortcuts.py` con `key_for()` y va después de un tabulador en el texto.
   Llamar a `setShortcut()` la duplicaría con el `QShortcut` que ya existe, y ante
   un atajo duplicado Qt no ejecuta ninguno de los dos.
+- **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
+  (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
+  que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril
+  hasta el hito 37, y la onda se dibujaba encima: cualquier cosa que viva en
+  coordenadas del gráfico termina tapada por la señal.
 - **`psglab/ui/` no lleva subpaquetes.** El chequeo de `SOLO_BIBLIOTECA` y el que
   exige que cada README nombre sus archivos recorren la carpeta sin entrar en
   subcarpetas: un `ui/panels/` dejaría funciones de `analysis/` como huérfanas.

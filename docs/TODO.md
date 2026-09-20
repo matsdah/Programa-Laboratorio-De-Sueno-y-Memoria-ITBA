@@ -41,8 +41,10 @@ el diseño que el usuario aprobó, y el
 **[hito 35](#hito-35-dos-esquemas-y-ninguna-perilla)** dejó los colores en dos
 esquemas y sacó la solapa que los editaba. El
 **[hito 36](#hito-36-las-dos-barras)** rehízo la barra de menú y la de
-navegación, que eran lo que quedaba del diseño sin llevar a la ventana. Son
-**treinta y siete hitos**, del 0 al 36, que son las filas de la tabla de
+navegación, que eran lo que quedaba del diseño sin llevar a la ventana, y el
+**[hito 37](#hito-37-el-canalón)** sacó el nombre de cada canal de encima de su
+propia señal. Son
+**treinta y ocho hitos**, del 0 al 37, que son las filas de la tabla de
 progreso; está abierto sólo el 33, y lo que sigue abierto de los anteriores
 está anotado dentro del hito al que le toca.
 
@@ -155,6 +157,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [34. El rediseño de la pantalla principal](#hito-34-el-rediseño-de-la-pantalla-principal) | — | 0 | ✅ cerrado |
 | [35. Dos esquemas y ninguna perilla](#hito-35-dos-esquemas-y-ninguna-perilla) | — | 0 | ✅ cerrado |
 | [36. Las dos barras](#hito-36-las-dos-barras) | — | 0 | ✅ cerrado |
+| [37. El canalón](#hito-37-el-canalón) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -631,7 +634,7 @@ la regla vive en `core/`.
     documenta para las ventanas.
 - [x] **`psglab/ui/signal_view.py`** · ~~13 stubs~~ · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Test: `tests/test_signal_view.py`, **60 tests en verde**. **El dibujo no se
+  - Test: `tests/test_signal_view.py`, **62 tests en verde**. **El dibujo no se
     testea**; sí los tres conversores, que es de donde salen las unidades con
     las que trabajan todas las herramientas.
   - Los píxeles de los bordes se le **preguntan al `ViewBox`** en vez de
@@ -2144,7 +2147,7 @@ puntos, relleno y decimación propia, y nada de eso se usa acá.
       después sólo se le pide el rango, que además casi siempre es el mismo.
       Con eso el repintado por cuadro pasó de 2,00 a 1,00, medido con el
       filtro de eventos.
-  - Test: `tests/test_signal_view.py`, **60 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **62 tests en verde**.
 - [x] **Las curvas son `PlotCurveItem` y no `PlotDataItem`.** Medido
       intercalando las dos clases en el mismo proceso, que es la única forma
       de comparar en una máquina que varía: 28 ms contra 19 con el registro
@@ -2355,7 +2358,7 @@ lo mínimo.
       página, y **mientras se ve el cursor `show_window()` no mueve la
       página**: con la de 30 s centrada, la época no entra entera, y scorear o
       cambiar la amplitud la sacaban del medio hasta el paso siguiente.
-  - Test: `tests/test_signal_view.py`, **60 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **62 tests en verde**.
 - [x] **La ventana**: la reproducción arranca en el centro de la época actual
       —con la página de 30 s no salta—, cada paso lleva el cursor y redibuja
       sólo lo que cambió, y se detiene al final del registro y no al de la
@@ -3195,7 +3198,7 @@ tecla.
       resaltado, y la fase sólo se ve en el panel de scoring, que puede estar
       cerrado. Se crea una vez y después sólo se mueve, como la banda y el
       cursor, y el texto se rearma sólo cuando cambió.
-  - Test: `tests/test_signal_view.py`, **60 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **62 tests en verde**.
   - Test: `tests/test_entrega.py`, **263 tests en verde**, con la franja por la
     ventana.
 - [x] **Los atajos de fase ya existían.** `shortcuts.py` los deriva del código
@@ -3373,6 +3376,104 @@ escribir. Es el argumento de la herramienta, medido:
   controles hay, de qué tamaño, con qué texto y qué propiedades. Cómo se ve, no;
   para eso está la captura, y conviene sacarla antes de dar una barra por
   terminada.
+
+---
+
+## Hito 37: El canalón
+
+**Cerrado el 20 de septiembre de 2026.** Lo encontró la herramienta que dejó el
+hito 36, en la primera captura de la ventana entera: **la etiqueta de cada
+canal se dibujaba encima de su propia señal** y no se leía. Estaba anotado
+desde el hito 34 como «diferencia conocida con el artboard, aproximada y no
+idéntica», y viéndola no era una diferencia de gusto sino un problema de
+legibilidad. El usuario eligió la salida cara de las dos: el canalón de verdad
+del diseño, y no correr el rótulo al hueco entre carriles.
+
+**No tiene stubs que contar.**
+
+- [x] **`psglab/ui/channel_axis.py`, el canalón.** El nombre arriba, la clase y
+      la escala debajo, a la derecha de una columna propia fuera del gráfico.
+      - **Es un `AxisItem` y no un ítem de la escena ni un widget al costado.**
+        Mientras el rótulo sea un ítem vive en coordenadas del gráfico y la
+        señal se dibuja encima: moverlo no alcanza. El eje es lo único a lo que
+        pyqtgraph le descuenta ancho al `ViewBox`, y por eso es lo único que
+        reserva píxeles que la señal no puede invadir. Un widget aparte también
+        los reservaría, pero tendría que mantener su alineación vertical con
+        los carriles a mano y se desalinearía con cada cambio de rango.
+      - **No dibuja ninguna marca ni ningún número.** El eje vertical son
+        carriles, no una escala: pyqtgraph pondría marcas en 0, −1 y −2, que no
+        significan nada para quien mira.
+      - **El nombre va en la tinta del texto y el color del canal en una
+        muestra**, una barrita al borde. No es estética: la paleta de canales
+        está verificada contra `MIN_GRAPHIC_CONTRAST` —3,0— porque son trazos, y
+        el color 3 de Sereno da **3,89** sobre el fondo. Escrito con ese color,
+        el nombre habría quedado por debajo de los 4,5 que WCAG 2.1 pide para
+        texto, que es exactamente lo que hacía el rótulo viejo. La muestra sigue
+        siendo un gráfico y conserva la identificación por color.
+      - **El ancho es fijo y los nombres largos se recortan.** Un canal llamado
+        «EEG Fpz-Cz-A2-referenciado» no puede decidir cuánta pantalla le queda a
+        la señal. El nombre entero se sigue viendo en el selector de canales.
+  - Test: `tests/test_channel_axis.py`, **13 tests en verde**.
+- [x] **El visualizador dejó de dibujar rótulos.** `channel_label()` se fue con
+      ellos —era el texto de una sola línea— y en su lugar está
+      `channel_detail()`, que arma la segunda: «EEG · 100 µV».
+      - **Se cayó un problema entero, no se arregló.** `show_window()`
+        arrastraba cada rótulo hasta el borde izquierdo de la página en cada
+        dibujo, porque con el eje en segundos absolutos el cero queda fuera de
+        la pantalla desde la segunda época. Fuera del gráfico, la página ya no
+        los puede dejar afuera.
+      - **Y una medida nueva de contraste**: el canalón usa la tinta secundaria
+        sobre el fondo de la señal, un par que hasta acá no se medía —
+        `overview_text` sólo se miraba contra `overview_background`—. Sereno da
+        6,04 y Nocturno 7,18. Como los demás, lo enrola solo cualquier esquema
+        que se agregue.
+  - Test: `tests/test_signal_view.py`, **62 tests en verde**.
+  - Test: `tests/test_theme.py`, **60 tests en verde**.
+
+### Medido, porque el canalón toca el camino caliente
+
+El visualizador rearma los rótulos en cada dibujo, o sea veinticinco veces por
+segundo mientras se reproduce. **`set_lanes()` no repinta si son los mismos**,
+que es lo que evita que el canalón vuelva a costar por cuadro lo que el hito 25
+le sacó a la grilla; y el ancho que reserva le saca columnas al área de trazo,
+que son curvas más cortas que dibujar. Medido con el banco, intercalado con una
+corrida del árbol en `4beafd8` para que las dos vean la misma máquina:
+
+| Un paso de reproducción | Antes | Con el canalón |
+|---|---|---|
+| 7 canales a 100 Hz, página de 5 s | 9,1 ms | **8,0 ms** |
+| 7 canales a 100 Hz, página de 30 s | 10,8 ms | **9,5 ms** |
+| 7 canales a 100 Hz, página de 300 s | 12,2 ms | **11,0 ms** |
+| 32 canales a 1000 Hz, página de 5 s | 20,1 ms | **17,1 ms** |
+| 32 canales a 1000 Hz, página de 30 s | 25,3 ms | **19,0 ms** |
+| 32 canales a 1000 Hz, página de 300 s | 66,8 ms | **62,6 ms** |
+
+Ninguna fila empeoró. La última sigue fuera de los 40 ms de presupuesto, que es
+el pendiente de registros densos anotado en el hito 33 y no algo que trajo esto.
+
+### El error que encontró la herramienta en sí misma
+
+**`tests/capturar_pantalla.py` nunca había sacado los dos esquemas en una
+corrida.** Se colgaba para siempre después del primero, sin consumir CPU y sin
+imprimir nada, y los dos PNG que había en el temporal eran de dos corridas
+distintas. El motivo: cerrar la ventana principal es cerrar el programa, así
+que `closeEvent` pregunta por el trabajo sin exportar —y la herramienta scorea
+media noche a propósito, para que la franja y el hipnograma tengan forma—. Ese
+cartel es modal, y una ventana con `WA_DontShowOnScreen` no lo muestra en
+ninguna parte: nadie podía contestarlo.
+
+Ahora las ventanas **no se cierran**: quedan vivas hasta que termina el
+proceso. Es la segunda vez en dos hitos que la herramienta paga su costo, y la
+primera que lo paga sobre sí misma.
+
+### Lo que este hito deja anotado
+
+- **El eje horizontal sigue en segundos de la ventana** y el diseño lo tiene en
+  hora absoluta de la noche, que es como un scorer nombra un evento. La opción
+  existe para el hipnograma (`accion_eje_en_hora`) y no para la señal.
+- **El selector de canales sigue siendo un árbol con encabezado «Canal»**, y el
+  diseño tiene una lista compacta con el chip de clase de cada uno. Los dos son
+  del área central y no de las barras, así que no entraban en el hito 36.
 
 ---
 

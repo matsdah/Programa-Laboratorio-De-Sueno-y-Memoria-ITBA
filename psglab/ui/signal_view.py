@@ -4,6 +4,12 @@ Dibuja los canales visibles de la ventana de 30 segundos actual, con el
 nombre y la clase de cada uno y la escala de amplitud en microvoltios a la
 izquierda.
 
+**Ese "a la izquierda" es literal desde el hito 37**, y no lo era antes: los
+rótulos eran ítems de la escena apoyados sobre cada carril, o sea dentro del
+área de trazo, y la señal se dibujaba encima. Hoy son el canalón
+—`psglab/ui/channel_axis.py`—, que es el eje izquierdo del gráfico y por eso
+tiene ancho propio que la señal no puede invadir.
+
 Sobre la escala vertical: la relación píxeles/µV se mantiene explícita y no
 se deja librada al tamaño de la ventana. El pliego pide, en el rol UX/UI,
 "pensar en el tamaño de la pantalla con la deformación potencial de la onda";
@@ -51,6 +57,7 @@ from psglab.tools.base import (
     SpanOverlay,
 )
 from psglab.ui import theme
+from psglab.ui.channel_axis import ChannelAxis, ChannelLane
 from psglab.ui.grid import GridBackground
 
 #: Separación vertical entre canales, en unidades del gráfico. Cada canal ocupa
@@ -86,11 +93,17 @@ class SignalView(pg.PlotWidget):
 
     def __init__(self) -> None:
         """Crea el visualizador vacío, sin registro."""
-        super().__init__()
+        # **El canalón se crea antes que el widget** y entra como el eje
+        # izquierdo del gráfico: `PlotItem` sólo acepta ejes propios al
+        # construirse, y es lo que le descuenta ancho al área de trazo.
+        eje = ChannelAxis()
+        super().__init__(axisItems={"left": eje})
+        #: La columna de la izquierda con el nombre, la clase y la escala de
+        #: cada canal. Ver `psglab/ui/channel_axis.py`.
+        self.channel_axis: ChannelAxis = eje
         self._session: Session | None = None
         self._window_index: int = 0
         self._curves: dict[str, pg.PlotCurveItem] = {}
-        self._labels: list[pg.TextItem] = []
         self._overlay_items: list[object] = []
         #: La pestaña con el número de época y su fase. Ver `_marcar_la_pestana()`.
         self._pestana: pg.TextItem | None = None
@@ -117,7 +130,6 @@ class SignalView(pg.PlotWidget):
         item.hideButtons()
         item.setMenuEnabled(False)
         item.setMouseEnabled(x=False, y=False)
-        item.hideAxis("left")
         item.setLabel("bottom", "Segundos de la ventana")
         self.grid = GridBackground(item)
         # El nombre que lee un lector de pantalla, y el foco por teclado: sin
@@ -243,14 +255,11 @@ class SignalView(pg.PlotWidget):
                 tiempos,
                 centro + ((tramo - desplazamiento) / escala) * _LLENADO_DEL_CARRIL,
             )
-        # **Los nombres de canal acompañan a la página.** Se creaban en x = 0 y
-        # ahí quedaban, lo que era correcto mientras el eje empezaba siempre en
-        # cero. Con el eje en segundos absolutos, desde la segunda época en
-        # adelante el cero queda fuera de la pantalla y los nombres
-        # desaparecían: el investigador veía carriles sin saber de qué canal era
-        # cada uno.
-        for etiqueta in self._labels:
-            etiqueta.setPos(pagina.start_seconds, etiqueta.pos().y())
+        # **Los nombres de canal ya no siguen a la página.** Mientras eran
+        # ítems de la escena había que arrastrarlos hasta el borde izquierdo en
+        # cada dibujo, porque con el eje en segundos absolutos el cero queda
+        # fuera de la pantalla desde la segunda época. Desde que son el
+        # canalón viven fuera del área de trazo y la página no los mueve.
         self.update_amplitude_scale()
 
     def _columnas(self) -> int:
@@ -468,8 +477,7 @@ class SignalView(pg.PlotWidget):
         vieja.
         """
         self._fuente = QFont(font)
-        for etiqueta in self._labels:
-            etiqueta.setFont(self._fuente)
+        self.channel_axis.set_fonts(self._fuente, theme.current().numeric_font)
 
     def apply_scheme(self) -> None:
         """Vuelve a pintar todo con el esquema de color que esté en uso.
@@ -489,10 +497,14 @@ class SignalView(pg.PlotWidget):
 
         item = self.getPlotItem()
         pluma = pg.mkPen(esquema.foreground)
-        for nombre_de_eje in ("bottom", "left", "top", "right"):
+        # **El izquierdo queda afuera**: es el canalón, que elige sus dos
+        # tintas del esquema y se deja sin línea. Con la pluma de acá encima
+        # volvía a dibujar la regla vertical que el diseño no tiene.
+        for nombre_de_eje in ("bottom", "top", "right"):
             eje = item.getAxis(nombre_de_eje)
             eje.setPen(pluma)
             eje.setTextPen(pluma)
+        self.channel_axis.apply_scheme(esquema)
 
         # La banda de la época ya no se rehace en cada dibujo, así que su color
         # hay que cambiarlo acá: es lo único que la ataba al esquema.
@@ -663,10 +675,7 @@ class SignalView(pg.PlotWidget):
         item = self.getPlotItem()
         for curva in self._curves.values():
             item.removeItem(curva)
-        for etiqueta in self._labels:
-            item.removeItem(etiqueta)
         self._curves.clear()
-        self._labels.clear()
 
         esquema = theme.current()
         self._visible = list(channel_names)
@@ -680,7 +689,6 @@ class SignalView(pg.PlotWidget):
         )
         for posicion, nombre in enumerate(self._visible):
             color = esquema.color_for_channel(posicion)
-            centro = -posicion * _ALTO_DE_CARRIL
 
             # **Antes no se pedía ninguna pluma**, así que pyqtgraph usaba la
             # suya: todos los canales salían del mismo gris claro y con ocho
@@ -695,39 +703,16 @@ class SignalView(pg.PlotWidget):
             item.addItem(curva)
             self._curves[nombre] = curva
 
-            # El ancla cambió de `0.5` a `1.0`: la etiqueta se dibujaba centrada
-            # sobre el eje del canal, o sea encima de la señal. Ahora se apoya
-            # justo arriba, como en la referencia, y toma el color del canal
-            # para que se sepa cuál es sin contar carriles.
-            etiqueta = pg.TextItem(self.channel_label(nombre), anchor=(0, 1.0), color=color)
-            if self._fuente is not None:
-                etiqueta.setFont(self._fuente)
-            etiqueta.setPos(0.0, centro)
-            item.addItem(etiqueta)
-            self._labels.append(etiqueta)
+        # **El rótulo de cada canal es el canalón y ya no un ítem de la
+        # escena.** Mientras vivía adentro del gráfico se dibujaba encima de su
+        # propia señal y no se leía; ver `psglab/ui/channel_axis.py`.
+        self.update_amplitude_scale()
 
         if self._visible:
             item.setYRange(
                 -(len(self._visible) - 1) * _ALTO_DE_CARRIL - 0.5, 0.5, padding=0
             )
         self.refresh()
-
-    def channel_label(self, channel_name: str) -> str:
-        """Texto que acompaña al canal: nombre y clase detectada.
-
-        Ejemplo: "C3 (EEG)". El pliego pide mostrar la clase junto al nombre
-        para saber qué se está viendo (V4_F).
-
-        Sin registro abierto devuelve el nombre solo: la clase la detecta el
-        lector, así que antes de abrir un archivo no hay ninguna que mostrar.
-        """
-        if self._session is None:
-            return channel_name
-        try:
-            canal = self._session.recording.channel_by_name(channel_name)
-        except Exception:  # noqa: BLE001 - un canal que ya no está no rompe el dibujo
-            return channel_name
-        return f"{canal.name} ({canal.kind.value})"
 
     # -- Amplitud (V2_P, V5_F) ---------------------------------------------
 
@@ -750,18 +735,52 @@ class SignalView(pg.PlotWidget):
         self._session.decrease_amplitude()
         self.refresh()
 
+    def channel_detail(self, channel_name: str) -> str:
+        """La segunda línea del canalón: la clase y la escala de ese canal.
+
+        Ejemplo: "EEG · 100 µV". Va separada del nombre porque las dos cosas
+        no pesan lo mismo —el nombre es lo que se busca, esto es lo que se
+        consulta— y porque en una sola línea, con el ancho del canalón, un
+        nombre de registro real dejaba la escala recortada.
+
+        Sin registro abierto queda vacía: ni la clase ni la escala existen
+        todavía. **Un canal que el registro ya no tiene, también**: el rótulo
+        se queda con el nombre y el dibujo sigue, que es lo que hacía el
+        rótulo viejo. Las dos cosas que lleva esta línea salen de buscar el
+        canal, así que no hay ninguna que mostrar.
+        """
+        if self._session is None:
+            return ""
+        try:
+            canal = self._session.recording.channel_by_name(channel_name)
+            escala = self._session.scale_uv(channel_name)
+        except Exception:  # noqa: BLE001 - un canal que ya no está no rompe el dibujo
+            return ""
+        return f"{canal.kind.value} · {escala:.0f} µV"
+
     def update_amplitude_scale(self) -> None:
-        """Redibuja la escala en µV de la izquierda.
+        """Rearma los rótulos del canalón con la escala vigente.
 
         La escala tiene que reflejar la amplitud real de cada canal: si el
         usuario cambió la ganancia de un solo canal, la referencia de ese
         canal cambia y la de los demás no (V5_F).
+
+        **Rearma los dos renglones y no sólo el número**: son el mismo rótulo,
+        y mantener dos caminos —uno para el nombre y otro para la escala— era
+        garantizar que alguno quedara viejo.
         """
-        if self._session is None:
-            return
-        for etiqueta, nombre in zip(self._labels, self._visible):
-            escala = self._session.scale_uv(nombre)
-            etiqueta.setText(f"{self.channel_label(nombre)} — {escala:.0f} µV")
+        esquema = theme.current()
+        self.channel_axis.set_lanes(
+            [
+                ChannelLane(
+                    name=nombre,
+                    detail=self.channel_detail(nombre),
+                    color=esquema.color_for_channel(posicion),
+                    position=-posicion * _ALTO_DE_CARRIL,
+                )
+                for posicion, nombre in enumerate(self._visible)
+            ]
+        )
 
     # -- Coordenadas --------------------------------------------------------
     #

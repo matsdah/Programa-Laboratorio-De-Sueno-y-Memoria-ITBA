@@ -628,6 +628,11 @@ def low_contrast_elements(scheme: ColorScheme) -> list[tuple[str, float]]:
     medidas: list[tuple[str, str, str, float]] = [
         ("el texto de los gráficos", scheme.foreground, scheme.background, MIN_TEXT_CONTRAST),
         ("el texto del contexto", scheme.overview_text, scheme.overview_background, MIN_TEXT_CONTRAST),
+        # **El canalón usa la tinta secundaria sobre el fondo de la señal**, que
+        # es un par que hasta el hito 37 no se medía: `overview_text` sólo se
+        # miraba contra `overview_background`. La clase y la escala de cada
+        # canal se leen ahí.
+        ("el detalle del canalón", scheme.overview_text, scheme.background, MIN_TEXT_CONTRAST),
         ("las señales", scheme.signals, scheme.background, MIN_GRAPHIC_CONTRAST),
         ("la curva de los paneles", scheme.accent, scheme.background, MIN_GRAPHIC_CONTRAST),
     ]

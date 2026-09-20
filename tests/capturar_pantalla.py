@@ -21,7 +21,16 @@ el identificador del registro salía cortado a un tercio, porque `QMenuBar` le
 da a su widget de esquina un ancho que cachea; y el icono del botón de
 reproducir se dibujaba con la tinta de los demás sobre el relleno de acento,
 2,87 a 1 de contraste, porque lo corregía `apply_scheme()` y eso sólo corre al
-cambiar de esquema.
+cambiar de esquema. En el hito 37 encontró la etiqueta de cada canal dibujada
+encima de su propia señal, que es de donde salió `psglab/ui/channel_axis.py`.
+
+**Las ventanas no se cierran, y no es un descuido.** Cerrar la ventana
+principal es cerrar el programa, así que `closeEvent` pregunta por el trabajo
+sin exportar —y acá siempre hay: se scorea media noche para que la franja y el
+hipnograma tengan forma—. Ese cartel es modal, y una ventana con
+`WA_DontShowOnScreen` no lo muestra en ninguna parte: el proceso se quedaba
+colgado para siempre después del primer esquema, sin consumir CPU y sin decir
+nada. Quedan vivas hasta que termina el proceso, que es lo que hace `VENTANAS`.
 """
 
 import os
@@ -62,6 +71,11 @@ SEGUNDOS: int = 30 * 20
 ANCHO: int = 1440
 ALTO: int = 760
 
+#: Las ventanas que se armaron, para que no las recoja el recolector de basura
+#: mientras se arma la siguiente. Ver el docstring del módulo: **no se
+#: cierran**.
+VENTANAS: list[object] = []
+
 
 def armar_ventana(esquema: theme.ColorScheme):
     """Una ventana con un registro sintético y media noche scoreada."""
@@ -85,6 +99,7 @@ def armar_ventana(esquema: theme.ColorScheme):
 def capturar(esquema: theme.ColorScheme) -> None:
     """Guarda la ventana entera y sus dos barras, con ese esquema."""
     ventana = armar_ventana(esquema)
+    VENTANAS.append(ventana)
     nombre = esquema.name.lower()
     piezas = {
         f"{nombre}-ventana": ventana,
@@ -96,7 +111,6 @@ def capturar(esquema: theme.ColorScheme) -> None:
         destino = SALIDA / f"{archivo}.png"
         widget.grab().save(str(destino))
         print(f"  {destino}")
-    ventana.close()
 
 
 def main() -> None:
