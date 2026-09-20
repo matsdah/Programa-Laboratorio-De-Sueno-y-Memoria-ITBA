@@ -2342,7 +2342,7 @@ lo mínimo.
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**.
+  - Test: `tests/test_entrega.py`, **245 tests en verde**.
 
 ### Lo que se midió
 
@@ -2414,7 +2414,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
   - Test: `tests/test_menus.py`, **37 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**: tildar
+  - Test: `tests/test_entrega.py`, **245 tests en verde**: tildar
     un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
     oculta.
 
@@ -2435,7 +2435,7 @@ amplitud también quedaban corridas.
 - [x] **El test no podía verlo**: `arrastrar()` armaba el evento con las tres
       posiciones iguales. Ahora lo arma como Qt, con `scenePosition()` relativa
       a la ventana.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**, con que la
+  - Test: `tests/test_entrega.py`, **245 tests en verde**, con que la
     anotación empiece y termine a un píxel del mouse. Falla sin la corrección,
     corrida 7,5 s.
 
@@ -2463,7 +2463,7 @@ clic derecho**.
       más corta, que es la que no se puede señalar en ningún otro lugar.
   - Test: `tests/test_annotator.py`, **28 tests en verde**, con
     `annotation_at()` y las bandas sin la herramienta activada.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**, con eventos de Qt
+  - Test: `tests/test_entrega.py`, **245 tests en verde**, con eventos de Qt
     de verdad: las bandas al ir y volver de época con cada herramienta, y el
     clic derecho con la confirmación aceptada, rechazada y con otra
     herramienta activa. Fallan con la ventana anterior.
@@ -2525,7 +2525,7 @@ llegan a la ventana.
 - [x] **El clic del hipnograma no tenía ningún test con eventos**, y tenía el
       mismo error que el anotador hasta el hito 28: con los tres paneles de
       abajo a la vista, caía en la época 4 en vez de la 3.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**, con dos registros
+  - Test: `tests/test_entrega.py`, **245 tests en verde**, con dos registros
     de verdad. Los cinco fallan sin su corrección.
   - Test: `tests/test_occupancy.py`, **40 tests en verde**.
   - Test: `tests/test_annotator.py`, **28 tests en verde**.
@@ -2596,7 +2596,7 @@ todas con la recomendación que se le hizo.
       métodos y no sólo funciones: son `SIN_CAMINO_A_PROPOSITO` y
       `HUECOS_ABIERTOS` en `tests/test_consistencia.py`. Un hueco abierto no se
       exime: tiene que figurar por su nombre en este archivo.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**. Los siete nuevos
+  - Test: `tests/test_entrega.py`, **245 tests en verde**. Los siete nuevos
     fallan con la ventana anterior.
   - Test: `tests/test_preferences.py`, **71 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **73 tests en verde**.
@@ -2664,7 +2664,7 @@ tiempo.
       tarda 0,3 s. Pedida apenas abierto el registro todavía espera lo que le
       falta a la compilación: 4,6 s. Lempel-Ziv tarda 2,7 s por el cálculo en
       sí, compilado o no.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**: el menú no cambia
+  - Test: `tests/test_entrega.py`, **245 tests en verde**: el menú no cambia
     después de los cuatro análisis, y `main.py` precalienta y la suite no.
   - Test: `tests/test_connectivity_panel.py`, **16 tests en verde**.
   - Test: `tests/test_filter_panel.py`, **20 tests en verde**, y
@@ -2712,7 +2712,7 @@ le hizo, y mantuvo afuera las operaciones largas.
       es de la ventana.
 - [x] **`HUECOS_ABIERTOS` queda vacía**: los cuatro métodos que encontró la red
       del hito 30 tienen camino desde la ventana.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**, con un registro que
+  - Test: `tests/test_entrega.py`, **245 tests en verde**, con un registro que
     tiene un canal en cero.
   - Test: `tests/test_recording.py`, **40 tests en verde**, y
     `tests/test_contratos.py`, **962 tests en verde**.
@@ -2810,7 +2810,7 @@ ya advertía.
         «trae 4 h 10 min de los 8 h 00 min que declara su cabecera».
   - Test: `tests/test_readers.py`, **82 tests en verde**, con el truncado, el
     entero y el de -1 registros.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**, abriéndolos por la
+  - Test: `tests/test_entrega.py`, **245 tests en verde**, abriéndolos por la
     ventana.
 - [x] **Una fila de bandas mal formada en las preferencias impedía arrancar.**
       `_leer_bandas()` elevaba `IndexError`, que no estaba entre lo que
@@ -2827,7 +2827,7 @@ ya advertía.
     que le pone a cada campo guardado todos los tipos de JSON y exige que
     `load()` no eleve nada que no sea `PsgLabError`. Con el módulo anterior
     falla sólo `psd_bands`, con cuatro de esos valores.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**, con el arranque
+  - Test: `tests/test_entrega.py`, **245 tests en verde**, con el arranque
     y el cartel. El del cartel encontró que el `except ... as error` borra la
     variable antes de que el temporizador la use.
 - [x] **Abrir otro registro o cerrar la ventana descartaba el scoring sin
@@ -2847,11 +2847,26 @@ ya advertía.
         nuevo está roto, la sesión anterior sigue y no hay nada que preguntar.
   - Test: `tests/test_session.py`, **138 tests en verde**, con nueve sobre qué
     cuenta como trabajo sin exportar.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**, con doce por la
+  - Test: `tests/test_entrega.py`, **245 tests en verde**, con doce por la
     ventana: cerrar y abrir otro registro con cada una de las tres
     respuestas, un guardado cancelado o fallido, y el cartel de verdad con sus
     tres botones. Con la ventana anterior fallan once; el que pasa igual es el
     que afirma que sin nada scoreado no se pregunta.
+- [x] **Importar un scoring encima de uno sin exportar lo reemplazaba sin
+      preguntar.** La misma pérdida que arriba por el tercer camino, que quedó
+      fuera del pedido del hito —nombraba cerrar y abrir otro registro—.
+      `open_scoring()` pregunta con el mismo cartel.
+      - **Después de leer el archivo**, por el mismo motivo que al abrir un
+        registro: uno que no se puede importar no pisa nada, así que no hay
+        nada que preguntar. Acá se puede porque `read_scoring()` ya rechaza el
+        scoring que no es de este registro, así que lo que se leyó bien se
+        importa seguro.
+      - El cartel dice «se pierden al importar «Scoring.txt»», con el nombre
+        del archivo que se está por traer.
+  - Test: `tests/test_entrega.py`, **245 tests en verde**, con los tres
+    botones, con que lo ya exportado no pregunte y con que un archivo ilegible
+    tampoco. Seis fallan sin la corrección, cuatro de ellos el viaje de ida y
+    vuelta de cada formato, que importa justamente sobre trabajo sin exportar.
 - [x] **La conectividad dejaba escapar un `ValueError` de MNE** cuando la
       banda no tenía ninguna frecuencia que medir: una banda del usuario de 55
       a 90 Hz sobre un registro de 100 Hz. No salía ningún cartel y la traza iba
@@ -2872,7 +2887,7 @@ ya advertía.
     mensajes, la banda de un solo punto que sí se mide y la noche corta.
   - Test: `tests/test_contratos.py`, **962 tests en verde**, con tres
     rechazos obligatorios nuevos.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**, con el cartel desde
+  - Test: `tests/test_entrega.py`, **245 tests en verde**, con el cartel desde
     los dos menús de conectividad. Con el módulo anterior fallan los seis que
     rechazan.
 - [x] **La primera apertura de cada sesión del programa congelaba unos 9 s**, y
@@ -2895,7 +2910,7 @@ ya advertía.
   - Test: `tests/test_readers.py`, **82 tests en verde**, con lo que queda
     importado, el lector que no adelanta nada y que precalentar no lea ningún
     archivo.
-  - Test: `tests/test_entrega.py`, **240 tests en verde**, con el orden de los
+  - Test: `tests/test_entrega.py`, **245 tests en verde**, con el orden de los
     dos precalentamientos y con que la suite no precaliente.
 - [x] **Lo que se leía sin avisar o se mostraba sin explicar.** Siete cosas
       chicas, cada una con su test:
@@ -2928,7 +2943,7 @@ ya advertía.
   - Test: `tests/test_scoring_reader.py`, **38 tests en verde**;
     `tests/test_session.py`, **138 tests en verde**;
     `tests/test_readers.py`, **82 tests en verde**;
-    `tests/test_entrega.py`, **240 tests en verde**. Doce fallan sin la
+    `tests/test_entrega.py`, **245 tests en verde**. Doce fallan sin la
     corrección.
 - [x] **Lo que dicen los documentos y el código no.** Se corrigieron en el
       documento cuando el documento estaba viejo, y en el código cuando el
@@ -2986,9 +3001,6 @@ ya advertía.
       [hito 23](#hito-23-ajustes-de-la-barra-de-menú), así que una sesión con
       eventos anotados y nada scoreado se sigue cerrando sin preguntar. Decidir
       si el cartel también las cuenta es del usuario.
-- [ ] **Importar un scoring encima de uno sin exportar lo reemplaza sin
-      preguntar.** Es la misma pérdida por otro camino, y quedó fuera del pedido
-      del hito, que nombraba cerrar y abrir otro registro.
 
 ---
 

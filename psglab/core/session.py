@@ -247,9 +247,9 @@ class Session:
     def has_unexported_scoring(self) -> bool:
         """Si el scoring tiene trabajo que no está en ningún archivo.
 
-        **Es lo que la ventana pregunta antes de cerrar o de abrir otro
-        registro** (hito 33): el programa no autoguarda, así que lo que no se
-        exportó se pierde con la sesión. Hasta la auditoría del 19 de
+        **Es lo que la ventana pregunta antes de cerrar, de abrir otro
+        registro o de importar un scoring encima** (hito 33): el programa no
+        autoguarda, así que lo que no se exportó se pierde. Hasta la auditoría del 19 de
         septiembre de 2026 no preguntaba nada, y una noche scoreada se perdía
         con un Ctrl+O.
 

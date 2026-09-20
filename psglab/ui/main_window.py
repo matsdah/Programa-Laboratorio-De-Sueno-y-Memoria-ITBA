@@ -918,6 +918,10 @@ class MainWindow(QMainWindow):
         Acepta los cuatro formatos de `SCORING_FORMATS`. **Si el archivo no
         dice con qué nomenclatura se scoreó, se le pregunta al usuario** y se
         vuelve a leer con la que elija; si cancela, no se importa nada.
+
+        **Y si el scoring que está en pantalla no se exportó, se pregunta antes
+        de pisarlo**, con el mismo cartel que al cerrar o abrir otro registro:
+        importar lo reemplaza entero.
         """
         if self._session is None:
             self._show_error(
@@ -938,6 +942,15 @@ class MainWindow(QMainWindow):
                 scoring = read_scoring(
                     path, self._session.n_windows, elegida, start_time=inicio
                 )
+            # **Lo que se perdería, antes de pisarlo** (hito 33). Importar
+            # reemplaza el scoring entero, así que es la misma pérdida que
+            # abrir otro registro por otro camino, y se pregunta igual:
+            # después de leer, porque un archivo que no se puede importar no
+            # pisa nada. Nada de lo que hace el cartel eleva hacia afuera
+            # —`export()` atrapa lo suyo—, así que vive adentro de este `try`
+            # sin cambiarle el sentido.
+            if not self._puede_descartarse_el_scoring(f"importar «{path.name}»"):
+                return
             # **Se sustituye adentro de la sesión, no se arma otra.** Importar
             # un scoring no es abrir otro registro: el usuario sigue parado en
             # su ventana, con sus canales y sus amplitudes, y las herramientas
@@ -1033,9 +1046,9 @@ class MainWindow(QMainWindow):
 
         **El programa no autoguarda**, por decisión del usuario en el hito 33:
         guardar a escondidas obliga a elegir dónde y en qué formato por él. Así
-        que cuando algo va a soltar la sesión —cerrar, abrir otro registro— y
-        `Session.has_unexported_scoring()` dice que hay trabajo que no está en
-        ningún archivo, se pregunta con tres salidas:
+        que cuando algo va a soltar el scoring —cerrar, abrir otro registro,
+        importar uno encima— y `Session.has_unexported_scoring()` dice que hay
+        trabajo que no está en ningún archivo, se pregunta con tres salidas:
 
         - **Exportar…** abre el mismo diálogo que Ctrl+S y sigue sólo si el
           scoring quedó escrito. Cancelar ese diálogo, o que escribir falle,
@@ -1045,7 +1058,8 @@ class MainWindow(QMainWindow):
 
         Args:
             al_hacer: lo que se está por hacer, para el texto del cartel:
-                "cerrar el programa", "abrir «noche.edf»".
+                "cerrar el programa", "abrir «noche.edf»",
+                "importar «Scoring.txt»".
         """
         if self._session is None or not self._session.has_unexported_scoring():
             return True

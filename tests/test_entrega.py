@@ -223,10 +223,15 @@ def scorear_todas(ventana: MainWindow) -> list:
 
 @pytest.mark.parametrize("extension", ["txt", "csv", "edf", "xml"])
 def test_el_scoring_se_exporta_y_se_vuelve_a_importar_en_cada_formato(
-    ventana: MainWindow, tmp_path: Path, extension: str
+    ventana: MainWindow, tmp_path: Path, extension: str, cartel_del_scoring
 ):
     """Por la ventana de punta a punta: exportar, perder el trabajo e
-    importarlo de vuelta."""
+    importarlo de vuelta.
+
+    **Lo de arriba es justamente scoring sin exportar**, así que desde el hito
+    33 importar lo pregunta antes de pisarlo; acá el usuario lo descarta, que
+    es lo que este test va a hacer de todos modos.
+    """
     esperado = scorear_todas(ventana)
     destino = tmp_path / f"Scoring.{extension}"
     ventana.export("scoring", destino)
@@ -234,7 +239,10 @@ def test_el_scoring_se_exporta_y_se_vuelve_a_importar_en_cada_formato(
     for indice in range(VENTANAS):
         ventana._go_to_window(indice)
         ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+    cartel_del_scoring["respuesta"] = "descartar"
     ventana.open_scoring(destino)
+
+    assert cartel_del_scoring["preguntas"] == [f"importar «{destino.name}»"]
 
     sesion = ventana.session
     assert [
@@ -3565,6 +3573,88 @@ def test_un_registro_que_no_se_puede_abrir_no_pregunta(
 
     assert cartel_del_scoring["preguntas"] == []
     assert ventana.session is antes
+    assert len(ventana.carteles) == 1
+
+
+def escribir_un_scoring(ventana: MainWindow, destino: Path) -> Path:
+    """Un archivo para importar después, con la sesión todavía sin scorear.
+
+    Exportar marca el scoring como guardado, así que lo que se scoree **después**
+    es trabajo sin exportar de verdad, no un efecto del armado del test.
+    """
+    ventana.export("scoring", destino)
+    return destino
+
+
+def test_importar_encima_pregunta_y_cancelar_conserva_el_scoring(
+    ventana: MainWindow, cartel_del_scoring, tmp_path: Path
+):
+    """**La misma pérdida que abrir otro registro, por otro camino.** Importar
+    reemplaza el scoring entero, y hasta este ítem no preguntaba nada."""
+    archivo = escribir_un_scoring(ventana, tmp_path / "ajeno.txt")
+    scorear_algo(ventana)
+
+    ventana.open_scoring(archivo)
+
+    assert cartel_del_scoring["preguntas"] == ["importar «ajeno.txt»"]
+    assert ventana.session.scoring.scored_windows() == 1
+
+
+def test_importar_y_descartar_reemplaza_el_scoring(
+    ventana: MainWindow, cartel_del_scoring, tmp_path: Path
+):
+    archivo = escribir_un_scoring(ventana, tmp_path / "ajeno.txt")
+    scorear_algo(ventana)
+    cartel_del_scoring["respuesta"] = "descartar"
+
+    ventana.open_scoring(archivo)
+
+    assert ventana.session.scoring.scored_windows() == 0
+    assert not ventana.carteles
+
+
+def test_importar_y_exportar_guarda_lo_que_habia_antes(
+    ventana: MainWindow, cartel_del_scoring, dialogo_de_guardado, tmp_path: Path
+):
+    archivo = escribir_un_scoring(ventana, tmp_path / "ajeno.txt")
+    scorear_algo(ventana)
+    cartel_del_scoring["respuesta"] = "exportar"
+    dialogo_de_guardado["respuesta"] = tmp_path / "mio.txt"
+
+    ventana.open_scoring(archivo)
+
+    assert (tmp_path / "mio.txt").read_text(encoding="utf-8").splitlines()[2] == "2 0"
+    assert ventana.session.scoring.scored_windows() == 0
+
+
+def test_importar_sobre_lo_ya_exportado_no_pregunta(
+    ventana: MainWindow, cartel_del_scoring, tmp_path: Path
+):
+    scorear_algo(ventana)
+    archivo = escribir_un_scoring(ventana, tmp_path / "mio.txt")
+
+    ventana.open_scoring(archivo)
+
+    assert cartel_del_scoring["preguntas"] == []
+    assert ventana.session.scoring.scored_windows() == 1
+
+
+def test_un_scoring_que_no_se_puede_leer_no_pregunta(
+    ventana: MainWindow, cartel_del_scoring, tmp_path: Path
+):
+    """Se pregunta después de leer, como al abrir un registro: un archivo que
+    no se puede importar no pisa nada, así que no hay nada que perder."""
+    archivo = escribir_un_scoring(ventana, tmp_path / "roto.txt")
+    cabecera = archivo.read_text(encoding="utf-8").splitlines()[0]
+    archivo.write_text(
+        "\n".join([cabecera, "no soy una ventana", ""]), encoding="utf-8"
+    )
+    scorear_algo(ventana)
+
+    ventana.open_scoring(archivo)
+
+    assert cartel_del_scoring["preguntas"] == []
+    assert ventana.session.scoring.scored_windows() == 1
     assert len(ventana.carteles) == 1
 
 
