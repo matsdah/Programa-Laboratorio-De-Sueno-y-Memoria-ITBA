@@ -2840,6 +2840,13 @@ class MainWindow(QMainWindow):
             connect="finite",
         )
         self._pintar_las_fases(herramienta, altura)
+        # La franja de posición se pinta con lo mismo: una fase tiene que verse
+        # igual en los dos lugares, y las dos salen de `bars()`.
+        self.navigation.set_scoring(
+            [esquema.color_for_stage(fase.value) for fase in barras]
+            if (esquema := theme.current()).stage_colors
+            else []
+        )
         item.setYRange(0, len(orden) + 0.5, padding=0)
         # `stage_label()` y no `str(fase)`: el segundo da "SleepStage.WAKE".
         # Es el mismo nombre que usan el panel de scoring y `Informacion.txt`.

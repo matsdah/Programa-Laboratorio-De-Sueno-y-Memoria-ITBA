@@ -35,6 +35,7 @@ from PySide6.QtGui import QFont
 
 from psglab.config import WINDOW_SECONDS
 from psglab.core.decimation import min_max_envelope
+from psglab.core.nomenclature import SleepStage, stage_label
 from psglab.core.session import Session
 from psglab.core.windows import (
     epoch_to_seconds,
@@ -91,6 +92,8 @@ class SignalView(pg.PlotWidget):
         self._curves: dict[str, pg.PlotCurveItem] = {}
         self._labels: list[pg.TextItem] = []
         self._overlay_items: list[object] = []
+        #: La pestaña con el número de época y su fase. Ver `_marcar_la_pestana()`.
+        self._pestana: pg.TextItem | None = None
         #: La banda que marca la epoca de scoring sobre la pagina visible.
         self._epoca: object | None = None
         #: La línea que marca por dónde va la reproducción. Se crea la primera
@@ -334,6 +337,8 @@ class SignalView(pg.PlotWidget):
         if self._session is None:
             if self._epoca is not None:
                 self._epoca.hide()
+            if self._pestana is not None:
+                self._pestana.hide()
             return
 
         inicio, fin = epoch_to_seconds(
@@ -353,6 +358,46 @@ class SignalView(pg.PlotWidget):
         # —que mueve la página y no la época— no le pide nada a la escena.
         if self._epoca.getRegion() != (inicio, fin):
             self._epoca.setRegion((inicio, fin))
+        self._marcar_la_pestana(inicio)
+
+    def _marcar_la_pestana(self, inicio: float) -> None:
+        """Escribe en el borde de la banda qué época es y en qué fase está.
+
+        **La banda decía dónde se scorea y no qué se scorea** (hito 34): con la
+        página larga hay que mirar la barra de abajo para saber en qué época
+        cayó el resaltado, y la fase sólo se ve en el panel de scoring, que
+        puede estar cerrado.
+
+        **Se crea una vez y después sólo se mueve**, como la banda y el cursor,
+        y el texto se rearma sólo cuando cambió: reproducir mueve la página sin
+        cambiar de época, así que en el camino caliente esto no le pide nada a
+        la escena.
+
+        La época va en base 1, como en la barra de estado y en los archivos de
+        salida; la conversión se hace acá, al mostrar.
+        """
+        if self._session is None:
+            return
+        fase = self._session.scoring.get(self._window_index).stage
+        texto = f"Época {self._window_index + 1}"
+        if fase is not SleepStage.UNSCORED:
+            texto = f"{texto} · {stage_label(fase)}"
+        if self._pestana is None:
+            self._pestana = pg.TextItem(texto, anchor=(0, 0), color=theme.current().accent)
+            self._pestana.setZValue(-19)
+            self.getPlotItem().addItem(self._pestana)
+        elif self._pestana.toPlainText() != texto:
+            self._pestana.setText(texto)
+        self._pestana.setPos(inicio, self._techo_de_la_pestana())
+
+    def _techo_de_la_pestana(self) -> float:
+        """La altura a la que se apoya la pestaña: el borde de arriba del eje.
+
+        El eje vertical son carriles y no microvoltios —uno por canal, el
+        primero en 0— así que arriba de todo es 0,5, que es el mismo medio
+        carril de margen que reserva `set_visible_channels()`.
+        """
+        return 0.5
 
     def mark_window(self, window_index: int) -> None:
         """Mueve la banda a otra época **sin tocar la página**.
@@ -453,6 +498,8 @@ class SignalView(pg.PlotWidget):
         # hay que cambiarlo acá: es lo único que la ataba al esquema.
         if self._epoca is not None:
             self._epoca.setBrush(self._pincel_de_la_epoca())
+        if self._pestana is not None:
+            self._pestana.setColor(esquema.accent)
         if self._cursor is not None:
             self._cursor.setPen(self._pluma_del_cursor())
 

@@ -29,8 +29,10 @@ Cubre del pliego: V1_F de "Navegación en la señal"; la parte de "número de
 ventana actual y total" de V1_P de "Visualización".
 """
 
+from collections.abc import Sequence
+
 from PySide6.QtCore import QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -44,9 +46,10 @@ from psglab.ui import theme
 from psglab.ui.icons import icon
 from psglab.ui.playback import DEFAULT_SPEED, PLAYBACK_SPEEDS, speed_text
 
-#: Alto de la franja de posición, en píxeles. Alcanza para verla y para poder
-#: pegarle un clic sin apuntar.
-ALTO_DE_LA_FRANJA: int = 14
+#: Alto de la franja de posición, en píxeles. Alcanza para verla, para poder
+#: pegarle un clic sin apuntar y —desde el hito 34— para que el color de la
+#: fase se lea: una franja de 14 px con tramos de colores parecía una regla.
+ALTO_DE_LA_FRANJA: int = 22
 
 #: Lado del botón de la barra. Compacto a propósito: son siete y comparten fila
 #: con la velocidad, la franja, la posición y el horario.
@@ -73,6 +76,10 @@ class PositionStrip(QWidget):
         super().__init__()
         self._window_index = 0
         self._n_windows = 0
+        #: El color de cada época scoreada, o None. Ver `set_scoring()`.
+        self._colores: tuple[str | None, ...] = ()
+        #: El fondo ya pintado. Ver `_fondo()`.
+        self._cache: QPixmap | None = None
         self.setFixedHeight(ALTO_DE_LA_FRANJA)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -80,14 +87,67 @@ class PositionStrip(QWidget):
     def set_position(self, window_index: int, n_windows: int) -> None:
         """Mueve la marca."""
         self._window_index = window_index
+        if n_windows != self._n_windows:
+            self._cache = None
         self._n_windows = n_windows
         self.update()
 
+    def set_scoring(self, colors: Sequence[str | None]) -> None:
+        """Con qué color se pinta cada época, o None si no está scoreada.
+
+        **Es la otra mitad de la pregunta que la franja contestaba** (hito 34):
+        decía dónde estoy y no cuánto llevo hecho, que es lo que un scorer mira
+        cada vez que vuelve a un registro.
+
+        Los colores los arma la ventana desde el esquema, no esta barra: es la
+        misma fuente que pinta el hipnograma, así que una fase se ve igual en
+        los dos lugares. Una lista vacía deja la franja como estaba.
+
+        **Si no cambió nada, no hace nada.** La ventana la llama por el mismo
+        camino que redibuja el hipnograma, o sea en cada cambio de época;
+        soltar el cache ahí lo volvería inútil.
+        """
+        nuevos = tuple(colors)
+        if nuevos == self._colores:
+            return
+        self._colores = nuevos
+        self._cache = None
+        self.update()
+
+    def _fondo(self) -> QPixmap:
+        """El fondo con los tramos scoreados, pintado una sola vez.
+
+        **Se cachea porque la franja se repinta en cada época**, y durante la
+        reproducción eso son veinticinco veces por segundo: pintar 2650
+        rectángulos en cada cuadro es exactamente lo que el hito 25 sacó de la
+        grilla. El cache se tira cuando cambia el scoring, la cantidad de
+        épocas o el ancho del widget.
+        """
+        if self._cache is not None and self._cache.size() == self.size():
+            return self._cache
+        esquema = theme.current()
+        pixmap = QPixmap(self.size())
+        pixmap.fill(QColor(esquema.overview_background))
+        if self._colores and self._n_windows > 0:
+            pintor = QPainter(pixmap)
+            ancho = self.width()
+            paso = ancho / self._n_windows
+            for posicion, color in enumerate(self._colores):
+                if color is None:
+                    continue
+                pintor.fillRect(
+                    QRectF(posicion * paso, 0, max(paso, 1.0), self.height()),
+                    QColor(color),
+                )
+            pintor.end()
+        self._cache = pixmap
+        return pixmap
+
     def paintEvent(self, event: QPaintEvent) -> None:
-        """Dibuja el fondo y la marca de la ventana actual."""
+        """Dibuja el fondo —con lo scoreado— y la marca de la ventana actual."""
         esquema = theme.current()
         pintor = QPainter(self)
-        pintor.fillRect(self.rect(), QColor(esquema.overview_background))
+        pintor.drawPixmap(0, 0, self._fondo())
 
         if self._n_windows <= 0:
             pintor.end()
@@ -293,6 +353,10 @@ class NavigationBar(QWidget):
         self._mas_amplitud.setEnabled(hay_registro)
         self._menos_amplitud.setEnabled(hay_registro)
         self._reproducir.setEnabled(hay_registro)
+
+    def set_scoring(self, colors: Sequence[str | None]) -> None:
+        """Le pasa a la franja con qué color pintar cada época."""
+        self.strip.set_scoring(colors)
 
     def set_clock_time(self, label: str | None) -> None:
         """Muestra el horario real de la ventana actual, si se conoce.

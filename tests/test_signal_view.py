@@ -767,3 +767,51 @@ def test_cambiar_de_esquema_repinta_el_cursor(vista: SignalView, sesion: Session
     finally:
         theme.set_current(anterior)
         vista.apply_scheme()
+
+
+# -- La pestaña de la época (hito 34) ----------------------------------------
+
+
+def test_la_pestana_dice_que_epoca_es(vista: SignalView, sesion: Session):
+    """**La banda decía dónde se scorea y no qué se scorea.** Con la página
+    larga hay que mirar la barra de abajo para saber en qué época cayó."""
+    vista.set_session(sesion)
+
+    vista.show_window(2)
+
+    assert vista._pestana.toPlainText() == "Época 3"
+
+
+def test_la_pestana_dice_la_fase_cuando_la_hay(vista: SignalView, sesion: Session):
+    """La fase sólo se ve en el panel de scoring, que puede estar cerrado."""
+    from psglab.core.nomenclature import SleepStage
+
+    sesion.scoring.set_stage(2, SleepStage.N2)
+    vista.set_session(sesion)
+
+    vista.show_window(2)
+
+    assert vista._pestana.toPlainText() == "Época 3 · N2"
+
+
+def test_la_pestana_se_mueve_con_la_banda(vista: SignalView, sesion: Session):
+    from psglab.core.windows import epoch_to_seconds
+
+    vista.set_session(sesion)
+    vista.show_window(1)
+
+    inicio, _ = epoch_to_seconds(1, sesion.recording.sampling_rate)
+    assert vista._pestana.pos().x() == pytest.approx(inicio)
+
+
+def test_la_pestana_no_se_rehace_en_cada_dibujo(vista: SignalView, sesion: Session):
+    """La misma regla que la banda y el cursor: se crea una vez y se mueve."""
+    vista.set_session(sesion)
+    pestana = vista._pestana
+
+    for inicio in range(5):
+        sesion.set_viewport(sesion.viewport.with_start(inicio * 1.2))
+        vista.draw_viewport()
+
+    assert pestana is not None
+    assert vista._pestana is pestana

@@ -960,26 +960,56 @@ def barras_de_fase(ventana: MainWindow) -> list[pg.BarGraphItem]:
     ]
 
 
-def test_el_hipnograma_pinta_cada_fase_de_su_color(ventana: MainWindow):
+@pytest.fixture
+def con_escala_de_fases(ventana: MainWindow):
+    """Fija el esquema, que es estado global del proceso.
+
+    `theme.current()` lo comparten todos los widgets, así que un test anterior
+    que haya elegido otro esquema decide qué se pinta acá. Se deja como estaba.
+    """
+    anterior = theme.current()
+    ventana.set_color_scheme(theme.SERENO, remember=False)
+    yield ventana
+    ventana.set_color_scheme(anterior, remember=False)
+
+
+def test_el_hipnograma_pinta_cada_fase_de_su_color(con_escala_de_fases: MainWindow):
     """**El programa no tenía colores de fase hasta el hito 34**: la curva se
     dibujaba en una sola tinta y reconocer una fase obligaba a leer el eje."""
+    ventana = con_escala_de_fases
     ventana._go_to_window(1)
     ventana.score_current_window(SleepStage.N2)
 
     (barras,) = barras_de_fase(ventana)
-    esperado = theme.current().color_for_stage(SleepStage.N2.value)
+    esperado = theme.SERENO.color_for_stage(SleepStage.N2.value)
     assert esperado is not None
     assert esperado in barras.opts["brushes"]
 
 
-def test_un_esquema_sin_escala_de_fases_no_pinta_nada(ventana: MainWindow):
-    """Los seis esquemas anteriores tienen que seguir viéndose como antes."""
+def test_la_franja_de_posicion_muestra_lo_scoreado(con_escala_de_fases: MainWindow):
+    """**Decía dónde estoy y no cuánto llevo hecho**, que es la otra mitad de
+    la pregunta. Sale de la misma fuente que el hipnograma, así que una fase se
+    ve igual en los dos lugares."""
+    ventana = con_escala_de_fases
     ventana._go_to_window(1)
     ventana.score_current_window(SleepStage.N2)
+
+    colores = ventana.navigation.strip._colores
+    esperado = theme.SERENO.color_for_stage(SleepStage.N2.value)
+    assert colores[1] == esperado
+    assert colores[0] is None, "lo no scoreado no se pinta"
+
+
+def test_un_esquema_sin_escala_de_fases_no_pinta_nada(con_escala_de_fases: MainWindow):
+    """Los seis esquemas anteriores tienen que seguir viéndose como antes."""
+    ventana = con_escala_de_fases
+    ventana._go_to_window(1)
+    ventana.score_current_window(SleepStage.N2)
+
     ventana.set_color_scheme(theme.OSCURO, remember=False)
 
     assert barras_de_fase(ventana) == []
-    ventana.set_color_scheme(theme.SERENO, remember=False)
+    assert ventana.navigation.strip._colores == ()
 
 
 def test_lo_no_scoreado_queda_en_blanco(ventana: MainWindow):

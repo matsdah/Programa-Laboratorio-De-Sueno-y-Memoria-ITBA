@@ -359,3 +359,56 @@ def test_un_clic_en_un_boton_no_le_saca_el_foco_a_la_senal(barra):
 
     for boton in (barra._reproducir, barra._primera, barra._siguiente):
         assert boton.focusPolicy() == Qt.FocusPolicy.TabFocus
+
+
+# -- La franja con lo scoreado (hito 34) -------------------------------------
+
+
+def test_la_franja_arranca_sin_scoring(barra: navigation.NavigationBar):
+    assert barra.strip._colores == ()
+
+
+def test_el_cache_del_fondo_se_reusa(barra: navigation.NavigationBar, qt_app):
+    """La franja se repinta en cada época, y durante la reproducción eso son
+    veinticinco veces por segundo: pintar 2650 rectángulos en cada cuadro es lo
+    que el hito 25 sacó de la grilla."""
+    barra.set_position(0, 3)
+    barra.set_scoring(["#112233", None, "#445566"])
+    barra.strip.resize(120, navigation.ALTO_DE_LA_FRANJA)
+
+    primero = barra.strip._fondo()
+
+    assert barra.strip._fondo() is primero
+
+
+def test_cambiar_el_scoring_rehace_el_fondo(barra: navigation.NavigationBar):
+    barra.set_position(0, 3)
+    barra.set_scoring(["#112233", None, None])
+    primero = barra.strip._fondo()
+
+    barra.set_scoring(["#112233", "#445566", None])
+
+    assert barra.strip._fondo() is not primero
+
+
+def test_el_mismo_scoring_no_rehace_el_fondo(barra: navigation.NavigationBar):
+    """La ventana la llama por el mismo camino que redibuja el hipnograma, o
+    sea en cada cambio de época: soltar el cache ahí lo volvería inútil."""
+    barra.set_position(0, 3)
+    barra.set_scoring(["#112233", None, None])
+    primero = barra.strip._fondo()
+
+    barra.set_scoring(["#112233", None, None])
+
+    assert barra.strip._fondo() is primero
+
+
+def test_cambiar_de_registro_rehace_el_fondo(barra: navigation.NavigationBar):
+    """Otra cantidad de épocas es otro ancho por época."""
+    barra.set_position(0, 3)
+    barra.set_scoring(["#112233", None, None])
+    primero = barra.strip._fondo()
+
+    barra.set_position(0, 900)
+
+    assert barra.strip._fondo() is not primero
