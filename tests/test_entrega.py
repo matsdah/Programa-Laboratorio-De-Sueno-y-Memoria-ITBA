@@ -2420,12 +2420,43 @@ def test_la_tipografia_elegida_llega_tambien_a_los_nombres_de_canal(
 def test_se_puede_volver_a_la_tipografia_del_sistema(
     ventana: MainWindow, fuente_restaurada
 ):
+    """**Las dos cosas a la vez**: desde el hito 34 la de fábrica es la que el
+    programa empaqueta, así que volver a la del sistema es soltar también la
+    familia y no sólo el tamaño."""
     del_sistema = QFont(ventana._fuente_del_sistema)
     _con(ventana, font_size=17)
 
-    _con(ventana, font_size=None)
+    _con(ventana, font_family=None, font_size=None)
 
     assert QApplication.font().pointSize() == del_sistema.pointSize()
+    assert QApplication.font().family() == del_sistema.family()
+
+
+def test_la_tipografia_del_programa_se_aplica_si_esta(
+    ventana: MainWindow, fuente_restaurada
+):
+    """La de fábrica desde el hito 34. Se registra acá adentro: la suite no
+    pasa por `create_application()`, que es quien lo hace al arrancar."""
+    from psglab.ui import fonts
+
+    fonts.register_bundled_fonts()
+
+    _con(ventana, font_family=fonts.UI_FONT_FAMILY)
+
+    assert QApplication.font().family() == fonts.UI_FONT_FAMILY
+
+
+def test_una_tipografia_que_no_esta_deja_la_del_sistema(
+    ventana: MainWindow, fuente_restaurada
+):
+    """**`setFamily()` con un nombre que no existe no avisa**: Qt sustituye por
+    lo que le parece, que suele ser peor que la del sistema. Con la tipografía
+    del programa como valor de fábrica, eso le pasaría a cualquiera que instale
+    sin los archivos."""
+    del_sistema = QFont(ventana._fuente_del_sistema)
+
+    _con(ventana, font_family="Una Que No Existe")
+
     assert QApplication.font().family() == del_sistema.family()
 
 

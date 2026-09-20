@@ -18,6 +18,7 @@ import pytest
 
 pytest.importorskip("pyqtgraph")
 
+import psglab.ui.fonts as fonts  # noqa: E402
 import psglab.ui.preferences as preferences  # noqa: E402
 import psglab.ui.theme as theme  # noqa: E402
 from psglab.utils.errors import (  # noqa: E402
@@ -245,7 +246,11 @@ def test_los_campos_nuevos_arrancan_en_su_valor_de_fabrica():
     de configuración: página de 30 s, AASM, espectro de Welch en logarítmico."""
     valores = preferences.Preferences()
 
-    assert valores.font_family is None
+    # **Era `None` —la del sistema— hasta el hito 34.** Ahora arranca en la que
+    # el programa empaqueta, que es la del diseño; quien prefiera otra la elige
+    # en Configuración → Tipografía, y quien ya tenga preferencias guardadas
+    # conserva la suya, porque el archivo siempre escribe este campo.
+    assert valores.font_family == fonts.UI_FONT_FAMILY
     assert valores.psd_method == "welch"
     assert valores.psd_log_power is True
     assert valores.bands() == dict(preferences.DEFAULT_BANDS)

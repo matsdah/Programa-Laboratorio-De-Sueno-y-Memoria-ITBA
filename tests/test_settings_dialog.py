@@ -21,7 +21,7 @@ from PySide6.QtWidgets import QColorDialog, QFileDialog  # noqa: E402
 
 from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.config import VIEW_TIMESCALE_PRESETS  # noqa: E402
-from psglab.ui import theme  # noqa: E402
+from psglab.ui import fonts, theme  # noqa: E402
 from psglab.ui.preferences import Preferences  # noqa: E402
 from psglab.ui.settings_dialog import (  # noqa: E402
     MODIFIED_SUFFIX,
@@ -527,13 +527,19 @@ def test_elegir_el_histograma_en_hora_real(dialogo: SettingsDialog, cambios):
 # -- Tipografía ------------------------------------------------------------------------
 
 
-def test_arranca_con_la_del_sistema(dialogo: SettingsDialog):
-    assert dialogo.system_font.isChecked()
-    assert not dialogo.font_family.isEnabled()
-    assert not dialogo.font_size.isEnabled()
+def test_arranca_con_la_del_programa(dialogo: SettingsDialog):
+    """**Era la del sistema hasta el hito 34.** Ahora la de fábrica es la que
+    el programa empaqueta, así que la casilla arranca destildada y los dos
+    controles, habilitados: la del sistema pasó a ser lo que se elige."""
+    assert not dialogo.system_font.isChecked()
+    assert dialogo.font_family.isEnabled()
+    assert dialogo.font_size.isEnabled()
+    assert dialogo.preferences.font_family == fonts.UI_FONT_FAMILY
 
 
 def test_dejar_la_del_sistema_aplica_la_elegida(dialogo: SettingsDialog, cambios):
+    dialogo.system_font.setChecked(True)
+    cambios.clear()
     dialogo.font_size.setValue(15)
     assert cambios == [], "con la del sistema, tocar el tamaño no cambia nada"
 

@@ -133,7 +133,7 @@ from psglab.tools.magnifier import MagnifierTool
 from psglab.tools.occupancy import OccupancyTool
 from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
-from psglab.ui import preferences, theme
+from psglab.ui import fonts, preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.docks import build_docks
 from psglab.ui.icons import icon
@@ -1760,14 +1760,16 @@ class MainWindow(QMainWindow):
 
     def _aplicar_preferencias(self, prefs: preferences.Preferences) -> None:
         """Lo que se aplica enseguida y no depende de un registro abierto."""
-        if prefs.font_family is None and prefs.font_size is None:
-            fuente = QFont(self._fuente_del_sistema)
-        else:
-            fuente = QFont(self._fuente_del_sistema)
-            if prefs.font_family is not None:
-                fuente.setFamily(prefs.font_family)
-            if prefs.font_size is not None:
-                fuente.setPointSize(prefs.font_size)
+        fuente = QFont(self._fuente_del_sistema)
+        # **La familia se pide sólo si Qt la tiene** (hito 34). Desde que la
+        # tipografía del programa es la de fábrica, un archivo que falta o no
+        # se pudo registrar dejaría a `setFamily()` sustituyendo en silencio
+        # por lo que a Qt le parezca, que suele ser peor que la del sistema.
+        elegida = fonts.available_family(prefs.font_family) if prefs.font_family else None
+        if elegida is not None:
+            fuente.setFamily(elegida)
+        if prefs.font_size is not None:
+            fuente.setPointSize(prefs.font_size)
         # **Sólo si cambió.** Cambiar la tipografía de la aplicación le avisa a
         # cada widget de cada ventana abierta, y la configuración se aplica
         # entera en cada cambio: sin esta guarda, tocar el color de una clase

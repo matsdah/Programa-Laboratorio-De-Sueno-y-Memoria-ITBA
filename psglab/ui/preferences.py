@@ -35,6 +35,7 @@ from psglab.config import (
 )
 from psglab.core.nomenclature import Nomenclature
 from psglab.tools.magnifier import RADIO_INICIAL_SEGUNDOS, ZOOM_INICIAL
+from psglab.ui.fonts import UI_FONT_FAMILY
 from psglab.ui.theme import (
     DEFAULT_SCHEME_NAME,
     ColorScheme,
@@ -105,6 +106,9 @@ class Preferences:
         custom_scheme: el esquema completo, cuando el usuario lo modificó y ya
             no es ninguno de fábrica. None mientras use uno de los cinco.
         font_family: la tipografía de la interfaz, o None para la del sistema.
+            **Arranca en la que el programa empaqueta** (hito 34), que es la del
+            diseño; si los archivos no estuvieran, la ventana se queda con la
+            del sistema en vez de dejar que Qt sustituya por cualquier cosa.
         font_size: su tamaño en puntos, o None para el del sistema.
         psd_method: cómo se estima el espectro; uno de `psd.METHODS`.
         psd_bands: las bandas de frecuencia, como (nombre, desde, hasta), o
@@ -144,7 +148,7 @@ class Preferences:
 
     scheme_name: str = DEFAULT_SCHEME_NAME
     custom_scheme: ColorScheme | None = None
-    font_family: str | None = None
+    font_family: str | None = UI_FONT_FAMILY
     font_size: int | None = None
     psd_method: str = METHODS[0]
     psd_bands: tuple[tuple[str, float, float], ...] | None = None

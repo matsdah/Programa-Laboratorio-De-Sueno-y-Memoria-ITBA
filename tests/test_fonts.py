@@ -38,6 +38,25 @@ def test_la_tipografia_de_papel_es_una_que_el_programa_trae(qt_app):
     assert theme.PAPEL.numeric_font in fonts.register_bundled_fonts()
 
 
+def test_la_de_la_interfaz_tambien(qt_app):
+    """Es la de fábrica desde el hito 34, así que un nombre mal escrito dejaría
+    la ventana entera con la tipografía que Qt eligiera."""
+    assert fonts.UI_FONT_FAMILY in fonts.register_bundled_fonts()
+
+
+def test_una_familia_registrada_esta_disponible(qt_app):
+    fonts.register_bundled_fonts()
+
+    assert fonts.available_family() == fonts.UI_FONT_FAMILY
+
+
+def test_una_familia_que_no_existe_no_lo_esta(qt_app):
+    """**Es lo que separa degradar a lo conocido de degradar a cualquier cosa**:
+    `QFont.setFamily()` con un nombre que no existe no avisa, y Qt sustituye
+    por lo que le parece."""
+    assert fonts.available_family("Una Que No Existe") is None
+
+
 def test_una_carpeta_que_no_existe_no_impide_arrancar(qt_app, tmp_path: Path):
     assert fonts.register_bundled_fonts(tmp_path / "no-existe") == []
 

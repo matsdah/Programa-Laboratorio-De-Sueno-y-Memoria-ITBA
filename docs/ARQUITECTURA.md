@@ -200,9 +200,14 @@ de pip. Por eso quedan anotadas acá, y un archivo que se agregue a esa carpeta
 tiene que traer su licencia y sumarse a este párrafo.
 
 Se bajaron del repositorio oficial, `github.com/IBM/plex`, y se verificaron
-contra los tamaños que publica su API. Registrarlas no cambia lo que se ve al
-arrancar: el programa sigue con la tipografía del sistema y el esquema Claro, y
-las usa quien elige el esquema Papel o las elige en Tipografía.
+contra los tamaños que publica su API.
+
+**Desde el hito 34 son las que se ven al arrancar**: Sans en la interfaz, por
+el valor de fábrica de `font_family`, y Mono en las lecturas numéricas, por los
+dos esquemas nuevos. Hasta entonces sólo las usaba quien elegía el esquema
+Papel o las pedía en Tipografía. Lo que no cambió es qué pasa si faltan: el
+programa arranca igual, con la del sistema, y `fonts.available_family()` es lo
+que impide que Qt sustituya por cualquier otra sin avisar.
 
 Verificar antes de cada release:
 
