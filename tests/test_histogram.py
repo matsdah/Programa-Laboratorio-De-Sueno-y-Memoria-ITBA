@@ -229,3 +229,84 @@ def test_avisa_cuando_hay_que_repintarlo(sesion: Session):
 
     assert len(avisos) == 4
     assert all(aviso is tool for aviso in avisos)
+
+
+# -- Los tramos de la misma fase (hito 34) -----------------------------------
+#
+# Es `bars()` agrupado, para que el panel pueda pintar la noche por tramos en
+# vez de por ventana: el hipnograma se redibuja en cada cambio de época.
+
+
+def despuntuar(sesion: Session) -> None:
+    """Deja la noche entera sin scorear.
+
+    La sesión de estas pruebas viene con las dos primeras ventanas marcadas, y
+    estos tests hablan de qué pasa con lo que **no** está scoreado.
+    """
+    for ventana in range(VENTANAS):
+        sesion.scoring.set_stage(ventana, SleepStage.UNSCORED)
+
+
+def test_sin_nada_scoreado_no_hay_ningun_tramo(
+    sesion: Session, histograma: HistogramTool
+):
+    despuntuar(sesion)
+    histograma.redraw()
+
+    assert histograma.runs() == ()
+
+
+def test_ventanas_seguidas_de_la_misma_fase_son_un_tramo(
+    sesion: Session, histograma: HistogramTool
+):
+    despuntuar(sesion)
+    for ventana in (0, 1, 2):
+        sesion.scoring.set_stage(ventana, SleepStage.N2)
+    histograma.redraw()
+
+    assert histograma.runs() == ((0, 3, SleepStage.N2),)
+
+
+def test_un_hueco_sin_scorear_parte_el_tramo(
+    sesion: Session, histograma: HistogramTool
+):
+    """**Lo no scoreado no es un tramo**: es la ausencia de fase, que queda en
+    blanco (V1_P). Pintarlo del color de la fase vecina sería inventar."""
+    despuntuar(sesion)
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    sesion.scoring.set_stage(2, SleepStage.N2)
+    histograma.redraw()
+
+    assert histograma.runs() == ((0, 1, SleepStage.N2), (2, 1, SleepStage.N2))
+
+
+def test_dos_fases_distintas_son_dos_tramos(
+    sesion: Session, histograma: HistogramTool
+):
+    despuntuar(sesion)
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    sesion.scoring.set_stage(1, SleepStage.N3)
+    histograma.redraw()
+
+    assert histograma.runs() == ((0, 1, SleepStage.N2), (1, 1, SleepStage.N3))
+
+
+def test_los_tramos_cubren_lo_mismo_que_las_barras(
+    sesion: Session, histograma: HistogramTool
+):
+    """La propiedad que importa: agrupar no puede perder ni agregar ventanas."""
+    despuntuar(sesion)
+    for ventana, fase in ((0, SleepStage.WAKE), (1, SleepStage.N1), (2, SleepStage.N1)):
+        sesion.scoring.set_stage(ventana, fase)
+    histograma.redraw()
+
+    desde_tramos = {
+        posicion: fase
+        for inicio, cuantas, fase in histograma.runs()
+        for posicion in range(inicio, inicio + cuantas)
+    }
+    assert desde_tramos == {
+        posicion: fase
+        for posicion, fase in enumerate(histograma.bars())
+        if fase is not SleepStage.UNSCORED
+    }

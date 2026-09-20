@@ -42,7 +42,7 @@ from psglab.analysis.ica import apply_ica  # noqa: E402
 from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.annotations import Annotation  # noqa: E402
-from psglab.core.nomenclature import stages_of  # noqa: E402
+from psglab.core.nomenclature import SleepStage, stages_of  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
 from psglab.ui import main_window as main_window_mod  # noqa: E402
 from psglab.ui import preferences as preferencias_mod  # noqa: E402
@@ -949,6 +949,37 @@ def test_abrir_otro_registro_deja_la_sesion_sin_herramienta(
 
 def marcas_horizontales(ventana: MainWindow) -> list[tuple[float, str]]:
     return ventana.histogram_view.getPlotItem().getAxis("bottom")._tickLevels[0]
+
+
+def barras_de_fase(ventana: MainWindow) -> list[pg.BarGraphItem]:
+    """Los tramos de color del hipnograma, si el esquema los tiene."""
+    return [
+        item
+        for item in ventana.histogram_view.getPlotItem().items
+        if isinstance(item, pg.BarGraphItem)
+    ]
+
+
+def test_el_hipnograma_pinta_cada_fase_de_su_color(ventana: MainWindow):
+    """**El programa no tenía colores de fase hasta el hito 34**: la curva se
+    dibujaba en una sola tinta y reconocer una fase obligaba a leer el eje."""
+    ventana._go_to_window(1)
+    ventana.score_current_window(SleepStage.N2)
+
+    (barras,) = barras_de_fase(ventana)
+    esperado = theme.current().color_for_stage(SleepStage.N2.value)
+    assert esperado is not None
+    assert esperado in barras.opts["brushes"]
+
+
+def test_un_esquema_sin_escala_de_fases_no_pinta_nada(ventana: MainWindow):
+    """Los seis esquemas anteriores tienen que seguir viéndose como antes."""
+    ventana._go_to_window(1)
+    ventana.score_current_window(SleepStage.N2)
+    ventana.set_color_scheme(theme.OSCURO, remember=False)
+
+    assert barras_de_fase(ventana) == []
+    ventana.set_color_scheme(theme.SERENO, remember=False)
 
 
 def test_lo_no_scoreado_queda_en_blanco(ventana: MainWindow):

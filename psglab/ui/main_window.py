@@ -153,6 +153,11 @@ from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
 from psglab.utils.errors import PsgLabError, UndeclaredNomenclatureError
 
+#: Qué parte de la separación entre dos filas del hipnograma ocupa la barra de
+#: color de una fase. Menos de la mitad a propósito: la barra tiene que leerse
+#: como una marca sobre su fila y no como un bloque que tape la curva.
+_GROSOR_DE_LA_FASE: float = 0.34
+
 #: Medidas de complejidad que la interfaz ofrece para recorrer la noche.
 #:
 #: **Son las de `MEASURES` menos la entropía de muestra**, y la exclusión está
@@ -2834,6 +2839,7 @@ class MainWindow(QMainWindow):
             stepMode="right",
             connect="finite",
         )
+        self._pintar_las_fases(herramienta, altura)
         item.setYRange(0, len(orden) + 0.5, padding=0)
         # `stage_label()` y no `str(fase)`: el segundo da "SleepStage.WAKE".
         # Es el mismo nombre que usan el panel de scoring y `Informacion.txt`.
@@ -2841,6 +2847,44 @@ class MainWindow(QMainWindow):
             [[(altura[fase], stage_label(fase)) for fase in orden]]
         )
         item.getAxis("bottom").setTicks([self._marcas_del_histograma(len(barras))])
+
+    def _pintar_las_fases(
+        self, herramienta: HistogramTool, altura: dict[SleepStage, float]
+    ) -> None:
+        """Le pone a cada tramo del hipnograma el color de su fase (hito 34).
+
+        **Sobre la curva y no en vez de ella.** La curva es la que resuelve lo
+        no scoreado con `NaN`, que es V1_P, y la que deja ver de un vistazo la
+        forma de la noche; el color es lo que deja reconocer una fase sin leer
+        el eje. Un esquema sin escala de fases no pinta nada y el hipnograma se
+        ve como antes.
+
+        **Un solo ítem de escena para todos los tramos**, y tramos en vez de
+        ventanas: es la misma cuenta del hito 25 con la grilla, sobre un panel
+        que se redibuja en cada cambio de época.
+        """
+        esquema = theme.current()
+        if not esquema.stage_colors:
+            return
+        tramos = [
+            (inicio, cuantas, esquema.color_for_stage(fase.value), altura.get(fase))
+            for inicio, cuantas, fase in herramienta.runs()
+        ]
+        # Una fase que el esquema no conoce, o que no es una fila del eje, no
+        # se pinta: el color inventado sería peor que la curva sola.
+        dibujables = [t for t in tramos if t[2] is not None and t[3] is not None]
+        if not dibujables:
+            return
+        self.histogram_view.getPlotItem().addItem(
+            pg.BarGraphItem(
+                x0=[inicio for inicio, _, _, _ in dibujables],
+                x1=[inicio + cuantas for inicio, cuantas, _, _ in dibujables],
+                y0=[y - _GROSOR_DE_LA_FASE / 2 for _, _, _, y in dibujables],
+                height=_GROSOR_DE_LA_FASE,
+                pen=None,
+                brushes=[color for _, _, color, _ in dibujables],
+            )
+        )
 
     def _marcas_del_histograma(self, cuantas: int) -> list[tuple[float, str]]:
         """Las marcas del eje horizontal del hipnograma (V2_F).
