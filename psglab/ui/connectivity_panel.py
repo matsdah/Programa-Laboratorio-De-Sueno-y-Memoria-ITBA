@@ -56,6 +56,8 @@ class ConnectivityPanel(QWidget):
         self._titulo: str = ""
         self._matriz: np.ndarray | None = None
         self._canales: list[str] = []
+        #: Qué mide la escala de color. Ver `set_measure()`.
+        self._medida: str = ""
 
         self._imagen = pg.ImageItem()
         item = self.grafico.getPlotItem()
@@ -101,13 +103,22 @@ class ConnectivityPanel(QWidget):
 
     # -- Lo que le da la ventana principal ----------------------------------
 
-    def set_matrix(self, matrix: np.ndarray, channel_names: list[str]) -> None:
+    def set_matrix(
+        self,
+        matrix: np.ndarray,
+        channel_names: list[str],
+        measure: str = "",
+    ) -> None:
         """Dibuja la matriz con los nombres de canal en los dos ejes.
 
         Args:
             matrix: matriz cuadrada, tal como la devuelve
                 `compute_connectivity()`.
             channel_names: un nombre por fila, en el mismo orden.
+            measure: qué mide la escala de color —«wPLI», «PLI», «Coherencia»—.
+                **La barra decía de 0 a 1 y no de qué**: un mapa de colores sin
+                la unidad se puede leer de izquierda a derecha, pero no se
+                puede comparar con el de otra medida.
         """
         datos = np.asarray(matrix, dtype=float)
         self._matriz = datos
@@ -117,6 +128,7 @@ class ConnectivityPanel(QWidget):
         # ajustó, la matriz nueva se ve con el mismo contraste que la anterior,
         # y la barra no queda diciendo otra cosa que la imagen.
         self._imagen.setImage(datos, levels=self._barra.levels())
+        self.set_measure(measure)
         item = self.grafico.getPlotItem()
         # Los ticks van en el centro de cada celda, que es donde el usuario
         # espera leerlos: en el borde, un nombre queda entre dos filas.
@@ -127,6 +139,15 @@ class ConnectivityPanel(QWidget):
         item.getAxis("left").setTicks([marcas])
         self._reflejar_titulo()
 
+    def set_measure(self, text: str) -> None:
+        """Rotula la escala de color con lo que mide."""
+        self._medida = text
+        self._barra.setLabel("right", text or None)
+
+    def measure(self) -> str:
+        """Lo que dice hoy el rótulo de la escala, o vacío."""
+        return self._medida
+
     def clear_matrix(self) -> None:
         """Deja el panel vacío."""
         self._titulo = ""
@@ -135,6 +156,7 @@ class ConnectivityPanel(QWidget):
         self._imagen.clear()
         # Sin matriz no hay contraste que conservar: la próxima arranca de 0 a 1.
         self._barra.setLevels((_MINIMO, _MAXIMO))
+        self.set_measure("")
         self.grafico.getPlotItem().getAxis("bottom").setTicks(None)
         self.grafico.getPlotItem().getAxis("left").setTicks(None)
         self._reflejar_titulo()

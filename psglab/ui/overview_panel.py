@@ -25,11 +25,13 @@ Cubre del pliego: V1_F, V2_F, V3_F de "Übersicht (panel de contexto)".
 from __future__ import annotations
 
 from PySide6.QtCore import QRectF, QSize, Qt
-from PySide6.QtGui import QBrush, QColor, QPaintEvent, QPainter, QPen
+from PySide6.QtGui import QBrush, QColor, QFontMetricsF, QPaintEvent, QPainter, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
+from psglab.core.nomenclature import SleepStage, stage_label
 from psglab.tools.overview import OverviewWindow
 from psglab.ui import theme
+from psglab.ui.panel_header import chip_font, chip_width, draw_chip
 
 #: Separación entre rectángulos, en píxeles. Sin ella las ventanas se leen como
 #: una sola barra continua y se pierde justamente lo que el panel muestra.
@@ -38,6 +40,9 @@ _SEPARACION_PX: int = 4
 #: Alto de la franja donde se marcan los eventos anotados, como fracción del
 #: alto del rectángulo. Van abajo para no tapar el número de ventana.
 _FRANJA_DE_EVENTOS: float = 0.25
+
+#: Cuánto separa el chip de la fase de la esquina de su ventana.
+_MARGEN_DEL_CHIP: float = 4.0
 
 #: Color de una clase de anotación que el conjunto no supo colorear. Es gris a
 #: propósito: un color de la paleta haría creer que la clase tiene uno asignado.
@@ -173,8 +178,41 @@ class OverviewPanel(QWidget):
                 Qt.AlignmentFlag.AlignCenter,
                 str(ventana.index + 1),
             )
+            self._pintar_la_fase(pintor, ventana, caja)
             self._pintar_eventos(pintor, ventana, caja)
         pintor.end()
+
+    def _pintar_la_fase(
+        self, pintor: QPainter, ventana: OverviewWindow, caja: QRectF
+    ) -> None:
+        """El chip con la fase, arriba a la izquierda de cada ventana.
+
+        **El panel mostraba tres ventanas y ninguna decía en qué fase estaba.**
+        La Übersicht existe para ver el contexto de la que se scorea —que hay
+        un huso justo antes, que la de al lado ya está puesta— y la fase es la
+        mitad de ese contexto.
+
+        Se dibuja con el color de la escala del esquema, el mismo con el que se
+        pintan el hipnograma, la franja de posición y el botón de scoring. Un
+        esquema sin escala no lleva chip: sería una cápsula del color del
+        acento en las tres ventanas, que no distingue nada.
+        """
+        if ventana.stage is SleepStage.UNSCORED:
+            return
+        color = theme.current().color_for_stage(ventana.stage.value)
+        if color is None:
+            return
+        texto = stage_label(ventana.stage)
+        fuente = chip_font(pintor.font())
+        ancho = chip_width(texto, fuente)
+        alto = QFontMetricsF(fuente).height()
+        draw_chip(
+            pintor,
+            QRectF(caja.left() + _MARGEN_DEL_CHIP, caja.top() + _MARGEN_DEL_CHIP, ancho, alto),
+            texto,
+            color,
+            fuente,
+        )
 
     def _pintar_eventos(
         self, pintor: QPainter, ventana: OverviewWindow, caja: QRectF

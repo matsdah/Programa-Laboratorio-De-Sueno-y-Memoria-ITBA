@@ -142,7 +142,18 @@ def llenar_los_paneles(ventana) -> None:
     )
     ventana.metric_panel.set_caption("Entropía espectral · 2 canales")
 
-    for clave in ("psd", "metric"):
+    ventana.impedance_panel.set_channels(
+        ventana.session.visible_channels,
+        {nombre: 3.2 + 4.0 * posicion for posicion, nombre in enumerate(ventana.session.visible_channels[:2])},
+    )
+    # **`refresh()` antes de leer**: la Übersicht cachea sus ventanas y las
+    # rearma al cambiar de época. Acá se scorea sin navegar, igual que al
+    # anotar, así que sin esto el chip de la fase saldría vacío.
+    contexto = ventana._tools["overview"]
+    contexto.refresh()
+    ventana.overview_panel.set_windows(contexto.windows(), {})
+
+    for clave in ("psd", "metric", "impedance", "overview"):
         ventana.docks[clave].show()
         ventana.docks[clave].widget().resize(ANCHO_DEL_PANEL, ALTO_DEL_PANEL)
 
@@ -159,6 +170,8 @@ def capturar(esquema: theme.ColorScheme) -> None:
         f"{nombre}-scoring": ventana.scoring_panel,
         f"{nombre}-espectro": ventana.psd_panel,
         f"{nombre}-metrica": ventana.metric_panel,
+        f"{nombre}-impedancia": ventana.impedance_panel,
+        f"{nombre}-contexto": ventana.overview_panel,
     }
     for archivo, widget in piezas.items():
         destino = SALIDA / f"{archivo}.png"

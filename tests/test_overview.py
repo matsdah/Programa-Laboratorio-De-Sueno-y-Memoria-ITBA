@@ -16,7 +16,7 @@ import pytest
 
 from psglab.config import OVERVIEW_WINDOWS_AFTER, OVERVIEW_WINDOWS_BEFORE
 from psglab.core.annotations import Annotation, AnnotationSet
-from psglab.core.nomenclature import Nomenclature
+from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
@@ -186,3 +186,23 @@ def test_avisa_cuando_hay_que_repintarlo(sesion: Session):
 
     assert len(avisos) == 5
     assert all(aviso is tool for aviso in avisos)
+
+
+def test_cada_ventana_del_contexto_trae_su_fase(panel: OverviewTool, sesion: Session):
+    """**El panel mostraba tres ventanas y ninguna decía en qué fase estaba.**
+    La Übersicht existe para ver el contexto de la que se scorea, y la fase es
+    la mitad de ese contexto. Es dato y no dibujo: la herramienta dice cuál es
+    y la interfaz decide con qué color pintarla."""
+    sesion.scoring.set_stage(1, SleepStage.N2)
+    sesion.go_to_window(1)
+    panel.on_window_changed(1)
+
+    actual = [v for v in panel.windows() if v.is_current][0]
+
+    assert actual.stage is SleepStage.N2
+
+
+def test_una_ventana_sin_scorear_lo_dice(panel: OverviewTool):
+    """`UNSCORED` y no `None`: es el mismo vocabulario que el resto del
+    programa, y lo que le permite a la interfaz no dibujar ningún chip."""
+    assert all(v.stage is SleepStage.UNSCORED for v in panel.windows())

@@ -59,12 +59,12 @@ conoce las flechas del teclado.
 | `channel_axis.py` | **El canalón**: la columna de la izquierda con el nombre, la clase y la escala de cada canal. Es el eje izquierdo del gráfico, no un ítem de la escena, y por eso tiene ancho propio que la señal no puede invadir. | V1_P, V4_F, V5_F de "Visualización" |
 | `grid.py` | La grilla de fondo, los tres fondos elegibles y las líneas de cero de los canales. **Todas las líneas son un solo objeto de la escena**: como objetos sueltos costaban 0,8 ms por línea y por cuadro. | V1_P, V2_F de "Diseño de la interfaz" |
 | `filter_panel.py` | Los filtros de cada clase de canal presente, sugeridos según la frecuencia del registro. La celda vacía desactiva ese filtro. | V1_F de "Filtración" |
-| `impedance_panel.py` | Tabla editable de impedancias por canal y el informe. La celda sin valor dice "sin medir", no "0". El nombre del canal no se edita: `FixedColumnDelegate`, que usa también el panel de filtros. | V1_F de "Impedancia" |
+| `impedance_panel.py` | Tabla editable de impedancias por canal, con una columna que dice si cada una pasa el límite, y el informe. La celda sin valor dice "sin medir", no "0", y no lleva chip. El nombre del canal no se edita: `FixedColumnDelegate`, que usa también el panel de filtros. | V1_F de "Impedancia" |
 | `ica_panel.py` | Inspeccionar los componentes de una ICA y elegir cuáles quitar. La topografía dice **dónde** pesa cada uno y la curva temporal **cuándo** ocurre. Ninguno viene marcado. | V5_F de "Filtración" |
 | `metric_panel.py` | Una métrica por ventana a lo largo de la noche, con los NaN como hueco. La usan complejidad y conectividad. | — (Parte 2) |
 | `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
 | `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. Arriba, una línea dice con qué método se estimó. | V1_F de "PSD" |
-| `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada. El ancho que se pide es el preferido; se deja angostar hasta 120 px. | V1_F, V2_F, V3_F de "Übersicht" |
+| `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada y cada una con el chip de su fase. El ancho que se pide es el preferido; se deja angostar hasta 120 px. | V1_F, V2_F, V3_F de "Übersicht" |
 | `navigation.py` | La barra inferior: ocho controles —primera, anterior, reproducir/pausar, siguiente, última, velocidad, menos y más amplitud— y una franja que muestra dónde cae la ventana en la noche, **con qué fase está scoreada cada época** (hito 34, cacheado en un `QPixmap`), y deja saltar con un clic. Desde el hito 36 la franja lleva a los costados las horas del registro y debajo la época con su hora, y la amplitud vigente se lee entre sus dos botones; reproducir es la acción primaria y va rellena con el acento. Los botones de página se sacaron en el hito 27; sus atajos siguen. | V1_F de "Navegación" |
 | `playback.py` | El reloj de la reproducción: mide el tiempo real y avisa cuánto avanzar el cursor. No conoce la sesión ni mueve nada; la regla del cursor es de `Session.move_playhead()`. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. Las fases van en su propia fila, debajo del selector, para que el mínimo del panel sea el de la fila más ancha y no la suma; abajo, un pie con la ventana y su fase, que se sigue viendo si el panel sale a otra pantalla. **Cada botón muestra su tecla y declara su fase** (hito 34): el color lo pone la hoja de estilo, así que el panel no conoce ninguno. | V1_F, V2_F, V3_F de "Scoring" |
@@ -147,6 +147,12 @@ vacío se leía como un resultado que dio cero.
 **El rótulo va escrito en mayúsculas en el texto**, no con `text-transform`, que
 la hoja de estilo de Qt no soporta; el espaciado entre letras sí se puede pedir,
 pero por `QFont` y no por la hoja. Es la lección del hito 36.
+
+**El chip también vive acá.** Lo dibujan tres lugares —la clase de un canal en
+el selector, el estado de una impedancia, la fase de una época en la
+Übersicht— y lo que comparten es el radio, el aire y de qué color sale la
+tinta, que la elige `theme.ink_over()` midiendo contra el relleno. Cada uno
+decide **dónde** va su cápsula, que es lo único que cambia entre los tres.
 
 ## `channel_selector.py`
 

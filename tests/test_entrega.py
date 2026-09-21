@@ -4187,3 +4187,19 @@ def test_el_boton_de_descartar_lleva_la_tinta_de_lo_que_destruye(
 
     assert vistos["Descartar"] is True
     assert vistos["Cancelar"] is False
+
+
+def test_scorear_actualiza_la_fase_que_muestra_la_ubersicht(ventana: MainWindow):
+    """**La Übersicht cachea sus ventanas** y las rearma al cambiar de época,
+    no al scorear: sin pedirle que se rederive, el chip de la fase recién
+    puesta no aparecía hasta la próxima flecha. Es el mismo cuidado que ya
+    tenía anotar, y el mismo motivo."""
+    from psglab.tools.overview import OverviewTool
+
+    contexto = ventana._tools["overview"]
+    assert isinstance(contexto, OverviewTool)
+
+    ventana.score_current_window(SleepStage.N2)
+
+    actual = [v for v in contexto.windows() if v.is_current][0]
+    assert actual.stage is SleepStage.N2

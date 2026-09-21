@@ -90,6 +90,7 @@ from psglab.core.session import Session
 from psglab.analysis.derivation import derive
 from psglab.analysis.complexity import MEASURES, complexity_by_window, warm_up
 from psglab.analysis.connectivity import (
+    METHOD_LABELS,
     average_connectivity,
     compute_connectivity,
     connectivity_by_window,
@@ -174,6 +175,12 @@ _GROSOR_DE_LA_FASE: float = 0.34
 #: `complexity_by_window()` la acepta igual: es una función de biblioteca y
 #: quien la llama desde un script puede esperar. La política es de la interfaz.
 MEDIDAS_RAPIDAS = tuple(m for m in MEASURES if m != "sample_entropy")
+
+#: Con qué método se mide la conectividad. **Se pide explícito** y no por el
+#: valor por omisión de `compute_connectivity()`: el rótulo de la escala de
+#: color sale de acá, y con el método implícito los dos podían separarse sin
+#: que nada fallara.
+METODO_DE_CONECTIVIDAD: str = "wpli"
 
 #: Qué botón del mouse llegó, traducido al vocabulario de `ViewerTool`, que no
 #: conoce Qt.
@@ -1902,6 +1909,13 @@ class MainWindow(QMainWindow):
             self._show_error(error)
             return
         self._update_histogram_window(self._session.current_window)
+        # **La Übersicht cachea sus ventanas** y las rearma al cambiar de
+        # época, no al scorear: sin esto, el chip de la fase recién puesta no
+        # aparecía hasta la próxima flecha. Es lo mismo que ya hacía anotar, y
+        # por el mismo motivo.
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.refresh()
         self.refresh()
 
     # -- Las esperas largas --------------------------------------------------
@@ -2330,13 +2344,16 @@ class MainWindow(QMainWindow):
                     self._session.recording,
                     channels=canales,
                     band=bandas[banda],
+                    method=METODO_DE_CONECTIVIDAD,
                     window_index=ventana,
                 )
         except PsgLabError as error:
             self._show_error(error)
             return
 
-        self.connectivity_panel.set_matrix(matriz, canales)
+        self.connectivity_panel.set_matrix(
+            matriz, canales, measure=METHOD_LABELS[METODO_DE_CONECTIVIDAD]
+        )
         promedio = average_connectivity(matriz)
         descripcion = (
             f"Conectividad en {banda} — ventana {ventana + 1} — "

@@ -186,3 +186,29 @@ def test_la_pista_se_va_con_un_resultado_y_vuelve_al_vaciarlo(panel: MetricPanel
     assert panel.visible_hint() == ""
     panel.clear_metric()
     assert panel.visible_hint() == "Se pide desde Analizar"
+
+
+# -- La leyenda, en su propia franja (hito 40) -------------------------------
+
+
+def test_la_leyenda_nombra_los_canales_dibujados(panel: MetricPanel):
+    """**pyqtgraph la dibuja adentro del gráfico**, flotando sobre la esquina
+    superior derecha: con una noche entera dibujada se apoya justo sobre el
+    tramo de más actividad y tapa el dato."""
+    panel.set_metric("Entropía", {"C3": np.array([0.5, 0.6]), "O1": np.array([0.4, 0.7])})
+
+    assert panel.legend_channels() == ["C3", "O1"]
+
+
+def test_pedir_otra_metrica_rehace_la_leyenda_entera(panel: MetricPanel):
+    """Completarla dejaría en la franja el nombre de un canal que ya no está
+    dibujado, que es la misma regla que las curvas."""
+    panel.set_metric("Entropía", {"C3": np.array([0.5]), "O1": np.array([0.4])})
+
+    panel.set_metric("Lempel-Ziv", {"C4": np.array([0.9])})
+
+    assert panel.legend_channels() == ["C4"]
+
+
+def test_sin_metrica_no_hay_leyenda(panel: MetricPanel):
+    assert panel.legend_channels() == []

@@ -24,7 +24,7 @@ selección de canales de V5_F (cambio de amplitud por canal).
 from typing import Final
 
 from PySide6.QtCore import QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter
+from PySide6.QtGui import QFontMetricsF, QPainter
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QGridLayout,
@@ -39,16 +39,11 @@ from PySide6.QtWidgets import (
 
 from psglab.core.recording import ChannelKind, Recording
 from psglab.ui import theme
+from psglab.ui.panel_header import chip_font, chip_width, draw_chip
 
-#: Cuánto respira el texto del chip dentro de su cápsula, a cada lado.
-_PADDING_DEL_CHIP: Final[int] = 5
-
-#: El radio de la cápsula y cuánto la separa del borde derecho de la fila.
-_RADIO_DEL_CHIP: Final[int] = 4
+#: Cuánto separa la cápsula del borde derecho de la fila. El radio y el aire
+#: de adentro los fija `panel_header`, que es quien la dibuja.
 _MARGEN_DEL_CHIP: Final[int] = 6
-
-#: Cuánto más chica es la letra del chip que la de la fila, en puntos.
-_PUNTOS_MENOS: Final[int] = 2
 
 #: El alto de una fila. Es el del diseño, y da lugar a la cápsula sin que el
 #: panel se vuelva una lista de botones.
@@ -79,14 +74,13 @@ def color_de_la_clase(kind: ChannelKind) -> str:
 
 
 class _DelegadoDelChip(QStyledItemDelegate):
-    """Dibuja la cápsula con la clase, a la derecha de cada fila."""
+    """Dibuja la cápsula con la clase, a la derecha de cada fila.
 
-    def _fuente_del_chip(self, base: QFont) -> QFont:
-        """La del chip: la de la fila, dos puntos más chica."""
-        chica = QFont(base)
-        if base.pointSize() > 0:
-            chica.setPointSize(max(6, base.pointSize() - _PUNTOS_MENOS))
-        return chica
+    **La cápsula la dibuja `panel_header.draw_chip()`**, que es el mismo que usa
+    la columna de estado de la impedancia: el radio, el aire y de qué color sale
+    la tinta son una sola decisión. Lo que es de acá es dónde va —pegada al
+    borde derecho, después del nombre— porque la fila lleva las dos cosas.
+    """
 
     def paint(
         self, painter: QPainter, option: QStyleOptionViewItem, index: object
@@ -97,33 +91,25 @@ class _DelegadoDelChip(QStyledItemDelegate):
             super().paint(painter, option, index)
             return
 
-        fuente = self._fuente_del_chip(option.font)
-        ancho = QFontMetrics(fuente).horizontalAdvance(clase) + 2 * _PADDING_DEL_CHIP
+        fuente = chip_font(option.font)
+        ancho = chip_width(clase, fuente)
 
         # **El nombre se dibuja en lo que queda**, no debajo del chip: sin
         # esto, un canal de nombre largo se metía por atrás de la cápsula.
         recortada = QStyleOptionViewItem(option)
         recortada.rect = option.rect.adjusted(
-            0, 0, -(ancho + 2 * _MARGEN_DEL_CHIP), 0
+            0, 0, -int(ancho + 2 * _MARGEN_DEL_CHIP), 0
         )
         super().paint(painter, recortada, index)
 
-        relleno = QColor(color_de_la_clase(ChannelKind(clase)))
+        alto = QFontMetricsF(fuente).height()
         caja = QRectF(
             option.rect.right() - ancho - _MARGEN_DEL_CHIP,
-            option.rect.center().y() - QFontMetrics(fuente).height() / 2.0,
-            float(ancho),
-            float(QFontMetrics(fuente).height()),
+            option.rect.center().y() - alto / 2.0,
+            ancho,
+            alto,
         )
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(relleno)
-        painter.drawRoundedRect(caja, _RADIO_DEL_CHIP, _RADIO_DEL_CHIP)
-        painter.setFont(fuente)
-        painter.setPen(QColor(theme.ink_over(theme.current(), relleno.name())))
-        painter.drawText(caja, int(Qt.AlignmentFlag.AlignCenter), clase)
-        painter.restore()
+        draw_chip(painter, caja, clase, color_de_la_clase(ChannelKind(clase)), fuente)
 
     def sizeHint(self, option: QStyleOptionViewItem, index: object) -> QSize:
         """Un alto fijo: el chip necesita lugar y las filas quedan parejas."""

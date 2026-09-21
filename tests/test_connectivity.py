@@ -28,6 +28,7 @@ import pytest
 
 from psglab.analysis.connectivity import (
     EPOCH_SECONDS,
+    METHOD_LABELS,
     METHODS,
     average_connectivity,
     compute_connectivity,
@@ -380,3 +381,10 @@ def test_la_noche_rechaza_la_banda_aunque_ninguna_ventana_alcance():
 
     with pytest.raises(InvalidBandError):
         connectivity_by_window(corto, ["C3", "C4"], band=(55.0, 90.0))
+
+
+def test_cada_metodo_tiene_su_nombre_escrito():
+    """El nombre corto —«wpli»— es de la API y el escrito es de quien lo lee.
+    Un método sin rótulo saldría en la escala de color con el nombre de la API
+    y nadie lo notaría."""
+    assert set(METHOD_LABELS) == set(METHODS)

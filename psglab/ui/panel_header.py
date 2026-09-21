@@ -5,6 +5,10 @@ Dos piezas, y las dos existían repetidas en cada panel:
 - `PanelHeader`, el encabezado: qué panel es, **qué se está mirando** y cómo se
   calculó, en una franja de alto fijo.
 - `EmptyState`, lo que se lee mientras el panel no tiene ningún resultado.
+- El **chip**: la cápsula con la que un panel dice de qué clase es algo —la
+  clase de un canal, la fase de una época, si una impedancia pasa el
+  límite—. Lo que se comparte es el radio, el aire y de qué color sale la
+  tinta, que la elige `theme.ink_over()` midiendo contra el relleno.
 
 ## Por qué no seguía sirviendo el título del gráfico
 
@@ -37,9 +41,16 @@ panel está en su propio módulo.
 
 from typing import Final
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QBrush, QColor, QFont, QFontMetricsF, QPainter
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from psglab.ui import theme
 from psglab.ui.icons import icon
@@ -182,3 +193,85 @@ class EmptyState(QWidget):
                 LADO_DEL_ICONO, LADO_DEL_ICONO
             )
         )
+
+
+#: El radio de la cápsula de un chip y cuánto respira su texto a cada lado.
+RADIO_DEL_CHIP: Final[int] = 4
+PADDING_DEL_CHIP: Final[int] = 5
+
+#: Cuánto más chica es la letra de un chip que la de su fila, en puntos.
+PUNTOS_MENOS_DEL_CHIP: Final[int] = 2
+
+#: Hasta dónde se achica. Por debajo de esto no se lee.
+PUNTOS_MINIMOS_DEL_CHIP: Final[int] = 6
+
+#: El rol del ítem que lleva el color de relleno de su chip.
+ROL_DEL_COLOR: Final[int] = int(Qt.ItemDataRole.UserRole) + 2
+
+
+def chip_font(base: QFont) -> QFont:
+    """La tipografía de un chip: la de su fila, un par de puntos más chica."""
+    chica = QFont(base)
+    if base.pointSize() > 0:
+        chica.setPointSize(
+            max(PUNTOS_MINIMOS_DEL_CHIP, base.pointSize() - PUNTOS_MENOS_DEL_CHIP)
+        )
+    return chica
+
+
+def chip_width(text: str, font: QFont) -> float:
+    """Cuánto mide de ancho un chip con ese texto y esa tipografía."""
+    return QFontMetricsF(font).horizontalAdvance(text) + 2 * PADDING_DEL_CHIP
+
+
+def draw_chip(
+    painter: QPainter, rect: QRectF, text: str, fill: str, font: QFont
+) -> None:
+    """Dibuja una cápsula con su texto adentro, centrado.
+
+    **Está acá y no en cada panel** porque el radio, el aire y —sobre todo— de
+    qué color sale la tinta son una sola decisión: `theme.ink_over()` la elige
+    midiendo contra el relleno, que es lo mismo que hacen el botón de la fase
+    marcada y el icono de reproducir. Dos paneles con su propia cuenta darían
+    dos respuestas distintas sobre el mismo color.
+    """
+    relleno = QColor(fill)
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(QBrush(relleno))
+    painter.drawRoundedRect(rect, RADIO_DEL_CHIP, RADIO_DEL_CHIP)
+    painter.setFont(font)
+    painter.setPen(QColor(theme.ink_over(theme.current(), relleno.name())))
+    painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
+    painter.restore()
+
+
+class ChipDelegate(QStyledItemDelegate):
+    """Pinta una celda entera como un chip, centrado en su columna.
+
+    El texto es el de la celda y el relleno sale de `ROL_DEL_COLOR`. Una celda
+    sin color se dibuja como cualquier otra: es lo que deja el estado «sin
+    medir» como texto y no como una cápsula gris que parece decir algo.
+    """
+
+    def paint(
+        self, painter: QPainter, option: QStyleOptionViewItem, index: object
+    ) -> None:
+        """La cápsula, o la celda de siempre si no hay color."""
+        color = index.data(ROL_DEL_COLOR)
+        texto = index.data(Qt.ItemDataRole.DisplayRole)
+        if not color or not texto:
+            super().paint(painter, option, index)
+            return
+
+        fuente = chip_font(option.font)
+        ancho = chip_width(str(texto), fuente)
+        alto = QFontMetricsF(fuente).height()
+        caja = QRectF(
+            option.rect.center().x() - ancho / 2.0,
+            option.rect.center().y() - alto / 2.0,
+            ancho,
+            alto,
+        )
+        draw_chip(painter, caja, str(texto), str(color), fuente)
