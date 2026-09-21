@@ -58,9 +58,9 @@ conoce las flechas del teclado.
 | `panel_header.py` | El encabezado de 34 px y el cartel de panel vacío que comparten los seis paneles de análisis. El rótulo va escrito en mayúsculas, no con `text-transform`, que Qt no soporta. | — (presentación compartida) |
 | `channel_axis.py` | **El canalón**: la columna de la izquierda con el nombre, la clase y la escala de cada canal. Es el eje izquierdo del gráfico, no un ítem de la escena, y por eso tiene ancho propio que la señal no puede invadir. | V1_P, V4_F, V5_F de "Visualización" |
 | `grid.py` | La grilla de fondo, los tres fondos elegibles y las líneas de cero de los canales. **Todas las líneas son un solo objeto de la escena**: como objetos sueltos costaban 0,8 ms por línea y por cuadro. | V1_P, V2_F de "Diseño de la interfaz" |
-| `filter_panel.py` | Los filtros de cada clase de canal presente, sugeridos según la frecuencia del registro. La celda vacía desactiva ese filtro. | V1_F de "Filtración" |
+| `filter_panel.py` | Los filtros de cada clase de canal presente, sugeridos según la frecuencia del registro, que el encabezado dice. La celda vacía desactiva ese filtro. | V1_F de "Filtración" |
 | `impedance_panel.py` | Tabla editable de impedancias por canal, con una columna que dice si cada una pasa el límite, y el informe. La celda sin valor dice "sin medir", no "0", y no lleva chip. El nombre del canal no se edita: `FixedColumnDelegate`, que usa también el panel de filtros. | V1_F de "Impedancia" |
-| `ica_panel.py` | Inspeccionar los componentes de una ICA y elegir cuáles quitar. La topografía dice **dónde** pesa cada uno y la curva temporal **cuándo** ocurre. Ninguno viene marcado. | V5_F de "Filtración" |
+| `ica_panel.py` | Inspeccionar los componentes de una ICA y elegir cuáles quitar. Sin descomposición, el cartel de vacío reemplaza las dos columnas: la lista vacía y el botón apagado se leen como un panel roto. La topografía dice **dónde** pesa cada uno y la curva temporal **cuándo** ocurre. Ninguno viene marcado. | V5_F de "Filtración" |
 | `metric_panel.py` | Una métrica por ventana a lo largo de la noche, con los NaN como hueco. La usan complejidad y conectividad. | — (Parte 2) |
 | `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
 | `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. Arriba, una línea dice con qué método se estimó. | V1_F de "PSD" |
@@ -147,6 +147,11 @@ vacío se leía como un resultado que dio cero.
 **El rótulo va escrito en mayúsculas en el texto**, no con `text-transform`, que
 la hoja de estilo de Qt no soporta; el espaciado entre letras sí se puede pedir,
 pero por `QFont` y no por la hoja. Es la lección del hito 36.
+
+**Los seis paneles de análisis lo llevan**, y no cuatro: con dos sin
+encabezado, cambiar de solapa movía el contenido treinta y cuatro píxeles para
+arriba y para abajo. El test de este módulo recorre los seis, así que agregar
+uno sin encabezado hace fallar la suite.
 
 **El chip también vive acá.** Lo dibujan tres lugares —la clase de un canal en
 el selector, el estado de una impedancia, la fase de una época en la

@@ -14,6 +14,9 @@ pg = pytest.importorskip("pyqtgraph")
 
 from psglab.ui import theme  # noqa: E402
 from psglab.ui.connectivity_panel import ConnectivityPanel  # noqa: E402
+from psglab.ui.filter_panel import FilterPanel  # noqa: E402
+from psglab.ui.ica_panel import IcaPanel  # noqa: E402
+from psglab.ui.impedance_panel import ImpedancePanel  # noqa: E402
 from psglab.ui.metric_panel import MetricPanel  # noqa: E402
 from psglab.ui.panel_header import (  # noqa: E402
     ALTO_DEL_ENCABEZADO,
@@ -108,13 +111,36 @@ def test_el_icono_del_cartel_sigue_al_esquema(qt_app):
 
 PANELES = (PsdPanel, MetricPanel, ConnectivityPanel)
 
+#: Los seis paneles de análisis. **Los seis llevan encabezado desde el hito
+#: 41**: con cuatro puestos y dos sin poner, cambiar de solapa movía el
+#: contenido treinta y cuatro píxeles para arriba y para abajo.
+TODOS_LOS_PANELES = (
+    PsdPanel,
+    MetricPanel,
+    ConnectivityPanel,
+    ImpedancePanel,
+    FilterPanel,
+    IcaPanel,
+)
 
-@pytest.mark.parametrize("clase", PANELES, ids=lambda c: c.__name__)
+
+@pytest.mark.parametrize("clase", TODOS_LOS_PANELES, ids=lambda c: c.__name__)
 def test_cada_panel_trae_su_encabezado(qt_app, clase):
-    """La fila que dice qué panel es y qué se está mirando."""
+    """La fila que dice qué panel es y qué se está mirando.
+
+    **Los seis y no cuatro.** Con dos sin encabezado, cambiar de solapa movía
+    el contenido treinta y cuatro píxeles para arriba y para abajo."""
     panel = clase()
 
     assert panel.header.label() != ""
+
+
+@pytest.mark.parametrize("clase", TODOS_LOS_PANELES, ids=lambda c: c.__name__)
+def test_todos_los_encabezados_miden_lo_mismo(qt_app, clase):
+    """Es la franja contra la que se alinean los seis."""
+    panel = clase()
+
+    assert panel.header.height() == ALTO_DEL_ENCABEZADO
 
 
 @pytest.mark.parametrize("clase", PANELES, ids=lambda c: c.__name__)
@@ -147,3 +173,26 @@ def test_la_descripcion_va_al_encabezado_y_no_al_grafico(qt_app, clase):
 
     assert panel.caption() == "Ventana 341 · C3"
     assert panel.grafico.getPlotItem().titleLabel.text == ""
+
+
+# -- El panel de ICA, que tiene dos columnas ---------------------------------
+
+
+def test_en_ica_el_cartel_reemplaza_las_dos_columnas(qt_app):
+    """**Y no sólo los gráficos.** Sin descomposición, la lista de componentes
+    está vacía y el botón de aplicar, apagado: media pantalla de controles
+    muertos al lado de una frase se lee como un panel roto."""
+    panel = IcaPanel()
+
+    panel.set_hint("Se pide desde Filtrar → Análisis de componentes…")
+
+    assert panel._pila.currentWidget() is panel.vacio
+
+
+def test_el_encabezado_de_ica_dice_cuantos_componentes_salieron(qt_app):
+    """Es lo primero que se mira: de cuántos hay que decidir."""
+    panel = IcaPanel()
+
+    panel.set_components([{"C3": 0.5, "C4": -0.2}, {"C3": 0.1, "C4": 0.8}])
+
+    assert panel.header.caption() == "2 componentes · 2 canales"

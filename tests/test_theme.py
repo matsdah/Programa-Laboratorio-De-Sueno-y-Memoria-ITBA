@@ -457,3 +457,35 @@ def test_la_tinta_de_lo_que_destruye_entra_en_el_control_de_contraste():
     problemas = dict(theme.low_contrast_elements(apagado))
 
     assert "la tinta de lo que destruye" in problemas
+
+
+# -- La fila seleccionada (hito 41) ------------------------------------------
+
+
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=lambda e: e.name)
+def test_el_texto_de_una_fila_seleccionada_se_lee(esquema):
+    """**Lo mostró una captura del panel de ICA.** La hoja pintaba el fondo de
+    la fila elegida y no su tinta, así que Qt usaba la suya —blanco— sobre el
+    realce del esquema: en Sereno eso da 1,24 a 1 y el nombre desaparecía."""
+    assert theme.contrast_ratio(esquema.foreground, esquema.overview_current) >= (
+        theme.MIN_TEXT_CONTRAST
+    )
+
+
+def test_la_hoja_le_pone_tinta_a_la_fila_seleccionada():
+    """Pintar sólo el fondo deja la tinta en manos de Qt."""
+    hoja = theme.stylesheet(theme.SERENO)
+    regla = hoja.split("QListWidget::item:selected")[1].split("}")[0]
+
+    assert "color:" in regla
+
+
+def test_ink_over_no_sirve_sobre_un_relleno_palido():
+    """La limitación que el bug dejó a la vista: elige entre el blanco y el
+    fondo del esquema, así que sólo da una respuesta legible cuando el relleno
+    está lejos de los dos. Sobre el realce de Sereno devuelve blanco."""
+    elegida = theme.ink_over(theme.SERENO, theme.SERENO.overview_current)
+
+    assert theme.contrast_ratio(elegida, theme.SERENO.overview_current) < (
+        theme.MIN_TEXT_CONTRAST
+    )

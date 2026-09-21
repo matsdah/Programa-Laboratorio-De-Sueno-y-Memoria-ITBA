@@ -49,8 +49,10 @@ selector de canales. El
 **[hito 39](#hito-39-la-carrocería-de-los-paneles)** empezó por lo que los seis
 paneles de análisis comparten, y el
 **[hito 40](#hito-40-lo-que-cada-panel-dice-de-lo-suyo)** siguió con lo que
-cada uno tiene que decir de lo suyo. Son
-**cuarenta y un hitos**, del 0 al 40, que son las filas de la tabla de
+cada uno tiene que decir de lo suyo, y el
+**[hito 41](#hito-41-los-seis-paneles-y-no-cuatro)** se lo puso a los dos que
+faltaban. Son
+**cuarenta y dos hitos**, del 0 al 41, que son las filas de la tabla de
 progreso; está abierto sólo el 33, y lo que sigue abierto de los anteriores
 está anotado dentro del hito al que le toca.
 
@@ -167,6 +169,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [38. Lo que faltaba del prototipo](#hito-38-lo-que-faltaba-del-prototipo) | — | 0 | ✅ cerrado |
 | [39. La carrocería de los paneles](#hito-39-la-carrocería-de-los-paneles) | — | 0 | ✅ cerrado |
 | [40. Lo que cada panel dice de lo suyo](#hito-40-lo-que-cada-panel-dice-de-lo-suyo) | — | 0 | ✅ cerrado |
+| [41. Los seis paneles, y no cuatro](#hito-41-los-seis-paneles-y-no-cuatro) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1113,7 +1116,7 @@ ventana y no existía.
     cero está rechazado río abajo.
   - **Abrir el panel no filtra nada.** Un menú que filtre con sólo abrirse le
     cambiaría la señal a alguien que entró a mirar qué había.
-  - Test: `tests/test_filter_panel.py`, **20 tests en verde**, más seis por la
+  - Test: `tests/test_filter_panel.py`, **23 tests en verde**, más seis por la
     ventana en `tests/test_entrega.py`.
 
 ---
@@ -1826,7 +1829,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       Las curvas no tenían pluma y salían todas del mismo gris; ahora cada
       canal toma su color. **El esquema Claro deja el programa exactamente como
       era.**
-  - Test: `tests/test_theme.py`, **64 tests en verde**.
+  - Test: `tests/test_theme.py`, **68 tests en verde**.
   - Test: `tests/test_preferences.py`, **66 tests en verde**.
 - [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
       y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
@@ -1991,7 +1994,7 @@ reorganiza lo que ya andaba.
       y deja el aspecto nativo, que sigue al sistema. `theme.icon_ink()` elige
       la tinta, y la usan los dos lugares que dibujan iconos. Venía del hito
       22; apareció al dibujar el icono de abrir.
-  - Test: `tests/test_theme.py`, **64 tests en verde**.
+  - Test: `tests/test_theme.py`, **68 tests en verde**.
 
 ### Lo que queda por confirmar
 
@@ -2286,7 +2289,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       Intercalados en el mismo proceso, un paso de reproducción de 30 s dio
       17,5–22,2 ms con Claro y 13,1–21,0 con Papel: la hoja no cuesta
       repintado.
-  - Test: `tests/test_theme.py`, **64 tests en verde**.
+  - Test: `tests/test_theme.py`, **68 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **46 tests en verde**, con el
     botón nuevo de «Fondo de la ventana».
 - [x] **Las tipografías IBM Plex**, Sans y Mono, en `psglab/resources/fonts/`
@@ -2699,7 +2702,7 @@ tiempo.
   - Test: `tests/test_entrega.py`, **265 tests en verde**: el menú no cambia
     después de los cuatro análisis, y `main.py` precalienta y la suite no.
   - Test: `tests/test_connectivity_panel.py`, **19 tests en verde**.
-  - Test: `tests/test_filter_panel.py`, **20 tests en verde**, y
+  - Test: `tests/test_filter_panel.py`, **23 tests en verde**, y
     `tests/test_impedance_panel.py`, **24 tests en verde**.
   - Test: `tests/test_complexity.py`, **36 tests en verde**.
 
@@ -3125,7 +3128,7 @@ tecla.
         de la fase marcada **se elige midiendo el contraste**, no por esquema:
         el blanco que se lee sobre el azul profundo desaparece sobre el ámbar
         del esquema oscuro.
-  - Test: `tests/test_theme.py`, **64 tests en verde**, con la escala de
+  - Test: `tests/test_theme.py`, **68 tests en verde**, con la escala de
     fases, las reglas por fase y el contraste de los dos esquemas nuevos, que
     el control de accesibilidad recorre solo porque mira `theme.SCHEMES`.
   - Test: `tests/test_preferences.py`, **66 tests en verde**, y
@@ -3280,7 +3283,7 @@ se ve en todas.
 - [x] **Se fue la grilla cuadriculada del esquema ECG.** Era lo único que usaba
       `ecg_grid`, y el pliego no la pide: sus tres fondos —blanco, sólo las
       líneas de 3 s, las dos densidades— son verticales y siguen donde estaban.
-  - Test: `tests/test_theme.py`, **64 tests en verde**; `tests/test_grid.py`,
+  - Test: `tests/test_theme.py`, **68 tests en verde**; `tests/test_grid.py`,
     **19 tests en verde**; `tests/test_settings_dialog.py`, **46 tests en
     verde**; `tests/test_preferences.py`, **66 tests en verde**;
     `tests/test_menus.py`, **44 tests en verde**, con las dos entradas nuevas y
@@ -3437,7 +3440,7 @@ del diseño, y no correr el rótulo al hueco entre carriles.
         6,04 y Nocturno 7,18. Como los demás, lo enrola solo cualquier esquema
         que se agregue.
   - Test: `tests/test_signal_view.py`, **72 tests en verde**.
-  - Test: `tests/test_theme.py`, **64 tests en verde**.
+  - Test: `tests/test_theme.py`, **68 tests en verde**.
 
 ### Medido, porque el canalón toca el camino caliente
 
@@ -3609,7 +3612,7 @@ viera distinto sin que ninguno estuviera mal.
         `text-transform`, que la hoja de estilo de Qt no soporta. El espaciado
         entre letras sí se puede pedir, pero por `QFont`. Es la lección del
         hito 36, aplicada antes de tropezarse con ella.
-  - Test: `tests/test_panel_header.py`, **20 tests en verde**.
+  - Test: `tests/test_panel_header.py`, **31 tests en verde**.
 - [x] **`MetricPanel` y `ConnectivityPanel` dejaron de ser `PlotWidget`** y
       pasaron a contenerlo, que es como ya estaba `PsdPanel`. Era la condición
       para que los tres pudieran llevar el encabezado.
@@ -3629,7 +3632,7 @@ viera distinto sin que ninguno estuviera mal.
         gráfico, porque es el rótulo de un botón: Sereno da 5,67 y Nocturno
         6,09 sobre la ventana. Un esquema puede no traerla, y entonces el botón
         se ve como cualquier otro.
-  - Test: `tests/test_theme.py`, **64 tests en verde**;
+  - Test: `tests/test_theme.py`, **68 tests en verde**;
     `tests/test_entrega.py`, **265 tests en verde**.
 - [x] **Un icono más**, el del cartel de vacío: tres barras y una base. Es el
       único que no vive en un botón, y por eso es la silueta más neutra de
@@ -3678,7 +3681,7 @@ que decir y no decía.
       color sale la tinta, que la elige `theme.ink_over()` midiendo contra el
       relleno. Cada uno decide **dónde** va su cápsula, que es lo único que
       cambia entre los tres.
-  - Test: `tests/test_panel_header.py`, **20 tests en verde**.
+  - Test: `tests/test_panel_header.py`, **31 tests en verde**.
 - [x] **La impedancia dice si cada canal pasa el límite**, en una columna
       propia con su chip.
       - **Son dos estados y no tres.** El diseño proponía un semáforo —bueno,
@@ -3737,12 +3740,79 @@ No se veía antes de este hito porque no había nada que mirar. Tiene su test en
 
 Del canvas quedan dos, y los dos son carteles y no paneles:
 
-- **El error con la causa técnica plegada.** Hoy el mensaje y su `details` van
-  al mismo cartel; `QMessageBox.setDetailedText()` los separaría en un
-  «Mostrar detalles» sin costar nada más.
+- ~~**El error con la causa técnica plegada.**~~ **Ya estaba hecho y esta nota
+  lo decía mal**: `MainWindow._show_error()` usa `setDetailedText()` desde que
+  existe, así que el mensaje en español y la causa técnica ya viven separados,
+  con la segunda detrás de «Mostrar detalles». Se descubrió al ir a
+  implementarlo, en el hito 41.
 - **El cartel de progreso al leer un registro.** Hoy hay cursor de espera y un
   mensaje en la barra de estado. Una barra de progreso de verdad necesita que
   el lector informe cuánto lleva leído, y no lo hace.
+
+---
+
+## Hito 41: Los seis paneles, y no cuatro
+
+**Cerrado el 21 de septiembre de 2026.** El hito 39 le puso el encabezado a los
+tres paneles de curva y el 40 a la impedancia. Quedaban dos —filtros e ICA— sin
+ponerlo, y eso es peor que no habérselo puesto a ninguno: **cambiar de solapa
+movía el contenido treinta y cuatro píxeles** para arriba y para abajo.
+
+**No tiene stubs que contar.**
+
+- [x] **El panel de filtros lleva encabezado**: cuántas clases de canal tiene
+      el registro y contra qué frecuencia se sugirieron los cortes.
+      - **La frecuencia y el tope de Nyquist son dos cosas** y van a dos
+        lugares: el encabezado dice de dónde salen los sugeridos, y el rótulo
+        de adentro por qué algunos vienen vacíos.
+  - Test: `tests/test_filter_panel.py`, **23 tests en verde**.
+- [x] **El panel de ICA lleva encabezado y cartel de vacío**, con cuántos
+      componentes salieron y sobre cuántos canales.
+      - **Acá el cartel reemplaza las dos columnas y no sólo los gráficos.**
+        Sin descomposición, la lista de componentes está vacía y el botón de
+        aplicar, apagado: media pantalla de controles muertos al lado de una
+        frase se lee como un panel roto.
+  - Test: `tests/test_ica_panel.py`, **22 tests en verde**.
+- [x] **Los seis tienen su test de carrocería**, y no tres: el parámetro del
+      test recorre los seis paneles, así que agregar uno sin encabezado hace
+      fallar la suite.
+  - Test: `tests/test_panel_header.py`, **31 tests en verde**.
+
+### El cuarto error que encontró la captura
+
+**El texto de una fila seleccionada no se leía.** La hoja de estilo pintaba el
+fondo de la fila elegida —el realce del esquema— y no su tinta, así que Qt
+ponía la suya, que es blanca: sobre el realce de Sereno eso da **1,24 a 1**. El
+nombre del componente elegido desaparecía, y con él el del canal seleccionado
+en el selector, que usa la misma regla.
+
+**Y dejó a la vista una limitación de `theme.ink_over()`** que conviene tener
+escrita: elige entre el blanco y el fondo del esquema, así que sólo da una
+respuesta legible cuando el relleno está **lejos de los dos**. Sirve para el
+acento, para el color de una fase y para el de una clase de canal; no para un
+realce pálido, donde las dos candidatas son casi el mismo color. Ahí la tinta
+que corresponde es la del esquema, y la hoja de estilo la pone a mano.
+
+El par entró en el control de contraste, así que cualquier esquema que se
+agregue queda medido solo.
+
+### Una nota del hito 40 que estaba mal
+
+**El error con la causa técnica plegada ya estaba hecho.** La nota decía que el
+mensaje y su `details` iban al mismo cartel, y `MainWindow._show_error()` usa
+`setDetailedText()` desde que existe: la causa técnica ya vive detrás de
+«Mostrar detalles». Se descubrió al ir a implementarlo. La nota quedó tachada
+en su lugar en vez de borrada, porque el error fue afirmar algo del código sin
+mirarlo.
+
+### Lo que queda del canvas
+
+Uno solo, y es el que no depende de la interfaz:
+
+- **El cartel de progreso al leer un registro.** Hoy hay cursor de espera y un
+  mensaje en la barra de estado. Una barra de progreso de verdad necesita que
+  el lector informe cuánto lleva leído, y `read_recording()` no lo hace: MNE
+  lee el archivo entero en una llamada. Es trabajo de `readers/`, no de `ui/`.
 
 ---
 

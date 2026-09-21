@@ -153,9 +153,23 @@ def llenar_los_paneles(ventana) -> None:
     contexto.refresh()
     ventana.overview_panel.set_windows(contexto.windows(), {})
 
-    for clave in ("psd", "metric", "impedance", "overview"):
+    # El panel de ICA con una descomposición de mentira: lo que hay que mirar
+    # es el encabezado y las dos columnas, no de dónde salen los pesos.
+    ventana.ica_panel.set_components(
+        [
+            {nombre: 0.8 - 0.3 * posicion for posicion, nombre in enumerate(ventana.session.visible_channels)},
+            {nombre: -0.2 + 0.5 * posicion for posicion, nombre in enumerate(ventana.session.visible_channels)},
+        ]
+    )
+
+    # **Se les pide un mínimo y no un `resize()`.** Un panel adentro de un dock
+    # recibe el tamaño que el dock le da, así que redimensionarlo a mano no
+    # hace nada: la captura salía del alto del dock —unos 180 px— y los
+    # rótulos aparecían cortados por una compresión que en la ventana de
+    # verdad no ocurre. Con el mínimo puesto, el layout se lo concede.
+    for clave in ("psd", "metric", "impedance", "overview", "filter", "ica"):
         ventana.docks[clave].show()
-        ventana.docks[clave].widget().resize(ANCHO_DEL_PANEL, ALTO_DEL_PANEL)
+        ventana.docks[clave].widget().setMinimumSize(ANCHO_DEL_PANEL, ALTO_DEL_PANEL)
 
 
 def capturar(esquema: theme.ColorScheme) -> None:
@@ -172,6 +186,8 @@ def capturar(esquema: theme.ColorScheme) -> None:
         f"{nombre}-metrica": ventana.metric_panel,
         f"{nombre}-impedancia": ventana.impedance_panel,
         f"{nombre}-contexto": ventana.overview_panel,
+        f"{nombre}-filtros": ventana.filter_panel,
+        f"{nombre}-ica": ventana.ica_panel,
     }
     for archivo, widget in piezas.items():
         destino = SALIDA / f"{archivo}.png"

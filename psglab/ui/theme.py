@@ -382,6 +382,15 @@ def ink_over(scheme: ColorScheme, fill: str) -> str:
     return scheme.background
 
 
+#: **`ink_over()` elige entre dos tintas y ninguna sirve sobre un relleno
+#: pálido.** Las candidatas son el blanco y el fondo del esquema, así que sólo
+#: da una respuesta legible cuando el relleno está lejos de los dos: sirve para
+#: el acento, para el color de una fase y para el de una clase de canal, y no
+#: para el realce de una selección. Sobre el de Sereno devuelve blanco, que da
+#: 1,24 a 1. Ahí la tinta que corresponde es la del esquema, y la hoja de
+#: estilo la pone a mano.
+
+
 def _reglas_de_las_fases(scheme: ColorScheme) -> str:
     """Una regla de hoja de estilo por fase, con el color que le toca.
 
@@ -538,7 +547,10 @@ def stylesheet(scheme: ColorScheme) -> str:
             border: 1px solid {borde};
         }}
         QTreeWidget::item:selected, QTableWidget::item:selected,
-        QListWidget::item:selected {{ background-color: {realce}; }}
+        QListWidget::item:selected {{
+            background-color: {realce};
+            color: {texto};
+        }}
         QSplitter::handle {{ background-color: {borde}; }}
         QScrollBar {{ background-color: {ventana}; }}
         QScrollBar::handle {{ background-color: {borde}; }}
@@ -657,6 +669,16 @@ def low_contrast_elements(scheme: ColorScheme) -> list[tuple[str, float]]:
         # miraba contra `overview_background`. La clase y la escala de cada
         # canal se leen ahí.
         ("el detalle del canalón", scheme.overview_text, scheme.background, MIN_TEXT_CONTRAST),
+        # **La fila seleccionada de una lista o una tabla.** Sin esta medida,
+        # Qt le ponía su tinta de selección —blanco— sobre el realce del
+        # esquema, y en Sereno eso da 1,24 a 1: el nombre del canal elegido
+        # desaparecía. Lo mostró una captura del panel de ICA.
+        (
+            "el texto de una fila seleccionada",
+            scheme.foreground,
+            scheme.overview_current,
+            MIN_TEXT_CONTRAST,
+        ),
         ("las señales", scheme.signals, scheme.background, MIN_GRAPHIC_CONTRAST),
         ("la curva de los paneles", scheme.accent, scheme.background, MIN_GRAPHIC_CONTRAST),
     ]
