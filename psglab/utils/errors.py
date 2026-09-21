@@ -205,6 +205,20 @@ class UnknownToolError(PsgLabError):
     """Se pidió una herramienta que no está registrada."""
 
 
+class AlreadyRunningError(PsgLabError):
+    """Se pidió arrancar un cálculo largo con otro todavía en curso.
+
+    **No lo ve el investigador si la ventana hace su parte**: la entrada del
+    menú se apaga mientras dura el cálculo, así que llegar acá significa que
+    algo la llamó igual. Es un error del programa y no del usuario, y por eso
+    su `details` habla del código y no de lo que hay que hacer.
+
+    Existe igual porque dos cálculos a la vez sobre la misma sesión se pisan el
+    resultado, y cuál gana depende de cuál termine primero: un fallo que
+    depende del reloj es el peor de todos para encontrar.
+    """
+
+
 class RecordingTooLargeError(PsgLabError):
     """No entró en memoria lo que hacía falta para procesar el registro.
 

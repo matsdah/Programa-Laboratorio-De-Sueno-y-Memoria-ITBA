@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y ocho
+camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y nueve
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -75,6 +75,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_shortcuts.py` | Los atajos, y que los de fase se deriven de la nomenclatura. |
 | `test_grid.py` | La grilla de fondo: cuántas líneas y dónde caen. |
 | `test_channel_axis.py` | El canalón: qué dice de cada canal, y que su ancho salga del área de trazo en vez de dibujarse encima de la señal. |
+| `test_background.py` | Correr algo largo en otro hilo: que el resultado vuelva, que un error del programa salga por su señal y que uno inesperado se vuelva a elevar. |
 | `test_panel_header.py` | La carrocería de los paneles: el encabezado y el cartel de vacío que reemplaza al gráfico. |
 | `test_channel_selector.py` | El selector de canales: el orden de la lista, el atajo por clase del pie y que su estado siga a las casillas. |
 | `test_overview_panel.py` | El panel de contexto: qué ventanas entran, cuál es la actual y dónde va cada una. |

@@ -2613,6 +2613,7 @@ def test_la_conectividad_de_la_noche_desde_el_menu(ventana: MainWindow, elige_op
     elige_opciones(("Delta", True))
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
 
     (serie,) = ventana.metric_panel.channels()
     assert len(ventana.metric_panel.series(serie)) == ventana.session.n_windows
@@ -2632,6 +2633,7 @@ def test_cada_epoca_vale_lo_mismo_que_la_conectividad_de_esa_ventana(
     ventana._go_to_window(2)
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
     (serie,) = ventana.metric_panel.channels()
     de_la_noche = ventana.metric_panel.series(serie)[2]
     ventana.show_connectivity_dialog()
@@ -2646,6 +2648,7 @@ def test_el_titulo_dice_la_banda_y_entre_que_canales(
     elige_opciones(("Theta", True))
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
 
     titulo = ventana.metric_panel.caption()
     assert "Theta" in titulo
@@ -2666,6 +2669,7 @@ def test_cancelar_la_banda_no_mide_nada(ventana: MainWindow, elige_opciones, mon
     elige_opciones(("", False))
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
 
     assert llamadas == []
     assert not ventana.carteles
@@ -2675,6 +2679,7 @@ def test_con_un_solo_canal_visible_avisa_sin_medir(ventana: MainWindow):
     ventana.session.set_visible_channels(ventana.session.visible_channels[:1])
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
 
     assert ventana.carteles
 
@@ -2686,29 +2691,49 @@ def test_medir_la_noche_no_mueve_al_usuario_de_ventana(
     elige_opciones(("Delta", True))
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
 
     assert ventana.session.current_window == 3
 
 
-def test_medir_la_noche_muestra_el_cursor_de_espera(
-    ventana: MainWindow, elige_opciones, monkeypatch
+def test_medir_la_noche_muestra_que_esta_trabajando(
+    ventana: MainWindow, elige_opciones
 ):
-    """Tarda medio minuto sobre un registro real: sin cursor, se lee como un
-    programa colgado."""
-    cursores: list[object] = []
-    original = main_window_mod.connectivity_by_window
+    """Tarda entre quince y dieciocho segundos sobre un registro real: sin
+    ninguna señal, se lee como un programa colgado.
 
-    def midiendo(*args: object, **kwargs: object) -> object:
-        cursores.append(QApplication.overrideCursor())
-        return original(*args, **kwargs)
+    **Era el cursor de espera y ahora es una barra**, porque desde el hito 42
+    el cálculo no corre en el hilo de la interfaz: el cursor de espera sólo
+    tiene sentido mientras la ventana está bloqueada, y ahora no lo está. La
+    barra es indeterminada a propósito: nada informa cuánto lleva hecho."""
+    elige_opciones(("Delta", True))
+    # **Hay que mostrarla**: un widget hijo de una ventana oculta nunca se
+    # declara visible, aunque se le haya pedido que se muestre.
+    ventana.show()
 
-    monkeypatch.setattr(main_window_mod, "connectivity_by_window", midiendo)
+    ventana.show_connectivity_night_dialog()
+    trabajando = ventana._barra_de_espera.isVisible()
+    ventana.wait_for_background()
+
+    assert trabajando, "la barra tiene que verse mientras dura el cálculo"
+    assert not ventana._barra_de_espera.isVisible()
+    assert "…" not in ventana.statusBar().currentMessage()
+
+
+def test_mientras_mide_la_noche_no_se_puede_volver_a_pedir(
+    ventana: MainWindow, elige_opciones
+):
+    """Dos cálculos a la vez sobre la misma sesión se pisan el resultado, y
+    cuál gana depende de cuál termine primero. La entrada del menú se apaga:
+    dejar pedir algo que va a fallar es peor que mostrarlo apagado."""
     elige_opciones(("Delta", True))
 
     ventana.show_connectivity_night_dialog()
+    apagada = not ventana.accion_conectividad_de_la_noche.isEnabled()
+    ventana.wait_for_background()
 
-    assert cursores and cursores[0] is not None
-    assert QApplication.overrideCursor() is None
+    assert apagada
+    assert ventana.accion_conectividad_de_la_noche.isEnabled()
 
 
 # -- Recorrer los paneles con el teclado ---------------------------------------------
@@ -3366,6 +3391,7 @@ def test_calcular_no_renombra_el_menu_de_herramientas(
     ventana.show_connectivity_dialog()
     assert "Delta" in ventana.connectivity_panel.caption()
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
     assert "noche" in ventana.metric_panel.caption()
 
     assert textos_de_herramientas(ventana) == antes
@@ -4056,6 +4082,9 @@ def test_una_banda_sobre_nyquist_sale_como_cartel(
     elige_opciones(("Alta", True))
 
     getattr(ventana, metodo)()
+    # La de la noche corre en otro hilo desde el hito 42, así que su error
+    # llega por la señal y no por el `return` del método.
+    ventana.wait_for_background()
 
     assert len(ventana.carteles) == 1
     assert f"{nyquist:g} Hz" in ventana.carteles[0]

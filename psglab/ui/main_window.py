@@ -66,6 +66,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QProgressBar,
     QToolBar,
     QWidget,
 )
@@ -146,6 +147,7 @@ from psglab.ui.playback import PlaybackClock
 from psglab.ui.connectivity_panel import ConnectivityPanel
 from psglab.ui.ica_panel import IcaPanel
 from psglab.ui.filter_panel import FilterPanel
+from psglab.ui.background import BackgroundTask
 from psglab.ui.impedance_panel import ImpedancePanel
 from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
@@ -181,6 +183,10 @@ MEDIDAS_RAPIDAS = tuple(m for m in MEASURES if m != "sample_entropy")
 #: color sale de acá, y con el método implícito los dos podían separarse sin
 #: que nada fallara.
 METODO_DE_CONECTIVIDAD: str = "wpli"
+
+#: Cuánto mide la barra que dice que el programa está trabajando, en píxeles.
+#: Corta: es una señal de vida, no una lectura.
+ANCHO_DE_LA_BARRA_DE_ESPERA: int = 90
 
 #: Qué botón del mouse llegó, traducido al vocabulario de `ViewerTool`, que no
 #: conoce Qt.
@@ -353,6 +359,26 @@ class MainWindow(QMainWindow):
         # Las dos son lecturas: el esquema puede darles una tipografía numérica.
         for lectura in (self.tool_readout, self.page_readout):
             lectura.setProperty(theme.READOUT_PROPERTY, True)
+
+        #: Que algo largo está corriendo. **Indeterminada a propósito**: ni la
+        #: conectividad de la noche ni la ICA informan cuánto llevan hechas, así
+        #: que un porcentaje sería inventado. Ver `_en_segundo_plano()`.
+        self._barra_de_espera = QProgressBar()
+        self._barra_de_espera.setRange(0, 0)
+        self._barra_de_espera.setTextVisible(False)
+        self._barra_de_espera.setFixedWidth(ANCHO_DE_LA_BARRA_DE_ESPERA)
+        self._barra_de_espera.setAccessibleName("El programa está trabajando")
+        self._barra_de_espera.hide()
+        self.statusBar().addPermanentWidget(self._barra_de_espera)
+
+        #: El único cálculo largo que puede estar corriendo. Ver
+        #: `psglab/ui/background.py`.
+        self._tarea = BackgroundTask(self)
+
+        #: Las acciones que arrancan un cálculo largo, para poder apagarlas
+        #: mientras dura. Las llena `_build_menus()`.
+        self._acciones_largas: tuple[QAction, ...] = ()
+
         self.statusBar().showMessage("Sin registro abierto")
 
     def _build_menus(self) -> None:
@@ -365,6 +391,7 @@ class MainWindow(QMainWindow):
         `_build_tools_menu()`.
         """
         build_menus(self)
+        self._acciones_largas = (self.accion_conectividad_de_la_noche,)
         self._poner_pistas()
 
     def _poner_pistas(self) -> None:
@@ -1061,6 +1088,9 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         self.playback.stop()
+        # **Antes de soltar la sesión.** Un cálculo largo todavía leyendo el
+        # registro se quedaría trabajando sobre memoria que ya nadie tiene.
+        self.wait_for_background()
         super().closeEvent(event)
 
     def _lo_que_se_perderia(self) -> list[str]:
@@ -1920,6 +1950,99 @@ class MainWindow(QMainWindow):
 
     # -- Las esperas largas --------------------------------------------------
 
+    def _en_segundo_plano(
+        self,
+        que_hace: str,
+        trabajo: "Callable[[], object]",
+        al_terminar: "Callable[[object], None]",
+    ) -> None:
+        """Corre algo largo en otro hilo y dibuja el resultado cuando vuelve.
+
+        Es la versión que no congela la ventana de `_trabajando()`, y la
+        diferencia que se ve es que **la barra de progreso se mueve**: mientras
+        el cálculo dura, el programa repinta, se puede arrastrar y el sistema
+        no lo marca como «no responde».
+
+        **La barra es indeterminada a propósito.** Ni `connectivity_by_window()`
+        ni la ICA informan cuánto llevan hechas, así que un porcentaje sería
+        inventado. Una barra que se mueve sin decir cuánto falta es honesta;
+        una que dice 62 % sin saberlo, no.
+
+        Args:
+            que_hace: lo que se lee en la barra de estado, sin los puntos
+                suspensivos.
+            trabajo: lo que se calcula. **Corre en otro hilo**, así que no
+                puede tocar widgets ni `Session`: lo que necesite de la sesión
+                hay que resolverlo antes de llamar acá.
+            al_terminar: qué hacer con el resultado. Corre en el hilo de la
+                interfaz y sí puede dibujar.
+        """
+        self.statusBar().showMessage(f"{que_hace}…")
+        self._barra_de_espera.show()
+
+        def listo(resultado: object) -> None:
+            self._terminar_la_espera(que_hace)
+            al_terminar(resultado)
+
+        def falló(error: object) -> None:
+            self._terminar_la_espera(que_hace)
+            if isinstance(error, PsgLabError):
+                self._show_error(error)
+
+        self._tarea.finished.connect(listo)
+        self._tarea.failed.connect(falló)
+        try:
+            self._tarea.start(trabajo)
+        except PsgLabError as error:
+            self._terminar_la_espera(que_hace)
+            self._show_error(error)
+            return
+        # **Después de arrancar y no antes.** Lo que decide qué se puede pedir
+        # es `BackgroundTask.is_running()`, que con el hilo sin arrancar
+        # todavía dice que no: llamado antes, esto no apagaba nada.
+        self._reflejar_lo_que_se_puede_pedir()
+
+    def _terminar_la_espera(self, que_hace: str) -> None:
+        """Saca la barra y desconecta lo que quedó de este cálculo.
+
+        **Se desconecta y no se deja conectado**: los `connect()` de
+        `_en_segundo_plano()` son closures de *este* pedido, y dejarlos puestos
+        haría que el siguiente cálculo dibujara también el resultado del
+        anterior.
+        """
+        self._barra_de_espera.hide()
+        if self.statusBar().currentMessage() == f"{que_hace}…":
+            self.statusBar().clearMessage()
+        for señal in (self._tarea.finished, self._tarea.failed):
+            try:
+                señal.disconnect()
+            except RuntimeError:
+                # No había nadie conectado. Qt lo considera un error; acá es
+                # el caso normal de llamar dos veces.
+                pass
+        self._reflejar_lo_que_se_puede_pedir()
+
+    def _reflejar_lo_que_se_puede_pedir(self) -> None:
+        """Apaga lo que no se puede pedir con un cálculo en curso.
+
+        **Dos cálculos a la vez sobre la misma sesión se pisan el resultado**, y
+        cuál gana depende de cuál termine primero. `BackgroundTask` lo rechaza
+        igual, pero un menú que deja pedir algo que va a fallar es peor que uno
+        que lo muestra apagado.
+        """
+        ocupado = self._tarea.is_running()
+        for accion in self._acciones_largas:
+            accion.setEnabled(not ocupado)
+
+    def wait_for_background(self) -> None:
+        """Se queda hasta que termine el cálculo que esté corriendo.
+
+        La llama el cierre de la ventana: soltar la sesión con otro hilo
+        todavía leyendo el registro lo deja trabajando sobre memoria que ya
+        nadie tiene.
+        """
+        self._tarea.wait()
+
     def warm_up_in_background(self) -> None:
         """Paga en otro hilo las dos esperas que se cobraban a la primera vez.
 
@@ -2406,20 +2529,28 @@ class MainWindow(QMainWindow):
         if not acepto:
             return
 
-        try:
-            with self._trabajando(
-                f"Midiendo la conectividad en {banda} a lo largo de la noche"
-            ):
-                matrices = connectivity_by_window(
-                    self._session.recording, canales, band=bandas[banda]
-                )
-                promedios = np.array(
-                    [average_connectivity(matriz) for matriz in matrices]
-                )
-        except PsgLabError as error:
-            self._show_error(error)
-            return
+        # **Lo único que se lee de la sesión se lee acá**, en el hilo de la
+        # interfaz: el otro hilo recibe el registro y los nombres ya resueltos y
+        # no vuelve a preguntarle nada a `Session`.
+        registro = self._session.recording
+        limites = bandas[banda]
 
+        def medir() -> object:
+            matrices = connectivity_by_window(registro, canales, band=limites)
+            return np.array([average_connectivity(matriz) for matriz in matrices])
+
+        self._en_segundo_plano(
+            f"Midiendo la conectividad en {banda} a lo largo de la noche",
+            medir,
+            lambda promedios: self._mostrar_la_conectividad_de_la_noche(
+                banda, canales, promedios
+            ),
+        )
+
+    def _mostrar_la_conectividad_de_la_noche(
+        self, banda: str, canales: list[str], promedios: object
+    ) -> None:
+        """Dibuja lo que midió el otro hilo. **Acá sí se tocan widgets.**"""
         etiqueta = f"Conectividad en {banda}"
         self.metric_panel.set_metric(
             etiqueta, {f"Promedio de {len(canales)} canales": promedios}

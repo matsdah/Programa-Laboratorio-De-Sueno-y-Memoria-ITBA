@@ -55,6 +55,7 @@ conoce las flechas del teclado.
 | `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. `export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos. Antes de cerrar, de abrir otro registro o de importar un scoring encima pregunta por el trabajo sin exportar —Exportar…, Descartar o Cancelar—, scoring y anotaciones, con un diálogo de guardado por cada cosa en juego; la regla de qué cuenta es de `Session`. Después de abrir uno muestra los avisos que dejó el lector, como el de un archivo truncado. | V4_F de "Archivo de salida" |
 | `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** Marca la época con una banda, su número y su fase con una pestaña rellena en el borde, y —reproduciendo— el cursor con una línea: las tres se crean una vez y se mueven. Su eje de abajo, `TimeAxis`, va en hora de la noche. | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
 | `channel_selector.py` | Elegir cuántos y cuáles canales se ven. Una fila por canal con su nombre y un chip con su clase, y un pie con un atajo por clase presente. | V3_P, V4_F de "Visualización" |
+| `background.py` | Correr un cálculo largo en otro hilo y devolver el resultado en el de la interfaz. **No hay cancelar**: ni MNE ni numpy interrumpen un cálculo empezado. | — (infraestructura) |
 | `panel_header.py` | El encabezado de 34 px y el cartel de panel vacío que comparten los seis paneles de análisis. El rótulo va escrito en mayúsculas, no con `text-transform`, que Qt no soporta. | — (presentación compartida) |
 | `channel_axis.py` | **El canalón**: la columna de la izquierda con el nombre, la clase y la escala de cada canal. Es el eje izquierdo del gráfico, no un ítem de la escena, y por eso tiene ancho propio que la señal no puede invadir. | V1_P, V4_F, V5_F de "Visualización" |
 | `grid.py` | La grilla de fondo, los tres fondos elegibles y las líneas de cero de los canales. **Todas las líneas son un solo objeto de la escena**: como objetos sueltos costaban 0,8 ms por línea y por cuadro. | V1_P, V2_F de "Diseño de la interfaz" |
@@ -130,6 +131,29 @@ tabla a mano.
 Lo que sigue sin tecla es lo que no es una tecla. Un "deshacer", por ejemplo,
 es un subsistema completo (historial de cambios del scoring y de las
 anotaciones), y no está pedido.
+
+## `background.py`
+
+**La auditoría lo dejó con números**: la conectividad de la noche tarda entre
+15 y 18 s sobre ocho horas, la ICA 9 s y filtrar 2,5 s, y los tres corrían en
+el hilo de la interfaz. Mientras duraban, la ventana no repintaba y el sistema
+la marcaba como «no responde». `_trabajando()` ponía el cursor de espera antes
+de bloquear, que es todo lo que se puede hacer desde adentro del hilo
+bloqueado.
+
+Tres decisiones que se deshacen sin querer:
+
+- **El resultado vuelve por la cola de eventos del hilo de la interfaz.** Tocar
+  un widget desde el otro hilo es un cuelgue, no un error que se vea.
+- **No hay cancelar.** Ni MNE ni numpy interrumpen un cálculo empezado: un
+  botón así sólo dejaría de mirar el resultado mientras el núcleo sigue
+  ocupado.
+- **La barra de espera es indeterminada.** Nada informa cuánto lleva hecho, así
+  que un porcentaje sería inventado.
+
+Y una que no: **un error inesperado se vuelve a elevar** en el hilo de la
+interfaz en vez de salir como cartel. Un `AttributeError` es un bug, no un
+mensaje para el investigador, y atraparlo en el hilo lo haría desaparecer.
 
 ## `panel_header.py`
 

@@ -34,6 +34,10 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # Acciones de menú que los tests prenden y apagan.
         "accion_eje_en_hora",
         "accion_señal_original",
+        # La única que arranca un cálculo en otro hilo: hay que poder apagarla
+        # mientras dura, porque con uno en curso no se puede pedir otro
+        # (hito 42).
+        "accion_conectividad_de_la_noche",
         # Los dos esquemas, en el menú «Ver» desde el hito 35: la ventana
         # necesita poder tildar el que aplique, venga del menú o del archivo
         # de preferencias.
@@ -156,6 +160,10 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         # de `antropy`—, que pide `main.py` por
         # `create_main_window(warm_up=True)` (hitos 31 y 33).
         "warm_up_in_background",
+        # Esperar el cálculo largo que esté corriendo. La llama el cierre de la
+        # ventana antes de soltar la sesión, y cualquier test que necesite el
+        # resultado (hito 42).
+        "wait_for_background",
         # El contador de la lupa, desde «Herramientas» (hito 32).
         "reset_magnifier_count",
     }

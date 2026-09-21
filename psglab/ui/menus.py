@@ -487,7 +487,12 @@ def _analizar(window: "MainWindow") -> None:
     _agregar(analizar, "&Espectro de la ventana…", window.show_psd_dialog)
     _agregar(analizar, "&Complejidad de la noche…", window.show_complexity_dialog)
     _agregar(analizar, "Conectividad de la &ventana…", window.show_connectivity_dialog)
-    _agregar(analizar, "Conectividad de la &noche…", window.show_connectivity_night_dialog)
+    # **Queda en la ventana** porque hay que poder apagarla: es la única que
+    # arranca un cálculo en otro hilo, y con uno en curso no se puede pedir
+    # otro. Ver `MainWindow._reflejar_lo_que_se_puede_pedir()`.
+    window.accion_conectividad_de_la_noche = _agregar(
+        analizar, "Conectividad de la &noche…", window.show_connectivity_night_dialog
+    )
 
 
 def _configuracion(window: "MainWindow") -> None:
