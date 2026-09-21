@@ -1142,6 +1142,12 @@ class MainWindow(QMainWindow):
         )
         exportar = cartel.addButton("Exportar…", QMessageBox.ButtonRole.AcceptRole)
         descartar = cartel.addButton("Descartar", QMessageBox.ButtonRole.DestructiveRole)
+        # **El rol no alcanza para que se vea distinto.** `DestructiveRole` le
+        # dice a Qt dónde ubicar el botón y con qué tecla responde, no de qué
+        # color pintarlo: en Windows sale idéntico a «Cancelar». La tinta la
+        # pone el esquema por esta propiedad, y es el único control del
+        # programa que la lleva porque es el único que pierde trabajo.
+        descartar.setProperty(theme.DESTRUCTIVO_PROPERTY, True)
         cancelar = cartel.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
         cartel.setDefaultButton(exportar)
         cartel.setEscapeButton(cancelar)

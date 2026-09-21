@@ -19,6 +19,12 @@ medición real, así que pintarlo mentiría sobre una ventana que no se midió.
 Como en `psd_panel.py` y en `overview_panel.py`, lo que se puede afirmar sin
 mirar una pantalla está separado del dibujo.
 
+**Dejó de ser un `PlotWidget` y pasó a contener uno** en el hito 39, con la
+carrocería que comparten los seis paneles: el encabezado de
+`psglab/ui/panel_header.py` y el cartel que **reemplaza** al gráfico mientras
+no hay resultado. Antes las dos cosas iban al título del gráfico, así que un
+panel vacío seguía mostrando ejes, grilla y leyenda detrás de la frase.
+
 Cubre del pliego: ningún ID de funcionalidad propio. Es la mitad que se ve de
 las secciones "Complejidad" y "Conectividad de la señal".
 """
@@ -27,9 +33,10 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QStackedWidget, QVBoxLayout, QWidget
 
 from psglab.ui import theme
+from psglab.ui.panel_header import EmptyState, PanelHeader
 
 
 def _color_de_serie(posicion: int) -> str:
@@ -47,12 +54,13 @@ def _color_de_serie(posicion: int) -> str:
     return theme.current().color_for_channel(posicion)
 
 
-class MetricPanel(pg.PlotWidget):
+class MetricPanel(QWidget):
     """Dibuja un valor por ventana a lo largo del registro."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Crea el panel vacío, antes de que haya ninguna métrica calculada."""
         super().__init__(parent)
+        self.grafico = pg.PlotWidget()
         #: Desde qué menú se pide lo que muestra este panel. Ver `set_hint()`.
         self._pista: str = ""
         self._pista_visible: bool = False
@@ -62,11 +70,31 @@ class MetricPanel(pg.PlotWidget):
         self._curvas: dict[str, pg.PlotDataItem] = {}
         self._etiqueta: str = ""
 
-        item = self.getPlotItem()
+        item = self.grafico.getPlotItem()
         item.setLabel("bottom", "Ventana")
         item.showGrid(x=True, y=True, alpha=0.3)
         item.addLegend(offset=(-10, 10))
         item.setMenuEnabled(False)
+
+        #: El encabezado, con qué se está mirando. Ver `PanelHeader`.
+        self.header = PanelHeader("Métrica")
+
+        #: Lo que se ve mientras no hay ningún resultado. Ver `EmptyState`.
+        self.vacio = EmptyState()
+
+        #: El gráfico o el cartel de panel vacío, nunca los dos: un gráfico con
+        #: ejes y grilla detrás de una frase se lee como un resultado que dio
+        #: cero.
+        self._pila = QStackedWidget()
+        self._pila.addWidget(self.grafico)
+        self._pila.addWidget(self.vacio)
+
+        columna = QVBoxLayout(self)
+        columna.setContentsMargins(0, 0, 0, 0)
+        columna.setSpacing(0)
+        columna.addWidget(self.header)
+        columna.addWidget(self._pila)
+        self._reflejar_titulo()
 
     # -- Lo que le da la ventana principal ----------------------------------
 
@@ -83,7 +111,7 @@ class MetricPanel(pg.PlotWidget):
         Redibujar **reemplaza**: pedir otra métrica no puede dejar encima la
         anterior, que quedarían superpuestas en escalas distintas.
         """
-        item = self.getPlotItem()
+        item = self.grafico.getPlotItem()
         for curva in self._curvas.values():
             item.removeItem(curva)
         self._curvas.clear()
@@ -153,11 +181,18 @@ class MetricPanel(pg.PlotWidget):
         return self._titulo
 
     def _reflejar_titulo(self) -> None:
-        """El título del gráfico: la pista con el panel vacío, la descripción si no."""
+        """Pone el encabezado y decide si se ve el gráfico o el cartel de vacío.
+
+        **El cartel reemplaza al gráfico, no lo tapa.** Hasta el hito 39 las
+        dos cosas iban al título del gráfico, así que el panel vacío seguía
+        mostrando ejes, grilla y leyenda detrás de la frase: se leía como un
+        resultado que dio cero.
+        """
         vacio = not self._series
         self._pista_visible = bool(self._pista) and vacio
-        texto = self._pista if vacio else self._titulo
-        self.getPlotItem().setTitle(texto or None)
+        self.header.set_caption("" if vacio else self._titulo)
+        self.vacio.set_text(self._pista)
+        self._pila.setCurrentWidget(self.vacio if self._pista_visible else self.grafico)
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 

@@ -4162,3 +4162,28 @@ def test_los_extremos_del_registro_llegan_a_la_franja(ventana: MainWindow):
 
     assert ventana.navigation._hora_inicial.text() == inicio.strftime("%H:%M")
     assert ventana.navigation._hora_final.text() != ""
+
+
+def test_el_boton_de_descartar_lleva_la_tinta_de_lo_que_destruye(
+    ventana: MainWindow, monkeypatch
+):
+    """**El rol no alcanza.** `DestructiveRole` le dice a Qt dónde ubicar el
+    botón y con qué tecla responde, no de qué color pintarlo: en Windows sale
+    idéntico a «Cancelar». La tinta la pone el esquema por una propiedad, y es
+    el único control del programa que la lleva."""
+    vistos: dict[str, bool] = {}
+
+    def espiar(cartel):
+        vistos.update(
+            {
+                boton.text(): bool(boton.property(theme.DESTRUCTIVO_PROPERTY))
+                for boton in cartel.buttons()
+            }
+        )
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", espiar)
+    ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
+
+    assert vistos["Descartar"] is True
+    assert vistos["Cancelar"] is False

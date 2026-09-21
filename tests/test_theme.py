@@ -79,7 +79,7 @@ def test_el_de_fabrica_es_sereno():
 
 #: Los campos en los que `None` quiere decir algo: sin línea de base, la ventana
 #: del mismo color que el fondo, las lecturas con la tipografía de siempre.
-CAMPOS_OPCIONALES = {"baseline", "chrome", "numeric_font", "stage_colors"}
+CAMPOS_OPCIONALES = {"baseline", "chrome", "numeric_font", "danger", "stage_colors"}
 
 
 def test_ningun_esquema_deja_campos_sin_definir():
@@ -428,3 +428,32 @@ def test_los_iconos_toman_el_texto_del_esquema(nombre: str):
 def test_el_color_de_los_iconos_pide_un_esquema():
     with pytest.raises(UnknownColorSchemeError):
         theme.icon_ink("Oscuro")  # type: ignore[arg-type]
+
+
+# -- La tinta de lo que destruye (hito 39) -----------------------------------
+
+
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=lambda e: e.name)
+def test_los_dos_esquemas_traen_la_tinta_de_lo_que_destruye(esquema):
+    """La usa «Descartar», que es el único control del programa que pierde
+    trabajo del investigador."""
+    assert esquema.danger is not None
+    assert f'QPushButton[{theme.DESTRUCTIVO_PROPERTY}="true"]' in theme.stylesheet(esquema)
+
+
+def test_un_esquema_sin_esa_tinta_no_pone_la_regla():
+    """Un esquema puede no traerla, y entonces el botón se ve como cualquier
+    otro: el cartel que lo rodea sigue diciendo qué se pierde."""
+    sin_tinta = dataclasses.replace(theme.SERENO, danger=None)
+
+    assert theme.DESTRUCTIVO_PROPERTY not in theme.stylesheet(sin_tinta)
+
+
+def test_la_tinta_de_lo_que_destruye_entra_en_el_control_de_contraste():
+    """Es el rótulo de un botón, así que le toca el mínimo de texto y no el de
+    gráfico. Sin la medida, un rojo apagado pasaba sin que nada lo notara."""
+    apagado = dataclasses.replace(theme.SERENO, danger="#e8d7d0")
+
+    problemas = dict(theme.low_contrast_elements(apagado))
+
+    assert "la tinta de lo que destruye" in problemas

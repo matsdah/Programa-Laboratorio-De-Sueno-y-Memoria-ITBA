@@ -97,6 +97,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_grid.py": ("psglab/ui/grid.py",),
     "test_channel_axis.py": ("psglab/ui/channel_axis.py",),
     "test_channel_selector.py": ("psglab/ui/channel_selector.py",),
+    "test_panel_header.py": ("psglab/ui/panel_header.py",),
     "test_registry.py": (
         "psglab/tools/registry.py",
         "psglab/tools/base.py",

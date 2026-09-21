@@ -59,6 +59,7 @@ NOMBRES: Final[tuple[str, ...]] = (
     "abrir",
     "reproducir",
     "pausa",
+    "grafico",
 )
 
 
@@ -131,7 +132,34 @@ def _camino(name: str) -> QPainterPath:
         return _calado(borde, util, _barras_de_pausa(borde, util))
     if name == "amplitud-mas":
         return _triangulo_vertical(borde, borde, util, hacia_arriba=True)
+    if name == "grafico":
+        return _barras(borde, util)
     return _triangulo_vertical(borde, borde, util, hacia_arriba=False)
+
+
+def _barras(borde: float, util: float) -> QPainterPath:
+    """Tres barras de alto creciente sobre una base: «acá va un resultado».
+
+    Es el único icono que no está en un botón: lo usa el cartel de un panel
+    vacío, y por eso es la silueta más neutra de todas —no sugiere ninguna
+    acción, sólo dice de qué clase de cosa está hablando el cartel—.
+    """
+    grosor = util * 0.2
+    hueco = (util - 3 * grosor) / 2
+    base = util * 0.12
+    camino = QPainterPath()
+    for posicion, fraccion in enumerate((0.42, 0.68, 1.0)):
+        alto = (util - base) * fraccion
+        camino.addRect(
+            QRectF(
+                borde + posicion * (grosor + hueco),
+                borde + (util - base) - alto,
+                grosor,
+                alto,
+            )
+        )
+    camino.addRect(QRectF(borde, borde + util - base, util, base * 0.45))
+    return camino
 
 
 def _triangulo(x: float, y: float, lado: float, hacia_la_derecha: bool) -> QPainterPath:

@@ -125,6 +125,11 @@ MIN_TEXT_CONTRAST: Final[float] = 4.5
 #: conocer los widgets por nombre.
 READOUT_PROPERTY: Final[str] = "lectura"
 
+#: La propiedad con que un botón pide la tinta de lo que destruye. La usa
+#: «Descartar» en el cartel del trabajo sin exportar: es el único control del
+#: programa que pierde trabajo del investigador.
+DESTRUCTIVO_PROPERTY: Final[str] = "destructivo"
+
 #: Contraste mínimo para lo que se dibuja y hay que distinguir —curvas,
 #: la paleta de canales—, según WCAG 2.1 (criterio 1.4.11). La grilla y la
 #: línea de base quedan afuera a propósito: son referencias que tienen que
@@ -197,6 +202,7 @@ class ColorScheme:
     overview_text: str
     chrome: str | None = None
     numeric_font: str | None = None
+    danger: str | None = None
     stage_colors: tuple[tuple[str, str], ...] = ()
 
     def color_for_channel(self, position: int) -> str:
@@ -269,6 +275,7 @@ SERENO: Final[ColorScheme] = ColorScheme(
     overview_text="#5b6169",
     chrome="#edebe4",
     numeric_font="IBM Plex Mono",
+    danger="#9e3b22",
     stage_colors=_FASES_CLARAS,
 )
 
@@ -293,6 +300,7 @@ NOCTURNO: Final[ColorScheme] = ColorScheme(
     overview_text="#99a1ab",
     chrome="#14171b",
     numeric_font="IBM Plex Mono",
+    danger="#e07a5f",
     stage_colors=_FASES_OSCURAS,
 )
 
@@ -436,6 +444,14 @@ def stylesheet(scheme: ColorScheme) -> str:
         else ""
     )
     fases = _reglas_de_las_fases(scheme)
+    # **La tinta de lo que destruye.** Un esquema puede no traerla, y entonces
+    # el botón se ve como cualquier otro, que es como se veía antes de que
+    # existiera: el cartel que lo rodea sigue diciendo qué se pierde.
+    peligro = (
+        f'QPushButton[{DESTRUCTIVO_PROPERTY}="true"] {{ color: {scheme.danger}; }}'
+        if scheme.danger is not None
+        else ""
+    )
     return f"""
         QWidget {{ background-color: {ventana}; color: {texto}; }}
         QDockWidget {{ titlebar-close-icon: none; titlebar-normal-icon: none; }}
@@ -502,6 +518,14 @@ def stylesheet(scheme: ColorScheme) -> str:
             border-color: {scheme.accent};
             color: {ink_over(scheme, scheme.accent)};
         }}
+        {peligro}
+        PanelHeader {{
+            background-color: {ventana};
+            border-bottom: 1px solid {borde};
+        }}
+        EmptyState {{ background-color: {fondo}; }}
+        QLabel[rotulo="true"] {{ color: {scheme.overview_text}; }}
+        QLabel[secundario="true"] {{ color: {scheme.overview_text}; }}
         {fases}
         QTreeWidget, QTableWidget, QListWidget, QTextEdit, QPlainTextEdit {{
             background-color: {fondo};
@@ -639,6 +663,17 @@ def low_contrast_elements(scheme: ColorScheme) -> list[tuple[str, float]]:
     if scheme.chrome is not None:
         medidas.append(
             ("el texto de la ventana", scheme.foreground, scheme.chrome, MIN_TEXT_CONTRAST)
+        )
+    if scheme.danger is not None:
+        # Es texto —el rótulo de un botón— y no un gráfico, así que le toca el
+        # mínimo de texto. Se mide contra la ventana porque ahí vive el botón.
+        medidas.append(
+            (
+                "la tinta de lo que destruye",
+                scheme.danger,
+                scheme.chrome if scheme.chrome is not None else scheme.background,
+                MIN_TEXT_CONTRAST,
+            )
         )
     medidas += [
         (f"el color {posicion + 1} de los canales", color, scheme.background, MIN_GRAPHIC_CONTRAST)

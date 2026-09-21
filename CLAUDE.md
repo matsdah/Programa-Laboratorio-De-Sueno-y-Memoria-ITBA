@@ -191,6 +191,14 @@ La primera vez que se usó encontró dos cosas que la suite daba por buenas: un
 rótulo cortado a un tercio y un icono a 2,87 de contraste sobre su relleno. La
 segunda, el nombre de cada canal dibujado encima de su propia señal.
 
+**Nada de lo que la captura llame puede abrir un cartel modal.** Sobre una
+ventana con `WA_DontShowOnScreen` un modal no se muestra en ninguna parte, así
+que nadie lo puede contestar y el proceso queda colgado sin consumir CPU y sin
+decir nada. Ya pasó dos veces: con el cartel del trabajo sin exportar, que
+abría `closeEvent`, y con los `QInputDialog` de «Espectro» y «Complejidad». Por
+eso la herramienta no cierra las ventanas y les pone el resultado a los paneles
+llamando a sus setters en vez de pasar por el menú.
+
 En la consola de Windows los acentos de los mensajes salen como mojibake
 (`configuraci�n`) por la codepage cp1252. Es cosmético y no un bug del código:
 todo el texto que ve el usuario está en español y los archivos son UTF-8.

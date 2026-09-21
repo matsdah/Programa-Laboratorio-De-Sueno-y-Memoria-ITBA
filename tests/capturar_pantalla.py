@@ -38,6 +38,8 @@ import pathlib
 import sys
 import tempfile
 
+import numpy as np
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
@@ -71,6 +73,11 @@ SEGUNDOS: int = 30 * 20
 ANCHO: int = 1440
 ALTO: int = 760
 
+#: Con qué tamaño se captura un panel de análisis. Es el del artboard, para
+#: poder compararlos uno al lado del otro.
+ANCHO_DEL_PANEL: int = 720
+ALTO_DEL_PANEL: int = 520
+
 #: Las ventanas que se armaron, para que no las recoja el recolector de basura
 #: mientras se arma la siguiente. Ver el docstring del módulo: **no se
 #: cierran**.
@@ -92,8 +99,52 @@ def armar_ventana(esquema: theme.ColorScheme):
     for posicion in range(ventana.session.n_windows // 2):
         ventana.session.scoring.set_stage(posicion, fases[posicion % len(fases)])
     ventana._reload_histogram()
+    llenar_los_paneles(ventana)
     QApplication.processEvents()
     return ventana
+
+
+def llenar_los_paneles(ventana) -> None:
+    """Les pone un resultado a los paneles de análisis, sin pasar por el menú.
+
+    **A mano y no con `show_psd_dialog()`**, que es lo que haría el usuario:
+    esas acciones abren `QInputDialog` para elegir el canal y la medida, y un
+    cartel modal sobre una ventana con `WA_DontShowOnScreen` no se muestra en
+    ninguna parte y nadie lo puede contestar. Es la misma trampa que el cartel
+    del trabajo sin exportar, y por eso acá tampoco se cierra ninguna ventana.
+
+    Lo que hay que mirar es la carrocería —el encabezado con su descripción y
+    su método, la tabla de bandas— y para eso alcanza con datos plausibles.
+    """
+    frecuencias = np.linspace(0.5, 45.0, 180)
+    potencias = 40.0 / frecuencias**1.35 + 4.5 * np.exp(-(((frecuencias - 10.2) / 1.5) ** 2))
+    ventana.psd_panel.set_spectrum(frecuencias, potencias[None, :], ["C3"])
+    ventana.psd_panel.set_method_description("Welch · segmento 4 s · Hann · solape 50 %")
+    ventana.psd_panel.set_band_powers(
+        {
+            nombre: (valor, fraccion)
+            for nombre, valor, fraccion in (
+                ("Delta", 128.4, 0.612),
+                ("Theta", 41.7, 0.199),
+                ("Alpha", 18.9, 0.090),
+                ("Sigma", 11.2, 0.053),
+                ("Beta", 6.3, 0.030),
+                ("Gamma", 1.8, 0.009),
+            )
+        }
+    )
+    ventana.psd_panel.set_caption("Ventana 1 · C3 (EEG)")
+
+    epocas = np.arange(ventana.session.n_windows, dtype=float)
+    ventana.metric_panel.set_metric(
+        "Entropía espectral",
+        {"C3": 0.62 + 0.13 * np.sin(epocas / 3.0), "EOG-izq": 0.7 + 0.08 * np.cos(epocas / 4.0)},
+    )
+    ventana.metric_panel.set_caption("Entropía espectral · 2 canales")
+
+    for clave in ("psd", "metric"):
+        ventana.docks[clave].show()
+        ventana.docks[clave].widget().resize(ANCHO_DEL_PANEL, ALTO_DEL_PANEL)
 
 
 def capturar(esquema: theme.ColorScheme) -> None:
@@ -106,6 +157,8 @@ def capturar(esquema: theme.ColorScheme) -> None:
         f"{nombre}-menu": ventana.menuBar(),
         f"{nombre}-navegacion": ventana.navigation_bar,
         f"{nombre}-scoring": ventana.scoring_panel,
+        f"{nombre}-espectro": ventana.psd_panel,
+        f"{nombre}-metrica": ventana.metric_panel,
     }
     for archivo, widget in piezas.items():
         destino = SALIDA / f"{archivo}.png"
