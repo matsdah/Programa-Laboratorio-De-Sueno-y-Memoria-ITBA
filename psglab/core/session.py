@@ -19,6 +19,7 @@ import numpy as np
 
 from psglab.config import (
     AMPLITUDE_STEP_FACTOR,
+    DEFAULT_SCALE_BY_KIND_UV,
     DEFAULT_VIEW_SECONDS,
     DEFAULT_SCALE_UV,
     MAX_SCALE_UV,
@@ -134,8 +135,18 @@ class Session:
             details="Se esperaba un número finito.",
         )
         inicial = clamp(default_scale_uv, MIN_SCALE_UV, MAX_SCALE_UV)
+        # **Cada clase arranca con la suya**, y `default_scale_uv` es el piso
+        # de las que no tienen una propia. Con una sola escala para todos, un
+        # canal respiratorio a 100 µV se sale de su carril y barre media
+        # pantalla; ver `DEFAULT_SCALE_BY_KIND_UV`. Las que quedan en el piso
+        # se miden después, en `_ajustar_las_clases_sin_escala()`.
         self._scales_uv: dict[str, float] = {
-            nombre: inicial for nombre in recording.channel_names()
+            canal.name: clamp(
+                DEFAULT_SCALE_BY_KIND_UV.get(canal.kind.value, inicial),
+                MIN_SCALE_UV,
+                MAX_SCALE_UV,
+            )
+            for canal in recording.channels
         }
         #: Cuántos µV se le restan a cada canal antes de dibujarlo. Arranca en
         #: cero para todos, que es el comportamiento que el programa tenía
@@ -156,6 +167,32 @@ class Session:
         #: A quién avisarle cuando cambia la página visible. Ver
         #: `add_view_listener()`.
         self._view_listeners: list[Callable[[Viewport], None]] = []
+        self._ajustar_las_clases_sin_escala()
+
+    def _ajustar_las_clases_sin_escala(self) -> None:
+        """Les mide la escala a los canales cuya clase no tiene una propia.
+
+        Respiratorio y Otro no aparecen en `DEFAULT_SCALE_BY_KIND_UV` y no es
+        un olvido: un termómetro rectal y un flujo oro-nasal no comparten ni
+        unidad ni orden de magnitud, así que no hay ninguna escala de uso
+        corriente que darles. Lo que sí se puede es mirarlos: con la escala de
+        un EEG, un flujo respiratorio se sale de su carril y **barre media
+        pantalla tapando seis canales**, que es exactamente lo que se veía al
+        abrir un registro de verdad.
+
+        Se miden sobre la primera época, que es la que se va a ver, y no sobre
+        el registro entero: son ocho horas de señal y esto corre al construir
+        la sesión. Un canal plano o sin datos se deja como está, por el mismo
+        motivo que en `fit_to_pane()`.
+        """
+        if self.n_windows == 0:
+            return
+        for canal in self._recording.channels:
+            if canal.kind.value in DEFAULT_SCALE_BY_KIND_UV:
+                continue
+            apartamiento = self._apartamiento(canal.name, 0)
+            if apartamiento is not None:
+                self.set_scale_uv(canal.name, apartamiento)
 
     def _check_channels(self, channel_names: list[str]) -> None:
         """Rechaza cualquier nombre que el registro no tenga.
@@ -888,21 +925,35 @@ class Session:
         """
         ventana = self._current_window if window_index is None else window_index
         self._check_window(ventana)
-        inicio, fin = window_to_samples(ventana, self._recording.sampling_rate)
         for nombre in self._channels_under_amplitude():
-            tramo = self._recording.get_segment(inicio, fin, [nombre])
-            if tramo.size == 0:
-                continue
-            # Los valores que no son números se descartan, como en
-            # `center_offsets()`: con uno solo, el máximo salía NaN y el canal
-            # se quedaba sin ajustar aunque el resto de la ventana sirviera.
-            finitos = tramo[np.isfinite(tramo)]
-            if finitos.size == 0:
-                continue
-            apartamiento = float(np.max(np.abs(finitos - self.offset_uv(nombre))))
-            if apartamiento <= 0.0 or not np.isfinite(apartamiento):
-                continue
-            self.set_scale_uv(nombre, apartamiento)
+            apartamiento = self._apartamiento(nombre, ventana)
+            if apartamiento is not None:
+                self.set_scale_uv(nombre, apartamiento)
+
+    def _apartamiento(self, channel_name: str, window_index: int) -> float | None:
+        """Cuánto se aparta un canal de su desplazamiento en esa ventana.
+
+        Es la medida con la que se ajusta una escala, y está sola porque la
+        usan dos: «Ajustar al panel» y el ajuste de las clases sin escala
+        propia al abrir el registro. Devuelve `None` cuando no hay nada que
+        medir —un canal plano, uno sin datos, uno todo NaN—: no existe ninguna
+        escala "correcta" para una línea recta, y dividir por cero dejaría el
+        canal invisible.
+        """
+        inicio, fin = window_to_samples(window_index, self._recording.sampling_rate)
+        tramo = self._recording.get_segment(inicio, fin, [channel_name])
+        if tramo.size == 0:
+            return None
+        # Los valores que no son números se descartan, como en
+        # `center_offsets()`: con uno solo, el máximo salía NaN y el canal se
+        # quedaba sin ajustar aunque el resto de la ventana sirviera.
+        finitos = tramo[np.isfinite(tramo)]
+        if finitos.size == 0:
+            return None
+        apartamiento = float(np.max(np.abs(finitos - self.offset_uv(channel_name))))
+        if apartamiento <= 0.0 or not np.isfinite(apartamiento):
+            return None
+        return apartamiento
 
     # -- Página visible -----------------------------------------------------
 

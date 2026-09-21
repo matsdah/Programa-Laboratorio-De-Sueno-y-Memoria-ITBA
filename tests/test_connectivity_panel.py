@@ -174,3 +174,32 @@ def test_vaciar_el_panel_devuelve_la_barra_a_cero_uno(panel: ConnectivityPanel):
     panel.clear_matrix()
 
     assert panel._barra.levels() == (0.0, 1.0)
+
+
+# -- Qué mide la escala de color (hito 40) -----------------------------------
+
+
+def test_la_escala_dice_que_mide(panel: ConnectivityPanel):
+    """**Decía de 0 a 1 y no de qué.** Un mapa de colores sin la unidad se
+    puede leer de izquierda a derecha, pero no se puede comparar con el de otra
+    medida."""
+    panel.set_matrix(np.eye(2), ["C3", "C4"], measure="wPLI")
+
+    assert panel.measure() == "wPLI"
+
+
+def test_sin_medida_la_escala_no_rotula_nada(panel: ConnectivityPanel):
+    """Es lo que pasa con el camino viejo, que no la pasaba: mejor sin rótulo
+    que con uno inventado."""
+    panel.set_matrix(np.eye(2), ["C3", "C4"])
+
+    assert panel.measure() == ""
+
+
+def test_vaciar_el_panel_borra_la_medida(panel: ConnectivityPanel):
+    """Una escala rotulada sobre un panel vacío diría que hay un resultado."""
+    panel.set_matrix(np.eye(2), ["C3", "C4"], measure="wPLI")
+
+    panel.clear_matrix()
+
+    assert panel.measure() == ""

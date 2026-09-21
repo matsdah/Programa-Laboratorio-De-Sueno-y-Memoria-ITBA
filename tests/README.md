@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y cinco
+camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y nueve
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -74,6 +74,10 @@ verde por omisión, que es peor que dar rojo.
 | `test_histogram.py` | El hipnograma de la noche y la navegación por clic. |
 | `test_shortcuts.py` | Los atajos, y que los de fase se deriven de la nomenclatura. |
 | `test_grid.py` | La grilla de fondo: cuántas líneas y dónde caen. |
+| `test_channel_axis.py` | El canalón: qué dice de cada canal, y que su ancho salga del área de trazo en vez de dibujarse encima de la señal. |
+| `test_background.py` | Correr algo largo en otro hilo: que el resultado vuelva, que un error del programa salga por su señal y que uno inesperado se vuelva a elevar. |
+| `test_panel_header.py` | La carrocería de los paneles: el encabezado y el cartel de vacío que reemplaza al gráfico. |
+| `test_channel_selector.py` | El selector de canales: el orden de la lista, el atajo por clase del pie y que su estado siga a las casillas. |
 | `test_overview_panel.py` | El panel de contexto: qué ventanas entran, cuál es la actual y dónde va cada una. |
 | `test_signal_view.py` | Las cuatro conversiones desde píxeles, que es de donde salen las unidades de las herramientas. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
@@ -102,9 +106,10 @@ verde por omisión, que es peor que dar rojo.
 | `test_icons.py` | Los iconos que dibuja el programa: que no salgan vacíos y que tomen el color pedido. |
 | `medir_rendimiento.py` | **No es un test**: el banco de medición. Se corre a mano con `python -m tests.medir_rendimiento` e imprime cuánto tarda abrir un registro y cada cuadro de la reproducción. |
 | `medir_reparto.py` | **No es un test**: el otro banco. Se corre a mano con `python -m tests.medir_reparto` e imprime cuánto ancho recibe cada panel de abajo y la pila de análisis, y el mínimo de cada uno, que es lo que decide el reparto. Abre una ventana de verdad: offscreen no usa el estilo nativo y daría otros mínimos. |
+| `capturar_pantalla.py` | **No es un test**: la herramienta de capturas. Se corre a mano con `python -m tests.capturar_pantalla` y deja PNG de la ventana y de sus barras, con los dos esquemas. Tampoco corre offscreen, y **no abre ninguna ventana en la pantalla**: `WA_DontShowOnScreen` maqueta el widget sin mapearlo. Lo que un test afirma es la estructura; cómo se ve, no. **Las ventanas no se cierran**: `closeEvent` pregunta por el trabajo sin exportar con un cartel modal que una ventana sin mapear no muestra, y el proceso quedaba colgado después del primer esquema. |
 | `test_navigation.py` | La barra inferior: que la franja convierta bien un clic en una ventana, sobre todo en los bordes, que queden los ocho controles en el orden pedido y que reproducir pida lo suyo. |
 | `test_scoring_panel.py` | El panel de scoring: el pie con la ventana y su fase, que reflejar la ventana no la vuelva a scorear, y las fases en su propia fila. |
-| `test_fonts.py` | Las tipografías que trae el programa: que estén con su licencia, que el esquema Papel nombre una que existe, y que si faltan el programa arranque igual. |
+| `test_fonts.py` | Las tipografías que trae el programa: que estén con su licencia, que la que nombra cada esquema exista y que la de la interfaz esté disponible, y que si faltan el programa arranque igual. |
 | `test_playback.py` | El reloj de la reproducción: que avance a la velocidad pedida aunque dibujar tarde, sin esperar al temporizador. |
 
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el

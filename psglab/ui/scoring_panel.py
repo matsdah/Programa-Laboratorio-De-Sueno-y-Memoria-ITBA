@@ -41,10 +41,17 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.core.nomenclature import Nomenclature, SleepStage, stage_label, stages_of
+from psglab.ui.shortcuts import key_for_stage
 
 #: Hasta dónde se achica un botón de fase. Alcanza para «REM», la etiqueta
 #: más larga, con el margen del estilo.
 ANCHO_MINIMO_DE_BOTON: Final[int] = 40
+
+#: Cuánto mide de alto, desde el hito 34. **Son dos renglones**: la fase y
+#: debajo su tecla, que es la que scorea la ventana. Es el control que más se
+#: aprieta en toda la noche —uno por época, miles por registro— y el único al
+#: que se le da un alto propio por eso.
+ALTO_DEL_BOTON: Final[int] = 46
 
 #: Hasta dónde se achica el selector de nomenclatura. Alcanza para «AASM».
 ANCHO_MINIMO_DEL_SELECTOR: Final[int] = 72
@@ -193,11 +200,22 @@ class ScoringPanel(QWidget):
         self._botones.clear()
 
         for fase in stages_of(nomenclature):
-            boton = QPushButton(stage_label(fase))
+            # **La tecla va en el botón** desde el hito 34. Existía desde el
+            # principio y no se veía en ningún lado: quien no leía la ayuda
+            # scoreaba una noche entera a golpe de mouse. Sale de
+            # `shortcuts.key_for_stage()` y no escrita acá, por el mismo motivo
+            # que los menús leen la suya de ese módulo.
+            boton = QPushButton(f"{stage_label(fase)}\n{key_for_stage(fase)}")
             boton.setCheckable(True)
+            # **El color lo pone la hoja de estilo**, que arma una regla por
+            # fase a partir de `ColorScheme.stage_colors`. Acá sólo se declara
+            # cuál es: así el panel no conoce ningún color, y un esquema sin
+            # escala deja los botones como estaban.
+            boton.setProperty("fase", fase.value)
             # Un mínimo explícito es lo que le gana al de Qt, que en Windows
             # es de 75 px por botón aunque diga «W».
             boton.setMinimumWidth(ANCHO_MINIMO_DE_BOTON)
+            boton.setMinimumHeight(ALTO_DEL_BOTON)
             boton.clicked.connect(lambda _=False, f=fase: self._on_stage(f))
             self._grupo.addButton(boton)
             self._fila.addWidget(boton)

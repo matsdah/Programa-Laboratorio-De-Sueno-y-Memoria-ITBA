@@ -130,7 +130,7 @@ def stage_shortcuts(nomenclature: Nomenclature) -> dict[str, str]:
     nueva trae su tecla sola, que es justamente lo que este módulo promete.
     """
     return {
-        _tecla_de_fase(fase): f"Marcar la ventana como {stage_label(fase)}"
+        key_for_stage(fase): f"Marcar la ventana como {stage_label(fase)}"
         for fase in stages_of(nomenclature)
     }
 
@@ -203,11 +203,16 @@ def install_shortcuts(window: QMainWindow, session: Session | None) -> None:
         _conectar_fase(window, tecla, fase)
 
 
-def _tecla_de_fase(stage: SleepStage) -> str:
+def key_for_stage(stage: SleepStage) -> str:
     """La tecla natural de una fase, derivada de su código.
 
     Los códigos 1 a 4 son las fases numeradas y su tecla es su propio número.
     Los otros tres son letras: W de vigilia, R de REM y M de movimiento.
+
+    **Es pública desde el hito 34**, que la muestra en el botón de la fase. Es
+    el mismo trato que `key_for()` le da a los menús: la tecla se lee de este
+    módulo en vez de escribirse al lado del control, que es como se
+    desincronizan.
     """
     codigo = stage_code(stage)
     if 1 <= codigo <= 4:
@@ -217,7 +222,7 @@ def _tecla_de_fase(stage: SleepStage) -> str:
 
 def _fases_por_tecla(nomenclature: Nomenclature) -> dict[str, SleepStage]:
     """La inversa de `stage_shortcuts()`: qué fase asigna cada tecla."""
-    return {_tecla_de_fase(fase): fase for fase in stages_of(nomenclature)}
+    return {key_for_stage(fase): fase for fase in stages_of(nomenclature)}
 
 
 def _quitar_atajos_anteriores(window: QMainWindow) -> None:

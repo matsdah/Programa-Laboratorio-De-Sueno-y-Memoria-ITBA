@@ -24,6 +24,7 @@ manda la envolvente, y ahí hay dos errores que no se ven — perder un pico, o
 dibujar la envolvente de una señal que ya no es la que está abierta.
 """
 
+from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QPointF
@@ -40,8 +41,10 @@ from psglab.core.scoring import Scoring  # noqa: E402
 from psglab.core.session import Session  # noqa: E402
 from psglab.core.windows import seconds_to_sample  # noqa: E402
 from psglab.tools.base import CircleOverlay  # noqa: E402
+from psglab.ui.channel_axis import ANCHO_DEL_CANALON  # noqa: E402
+from psglab.ui import grid as modulo_de_la_grilla  # noqa: E402
 from psglab.ui import signal_view as modulo_de_la_vista  # noqa: E402
-from psglab.ui.signal_view import SignalView  # noqa: E402
+from psglab.ui.signal_view import SignalView, TimeAxis  # noqa: E402
 
 FRECUENCIA = 100.0
 VENTANAS = 3
@@ -219,23 +222,34 @@ def test_sin_sesion_la_muestra_es_cero(qt_app):
 # -- La etiqueta del canal (V4_F) ---------------------------------------------
 
 
-def test_la_etiqueta_lleva_el_nombre_y_la_clase(vista: SignalView):
-    """El pliego pide mostrar la clase junto al nombre para saber qué se está
-    viendo."""
-    assert vista.channel_label("C3") == "C3 (EEG)"
-    assert vista.channel_label("EMG-menton") == "EMG-menton (EMG)"
+def test_el_canalon_lleva_un_renglon_por_canal_visible(vista: SignalView):
+    """El rótulo salió del área de trazo en el hito 37, pero sigue siendo lo que
+    dice qué canal es cada carril."""
+    assert [carril.name for carril in vista.channel_axis.lanes()] == [
+        "C3",
+        "EMG-menton",
+    ]
 
 
-def test_sin_registro_la_etiqueta_es_solo_el_nombre(qt_app):
-    """La clase la detecta el lector: antes de abrir un archivo no hay ninguna
-    que mostrar."""
-    assert SignalView().channel_label("C3") == "C3"
+def test_el_detalle_es_la_escala_del_canal(vista: SignalView, sesion: Session):
+    """**Llevaba también la clase y se le sacó**: con un registro de verdad
+    —«Resp oro-nasal», clase «Respiratorio»— la línea no entraba en el canalón
+    y salía cortada, que es peor que no decirla. La clase se sigue viendo al
+    lado del nombre en el selector de canales."""
+    assert vista.channel_detail("C3") == f"{sesion.scale_uv('C3'):.0f} µV"
+    assert "EEG" not in vista.channel_detail("C3")
+
+
+def test_sin_registro_no_hay_detalle_que_mostrar(qt_app):
+    """La clase la detecta el lector y la escala la fija la sesión: antes de
+    abrir un archivo no existe ninguna de las dos."""
+    assert SignalView().channel_detail("C3") == ""
 
 
 def test_un_canal_que_el_registro_no_tiene_no_rompe_el_dibujo(vista: SignalView):
-    """Devuelve el nombre y sigue. Un canal que desapareció no puede voltear el
-    visualizador entero."""
-    assert vista.channel_label("no_existe") == "no_existe"
+    """Queda sin detalle y sigue. Un canal que desapareció no puede voltear el
+    visualizador entero: tanto la clase como la escala salen de buscarlo."""
+    assert vista.channel_detail("no_existe") == ""
 
 
 # -- La amplitud (V2_P, V5_F) -------------------------------------------------
@@ -263,7 +277,7 @@ def test_la_escala_mostrada_sigue_a_la_amplitud(vista: SignalView, sesion: Sessi
     """V5_F: la referencia en µV tiene que reflejar la amplitud real del canal."""
     vista.increase_amplitude()
     escala = sesion.scale_uv("C3")
-    assert f"{escala:.0f}" in vista._labels[0].toPlainText()
+    assert f"{escala:.0f}" in vista.channel_axis.lanes()[0].detail
 
 
 def test_cambiar_la_amplitud_sin_registro_no_rompe(qt_app):
@@ -586,30 +600,49 @@ def test_la_cache_de_envolventes_tiene_tope(
 def test_los_nombres_de_canal_se_ven_en_cualquier_epoca(
     vista: SignalView, sesion: Session, epoca: int
 ):
-    """**Regresión de la escala de tiempo libre.**
+    """**Regresión de la escala de tiempo libre, y de cómo dejó de existir.**
 
     Los nombres se creaban en x = 0 y ahí quedaban. Con el eje en segundos
     absolutos, desde la segunda época el cero queda fuera de la pantalla y los
-    carriles aparecían sin nombre: el investigador no podía saber qué canal
-    estaba mirando. Ningún test lo cubría porque todos miraban la época 0.
+    carriles aparecían sin nombre. Se arregló arrastrándolos al borde izquierdo
+    en cada dibujo; desde el hito 37 son el canalón, que no vive en
+    coordenadas del gráfico, así que la página ya no los puede dejar afuera.
     """
     sesion.go_to_window(epoca)
     vista.show_window(epoca)
-    desde, hasta = vista.getPlotItem().vb.viewRange()[0]
 
-    for etiqueta in vista._labels:
-        assert desde <= etiqueta.pos().x() <= hasta
+    assert len(vista.channel_axis.lanes()) == len(sesion.visible_channels)
 
 
-def test_los_nombres_de_canal_siguen_a_la_pagina_al_desplazar(
+def test_ningun_nombre_de_canal_se_dibuja_sobre_la_senal(
+    vista: SignalView, sesion: Session
+):
+    """**La regresión que motivó el canalón.**
+
+    Los rótulos eran `pg.TextItem` apoyados en el carril, o sea adentro del
+    área de trazo, y la captura de la ventana entera los mostró cruzados por su
+    propia onda. Hoy la señal no puede taparlos porque no comparten píxeles: el
+    `ViewBox` arranca después del ancho que el eje reservó.
+    """
+    textos = [
+        item.toPlainText()
+        for item in vista.getPlotItem().items
+        if isinstance(item, pg.TextItem)
+    ]
+    for nombre in sesion.visible_channels:
+        assert not any(nombre in texto for texto in textos)
+
+    assert vista.getPlotItem().vb.geometry().left() >= ANCHO_DEL_CANALON
+
+
+def test_el_area_de_trazo_arranca_despues_del_canalon(
     vista_larga: SignalView, sesion_larga: Session
 ):
-    """Desplazar sin cambiar de época también mueve el origen de la pantalla."""
+    """Desplazar la página no le devuelve al gráfico el ancho del canalón."""
     sesion_larga.set_viewport(sesion_larga.viewport.with_span(300.0).panned(1200.0))
     vista_larga.draw_viewport()
-    desde, hasta = vista_larga.getPlotItem().vb.viewRange()[0]
 
-    assert desde <= vista_larga._labels[0].pos().x() <= hasta
+    assert vista_larga.getPlotItem().vb.geometry().left() >= ANCHO_DEL_CANALON
 
 
 # -- Las líneas de cero las dibuja la grilla (hito 25) -----------------------
@@ -694,7 +727,7 @@ def test_cambiar_de_esquema_repinta_la_banda(vista: SignalView, sesion: Session)
 
     anterior = theme.current()
     try:
-        theme.set_current(theme.ECG)
+        theme.set_current(theme.NOCTURNO)
         vista.apply_scheme()
         assert vista._epoca.brush.color().name() != antes
     finally:
@@ -761,9 +794,156 @@ def test_cambiar_de_esquema_repinta_el_cursor(vista: SignalView, sesion: Session
 
     anterior = theme.current()
     try:
-        theme.set_current(theme.ECG)
+        theme.set_current(theme.NOCTURNO)
         vista.apply_scheme()
         assert vista._cursor.pen.color().name() != antes
     finally:
         theme.set_current(anterior)
         vista.apply_scheme()
+
+
+# -- La pestaña de la época (hito 34) ----------------------------------------
+
+
+def test_la_pestana_dice_que_epoca_es(vista: SignalView, sesion: Session):
+    """**La banda decía dónde se scorea y no qué se scorea.** Con la página
+    larga hay que mirar la barra de abajo para saber en qué época cayó."""
+    vista.set_session(sesion)
+
+    vista.show_window(2)
+
+    assert vista._pestana.toPlainText() == "Época 3"
+
+
+def test_la_pestana_dice_la_fase_cuando_la_hay(vista: SignalView, sesion: Session):
+    """La fase sólo se ve en el panel de scoring, que puede estar cerrado."""
+    from psglab.core.nomenclature import SleepStage
+
+    sesion.scoring.set_stage(2, SleepStage.N2)
+    vista.set_session(sesion)
+
+    vista.show_window(2)
+
+    assert vista._pestana.toPlainText() == "Época 3 · N2"
+
+
+def test_la_pestana_se_mueve_con_la_banda(vista: SignalView, sesion: Session):
+    from psglab.core.windows import epoch_to_seconds
+
+    vista.set_session(sesion)
+    vista.show_window(1)
+
+    inicio, _ = epoch_to_seconds(1, sesion.recording.sampling_rate)
+    assert vista._pestana.pos().x() == pytest.approx(inicio)
+
+
+def test_la_pestana_no_se_rehace_en_cada_dibujo(vista: SignalView, sesion: Session):
+    """La misma regla que la banda y el cursor: se crea una vez y se mueve."""
+    vista.set_session(sesion)
+    pestana = vista._pestana
+
+    for inicio in range(5):
+        sesion.set_viewport(sesion.viewport.with_start(inicio * 1.2))
+        vista.draw_viewport()
+
+    assert pestana is not None
+    assert vista._pestana is pestana
+
+
+# -- El eje de tiempo, en hora de la noche -----------------------------------
+
+
+def eje_con_hora(vista: SignalView) -> TimeAxis:
+    """El eje de abajo, con un horario de inicio puesto a mano."""
+    vista.time_axis.set_start_time(datetime(2026, 9, 20, 23, 58, 30))
+    return vista.time_axis
+
+
+def test_el_eje_numera_en_hora_de_la_noche(vista: SignalView):
+    """**Decía «Segundos de la ventana» y numeraba de 1 a 29.** Un scorer no
+    nombra un evento por el segundo que ocupa dentro de su época."""
+    eje = eje_con_hora(vista)
+
+    assert eje.tickStrings([0.0, 90.0], 1.0, 30.0) == ["23:58:30", "00:00:00"]
+
+
+def test_con_marcas_de_un_minuto_los_segundos_sobran(vista: SignalView):
+    eje = eje_con_hora(vista)
+
+    assert eje.tickStrings([90.0], 1.0, 300.0) == ["00:00"]
+
+
+def test_con_una_pagina_de_milisegundos_hace_falta_la_decima(vista: SignalView):
+    """La escala de tiempo libre llega a los 10 ms, y ahí todas las marcas
+    dirían la misma hora."""
+    eje = eje_con_hora(vista)
+
+    assert eje.tickStrings([0.0, 0.2], 1.0, 0.2) == ["23:58:30,0", "23:58:30,2"]
+
+
+def test_sin_horario_de_inicio_el_eje_vuelve_a_los_segundos(vista: SignalView):
+    """Es lo que pasa con un EDF anónimo: numerar de 1 a 29 sigue siendo mejor
+    que no decir nada, y ahí el rótulo hace falta."""
+    vista.time_axis.set_start_time(None)
+
+    assert vista.time_axis.tickStrings([0.0, 10.0], 1.0, 10.0) == ["0", "10"]
+    assert vista.time_axis.label.isVisible()
+
+
+def test_con_hora_el_eje_no_lleva_rotulo(vista: SignalView):
+    """«21:05» no necesita que le expliquen qué es."""
+    eje = eje_con_hora(vista)
+
+    assert not eje.label.isVisible()
+
+
+def test_el_eje_toma_la_hora_del_registro_al_abrirlo(qt_app, sesion: Session):
+    """No hay que acordarse de ponérsela: sale de `set_session()`."""
+    vista = SignalView()
+    vista.set_session(sesion)
+
+    assert vista.time_axis.start_time() == sesion.recording.start_time
+
+
+# -- La banda de la época ----------------------------------------------------
+
+
+def test_con_la_pagina_de_una_epoca_la_banda_no_se_dibuja(
+    vista: SignalView, sesion: Session
+):
+    """**Lo mostró una captura y no se ve desde el código.** La banda y la
+    página son lo mismo con la página de arranque, así que no marca ningún
+    tramo: le cambia el color al fondo del visualizador."""
+    vista.show_window(0)
+
+    assert not vista._epoca.isVisible()
+
+
+def test_con_una_pagina_larga_la_banda_se_ve(
+    vista_larga: SignalView, sesion_larga: Session
+):
+    """Que es para lo que existe: con cuatro horas en pantalla, es lo único que
+    dice cuál de todas esas épocas es la que se scorea."""
+    sesion_larga.set_viewport(sesion_larga.viewport.with_span(300.0))
+    vista_larga.draw_viewport()
+
+    assert vista_larga._epoca.isVisible()
+
+
+def test_la_pestana_no_se_va_con_el_comienzo_de_la_epoca(
+    vista_larga: SignalView, sesion_larga: Session
+):
+    """Con una página más corta que la época, el comienzo de la época queda
+    fuera de la pantalla y la pestaña se iba con él."""
+    sesion_larga.go_to_window(4)
+    sesion_larga.set_viewport(sesion_larga.viewport.with_span(5.0).panned(125.0))
+    vista_larga.draw_viewport()
+    desde, hasta = vista_larga.getPlotItem().vb.viewRange()[0]
+
+    assert desde <= vista_larga._pestana.pos().x() <= hasta
+
+
+def test_la_pestana_va_encima_de_la_grilla(vista: SignalView):
+    """A −19 estaba debajo de la grilla, que es un solo objeto en −10 y le
+    dibujaba sus líneas por encima al texto: salía partida en dos."""
+    assert vista._pestana.zValue() > modulo_de_la_grilla._Z_GRILLA

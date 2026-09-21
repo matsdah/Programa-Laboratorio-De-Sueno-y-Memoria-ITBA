@@ -76,44 +76,23 @@ from psglab.ui.preferences import (
     MIN_MAGNIFIER_RADIUS_SECONDS,
     MIN_MAGNIFIER_ZOOM,
     Preferences,
-    load_scheme,
-    save_scheme,
 )
 from psglab.utils.errors import InvalidPreferencesError, PsgLabError
 from psglab.utils.units import MICROVOLT
 
-#: Las cinco solapas, en el orden en que aparecen.
+#: Las cuatro solapas, en el orden en que aparecen. **Eran cinco hasta el hito
+#: 35**: la de Colores se fue entera con la edición de esquemas, y elegir entre
+#: los dos que quedan pasó al menú «Ver», que es donde ya viven los tres fondos
+#: de grilla.
 TAB_TITLES: tuple[str, ...] = (
-    "Colores",
     "Editor de anotaciones",
     "Espectro de potencia",
     "Otras",
     "Tipografía",
 )
 
-#: Qué color del esquema se edita con cada botón, y cómo lo lee el usuario.
-#: El orden es el de la pantalla: primero lo que se mira todo el tiempo.
-COLOR_FIELDS: tuple[tuple[str, str], ...] = (
-    ("background", "Fondo"),
-    ("chrome", "Fondo de la ventana"),
-    ("signals", "Señales"),
-    ("foreground", "Ejes y texto"),
-    ("coarse_grid", "Grilla visible"),
-    ("fine_grid", "Grilla discreta"),
-    ("accent", "Curva de los paneles"),
-    ("overview_background", "Fondo del contexto"),
-    ("overview_current", "Época actual en el contexto"),
-    ("overview_border", "Borde del contexto"),
-    ("overview_current_border", "Borde de la época actual"),
-    ("overview_text", "Texto del contexto"),
-)
-
 #: Cómo se muestra cada método de estimación del espectro.
 METHOD_NAMES: dict[str, str] = {"welch": "Welch", "multitaper": "Multitaper"}
-
-#: Lo que se agrega al nombre de un esquema de fábrica cuando se lo modifica.
-MODIFIED_SUFFIX: str = " (modificado)"
-
 
 def _numero(texto: str) -> float:
     """Lee un número escrito como lo escribiría un investigador: con coma o punto.
@@ -215,11 +194,10 @@ class SettingsDialog(QDialog):
         self._reflejando = False
 
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._armar_colores(), TAB_TITLES[0])
-        self.tabs.addTab(self._armar_anotaciones(), TAB_TITLES[1])
-        self.tabs.addTab(self._armar_espectro(), TAB_TITLES[2])
-        self.tabs.addTab(self._armar_otras(), TAB_TITLES[3])
-        self.tabs.addTab(self._armar_tipografia(), TAB_TITLES[4])
+        self.tabs.addTab(self._armar_anotaciones(), TAB_TITLES[0])
+        self.tabs.addTab(self._armar_espectro(), TAB_TITLES[1])
+        self.tabs.addTab(self._armar_otras(), TAB_TITLES[2])
+        self.tabs.addTab(self._armar_tipografia(), TAB_TITLES[3])
 
         botones = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         botones.rejected.connect(self.close)
@@ -264,7 +242,6 @@ class SettingsDialog(QDialog):
             self._colores_de_clase = dict(annotation_colors)
         self._reflejando = True
         try:
-            self._reflejar_colores()
             self._reflejar_anotaciones()
             self._reflejar_espectro()
             self._reflejar_otras()
@@ -287,223 +264,6 @@ class SettingsDialog(QDialog):
     def _avisar(self, error: PsgLabError) -> None:
         if self.on_error is not None:
             self.on_error(error)
-
-    # -- Colores ------------------------------------------------------------------
-
-    def _armar_colores(self) -> QWidget:
-        solapa = QWidget()
-        izquierda = QGridLayout()
-
-        #: Un botón por color del esquema, por nombre de campo.
-        self.color_buttons: dict[str, ColorButton] = {}
-        for fila, (campo, rotulo) in enumerate(COLOR_FIELDS):
-            boton = ColorButton("#000000")
-            boton.on_chosen = lambda color, c=campo: self._cambiar_esquema(**{c: color})
-            izquierda.addWidget(QLabel(rotulo), fila, 0)
-            izquierda.addWidget(boton, fila, 1)
-            self.color_buttons[campo] = boton
-
-        fila = len(COLOR_FIELDS)
-        self.baseline_check = QCheckBox("Línea de base")
-        self.baseline_check.toggled.connect(self._cambiar_linea_de_base)
-        self.baseline_button = ColorButton("#808080")
-        self.baseline_button.on_chosen = lambda _color: self._cambiar_linea_de_base(
-            self.baseline_check.isChecked()
-        )
-        izquierda.addWidget(self.baseline_check, fila, 0)
-        izquierda.addWidget(self.baseline_button, fila, 1)
-
-        self.vary_colors = QCheckBox("Un color distinto por canal")
-        self.vary_colors.toggled.connect(
-            lambda activo: self._cambiar_esquema(vary_signal_colors=bool(activo))
-        )
-        izquierda.addWidget(self.vary_colors, fila + 1, 0, 1, 2)
-
-        #: Qué no se va a distinguir del fondo con los colores elegidos. Es un
-        #: aviso y no un rechazo: el usuario puede querer un esquema de poco
-        #: contraste para imprimir, pero tiene que saberlo.
-        self.contrast_notice = QLabel("")
-        self.contrast_notice.setWordWrap(True)
-        izquierda.addWidget(self.contrast_notice, fila + 3, 0, 1, 2)
-
-        paleta = QGroupBox("Colores de los canales")
-        self._fila_de_paleta = QHBoxLayout(paleta)
-        #: Un botón por color de la paleta de canales. Se rearman al cambiar de
-        #: esquema, porque no todos los esquemas tienen la misma cantidad.
-        self.palette_buttons: list[ColorButton] = []
-        izquierda.addWidget(paleta, fila + 2, 0, 1, 2)
-        # El espacio que sobra va a una columna y una fila vacías: sin esto los
-        # botones se alejaban de su rótulo y la paleta crecía hasta ocupar
-        # media ventana.
-        izquierda.setColumnStretch(2, 1)
-        izquierda.setRowStretch(fila + 4, 1)
-        self._fila_de_paleta.addStretch(1)
-
-        derecha = QVBoxLayout()
-        esquemas = QGroupBox("Esquema de color")
-        lista = QVBoxLayout(esquemas)
-        self.scheme_label = QLabel("")
-        lista.addWidget(self.scheme_label)
-        #: Un botón por esquema de fábrica. Se arman recorriendo
-        #: `theme.SCHEMES`: un esquema nuevo aparece solo.
-        self.scheme_buttons: dict[str, QPushButton] = {}
-        for nombre in theme.SCHEMES:
-            boton = QPushButton(nombre)
-            boton.clicked.connect(lambda _=False, n=nombre: self.choose_scheme(n))
-            lista.addWidget(boton)
-            self.scheme_buttons[nombre] = boton
-        lista.addSpacing(12)
-        self.save_scheme_button = QPushButton("Guardar…")
-        self.save_scheme_button.clicked.connect(self._guardar_esquema)
-        self.load_scheme_button = QPushButton("Cargar…")
-        self.load_scheme_button.clicked.connect(self._cargar_esquema)
-        lista.addWidget(self.save_scheme_button)
-        lista.addWidget(self.load_scheme_button)
-        derecha.addWidget(esquemas)
-
-        grilla = QGroupBox("Grilla")
-        opciones = QVBoxLayout(grilla)
-        self.grid_normal = QRadioButton("Normal")
-        self.grid_ecg = QRadioButton("ECG (cuadriculada)")
-        grupo = QButtonGroup(grilla)
-        grupo.addButton(self.grid_normal)
-        grupo.addButton(self.grid_ecg)
-        self.grid_ecg.toggled.connect(
-            lambda activo: self._cambiar_esquema(ecg_grid=bool(activo))
-        )
-        opciones.addWidget(self.grid_normal)
-        opciones.addWidget(self.grid_ecg)
-        derecha.addWidget(grilla)
-        derecha.addStretch(1)
-
-        fila_entera = QHBoxLayout(solapa)
-        fila_entera.addLayout(izquierda, 3)
-        fila_entera.addLayout(derecha, 1)
-        return solapa
-
-    def choose_scheme(self, name: str) -> None:
-        """Elige uno de los esquemas de fábrica, como su botón."""
-        try:
-            esquema = theme.scheme_by_name(name)
-        except PsgLabError as error:
-            self._avisar(error)
-            return
-        self._cambiar(self._prefs.with_scheme(esquema))
-        self._reflejar_solo_colores()
-
-    def _cambiar_esquema(self, **cambios: object) -> None:
-        """Cambia campos del esquema vigente.
-
-        **Un esquema de fábrica modificado deja de llamarse igual**: pasa a
-        llamarse "Oscuro (modificado)". Si conservara el nombre, el menú y esta
-        ventana dirían "Oscuro" sobre algo que ya no es el oscuro. Y si el
-        cambio lo devuelve exactamente al de fábrica, vuelve a ser ése.
-        """
-        # Mientras se reflejan las preferencias, marcar una casilla dispara este
-        # método: sin la guarda, mostrar la solapa volvía a mostrarla.
-        if self._reflejando:
-            return
-        esquema = self._prefs.scheme()
-        cambiado = replace(esquema, **cambios)
-        if cambiado == esquema:
-            return
-        base = esquema.name.removesuffix(MODIFIED_SUFFIX)
-        de_fabrica = theme.SCHEMES.get(base)
-        if de_fabrica is not None and replace(cambiado, name=base) == de_fabrica:
-            cambiado = de_fabrica
-        elif de_fabrica is not None:
-            cambiado = replace(cambiado, name=base + MODIFIED_SUFFIX)
-        self._cambiar(self._prefs.with_scheme(cambiado))
-        self._reflejar_solo_colores()
-
-    def _cambiar_linea_de_base(self, activa: bool) -> None:
-        self.baseline_button.setEnabled(bool(activa))
-        self._cambiar_esquema(
-            baseline=self.baseline_button.color() if activa else None
-        )
-
-    def _cambiar_paleta(self, posicion: int, color: str) -> None:
-        paleta = list(self._prefs.scheme().signal_palette)
-        paleta[posicion] = color
-        self._cambiar_esquema(signal_palette=tuple(paleta))
-
-    def _guardar_esquema(self) -> None:
-        esquema = self._prefs.scheme()
-        ruta, _ = QFileDialog.getSaveFileName(
-            self,
-            "Guardar el esquema de color",
-            f"{esquema.name}.json",
-            "Esquemas de color (*.json)",
-        )
-        if not ruta:
-            return
-        try:
-            save_scheme(Path(ruta), esquema)
-        except PsgLabError as error:
-            self._avisar(error)
-
-    def _cargar_esquema(self) -> None:
-        ruta, _ = QFileDialog.getOpenFileName(
-            self, "Cargar un esquema de color", "", "Esquemas de color (*.json)"
-        )
-        if not ruta:
-            return
-        try:
-            esquema = load_scheme(Path(ruta))
-        except PsgLabError as error:
-            self._avisar(error)
-            return
-        self._cambiar(self._prefs.with_scheme(esquema))
-        self._reflejar_solo_colores()
-
-    def _reflejar_solo_colores(self) -> None:
-        """Vuelve a mostrar la solapa de colores sin avisar."""
-        anterior = self._reflejando
-        self._reflejando = True
-        try:
-            self._reflejar_colores()
-        finally:
-            self._reflejando = anterior
-
-    def _reflejar_colores(self) -> None:
-        esquema = self._prefs.scheme()
-        self.scheme_label.setText(f"En uso: {esquema.name}")
-        bajos = theme.low_contrast_elements(esquema)
-        self.contrast_notice.setText(
-            ""
-            if not bajos
-            else "Poco contraste con el fondo: "
-            + "; ".join(
-                f"{que} ({_texto(contraste)} a 1)" for que, contraste in bajos
-            )
-        )
-        for campo, boton in self.color_buttons.items():
-            valor = getattr(esquema, campo)
-            # Un fondo de ventana vacío es «el mismo que el fondo»: el botón
-            # muestra ése, que es el que se ve.
-            boton.set_color(valor if valor is not None else esquema.background)
-        # El color del botón va antes que la casilla: marcarla lee el botón.
-        if esquema.baseline is not None:
-            self.baseline_button.set_color(esquema.baseline)
-        self.baseline_check.setChecked(esquema.baseline is not None)
-        self.baseline_button.setEnabled(esquema.baseline is not None)
-        self.vary_colors.setChecked(esquema.vary_signal_colors)
-        self.grid_ecg.setChecked(esquema.ecg_grid)
-        self.grid_normal.setChecked(not esquema.ecg_grid)
-
-        for boton in self.palette_buttons:
-            self._fila_de_paleta.removeWidget(boton)
-            boton.deleteLater()
-        self.palette_buttons = []
-        for posicion, color in enumerate(esquema.signal_palette):
-            boton = ColorButton(color)
-            boton.setFixedSize(28, 22)
-            boton.on_chosen = lambda elegido, p=posicion: self._cambiar_paleta(p, elegido)
-            # Antes del estiramiento del final, para que queden juntos.
-            self._fila_de_paleta.insertWidget(posicion, boton)
-            self.palette_buttons.append(boton)
-
-    # -- Editor de anotaciones ---------------------------------------------------
 
     def _armar_anotaciones(self) -> QWidget:
         solapa = QWidget()

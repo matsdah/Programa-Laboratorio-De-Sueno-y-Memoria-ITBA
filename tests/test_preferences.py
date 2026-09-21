@@ -18,6 +18,7 @@ import pytest
 
 pytest.importorskip("pyqtgraph")
 
+import psglab.ui.fonts as fonts  # noqa: E402
 import psglab.ui.preferences as preferences  # noqa: E402
 import psglab.ui.theme as theme  # noqa: E402
 from psglab.utils.errors import (  # noqa: E402
@@ -36,7 +37,7 @@ def archivo(tmp_path: Path) -> Path:
 
 
 def test_sin_haber_guardado_nada_se_usa_el_esquema_de_fabrica():
-    assert preferences.Preferences().scheme() is theme.CLARO
+    assert preferences.Preferences().scheme() is theme.SERENO
 
 
 def test_un_archivo_que_no_existe_no_es_un_error(tmp_path: Path):
@@ -48,27 +49,21 @@ def test_un_archivo_que_no_existe_no_es_un_error(tmp_path: Path):
 
 
 def test_lo_guardado_vuelve_igual(archivo: Path):
-    preferences.save(preferences.Preferences().with_scheme(theme.OSCURO), archivo)
+    preferences.save(preferences.Preferences().with_scheme(theme.NOCTURNO), archivo)
 
-    assert preferences.load(archivo).scheme() == theme.OSCURO
+    assert preferences.load(archivo).scheme() == theme.NOCTURNO
 
 
-def test_de_un_esquema_de_fabrica_se_guarda_solo_el_nombre(archivo: Path):
-    """Así, mejorar los colores de un esquema en una versión nueva alcanza a
-    quien ya lo tenía elegido, en vez de dejarlo con la copia vieja."""
-    preferences.save(preferences.Preferences().with_scheme(theme.ECG), archivo)
+def test_del_esquema_se_guarda_sólo_el_nombre(archivo: Path):
+    """Así, mejorar los colores en una versión nueva alcanza a quien ya lo
+    tenía elegido, en vez de dejarlo con la copia vieja. **Desde el hito 35 no
+    hay otra cosa que guardar**: los esquemas no se editan."""
+    preferences.save(preferences.Preferences().with_scheme(theme.NOCTURNO), archivo)
 
     guardado = json.loads(archivo.read_text(encoding="utf-8"))
 
-    assert guardado["scheme_name"] == "ECG"
+    assert guardado["scheme_name"] == "Nocturno"
     assert "custom_scheme" not in guardado
-
-
-def test_un_esquema_modificado_se_guarda_entero(archivo: Path):
-    propio = theme.ColorScheme(**{**theme.scheme_to_dict(theme.OSCURO), "background": "#123456"})  # type: ignore[arg-type]
-    preferences.save(preferences.Preferences().with_scheme(propio), archivo)
-
-    assert preferences.load(archivo).scheme().background == "#123456"
 
 
 def test_el_archivo_declara_su_version(archivo: Path):
@@ -122,23 +117,26 @@ def test_un_esquema_que_ya_no_existe_cae_en_el_de_fabrica(archivo: Path):
     no es motivo para no arrancar, así que esto **no** eleva."""
     archivo.write_text(json.dumps({"scheme_name": "Fluorescente"}), encoding="utf-8")
 
-    assert preferences.load(archivo).scheme() is theme.CLARO
+    assert preferences.load(archivo).scheme() is theme.SERENO
 
 
 def test_un_nombre_que_no_es_texto_cae_en_el_de_fabrica(archivo: Path):
     archivo.write_text(json.dumps({"scheme_name": 7}), encoding="utf-8")
 
-    assert preferences.load(archivo).scheme() is theme.CLARO
+    assert preferences.load(archivo).scheme() is theme.SERENO
 
 
-def test_un_esquema_propio_ilegible_avisa(archivo: Path):
+def test_un_esquema_propio_de_un_archivo_viejo_se_ignora(archivo: Path):
+    """**Era un error y ahora es una clave que sobra** (hito 35). Un archivo
+    escrito antes trae el esquema que el usuario había editado a mano; los
+    esquemas ya no se editan, así que se lee el nombre y lo demás se descarta
+    en vez de impedir arrancar."""
     archivo.write_text(
         json.dumps({"scheme_name": "Propio", "custom_scheme": {"background": 3}}),
         encoding="utf-8",
     )
 
-    with pytest.raises(UnknownColorSchemeError):
-        preferences.load(archivo)
+    assert preferences.load(archivo).scheme() is theme.SERENO
 
 
 def test_los_errores_del_modulo_son_del_programa():
@@ -154,7 +152,7 @@ VALORES_HOSTILES: tuple[object, ...] = (
 )
 
 #: Todos los campos que `load()` lee del archivo.
-CAMPOS_GUARDADOS: list[str] = sorted(set(preferences._LECTORES) | {"scheme_name", "custom_scheme"})
+CAMPOS_GUARDADOS: list[str] = sorted(set(preferences._LECTORES) | {"scheme_name"})
 
 
 @pytest.mark.parametrize("campo", CAMPOS_GUARDADOS)
@@ -193,29 +191,6 @@ def test_una_banda_de_dos_numeros_vuelve_a_las_de_fabrica_sin_llevarse_el_resto(
 # -- Esquemas en archivos sueltos --------------------------------------------
 
 
-def test_un_esquema_guardado_aparte_vuelve_igual(tmp_path: Path):
-    """Es lo que permite que el laboratorio se pase un esquema por correo y que
-    todas las máquinas se vean igual."""
-    destino = tmp_path / "laboratorio.json"
-
-    preferences.save_scheme(destino, theme.AZUL_SOBRE_GRIS)
-
-    assert preferences.load_scheme(destino) == theme.AZUL_SOBRE_GRIS
-
-
-def test_cargar_un_esquema_que_no_esta_avisa(tmp_path: Path):
-    with pytest.raises(InvalidPreferencesError):
-        preferences.load_scheme(tmp_path / "no-existe.json")
-
-
-def test_cargar_un_esquema_con_basura_avisa(tmp_path: Path):
-    destino = tmp_path / "roto.json"
-    destino.write_text("{", encoding="utf-8")
-
-    with pytest.raises(InvalidPreferencesError):
-        preferences.load_scheme(destino)
-
-
 # -- Dónde vive el archivo ---------------------------------------------------
 
 
@@ -245,7 +220,11 @@ def test_los_campos_nuevos_arrancan_en_su_valor_de_fabrica():
     de configuración: página de 30 s, AASM, espectro de Welch en logarítmico."""
     valores = preferences.Preferences()
 
-    assert valores.font_family is None
+    # **Era `None` —la del sistema— hasta el hito 34.** Ahora arranca en la que
+    # el programa empaqueta, que es la del diseño; quien prefiera otra la elige
+    # en Configuración → Tipografía, y quien ya tenga preferencias guardadas
+    # conserva la suya, porque el archivo siempre escribe este campo.
+    assert valores.font_family == fonts.UI_FONT_FAMILY
     assert valores.psd_method == "welch"
     assert valores.psd_log_power is True
     assert valores.bands() == dict(preferences.DEFAULT_BANDS)
@@ -392,7 +371,10 @@ def test_un_archivo_de_la_version_anterior_sigue_cargando(archivo: Path):
 
     leidas = preferences.load(archivo)
 
-    assert leidas.scheme() is theme.OSCURO
+    # **«Oscuro» es uno de los seis que se fueron en el hito 35**, así que el
+    # nombre se conserva tal como estaba escrito y el esquema cae en el de
+    # fábrica: quedarse sin colores no es motivo para no arrancar.
+    assert leidas.scheme() is theme.SERENO
     assert leidas == preferences.Preferences(scheme_name="Oscuro")
 
 
@@ -411,7 +393,7 @@ def test_un_archivo_de_antes_con_disposicion_se_lee_igual(archivo: Path):
 
     leidas = preferences.load(archivo)
 
-    assert leidas.scheme() is theme.OSCURO
+    assert leidas.scheme() is theme.SERENO
     assert not hasattr(leidas, "window_state")
 
 

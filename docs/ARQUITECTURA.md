@@ -200,9 +200,14 @@ de pip. Por eso quedan anotadas acá, y un archivo que se agregue a esa carpeta
 tiene que traer su licencia y sumarse a este párrafo.
 
 Se bajaron del repositorio oficial, `github.com/IBM/plex`, y se verificaron
-contra los tamaños que publica su API. Registrarlas no cambia lo que se ve al
-arrancar: el programa sigue con la tipografía del sistema y el esquema Claro, y
-las usa quien elige el esquema Papel o las elige en Tipografía.
+contra los tamaños que publica su API.
+
+**Desde el hito 34 son las que se ven al arrancar**: Sans en la interfaz, por
+el valor de fábrica de `font_family`, y Mono en las lecturas numéricas, por los
+dos esquemas nuevos. Hasta entonces sólo las usaba quien elegía el esquema
+Papel o las pedía en Tipografía. Lo que no cambió es qué pasa si faltan: el
+programa arranca igual, con la del sistema, y `fonts.available_family()` es lo
+que impide que Qt sustituya por cualquier otra sin avisar.
 
 Verificar antes de cada release:
 
@@ -389,13 +394,37 @@ Dos advertencias sobre estos números, para quien los vuelva a medir:
 
 ### Contraste de los esquemas de color — WCAG 2.1, verificado por test
 
-Los seis esquemas de fábrica se comprueban contra los umbrales de **WCAG 2.1**:
-4,5 a 1 para el texto (criterio 1.4.3) y 3 a 1 para lo que hay que distinguir
-de un vistazo, que en este programa son las curvas y la paleta de canales
-(criterio 1.4.11). `theme.low_contrast_elements()` hace la cuenta y
-`tests/test_theme.py` exige que ningún esquema de fábrica tenga nada en esa
-lista. Un esquema con fondo de ventana propio —Papel, desde el hito 26— suma
-el texto sobre ese fondo a la cuenta.
+Los dos esquemas del programa se comprueban contra los umbrales de **WCAG
+2.1**: 4,5 a 1 para el texto (criterio 1.4.3) y 3 a 1 para lo que hay que
+distinguir de un vistazo, que en este programa son las curvas, la paleta de
+canales y —desde el hito 34— la escala de fases (criterio 1.4.11).
+`theme.low_contrast_elements()` hace la cuenta y `tests/test_theme.py` exige
+que ningún esquema de fábrica tenga nada en esa lista. Un esquema con fondo de
+ventana propio —Papel, desde el hito 26— suma el texto sobre ese fondo a la
+cuenta.
+
+**El control se hereda solo**: recorre `theme.SCHEMES`, así que un esquema
+nuevo queda enrolado sin que nadie se acuerde de agregarlo. Los dos del hito 34
+entraron así.
+
+### Por qué el color de una fase vive en el esquema
+
+Hasta el hito 34 el programa no tenía ninguno: el hipnograma se dibujaba con
+una sola tinta. Al agregarlos había tres lugares posibles y uno solo es
+correcto.
+
+**No en `config.py`**, que guarda lo que fija el pliego: el pliego no dice nada
+de colores, igual que con la paleta de canales. **No en `core/nomenclature.py`**,
+donde vive `SleepStage`: el modelo no puede saber de presentación, y la regla
+de que `core/` no conoce `ui/` es lo que permite testear el scoring sin abrir
+una ventana. **Sí en `ColorScheme`**, porque el color de una fase depende del
+fondo sobre el que se dibuja —el azul profundo que se lee sobre papel
+desaparece sobre negro— y porque la misma escala tiene que pintar el
+hipnograma, la franja de posición y el botón: si viviera en cada uno, se
+separarían.
+
+El campo se pide por el **valor** de la fase (`"N2"`) y no por el miembro del
+enum, que es lo que evita que `ui/theme.py` importe `core/`.
 
 **Se eligió un estándar y no un criterio propio** porque un umbral inventado se
 discute cada vez que alguien no ve bien un color; uno publicado, no.
@@ -410,9 +439,28 @@ paleta compartida habría cambiado el esquema claro sin motivo.
 tienen que verse menos que la señal: exigirles 3 a 1 las volvería tan
 llamativas como lo que están ayudando a medir.
 
-**Un esquema propio con poco contraste se permite**, con un aviso en la ventana
-de configuración. Puede ser buscado —para imprimir, por ejemplo—, pero quien lo
-elige tiene que saberlo.
+### Por qué son dos esquemas y no se editan
+
+Hasta el hito 35 eran ocho, cada color se cambiaba uno por uno y un esquema
+propio con poco contraste se permitía con un aviso al costado. El resultado era
+que **el programa tenía infinitos aspectos posibles y ninguno garantizado**: el
+control de arriba sólo alcanzaba a los de fábrica, y el que se armaba a mano
+podía dejar la señal casi invisible con un cartel que nadie lee dos veces.
+
+El usuario decidió quedarse con los dos del rediseño y ninguna perilla. Lo que
+se gana no es sólo código de menos: **lo que se ve en una máquina del
+laboratorio es lo que se ve en todas**, y las dos combinaciones posibles están
+medidas. Lo que se pierde —un esquema para imprimir en blanco y negro, o uno
+armado para una pantalla concreta— no lo pidió nadie en doce hitos de
+interfaz. Si alguna vez hace falta, vuelve como un esquema más en la lista,
+verificado como los dos que hay, y no como una perilla por color.
+
+Con eso se fueron también el archivo suelto de esquema —`save_scheme` y
+`load_scheme`, la vía para pasarse uno por correo—, el campo `custom_scheme`
+de las preferencias y la grilla cuadriculada del esquema ECG, que era lo único
+que la usaba. Un archivo de preferencias viejo que traiga cualquiera de esas
+claves **sigue cargando**: el nombre que ya no existe cae en el de fábrica y lo
+demás se ignora.
 
 ## Convenciones de código
 

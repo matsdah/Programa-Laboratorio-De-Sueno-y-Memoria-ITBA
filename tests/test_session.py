@@ -18,10 +18,12 @@ import numpy as np
 import pytest
 
 from psglab.config import (
+    DEFAULT_SCALE_BY_KIND_UV,
     DEFAULT_SCALE_UV,
     DEFAULT_VIEW_SECONDS,
     MAX_SCALE_UV,
     MIN_SCALE_UV,
+    WINDOW_SECONDS,
 )
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature
@@ -226,9 +228,59 @@ def test_las_listas_de_canales_son_copias(session, propiedad):
 # -- Amplitud (V2_P, V5_F de "Visualización") -------------------------------
 
 
-def test_todos_los_canales_arrancan_con_la_escala_por_defecto(session, channel_names):
-    for nombre in channel_names:
-        assert session.scale_uv(nombre) == pytest.approx(DEFAULT_SCALE_UV)
+def test_cada_canal_arranca_con_la_escala_de_su_clase(session, channel_names):
+    """**Una sola escala para todos no sirve** y era lo que había: con los
+    100 µV de un EEG, un canal respiratorio se sale de su carril y barre media
+    pantalla, y un EMG queda aplastado contra su eje."""
+    esperadas = [DEFAULT_SCALE_BY_KIND_UV[clase.value] for clase in CLASES]
+
+    medidas = [session.scale_uv(nombre) for nombre in channel_names]
+
+    assert medidas == pytest.approx(esperadas)
+    assert len(set(medidas)) > 1
+
+
+def test_una_clase_sin_escala_propia_se_mide(sampling_rate):
+    """Respiratorio y Otro no tienen ninguna escala de uso corriente —un
+    termómetro y un flujo de aire no comparten unidad— así que se miden sobre
+    la primera época, que es la que se va a ver."""
+    tiempos = np.arange(int(sampling_rate * WINDOW_SECONDS)) / sampling_rate
+    datos = np.vstack([800.0 * np.sin(2 * np.pi * 0.3 * tiempos)])
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("Resp oro-nasal", ChannelKind.RESPIRATORY, "µV", 0)],
+        data=datos,
+        sampling_rate=sampling_rate,
+    )
+
+    sesion = Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
+
+    assert sesion.scale_uv("Resp oro-nasal") == pytest.approx(800.0, rel=0.01)
+
+
+def test_un_canal_plano_sin_escala_propia_se_queda_con_la_de_fabrica(sampling_rate):
+    """No hay ninguna escala "correcta" para una línea recta, y dividir por
+    cero dejaría el canal invisible."""
+    muestras = int(sampling_rate * WINDOW_SECONDS)
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("Temp rectal", ChannelKind.OTHER, "µV", 0)],
+        data=np.zeros((1, muestras)),
+        sampling_rate=sampling_rate,
+    )
+
+    sesion = Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
+
+    assert sesion.scale_uv("Temp rectal") == pytest.approx(DEFAULT_SCALE_UV)
+
+
+def test_la_tabla_de_escalas_no_nombra_una_clase_que_no_existe():
+    """`config.py` no puede importar `core/`, así que la tabla se escribe con
+    el valor de cada clase. Renombrar una clase dejaría su escala sin aplicarse
+    **en silencio**: el canal seguiría abriendo con la de fábrica."""
+    clases = {clase.value for clase in ChannelKind}
+
+    assert set(DEFAULT_SCALE_BY_KIND_UV) <= clases
 
 
 def test_la_flecha_arriba_hace_que_el_canal_represente_menos_microvoltios(session):

@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
 from psglab.analysis.filters import FilterSettings, default_for
 from psglab.core.recording import ChannelKind, Recording
 from psglab.ui.impedance_panel import FixedColumnDelegate
+from psglab.ui.panel_header import PanelHeader
 
 #: Cómo se llama cada clase de canal en la pantalla. El enum está en inglés
 #: —convención del proyecto— y todo lo que ve el usuario, en español.
@@ -87,16 +88,28 @@ class FilterPanel(QWidget):
         botones.addWidget(self.boton_sugeridos)
         botones.addWidget(self.boton_aplicar)
 
-        columna = QVBoxLayout(self)
+        #: El encabezado, con cuántas clases tiene el registro y contra qué
+        #: frecuencia se sugirieron los cortes. Ver `PanelHeader`.
+        self.header = PanelHeader("Filtros")
+
         self.rotulo = QLabel(
             "Dejá la celda vacía para desactivar ese filtro. Los valores "
             "sugeridos son los habituales en polisomnografía, no una "
             "imposición."
         )
         self.rotulo.setWordWrap(True)
-        columna.addWidget(self.rotulo)
-        columna.addWidget(self.tabla)
-        columna.addLayout(botones)
+
+        cuerpo = QVBoxLayout()
+        cuerpo.setContentsMargins(8, 8, 8, 8)
+        cuerpo.addWidget(self.rotulo)
+        cuerpo.addWidget(self.tabla)
+        cuerpo.addLayout(botones)
+
+        columna = QVBoxLayout(self)
+        columna.setContentsMargins(0, 0, 0, 0)
+        columna.setSpacing(0)
+        columna.addWidget(self.header)
+        columna.addLayout(cuerpo)
 
     # -- Lo que le da la ventana principal ----------------------------------
 
@@ -114,7 +127,21 @@ class FilterPanel(QWidget):
         self._clases = vistas
         self._frecuencia = recording.sampling_rate
         self._explicar_el_tope()
+        self._reflejar_el_encabezado()
         self.restore_defaults()
+
+    def _reflejar_el_encabezado(self) -> None:
+        """Cuántas clases hay que filtrar, y contra qué frecuencia.
+
+        **La frecuencia va en el encabezado y el tope de Nyquist en el
+        rótulo**, que son dos cosas distintas: la primera dice de dónde salen
+        los sugeridos y la segunda por qué algunos vienen vacíos.
+        """
+        cuantas = len(self._clases)
+        plural = "clase" if cuantas == 1 else "clases"
+        self.header.set_caption(f"{cuantas} {plural} de canal")
+        if self._frecuencia is not None:
+            self.header.set_detail(f"sugeridos para {self._frecuencia:g} Hz")
 
     def restore_defaults(self) -> None:
         """Vuelve a los valores sugeridos para cada clase.

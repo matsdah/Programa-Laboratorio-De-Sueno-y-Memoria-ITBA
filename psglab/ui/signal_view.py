@@ -4,6 +4,12 @@ Dibuja los canales visibles de la ventana de 30 segundos actual, con el
 nombre y la clase de cada uno y la escala de amplitud en microvoltios a la
 izquierda.
 
+**Ese "a la izquierda" es literal desde el hito 37**, y no lo era antes: los
+rótulos eran ítems de la escena apoyados sobre cada carril, o sea dentro del
+área de trazo, y la señal se dibujaba encima. Hoy son el canalón
+—`psglab/ui/channel_axis.py`—, que es el eje izquierdo del gráfico y por eso
+tiene ancho propio que la señal no puede invadir.
+
 Sobre la escala vertical: la relación píxeles/µV se mantiene explícita y no
 se deja librada al tamaño de la ventana. El pliego pide, en el rol UX/UI,
 "pensar en el tamaño de la pantalla con la deformación potencial de la onda";
@@ -27,6 +33,8 @@ descartaba y se pintaba un círculo de tamaño fijo.
 
 from collections import OrderedDict
 from collections.abc import Sequence
+from datetime import datetime
+from typing import Final
 
 import numpy as np
 import pyqtgraph as pg
@@ -35,9 +43,11 @@ from PySide6.QtGui import QFont
 
 from psglab.config import WINDOW_SECONDS
 from psglab.core.decimation import min_max_envelope
+from psglab.core.nomenclature import SleepStage, stage_label
 from psglab.core.session import Session
 from psglab.core.windows import (
     epoch_to_seconds,
+    seconds_to_clock_time,
     seconds_to_sample_absolute,
     seconds_to_samples,
     seconds_to_view_fraction,
@@ -50,6 +60,7 @@ from psglab.tools.base import (
     SpanOverlay,
 )
 from psglab.ui import theme
+from psglab.ui.channel_axis import ChannelAxis, ChannelLane
 from psglab.ui.grid import GridBackground
 
 #: Separación vertical entre canales, en unidades del gráfico. Cada canal ocupa
@@ -80,17 +91,88 @@ _COLUMNAS_MINIMAS: int = 1000
 _ENVOLVENTES_EN_MEMORIA: int = 64
 
 
+class TimeAxis(pg.AxisItem):
+    """El eje horizontal, en hora de la noche cuando el archivo la informa.
+
+    **Decía «Segundos de la ventana» y numeraba de 1 a 29.** Un scorer no
+    nombra un evento por el segundo que ocupa dentro de su época: lo nombra por
+    la hora de la noche, que es además la unidad con la que la barra de
+    navegación, la franja y el hipnograma ya hablan. Que el eje de la señal
+    fuera el único en segundos relativos obligaba a hacer la cuenta a mano.
+
+    **Cuando el archivo no informa su horario de inicio vuelve a los
+    segundos**, con el rótulo y todo: es lo que pasa con un EDF anónimo, y
+    numerar de 1 a 29 sigue siendo mejor que no decir nada.
+    """
+
+    #: Qué rótulo lleva el eje cuando no hay hora que mostrar. Con la hora
+    #: puesta no lleva ninguno: «21:05» no necesita que le expliquen qué es.
+    ROTULO_EN_SEGUNDOS: Final[str] = "Segundos de la ventana"
+
+    def __init__(self) -> None:
+        """Crea el eje en segundos, que es como arranca sin registro."""
+        super().__init__(orientation="bottom")
+        self._inicio: datetime | None = None
+        self.setLabel(self.ROTULO_EN_SEGUNDOS)
+
+    def set_start_time(self, start_time: datetime | None) -> None:
+        """Le dice al eje cuándo empezó el registro, o `None` si no se sabe."""
+        self._inicio = start_time
+        self.showLabel(start_time is None)
+        self.picture = None
+        self.update()
+
+    def start_time(self) -> datetime | None:
+        """El horario de inicio con el que está numerando, o `None`."""
+        return self._inicio
+
+    def tickStrings(self, values: list[float], scale: float, spacing: float) -> list[str]:
+        """Numera cada marca con la hora de la noche que le toca.
+
+        El formato lo decide cuánto hay entre marcas: con marcas cada minuto o
+        más, los segundos son ruido; con una página de milisegundos —que la
+        escala de tiempo libre permite— hace falta la décima, o todas las
+        marcas dirían lo mismo.
+        """
+        if self._inicio is None:
+            return super().tickStrings(values, scale, spacing)
+        etiquetas: list[str] = []
+        for valor in values:
+            momento = seconds_to_clock_time(float(valor) * scale, self._inicio)
+            if momento is None:  # pragma: no cover - `_inicio` ya se comprobó
+                etiquetas.append("")
+            elif spacing >= 60.0:
+                etiquetas.append(momento.strftime("%H:%M"))
+            elif spacing >= 1.0:
+                etiquetas.append(momento.strftime("%H:%M:%S"))
+            else:
+                decima = momento.microsecond // 100_000
+                etiquetas.append(f"{momento.strftime('%H:%M:%S')},{decima}")
+        return etiquetas
+
+
 class SignalView(pg.PlotWidget):
     """Panel de visualización de las ondas."""
 
     def __init__(self) -> None:
         """Crea el visualizador vacío, sin registro."""
-        super().__init__()
+        # **El canalón se crea antes que el widget** y entra como el eje
+        # izquierdo del gráfico: `PlotItem` sólo acepta ejes propios al
+        # construirse, y es lo que le descuenta ancho al área de trazo.
+        eje = ChannelAxis()
+        eje_de_tiempo = TimeAxis()
+        super().__init__(axisItems={"left": eje, "bottom": eje_de_tiempo})
+        #: La columna de la izquierda con el nombre y la escala de cada canal.
+        #: Ver `psglab/ui/channel_axis.py`.
+        self.channel_axis: ChannelAxis = eje
+        #: El eje de abajo, en hora de la noche. Ver `TimeAxis`.
+        self.time_axis: TimeAxis = eje_de_tiempo
         self._session: Session | None = None
         self._window_index: int = 0
         self._curves: dict[str, pg.PlotCurveItem] = {}
-        self._labels: list[pg.TextItem] = []
         self._overlay_items: list[object] = []
+        #: La pestaña con el número de época y su fase. Ver `_marcar_la_pestana()`.
+        self._pestana: pg.TextItem | None = None
         #: La banda que marca la epoca de scoring sobre la pagina visible.
         self._epoca: object | None = None
         #: La línea que marca por dónde va la reproducción. Se crea la primera
@@ -114,8 +196,6 @@ class SignalView(pg.PlotWidget):
         item.hideButtons()
         item.setMenuEnabled(False)
         item.setMouseEnabled(x=False, y=False)
-        item.hideAxis("left")
-        item.setLabel("bottom", "Segundos de la ventana")
         self.grid = GridBackground(item)
         # El nombre que lee un lector de pantalla, y el foco por teclado: sin
         # él, F6 no tendría dónde dejar el foco al volver a la señal.
@@ -154,6 +234,7 @@ class SignalView(pg.PlotWidget):
     def set_session(self, session: Session) -> None:
         """Asocia el visualizador a una sesión de trabajo."""
         self._session = session
+        self.time_axis.set_start_time(session.recording.start_time)
         self.set_visible_channels(session.visible_channels)
         self.show_window(session.current_window)
 
@@ -240,14 +321,11 @@ class SignalView(pg.PlotWidget):
                 tiempos,
                 centro + ((tramo - desplazamiento) / escala) * _LLENADO_DEL_CARRIL,
             )
-        # **Los nombres de canal acompañan a la página.** Se creaban en x = 0 y
-        # ahí quedaban, lo que era correcto mientras el eje empezaba siempre en
-        # cero. Con el eje en segundos absolutos, desde la segunda época en
-        # adelante el cero queda fuera de la pantalla y los nombres
-        # desaparecían: el investigador veía carriles sin saber de qué canal era
-        # cada uno.
-        for etiqueta in self._labels:
-            etiqueta.setPos(pagina.start_seconds, etiqueta.pos().y())
+        # **Los nombres de canal ya no siguen a la página.** Mientras eran
+        # ítems de la escena había que arrastrarlos hasta el borde izquierdo en
+        # cada dibujo, porque con el eje en segundos absolutos el cero queda
+        # fuera de la pantalla desde la segunda época. Desde que son el
+        # canalón viven fuera del área de trazo y la página no los mueve.
         self.update_amplitude_scale()
 
     def _columnas(self) -> int:
@@ -334,6 +412,8 @@ class SignalView(pg.PlotWidget):
         if self._session is None:
             if self._epoca is not None:
                 self._epoca.hide()
+            if self._pestana is not None:
+                self._pestana.hide()
             return
 
         inicio, fin = epoch_to_seconds(
@@ -348,11 +428,75 @@ class SignalView(pg.PlotWidget):
             self.getPlotItem().addItem(self._epoca)
             return
 
-        self._epoca.show()
+        # **La banda se esconde cuando cubriría la pantalla entera.** Con la
+        # página de una época —que es la de arranque— la banda y la página son
+        # lo mismo, así que no marca ningún tramo: le cambia el color al fondo
+        # del visualizador. Lo mostró una captura, y no se ve desde el código.
+        pagina = self._session.viewport
+        self._epoca.setVisible(
+            pagina.start_seconds < inicio or pagina.end_seconds > fin
+        )
         # `setRegion` no hace nada si la época es la misma, así que reproducir
         # —que mueve la página y no la época— no le pide nada a la escena.
         if self._epoca.getRegion() != (inicio, fin):
             self._epoca.setRegion((inicio, fin))
+        # **La pestaña se recorta contra el borde de la página.** Con una
+        # página más corta que la época, el comienzo de la época queda fuera de
+        # la pantalla y la pestaña se iba con él.
+        self._marcar_la_pestana(max(inicio, pagina.start_seconds))
+
+    def _marcar_la_pestana(self, inicio: float) -> None:
+        """Escribe en el borde de la banda qué época es y en qué fase está.
+
+        **La banda decía dónde se scorea y no qué se scorea** (hito 34): con la
+        página larga hay que mirar la barra de abajo para saber en qué época
+        cayó el resaltado, y la fase sólo se ve en el panel de scoring, que
+        puede estar cerrado.
+
+        **Se crea una vez y después sólo se mueve**, como la banda y el cursor,
+        y el texto se rearma sólo cuando cambió: reproducir mueve la página sin
+        cambiar de época, así que en el camino caliente esto no le pide nada a
+        la escena.
+
+        La época va en base 1, como en la barra de estado y en los archivos de
+        salida; la conversión se hace acá, al mostrar.
+        """
+        if self._session is None:
+            return
+        fase = self._session.scoring.get(self._window_index).stage
+        texto = f"Época {self._window_index + 1}"
+        if fase is not SleepStage.UNSCORED:
+            texto = f"{texto} · {stage_label(fase)}"
+        if self._pestana is None:
+            esquema = theme.current()
+            # **Rellena y no texto suelto**: es una pestaña colgada del borde de
+            # la banda, como en el diseño. La tinta la elige `theme.ink_over()`
+            # midiendo contra el relleno, que es la misma función que decide la
+            # del botón de la fase marcada y la del icono de reproducir.
+            self._pestana = pg.TextItem(
+                texto,
+                anchor=(0, 0),
+                color=theme.ink_over(esquema, esquema.accent),
+                fill=pg.mkBrush(esquema.accent),
+            )
+            # **Encima de la grilla y debajo de las curvas.** A −19 estaba
+            # debajo de la grilla, que es un solo objeto en −10 y le dibujaba
+            # sus líneas por encima al texto: en la captura la pestaña salía
+            # partida en dos.
+            self._pestana.setZValue(-5)
+            self.getPlotItem().addItem(self._pestana)
+        elif self._pestana.toPlainText() != texto:
+            self._pestana.setText(texto)
+        self._pestana.setPos(inicio, self._techo_de_la_pestana())
+
+    def _techo_de_la_pestana(self) -> float:
+        """La altura a la que se apoya la pestaña: el borde de arriba del eje.
+
+        El eje vertical son carriles y no microvoltios —uno por canal, el
+        primero en 0— así que arriba de todo es 0,5, que es el mismo medio
+        carril de margen que reserva `set_visible_channels()`.
+        """
+        return 0.5
 
     def mark_window(self, window_index: int) -> None:
         """Mueve la banda a otra época **sin tocar la página**.
@@ -403,9 +547,15 @@ class SignalView(pg.PlotWidget):
         return pg.mkPen(theme.current().accent, width=2)
 
     def _pincel_de_la_epoca(self) -> object:
-        """El relleno de la banda, translúcido para no tapar la señal."""
-        color = pg.mkColor(theme.current().coarse_grid)
-        color.setAlpha(40)
+        """El relleno de la banda, translúcido para no tapar la señal.
+
+        **El color es el del resaltado del contexto**, que es el que el diseño
+        le da a la época actual; translúcido y no opaco porque con la página de
+        una época la banda cubre la pantalla entera, y opaca cambiaría el fondo
+        del visualizador en vez de marcar un tramo.
+        """
+        color = pg.mkColor(theme.current().overview_current)
+        color.setAlpha(120)
         return pg.mkBrush(color)
 
     def refresh(self) -> None:
@@ -423,8 +573,7 @@ class SignalView(pg.PlotWidget):
         vieja.
         """
         self._fuente = QFont(font)
-        for etiqueta in self._labels:
-            etiqueta.setFont(self._fuente)
+        self.channel_axis.set_fonts(self._fuente, theme.current().numeric_font)
 
     def apply_scheme(self) -> None:
         """Vuelve a pintar todo con el esquema de color que esté en uso.
@@ -444,15 +593,23 @@ class SignalView(pg.PlotWidget):
 
         item = self.getPlotItem()
         pluma = pg.mkPen(esquema.foreground)
-        for nombre_de_eje in ("bottom", "left", "top", "right"):
+        # **El izquierdo queda afuera**: es el canalón, que elige sus dos
+        # tintas del esquema y se deja sin línea. Con la pluma de acá encima
+        # volvía a dibujar la regla vertical que el diseño no tiene.
+        for nombre_de_eje in ("bottom", "top", "right"):
             eje = item.getAxis(nombre_de_eje)
             eje.setPen(pluma)
             eje.setTextPen(pluma)
+        self.channel_axis.apply_scheme(esquema)
 
         # La banda de la época ya no se rehace en cada dibujo, así que su color
         # hay que cambiarlo acá: es lo único que la ataba al esquema.
         if self._epoca is not None:
             self._epoca.setBrush(self._pincel_de_la_epoca())
+        if self._pestana is not None:
+            self._pestana.setColor(theme.ink_over(esquema, esquema.accent))
+            self._pestana.fill = pg.mkBrush(esquema.accent)
+            self._pestana.updateTextPos()
         if self._cursor is not None:
             self._cursor.setPen(self._pluma_del_cursor())
 
@@ -616,10 +773,7 @@ class SignalView(pg.PlotWidget):
         item = self.getPlotItem()
         for curva in self._curves.values():
             item.removeItem(curva)
-        for etiqueta in self._labels:
-            item.removeItem(etiqueta)
         self._curves.clear()
-        self._labels.clear()
 
         esquema = theme.current()
         self._visible = list(channel_names)
@@ -633,7 +787,6 @@ class SignalView(pg.PlotWidget):
         )
         for posicion, nombre in enumerate(self._visible):
             color = esquema.color_for_channel(posicion)
-            centro = -posicion * _ALTO_DE_CARRIL
 
             # **Antes no se pedía ninguna pluma**, así que pyqtgraph usaba la
             # suya: todos los canales salían del mismo gris claro y con ocho
@@ -648,39 +801,16 @@ class SignalView(pg.PlotWidget):
             item.addItem(curva)
             self._curves[nombre] = curva
 
-            # El ancla cambió de `0.5` a `1.0`: la etiqueta se dibujaba centrada
-            # sobre el eje del canal, o sea encima de la señal. Ahora se apoya
-            # justo arriba, como en la referencia, y toma el color del canal
-            # para que se sepa cuál es sin contar carriles.
-            etiqueta = pg.TextItem(self.channel_label(nombre), anchor=(0, 1.0), color=color)
-            if self._fuente is not None:
-                etiqueta.setFont(self._fuente)
-            etiqueta.setPos(0.0, centro)
-            item.addItem(etiqueta)
-            self._labels.append(etiqueta)
+        # **El rótulo de cada canal es el canalón y ya no un ítem de la
+        # escena.** Mientras vivía adentro del gráfico se dibujaba encima de su
+        # propia señal y no se leía; ver `psglab/ui/channel_axis.py`.
+        self.update_amplitude_scale()
 
         if self._visible:
             item.setYRange(
                 -(len(self._visible) - 1) * _ALTO_DE_CARRIL - 0.5, 0.5, padding=0
             )
         self.refresh()
-
-    def channel_label(self, channel_name: str) -> str:
-        """Texto que acompaña al canal: nombre y clase detectada.
-
-        Ejemplo: "C3 (EEG)". El pliego pide mostrar la clase junto al nombre
-        para saber qué se está viendo (V4_F).
-
-        Sin registro abierto devuelve el nombre solo: la clase la detecta el
-        lector, así que antes de abrir un archivo no hay ninguna que mostrar.
-        """
-        if self._session is None:
-            return channel_name
-        try:
-            canal = self._session.recording.channel_by_name(channel_name)
-        except Exception:  # noqa: BLE001 - un canal que ya no está no rompe el dibujo
-            return channel_name
-        return f"{canal.name} ({canal.kind.value})"
 
     # -- Amplitud (V2_P, V5_F) ---------------------------------------------
 
@@ -703,18 +833,53 @@ class SignalView(pg.PlotWidget):
         self._session.decrease_amplitude()
         self.refresh()
 
+    def channel_detail(self, channel_name: str) -> str:
+        """La segunda línea del canalón: la escala de ese canal.
+
+        Ejemplo: "100 µV". Va separada del nombre porque las dos cosas no
+        pesan lo mismo: el nombre es lo que se busca y esto es lo que se
+        consulta.
+
+        **Llevaba también la clase y se le sacó.** Con un registro de verdad
+        —«Resp oro-nasal», clase «Respiratorio»— la línea no entraba en el
+        canalón y salía cortada con puntos suspensivos, que es peor que no
+        decirla. La clase se sigue viendo al lado del nombre en el selector de
+        canales, que es donde la pone el diseño y con lo que V4_F queda cubierto.
+
+        Sin registro abierto queda vacía, y con un canal que el registro ya no
+        tiene, también: el rótulo se queda con el nombre y el dibujo sigue.
+        """
+        if self._session is None:
+            return ""
+        try:
+            escala = self._session.scale_uv(channel_name)
+        except Exception:  # noqa: BLE001 - un canal que ya no está no rompe el dibujo
+            return ""
+        return f"{escala:.0f} µV"
+
     def update_amplitude_scale(self) -> None:
-        """Redibuja la escala en µV de la izquierda.
+        """Rearma los rótulos del canalón con la escala vigente.
 
         La escala tiene que reflejar la amplitud real de cada canal: si el
         usuario cambió la ganancia de un solo canal, la referencia de ese
         canal cambia y la de los demás no (V5_F).
+
+        **Rearma los dos renglones y no sólo el número**: son el mismo rótulo,
+        y mantener dos caminos —uno para el nombre y otro para la escala— era
+        garantizar que alguno quedara viejo.
         """
-        if self._session is None:
-            return
-        for etiqueta, nombre in zip(self._labels, self._visible):
-            escala = self._session.scale_uv(nombre)
-            etiqueta.setText(f"{self.channel_label(nombre)} — {escala:.0f} µV")
+        esquema = theme.current()
+        self.channel_axis.set_lanes(
+            [
+                ChannelLane(
+                    name=nombre,
+                    detail=self.channel_detail(nombre),
+                    color=esquema.color_for_channel(posicion),
+                    position=-posicion * _ALTO_DE_CARRIL,
+                )
+                for posicion, nombre in enumerate(self._visible)
+            ]
+        )
 
     # -- Coordenadas --------------------------------------------------------
     #

@@ -13,7 +13,13 @@ import pytest
 
 pytest.importorskip("pyqtgraph")
 
-from psglab.ui.impedance_panel import SIN_MEDIR, ImpedancePanel  # noqa: E402
+from psglab.analysis.impedance import DEFAULT_LIMIT_KOHM  # noqa: E402
+from psglab.ui.impedance_panel import (  # noqa: E402
+    PASA,
+    SIN_MEDIR,
+    SUPERA,
+    ImpedancePanel,
+)
 
 
 @pytest.fixture
@@ -205,3 +211,59 @@ def test_el_nombre_de_la_fila_no_se_edita(panel_cargado):
 def panel_cargado(panel: ImpedancePanel) -> ImpedancePanel:
     panel.set_channels(["C3", "C4"], {"C3": 5.0})
     return panel
+
+
+# -- La columna de estado (hito 40) ------------------------------------------
+
+
+def test_un_canal_bajo_el_limite_pasa(panel: ImpedancePanel):
+    """El límite es el mismo con el que `impedance_report()` arma el informe,
+    así que la columna y el informe no se pueden contradecir."""
+    panel.set_channels(["C3"], {"C3": DEFAULT_LIMIT_KOHM - 1.0})
+
+    assert panel.displayed_state("C3") == PASA
+
+
+def test_exactamente_el_limite_pasa(panel: ImpedancePanel):
+    """`channels_above_limit()` documenta que el límite es **inclusivo**: 5 kΩ
+    con un límite de 5 kΩ pasa. El chip tiene que decir lo mismo."""
+    panel.set_channels(["C3"], {"C3": DEFAULT_LIMIT_KOHM})
+
+    assert panel.displayed_state("C3") == PASA
+
+
+def test_por_encima_del_limite_supera(panel: ImpedancePanel):
+    panel.set_channels(["C3"], {"C3": DEFAULT_LIMIT_KOHM + 0.1})
+
+    assert panel.displayed_state("C3") == SUPERA
+
+
+def test_un_canal_sin_medir_no_lleva_capsula(panel: ImpedancePanel):
+    """Una cápsula gris parecería estar afirmando algo sobre una medición que
+    no existe, que es lo que el módulo entero evita con «sin medir»."""
+    panel.set_channels(["C3"], {})
+
+    assert panel.displayed_state("C3") == SIN_MEDIR
+    assert panel.state_color("C3") is None
+
+
+def test_escribir_un_valor_cambia_su_estado(panel: ImpedancePanel):
+    """El estado sale del valor y no se escribe: editar la celda lo rehace."""
+    panel.set_channels(["C3"], {})
+    panel.tabla.topLevelItem(0).setText(1, "12")
+
+    assert panel.displayed_state("C3") == SUPERA
+
+
+def test_el_encabezado_dice_cuantos_estan_medidos(panel: ImpedancePanel):
+    """Es lo primero que se pregunta al abrir el panel."""
+    panel.set_channels(["C3", "C4", "O1"], {"C3": 3.0})
+
+    assert panel.header.caption() == "1 de 3 medidos"
+
+
+def test_el_encabezado_dice_contra_que_limite(panel: ImpedancePanel):
+    """Sin el límite a la vista, «supera» no dice a qué."""
+    panel.set_channels(["C3"], {"C3": 3.0})
+
+    assert "5" in panel.header.detail()

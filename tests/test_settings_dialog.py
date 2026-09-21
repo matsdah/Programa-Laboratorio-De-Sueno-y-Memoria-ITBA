@@ -17,14 +17,13 @@ import pytest
 pytest.importorskip("pyqtgraph")
 
 from PySide6.QtGui import QColor  # noqa: E402
-from PySide6.QtWidgets import QColorDialog, QFileDialog  # noqa: E402
+from PySide6.QtWidgets import QColorDialog  # noqa: E402
 
 from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.config import VIEW_TIMESCALE_PRESETS  # noqa: E402
-from psglab.ui import theme  # noqa: E402
+from psglab.ui import fonts, theme  # noqa: E402
 from psglab.ui.preferences import Preferences  # noqa: E402
 from psglab.ui.settings_dialog import (  # noqa: E402
-    MODIFIED_SUFFIX,
     TAB_TITLES,
     ColorButton,
     SettingsDialog,
@@ -51,6 +50,14 @@ def dialogo(qt_app, cambios: list[Preferences], errores: list[PsgLabError]):
     ventana.on_error = errores.append
     yield ventana
     ventana.deleteLater()
+
+
+#: El esquema con el que arranca el diálogo, que es el de fábrica. **Se pide
+#: por `DEFAULT_SCHEME_NAME` y no por su nombre**: estos tests hablan del
+#: esquema con que se abre la ventana de configuración, y escribirlo a mano los
+#: hacía fallar el día que cambió —de «Claro» a «Sereno», en el rediseño de la
+#: pantalla principal—.
+DE_FABRICA = theme.scheme_by_name(theme.DEFAULT_SCHEME_NAME)
 
 
 def ultima(cambios: list[Preferences]) -> Preferences:
@@ -83,7 +90,7 @@ def test_reflejar_otras_preferencias_no_avisa_nada(dialogo: SettingsDialog, camb
     """Es lo que hace la ventana principal cada vez que la abre."""
     otras = (
         Preferences()
-        .with_scheme(theme.OSCURO)
+        .with_scheme(theme.NOCTURNO)
         .with_changes(psd_method="multitaper", psd_log_power=False, font_size=14)
         .with_bands({"Huso": (11.0, 16.0)})
         .with_annotation_color("Spindle", "#ff0000")
@@ -96,177 +103,19 @@ def test_reflejar_otras_preferencias_no_avisa_nada(dialogo: SettingsDialog, camb
 
 
 def test_lo_reflejado_es_lo_que_se_muestra(dialogo: SettingsDialog):
-    otras = Preferences().with_scheme(theme.ECG).with_changes(psd_method="multitaper")
+    otras = Preferences().with_scheme(theme.NOCTURNO).with_changes(
+        psd_method="multitaper"
+    )
 
     dialogo.set_preferences(otras)
 
-    assert dialogo.color_buttons["background"].color() == theme.ECG.background
-    assert dialogo.grid_ecg.isChecked()
     assert dialogo.psd_method.currentData() == "multitaper"
-
-
-def test_sin_fondo_de_ventana_propio_el_boton_muestra_el_fondo(dialogo: SettingsDialog):
-    """Vacío quiere decir «el mismo que el fondo», y eso es lo que se ve."""
-    dialogo.set_preferences(Preferences().with_scheme(theme.OSCURO))
-
-    assert dialogo.color_buttons["chrome"].color() == theme.OSCURO.background
-
-
-def test_papel_muestra_su_fondo_de_ventana(dialogo: SettingsDialog):
-    dialogo.set_preferences(Preferences().with_scheme(theme.PAPEL))
-
-    assert dialogo.color_buttons["chrome"].color() == theme.PAPEL.chrome
+    assert dialogo.preferences.scheme() is theme.NOCTURNO
 
 
 def test_reflejar_algo_que_no_son_preferencias_avisa(dialogo: SettingsDialog):
     with pytest.raises(PsgLabError):
         dialogo.set_preferences({"font_size": 12})
-
-
-# -- Colores ------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("nombre", list(theme.SCHEMES))
-def test_elegir_un_esquema_de_fabrica(dialogo: SettingsDialog, nombre: str):
-    dialogo.scheme_buttons[nombre].click()
-
-    assert dialogo.preferences.scheme() == theme.SCHEMES[nombre]
-
-
-def test_elegir_el_esquema_que_ya_estaba_no_avisa(dialogo: SettingsDialog, cambios):
-    dialogo.scheme_buttons[theme.CLARO.name].click()
-
-    assert cambios == []
-
-
-def test_cambiar_un_color_deja_de_llamarse_como_el_de_fabrica(
-    dialogo: SettingsDialog, cambios
-):
-    """Si conservara el nombre, el menú diría «Claro» sobre algo que ya no es el
-    claro."""
-    dialogo.color_buttons["background"].choose("#123456")
-
-    esquema = ultima(cambios).scheme()
-    assert esquema.background == "#123456"
-    assert esquema.name == theme.CLARO.name + MODIFIED_SUFFIX
-    assert dialogo.scheme_label.text().endswith(MODIFIED_SUFFIX)
-
-
-def test_volver_al_color_original_vuelve_a_ser_el_de_fabrica(
-    dialogo: SettingsDialog, cambios
-):
-    dialogo.color_buttons["background"].choose("#123456")
-    dialogo.color_buttons["background"].choose(theme.CLARO.background)
-
-    assert ultima(cambios).scheme() == theme.CLARO
-    assert ultima(cambios).custom_scheme is None
-
-
-def test_modificar_dos_veces_no_acumula_el_sufijo(dialogo: SettingsDialog, cambios):
-    dialogo.color_buttons["background"].choose("#123456")
-    dialogo.color_buttons["signals"].choose("#654321")
-
-    assert ultima(cambios).scheme().name == theme.CLARO.name + MODIFIED_SUFFIX
-
-
-def test_la_grilla_ecg_se_prende_y_se_apaga(dialogo: SettingsDialog, cambios):
-    dialogo.grid_ecg.setChecked(True)
-    assert ultima(cambios).scheme().ecg_grid
-
-    dialogo.grid_normal.setChecked(True)
-    assert not ultima(cambios).scheme().ecg_grid
-
-
-def test_variar_el_color_por_canal(dialogo: SettingsDialog, cambios):
-    dialogo.vary_colors.setChecked(not dialogo.vary_colors.isChecked())
-
-    assert (
-        ultima(cambios).scheme().vary_signal_colors
-        != theme.CLARO.vary_signal_colors
-    )
-
-
-def test_la_linea_de_base_se_apaga_y_vuelve_con_su_color(
-    dialogo: SettingsDialog, cambios
-):
-    dialogo.set_preferences(Preferences().with_scheme(theme.OSCURO))
-    assert dialogo.baseline_check.isChecked()
-
-    dialogo.baseline_check.setChecked(False)
-    assert ultima(cambios).scheme().baseline is None
-    assert not dialogo.baseline_button.isEnabled()
-
-    dialogo.baseline_check.setChecked(True)
-    assert ultima(cambios).scheme().baseline == theme.OSCURO.baseline
-
-
-def test_un_color_de_la_paleta_se_cambia_en_su_lugar(dialogo: SettingsDialog, cambios):
-    dialogo.palette_buttons[1].choose("#abcdef")
-
-    paleta = ultima(cambios).scheme().signal_palette
-    assert paleta[1] == "#abcdef"
-    assert paleta[0] == theme.CLARO.signal_palette[0]
-
-
-def test_hay_un_boton_por_color_de_la_paleta(dialogo: SettingsDialog):
-    """Los esquemas no tienen todos la misma cantidad: se rearman al cambiar."""
-    for esquema in theme.SCHEMES.values():
-        dialogo.set_preferences(Preferences().with_scheme(esquema))
-        assert len(dialogo.palette_buttons) == len(esquema.signal_palette)
-
-
-def test_guardar_y_cargar_un_esquema_es_ida_y_vuelta(
-    dialogo: SettingsDialog, cambios, errores, tmp_path: Path, monkeypatch
-):
-    """**El criterio de aceptación de la fase.** Un esquema guardado y vuelto a
-    cargar es exactamente el mismo."""
-    archivo = tmp_path / "mio.json"
-    dialogo.color_buttons["background"].choose("#102030")
-    guardado = ultima(cambios).scheme()
-    monkeypatch.setattr(
-        QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(archivo), ""))
-    )
-    monkeypatch.setattr(
-        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(archivo), ""))
-    )
-
-    dialogo.save_scheme_button.click()
-    dialogo.scheme_buttons[theme.OSCURO.name].click()
-    dialogo.load_scheme_button.click()
-
-    assert ultima(cambios).scheme() == guardado
-    assert errores == []
-
-
-def test_cancelar_el_dialogo_de_archivo_no_hace_nada(
-    dialogo: SettingsDialog, cambios, errores, monkeypatch
-):
-    monkeypatch.setattr(
-        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: ("", ""))
-    )
-
-    dialogo.load_scheme_button.click()
-
-    assert cambios == []
-    assert errores == []
-
-
-def test_cargar_un_esquema_con_un_color_mal_escrito_avisa_y_no_cambia_nada(
-    dialogo: SettingsDialog, cambios, errores, tmp_path: Path, monkeypatch
-):
-    """El caso que antes terminaba en una traza al aplicarlo."""
-    datos = theme.scheme_to_dict(theme.OSCURO)
-    datos["background"] = "gris oscuro"
-    archivo = tmp_path / "roto.json"
-    archivo.write_text(json.dumps(datos), encoding="utf-8")
-    monkeypatch.setattr(
-        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(archivo), ""))
-    )
-
-    dialogo.load_scheme_button.click()
-
-    assert len(errores) == 1
-    assert cambios == []
 
 
 # -- El botón de color ----------------------------------------------------------------
@@ -519,13 +368,19 @@ def test_elegir_el_histograma_en_hora_real(dialogo: SettingsDialog, cambios):
 # -- Tipografía ------------------------------------------------------------------------
 
 
-def test_arranca_con_la_del_sistema(dialogo: SettingsDialog):
-    assert dialogo.system_font.isChecked()
-    assert not dialogo.font_family.isEnabled()
-    assert not dialogo.font_size.isEnabled()
+def test_arranca_con_la_del_programa(dialogo: SettingsDialog):
+    """**Era la del sistema hasta el hito 34.** Ahora la de fábrica es la que
+    el programa empaqueta, así que la casilla arranca destildada y los dos
+    controles, habilitados: la del sistema pasó a ser lo que se elige."""
+    assert not dialogo.system_font.isChecked()
+    assert dialogo.font_family.isEnabled()
+    assert dialogo.font_size.isEnabled()
+    assert dialogo.preferences.font_family == fonts.UI_FONT_FAMILY
 
 
 def test_dejar_la_del_sistema_aplica_la_elegida(dialogo: SettingsDialog, cambios):
+    dialogo.system_font.setChecked(True)
+    cambios.clear()
     dialogo.font_size.setValue(15)
     assert cambios == [], "con la del sistema, tocar el tamaño no cambia nada"
 
@@ -558,27 +413,6 @@ def test_la_muestra_usa_la_tipografia_elegida(dialogo: SettingsDialog):
     dialogo.font_size.setValue(22)
 
     assert dialogo.font_preview.font().pointSize() == 22
-
-
-# -- El aviso de contraste --------------------------------------------------------------
-
-
-@pytest.mark.parametrize("nombre", list(theme.SCHEMES))
-def test_los_esquemas_de_fabrica_no_muestran_aviso(dialogo: SettingsDialog, nombre: str):
-    dialogo.set_preferences(Preferences().with_scheme(theme.SCHEMES[nombre]))
-
-    assert dialogo.contrast_notice.text() == ""
-
-
-def test_elegir_un_color_que_no_se_distingue_avisa_sin_impedirlo(
-    dialogo: SettingsDialog, cambios
-):
-    """Un esquema de poco contraste puede ser buscado —para imprimir, por
-    ejemplo—, pero el usuario tiene que saberlo."""
-    dialogo.color_buttons["signals"].choose("#f4f4f4")
-
-    assert ultima(cambios).scheme().signals == "#f4f4f4"
-    assert "señales" in dialogo.contrast_notice.text()
 
 
 # -- El panel de contexto (V3_F de la Übersicht) ---------------------------------

@@ -33,9 +33,31 @@ def test_registrar_dos_veces_no_las_vuelve_a_cargar(qt_app):
     assert fonts._registradas == cargados
 
 
-def test_la_tipografia_de_papel_es_una_que_el_programa_trae(qt_app):
-    """Si el esquema nombrara una que no está, Qt usaría otra sin avisar."""
-    assert theme.PAPEL.numeric_font in fonts.register_bundled_fonts()
+@pytest.mark.parametrize("nombre", list(theme.SCHEMES))
+def test_la_tipografia_numerica_es_una_que_el_programa_trae(qt_app, nombre: str):
+    """Si un esquema nombrara una que no está, Qt usaría otra sin avisar."""
+    esquema = theme.SCHEMES[nombre]
+
+    assert esquema.numeric_font in fonts.register_bundled_fonts()
+
+
+def test_la_de_la_interfaz_tambien(qt_app):
+    """Es la de fábrica desde el hito 34, así que un nombre mal escrito dejaría
+    la ventana entera con la tipografía que Qt eligiera."""
+    assert fonts.UI_FONT_FAMILY in fonts.register_bundled_fonts()
+
+
+def test_una_familia_registrada_esta_disponible(qt_app):
+    fonts.register_bundled_fonts()
+
+    assert fonts.available_family() == fonts.UI_FONT_FAMILY
+
+
+def test_una_familia_que_no_existe_no_lo_esta(qt_app):
+    """**Es lo que separa degradar a lo conocido de degradar a cualquier cosa**:
+    `QFont.setFamily()` con un nombre que no existe no avisa, y Qt sustituye
+    por lo que le parece."""
+    assert fonts.available_family("Una Que No Existe") is None
 
 
 def test_una_carpeta_que_no_existe_no_impide_arrancar(qt_app, tmp_path: Path):

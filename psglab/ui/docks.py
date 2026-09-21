@@ -54,6 +54,10 @@ if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
 #: dejarla crecer le come lugar a la señal.
 ALTO_DEL_HIPNOGRAMA: Final[int] = 140
 
+#: Con cuánto ancho abre el panel de canales, en píxeles. Es el del diseño, y
+#: alcanza para un nombre de canal con su chip de clase al lado.
+ANCHO_DE_CANALES: Final[int] = 212
+
 #: Cómo se reparten el ancho los tres paneles de abajo, en proporción:
 #: Übersicht, scoring e hipnograma. **El hipnograma se lleva la mayor parte**:
 #: dibuja las 2650 ventanas de la noche entera, y en un tercio de la pantalla
@@ -138,6 +142,13 @@ def _trabajo(window: "MainWindow") -> None:
 
     window.channels_dock = nuevo_dock(window, "Canales", window.channel_selector, izquierda)
     window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, window.channels_dock)
+    # **Se le pide un ancho y no se le fija un máximo**: el usuario lo puede
+    # agrandar. Sin pedirlo, Qt le da lo que salga del `sizeHint` de la lista,
+    # que con los nombres de canal de un registro real se lleva un cuarto de la
+    # pantalla para una columna de casillas.
+    window.resizeDocks(
+        [window.channels_dock], [ANCHO_DE_CANALES], Qt.Orientation.Horizontal
+    )
 
     window.overview_dock = nuevo_dock(window, "Übersicht", window.overview_panel, abajo)
     window.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, window.overview_dock)

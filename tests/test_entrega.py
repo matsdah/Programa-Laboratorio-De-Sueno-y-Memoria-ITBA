@@ -42,7 +42,7 @@ from psglab.analysis.ica import apply_ica  # noqa: E402
 from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.annotations import Annotation  # noqa: E402
-from psglab.core.nomenclature import stages_of  # noqa: E402
+from psglab.core.nomenclature import SleepStage, stages_of  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
 from psglab.ui import main_window as main_window_mod  # noqa: E402
 from psglab.ui import preferences as preferencias_mod  # noqa: E402
@@ -418,10 +418,10 @@ def test_el_icono_de_abrir_se_redibuja_con_el_esquema(ventana: MainWindow):
 
     anterior = theme.current()
     try:
-        ventana.set_color_scheme(theme.OSCURO, remember=False)
+        ventana.set_color_scheme(theme.NOCTURNO, remember=False)
 
         actual = ventana.open_button.icon().pixmap(32, 32).toImage()
-        esperado = icon("abrir", theme.icon_ink(theme.OSCURO)).pixmap(32, 32).toImage()
+        esperado = icon("abrir", theme.icon_ink(theme.NOCTURNO)).pixmap(32, 32).toImage()
         assert actual == esperado
     finally:
         ventana.set_color_scheme(anterior, remember=False)
@@ -949,6 +949,72 @@ def test_abrir_otro_registro_deja_la_sesion_sin_herramienta(
 
 def marcas_horizontales(ventana: MainWindow) -> list[tuple[float, str]]:
     return ventana.histogram_view.getPlotItem().getAxis("bottom")._tickLevels[0]
+
+
+def barras_de_fase(ventana: MainWindow) -> list[pg.BarGraphItem]:
+    """Los tramos de color del hipnograma, si el esquema los tiene."""
+    return [
+        item
+        for item in ventana.histogram_view.getPlotItem().items
+        if isinstance(item, pg.BarGraphItem)
+    ]
+
+
+@pytest.fixture
+def con_escala_de_fases(ventana: MainWindow):
+    """Fija el esquema, que es estado global del proceso.
+
+    `theme.current()` lo comparten todos los widgets, así que un test anterior
+    que haya elegido otro esquema decide qué se pinta acá. Se deja como estaba.
+    """
+    anterior = theme.current()
+    ventana.set_color_scheme(theme.SERENO, remember=False)
+    yield ventana
+    ventana.set_color_scheme(anterior, remember=False)
+
+
+def test_el_hipnograma_pinta_cada_fase_de_su_color(con_escala_de_fases: MainWindow):
+    """**El programa no tenía colores de fase hasta el hito 34**: la curva se
+    dibujaba en una sola tinta y reconocer una fase obligaba a leer el eje."""
+    ventana = con_escala_de_fases
+    ventana._go_to_window(1)
+    ventana.score_current_window(SleepStage.N2)
+
+    (barras,) = barras_de_fase(ventana)
+    esperado = theme.SERENO.color_for_stage(SleepStage.N2.value)
+    assert esperado is not None
+    assert esperado in barras.opts["brushes"]
+
+
+def test_la_franja_de_posicion_muestra_lo_scoreado(con_escala_de_fases: MainWindow):
+    """**Decía dónde estoy y no cuánto llevo hecho**, que es la otra mitad de
+    la pregunta. Sale de la misma fuente que el hipnograma, así que una fase se
+    ve igual en los dos lugares."""
+    ventana = con_escala_de_fases
+    ventana._go_to_window(1)
+    ventana.score_current_window(SleepStage.N2)
+
+    colores = ventana.navigation.strip._colores
+    esperado = theme.SERENO.color_for_stage(SleepStage.N2.value)
+    assert colores[1] == esperado
+    assert colores[0] is None, "lo no scoreado no se pinta"
+
+
+def test_un_esquema_sin_escala_de_fases_no_pinta_nada(con_escala_de_fases: MainWindow):
+    """El campo admite el vacío, y entonces el hipnograma y la franja se
+    dibujan como antes del hito 34: con una sola tinta."""
+    import dataclasses
+
+    ventana = con_escala_de_fases
+    ventana._go_to_window(1)
+    ventana.score_current_window(SleepStage.N2)
+
+    ventana.set_color_scheme(
+        dataclasses.replace(theme.SERENO, stage_colors=()), remember=False
+    )
+
+    assert barras_de_fase(ventana) == []
+    assert ventana.navigation.strip._colores == ()
 
 
 def test_lo_no_scoreado_queda_en_blanco(ventana: MainWindow):
@@ -2215,7 +2281,7 @@ def test_elegir_un_esquema_tampoco_escribe_el_archivo(
     ventana."""
     anterior = theme.current()
     try:
-        ventana.set_color_scheme(theme.OSCURO)
+        ventana.set_color_scheme(theme.NOCTURNO)
         assert escrituras == []
     finally:
         ventana.set_color_scheme(anterior, remember=False)
@@ -2412,20 +2478,50 @@ def test_la_tipografia_elegida_llega_tambien_a_los_nombres_de_canal(
     _con(ventana, font_size=17)
 
     assert QApplication.font().pointSize() == 17
-    assert ventana.signal_view._labels
-    for etiqueta in ventana.signal_view._labels:
-        assert etiqueta.textItem.font().pointSize() == 17
+    assert ventana.signal_view.channel_axis.lanes()
+    assert ventana.signal_view.channel_axis._fuente.pointSize() == 17
 
 
 def test_se_puede_volver_a_la_tipografia_del_sistema(
     ventana: MainWindow, fuente_restaurada
 ):
+    """**Las dos cosas a la vez**: desde el hito 34 la de fábrica es la que el
+    programa empaqueta, así que volver a la del sistema es soltar también la
+    familia y no sólo el tamaño."""
     del_sistema = QFont(ventana._fuente_del_sistema)
     _con(ventana, font_size=17)
 
-    _con(ventana, font_size=None)
+    _con(ventana, font_family=None, font_size=None)
 
     assert QApplication.font().pointSize() == del_sistema.pointSize()
+    assert QApplication.font().family() == del_sistema.family()
+
+
+def test_la_tipografia_del_programa_se_aplica_si_esta(
+    ventana: MainWindow, fuente_restaurada
+):
+    """La de fábrica desde el hito 34. Se registra acá adentro: la suite no
+    pasa por `create_application()`, que es quien lo hace al arrancar."""
+    from psglab.ui import fonts
+
+    fonts.register_bundled_fonts()
+
+    _con(ventana, font_family=fonts.UI_FONT_FAMILY)
+
+    assert QApplication.font().family() == fonts.UI_FONT_FAMILY
+
+
+def test_una_tipografia_que_no_esta_deja_la_del_sistema(
+    ventana: MainWindow, fuente_restaurada
+):
+    """**`setFamily()` con un nombre que no existe no avisa**: Qt sustituye por
+    lo que le parece, que suele ser peor que la del sistema. Con la tipografía
+    del programa como valor de fábrica, eso le pasaría a cualquiera que instale
+    sin los archivos."""
+    del_sistema = QFont(ventana._fuente_del_sistema)
+
+    _con(ventana, font_family="Una Que No Existe")
+
     assert QApplication.font().family() == del_sistema.family()
 
 
@@ -2482,20 +2578,16 @@ def test_el_color_elegido_en_la_configuracion_llega_a_la_sesion(ventana: MainWin
 def test_volver_a_abrir_la_configuracion_refleja_lo_cambiado_afuera(
     ventana: MainWindow,
 ):
-    """Un esquema que cambia sin pasar por la configuración —el menú de
-    esquemas lo hacía hasta el hito 23; hoy, `set_color_scheme()` llamado
-    desde otro lado— tiene que verse al reabrirla."""
-    ventana.show_settings_dialog()
-    ventana.settings_dialog.close()
+    """Un esquema que cambia sin pasar por el menú —al aplicar el archivo de
+    preferencias, por ejemplo— tiene que quedar tildado igual: desde el hito 35
+    el menú «Ver» es el único lugar donde se ve cuál está puesto."""
     anterior = theme.current()
     try:
-        ventana.set_color_scheme(theme.ECG, remember=False)
+        ventana.set_color_scheme(theme.NOCTURNO, remember=False)
 
-        ventana.show_settings_dialog()
-
-        assert ventana.settings_dialog.grid_ecg.isChecked()
+        assert ventana.acciones_de_esquema["Nocturno"].isChecked()
+        assert not ventana.acciones_de_esquema["Sereno"].isChecked()
     finally:
-        ventana.settings_dialog.close()
         ventana.set_color_scheme(anterior, remember=False)
 
 
@@ -2521,6 +2613,7 @@ def test_la_conectividad_de_la_noche_desde_el_menu(ventana: MainWindow, elige_op
     elige_opciones(("Delta", True))
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
 
     (serie,) = ventana.metric_panel.channels()
     assert len(ventana.metric_panel.series(serie)) == ventana.session.n_windows
@@ -2540,6 +2633,7 @@ def test_cada_epoca_vale_lo_mismo_que_la_conectividad_de_esa_ventana(
     ventana._go_to_window(2)
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
     (serie,) = ventana.metric_panel.channels()
     de_la_noche = ventana.metric_panel.series(serie)[2]
     ventana.show_connectivity_dialog()
@@ -2554,6 +2648,7 @@ def test_el_titulo_dice_la_banda_y_entre_que_canales(
     elige_opciones(("Theta", True))
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
 
     titulo = ventana.metric_panel.caption()
     assert "Theta" in titulo
@@ -2574,6 +2669,7 @@ def test_cancelar_la_banda_no_mide_nada(ventana: MainWindow, elige_opciones, mon
     elige_opciones(("", False))
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
 
     assert llamadas == []
     assert not ventana.carteles
@@ -2583,6 +2679,7 @@ def test_con_un_solo_canal_visible_avisa_sin_medir(ventana: MainWindow):
     ventana.session.set_visible_channels(ventana.session.visible_channels[:1])
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
 
     assert ventana.carteles
 
@@ -2594,29 +2691,49 @@ def test_medir_la_noche_no_mueve_al_usuario_de_ventana(
     elige_opciones(("Delta", True))
 
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
 
     assert ventana.session.current_window == 3
 
 
-def test_medir_la_noche_muestra_el_cursor_de_espera(
-    ventana: MainWindow, elige_opciones, monkeypatch
+def test_medir_la_noche_muestra_que_esta_trabajando(
+    ventana: MainWindow, elige_opciones
 ):
-    """Tarda medio minuto sobre un registro real: sin cursor, se lee como un
-    programa colgado."""
-    cursores: list[object] = []
-    original = main_window_mod.connectivity_by_window
+    """Tarda entre quince y dieciocho segundos sobre un registro real: sin
+    ninguna señal, se lee como un programa colgado.
 
-    def midiendo(*args: object, **kwargs: object) -> object:
-        cursores.append(QApplication.overrideCursor())
-        return original(*args, **kwargs)
+    **Era el cursor de espera y ahora es una barra**, porque desde el hito 42
+    el cálculo no corre en el hilo de la interfaz: el cursor de espera sólo
+    tiene sentido mientras la ventana está bloqueada, y ahora no lo está. La
+    barra es indeterminada a propósito: nada informa cuánto lleva hecho."""
+    elige_opciones(("Delta", True))
+    # **Hay que mostrarla**: un widget hijo de una ventana oculta nunca se
+    # declara visible, aunque se le haya pedido que se muestre.
+    ventana.show()
 
-    monkeypatch.setattr(main_window_mod, "connectivity_by_window", midiendo)
+    ventana.show_connectivity_night_dialog()
+    trabajando = ventana._barra_de_espera.isVisible()
+    ventana.wait_for_background()
+
+    assert trabajando, "la barra tiene que verse mientras dura el cálculo"
+    assert not ventana._barra_de_espera.isVisible()
+    assert "…" not in ventana.statusBar().currentMessage()
+
+
+def test_mientras_mide_la_noche_no_se_puede_volver_a_pedir(
+    ventana: MainWindow, elige_opciones
+):
+    """Dos cálculos a la vez sobre la misma sesión se pisan el resultado, y
+    cuál gana depende de cuál termine primero. La entrada del menú se apaga:
+    dejar pedir algo que va a fallar es peor que mostrarlo apagado."""
     elige_opciones(("Delta", True))
 
     ventana.show_connectivity_night_dialog()
+    apagada = not ventana.accion_conectividad_de_la_noche.isEnabled()
+    ventana.wait_for_background()
 
-    assert cursores and cursores[0] is not None
-    assert QApplication.overrideCursor() is None
+    assert apagada
+    assert ventana.accion_conectividad_de_la_noche.isEnabled()
 
 
 # -- Recorrer los paneles con el teclado ---------------------------------------------
@@ -2758,7 +2875,9 @@ def test_la_epoca_nueva_llega_a_la_barra_y_al_scoring(reproduccion: MainWindow):
     ventana.toggle_playback()
     ventana.playback.advanced.emit(WINDOW_SECONDS)
 
-    assert ventana.navigation._posicion.text() == f"Ventana 2 de {VENTANAS}"
+    # La lectura lleva también la hora desde el hito 36, cuando el registro la
+    # informa: son la misma pregunta en dos unidades.
+    assert ventana.navigation._posicion.text().endswith(f"Ventana 2 de {VENTANAS}")
     assert ventana.scoring_panel.status().startswith("Ventana 2 ")
 
 
@@ -3272,6 +3391,7 @@ def test_calcular_no_renombra_el_menu_de_herramientas(
     ventana.show_connectivity_dialog()
     assert "Delta" in ventana.connectivity_panel.caption()
     ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
     assert "noche" in ventana.metric_panel.caption()
 
     assert textos_de_herramientas(ventana) == antes
@@ -3962,6 +4082,9 @@ def test_una_banda_sobre_nyquist_sale_como_cartel(
     elige_opciones(("Alta", True))
 
     getattr(ventana, metodo)()
+    # La de la noche corre en otro hilo desde el hito 42, así que su error
+    # llega por la señal y no por el `return` del método.
+    ventana.wait_for_background()
 
     assert len(ventana.carteles) == 1
     assert f"{nyquist:g} Hz" in ventana.carteles[0]
@@ -4019,3 +4142,93 @@ def test_el_espectro_dice_que_una_banda_queda_fuera(
 
     assert "Alta" in ventana.psd_panel.caption()
     assert f"{nyquist:g} Hz" in ventana.psd_panel.caption()
+
+
+# -- Las dos barras dicen qué registro está abierto (hito 36) ----------------
+
+
+def test_la_barra_de_menu_identifica_el_registro(ventana: MainWindow):
+    """**No estaba en ningún lado.** Con dos registros parecidos —la misma
+    noche filtrada y sin filtrar— no había forma de saber cuál se miraba."""
+    resumen = ventana.recording_summary.text()
+
+    assert ventana.session.recording.file_path.name in resumen
+    assert "canales" in resumen
+
+
+def test_sin_registro_la_barra_de_menu_lo_dice(qt_app):
+    vacia = create_main_window()
+    try:
+        assert vacia.recording_summary.text() == "Sin registro"
+    finally:
+        vacia.close()
+
+
+def test_la_barra_de_navegacion_muestra_la_amplitud(ventana: MainWindow):
+    """Hasta el hito 36 la amplitud sólo se veía en el eje de cada canal."""
+    ventana.set_amplitude_scale(200.0)
+
+    assert ventana.navigation._amplitud.text() == "200 µV"
+
+
+def test_con_amplitudes_distintas_la_barra_muestra_el_rango(ventana: MainWindow):
+    """V5_F deja cambiarle la ganancia a un canal solo, y desde el hito 38 cada
+    clase abre con la suya, así que esto es lo normal y no la excepción.
+
+    **Decía «varias».** Era correcto y no decía nada: pasó a leerse siempre.
+    Decir la del primero sería peor todavía —el investigador leería 100 µV
+    mirando un canal a 400— y el de cada canal está en su carril."""
+    ventana.set_amplitude_scale(100.0)
+    canal = ventana.session.visible_channels[0]
+    ventana.session.set_scale_uv(canal, 400.0)
+    ventana._reflejar_epoca()
+
+    assert ventana.navigation._amplitud.text() == "100–400 µV"
+
+
+def test_los_extremos_del_registro_llegan_a_la_franja(ventana: MainWindow):
+    inicio = ventana.session.recording.start_time
+
+    assert ventana.navigation._hora_inicial.text() == inicio.strftime("%H:%M")
+    assert ventana.navigation._hora_final.text() != ""
+
+
+def test_el_boton_de_descartar_lleva_la_tinta_de_lo_que_destruye(
+    ventana: MainWindow, monkeypatch
+):
+    """**El rol no alcanza.** `DestructiveRole` le dice a Qt dónde ubicar el
+    botón y con qué tecla responde, no de qué color pintarlo: en Windows sale
+    idéntico a «Cancelar». La tinta la pone el esquema por una propiedad, y es
+    el único control del programa que la lleva."""
+    vistos: dict[str, bool] = {}
+
+    def espiar(cartel):
+        vistos.update(
+            {
+                boton.text(): bool(boton.property(theme.DESTRUCTIVO_PROPERTY))
+                for boton in cartel.buttons()
+            }
+        )
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", espiar)
+    ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
+
+    assert vistos["Descartar"] is True
+    assert vistos["Cancelar"] is False
+
+
+def test_scorear_actualiza_la_fase_que_muestra_la_ubersicht(ventana: MainWindow):
+    """**La Übersicht cachea sus ventanas** y las rearma al cambiar de época,
+    no al scorear: sin pedirle que se rederive, el chip de la fase recién
+    puesta no aparecía hasta la próxima flecha. Es el mismo cuidado que ya
+    tenía anotar, y el mismo motivo."""
+    from psglab.tools.overview import OverviewTool
+
+    contexto = ventana._tools["overview"]
+    assert isinstance(contexto, OverviewTool)
+
+    ventana.score_current_window(SleepStage.N2)
+
+    actual = [v for v in contexto.windows() if v.is_current][0]
+    assert actual.stage is SleepStage.N2

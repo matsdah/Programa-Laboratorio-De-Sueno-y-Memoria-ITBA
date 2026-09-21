@@ -36,11 +36,13 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from psglab.ui import theme
+from psglab.ui.panel_header import EmptyState, PanelHeader
 
 #: Color de las barras de la topografía.
 # El color de las dos curvas sale del esquema en uso: es una sola serie por
@@ -102,6 +104,12 @@ class IcaPanel(QWidget):
         self.boton.clicked.connect(self._aplicar)
         self.boton.setEnabled(False)
 
+        #: El encabezado, con cuántos componentes salieron. Ver `PanelHeader`.
+        self.header = PanelHeader("ICA")
+
+        #: Lo que se ve mientras no hay ninguna descomposición. Ver `EmptyState`.
+        self.vacio = EmptyState()
+
         izquierda = QVBoxLayout()
         izquierda.addWidget(QLabel("Componentes (marcar los que se quitan):"))
         izquierda.addWidget(self.lista)
@@ -112,9 +120,28 @@ class IcaPanel(QWidget):
         derecha.addWidget(self.grafico, stretch=3)
         derecha.addWidget(self.curva, stretch=2)
 
-        fila = QHBoxLayout(self)
+        cuerpo = QWidget()
+        fila = QHBoxLayout(cuerpo)
+        fila.setContentsMargins(8, 8, 8, 8)
         fila.addLayout(izquierda, stretch=1)
         fila.addLayout(derecha, stretch=2)
+
+        #: El cuerpo o el cartel de panel vacío, nunca los dos.
+        #:
+        #: **Acá el cartel reemplaza las dos columnas y no sólo los gráficos**:
+        #: sin descomposición, la lista de componentes está vacía y el botón de
+        #: aplicar, apagado. Media pantalla de controles muertos al lado de una
+        #: frase se lee como un panel roto.
+        self._pila = QStackedWidget()
+        self._pila.addWidget(cuerpo)
+        self._pila.addWidget(self.vacio)
+
+        columna = QVBoxLayout(self)
+        columna.setContentsMargins(0, 0, 0, 0)
+        columna.setSpacing(0)
+        columna.addWidget(self.header)
+        columna.addWidget(self._pila)
+        self._reflejar_pista()
 
     # -- Lo que le da la ventana principal ----------------------------------
 
@@ -167,9 +194,26 @@ class IcaPanel(QWidget):
         return self._pista if self._pista_visible else ""
 
     def _reflejar_pista(self) -> None:
-        """Muestra la pista como título del gráfico, sólo con el panel vacío."""
+        """Pone el encabezado y decide si se ve el cuerpo o el cartel de vacío.
+
+        **La pista iba al título del gráfico** hasta el hito 41, con la lista de
+        componentes vacía y el botón apagado a su lado: media pantalla de
+        controles muertos junto a una frase.
+        """
         self._pista_visible = bool(self._pista) and not self._topografias
-        self.grafico.getPlotItem().setTitle(self._pista if self._pista_visible else None)
+        self.header.set_caption(self._describirse())
+        self.vacio.set_text(self._pista)
+        self._pila.setCurrentWidget(
+            self.vacio if self._pista_visible else self._pila.widget(0)
+        )
+
+    def _describirse(self) -> str:
+        """Cuántos componentes salieron, que es lo primero que se mira."""
+        cuantos = len(self._topografias)
+        if not cuantos:
+            return ""
+        canales = len(self._topografias[0])
+        return f"{cuantos} componentes · {canales} canales"
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 

@@ -15,6 +15,7 @@ Cubre del pliego: V1_F, V2_F, V3_F de "Herramienta Übersicht".
 from dataclasses import dataclass, field
 
 from psglab.config import OVERVIEW_WINDOWS_AFTER, OVERVIEW_WINDOWS_BEFORE
+from psglab.core.nomenclature import SleepStage
 from psglab.core.session import Session
 from psglab.core.windows import window_to_samples
 from psglab.tools.base import Tool
@@ -36,6 +37,11 @@ class OverviewWindow:
         index: número de ventana, base 0 como en todo el programa.
         is_current: si es la que el usuario está scoreando. Se pinta con un
             fondo más oscuro (V1_F).
+        stage: la fase con que esa ventana está scoreada, `UNSCORED` si
+            todavía no lo está. **Es dato y no dibujo**, como el resto: la
+            herramienta dice qué fase tiene cada ventana y la interfaz decide
+            con qué color pintarla, que es lo que le permite usar la misma
+            escala que el hipnograma y la franja de posición.
         annotation_labels: clases de los eventos que caen dentro. Es lo que
             permite ver que hay un huso justo antes o justo después.
     """
@@ -43,6 +49,7 @@ class OverviewWindow:
     index: int
     is_current: bool
     annotation_labels: tuple[str, ...] = field(default_factory=tuple)
+    stage: SleepStage = SleepStage.UNSCORED
 
 
 @register_tool
@@ -149,7 +156,10 @@ class OverviewTool(Tool):
             for anotacion in self._session.annotations.in_range(inicio, fin)
         )
         return OverviewWindow(
-            index=window_index, is_current=is_current, annotation_labels=etiquetas
+            index=window_index,
+            is_current=is_current,
+            annotation_labels=etiquetas,
+            stage=self._session.scoring.get(window_index).stage,
         )
 
     def set_span(

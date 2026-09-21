@@ -18,6 +18,12 @@ misma— y comparar ventanas es justamente lo que el investigador va a hacer.
 Como los demás paneles, lo que se puede afirmar sin mirar una pantalla está
 separado del dibujo.
 
+**Dejó de ser un `PlotWidget` y pasó a contener uno** en el hito 39, con la
+carrocería que comparten los seis paneles: el encabezado de
+`psglab/ui/panel_header.py` y el cartel que **reemplaza** al gráfico mientras
+no hay resultado. Antes las dos cosas iban al título del gráfico, así que un
+panel vacío seguía mostrando ejes, grilla y leyenda detrás de la frase.
+
 Cubre del pliego: ningún ID propio. Es la mitad que se ve de la sección
 "Conectividad de la señal".
 """
@@ -26,7 +32,9 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QStackedWidget, QVBoxLayout, QWidget
+
+from psglab.ui.panel_header import EmptyState, PanelHeader
 
 #: Extremos de la escala de color. Las cinco medidas de `METHODS` están
 #: acotadas a este rango, así que la escala fija es correcta para todas.
@@ -34,12 +42,13 @@ _MINIMO: float = 0.0
 _MAXIMO: float = 1.0
 
 
-class ConnectivityPanel(pg.PlotWidget):
+class ConnectivityPanel(QWidget):
     """Dibuja una matriz de conectividad como mapa de calor."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Crea el panel vacío, antes de que haya ninguna matriz calculada."""
         super().__init__(parent)
+        self.grafico = pg.PlotWidget()
         #: Desde qué menú se pide lo que muestra este panel. Ver `set_hint()`.
         self._pista: str = ""
         self._pista_visible: bool = False
@@ -47,9 +56,11 @@ class ConnectivityPanel(pg.PlotWidget):
         self._titulo: str = ""
         self._matriz: np.ndarray | None = None
         self._canales: list[str] = []
+        #: Qué mide la escala de color. Ver `set_measure()`.
+        self._medida: str = ""
 
         self._imagen = pg.ImageItem()
-        item = self.getPlotItem()
+        item = self.grafico.getPlotItem()
         item.addItem(self._imagen)
         item.setMenuEnabled(False)
         item.setMouseEnabled(x=False, y=False)
@@ -70,15 +81,44 @@ class ConnectivityPanel(pg.PlotWidget):
         )
         self._barra.setImageItem(self._imagen, insert_in=item)
 
+        #: El encabezado, con qué se está mirando. Ver `PanelHeader`.
+        self.header = PanelHeader("Conectividad")
+
+        #: Lo que se ve mientras no hay ninguna matriz. Ver `EmptyState`.
+        self.vacio = EmptyState()
+
+        #: El gráfico o el cartel de panel vacío, nunca los dos: un mapa con
+        #: ejes y barra de color detrás de una frase se lee como una matriz
+        #: que dio cero.
+        self._pila = QStackedWidget()
+        self._pila.addWidget(self.grafico)
+        self._pila.addWidget(self.vacio)
+
+        columna = QVBoxLayout(self)
+        columna.setContentsMargins(0, 0, 0, 0)
+        columna.setSpacing(0)
+        columna.addWidget(self.header)
+        columna.addWidget(self._pila)
+        self._reflejar_titulo()
+
     # -- Lo que le da la ventana principal ----------------------------------
 
-    def set_matrix(self, matrix: np.ndarray, channel_names: list[str]) -> None:
+    def set_matrix(
+        self,
+        matrix: np.ndarray,
+        channel_names: list[str],
+        measure: str = "",
+    ) -> None:
         """Dibuja la matriz con los nombres de canal en los dos ejes.
 
         Args:
             matrix: matriz cuadrada, tal como la devuelve
                 `compute_connectivity()`.
             channel_names: un nombre por fila, en el mismo orden.
+            measure: qué mide la escala de color —«wPLI», «PLI», «Coherencia»—.
+                **La barra decía de 0 a 1 y no de qué**: un mapa de colores sin
+                la unidad se puede leer de izquierda a derecha, pero no se
+                puede comparar con el de otra medida.
         """
         datos = np.asarray(matrix, dtype=float)
         self._matriz = datos
@@ -88,7 +128,8 @@ class ConnectivityPanel(pg.PlotWidget):
         # ajustó, la matriz nueva se ve con el mismo contraste que la anterior,
         # y la barra no queda diciendo otra cosa que la imagen.
         self._imagen.setImage(datos, levels=self._barra.levels())
-        item = self.getPlotItem()
+        self.set_measure(measure)
+        item = self.grafico.getPlotItem()
         # Los ticks van en el centro de cada celda, que es donde el usuario
         # espera leerlos: en el borde, un nombre queda entre dos filas.
         marcas = [
@@ -98,6 +139,15 @@ class ConnectivityPanel(pg.PlotWidget):
         item.getAxis("left").setTicks([marcas])
         self._reflejar_titulo()
 
+    def set_measure(self, text: str) -> None:
+        """Rotula la escala de color con lo que mide."""
+        self._medida = text
+        self._barra.setLabel("right", text or None)
+
+    def measure(self) -> str:
+        """Lo que dice hoy el rótulo de la escala, o vacío."""
+        return self._medida
+
     def clear_matrix(self) -> None:
         """Deja el panel vacío."""
         self._titulo = ""
@@ -106,8 +156,9 @@ class ConnectivityPanel(pg.PlotWidget):
         self._imagen.clear()
         # Sin matriz no hay contraste que conservar: la próxima arranca de 0 a 1.
         self._barra.setLevels((_MINIMO, _MAXIMO))
-        self.getPlotItem().getAxis("bottom").setTicks(None)
-        self.getPlotItem().getAxis("left").setTicks(None)
+        self.set_measure("")
+        self.grafico.getPlotItem().getAxis("bottom").setTicks(None)
+        self.grafico.getPlotItem().getAxis("left").setTicks(None)
         self._reflejar_titulo()
 
     # -- Con el panel vacío ---------------------------------------------------
@@ -144,11 +195,18 @@ class ConnectivityPanel(pg.PlotWidget):
         return self._titulo
 
     def _reflejar_titulo(self) -> None:
-        """El título del gráfico: la pista con el panel vacío, la descripción si no."""
+        """Pone el encabezado y decide si se ve el gráfico o el cartel de vacío.
+
+        **El cartel reemplaza al gráfico, no lo tapa.** Hasta el hito 39 las
+        dos cosas iban al título del gráfico, así que el panel vacío seguía
+        mostrando ejes, grilla y leyenda detrás de la frase: se leía como un
+        resultado que dio cero.
+        """
         vacio = self._matriz is None
         self._pista_visible = bool(self._pista) and vacio
-        texto = self._pista if vacio else self._titulo
-        self.getPlotItem().setTitle(texto or None)
+        self.header.set_caption("" if vacio else self._titulo)
+        self.vacio.set_text(self._pista)
+        self._pila.setCurrentWidget(self.vacio if self._pista_visible else self.grafico)
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 
@@ -167,7 +225,7 @@ class ConnectivityPanel(pg.PlotWidget):
         matriz de conectividad sin saber qué fila es qué electrodo no se puede
         leer.
         """
-        marcas = self.getPlotItem().getAxis("bottom")._tickLevels
+        marcas = self.grafico.getPlotItem().getAxis("bottom")._tickLevels
         if not marcas:
             return []
         return [texto for _, texto in marcas[0]]

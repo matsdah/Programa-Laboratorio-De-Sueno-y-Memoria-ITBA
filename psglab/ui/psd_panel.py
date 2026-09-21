@@ -23,12 +23,16 @@ Cubre del pliego: V1_F de "Power Spectral Density (PSD)", la mitad que se ve.
 
 from __future__ import annotations
 
+from typing import Final
+
 import numpy as np
 import pyqtgraph as pg
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
-    QLabel,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -37,6 +41,7 @@ from PySide6.QtWidgets import (
 
 from psglab.analysis.psd import DEFAULT_BANDS
 from psglab.ui import theme
+from psglab.ui.panel_header import EmptyState, PanelHeader
 
 #: Colores de las bandas sombreadas, en orden. No salen de `config.py` porque
 #: el pliego no fija ninguno: pide mostrar la PSD por banda, y con qué color se
@@ -53,6 +58,25 @@ _COLORES = (
 #: Transparencia del sombreado, en hexadecimal sobre el color. Bajo a propósito:
 #: la banda tiene que ubicar la mirada, no tapar la curva.
 _ALPHA = "33"
+
+#: Las columnas de la tabla de potencias, en orden.
+#:
+#: **«Hz» dice de dónde a dónde va cada banda**, que antes había que saberse de
+#: memoria o leerlo del sombreado. Las dos potencias van juntas y no una sola:
+#: la absoluta depende del cráneo y de la impedancia y no se puede comparar
+#: entre participantes; la relativa sí.
+COLUMNAS: Final[tuple[str, ...]] = ("Banda", "Hz", "µV²", "% del total")
+
+#: El lado de la muestra de color que lleva cada banda en su fila, en píxeles.
+#: Es la misma idea que la muestra del canalón: el color identifica el tramo
+#: sombreado del gráfico sin escribir el nombre de ese color en ningún lado.
+LADO_DE_LA_MUESTRA: Final[int] = 10
+
+
+def _sin_punto(valor: float) -> str:
+    """Un número como lo escribiría un lector en español: coma, y sin «,0»."""
+    entero = int(valor)
+    return str(entero) if valor == entero else f"{valor:g}".replace(".", ",")
 
 
 class PsdPanel(QWidget):
@@ -92,29 +116,47 @@ class PsdPanel(QWidget):
         #: mientras `band_power()` la calculaba y no la leía nadie. Delta se ve
         #: alta a ojo; theta contra sigma, no.
         self._potencias: dict[str, tuple[float, float]] = {}
-        self.tabla = QTableWidget(0, 3)
-        self.tabla.setHorizontalHeaderLabels(["Banda", "µV²", "% del total"])
+        self.tabla = QTableWidget(0, len(COLUMNAS))
+        self.tabla.setHorizontalHeaderLabels(list(COLUMNAS))
         self.tabla.verticalHeader().setVisible(False)
         self.tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabla.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self.tabla.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
         )
+        self.tabla.setIconSize(QSize(LADO_DE_LA_MUESTRA, LADO_DE_LA_MUESTRA))
         self.tabla.setMaximumHeight(190)
 
-        #: Con qué se estimó el espectro: el método, el segmento, la ventana y
-        #: el solape. **Sin esto, dos espectros de la misma ventana podían no
-        #: coincidir** —uno con Welch y otro con multitaper, que se elige en la
-        #: configuración— sin que el panel diera ninguna pista de por qué.
-        self.metodo = QLabel("")
-        self.metodo.setWordWrap(True)
-        self.metodo.setAccessibleName("Método de estimación")
+        #: El encabezado, con qué se está mirando y con qué se estimó: el
+        #: método, el segmento, la ventana y el solape. **Sin el método, dos
+        #: espectros de la misma ventana podían no coincidir** —uno con Welch y
+        #: otro con multitaper, que se elige en la configuración— sin que el
+        #: panel diera ninguna pista de por qué.
+        self.header = PanelHeader("Espectro")
+
+        #: Lo que se ve mientras no hay ningún espectro calculado. Ver
+        #: `set_hint()`.
+        self.vacio = EmptyState()
+
+        contenido = QWidget()
+        adentro = QVBoxLayout(contenido)
+        adentro.setContentsMargins(0, 0, 0, 0)
+        adentro.addWidget(self.grafico, stretch=3)
+        adentro.addWidget(self.tabla, stretch=1)
+
+        #: El gráfico o el cartel de panel vacío, nunca los dos. Ver
+        #: `EmptyState`: un gráfico con ejes detrás de una frase se lee como un
+        #: resultado que dio cero.
+        self._pila = QStackedWidget()
+        self._pila.addWidget(contenido)
+        self._pila.addWidget(self.vacio)
 
         columna = QVBoxLayout(self)
         columna.setContentsMargins(0, 0, 0, 0)
-        columna.addWidget(self.metodo)
-        columna.addWidget(self.grafico, stretch=3)
-        columna.addWidget(self.tabla, stretch=1)
+        columna.setSpacing(0)
+        columna.addWidget(self.header)
+        columna.addWidget(self._pila)
+        self._reflejar_titulo()
 
     # -- Lo que le da la ventana principal ----------------------------------
 
@@ -191,17 +233,17 @@ class PsdPanel(QWidget):
         El texto lo arma `analysis.psd.describe_method()`: este panel no sabe
         de segmentos ni de ventanas, sólo dibuja.
         """
-        self.metodo.setText(text)
+        self.header.set_detail(text)
 
     def method_description(self) -> str:
         """Lo que dice hoy la línea del método."""
-        return self.metodo.text()
+        return self.header.detail()
 
     def clear_spectrum(self) -> None:
         """Deja el panel vacío, como antes del primer cálculo."""
         self._titulo = ""
         self.set_spectrum(np.array([]), np.empty((0, 0)), [])
-        self.metodo.setText("")
+        self.header.set_detail("")
 
     def set_band_powers(self, powers: dict[str, tuple[float, float]]) -> None:
         """Llena la tabla con la potencia de cada banda.
@@ -229,11 +271,44 @@ class PsdPanel(QWidget):
         for fila, (nombre, (absoluta, relativa)) in enumerate(self._potencias.items()):
             celdas = (
                 nombre,
+                self._rango_de(nombre),
                 f"{absoluta:.3g}".replace(".", ","),
                 f"{relativa * 100:.1f}".replace(".", ","),
             )
             for columna, texto in enumerate(celdas):
-                self.tabla.setItem(fila, columna, QTableWidgetItem(texto))
+                celda = QTableWidgetItem(texto)
+                if columna == 0:
+                    celda.setIcon(self._muestra_de(nombre))
+                else:
+                    celda.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    )
+                self.tabla.setItem(fila, columna, celda)
+
+    def _rango_de(self, band: str) -> str:
+        """De dónde a dónde va una banda, como se escribe en español.
+
+        Sale del sombreado y no de `DEFAULT_BANDS`: el panel dibuja las bandas
+        que le pasaron, que pueden no ser las de fábrica.
+        """
+        for nombre, region in self._bandas:
+            if nombre != band:
+                continue
+            desde, hasta = region.getRegion()
+            return f"{_sin_punto(desde)}–{_sin_punto(hasta)}"
+        return ""
+
+    def _muestra_de(self, band: str) -> QIcon:
+        """El cuadradito del color con que esa banda está sombreada."""
+        lienzo = QPixmap(LADO_DE_LA_MUESTRA, LADO_DE_LA_MUESTRA)
+        lienzo.fill(QColor(self._color_de(band)))
+        return QIcon(lienzo)
+
+    def _color_de(self, band: str) -> str:
+        """El color de una banda, por su posición en el orden de fábrica."""
+        nombres = list(DEFAULT_BANDS)
+        posicion = nombres.index(band) if band in nombres else 0
+        return _COLORES[posicion % len(_COLORES)]
 
     def clear_band_powers(self) -> None:
         """Vacía la tabla de potencias."""
@@ -274,11 +349,18 @@ class PsdPanel(QWidget):
         return self._titulo
 
     def _reflejar_titulo(self) -> None:
-        """El título del gráfico: la pista con el panel vacío, la descripción si no."""
+        """Pone el encabezado y decide si se ve el gráfico o el cartel de vacío.
+
+        **El cartel reemplaza al gráfico, no lo tapa.** Hasta el hito 39 las dos
+        cosas iban al título del gráfico, así que el panel vacío seguía
+        mostrando ejes, grilla y leyenda detrás de la frase: se leía como un
+        espectro que dio cero.
+        """
         vacio = not self._curvas
         self._pista_visible = bool(self._pista) and vacio
-        texto = self._pista if vacio else self._titulo
-        self.grafico.getPlotItem().setTitle(texto or None)
+        self.header.set_caption("" if vacio else self._titulo)
+        self.vacio.set_text(self._pista)
+        self._pila.setCurrentWidget(self.vacio if self._pista_visible else self._pila.widget(0))
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 

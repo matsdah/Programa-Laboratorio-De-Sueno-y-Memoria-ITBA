@@ -59,6 +59,20 @@ METHODS: Final[tuple[str, ...]] = (
     "plv",
 )
 
+#: Cómo se escribe cada método cuando lo lee el investigador.
+#:
+#: **Está acá y no en la interfaz** por lo mismo que `psd.describe_method()`:
+#: el nombre corto —«wpli»— es de la API y el escrito es de quien lo lee, y
+#: separarlos en dos módulos garantiza que se agregue un método y su rótulo
+#: quede en el nombre de la API sin que nada falle.
+METHOD_LABELS: Final[dict[str, str]] = {
+    "coherence": "Coherencia",
+    "imaginary_coherence": "Coherencia imaginaria",
+    "pli": "PLI",
+    "wpli": "wPLI",
+    "plv": "PLV",
+}
+
 #: Cómo se llama cada método en mne-connectivity. Los nombres de afuera son los
 #: que el pliego y el usuario usan; los de adentro son abreviaturas suyas.
 _NOMBRES_DE_MNE: Final[dict[str, str]] = {

@@ -176,6 +176,29 @@ El de reparto **abre una ventana de verdad**, al revés que la suite: el plugin
 `offscreen` que fija `conftest.py` no usa el estilo nativo, que es justamente lo
 que decide cuánto mide un botón de fase.
 
+Hay una tercera herramienta que tampoco es un test, y que sirve para lo que
+ningún test puede afirmar: **cómo se ve**.
+
+```bash
+python -m tests.capturar_pantalla
+```
+
+Deja en el temporal un PNG de la ventana y de cada barra, con los dos esquemas.
+**No abre ninguna ventana en la pantalla** —`WA_DontShowOnScreen` maqueta el
+widget sin mapearlo— y tampoco corre offscreen, por el mismo motivo que el banco
+de reparto: sin estilo nativo la captura muestra cuadraditos en vez de letras.
+La primera vez que se usó encontró dos cosas que la suite daba por buenas: un
+rótulo cortado a un tercio y un icono a 2,87 de contraste sobre su relleno. La
+segunda, el nombre de cada canal dibujado encima de su propia señal.
+
+**Nada de lo que la captura llame puede abrir un cartel modal.** Sobre una
+ventana con `WA_DontShowOnScreen` un modal no se muestra en ninguna parte, así
+que nadie lo puede contestar y el proceso queda colgado sin consumir CPU y sin
+decir nada. Ya pasó dos veces: con el cartel del trabajo sin exportar, que
+abría `closeEvent`, y con los `QInputDialog` de «Espectro» y «Complejidad». Por
+eso la herramienta no cierra las ventanas y les pone el resultado a los paneles
+llamando a sus setters en vez de pasar por el menú.
+
 En la consola de Windows los acentos de los mensajes salen como mojibake
 (`configuraci�n`) por la codepage cp1252. Es cosmético y no un bug del código:
 todo el texto que ve el usuario está en español y los archivos son UTF-8.
@@ -244,11 +267,12 @@ rechazar antes de dar por terminado un cambio:
 - Todo módulo tiene test, figura en `SIN_TEST_PROPIO` o el TODO promete el suyo
   **por nombre de archivo**. Un módulo nuevo sin ninguna de las tres cosas hace
   fallar la suite. La exención **no es `ui/` entero**: son `app.py`, `config.py`
-  y dos módulos de `ui/` —`main_window.py` y `channel_selector.py`—.
-  `navigation.py` salió de la lista cuando ganó la franja de posición, que
-  traduce un clic a una ventana, y `scoring_panel.py` cuando ganó el pie con la
-  ventana y su fase. Los demás módulos de `ui/` tienen test propio, así que
-  agregar uno sin test rompe la suite.
+  y un módulo de `ui/`, `main_window.py`. `navigation.py` salió de la lista
+  cuando ganó la franja de posición, que traduce un clic a una ventana;
+  `scoring_panel.py` cuando ganó el pie con la ventana y su fase; y
+  `channel_selector.py` cuando el árbol pasó a ser una lista con un pie de
+  atajos por clase, que lleva estado propio. Los demás módulos de `ui/` tienen
+  test propio, así que agregar uno sin test rompe la suite.
 - Todo método público de `core/`, `utils/` y `analysis/` que reciba argumentos
   tiene su fila en `CONTRATOS` de `tests/test_contratos.py`, o figura en
   `SIN_CONTRATO` con el motivo. Son las tres capas donde vive la regla de
@@ -403,7 +427,11 @@ repintarlo por su cuenta.
 
 `psglab/config.py` es el punto único de verdad de las constantes del pliego
 (ventana de 30 s, grilla de 0,5 s y 3 s, banda de 75 µV, nombres de los tres
-archivos de salida). No repetir esos números en ningún otro módulo.
+archivos de salida). No repetir esos números en ningún otro módulo. Ahí vive
+también `DEFAULT_SCALE_BY_KIND_UV`, que no es del pliego pero es de la misma
+familia que los límites de la amplitud: **cada clase de canal abre con su
+escala**, y volver a una sola para todos deja al canal respiratorio tapando
+seis carriles.
 
 `psglab/core/windows.py` es el único lugar donde se convierte entre ventanas,
 muestras, segundos absolutos, fracción de página y hora de la noche, para que no
@@ -462,10 +490,16 @@ hito 23 es la única vía para activar una herramienta: **no hay barra de
 herramientas**. Abrir un registro es el botón de la esquina de la barra de menú
 (`window.open_button`), no un menú.
 
-Los colores salen de `ui/theme.py` (esquemas inmutables, con el contraste de los
-de fábrica verificado contra WCAG 2.1) y lo que el usuario elige, de
-`ui/preferences.py`, que lo guarda en un JSON de su perfil. No es `config.py`:
-aquél fija el pliego, esto es lo que se elige.
+Los colores salen de `ui/theme.py` (dos esquemas inmutables, con su contraste
+verificado contra WCAG 2.1) y lo que el usuario elige, de `ui/preferences.py`,
+que lo guarda en un JSON de su perfil. No es `config.py`: aquél fija el pliego,
+esto es lo que se elige.
+
+Del esquema sale también **el color de cada fase de sueño** (`stage_colors`),
+que pinta el hipnograma, la franja de posición y el botón de scoring con la
+misma escala. Un esquema puede no traerla, y entonces esas tres cosas se
+dibujan con una sola tinta, que es como se veían antes del hito 34. El motivo
+de que viva ahí y no en `core/` está en `docs/ARQUITECTURA.md`.
 
 Cinco reglas de esta capa que no se ven leyendo un solo archivo:
 
@@ -479,13 +513,24 @@ Cinco reglas de esta capa que no se ven leyendo un solo archivo:
   `ui/shortcuts.py` con `key_for()` y va después de un tabulador en el texto.
   Llamar a `setShortcut()` la duplicaría con el `QShortcut` que ya existe, y ante
   un atajo duplicado Qt no ejecuta ninguno de los dos.
+- **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
+  (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
+  que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril
+  hasta el hito 37, y la onda se dibujaba encima: cualquier cosa que viva en
+  coordenadas del gráfico termina tapada por la señal.
 - **`psglab/ui/` no lleva subpaquetes.** El chequeo de `SOLO_BIBLIOTECA` y el que
   exige que cada README nombre sus archivos recorren la carpeta sin entrar en
   subcarpetas: un `ui/panels/` dejaría funciones de `analysis/` como huérfanas.
 - **No se agrega una opción de configuración que nada consuma.** Por eso la
-  ventana de configuración tiene cinco solapas y no las siete de la referencia:
-  Cursores y Calibración entran cuando existan las reglas y la conversión a
-  milímetros que configurarían.
+  ventana de configuración tiene cuatro solapas y no las siete de la
+  referencia: Cursores y Calibración entran cuando existan las reglas y la
+  conversión a milímetros que configurarían.
+- **Los colores no se configuran.** Hay dos esquemas —Sereno y Nocturno—, se
+  eligen desde el menú «Ver» y no se pueden editar. Eran ocho y con cada color
+  editable hasta el hito 35, y eso significaba infinitos aspectos posibles y
+  ninguno garantizado: el control de contraste sólo alcanzaba a los de fábrica.
+  Agregar un esquema es sumarlo a `SCHEMES` —el control de contraste lo enrola
+  solo—; agregar una perilla de color es volver atrás una decisión tomada.
 - **Un cuadro tiene 40 ms de presupuesto**, que es lo que pide el reloj de la
   reproducción. El hito 25 los consiguió con tres decisiones que se deshacen
   sin querer: la grilla es **un solo objeto** de la escena y no una

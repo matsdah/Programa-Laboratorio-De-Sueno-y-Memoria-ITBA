@@ -19,6 +19,7 @@ from psglab.core.windows import (
     seconds_to_window_fraction,
     window_duration,
     window_fraction_to_seconds,
+    seconds_to_clock_time,
     window_to_clock_time,
     window_span_seconds,
     window_to_samples,
@@ -132,6 +133,19 @@ def test_la_hora_de_la_noche_avanza_una_ventana_por_ventana():
     una_hora = int(3600 / WINDOW_SECONDS)
     assert window_to_clock_time(0, inicio) == inicio
     assert window_to_clock_time(una_hora, inicio) == datetime(2026, 9, 5, 0, 0, 0)
+
+
+def test_un_instante_cualquiera_tambien_tiene_su_hora():
+    """El eje del visualizador no trabaja en ventanas sino en segundos: con una
+    página de cuatro horas las marcas no caen en bordes de época."""
+    inicio = datetime(2026, 9, 4, 23, 58, 30)
+
+    assert seconds_to_clock_time(0.0, inicio) == inicio
+    assert seconds_to_clock_time(90.5, inicio) == datetime(2026, 9, 5, 0, 0, 0, 500_000)
+
+
+def test_sin_horario_de_inicio_tampoco_hay_hora_de_un_instante():
+    assert seconds_to_clock_time(1234.5, None) is None
 
 
 # -- Duración real de la ventana --------------------------------------------

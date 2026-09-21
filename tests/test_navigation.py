@@ -25,6 +25,7 @@ import pytest
 pytest.importorskip("pyqtgraph")
 
 import psglab.ui.navigation as navigation  # noqa: E402
+from psglab.ui.icons import icon  # noqa: E402
 import psglab.ui.theme as theme  # noqa: E402
 
 
@@ -194,15 +195,74 @@ def test_sin_registro_lo_dice_en_vez_de_mostrar_cero(barra):
     assert barra._posicion.text() == "Sin registro"
 
 
-def test_el_horario_se_oculta_si_el_registro_no_lo_informa(barra):
-    """Un horario vacío en pantalla invita a leerlo como medianoche."""
+def test_el_horario_va_con_la_epoca(barra):
+    """**Eran dos rótulos sueltos al final de la fila hasta el hito 36.** Los
+    dos contestan dónde estoy, en dos unidades, así que van en la misma línea,
+    debajo del medio de la franja."""
+    barra.set_position(0, 960)
+
     barra.set_clock_time("23:41:00")
-    assert barra._horario.text() == "23:41:00"
+
+    assert barra._posicion.text() == "23:41:00 · Ventana 1 de 960"
+
+
+def test_sin_horario_queda_sólo_la_epoca(barra):
+    """Un horario vacío en pantalla invita a leerlo como medianoche."""
+    barra.set_position(0, 960)
+    barra.set_clock_time("23:41:00")
 
     barra.set_clock_time(None)
 
-    assert barra._horario.text() == ""
-    assert barra._horario.isHidden()
+    assert barra._posicion.text() == "Ventana 1 de 960"
+
+
+def test_los_extremos_del_registro_van_a_los_costados(barra):
+    """Sin ellos la franja dice una proporción y no contra qué."""
+    barra.set_span("23:00", "07:30")
+
+    assert barra._hora_inicial.text() == "23:00"
+    assert barra._hora_final.text() == "07:30"
+
+
+def test_sin_horas_los_extremos_se_ocultan(barra):
+    barra.set_span("23:00", "07:30")
+
+    barra.set_span(None, None)
+
+    assert barra._hora_inicial.isHidden()
+    assert barra._hora_final.isHidden()
+
+
+def test_la_amplitud_se_ve_entre_sus_dos_botones(barra):
+    """Hasta el hito 36 sólo se veía en el eje de cada canal."""
+    barra.set_amplitude("100 µV")
+
+    assert barra._amplitud.text() == "100 µV"
+
+
+def test_el_icono_de_reproducir_se_lee_sobre_su_relleno(barra):
+    """**Arrancaba casi invisible.** `_boton()` lo crea con la tinta de los
+    demás, que sobre el acento da 2,87 a 1; `apply_scheme()` lo corregía, pero
+    sólo corre al cambiar de esquema, así que el botón recién construido —el
+    que ve quien abre el programa— tenía el icono en el color equivocado.
+
+    Lo encontró una captura de la barra, no un test: por eso ahora hay uno.
+    """
+    esquema = theme.current()
+    correcto = icon("reproducir", theme.ink_over(esquema, esquema.accent))
+
+    assert (
+        barra._reproducir.icon().pixmap(32, 32).toImage()
+        == correcto.pixmap(32, 32).toImage()
+    )
+
+
+def test_la_tinta_del_boton_primario_contrasta(barra):
+    """La regla, no el píxel: sobre el acento tiene que leerse."""
+    esquema = theme.current()
+    tinta = theme.ink_over(esquema, esquema.accent)
+
+    assert theme.contrast_ratio(tinta, esquema.accent) >= theme.MIN_GRAPHIC_CONTRAST
 
 
 def test_cambiar_de_esquema_repinta_los_iconos(barra):
@@ -211,11 +271,11 @@ def test_cambiar_de_esquema_repinta_los_iconos(barra):
     antes = barra._siguiente.icon().cacheKey()
     antes_de_reproducir = barra._reproducir.icon().cacheKey()
 
-    theme.set_current(theme.OSCURO)
+    theme.set_current(theme.NOCTURNO)
     try:
         barra.apply_scheme()
     finally:
-        theme.set_current(theme.CLARO)
+        theme.set_current(theme.SERENO)
 
     assert barra._siguiente.icon().cacheKey() != antes
     assert barra._reproducir.icon().cacheKey() != antes_de_reproducir
@@ -359,3 +419,56 @@ def test_un_clic_en_un_boton_no_le_saca_el_foco_a_la_senal(barra):
 
     for boton in (barra._reproducir, barra._primera, barra._siguiente):
         assert boton.focusPolicy() == Qt.FocusPolicy.TabFocus
+
+
+# -- La franja con lo scoreado (hito 34) -------------------------------------
+
+
+def test_la_franja_arranca_sin_scoring(barra: navigation.NavigationBar):
+    assert barra.strip._colores == ()
+
+
+def test_el_cache_del_fondo_se_reusa(barra: navigation.NavigationBar, qt_app):
+    """La franja se repinta en cada época, y durante la reproducción eso son
+    veinticinco veces por segundo: pintar 2650 rectángulos en cada cuadro es lo
+    que el hito 25 sacó de la grilla."""
+    barra.set_position(0, 3)
+    barra.set_scoring(["#112233", None, "#445566"])
+    barra.strip.resize(120, navigation.ALTO_DE_LA_FRANJA)
+
+    primero = barra.strip._fondo()
+
+    assert barra.strip._fondo() is primero
+
+
+def test_cambiar_el_scoring_rehace_el_fondo(barra: navigation.NavigationBar):
+    barra.set_position(0, 3)
+    barra.set_scoring(["#112233", None, None])
+    primero = barra.strip._fondo()
+
+    barra.set_scoring(["#112233", "#445566", None])
+
+    assert barra.strip._fondo() is not primero
+
+
+def test_el_mismo_scoring_no_rehace_el_fondo(barra: navigation.NavigationBar):
+    """La ventana la llama por el mismo camino que redibuja el hipnograma, o
+    sea en cada cambio de época: soltar el cache ahí lo volvería inútil."""
+    barra.set_position(0, 3)
+    barra.set_scoring(["#112233", None, None])
+    primero = barra.strip._fondo()
+
+    barra.set_scoring(["#112233", None, None])
+
+    assert barra.strip._fondo() is primero
+
+
+def test_cambiar_de_registro_rehace_el_fondo(barra: navigation.NavigationBar):
+    """Otra cantidad de épocas es otro ancho por época."""
+    barra.set_position(0, 3)
+    barra.set_scoring(["#112233", None, None])
+    primero = barra.strip._fondo()
+
+    barra.set_position(0, 900)
+
+    assert barra.strip._fondo() is not primero

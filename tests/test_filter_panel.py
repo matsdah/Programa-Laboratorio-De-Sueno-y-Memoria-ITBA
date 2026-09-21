@@ -287,3 +287,26 @@ def test_el_nombre_de_la_fila_no_se_edita(panel_cargado):
 def panel_cargado(panel: FilterPanel) -> FilterPanel:
     panel.set_recording(registro([("C3", ChannelKind.EEG), ("EOG", ChannelKind.EOG)]))
     return panel
+
+
+# -- El encabezado (hito 41) -------------------------------------------------
+
+
+def test_el_encabezado_dice_cuantas_clases_hay(panel_cargado: FilterPanel):
+    """Es lo que decide cuántas filas tiene la tabla."""
+    assert panel_cargado.header.caption() == "2 clases de canal"
+
+
+def test_con_una_sola_clase_el_encabezado_no_pluraliza(panel: FilterPanel):
+    """Un registro de un solo EEG es un caso de prueba corriente."""
+    panel.set_recording(registro([("C3", ChannelKind.EEG)]))
+
+    assert panel.header.caption() == "1 clase de canal"
+
+
+def test_el_encabezado_dice_contra_que_frecuencia_se_sugirieron(
+    panel_cargado: FilterPanel,
+):
+    """**La frecuencia y el tope de Nyquist son dos cosas.** Ésta dice de dónde
+    salen los sugeridos; el rótulo dice por qué algunos vienen vacíos."""
+    assert "sugeridos para 256 Hz" == panel_cargado.header.detail()

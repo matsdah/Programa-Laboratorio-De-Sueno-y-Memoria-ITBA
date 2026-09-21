@@ -19,6 +19,12 @@ medición real, así que pintarlo mentiría sobre una ventana que no se midió.
 Como en `psd_panel.py` y en `overview_panel.py`, lo que se puede afirmar sin
 mirar una pantalla está separado del dibujo.
 
+**Dejó de ser un `PlotWidget` y pasó a contener uno** en el hito 39, con la
+carrocería que comparten los seis paneles: el encabezado de
+`psglab/ui/panel_header.py` y el cartel que **reemplaza** al gráfico mientras
+no hay resultado. Antes las dos cosas iban al título del gráfico, así que un
+panel vacío seguía mostrando ejes, grilla y leyenda detrás de la frase.
+
 Cubre del pliego: ningún ID de funcionalidad propio. Es la mitad que se ve de
 las secciones "Complejidad" y "Conectividad de la señal".
 """
@@ -27,9 +33,17 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from psglab.ui import theme
+from psglab.ui.panel_header import SECUNDARIO_PROPERTY, EmptyState, PanelHeader
 
 
 def _color_de_serie(posicion: int) -> str:
@@ -47,12 +61,13 @@ def _color_de_serie(posicion: int) -> str:
     return theme.current().color_for_channel(posicion)
 
 
-class MetricPanel(pg.PlotWidget):
+class MetricPanel(QWidget):
     """Dibuja un valor por ventana a lo largo del registro."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Crea el panel vacío, antes de que haya ninguna métrica calculada."""
         super().__init__(parent)
+        self.grafico = pg.PlotWidget()
         #: Desde qué menú se pide lo que muestra este panel. Ver `set_hint()`.
         self._pista: str = ""
         self._pista_visible: bool = False
@@ -61,12 +76,47 @@ class MetricPanel(pg.PlotWidget):
         self._series: dict[str, np.ndarray] = {}
         self._curvas: dict[str, pg.PlotDataItem] = {}
         self._etiqueta: str = ""
+        #: Las etiquetas de la leyenda, una por canal dibujado.
+        self._leyendas: list[QLabel] = []
 
-        item = self.getPlotItem()
+        item = self.grafico.getPlotItem()
         item.setLabel("bottom", "Ventana")
         item.showGrid(x=True, y=True, alpha=0.3)
-        item.addLegend(offset=(-10, 10))
         item.setMenuEnabled(False)
+
+        #: El encabezado, con qué se está mirando. Ver `PanelHeader`.
+        self.header = PanelHeader("Métrica")
+
+        #: Lo que se ve mientras no hay ningún resultado. Ver `EmptyState`.
+        self.vacio = EmptyState()
+
+        #: La leyenda, en una franja propia arriba del gráfico.
+        #:
+        #: **pyqtgraph la dibuja adentro**, flotando sobre la esquina superior
+        #: derecha: con una noche entera dibujada, la leyenda se apoya justo
+        #: sobre el tramo de más actividad y tapa el dato. Acá tiene su renglón
+        #: y no le quita nada a la curva.
+        self.leyenda = QWidget()
+        self.leyenda.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._fila_de_leyenda = QHBoxLayout(self.leyenda)
+        self._fila_de_leyenda.setContentsMargins(12, 4, 12, 4)
+        self._fila_de_leyenda.setSpacing(14)
+        self._fila_de_leyenda.addStretch(1)
+
+        #: El gráfico o el cartel de panel vacío, nunca los dos: un gráfico con
+        #: ejes y grilla detrás de una frase se lee como un resultado que dio
+        #: cero.
+        self._pila = QStackedWidget()
+        self._pila.addWidget(self.grafico)
+        self._pila.addWidget(self.vacio)
+
+        columna = QVBoxLayout(self)
+        columna.setContentsMargins(0, 0, 0, 0)
+        columna.setSpacing(0)
+        columna.addWidget(self.header)
+        columna.addWidget(self.leyenda)
+        columna.addWidget(self._pila)
+        self._reflejar_titulo()
 
     # -- Lo que le da la ventana principal ----------------------------------
 
@@ -83,13 +133,14 @@ class MetricPanel(pg.PlotWidget):
         Redibujar **reemplaza**: pedir otra métrica no puede dejar encima la
         anterior, que quedarían superpuestas en escalas distintas.
         """
-        item = self.getPlotItem()
+        item = self.grafico.getPlotItem()
         for curva in self._curvas.values():
             item.removeItem(curva)
         self._curvas.clear()
         self._series.clear()
         self._etiqueta = label
         item.setLabel("left", label)
+        self._armar_la_leyenda(list(series))
 
         for posicion, (nombre, valores) in enumerate(series.items()):
             datos = np.asarray(valores, dtype=float)
@@ -152,12 +203,53 @@ class MetricPanel(pg.PlotWidget):
         """La descripción del resultado que se muestra, o vacío."""
         return self._titulo
 
+    def _armar_la_leyenda(self, channel_names: list[str]) -> None:
+        """Un trazo del color de cada canal con su nombre al lado.
+
+        Se rehace entera y no se completa: pedir otra métrica con menos canales
+        dejaría en la franja el nombre de uno que ya no está dibujado.
+        """
+        for etiqueta in self._leyendas:
+            self._fila_de_leyenda.removeWidget(etiqueta)
+            etiqueta.hide()
+            etiqueta.deleteLater()
+        self._leyendas.clear()
+
+        for posicion, nombre in enumerate(channel_names):
+            etiqueta = QLabel(nombre)
+            etiqueta.setProperty(SECUNDARIO_PROPERTY, False)
+            # El trazo va en el texto y no en un widget aparte: un cuadradito
+            # de color es un widget más por canal, y con treinta y dos canales
+            # la franja tarda en armarse tanto como la curva en dibujarse.
+            etiqueta.setText(
+                f'<span style="color: {_color_de_serie(posicion)};">━</span>&nbsp;{nombre}'
+            )
+            self._fila_de_leyenda.insertWidget(len(self._leyendas), etiqueta)
+            self._leyendas.append(etiqueta)
+
+    def legend_channels(self) -> list[str]:
+        """Qué canales nombra la leyenda, en orden.
+
+        Es lo que se puede afirmar de ella sin mirar píxeles, y lo que diría si
+        alguna vez dejara de rehacerse entera.
+        """
+        return [
+            etiqueta.text().split("&nbsp;")[-1] for etiqueta in self._leyendas
+        ]
+
     def _reflejar_titulo(self) -> None:
-        """El título del gráfico: la pista con el panel vacío, la descripción si no."""
+        """Pone el encabezado y decide si se ve el gráfico o el cartel de vacío.
+
+        **El cartel reemplaza al gráfico, no lo tapa.** Hasta el hito 39 las
+        dos cosas iban al título del gráfico, así que el panel vacío seguía
+        mostrando ejes, grilla y leyenda detrás de la frase: se leía como un
+        resultado que dio cero.
+        """
         vacio = not self._series
         self._pista_visible = bool(self._pista) and vacio
-        texto = self._pista if vacio else self._titulo
-        self.getPlotItem().setTitle(texto or None)
+        self.header.set_caption("" if vacio else self._titulo)
+        self.vacio.set_text(self._pista)
+        self._pila.setCurrentWidget(self.vacio if self._pista_visible else self.grafico)
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 

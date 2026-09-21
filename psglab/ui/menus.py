@@ -63,7 +63,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import QToolButton
+from PySide6.QtGui import QActionGroup
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QToolButton, QWidget
 
 from psglab.config import AMPLITUDE_PRESETS_UV, VIEW_TIMESCALE_PRESETS
 from psglab.exporters.scoring_formats import SCORING_FORMATS
@@ -85,6 +86,11 @@ if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
 #: carpeta más chica que el texto de los menús de al lado.
 TAMANO_DEL_ICONO = 20
 
+#: La línea que separa «Abrir» de los menús: cuánto mide de alto y cuánto
+#: aire le queda a cada lado.
+ALTO_DEL_SEPARADOR = 20
+ESPACIO_DEL_SEPARADOR = 8
+
 
 def build_menus(window: "MainWindow") -> None:
     """Arma la barra de menú entera sobre la ventana principal.
@@ -102,6 +108,7 @@ def build_menus(window: "MainWindow") -> None:
     """
     window.menuBar().setNativeMenuBar(False)
     _abrir(window)
+    _identificador(window)
     _scoring(window)
     _escala_de_tiempo(window)
     _amplitud(window)
@@ -194,11 +201,17 @@ def _abrir(window: "MainWindow") -> None:
 
     **El atajo va en el tooltip** y no como texto al lado, que es donde lo
     ponen los menús: un botón con icono no tiene columna de atajo.
+
+    **Lleva la palabra «Abrir» desde el hito 36.** Con el icono solo, lo único
+    que decía qué hacía era el tooltip, y en la esquina de una barra de menú
+    una carpeta suelta se lee como decoración. Es además el primer control que
+    usa quien abre el programa.
     """
     boton = QToolButton(window.menuBar())
     boton.setIcon(icon("abrir", theme.icon_ink(theme.current())))
     boton.setIconSize(QSize(TAMANO_DEL_ICONO, TAMANO_DEL_ICONO))
-    boton.setAutoRaise(True)
+    boton.setText("Abrir")
+    boton.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
     boton.setCursor(Qt.CursorShape.PointingHandCursor)
     boton.setAccessibleName("Abrir registro")
     tecla = key_for("open_recording_dialog")
@@ -206,8 +219,42 @@ def _abrir(window: "MainWindow") -> None:
         "Abrir registro" + (f" ({readable_key(tecla)})" if tecla is not None else "")
     )
     boton.clicked.connect(window.open_recording_dialog)
-    window.menuBar().setCornerWidget(boton, Qt.Corner.TopLeftCorner)
+
+    # **El botón y una línea vertical, no el botón solo.** «Abrir» no es un
+    # menú más y sin la línea se leía como el primero de la fila. Va en un
+    # contenedor porque la esquina de `QMenuBar` acepta un widget, uno solo.
+    contenedor = QWidget(window.menuBar())
+    fila = QHBoxLayout(contenedor)
+    fila.setContentsMargins(0, 0, 0, 0)
+    fila.setSpacing(ESPACIO_DEL_SEPARADOR)
+    fila.addWidget(boton)
+    separador = QFrame(contenedor)
+    separador.setFrameShape(QFrame.Shape.VLine)
+    separador.setFixedWidth(1)
+    separador.setFixedHeight(ALTO_DEL_SEPARADOR)
+    fila.addWidget(separador)
+    window.menuBar().setCornerWidget(contenedor, Qt.Corner.TopLeftCorner)
     window.open_button = boton
+
+
+def _identificador(window: "MainWindow") -> None:
+    """Qué registro está abierto, en la otra esquina de la barra de menú.
+
+    **No estaba en ningún lado** hasta el hito 36: el nombre del archivo, su
+    frecuencia y cuántos canales tiene sólo se conseguían abriendo un panel de
+    análisis o mirando el título de la ventana, que el sistema puede recortar.
+    Con dos registros parecidos —la misma noche filtrada y sin filtrar— no
+    había forma de saber cuál se estaba mirando.
+
+    Es una lectura: el esquema le da la tipografía numérica, que es la que
+    hace que la frecuencia y las horas no bailen.
+    """
+    etiqueta = QLabel("Sin registro")
+    etiqueta.setProperty(theme.READOUT_PROPERTY, True)
+    etiqueta.setAccessibleName("Registro abierto")
+    etiqueta.setContentsMargins(0, 0, 10, 0)
+    window.menuBar().setCornerWidget(etiqueta, Qt.Corner.TopRightCorner)
+    window.recording_summary = etiqueta
 
 
 def _scoring(window: "MainWindow") -> None:
@@ -330,6 +377,28 @@ def _ver(window: "MainWindow") -> None:
         )
 
     ver.addSeparator()
+    # **Los dos esquemas** (hito 35). Estaban en la solapa Colores de la ventana
+    # de configuración, junto con la edición de cada color; al quedar sólo la
+    # elección entre dos, una solapa entera para dos botones era más camino que
+    # el que ahorraba. Acá quedan al lado de los tres fondos de grilla, que es
+    # lo otro que cambia cómo se ve la señal.
+    #
+    # Son un grupo exclusivo, como los fondos: elegir uno destilda el otro sin
+    # que nadie lo maneje a mano.
+    grupo = QActionGroup(window)
+    grupo.setExclusive(True)
+    window.acciones_de_esquema = {}
+    for nombre in theme.SCHEMES:
+        accion = ver.addAction(nombre)
+        accion.setCheckable(True)
+        accion.setActionGroup(grupo)
+        accion.triggered.connect(
+            lambda _=False, n=nombre: window.set_color_scheme(theme.scheme_by_name(n))
+        )
+        window.acciones_de_esquema[nombre] = accion
+    window.acciones_de_esquema[theme.current().name].setChecked(True)
+
+    ver.addSeparator()
     # V2_F del histograma: el pliego pide poder elegir el eje.
     window.accion_eje_en_hora = ver.addAction("Histograma en hora real de la noche")
     window.accion_eje_en_hora.setCheckable(True)
@@ -418,7 +487,12 @@ def _analizar(window: "MainWindow") -> None:
     _agregar(analizar, "&Espectro de la ventana…", window.show_psd_dialog)
     _agregar(analizar, "&Complejidad de la noche…", window.show_complexity_dialog)
     _agregar(analizar, "Conectividad de la &ventana…", window.show_connectivity_dialog)
-    _agregar(analizar, "Conectividad de la &noche…", window.show_connectivity_night_dialog)
+    # **Queda en la ventana** porque hay que poder apagarla: es la única que
+    # arranca un cálculo en otro hilo, y con uno en curso no se puede pedir
+    # otro. Ver `MainWindow._reflejar_lo_que_se_puede_pedir()`.
+    window.accion_conectividad_de_la_noche = _agregar(
+        analizar, "Conectividad de la &noche…", window.show_connectivity_night_dialog
+    )
 
 
 def _configuracion(window: "MainWindow") -> None:

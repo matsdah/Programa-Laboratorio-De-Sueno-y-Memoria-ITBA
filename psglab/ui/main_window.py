@@ -50,13 +50,14 @@ implementar ninguna, y cada una vive en su módulo.
 import threading
 from collections import Counter
 from collections.abc import Callable, Iterator
+from datetime import timedelta
 from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPointF, Qt, QTimer
-from PySide6.QtGui import QAction, QCloseEvent, QFont, QMouseEvent
+from PySide6.QtGui import QAction, QCloseEvent, QFont, QFontMetrics, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -65,6 +66,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QProgressBar,
     QToolBar,
     QWidget,
 )
@@ -89,6 +91,7 @@ from psglab.core.session import Session
 from psglab.analysis.derivation import derive
 from psglab.analysis.complexity import MEASURES, complexity_by_window, warm_up
 from psglab.analysis.connectivity import (
+    METHOD_LABELS,
     average_connectivity,
     compute_connectivity,
     connectivity_by_window,
@@ -133,7 +136,7 @@ from psglab.tools.magnifier import MagnifierTool
 from psglab.tools.occupancy import OccupancyTool
 from psglab.tools.overview import OverviewTool
 from psglab.tools.registry import available_tools
-from psglab.ui import preferences, theme
+from psglab.ui import fonts, preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.docks import build_docks
 from psglab.ui.icons import icon
@@ -144,6 +147,7 @@ from psglab.ui.playback import PlaybackClock
 from psglab.ui.connectivity_panel import ConnectivityPanel
 from psglab.ui.ica_panel import IcaPanel
 from psglab.ui.filter_panel import FilterPanel
+from psglab.ui.background import BackgroundTask
 from psglab.ui.impedance_panel import ImpedancePanel
 from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
@@ -152,6 +156,16 @@ from psglab.ui.settings_dialog import SettingsDialog
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
 from psglab.utils.errors import PsgLabError, UndeclaredNomenclatureError
+from psglab.utils.units import format_amplitude
+
+#: Lo que se le suma al ancho del identificador del registro para que no quede
+#: pegado al borde de la ventana ni a la última entrada del menú.
+_MARGEN_DEL_IDENTIFICADOR: int = 18
+
+#: Qué parte de la separación entre dos filas del hipnograma ocupa la barra de
+#: color de una fase. Menos de la mitad a propósito: la barra tiene que leerse
+#: como una marca sobre su fila y no como un bloque que tape la curva.
+_GROSOR_DE_LA_FASE: float = 0.34
 
 #: Medidas de complejidad que la interfaz ofrece para recorrer la noche.
 #:
@@ -163,6 +177,16 @@ from psglab.utils.errors import PsgLabError, UndeclaredNomenclatureError
 #: `complexity_by_window()` la acepta igual: es una función de biblioteca y
 #: quien la llama desde un script puede esperar. La política es de la interfaz.
 MEDIDAS_RAPIDAS = tuple(m for m in MEASURES if m != "sample_entropy")
+
+#: Con qué método se mide la conectividad. **Se pide explícito** y no por el
+#: valor por omisión de `compute_connectivity()`: el rótulo de la escala de
+#: color sale de acá, y con el método implícito los dos podían separarse sin
+#: que nada fallara.
+METODO_DE_CONECTIVIDAD: str = "wpli"
+
+#: Cuánto mide la barra que dice que el programa está trabajando, en píxeles.
+#: Corta: es una señal de vida, no una lectura.
+ANCHO_DE_LA_BARRA_DE_ESPERA: int = 90
 
 #: Qué botón del mouse llegó, traducido al vocabulario de `ViewerTool`, que no
 #: conoce Qt.
@@ -335,6 +359,26 @@ class MainWindow(QMainWindow):
         # Las dos son lecturas: el esquema puede darles una tipografía numérica.
         for lectura in (self.tool_readout, self.page_readout):
             lectura.setProperty(theme.READOUT_PROPERTY, True)
+
+        #: Que algo largo está corriendo. **Indeterminada a propósito**: ni la
+        #: conectividad de la noche ni la ICA informan cuánto llevan hechas, así
+        #: que un porcentaje sería inventado. Ver `_en_segundo_plano()`.
+        self._barra_de_espera = QProgressBar()
+        self._barra_de_espera.setRange(0, 0)
+        self._barra_de_espera.setTextVisible(False)
+        self._barra_de_espera.setFixedWidth(ANCHO_DE_LA_BARRA_DE_ESPERA)
+        self._barra_de_espera.setAccessibleName("El programa está trabajando")
+        self._barra_de_espera.hide()
+        self.statusBar().addPermanentWidget(self._barra_de_espera)
+
+        #: El único cálculo largo que puede estar corriendo. Ver
+        #: `psglab/ui/background.py`.
+        self._tarea = BackgroundTask(self)
+
+        #: Las acciones que arrancan un cálculo largo, para poder apagarlas
+        #: mientras dura. Las llena `_build_menus()`.
+        self._acciones_largas: tuple[QAction, ...] = ()
+
         self.statusBar().showMessage("Sin registro abierto")
 
     def _build_menus(self) -> None:
@@ -347,6 +391,7 @@ class MainWindow(QMainWindow):
         `_build_tools_menu()`.
         """
         build_menus(self)
+        self._acciones_largas = (self.accion_conectividad_de_la_noche,)
         self._poner_pistas()
 
     def _poner_pistas(self) -> None:
@@ -1043,6 +1088,9 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         self.playback.stop()
+        # **Antes de soltar la sesión.** Un cálculo largo todavía leyendo el
+        # registro se quedaría trabajando sobre memoria que ya nadie tiene.
+        self.wait_for_background()
         super().closeEvent(event)
 
     def _lo_que_se_perderia(self) -> list[str]:
@@ -1131,6 +1179,12 @@ class MainWindow(QMainWindow):
         )
         exportar = cartel.addButton("Exportar…", QMessageBox.ButtonRole.AcceptRole)
         descartar = cartel.addButton("Descartar", QMessageBox.ButtonRole.DestructiveRole)
+        # **El rol no alcanza para que se vea distinto.** `DestructiveRole` le
+        # dice a Qt dónde ubicar el botón y con qué tecla responde, no de qué
+        # color pintarlo: en Windows sale idéntico a «Cancelar». La tinta la
+        # pone el esquema por esta propiedad, y es el único control del
+        # programa que la lleva porque es el único que pierde trabajo.
+        descartar.setProperty(theme.DESTRUCTIVO_PROPERTY, True)
         cancelar = cartel.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
         cartel.setDefaultButton(exportar)
         cartel.setEscapeButton(cancelar)
@@ -1175,6 +1229,12 @@ class MainWindow(QMainWindow):
         self.signal_view.mark_window(ventana)
         self.navigation.set_position(ventana, sesion.n_windows)
         self.navigation.set_clock_time(self._clock_label(ventana))
+        self.navigation.set_amplitude(self._amplitud_visible())
+        # Los extremos no cambian con la época, pero esto es lo que corre
+        # después de abrir un registro **y** después de cambiar de canales
+        # visibles, que es cuando pueden dejar de ser ciertos.
+        self.navigation.set_span(*self._horas_del_registro())
+        self._escribir_el_identificador()
         epoca = sesion.scoring.get(ventana)
         self.scoring_panel.set_current(epoca.stage, epoca.arousal, ventana)
         self._redraw_histogram()
@@ -1617,6 +1677,12 @@ class MainWindow(QMainWindow):
         self.open_button.setIcon(icon("abrir", theme.icon_ink(scheme)))
         self.overview_panel.update()
         self._redraw_histogram()
+        # **La tilde del menú, cuando el esquema no vino del menú**: lo elige
+        # también el archivo de preferencias al arrancar, y desde el hito 35 el
+        # menú «Ver» es el único lugar donde se ve cuál está puesto.
+        accion = self.acciones_de_esquema.get(scheme.name)
+        if accion is not None and not accion.isChecked():
+            accion.setChecked(True)
 
         self._preferencias = self._preferencias.with_scheme(scheme)
         if remember:
@@ -1760,14 +1826,16 @@ class MainWindow(QMainWindow):
 
     def _aplicar_preferencias(self, prefs: preferences.Preferences) -> None:
         """Lo que se aplica enseguida y no depende de un registro abierto."""
-        if prefs.font_family is None and prefs.font_size is None:
-            fuente = QFont(self._fuente_del_sistema)
-        else:
-            fuente = QFont(self._fuente_del_sistema)
-            if prefs.font_family is not None:
-                fuente.setFamily(prefs.font_family)
-            if prefs.font_size is not None:
-                fuente.setPointSize(prefs.font_size)
+        fuente = QFont(self._fuente_del_sistema)
+        # **La familia se pide sólo si Qt la tiene** (hito 34). Desde que la
+        # tipografía del programa es la de fábrica, un archivo que falta o no
+        # se pudo registrar dejaría a `setFamily()` sustituyendo en silencio
+        # por lo que a Qt le parezca, que suele ser peor que la del sistema.
+        elegida = fonts.available_family(prefs.font_family) if prefs.font_family else None
+        if elegida is not None:
+            fuente.setFamily(elegida)
+        if prefs.font_size is not None:
+            fuente.setPointSize(prefs.font_size)
         # **Sólo si cambió.** Cambiar la tipografía de la aplicación le avisa a
         # cada widget de cada ventana abierta, y la configuración se aplica
         # entera en cada cambio: sin esta guarda, tocar el color de una clase
@@ -1871,9 +1939,109 @@ class MainWindow(QMainWindow):
             self._show_error(error)
             return
         self._update_histogram_window(self._session.current_window)
+        # **La Übersicht cachea sus ventanas** y las rearma al cambiar de
+        # época, no al scorear: sin esto, el chip de la fase recién puesta no
+        # aparecía hasta la próxima flecha. Es lo mismo que ya hacía anotar, y
+        # por el mismo motivo.
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.refresh()
         self.refresh()
 
     # -- Las esperas largas --------------------------------------------------
+
+    def _en_segundo_plano(
+        self,
+        que_hace: str,
+        trabajo: "Callable[[], object]",
+        al_terminar: "Callable[[object], None]",
+    ) -> None:
+        """Corre algo largo en otro hilo y dibuja el resultado cuando vuelve.
+
+        Es la versión que no congela la ventana de `_trabajando()`, y la
+        diferencia que se ve es que **la barra de progreso se mueve**: mientras
+        el cálculo dura, el programa repinta, se puede arrastrar y el sistema
+        no lo marca como «no responde».
+
+        **La barra es indeterminada a propósito.** Ni `connectivity_by_window()`
+        ni la ICA informan cuánto llevan hechas, así que un porcentaje sería
+        inventado. Una barra que se mueve sin decir cuánto falta es honesta;
+        una que dice 62 % sin saberlo, no.
+
+        Args:
+            que_hace: lo que se lee en la barra de estado, sin los puntos
+                suspensivos.
+            trabajo: lo que se calcula. **Corre en otro hilo**, así que no
+                puede tocar widgets ni `Session`: lo que necesite de la sesión
+                hay que resolverlo antes de llamar acá.
+            al_terminar: qué hacer con el resultado. Corre en el hilo de la
+                interfaz y sí puede dibujar.
+        """
+        self.statusBar().showMessage(f"{que_hace}…")
+        self._barra_de_espera.show()
+
+        def listo(resultado: object) -> None:
+            self._terminar_la_espera(que_hace)
+            al_terminar(resultado)
+
+        def falló(error: object) -> None:
+            self._terminar_la_espera(que_hace)
+            if isinstance(error, PsgLabError):
+                self._show_error(error)
+
+        self._tarea.finished.connect(listo)
+        self._tarea.failed.connect(falló)
+        try:
+            self._tarea.start(trabajo)
+        except PsgLabError as error:
+            self._terminar_la_espera(que_hace)
+            self._show_error(error)
+            return
+        # **Después de arrancar y no antes.** Lo que decide qué se puede pedir
+        # es `BackgroundTask.is_running()`, que con el hilo sin arrancar
+        # todavía dice que no: llamado antes, esto no apagaba nada.
+        self._reflejar_lo_que_se_puede_pedir()
+
+    def _terminar_la_espera(self, que_hace: str) -> None:
+        """Saca la barra y desconecta lo que quedó de este cálculo.
+
+        **Se desconecta y no se deja conectado**: los `connect()` de
+        `_en_segundo_plano()` son closures de *este* pedido, y dejarlos puestos
+        haría que el siguiente cálculo dibujara también el resultado del
+        anterior.
+        """
+        self._barra_de_espera.hide()
+        if self.statusBar().currentMessage() == f"{que_hace}…":
+            self.statusBar().clearMessage()
+        for señal in (self._tarea.finished, self._tarea.failed):
+            try:
+                señal.disconnect()
+            except RuntimeError:
+                # No había nadie conectado. Qt lo considera un error; acá es
+                # el caso normal de llamar dos veces.
+                pass
+        self._reflejar_lo_que_se_puede_pedir()
+
+    def _reflejar_lo_que_se_puede_pedir(self) -> None:
+        """Apaga lo que no se puede pedir con un cálculo en curso.
+
+        **Dos cálculos a la vez sobre la misma sesión se pisan el resultado**, y
+        cuál gana depende de cuál termine primero. `BackgroundTask` lo rechaza
+        igual, pero un menú que deja pedir algo que va a fallar es peor que uno
+        que lo muestra apagado.
+        """
+        ocupado = self._tarea.is_running()
+        for accion in self._acciones_largas:
+            accion.setEnabled(not ocupado)
+
+    def wait_for_background(self) -> None:
+        """Se queda hasta que termine el cálculo que esté corriendo.
+
+        La llama el cierre de la ventana: soltar la sesión con otro hilo
+        todavía leyendo el registro lo deja trabajando sobre memoria que ya
+        nadie tiene.
+        """
+        self._tarea.wait()
 
     def warm_up_in_background(self) -> None:
         """Paga en otro hilo las dos esperas que se cobraban a la primera vez.
@@ -2299,13 +2467,16 @@ class MainWindow(QMainWindow):
                     self._session.recording,
                     channels=canales,
                     band=bandas[banda],
+                    method=METODO_DE_CONECTIVIDAD,
                     window_index=ventana,
                 )
         except PsgLabError as error:
             self._show_error(error)
             return
 
-        self.connectivity_panel.set_matrix(matriz, canales)
+        self.connectivity_panel.set_matrix(
+            matriz, canales, measure=METHOD_LABELS[METODO_DE_CONECTIVIDAD]
+        )
         promedio = average_connectivity(matriz)
         descripcion = (
             f"Conectividad en {banda} — ventana {ventana + 1} — "
@@ -2358,20 +2529,28 @@ class MainWindow(QMainWindow):
         if not acepto:
             return
 
-        try:
-            with self._trabajando(
-                f"Midiendo la conectividad en {banda} a lo largo de la noche"
-            ):
-                matrices = connectivity_by_window(
-                    self._session.recording, canales, band=bandas[banda]
-                )
-                promedios = np.array(
-                    [average_connectivity(matriz) for matriz in matrices]
-                )
-        except PsgLabError as error:
-            self._show_error(error)
-            return
+        # **Lo único que se lee de la sesión se lee acá**, en el hilo de la
+        # interfaz: el otro hilo recibe el registro y los nombres ya resueltos y
+        # no vuelve a preguntarle nada a `Session`.
+        registro = self._session.recording
+        limites = bandas[banda]
 
+        def medir() -> object:
+            matrices = connectivity_by_window(registro, canales, band=limites)
+            return np.array([average_connectivity(matriz) for matriz in matrices])
+
+        self._en_segundo_plano(
+            f"Midiendo la conectividad en {banda} a lo largo de la noche",
+            medir,
+            lambda promedios: self._mostrar_la_conectividad_de_la_noche(
+                banda, canales, promedios
+            ),
+        )
+
+    def _mostrar_la_conectividad_de_la_noche(
+        self, banda: str, canales: list[str], promedios: object
+    ) -> None:
+        """Dibuja lo que midió el otro hilo. **Acá sí se tocan widgets.**"""
         etiqueta = f"Conectividad en {banda}"
         self.metric_panel.set_metric(
             etiqueta, {f"Promedio de {len(canales)} canales": promedios}
@@ -2778,6 +2957,87 @@ class MainWindow(QMainWindow):
         except PsgLabError as error:
             self._show_error(error)
 
+    def _amplitud_visible(self) -> str:
+        """La amplitud que muestra la barra, entre los dos botones que la cambian.
+
+        **Una sola cuando todos los canales visibles comparten escala**, y el
+        rango —«50–250 µV»— cuando no. Inventar el del primero sería peor: el
+        investigador leería 100 µV mientras mira un canal a 250.
+
+        **Decía «varias» y dejó de servir** cuando cada clase pasó a abrir con
+        su propia escala: la palabra era correcta y no decía nada, porque desde
+        entonces es lo que se lee siempre. El rango dice de dónde a dónde va lo
+        que se está mirando, y cuál es el de cada canal está en su carril.
+        """
+        if self._session is None:
+            return ""
+        escalas = {
+            self._session.scale_uv(nombre)
+            for nombre in self._session.visible_channels
+        }
+        if not escalas:
+            return ""
+        if len(escalas) > 1:
+            return f"{min(escalas):.0f}–{format_amplitude(max(escalas))}"
+        return format_amplitude(escalas.pop())
+
+    def _escribir_el_identificador(self) -> None:
+        """Pone el identificador del registro y **lo deja del ancho que necesita**.
+
+        `QMenuBar` le da a su widget de esquina el ancho que ese widget pide, y
+        una vez: sin esto se queda con el de «Sin registro» y el identificador
+        sale cortado. **El mínimo se calcula con las métricas de la fuente que
+        el rótulo tiene puesta** y no con `sizeHint()`, que se resuelve antes
+        de que la hoja de estilo le dé la tipografía numérica y devuelve un
+        ancho de otra tipografía.
+
+        Se vio en una captura de la barra; desde el código no se nota.
+        """
+        texto = self._describir_el_registro()
+        if texto == self.recording_summary.text():
+            return
+        self.recording_summary.setText(texto)
+        ancho = QFontMetrics(self.recording_summary.font()).horizontalAdvance(texto)
+        self.recording_summary.setFixedWidth(ancho + _MARGEN_DEL_IDENTIFICADOR)
+        # **Se lo vuelve a colgar**, que es lo único que le hace recalcular al
+        # `QMenuBar` dónde empieza su esquina: `updateGeometry()` no alcanza y
+        # el rótulo queda dibujado a partir del borde derecho de la ventana,
+        # con casi todo afuera.
+        self.menuBar().setCornerWidget(
+            self.recording_summary, Qt.Corner.TopRightCorner
+        )
+
+    def _describir_el_registro(self) -> str:
+        """Qué registro está abierto, para la esquina de la barra de menú.
+
+        Nombre del archivo, frecuencia, cuántos canales y de qué hora a qué
+        hora. Las horas sólo si el archivo las informa: un EDF puede no
+        traerlas, y un guion en su lugar se lee como un dato.
+        """
+        if self._session is None:
+            return "Sin registro"
+        registro = self._session.recording
+        partes = [
+            registro.file_path.name,
+            f"{registro.sampling_rate:g} Hz",
+            f"{registro.n_channels} canales",
+        ]
+        desde, hasta = self._horas_del_registro()
+        if desde is not None and hasta is not None:
+            partes.append(f"{desde} → {hasta}")
+        return "  ·  ".join(partes)
+
+    def _horas_del_registro(self) -> tuple[str | None, str | None]:
+        """Cuándo empieza y cuándo termina el registro, para los costados de la
+        franja. Las dos son None si el archivo no informa su hora de inicio."""
+        if self._session is None:
+            return (None, None)
+        inicio = self._session.recording.start_time
+        if inicio is None:
+            return (None, None)
+        fin = inicio + timedelta(seconds=self._session.recording.duration_seconds)
+        return (inicio.strftime("%H:%M"), fin.strftime("%H:%M"))
+
     def _clock_label(self, window_index: int) -> str | None:
         """La hora real de una ventana, si el registro informa cuándo empezó."""
         if self._session is None:
@@ -2832,6 +3092,14 @@ class MainWindow(QMainWindow):
             stepMode="right",
             connect="finite",
         )
+        self._pintar_las_fases(herramienta, altura)
+        # La franja de posición se pinta con lo mismo: una fase tiene que verse
+        # igual en los dos lugares, y las dos salen de `bars()`.
+        self.navigation.set_scoring(
+            [esquema.color_for_stage(fase.value) for fase in barras]
+            if (esquema := theme.current()).stage_colors
+            else []
+        )
         item.setYRange(0, len(orden) + 0.5, padding=0)
         # `stage_label()` y no `str(fase)`: el segundo da "SleepStage.WAKE".
         # Es el mismo nombre que usan el panel de scoring y `Informacion.txt`.
@@ -2839,6 +3107,44 @@ class MainWindow(QMainWindow):
             [[(altura[fase], stage_label(fase)) for fase in orden]]
         )
         item.getAxis("bottom").setTicks([self._marcas_del_histograma(len(barras))])
+
+    def _pintar_las_fases(
+        self, herramienta: HistogramTool, altura: dict[SleepStage, float]
+    ) -> None:
+        """Le pone a cada tramo del hipnograma el color de su fase (hito 34).
+
+        **Sobre la curva y no en vez de ella.** La curva es la que resuelve lo
+        no scoreado con `NaN`, que es V1_P, y la que deja ver de un vistazo la
+        forma de la noche; el color es lo que deja reconocer una fase sin leer
+        el eje. Un esquema sin escala de fases no pinta nada y el hipnograma se
+        ve como antes.
+
+        **Un solo ítem de escena para todos los tramos**, y tramos en vez de
+        ventanas: es la misma cuenta del hito 25 con la grilla, sobre un panel
+        que se redibuja en cada cambio de época.
+        """
+        esquema = theme.current()
+        if not esquema.stage_colors:
+            return
+        tramos = [
+            (inicio, cuantas, esquema.color_for_stage(fase.value), altura.get(fase))
+            for inicio, cuantas, fase in herramienta.runs()
+        ]
+        # Una fase que el esquema no conoce, o que no es una fila del eje, no
+        # se pinta: el color inventado sería peor que la curva sola.
+        dibujables = [t for t in tramos if t[2] is not None and t[3] is not None]
+        if not dibujables:
+            return
+        self.histogram_view.getPlotItem().addItem(
+            pg.BarGraphItem(
+                x0=[inicio for inicio, _, _, _ in dibujables],
+                x1=[inicio + cuantas for inicio, cuantas, _, _ in dibujables],
+                y0=[y - _GROSOR_DE_LA_FASE / 2 for _, _, _, y in dibujables],
+                height=_GROSOR_DE_LA_FASE,
+                pen=None,
+                brushes=[color for _, _, color, _ in dibujables],
+            )
+        )
 
     def _marcas_del_histograma(self, cuantas: int) -> list[tuple[float, str]]:
         """Las marcas del eje horizontal del hipnograma (V2_F).

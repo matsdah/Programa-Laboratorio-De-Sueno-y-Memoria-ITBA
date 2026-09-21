@@ -95,6 +95,10 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_shortcuts.py": ("psglab/ui/shortcuts.py",),
     "test_signal_view.py": ("psglab/ui/signal_view.py",),
     "test_grid.py": ("psglab/ui/grid.py",),
+    "test_channel_axis.py": ("psglab/ui/channel_axis.py",),
+    "test_channel_selector.py": ("psglab/ui/channel_selector.py",),
+    "test_panel_header.py": ("psglab/ui/panel_header.py",),
+    "test_background.py": ("psglab/ui/background.py",),
     "test_registry.py": (
         "psglab/tools/registry.py",
         "psglab/tools/base.py",
@@ -1112,10 +1116,11 @@ SIN_CAMINO_A_PROPOSITO: dict[str, str] = {
             ("ica_panel.py", "IcaPanel",
              ("visible_hint", "component_count", "topography_bars", "time_course_data")),
             ("impedance_panel.py", "ImpedancePanel",
-             ("unmeasured", "displayed_value", "report_text")),
+             ("unmeasured", "displayed_value", "displayed_state", "state_color",
+              "report_text")),
             ("metric_panel.py", "MetricPanel",
              ("visible_hint", "caption", "window_positions", "gap_windows",
-              "metric_label")),
+              "legend_channels", "metric_label")),
             ("overview_panel.py", "OverviewPanel", ("current_index",)),
             ("psd_panel.py", "PsdPanel",
              ("visible_hint", "caption", "method_description", "band_powers",
@@ -1596,7 +1601,6 @@ SIN_TEST_PROPIO: frozenset[str] = frozenset(
         "psglab/app.py",
         "psglab/config.py",
         "psglab/ui/main_window.py",
-        "psglab/ui/channel_selector.py",
     }
 )
 

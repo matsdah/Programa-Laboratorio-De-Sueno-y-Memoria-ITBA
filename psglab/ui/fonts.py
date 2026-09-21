@@ -29,6 +29,15 @@ from PySide6.QtGui import QFontDatabase
 #: Dónde están los archivos.
 FONTS_DIR: Final[Path] = Path(__file__).resolve().parent.parent / "resources" / "fonts"
 
+#: La familia con que arranca la interfaz desde el hito 34. Está acá y no en
+#: `preferences.py` porque es el nombre que Qt le da a **estos archivos**: si
+#: alguna vez se cambian, el nombre se corrige en el mismo lugar que la lista.
+#:
+#: **Es una preferencia y se puede cambiar** en Configuración → Tipografía, y
+#: si los archivos no estuvieran, `available_family()` devuelve None y la
+#: interfaz se queda con la del sistema.
+UI_FONT_FAMILY: Final[str] = "IBM Plex Sans"
+
 #: Los archivos que se registran. La negrita de Sans está porque los rótulos de
 #: la interfaz la usan; de Mono alcanza la regular, que es la de las lecturas.
 FONT_FILES: Final[tuple[str, ...]] = (
@@ -72,3 +81,22 @@ def register_bundled_fonts(directory: Path = FONTS_DIR) -> list[str]:
             if familia not in familias:
                 familias.append(familia)
     return familias
+
+
+def available_family(family: str = UI_FONT_FAMILY) -> str | None:
+    """La familia pedida si Qt la tiene, o None si no.
+
+    **Existe porque una tipografía que falta no puede empeorar el programa.**
+    `QFont.setFamily()` con un nombre que no existe no avisa: Qt sustituye por
+    la que le parece, que en Linux suele ser una serif genérica, y la ventana
+    queda peor que con la del sistema. Preguntar antes es la diferencia entre
+    degradar a lo conocido y degradar a cualquier cosa.
+
+    Es el mismo criterio con que `register_bundled_fonts()` saltea un archivo
+    que no puede leer: la tipografía es una preferencia visual, no un motivo
+    para no arrancar.
+
+    Args:
+        family: el nombre a buscar. Por omisión, la de la interfaz.
+    """
+    return family if family in QFontDatabase.families() else None
