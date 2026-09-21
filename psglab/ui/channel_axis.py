@@ -50,6 +50,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetricsF, QPainter
 
 from psglab.ui import theme
+from psglab.ui.fonts import font_for
 
 #: Cuánto ancho se reserva a la izquierda del gráfico, en píxeles. Es el de la
 #: columna del diseño. Fijo y no calculado a partir de los nombres: con un
@@ -66,13 +67,6 @@ _MARGEN_DE_LA_MUESTRA: Final[float] = 5.0
 
 #: Cuánto separa el texto de la muestra de color.
 _SEPARACION: Final[float] = 7.0
-
-#: Cuánto más chica es la segunda línea que la primera, en puntos. La clase y
-#: la escala son el dato secundario del rótulo y no compiten con el nombre.
-_PUNTOS_MENOS: Final[int] = 1
-
-#: Hasta dónde se achica la segunda línea. Por debajo de esto no se lee.
-_PUNTOS_MINIMOS: Final[int] = 6
 
 
 @dataclass(frozen=True)
@@ -134,28 +128,22 @@ class ChannelAxis(pg.AxisItem):
         """Los rótulos que está dibujando, en el orden en que se apilan."""
         return self._carriles
 
-    def set_fonts(self, font: QFont, numeric_family: str | None) -> None:
+    def set_fonts(self, font: QFont) -> None:
         """Cambia la tipografía de las dos líneas del rótulo.
 
         Hace falta aparte, igual que en el visualizador: un `AxisItem` no sigue
         solo a la tipografía de la aplicación.
 
+        **Las dos salen de la escala** (hito 43) y no de una cuenta de acá: el
+        nombre es «cuerpo» y la escala es «lectura secundaria». Antes este
+        módulo achicaba un punto y el chip achicaba dos, que eran dos
+        respuestas a la misma pregunta.
+
         Args:
-            font: la del nombre, que es la de la interfaz.
-            numeric_family: la familia de la segunda línea, que lleva números
-                y conviene que sea de ancho fijo; `None` para la misma del
-                nombre.
+            font: la de la aplicación, de la que sale el tamaño base.
         """
-        self._fuente = QFont(font)
-        secundaria = QFont(font)
-        if numeric_family is not None:
-            secundaria.setFamily(numeric_family)
-        secundaria.setPointSize(
-            max(_PUNTOS_MINIMOS, font.pointSize() - _PUNTOS_MENOS)
-            if font.pointSize() > 0
-            else font.pointSize()
-        )
-        self._fuente_numerica = secundaria
+        self._fuente = font_for("cuerpo", font)
+        self._fuente_numerica = font_for("lectura_secundaria", font)
         self._repintar()
 
     def apply_scheme(self, scheme: theme.ColorScheme) -> None:

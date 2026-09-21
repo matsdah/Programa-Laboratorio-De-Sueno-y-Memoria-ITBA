@@ -176,6 +176,15 @@ class UnknownColorSchemeError(PsgLabError):
     """
 
 
+class UnknownTypeRoleError(PsgLabError):
+    """Se pidió un rol tipográfico que no existe.
+
+    Del mismo tipo que `UnknownIconError` y por el mismo motivo: el nombre lo
+    escribe quien dibuja y no el investigador, pero hereda igual de
+    `PsgLabError` para no atravesar el `except` de la ventana como traza.
+    """
+
+
 class UnknownIconError(PsgLabError):
     """Se pidió un icono que el programa no sabe dibujar.
 

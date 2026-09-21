@@ -53,6 +53,7 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.ui import theme
+from psglab.ui.fonts import font_for
 from psglab.ui.icons import icon
 
 #: Cuánto mide de alto el encabezado, en píxeles. Fijo: es la franja contra la
@@ -66,11 +67,6 @@ ROTULO_PROPERTY: Final[str] = "rotulo"
 #: La propiedad de un texto secundario: el método, la unidad, lo que se
 #: consulta y no se busca.
 SECUNDARIO_PROPERTY: Final[str] = "secundario"
-
-#: Cuánto espaciado extra lleva el rótulo entre letras. `QFont` sí lo sabe
-#: hacer, y es lo que le da a una palabra corta en mayúsculas el aire que en el
-#: diseño viene de `letter-spacing`.
-ESPACIADO_DEL_ROTULO: Final[float] = 1.4
 
 #: El lado del icono del panel vacío, en píxeles.
 LADO_DEL_ICONO: Final[int] = 26
@@ -93,12 +89,7 @@ class PanelHeader(QWidget):
 
         self._rotulo = QLabel(label.upper())
         self._rotulo.setProperty(ROTULO_PROPERTY, True)
-        fuente = QFont(self._rotulo.font())
-        fuente.setBold(True)
-        fuente.setLetterSpacing(
-            QFont.SpacingType.AbsoluteSpacing, ESPACIADO_DEL_ROTULO
-        )
-        self._rotulo.setFont(fuente)
+        self._rotulo.setFont(font_for("rotulo", self._rotulo.font()))
 
         self._descripcion = QLabel("")
         self._descripcion.setProperty(theme.READOUT_PROPERTY, True)
@@ -199,24 +190,13 @@ class EmptyState(QWidget):
 RADIO_DEL_CHIP: Final[int] = 4
 PADDING_DEL_CHIP: Final[int] = 5
 
-#: Cuánto más chica es la letra de un chip que la de su fila, en puntos.
-PUNTOS_MENOS_DEL_CHIP: Final[int] = 2
-
-#: Hasta dónde se achica. Por debajo de esto no se lee.
-PUNTOS_MINIMOS_DEL_CHIP: Final[int] = 6
-
 #: El rol del ítem que lleva el color de relleno de su chip.
 ROL_DEL_COLOR: Final[int] = int(Qt.ItemDataRole.UserRole) + 2
 
 
 def chip_font(base: QFont) -> QFont:
-    """La tipografía de un chip: la de su fila, un par de puntos más chica."""
-    chica = QFont(base)
-    if base.pointSize() > 0:
-        chica.setPointSize(
-            max(PUNTOS_MINIMOS_DEL_CHIP, base.pointSize() - PUNTOS_MENOS_DEL_CHIP)
-        )
-    return chica
+    """La tipografía de un chip. Sale de la escala, no de una cuenta propia."""
+    return font_for("chip", base)
 
 
 def chip_width(text: str, font: QFont) -> float:

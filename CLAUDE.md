@@ -531,6 +531,15 @@ Cinco reglas de esta capa que no se ven leyendo un solo archivo:
   ninguno garantizado: el control de contraste sólo alcanzaba a los de fábrica.
   Agregar un esquema es sumarlo a `SCHEMES` —el control de contraste lo enrola
   solo—; agregar una perilla de color es volver atrás una decisión tomada.
+- **La tipografía tampoco, y por el mismo argumento** (hito 43). Son dos
+  familias emparentadas —IBM Plex Sans para lo que se lee, Mono para lo que se
+  mide—, se empaquetan con el programa y no se eligen; **el tamaño sí**, que es
+  lo que hace falta para ver de lejos. Los tamaños no se escriben en el módulo
+  que dibuja: se nombra un rol de `ui/fonts.py` y `font_for()` lo arma desde el
+  tamaño elegido. Antes el canalón achicaba un punto y el chip dos, que eran
+  dos respuestas a la misma pregunta. **La itálica quiere decir «esto no lo
+  midió ni lo eligió nadie»** —«sin medir», «sin scorear»— y no «esto es
+  importante»: usarla para otra cosa le saca el significado.
 - **Un cuadro tiene 40 ms de presupuesto**, que es lo que pide el reloj de la
   reproducción. El hito 25 los consiguió con tres decisiones que se deshacen
   sin querer: la grilla es **un solo objeto** de la escena y no una

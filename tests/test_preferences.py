@@ -220,11 +220,12 @@ def test_los_campos_nuevos_arrancan_en_su_valor_de_fabrica():
     de configuración: página de 30 s, AASM, espectro de Welch en logarítmico."""
     valores = preferences.Preferences()
 
-    # **Era `None` —la del sistema— hasta el hito 34.** Ahora arranca en la que
-    # el programa empaqueta, que es la del diseño; quien prefiera otra la elige
-    # en Configuración → Tipografía, y quien ya tenga preferencias guardadas
-    # conserva la suya, porque el archivo siempre escribe este campo.
-    assert valores.font_family == fonts.UI_FONT_FAMILY
+    # **La tipografía dejó de ser una preferencia en el hito 43.** Era `None`
+    # —la del sistema— hasta el hito 34, después la que el programa empaqueta,
+    # y desde el 43 no se elige: hay una sola familia y su hermana de ancho
+    # fijo. Lo que se sigue eligiendo es el tamaño.
+    assert not hasattr(valores, "font_family")
+    assert valores.font_size is None
     assert valores.psd_method == "welch"
     assert valores.psd_log_power is True
     assert valores.bands() == dict(preferences.DEFAULT_BANDS)
@@ -238,7 +239,6 @@ def test_todo_lo_de_la_configuracion_vuelve_igual(archivo: Path):
     elegidas = (
         preferences.Preferences()
         .with_changes(
-            font_family="DejaVu Sans",
             font_size=13,
             psd_method="multitaper",
             psd_log_power=False,
@@ -305,7 +305,6 @@ def test_cambiar_el_color_de_una_clase_reemplaza_el_anterior():
         ("font_size", 3),
         ("font_size", 200),
         ("font_size", True),
-        ("font_family", ""),
         ("psd_method", "fourier"),
         ("psd_log_power", "si"),
         ("open_view_seconds", 0.0),

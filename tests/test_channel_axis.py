@@ -94,27 +94,21 @@ def test_las_dos_tintas_salen_del_esquema(eje: ChannelAxis):
 
 
 def test_la_segunda_linea_es_mas_chica_que_el_nombre(eje: ChannelAxis):
-    """La clase y la escala son el dato que se consulta; el nombre es el que se
-    busca."""
+    """La escala es el dato que se consulta; el nombre es el que se busca.
+
+    **Las dos salen de la escala del programa** desde el hito 43: el nombre es
+    «cuerpo» y la escala «lectura secundaria». Antes este módulo achicaba un
+    punto por su cuenta y el chip achicaba dos."""
     fuente = QFont("IBM Plex Sans", 12)
-    eje.set_fonts(fuente, "IBM Plex Mono")
+    eje.set_fonts(fuente)
 
     assert eje._fuente_numerica.pointSize() < fuente.pointSize()
-    assert eje._fuente_numerica.family() == "IBM Plex Mono"
-
-
-def test_sin_familia_numerica_la_segunda_linea_usa_la_misma(eje: ChannelAxis):
-    """Un esquema puede no traer tipografía numérica, y entonces no hay ninguna
-    otra familia que elegir."""
-    eje.set_fonts(QFont("IBM Plex Sans", 12), None)
-
-    assert eje._fuente_numerica.family() == "IBM Plex Sans"
 
 
 def test_una_tipografia_diminuta_no_desaparece(eje: ChannelAxis):
     """Restarle un punto a una de 6 dejaría la segunda línea en 5, que no se
-    lee. El piso lo pone el módulo."""
-    eje.set_fonts(QFont("IBM Plex Sans", 6), "IBM Plex Mono")
+    lee. El piso lo pone la escala."""
+    eje.set_fonts(QFont("IBM Plex Sans", 6))
 
     assert eje._fuente_numerica.pointSize() >= 6
 

@@ -1827,11 +1827,11 @@ class MainWindow(QMainWindow):
     def _aplicar_preferencias(self, prefs: preferences.Preferences) -> None:
         """Lo que se aplica enseguida y no depende de un registro abierto."""
         fuente = QFont(self._fuente_del_sistema)
-        # **La familia se pide sólo si Qt la tiene** (hito 34). Desde que la
-        # tipografía del programa es la de fábrica, un archivo que falta o no
-        # se pudo registrar dejaría a `setFamily()` sustituyendo en silencio
+        # **La familia ya no se elige** (hito 43): es la del programa y nada
+        # más. Se pide sólo si Qt la tiene, porque un archivo que falta o que
+        # no se pudo registrar dejaría a `setFamily()` sustituyendo en silencio
         # por lo que a Qt le parezca, que suele ser peor que la del sistema.
-        elegida = fonts.available_family(prefs.font_family) if prefs.font_family else None
+        elegida = fonts.available_family()
         if elegida is not None:
             fuente.setFamily(elegida)
         if prefs.font_size is not None:

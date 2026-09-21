@@ -23,6 +23,7 @@ from psglab.core.nomenclature import (  # noqa: E402
 from psglab.ui.scoring_panel import (  # noqa: E402
     ALTO_DEL_BOTON,
     PIE_SIN_REGISTRO,
+    SIN_SCOREAR,
     ScoringPanel,
     status_text,
 )
@@ -159,3 +160,41 @@ def test_cambiar_de_nomenclatura_no_deja_botones_viejos(panel: ScoringPanel):
     assert [b.property("fase") for b in en_la_fila] == [
         f.value for f in panel._botones
     ]
+
+
+# -- La itálica de lo que nadie eligió ----------------------------------------
+
+
+def test_el_pie_inclina_la_ausencia(panel: ScoringPanel):
+    """**La itálica dice «esto no lo eligió nadie»** (hito 43). Es la misma
+    clase de dato que el «sin medir» de la tabla de impedancias, y hasta acá
+    los dos se apoyaban en el gris, que ya quiere decir «esto es secundario»."""
+    panel.set_current(SleepStage.UNSCORED, False, window_index=340)
+
+    assert f"<i>{SIN_SCOREAR}</i>" in panel._pie.text()
+
+
+def test_el_pie_no_inclina_la_ventana(panel: ScoringPanel):
+    """**Se inclina la ausencia y no el renglón.** Inclinar «Ventana 341»
+    diría que la ventana tampoco la eligió nadie, que es falso."""
+    panel.set_current(SleepStage.UNSCORED, False, window_index=340)
+
+    assert "<i>Ventana" not in panel._pie.text()
+    assert panel._pie.text().startswith("Ventana 341")
+
+
+def test_scorearla_endereza_el_pie(panel: ScoringPanel):
+    """La otra mitad: si todo estuviera inclinado, la inclinación no diría
+    nada, y «Ventana 341 · N2» no es ninguna ausencia."""
+    panel.set_current(SleepStage.N2, False, window_index=340)
+
+    assert "<i>" not in panel._pie.text()
+
+
+def test_el_pie_se_contesta_en_texto_pelado(panel: ScoringPanel):
+    """`status()` es lo que compara el resto del programa, y el rótulo guarda
+    el suyo con marcas: `text()` no sirve para contestarlo."""
+    panel.set_current(SleepStage.UNSCORED, False, window_index=340)
+
+    assert panel.status() == status_text(340, SleepStage.UNSCORED, False)
+    assert "<" not in panel.status()

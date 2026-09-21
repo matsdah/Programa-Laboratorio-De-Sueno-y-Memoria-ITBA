@@ -101,7 +101,6 @@ class Preferences:
         scheme_name: nombre del esquema de color elegido, uno de los dos que
             hay. **Se guarda el nombre y no el esquema**, así que mejorar los
             colores en una versión nueva alcanza a quien ya lo eligió.
-        font_family: la tipografía de la interfaz, o None para la del sistema.
             **Arranca en la que el programa empaqueta** (hito 34), que es la del
             diseño; si los archivos no estuvieran, la ventana se queda con la
             del sistema en vez de dejar que Qt sustituya por cualquier cosa.
@@ -143,7 +142,6 @@ class Preferences:
     """
 
     scheme_name: str = DEFAULT_SCHEME_NAME
-    font_family: str | None = UI_FONT_FAMILY
     font_size: int | None = None
     psd_method: str = METHODS[0]
     psd_bands: tuple[tuple[str, float, float], ...] | None = None
@@ -160,10 +158,6 @@ class Preferences:
 
     def __post_init__(self) -> None:
         """Rechaza lo que el programa no podría usar. Ver el docstring de la clase."""
-        if self.font_family is not None and (
-            not isinstance(self.font_family, str) or not self.font_family.strip()
-        ):
-            _rechazar("la tipografía", self.font_family)
         if self.font_size is not None and not (
             _es_entero(self.font_size)
             and MIN_FONT_SIZE <= self.font_size <= MAX_FONT_SIZE
@@ -509,7 +503,6 @@ def _identidad(valor: object) -> object:
 #: Cómo se lee cada campo nuevo desde el JSON. Los que no necesitan conversión
 #: pasan tal cual y los comprueba el constructor.
 _LECTORES: Final[dict[str, object]] = {
-    "font_family": _identidad,
     "font_size": _identidad,
     "psd_method": _identidad,
     "psd_bands": _leer_bandas,
@@ -553,7 +546,6 @@ def save(preferences: Preferences, path: Path | None = None) -> None:
     # tengan el valor de fábrica: el archivo es también lo que alguien abre
     # para ver qué puede cambiar. Una versión anterior del programa los ignora,
     # así que no hizo falta cambiar `FORMAT_VERSION`.
-    datos["font_family"] = preferences.font_family
     datos["font_size"] = preferences.font_size
     datos["psd_method"] = preferences.psd_method
     datos["psd_bands"] = (

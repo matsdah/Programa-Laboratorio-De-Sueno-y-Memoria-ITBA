@@ -52,12 +52,14 @@ paneles de análisis comparten, y el
 cada uno tiene que decir de lo suyo, y el
 **[hito 41](#hito-41-los-seis-paneles-y-no-cuatro)** se lo puso a los dos que
 faltaban. El **[hito 42](#hito-42-lo-largo-deja-de-congelar-la-ventana)** sacó
-del hilo de la interfaz el cálculo más caro del menú. Son
-**cuarenta y tres hitos**, del 0 al 42, que son las filas de la tabla de
+del hilo de la interfaz el cálculo más caro del menú, y el
+**[hito 43](#hito-43-una-tipografía-y-su-hermana-de-ancho-fijo)** dejó la
+tipografía en dos familias emparentadas, con una escala en un solo lugar. Son
+**cuarenta y cuatro hitos**, del 0 al 43, que son las filas de la tabla de
 progreso; está abierto sólo el 33, y lo que sigue abierto de los anteriores
 está anotado dentro del hito al que le toca.
 
-**Del 34 al 42 se hicieron con el 33 abierto.** Decía acá que el 34 era «la
+**Del 34 al 43 se hicieron con el 33 abierto.** Decía acá que el 34 era «la
 única vez que pasa» y dejó de ser cierto en el 35: es exactamente la clase de
 prosa que este archivo se desincroniza. Lo que le queda al 33 no es código
 contra el que se pudiera escribir de más —son dos ítems de rendimiento que son
@@ -173,6 +175,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [40. Lo que cada panel dice de lo suyo](#hito-40-lo-que-cada-panel-dice-de-lo-suyo) | — | 0 | ✅ cerrado |
 | [41. Los seis paneles, y no cuatro](#hito-41-los-seis-paneles-y-no-cuatro) | — | 0 | ✅ cerrado |
 | [42. Lo largo deja de congelar la ventana](#hito-42-lo-largo-deja-de-congelar-la-ventana) | — | 0 | ✅ cerrado |
+| [43. Una tipografía, y su hermana de ancho fijo](#hito-43-una-tipografía-y-su-hermana-de-ancho-fijo) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1336,7 +1339,7 @@ mostrarse.
     de la pantalla, no del electrodo.
   - Importar de un archivo **agrega, no reemplaza**: un laboratorio puede tener
     medido medio montaje.
-  - Test: `tests/test_impedance_panel.py`, **24 tests en verde**.
+  - Test: `tests/test_impedance_panel.py`, **27 tests en verde**.
 
 > **Lo que sigue abierto, y ahora está mejor planteado.** La pregunta ya no es
 > "de dónde salen" sino **cuál de las tres usa el laboratorio**, y de eso
@@ -1833,7 +1836,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       canal toma su color. **El esquema Claro deja el programa exactamente como
       era.**
   - Test: `tests/test_theme.py`, **68 tests en verde**.
-  - Test: `tests/test_preferences.py`, **66 tests en verde**.
+  - Test: `tests/test_preferences.py`, **64 tests en verde**.
 - [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
       y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
@@ -1875,7 +1878,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       de anotaciones, Espectro de potencia, Otras y Tipografía. Todo se aplica
       en el momento. `psd.validate_band()` pasó a ser pública, para que la regla
       de qué banda es válida siga siendo una sola.
-  - Test: `tests/test_settings_dialog.py`, **46 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **48 tests en verde**.
 - [x] **Fase 9 — Cierre.** La conectividad de la noche entera, que era el
       pendiente del [hito 20](#hito-20-la-red). Los menús muestran los atajos
       sin registrarlos otra vez, F6 recorre los paneles, y el contraste de los
@@ -2046,7 +2049,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
       `apply_saved_layout()` pasó a `apply_saved_preferences()` y ya no
       restaura nada, y la ventana dejó de guardar la disposición al cerrar.
   - Test: `tests/test_docks.py`, **39 tests en verde**.
-  - Test: `tests/test_preferences.py`, **66 tests en verde**.
+  - Test: `tests/test_preferences.py`, **64 tests en verde**.
 - [x] **Los botones de página.** ≪ ‹ › ≫ en la barra de abajo, con chevrones
       para que no se confundan con los triángulos de la época.
       `Viewport.at_start` y `Viewport.at_end` dicen cuándo apagarlos.
@@ -2293,13 +2296,13 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       17,5–22,2 ms con Claro y 13,1–21,0 con Papel: la hoja no cuesta
       repintado.
   - Test: `tests/test_theme.py`, **68 tests en verde**.
-  - Test: `tests/test_settings_dialog.py`, **46 tests en verde**, con el
+  - Test: `tests/test_settings_dialog.py`, **48 tests en verde**, con el
     botón nuevo de «Fondo de la ventana».
 - [x] **Las tipografías IBM Plex**, Sans y Mono, en `psglab/resources/fonts/`
       con su licencia, la OFL 1.1. `ui/fonts.py` las registra al arrancar; si
       faltan, el programa arranca igual. El control de licencias del CI no las
       ve, porque sólo mira pip: están anotadas en `docs/ARQUITECTURA.md`.
-  - Test: `tests/test_fonts.py`, **11 tests en verde**.
+  - Test: `tests/test_fonts.py`, **19 tests en verde**.
 
 ### Los detalles
 
@@ -2308,7 +2311,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       dicen las barras de navegación y de estado a propósito: el panel se puede
       sacar a otra pantalla, donde ninguna de las dos se ve.
       `scoring_panel.py` sale de `SIN_TEST_PROPIO`.
-  - Test: `tests/test_scoring_panel.py`, **21 tests en verde**.
+  - Test: `tests/test_scoring_panel.py`, **25 tests en verde**.
 - [x] **El espectro dice con qué se estimó**: «Welch · segmentos de 4 s · Hann
       · solape 50 %». La ventana y el solape de Welch pasan a ser constantes
       explícitas —son los valores por defecto de scipy, así que el espectro no
@@ -2636,8 +2639,8 @@ todas con la recomendación que se le hizo.
       exime: tiene que figurar por su nombre en este archivo.
   - Test: `tests/test_entrega.py`, **266 tests en verde**. Los siete nuevos
     fallan con la ventana anterior.
-  - Test: `tests/test_preferences.py`, **66 tests en verde**.
-  - Test: `tests/test_settings_dialog.py`, **46 tests en verde**.
+  - Test: `tests/test_preferences.py`, **64 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **48 tests en verde**.
   - Test: `tests/test_menus.py`, **44 tests en verde**.
   - Test: `tests/test_psd_panel.py`, **25 tests en verde**; y dos por panel en
     `tests/test_metric_panel.py` (**18 tests en verde**),
@@ -2706,7 +2709,7 @@ tiempo.
     después de los cuatro análisis, y `main.py` precalienta y la suite no.
   - Test: `tests/test_connectivity_panel.py`, **19 tests en verde**.
   - Test: `tests/test_filter_panel.py`, **23 tests en verde**, y
-    `tests/test_impedance_panel.py`, **24 tests en verde**.
+    `tests/test_impedance_panel.py`, **27 tests en verde**.
   - Test: `tests/test_complexity.py`, **36 tests en verde**.
 
 ### Lo que sigue abierto
@@ -2755,8 +2758,8 @@ le hizo, y mantuvo afuera las operaciones largas.
   - Test: `tests/test_recording.py`, **44 tests en verde**, y
     `tests/test_contratos.py`, **962 tests en verde**.
   - Test: `tests/test_magnifier.py`, **27 tests en verde**;
-    `tests/test_preferences.py`, **66 tests en verde**;
-    `tests/test_settings_dialog.py`, **46 tests en verde**.
+    `tests/test_preferences.py`, **64 tests en verde**;
+    `tests/test_settings_dialog.py`, **48 tests en verde**.
 
 ### Lo que sigue abierto
 
@@ -2861,7 +2864,7 @@ ya advertía.
       - **Un archivo dañado ahora se avisa al arrancar.** `load()` armaba el
         mensaje para el investigador y nadie lo mostraba; lo muestra
         `apply_saved_preferences()` con la ventana ya a la vista.
-  - Test: `tests/test_preferences.py`, **66 tests en verde**, con un barrido
+  - Test: `tests/test_preferences.py`, **64 tests en verde**, con un barrido
     que le pone a cada campo guardado todos los tipos de JSON y exige que
     `load()` no eleve nada que no sea `PsgLabError`. Con el módulo anterior
     falla sólo `psd_bands`, con cuatro de esos valores.
@@ -3138,8 +3141,8 @@ tecla.
   - Test: `tests/test_theme.py`, **68 tests en verde**, con la escala de
     fases, las reglas por fase y el contraste de los dos esquemas nuevos, que
     el control de accesibilidad recorre solo porque mira `theme.SCHEMES`.
-  - Test: `tests/test_preferences.py`, **66 tests en verde**, y
-    `tests/test_settings_dialog.py`, **46 tests en verde**: los dos afirmaban
+  - Test: `tests/test_preferences.py`, **64 tests en verde**, y
+    `tests/test_settings_dialog.py`, **48 tests en verde**: los dos afirmaban
     «Claro» donde querían decir «el esquema de fábrica».
 
 ### Lo que entró después del sistema visual
@@ -3158,7 +3161,7 @@ tecla.
         archivo siempre escribe `font_family`, y `_con_campos_nuevos()` sólo
         saltea lo que no está. El diseño nuevo lo ve quien instala de cero o
         quien lo elige en Configuración → Tipografía.
-  - Test: `tests/test_fonts.py`, **11 tests en verde**, con la familia
+  - Test: `tests/test_fonts.py`, **19 tests en verde**, con la familia
     disponible y con una que no existe.
   - Test: `tests/test_entrega.py`, **266 tests en verde**, con la tipografía
     aplicada y con la que no está. Los cuatro fallan sin la corrección.
@@ -3177,7 +3180,7 @@ tecla.
         ancho, así que el reparto con el hipnograma es el mismo. Medido con
         `tests/medir_reparto.py`: el scoring pide 312 px con R&K y 224 con
         AASM, como antes.
-  - Test: `tests/test_scoring_panel.py`, **21 tests en verde**, con la tecla,
+  - Test: `tests/test_scoring_panel.py`, **25 tests en verde**, con la tecla,
     la propiedad de la fase y que cambiar de nomenclatura no deje botones
     viejos, que ahora se pintarían con el color de una fase que ya no existe.
 - [x] **El hipnograma a color**, con la misma escala.
@@ -3291,8 +3294,8 @@ se ve en todas.
       `ecg_grid`, y el pliego no la pide: sus tres fondos —blanco, sólo las
       líneas de 3 s, las dos densidades— son verticales y siguen donde estaban.
   - Test: `tests/test_theme.py`, **68 tests en verde**; `tests/test_grid.py`,
-    **19 tests en verde**; `tests/test_settings_dialog.py`, **46 tests en
-    verde**; `tests/test_preferences.py`, **66 tests en verde**;
+    **19 tests en verde**; `tests/test_settings_dialog.py`, **48 tests en
+    verde**; `tests/test_preferences.py`, **64 tests en verde**;
     `tests/test_menus.py`, **44 tests en verde**, con las dos entradas nuevas y
     su exclusividad. Entre los cinco se borraron treinta y seis tests de lo que
     dejó de existir.
@@ -3432,7 +3435,7 @@ del diseño, y no correr el rótulo al hueco entre carriles.
       - **El ancho es fijo y los nombres largos se recortan.** Un canal llamado
         «EEG Fpz-Cz-A2-referenciado» no puede decidir cuánta pantalla le queda a
         la señal. El nombre entero se sigue viendo en el selector de canales.
-  - Test: `tests/test_channel_axis.py`, **13 tests en verde**.
+  - Test: `tests/test_channel_axis.py`, **12 tests en verde**.
 - [x] **El visualizador dejó de dibujar rótulos.** `channel_label()` se fue con
       ellos —era el texto de una sola línea— y en su lugar está
       `channel_detail()`, que arma la segunda: «EEG · 100 µV».
@@ -3703,7 +3706,7 @@ que decir y no decía.
         `impedance_report()` arma el informe, así que la columna y el informe
         no se pueden contradecir. El encabezado lo dice: sin el límite a la
         vista, «supera» no dice a qué.
-  - Test: `tests/test_impedance_panel.py`, **24 tests en verde**.
+  - Test: `tests/test_impedance_panel.py`, **27 tests en verde**.
 - [x] **La métrica tiene su leyenda en una franja propia.** pyqtgraph la dibuja
       **adentro** del gráfico, flotando sobre la esquina superior derecha: con
       una noche entera dibujada se apoya justo sobre el tramo de más actividad
@@ -3892,6 +3895,86 @@ correr, que al cerrar el programa es nunca.
   anota mientras se calcula sobre el registro que está por reemplazarse.
 - **Los registros densos siguen sin entrar en el cuadro** de 40 ms. Es la otra
   mitad del hito 33 y no tiene nada que ver con los hilos.
+
+## Hito 43: Una tipografía, y su hermana de ancho fijo
+
+**Cerrado el 21 de septiembre de 2026.** El encargo era dejar la aplicación en
+una tipografía, o dos si están emparentadas. **Estaba medio cumplido y medio
+no.** El programa ya empaqueta IBM Plex Sans y IBM Plex Mono, que son la misma
+superfamilia dibujada junta; lo que no tenía era **garantía** —Configuración →
+Tipografía ofrecía las ciento cuarenta familias de la máquina, así que las dos
+empaquetadas eran un valor por omisión— ni **escala**: cada módulo inventaba su
+propio salto de tamaño.
+
+**No tiene stubs que contar.**
+
+- [x] **La solapa pierde la lista de familias.** Es el mismo argumento que dejó
+      los colores en dos esquemas y sacó la solapa que los editaba en el
+      [hito 35](#hito-35-dos-esquemas-y-ninguna-perilla): una lista abierta son
+      infinitos aspectos posibles y ninguno garantizado. **El tamaño sí se
+      sigue eligiendo**, que es lo que hace falta para ver de lejos.
+      - `Preferences.font_family` **se fue entero**, con su validación y su
+        línea de serialización. Un archivo viejo que la traiga se lee igual:
+        `_con_campos_nuevos()` saltea lo que no reconoce.
+      - La solapa muestra **tres muestras** en vez de una: el cuerpo, una
+        lectura numérica y un valor ausente. Son los tres estilos de la escala,
+        y es la única forma de ver de un vistazo qué hace el tamaño elegido.
+  - Test: `tests/test_preferences.py`, **64 tests en verde**;
+    `tests/test_settings_dialog.py`, **48 tests en verde**.
+- [x] **La escala vive en `psglab/ui/fonts.py` y en ningún otro lado.** Ocho
+      roles en `ROLES`, cada uno con su familia, su paso en puntos, su peso, su
+      inclinación y su tracking; `font_for()` los arma desde el tamaño que
+      eligió el usuario.
+      - **Los pasos se cuentan desde ese tamaño**, así que subirlo agranda la
+        interfaz entera sin romper ninguna proporción.
+      - **`MIN_POINT_SIZE` es el piso.** Con un tamaño base de 6, un paso de
+        −2 dejaría el chip en 4, que no se lee. El canalón ya tenía su propio
+        piso por su cuenta; ahora es uno solo.
+      - **Un rol que no existe eleva `UnknownTypeRoleError`** y el mensaje los
+        enumera, como hace `icons.icon()`: el nombre lo escribe quien dibuja y
+        un error de tipeo es la causa habitual.
+  - Test: `tests/test_fonts.py`, **19 tests en verde**.
+- [x] **Los módulos dejaron de inventar su salto.** `channel_axis.py` achicaba
+      un punto y `panel_header.py` dos: eran dos respuestas a la misma
+      pregunta. Ahora los dos nombran un rol —«cuerpo», «lectura secundaria»,
+      «rotulo», «chip»— y no un tamaño. Es el mismo reparto que ya tienen los
+      colores: el módulo dice **qué cosa** está dibujando.
+  - Test: `tests/test_channel_axis.py`, **12 tests en verde**;
+    `tests/test_panel_header.py`, **31 tests en verde**.
+- [x] **La itálica entra, y sólo donde significa algo.** Inclinada quiere decir
+      **«esto no lo midió ni lo eligió nadie»**: el «sin medir» de la tabla de
+      impedancias y el «sin scorear» del pie del panel de scoring.
+      - **Hasta acá esa diferencia la cargaba el gris**, que ya quiere decir
+        otra cosa —«esto es secundario»— y los dos se pisaban. Un valor ausente
+        es lo contrario de secundario: es la advertencia más importante de la
+        tabla de impedancias, y ese módulo entero está construido alrededor de
+        no confundirlo con un cero.
+      - **Se aplica en los dos sentidos.** Al escribir el valor la fila vuelve
+        a la redonda y al scorear la ventana el pie también; si todo estuviera
+        inclinado, la inclinación no diría nada.
+      - **En el pie se inclina la ausencia y no el renglón**, que es lo que
+        encontró la captura: «Ventana 1 · *sin scorear*» entero en itálica
+        decía que tampoco la ventana la había elegido nadie. El rótulo lleva
+        marcas y `status()` contesta el texto pelado, que es lo que el resto
+        del programa compara.
+  - Test: `tests/test_impedance_panel.py`, **27 tests en verde**;
+    `tests/test_scoring_panel.py`, **25 tests en verde**.
+
+### Lo que este hito deja anotado
+
+- **Falta empaquetar `IBMPlexSans-Italic.ttf`.** El rol `ausente` ya pide
+  itálica y funciona: sin el archivo, Qt **sintetiza** la inclinación
+  deformando la regular, que se lee peor —las curvas se estiran— pero se
+  distingue igual de la recta. Agregarlo es soltarlo en
+  `psglab/resources/fonts/` y sumarlo a `FONT_FILES`; entra bajo la misma
+  OFL 1.1 que los otros tres y pesa unos 80 kB. **No se bajó un binario al
+  repositorio sin que el usuario lo decida.**
+- **Los roles «titulo» y «secundario» todavía no tienen quien los pida** desde
+  un módulo: los escribe la hoja de estilo con sus propios tamaños. Unificarlos
+  obliga a decidir qué hace `stylesheet()` cuando no hay `QFont` base, y eso es
+  un hito aparte.
+
+---
 
 ---
 

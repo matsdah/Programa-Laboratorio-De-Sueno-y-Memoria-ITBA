@@ -267,3 +267,48 @@ def test_el_encabezado_dice_contra_que_limite(panel: ImpedancePanel):
     panel.set_channels(["C3"], {"C3": 3.0})
 
     assert "5" in panel.header.detail()
+
+
+# -- La itálica de lo que nadie midió -----------------------------------------
+
+
+def fila_de(panel: ImpedancePanel, canal: str):
+    """La entrada de la tabla que le corresponde a un canal."""
+    for numero in range(panel.tabla.topLevelItemCount()):
+        entrada = panel.tabla.topLevelItem(numero)
+        if entrada.text(0) == canal:
+            return entrada
+    raise AssertionError(f"no está el canal {canal}")
+
+
+def test_un_canal_sin_medir_se_escribe_inclinado(panel: ImpedancePanel):
+    """**La itálica dice «esto no lo midió nadie»** (hito 43).
+
+    Hasta acá esa diferencia la cargaba el gris, que en este panel ya quiere
+    decir otra cosa —«esto es secundario»—, y un valor ausente es lo contrario
+    de secundario: es la advertencia más importante de la tabla.
+    """
+    panel.set_channels(["C3"], {})
+    entrada = fila_de(panel, "C3")
+
+    assert entrada.font(1).italic()
+    assert entrada.font(2).italic()
+
+
+def test_un_canal_medido_no_se_inclina(panel: ImpedancePanel):
+    """La otra mitad, que es la que le da significado a la primera: si todo
+    estuviera inclinado, la inclinación no diría nada."""
+    panel.set_channels(["C3"], {"C3": 3.0})
+    entrada = fila_de(panel, "C3")
+
+    assert not entrada.font(1).italic()
+    assert not entrada.font(2).italic()
+
+
+def test_escribir_un_valor_endereza_la_fila(panel: ImpedancePanel):
+    """Al medirse el canal la fila vuelve a la redonda. Sin esto, «sin medir»
+    quedaría inclinado al lado de un número que sí se midió."""
+    panel.set_channels(["C3"], {})
+    escribir(panel, "C3", "3")
+
+    assert not fila_de(panel, "C3").font(1).italic()

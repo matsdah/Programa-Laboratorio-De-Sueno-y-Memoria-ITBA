@@ -368,27 +368,32 @@ def test_elegir_el_histograma_en_hora_real(dialogo: SettingsDialog, cambios):
 # -- Tipografía ------------------------------------------------------------------------
 
 
-def test_arranca_con_la_del_programa(dialogo: SettingsDialog):
-    """**Era la del sistema hasta el hito 34.** Ahora la de fábrica es la que
-    el programa empaqueta, así que la casilla arranca destildada y los dos
-    controles, habilitados: la del sistema pasó a ser lo que se elige."""
-    assert not dialogo.system_font.isChecked()
-    assert dialogo.font_family.isEnabled()
-    assert dialogo.font_size.isEnabled()
-    assert dialogo.preferences.font_family == fonts.UI_FONT_FAMILY
+def test_no_se_elige_la_familia(dialogo: SettingsDialog):
+    """**La solapa perdió la lista en el hito 43.** Ofrecía las ciento y pico
+    de familias instaladas, así que las dos que el programa empaqueta eran un
+    valor por omisión y no una garantía. Es el mismo argumento que dejó los
+    colores en dos esquemas."""
+    assert not hasattr(dialogo, "font_family")
+    assert not hasattr(dialogo.preferences, "font_family")
 
 
-def test_dejar_la_del_sistema_aplica_la_elegida(dialogo: SettingsDialog, cambios):
+def test_arranca_con_el_tamano_del_programa(dialogo: SettingsDialog):
+    """Lo que sí se elige es el tamaño, que es lo que hace falta para ver de
+    lejos. La casilla arranca tildada porque el tamaño de fábrica es el del
+    sistema."""
+    assert dialogo.system_font.isChecked()
+    assert not dialogo.font_size.isEnabled()
+
+
+def test_dejar_el_del_sistema_aplica_el_elegido(dialogo: SettingsDialog, cambios):
     dialogo.system_font.setChecked(True)
     cambios.clear()
     dialogo.font_size.setValue(15)
-    assert cambios == [], "con la del sistema, tocar el tamaño no cambia nada"
+    assert cambios == [], "con el del sistema, tocar el tamaño no cambia nada"
 
     dialogo.system_font.setChecked(False)
 
-    elegidas = ultima(cambios)
-    assert elegidas.font_size == 15
-    assert elegidas.font_family == dialogo.font_family.currentFont().family()
+    assert ultima(cambios).font_size == 15
 
 
 def test_cambiar_el_tamano_con_una_tipografia_propia(dialogo: SettingsDialog, cambios):
@@ -399,20 +404,36 @@ def test_cambiar_el_tamano_con_una_tipografia_propia(dialogo: SettingsDialog, ca
     assert ultima(cambios).font_size == 20
 
 
-def test_volver_a_la_del_sistema(dialogo: SettingsDialog, cambios):
+def test_volver_al_del_sistema(dialogo: SettingsDialog, cambios):
     dialogo.system_font.setChecked(False)
 
     dialogo.system_font.setChecked(True)
 
-    assert ultima(cambios).font_family is None
     assert ultima(cambios).font_size is None
 
 
-def test_la_muestra_usa_la_tipografia_elegida(dialogo: SettingsDialog):
+def test_la_muestra_usa_el_tamano_elegido(dialogo: SettingsDialog):
     dialogo.system_font.setChecked(False)
     dialogo.font_size.setValue(22)
 
     assert dialogo.font_preview.font().pointSize() == 22
+
+
+def test_la_muestra_lleva_las_tres_voces(dialogo: SettingsDialog):
+    """**Con una sola, cambiar el tamaño no decía nada de la escala.** Son la
+    de leer, la de medir y la de lo que nadie midió.
+
+    Las tipografías se registran acá adentro: la suite no pasa por
+    `create_application()`, que es quien lo hace al arrancar, y sin registrar
+    `font_for()` deja la familia de la base —que es lo correcto: una familia
+    que Qt no tiene no se pide—."""
+    fonts.register_bundled_fonts()
+    dialogo.system_font.setChecked(False)
+    dialogo.font_size.setValue(14)
+
+    assert dialogo.numeric_preview.font().family() == fonts.NUMERIC_FONT_FAMILY
+    assert dialogo.absent_preview.font().italic()
+    assert not dialogo.font_preview.font().italic()
 
 
 # -- El panel de contexto (V3_F de la Übersicht) ---------------------------------
