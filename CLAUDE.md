@@ -74,6 +74,16 @@ está terminado cuando además tiene su test corriendo (borrando el `pytestmark`
 si el archivo ya existía), su fila de `docs/TRAZABILIDAD.md` sigue siendo cierta
 y el README de su carpeta también.
 
+**Cerrar un hito son seis ediciones y ninguna es opcional.** `test_consistencia.py`
+las exige, pero de a una y recién al correr la suite entera, así que conviene
+hacerlas juntas: la sección del hito en `docs/TODO.md`, su fila en la tabla de
+progreso, el párrafo de la introducción que encadena los hitos, la cuenta de
+hitos en los **cuatro** documentos que la declaran, el `README.md` de cada
+carpeta tocada, y las cuentas `**N tests en verde**` de cada archivo de test que
+cambió de tamaño. Esa última se compara contra lo que pytest recolecta de
+verdad, así que hay que leerla de
+`python -m pytest tests/test_x.py --collect-only -q` y no contar los `def test_`.
+
 `docs/TRAZABILIDAD.md` **no lleva estado**: dice dónde va cada requisito, no
 qué falta. Duplicar el avance en los dos lugares garantiza que se
 desincronicen.
@@ -190,6 +200,12 @@ de reparto: sin estilo nativo la captura muestra cuadraditos en vez de letras.
 La primera vez que se usó encontró dos cosas que la suite daba por buenas: un
 rótulo cortado a un tercio y un icono a 2,87 de contraste sobre su relleno. La
 segunda, el nombre de cada canal dibujado encima de su propia señal.
+
+**Conviene correrla después de cualquier cambio de la interfaz, y mirar los
+PNG.** Los seis defectos que encontró los tenía la suite en verde, y ninguno era
+sutil de ver: se veían de un vistazo y no había ningún vistazo. Para un icono o
+un rótulo chico hay que recortar y agrandar la imagen —un `QImage.copy().scaled()`
+de cuatro líneas alcanza—; a tamaño real, un icono de 34 px no deja juzgar nada.
 
 **Nada de lo que la captura llame puede abrir un cartel modal.** Sobre una
 ventana con `WA_DontShowOnScreen` un modal no se muestra en ninguna parte, así
@@ -501,7 +517,7 @@ misma escala. Un esquema puede no traerla, y entonces esas tres cosas se
 dibujan con una sola tinta, que es como se veían antes del hito 34. El motivo
 de que viva ahí y no en `core/` está en `docs/ARQUITECTURA.md`.
 
-Cinco reglas de esta capa que no se ven leyendo un solo archivo:
+Reglas de esta capa que no se ven leyendo un solo archivo:
 
 - **Sólo `main.py` lee y escribe el archivo de preferencias**, a través de
   `create_main_window(saved_preferences=True)`. La ventana que arman los tests
@@ -513,6 +529,12 @@ Cinco reglas de esta capa que no se ven leyendo un solo archivo:
   `ui/shortcuts.py` con `key_for()` y va después de un tabulador en el texto.
   Llamar a `setShortcut()` la duplicaría con el `QShortcut` que ya existe, y ante
   un atajo duplicado Qt no ejecuta ninguno de los dos.
+- **Lo que se cachea hay que soltarlo al cambiar de esquema.** Un mapa de bits
+  ya pintado no cambia de color solo, y `apply_scheme()` tiene que rehacerlo:
+  vale para los iconos de la barra, que se redibujan con la tinta nueva, y para
+  el fondo de la franja de posición, que es un `QPixmap`. Mordió las dos veces,
+  y la segunda pasó inadvertida a la suite entera porque los tests del cache
+  comparaban identidad de objeto y no color.
 - **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
   (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
   que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril
