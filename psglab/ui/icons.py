@@ -18,8 +18,11 @@ acá los deja además tomando el color del esquema, que un `.png` no puede hacer
 
 **Reproducir y pausar no pueden parecerse a las flechas de época.** Las
 flechas son triángulos llenos, y reproducir —que queda entre ellas desde el
-hito 27— lleva el triángulo calado en un círculo: en una fila de siete, dos
-triángulos iguales se confunden. Hasta ese hito había además cuatro chevrones
+hito 27— lleva el triángulo dentro de un anillo: en una fila de siete, dos
+triángulos iguales se confunden. **Era un disco lleno con el triángulo
+recortado** hasta el hito 44, cuando el botón dejó de ir relleno con el acento:
+sin ese fondo, el disco entintado era una mancha oscura al lado de seis siluetas
+finas. Hasta ese hito había además cuatro chevrones
 abiertos para mover la página, que se sacaron con sus botones.
 
 Los iconos se dibujan **en el momento**, con el color que se les pida. No se
@@ -218,16 +221,36 @@ def _carpeta(borde: float, lado: float) -> QPainterPath:
     return camino.simplified()
 
 
-def _calado(borde: float, lado: float, figura: QPainterPath) -> QPainterPath:
-    """Un círculo lleno con la figura recortada adentro.
+#: Qué parte del radio ocupa el trazo del anillo de reproducir y pausar.
+_GROSOR_DEL_ANILLO: Final[float] = 0.09
 
-    El recorte sale de la regla de relleno par-impar, que es la que usa
-    `QPainterPath` por omisión: donde la figura se superpone al círculo, el
-    punto queda dentro de dos contornos y no se pinta.
+
+def _calado(borde: float, lado: float, figura: QPainterPath) -> QPainterPath:
+    """Un anillo con la figura adentro, las dos del mismo color.
+
+    **Era un círculo lleno con la figura recortada** hasta el hito 44, y tenía
+    sentido mientras el botón iba relleno con el acento: sobre ese fondo, el
+    disco entintado era la silueta y el hueco se leía como el símbolo. Al
+    quedar el botón como los otros seis, el mismo dibujo pasó a ser una mancha
+    oscura con un triángulo diminuto adentro, que es justo lo que el usuario
+    señaló.
+
+    **El anillo conserva lo que el disco resolvía**, que está en el docstring
+    del módulo: en una fila de siete, reproducir no puede ser un triángulo más
+    entre las dos flechas de época. Con el anillo la silueta sigue siendo
+    redonda y el símbolo se lee sin aprenderlo.
+
+    El agujero sale de la regla de relleno par-impar, que es la que usa
+    `QPainterPath` por omisión: un punto entre las dos elipses queda dentro de
+    un solo contorno y se pinta; uno del centro, dentro de dos, y no.
     """
+    grosor = lado * _GROSOR_DEL_ANILLO
     camino = QPainterPath()
     camino.setFillRule(Qt.FillRule.OddEvenFill)
     camino.addEllipse(QRectF(borde, borde, lado, lado))
+    camino.addEllipse(
+        QRectF(borde + grosor, borde + grosor, lado - 2 * grosor, lado - 2 * grosor)
+    )
     camino.addPath(figura)
     return camino
 

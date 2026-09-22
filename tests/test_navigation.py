@@ -24,6 +24,8 @@ import pytest
 
 pytest.importorskip("pyqtgraph")
 
+from PySide6.QtGui import QColor  # noqa: E402
+
 import psglab.ui.navigation as navigation  # noqa: E402
 from psglab.ui.icons import icon  # noqa: E402
 import psglab.ui.theme as theme  # noqa: E402
@@ -233,36 +235,42 @@ def test_sin_horas_los_extremos_se_ocultan(barra):
     assert barra._hora_final.isHidden()
 
 
-def test_la_amplitud_se_ve_entre_sus_dos_botones(barra):
-    """Hasta el hito 36 sólo se veía en el eje de cada canal."""
-    barra.set_amplitude("100 µV")
+def test_entre_los_dos_botones_de_amplitud_no_hay_lectura(barra):
+    """**La barra dejó de decir la amplitud** (hito 44). La tenía desde el hito
+    36, y desde el 38 —cuando cada clase pasó a abrir con su escala— lo que
+    mostraba era casi siempre un rango, «37–1025 µV», que no es la amplitud de
+    ningún canal: es el mínimo de uno y el máximo de otro. El usuario lo pidió
+    fuera por confuso, y la escala de cada canal ya está en su carril del
+    canalón, que es donde se la lee contra la señal que describe."""
+    assert not hasattr(barra, "set_amplitude")
+    assert not hasattr(barra, "_amplitud")
 
-    assert barra._amplitud.text() == "100 µV"
 
-
-def test_el_icono_de_reproducir_se_lee_sobre_su_relleno(barra):
-    """**Arrancaba casi invisible.** `_boton()` lo crea con la tinta de los
-    demás, que sobre el acento da 2,87 a 1; `apply_scheme()` lo corregía, pero
-    sólo corre al cambiar de esquema, así que el botón recién construido —el
-    que ve quien abre el programa— tenía el icono en el color equivocado.
-
-    Lo encontró una captura de la barra, no un test: por eso ahora hay uno.
-    """
+def test_reproducir_se_ve_como_los_otros_seis(barra):
+    """**Estuvo relleno con el acento hasta el hito 44**, por ser la única
+    acción de la barra que hace algo por sí sola. El usuario lo pidió al revés:
+    los siete son transporte, y uno oscuro en el medio se lee como otra clase
+    de control. El estado lo dice el icono, que es lo único que cambia."""
     esquema = theme.current()
-    correcto = icon("reproducir", theme.ink_over(esquema, esquema.accent))
+    correcto = icon("reproducir", theme.icon_ink(esquema))
 
+    assert barra._reproducir.property("primario") is None
     assert (
         barra._reproducir.icon().pixmap(32, 32).toImage()
         == correcto.pixmap(32, 32).toImage()
     )
 
 
-def test_la_tinta_del_boton_primario_contrasta(barra):
-    """La regla, no el píxel: sobre el acento tiene que leerse."""
-    esquema = theme.current()
-    tinta = theme.ink_over(esquema, esquema.accent)
+def test_pausar_tambien_usa_la_tinta_de_los_demas(barra):
+    """El otro estado del mismo botón: `set_playing()` rehace el icono, y era
+    el segundo lugar que pedía la tinta de encima del acento."""
+    barra.set_playing(True)
+    correcto = icon("pausa", theme.icon_ink(theme.current()))
 
-    assert theme.contrast_ratio(tinta, esquema.accent) >= theme.MIN_GRAPHIC_CONTRAST
+    assert (
+        barra._reproducir.icon().pixmap(32, 32).toImage()
+        == correcto.pixmap(32, 32).toImage()
+    )
 
 
 def test_cambiar_de_esquema_repinta_los_iconos(barra):
@@ -472,3 +480,52 @@ def test_cambiar_de_registro_rehace_el_fondo(barra: navigation.NavigationBar):
     barra.set_position(0, 900)
 
     assert barra.strip._fondo() is not primero
+
+
+# -- El cache y el esquema (hito 44) ------------------------------------------
+
+
+def color_del_fondo(franja: navigation.PositionStrip) -> str:
+    """El color con que está pintado el fondo cacheado, leído del pixmap.
+
+    Se mira un píxel de adentro y no del borde: el borde lo dibuja el marco,
+    con otra tinta.
+    """
+    imagen = franja._fondo().toImage()
+    return QColor(imagen.pixel(imagen.width() // 2, imagen.height() // 2)).name()
+
+
+def test_cambiar_de_esquema_repinta_el_fondo_de_la_franja(
+    barra: navigation.NavigationBar,
+):
+    """**La franja se quedaba con los colores del esquema viejo.**
+
+    El cache del fondo se soltaba al cambiar el scoring, la cantidad de épocas
+    o el ancho, y cambiar de esquema no es ninguna de las tres: pasar de
+    Nocturno a Sereno dejaba la franja oscura, porque `update()` repintaba el
+    mismo pixmap de antes. Lo reportó el usuario mirando la pantalla; ningún
+    test lo veía, porque todos comparaban identidad de objeto y no color.
+    """
+    theme.set_current(theme.NOCTURNO)
+    try:
+        barra.apply_scheme()
+        barra.set_position(0, 3)
+        assert color_del_fondo(barra.strip) == theme.NOCTURNO.overview_background
+
+        theme.set_current(theme.SERENO)
+        barra.apply_scheme()
+
+        assert color_del_fondo(barra.strip) == theme.SERENO.overview_background
+    finally:
+        theme.set_current(theme.SERENO)
+
+
+def test_el_esquema_no_borra_lo_scoreado(barra: navigation.NavigationBar):
+    """Soltar el cache lo rehace, no lo vacía: los tramos se vuelven a pintar
+    con los colores que la ventana ya le pasó."""
+    barra.set_position(0, 3)
+    barra.set_scoring(["#112233", None, None])
+
+    barra.apply_scheme()
+
+    assert barra.strip._colores == ("#112233", None, None)

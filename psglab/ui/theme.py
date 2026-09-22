@@ -522,11 +522,6 @@ def stylesheet(scheme: ColorScheme) -> str:
         }}
         QPushButton:checked, QPushButton:pressed {{ background-color: {realce}; }}
         QPushButton:disabled {{ color: {borde}; }}
-        QPushButton[primario="true"] {{
-            background-color: {scheme.accent};
-            border-color: {scheme.accent};
-            color: {ink_over(scheme, scheme.accent)};
-        }}
         {peligro}
         PanelHeader {{
             background-color: {ventana};

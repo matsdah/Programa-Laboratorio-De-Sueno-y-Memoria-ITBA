@@ -66,7 +66,7 @@ conoce las flechas del teclado.
 | `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
 | `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. Arriba, una línea dice con qué método se estimó. | V1_F de "PSD" |
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada y cada una con el chip de su fase. El ancho que se pide es el preferido; se deja angostar hasta 120 px. | V1_F, V2_F, V3_F de "Übersicht" |
-| `navigation.py` | La barra inferior: ocho controles —primera, anterior, reproducir/pausar, siguiente, última, velocidad, menos y más amplitud— y una franja que muestra dónde cae la ventana en la noche, **con qué fase está scoreada cada época** (hito 34, cacheado en un `QPixmap`), y deja saltar con un clic. Desde el hito 36 la franja lleva a los costados las horas del registro y debajo la época con su hora, y la amplitud vigente se lee entre sus dos botones; reproducir es la acción primaria y va rellena con el acento. Los botones de página se sacaron en el hito 27; sus atajos siguen. | V1_F de "Navegación" |
+| `navigation.py` | La barra inferior: ocho controles —primera, anterior, reproducir/pausar, siguiente, última, velocidad, menos y más amplitud— y una franja que muestra dónde cae la ventana en la noche, **con qué fase está scoreada cada época** (hito 34, cacheado en un `QPixmap` que `apply_scheme()` tira al cambiar de esquema), y deja saltar con un clic. Desde el hito 36 la franja lleva a los costados las horas del registro y debajo la época con su hora. **La amplitud no se lee acá** y **reproducir se ve como los otros seis** desde el hito 44. Los botones de página se sacaron en el hito 27; sus atajos siguen. | V1_F de "Navegación" |
 | `playback.py` | El reloj de la reproducción: mide el tiempo real y avisa cuánto avanzar el cursor. No conoce la sesión ni mueve nada; la regla del cursor es de `Session.move_playhead()`. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. Las fases van en su propia fila, debajo del selector, para que el mínimo del panel sea el de la fila más ancha y no la suma; abajo, un pie con la ventana y su fase, que se sigue viendo si el panel sale a otra pantalla. **Cada botón muestra su tecla y declara su fase** (hito 34): el color lo pone la hoja de estilo, así que el panel no conoce ninguno. | V1_F, V2_F, V3_F de "Scoring" |
 | `icons.py` | Los iconos de la barra de navegación y el de abrir un registro, dibujados con `QPainterPath`. **No hay ningún archivo de icono en el repositorio**, y es una decisión de licencia. | — |
@@ -240,6 +240,26 @@ Inclinada quiere decir «esto no lo midió ni lo eligió nadie»: el «sin medir
 de la tabla de impedancias y el «sin scorear» del pie del panel de scoring.
 Hasta acá esa diferencia la cargaba el gris, que ya quiere decir otra cosa
 —«esto es secundario»—, y un valor ausente es lo contrario de secundario.
+
+## `navigation.py`
+
+**Lo que se cachea hay que soltarlo al cambiar de esquema.** La franja de
+posición pinta su fondo —el borde y los tramos scoreados— en un `QPixmap`,
+porque se repinta en cada época y durante la reproducción eso son veinticinco
+veces por segundo: pintar 2650 rectángulos por cuadro es lo que el hito 25 le
+sacó a la grilla. El cache se soltaba al cambiar el scoring, la cantidad de
+épocas o el ancho, y cambiar de esquema no es ninguna de las tres, así que
+pasar de Nocturno a Sereno dejaba la franja oscura. Es la misma regla por la
+que la barra rehace sus iconos: un mapa de bits ya pintado no cambia de color
+solo.
+
+**Los siete botones de transporte se ven igual** desde el hito 44. Reproducir
+iba relleno con el acento, por ser la única acción de la barra que hace algo
+por sí sola; en la pantalla se leía como otra clase de control. Su icono era un
+disco lleno con el triángulo **recortado**, dibujo que dependía de ese relleno,
+y por eso hubo que rehacerlo como anillo: lo que resuelve —que reproducir no
+sea un triángulo más entre las dos flechas de época— lo sigue resolviendo la
+silueta redonda.
 
 ## `grid.py`
 

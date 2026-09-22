@@ -4166,26 +4166,19 @@ def test_sin_registro_la_barra_de_menu_lo_dice(qt_app):
         vacia.close()
 
 
-def test_la_barra_de_navegacion_muestra_la_amplitud(ventana: MainWindow):
-    """Hasta el hito 36 la amplitud sólo se veía en el eje de cada canal."""
+def test_la_amplitud_de_cada_canal_se_lee_en_su_carril(ventana: MainWindow):
+    """**La barra dejó de decirla** (hito 44), y no se perdió nada: la escala
+    de un canal se lee en el canalón, al lado de su nombre y contra su señal.
+
+    La barra la mostró desde el hito 36, y desde el 38 —cuando cada clase pasó
+    a abrir con su escala— lo que mostraba era casi siempre un rango, «37–1025
+    µV», que no es la amplitud de ningún canal: es el mínimo de uno y el máximo
+    de otro."""
     ventana.set_amplitude_scale(200.0)
 
-    assert ventana.navigation._amplitud.text() == "200 µV"
-
-
-def test_con_amplitudes_distintas_la_barra_muestra_el_rango(ventana: MainWindow):
-    """V5_F deja cambiarle la ganancia a un canal solo, y desde el hito 38 cada
-    clase abre con la suya, así que esto es lo normal y no la excepción.
-
-    **Decía «varias».** Era correcto y no decía nada: pasó a leerse siempre.
-    Decir la del primero sería peor todavía —el investigador leería 100 µV
-    mirando un canal a 400— y el de cada canal está en su carril."""
-    ventana.set_amplitude_scale(100.0)
-    canal = ventana.session.visible_channels[0]
-    ventana.session.set_scale_uv(canal, 400.0)
-    ventana._reflejar_epoca()
-
-    assert ventana.navigation._amplitud.text() == "100–400 µV"
+    detalles = [carril.detail for carril in ventana.signal_view.channel_axis.lanes()]
+    assert detalles
+    assert all(detalle == "200 µV" for detalle in detalles)
 
 
 def test_los_extremos_del_registro_llegan_a_la_franja(ventana: MainWindow):
