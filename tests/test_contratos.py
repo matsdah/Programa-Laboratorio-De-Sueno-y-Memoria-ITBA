@@ -125,6 +125,8 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("channel_by_name", lambda v: registro().channel_by_name(v)),
         ("channels_of_kind", lambda v: registro().channels_of_kind(v)),
         ("get_segment(channel_names=...)", lambda v: registro().get_segment(0, 10, [v])),
+        ("get_segment(start_sample=...)", lambda v: registro().get_segment(v, 10)),
+        ("get_segment(stop_sample=...)", lambda v: registro().get_segment(0, v)),
         ("flat_channels(channel_names=...)", lambda v: registro().flat_channels(0, 10, [v])),
         ("flat_channels(start_sample=...)", lambda v: registro().flat_channels(v, 10)),
         ("Recording(original_sampling_rate=...)", lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0, v)], np.zeros((1, 10)), 100.0)),
@@ -414,6 +416,13 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     # Un tramo que empieza antes del registro devolvía señal **del final**,
     # porque numpy lee el índice negativo como "desde el final".
     ("get_segment desde antes del registro", -1,
+     lambda v: registro().get_segment(v, 10)),
+    # Hito 50. Con 3.5 el que explotaba era el índice de numpy, con un
+    # TypeError crudo; la guarda de rango comparaba bien y lo dejaba pasar.
+    ("get_segment con un extremo fraccionario", 3.5,
+     lambda v: registro().get_segment(0, v)),
+    # `True` es un `int` para Python y se leía como la muestra 1.
+    ("get_segment con un booleano como extremo", True,
      lambda v: registro().get_segment(v, 10)),
     # La nomenclatura como cadena se aceptaba y daba `KeyError: 'AASM'` la
     # primera vez que alguien asignaba una fase, lejos de donde estaba el bug.

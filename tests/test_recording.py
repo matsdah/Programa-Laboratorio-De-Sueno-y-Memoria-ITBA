@@ -127,6 +127,27 @@ def test_pedir_un_canal_inexistente_en_un_tramo_tambien_falla(recording):
         recording.get_segment(0, 10, channel_names=["Fz"])
 
 
+@pytest.mark.parametrize("extremo", ["start", "stop"])
+@pytest.mark.parametrize("valor", [None, 3.5, "10", True])
+def test_un_extremo_que_no_es_un_entero_se_rechaza(recording, extremo, valor):
+    """**Hasta el hito 50 salía un `TypeError` crudo** del índice de numpy, que
+    atraviesa el `except PsgLabError` de la ventana. `True` también: Python lo
+    cuenta como un 1, y un tramo que empieza en la muestra 1 por accidente es un
+    resultado plausible y equivocado."""
+    inicio, fin = (valor, 10) if extremo == "start" else (0, valor)
+
+    with pytest.raises(InvalidRecordingError):
+        recording.get_segment(inicio, fin)
+
+
+def test_un_entero_de_numpy_sirve_de_extremo(recording, synthetic_signal):
+    """Es lo que devuelve cualquier cuenta sobre un array, y el visualizador
+    le pasa exactamente eso."""
+    tramo = recording.get_segment(np.int64(0), np.int64(50))
+
+    assert np.array_equal(tramo, synthetic_signal[:, 0:50])
+
+
 def test_el_tramo_que_se_pasa_del_final_sale_mas_corto(recording):
     """Es el caso normal de la última ventana, no un error.
 
