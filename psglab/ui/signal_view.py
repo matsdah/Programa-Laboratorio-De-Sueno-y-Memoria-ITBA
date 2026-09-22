@@ -43,7 +43,7 @@ from PySide6.QtGui import QBrush, QColor, QFont, QPainterPath
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsItemGroup, QGraphicsPathItem
 
 from psglab.config import WINDOW_SECONDS
-from psglab.core.decimation import min_max_envelope
+from psglab.core.decimation import bucket_size_for, envelope_by_bucket_size
 from psglab.core.nomenclature import SleepStage, stage_label
 from psglab.core.session import Session
 from psglab.core.windows import (
@@ -94,10 +94,24 @@ _MUESTRAS_POR_COLUMNA: int = 2
 #: antes de tener tamaño, y pedir más cubetas que píxeles no cuesta nada visible.
 _COLUMNAS_MINIMAS: int = 1000
 
-#: Cuántas envolventes se recuerdan. Con esto ir y volver desplazando la vista
-#: es instantáneo, y la memoria queda acotada: son unos pocos megabytes aunque
-#: la página sea el registro entero.
-_ENVOLVENTES_EN_MEMORIA: int = 64
+#: Cuántas cubetas se calculan y se guardan juntas: un **trozo**.
+#:
+#: **Es lo que decide el tirón del cuadro que cruza a un trozo nuevo.** La
+#: reproducción avanza en cada cuadro una fracción de página, y cuando el borde
+#: entra en un trozo que no está, se calcula entero, en todos los canales. Con
+#: trozos del ancho de una página ese cuadro costaría lo mismo que antes del
+#: hito 49, sólo que una vez cada cincuenta; con 64 cubetas es la dieciseisava
+#: parte. Medido con 32 canales a 1000 Hz y página de 5 min: un paso de cada
+#: cuatro cruza a un trozo nuevo, y calcularlo cuesta 1,2 ms. Más chico
+#: tampoco conviene: cada trozo es una búsqueda en la caché por canal y por
+#: cuadro.
+_CUBETAS_POR_TROZO: int = 64
+
+#: Cuántos trozos se recuerdan. Una página de mil columnas son dieciséis por
+#: canal, así que alcanza para unas ocho páginas de 32 canales: ir y volver es
+#: instantáneo. Cada trozo son como mucho 130 índices, así que el tope son unos
+#: 4 MB.
+_TROZOS_EN_MEMORIA: int = 4096
 
 
 class TimeAxis(pg.AxisItem):
@@ -187,13 +201,13 @@ class SignalView(pg.PlotWidget):
         #: La línea que marca por dónde va la reproducción. Se crea la primera
         #: vez que hace falta y después sólo se mueve. Ver `set_playhead()`.
         self._cursor: pg.InfiniteLine | None = None
-        #: Envolventes ya calculadas, de la más vieja a la más nueva. La clave
-        #: es (canal, primera muestra, última muestra, columnas): **no** incluye
-        #: la escala ni el desplazamiento, que se aplican después, así que
-        #: cambiar la amplitud no obliga a recalcular nada.
-        self._envolventes: OrderedDict[
-            tuple[str, int, int, int], tuple[np.ndarray, np.ndarray]
-        ] = OrderedDict()
+        #: Trozos de envolvente ya calculados, del más viejo al más nuevo. La
+        #: clave es (canal, muestras por cubeta, número de trozo) y el valor,
+        #: los índices **absolutos** de las muestras elegidas. **No** incluye la
+        #: página, que es lo que la hace servir de un cuadro al otro (hito 49),
+        #: ni la escala ni el desplazamiento, que se aplican después: cambiar la
+        #: amplitud no obliga a recalcular nada.
+        self._envolventes: OrderedDict[tuple[str, int, int], np.ndarray] = OrderedDict()
         #: El registro del que salieron esas envolventes. Ver
         #: `_olvidar_envolventes_si_cambio()`.
         self._registro_de_las_envolventes: object | None = None
@@ -309,7 +323,11 @@ class SignalView(pg.PlotWidget):
         # vista de `Recording.data` en lugar de una copia. Pedirlo canal por
         # canal, como antes, hace indexado por lista, que copia: sobre el
         # registro entero eran cientos de megabytes antes de dibujar un punto.
-        bloque = registro.get_segment(inicio, fin)
+        #
+        # **El registro entero y no la página**, desde el hito 49: las cubetas
+        # se cuentan desde la primera muestra del registro, y la de un borde de
+        # la página empieza antes de él. Sigue siendo una vista.
+        bloque = registro.get_segment(0, registro.n_samples)
         columnas = self._columnas()
         self._olvidar_envolventes_si_cambio(registro)
 
@@ -351,30 +369,70 @@ class SignalView(pg.PlotWidget):
         channel_name: str,
         start_sample: int,
         stop_sample: int,
-        samples: np.ndarray,
+        channel: np.ndarray,
         columns: int,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Qué muestras de un canal se mandan a la pantalla, y en qué posición.
 
+        Args:
+            channel: el canal **entero**, no la página. Ver `draw_viewport()`.
+
         Returns:
-            Tupla (posiciones dentro del tramo, valores). Con pocas muestras son
-            todas; con muchas, la envolvente mínimo/máximo, que conserva cada
-            pico y tiene el tamaño de la pantalla y no el del registro.
+            Tupla (posiciones relativas a `start_sample`, valores). Con pocas
+            muestras son todas las de la página; con muchas, la envolvente
+            mínimo/máximo, que conserva cada pico y tiene el tamaño de la
+            pantalla y no el del registro.
+
+        **La envolvente se arma con trozos alineados al registro** (hito 49), y
+        cada trozo se calcula una vez. Al reproducir, la página avanza una
+        fracción de sí misma por cuadro y casi todos sus trozos ya estaban: con
+        32 canales a 1000 Hz y página de 5 min, calcular la envolvente pasó de
+        unos 95 ms por cuadro a 1,2 ms en uno de cada cuatro. Hasta entonces la
+        caché se buscaba por la primera y la última muestra de la página, que al reproducir
+        cambian en cada cuadro: no acertaba nunca.
+
+        **Las cubetas de los bordes se dibujan enteras**, aunque empiecen antes
+        de la página o terminen después. Un extremo que cae afuera queda fuera
+        de la pantalla, que lo recorta; recortarlo acá partiría la cubeta y le
+        cambiaría la forma según dónde esté el borde, que es justamente lo que
+        la grilla fija evita.
         """
-        if len(samples) <= _MUESTRAS_POR_COLUMNA * columns:
-            return np.arange(len(samples)), samples
+        if stop_sample - start_sample <= _MUESTRAS_POR_COLUMNA * columns:
+            return np.arange(stop_sample - start_sample), channel[start_sample:stop_sample]
 
-        clave = (channel_name, start_sample, stop_sample, columns)
-        guardada = self._envolventes.get(clave)
-        if guardada is not None:
+        por_cubeta = bucket_size_for(stop_sample - start_sample, columns)
+        por_trozo = _CUBETAS_POR_TROZO * por_cubeta
+        trozos = range(start_sample // por_trozo, (stop_sample - 1) // por_trozo + 1)
+        indices = np.concatenate(
+            [self._trozo(channel_name, trozo, por_cubeta, channel) for trozo in trozos]
+        )
+
+        # Los trozos de los bordes traen cubetas que no tocan la página.
+        desde = (start_sample // por_cubeta) * por_cubeta
+        hasta = -(-stop_sample // por_cubeta) * por_cubeta
+        primero, ultimo = np.searchsorted(indices, (desde, hasta))
+        indices = indices[primero:ultimo]
+        return indices - start_sample, channel[indices]
+
+    def _trozo(
+        self, channel_name: str, chunk: int, bucket_size: int, channel: np.ndarray
+    ) -> np.ndarray:
+        """Los índices absolutos que la envolvente elige en un trozo, calculados
+        una sola vez."""
+        clave = (channel_name, bucket_size, chunk)
+        guardado = self._envolventes.get(clave)
+        if guardado is not None:
             self._envolventes.move_to_end(clave)
-            return guardada
+            return guardado
 
-        calculada = min_max_envelope(samples, columns)
-        self._envolventes[clave] = calculada
-        if len(self._envolventes) > _ENVOLVENTES_EN_MEMORIA:
+        desde = chunk * _CUBETAS_POR_TROZO * bucket_size
+        hasta = min(desde + _CUBETAS_POR_TROZO * bucket_size, len(channel))
+        indices, _ = envelope_by_bucket_size(channel[desde:hasta], bucket_size)
+        calculado = indices + desde
+        self._envolventes[clave] = calculado
+        if len(self._envolventes) > _TROZOS_EN_MEMORIA:
             self._envolventes.popitem(last=False)
-        return calculada
+        return calculado
 
     def _olvidar_envolventes_si_cambio(self, recording: object) -> None:
         """Descarta las envolventes si el registro que se dibuja es otro.

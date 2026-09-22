@@ -576,8 +576,15 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   cuadro—, la banda de la época y el cursor de la reproducción se **mueven**
   en vez de rehacerse, y las curvas
   son `PlotCurveItem` y no `PlotDataItem`, que es un envoltorio con puntos,
-  relleno y decimación propia que acá no se usan. `useOpenGL` se midió y
-  **empeora**. Lo que se proponga en su lugar, medirlo con el banco.
+  relleno y decimación propia que acá no se usan. La cuarta es del hito 49:
+  **las cubetas de la envolvente se cuentan desde el comienzo del registro**,
+  y el visualizador las guarda por trozos. Contadas desde el borde de la
+  página, cada paso de la reproducción las recalculaba enteras —95 ms con
+  32 canales a 1000 Hz y página de 5 min— porque ninguna servía de un cuadro
+  al otro. `useOpenGL` se midió y **empeora**. Lo que se proponga en su lugar,
+  medirlo con el banco, **intercalado** contra el árbol sin el cambio: un
+  número suelto no dice nada, porque la misma medición varía al doble de una
+  corrida a otra.
 
 ## Convenciones
 

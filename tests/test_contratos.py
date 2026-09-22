@@ -62,7 +62,7 @@ from psglab.analysis import (
     reference,
 )
 from psglab.core.session import Session
-from psglab.core.decimation import min_max_envelope
+from psglab.core.decimation import bucket_size_for, envelope_by_bucket_size
 from psglab.core.viewport import Viewport
 from psglab.utils import units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
@@ -164,8 +164,13 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("in_range(stop_sample=...)", lambda v: anotaciones().in_range(0, v)),
     ],
     "psglab/core/decimation.py": [
-        ("min_max_envelope(samples=...)", lambda v: min_max_envelope(v, 10)),
-        ("min_max_envelope(n_buckets=...)", lambda v: min_max_envelope(np.zeros(100), v)),
+        ("bucket_size_for(n_samples=...)", lambda v: bucket_size_for(v, 10)),
+        ("bucket_size_for(n_buckets=...)", lambda v: bucket_size_for(100, v)),
+        ("envelope_by_bucket_size(samples=...)", lambda v: envelope_by_bucket_size(v, 10)),
+        (
+            "envelope_by_bucket_size(bucket_size=...)",
+            lambda v: envelope_by_bucket_size(np.zeros(100), v),
+        ),
     ],
     "psglab/core/viewport.py": [
         ("Viewport(start=...)", lambda v: Viewport(v, 30.0, 3600.0)),
@@ -369,16 +374,21 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     # Fase 7 del refactor. **Mientras se arma la ventana el grafico no tiene
     # ancho**, y ese cero llega como cantidad de cubetas. Sin la guarda sale un
     # ZeroDivisionError, que la ventana principal no sabe atrapar.
-    ("min_max_envelope sin cubetas", 0,
-     lambda v: min_max_envelope(np.zeros(1000), v)),
+    # Desde el hito 49 la cantidad de cubetas la recibe `bucket_size_for()`.
+    ("bucket_size_for sin cubetas", 0,
+     lambda v: bucket_size_for(1000, v)),
     # `True` es un `int` para Python: sin excluirlo pasaria como una cubeta y
     # la noche entera se dibujaria como dos puntos.
-    ("min_max_envelope con un booleano como cubetas", True,
-     lambda v: min_max_envelope(np.zeros(1000), v)),
+    ("bucket_size_for con un booleano como cubetas", True,
+     lambda v: bucket_size_for(1000, v)),
+    # Hito 49. Una cubeta de cero muestras es un `reshape` imposible, y el
+    # ValueError de numpy atravesaria la ventana.
+    ("envelope_by_bucket_size con cubetas vacias", 0,
+     lambda v: envelope_by_bucket_size(np.zeros(1000), v)),
     # `Recording.data` es una matriz de canales, y pasarla entera es el error
     # esperable. `argmin` sobre dos dimensiones no falla: devuelve otra cosa.
-    ("min_max_envelope con una matriz de canales", np.zeros((2, 1000)),
-     lambda v: min_max_envelope(v, 10)),
+    ("envelope_by_bucket_size con una matriz de canales", np.zeros((2, 1000)),
+     lambda v: envelope_by_bucket_size(v, 10)),
     # Hito 12. **La guarda que MNE no hace.** Se midió: con un pasa-altos de 40
     # y un pasa-bajos de 10, MNE acepta el par, arma una banda eliminada, no
     # emite ningún aviso y devuelve la señal sin atenuar nada. Borrar esta
