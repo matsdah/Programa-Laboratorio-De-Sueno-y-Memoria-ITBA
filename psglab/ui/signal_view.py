@@ -573,7 +573,7 @@ class SignalView(pg.PlotWidget):
         vieja.
         """
         self._fuente = QFont(font)
-        self.channel_axis.set_fonts(self._fuente, theme.current().numeric_font)
+        self.channel_axis.set_fonts(self._fuente)
 
     def apply_scheme(self) -> None:
         """Vuelve a pintar todo con el esquema de color que esté en uso.

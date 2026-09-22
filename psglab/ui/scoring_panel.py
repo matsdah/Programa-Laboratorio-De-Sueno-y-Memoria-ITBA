@@ -26,6 +26,7 @@ y un botón marcado no siempre comunica.
 Cubre del pliego: V1_F, V2_F, V3_F de "Scoring de la señal".
 """
 
+from html import escape
 from typing import Final
 
 from PySide6.QtCore import Qt, Signal
@@ -68,6 +69,11 @@ ABREVIATURAS: Final[dict[Nomenclature, str]] = {
 #: dice la barra de navegación en ese momento.
 PIE_SIN_REGISTRO: Final[str] = "Sin registro"
 
+#: Cómo se nombra una ventana a la que todavía nadie le eligió fase. **No es el
+#: «-» con que se guarda**: en un texto suelto, un guion no se lee como nada.
+#: Es también lo único del pie que va inclinado; ver `_reflejar_el_pie()`.
+SIN_SCOREAR: Final[str] = "sin scorear"
+
 
 def status_text(window_index: int, stage: SleepStage, arousal: bool) -> str:
     """El pie del panel: la ventana, su fase y el arousal si lo hay.
@@ -81,7 +87,7 @@ def status_text(window_index: int, stage: SleepStage, arousal: bool) -> str:
         stage: su fase, `SleepStage.UNSCORED` si todavía no se scoreó.
         arousal: si la ventana tiene arousal marcado.
     """
-    fase = "sin scorear" if stage is SleepStage.UNSCORED else stage_label(stage)
+    fase = SIN_SCOREAR if stage is SleepStage.UNSCORED else stage_label(stage)
     texto = f"Ventana {window_index + 1} · {fase}"
     return f"{texto} · arousal" if arousal else texto
 
@@ -128,9 +134,14 @@ class ScoringPanel(QWidget):
         # **El pie parte las palabras** en vez de exigir su ancho entero: con
         # AASM la fila de las fases es la más angosta, y «Ventana 2650 · sin
         # scorear · arousal» en una sola línea pasaba a ser el mínimo del panel.
-        self._pie = QLabel(PIE_SIN_REGISTRO)
+        self._pie = QLabel()
         self._pie.setWordWrap(True)
         self._pie.setAccessibleName("Ventana actual y su fase")
+        #: Lo que dice el pie en texto pelado. El rótulo guarda el suyo con
+        #: marcas, así que `text()` no sirve para contestar `status()`.
+        self._texto_del_pie = ""
+        # Sin registro tampoco hay nada scoreado; ver `_reflejar_el_pie()`.
+        self._reflejar_el_pie(PIE_SIN_REGISTRO)
 
         self._columna = QVBoxLayout(self)
         # Los márgenes de fábrica son 11 px por lado: en un panel que se
@@ -171,9 +182,37 @@ class ScoringPanel(QWidget):
             return
         self.stage_selected.emit(stage)
 
+    def _reflejar_el_pie(self, texto: str) -> None:
+        """Escribe el pie, con la ausencia inclinada y nada más.
+
+        **La itálica dice «esto no lo eligió nadie»** (hito 43). El «sin
+        scorear» de una ventana es la misma clase de dato que el «sin medir» de
+        la tabla de impedancias, y hasta acá los dos se apoyaban en el gris, que
+        ya quiere decir otra cosa: «esto es secundario».
+
+        **Se inclina la ausencia y no el renglón.** Inclinar «Ventana 341»
+        diría que la ventana tampoco la eligió nadie, que es falso, y una marca
+        que aparece en todos lados no distingue nada. Por eso el rótulo lleva
+        marcas y `status()` contesta con el texto pelado, que es lo que el
+        resto del programa compara.
+
+        Args:
+            texto: el pie ya armado, en texto pelado.
+        """
+        self._texto_del_pie = texto
+        self._pie.setText(
+            escape(texto).replace(
+                escape(SIN_SCOREAR), f"<i>{escape(SIN_SCOREAR)}</i>"
+            )
+        )
+
     def status(self) -> str:
-        """Lo que dice el pie ahora."""
-        return self._pie.text()
+        """Lo que dice el pie ahora, en texto pelado.
+
+        **No es `self._pie.text()`**: el rótulo guarda el suyo con las marcas
+        que inclinan la ausencia, y el resto del programa compara el texto.
+        """
+        return self._texto_del_pie
 
     def set_nomenclature(self, nomenclature: Nomenclature) -> None:
         """Reconstruye los botones para la nomenclatura elegida (V3_F).
@@ -250,4 +289,4 @@ class ScoringPanel(QWidget):
             self._arousal.setChecked(arousal)
         finally:
             self._reflejando = False
-        self._pie.setText(status_text(window_index, stage, arousal))
+        self._reflejar_el_pie(status_text(window_index, stage, arousal))

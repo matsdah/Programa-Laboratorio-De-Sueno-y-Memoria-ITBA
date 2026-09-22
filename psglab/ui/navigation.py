@@ -62,11 +62,6 @@ LADO_DEL_BOTON: int = 34
 #: velocidad, la franja, y la amplitud.
 ESPACIO_ENTRE_GRUPOS: int = 14
 
-#: Cuánto lugar se le reserva a la lectura de amplitud. Fijo a propósito: sin
-#: mínimo, los dos botones que la rodean se corren cada vez que pasa de tres a
-#: cuatro cifras.
-ANCHO_DE_LA_AMPLITUD: int = 58
-
 
 class PositionStrip(QWidget):
     """Dónde cae la ventana actual dentro de la noche entera.
@@ -123,6 +118,23 @@ class PositionStrip(QWidget):
         if nuevos == self._colores:
             return
         self._colores = nuevos
+        self._cache = None
+        self.update()
+
+    def apply_scheme(self) -> None:
+        """Tira el fondo cacheado, que está pintado con el esquema anterior.
+
+        **Sin esto la franja se queda con los colores del esquema viejo.** El
+        cache existe porque la franja se repinta en cada época y pintar 2650
+        rectángulos por cuadro es lo que el hito 25 le sacó a la grilla, pero
+        sólo se soltaba al cambiar el scoring, la cantidad de épocas o el ancho
+        —y cambiar de esquema no es ninguna de las tres—. Pasar de Nocturno a
+        Sereno dejaba la franja con el fondo y el borde oscuros: `update()`
+        repintaba, y lo que repintaba era el mismo pixmap de antes.
+
+        Es el mismo motivo por el que la barra rehace sus iconos: un mapa de
+        bits ya pintado no cambia de color solo.
+        """
         self._cache = None
         self.update()
 
@@ -268,18 +280,8 @@ class NavigationBar(QWidget):
         self._hora_inicial = QLabel("")
         self._hora_final = QLabel("")
         self._hora_final.setAlignment(Qt.AlignmentFlag.AlignRight)
-        #: La amplitud vigente, entre los dos botones que la cambian. Hasta el
-        #: hito 36 sólo se veía en el eje de cada canal.
-        self._amplitud = QLabel("")
-        self._amplitud.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._amplitud.setMinimumWidth(ANCHO_DE_LA_AMPLITUD)
         # Son lecturas: el esquema puede darles una tipografía numérica.
-        for lectura in (
-            self._posicion,
-            self._hora_inicial,
-            self._hora_final,
-            self._amplitud,
-        ):
+        for lectura in (self._posicion, self._hora_inicial, self._hora_final):
             lectura.setProperty(theme.READOUT_PROPERTY, True)
 
         self._primera.clicked.connect(lambda: self._pedir(0))
@@ -293,15 +295,13 @@ class NavigationBar(QWidget):
         self._mas_amplitud.clicked.connect(self.amplitude_up_requested.emit)
         self._menos_amplitud.clicked.connect(self.amplitude_down_requested.emit)
         self.strip.window_requested.connect(self.window_requested.emit)
-        # **La acción primaria de la barra**, rellena con el acento: es la única
-        # que hace algo por sí sola y no un paso más de lo mismo. El color y la
-        # tinta los pone la hoja de estilo, que mide cuál se lee encima.
-        self._reproducir.setProperty("primario", True)
-        # **Y su icono con la tinta que se lee encima de ese relleno.** Lo
-        # crea `_boton()` con la del resto, que sobre el acento da 2,87 a 1:
-        # `apply_scheme()` lo arreglaba, pero sólo corre al cambiar de esquema,
-        # así que el botón arrancaba con el icono casi invisible. Se vio en una
-        # captura de la barra.
+        # **Reproducir se ve como los otros seis.** Estuvo relleno con el
+        # acento hasta acá, por ser la única acción de la barra que hace algo
+        # por sí sola y no un paso más de lo mismo; el usuario lo pidió al
+        # revés, y el argumento se sostiene solo: los siete son transporte y
+        # uno oscuro en el medio se lee como otra clase de control. El estado
+        # —reproduciendo o en pausa— ya lo dice el icono, que es lo único que
+        # cambia.
         self.set_playing(False)
 
         caja = QHBoxLayout(self)
@@ -344,7 +344,6 @@ class NavigationBar(QWidget):
         caja.addSpacing(ESPACIO_ENTRE_GRUPOS)
         caja.addWidget(QLabel("Amplitud"))
         caja.addWidget(self._menos_amplitud)
-        caja.addWidget(self._amplitud)
         caja.addWidget(self._mas_amplitud)
 
         self.set_position(0, 0)
@@ -380,18 +379,15 @@ class NavigationBar(QWidget):
         color = theme.icon_ink(esquema)
         for boton, nombre in self._iconos.items():
             boton.setIcon(icon(nombre, color))
-        self._reproducir.setIcon(
-            icon(self._icono_de_reproducir(), theme.ink_over(esquema, esquema.accent))
-        )
-        self.strip.update()
+        self._reproducir.setIcon(icon(self._icono_de_reproducir(), color))
+        self.strip.apply_scheme()
 
     def set_playing(self, playing: bool) -> None:
         """Muestra el botón como «reproducir» o como «pausar»."""
         self._reproduciendo = bool(playing)
         ayuda = "Pausar" if self._reproduciendo else "Reproducir"
-        esquema = theme.current()
         self._reproducir.setIcon(
-            icon(self._icono_de_reproducir(), theme.ink_over(esquema, esquema.accent))
+            icon(self._icono_de_reproducir(), theme.icon_ink(theme.current()))
         )
         self._reproducir.setToolTip(ayuda)
         self._reproducir.setAccessibleName(ayuda)
@@ -445,14 +441,6 @@ class NavigationBar(QWidget):
     def set_scoring(self, colors: Sequence[str | None]) -> None:
         """Le pasa a la franja con qué color pintar cada época."""
         self.strip.set_scoring(colors)
-
-    def set_amplitude(self, label: str) -> None:
-        """Muestra la amplitud vigente entre los dos botones que la cambian.
-
-        Es texto ya formateado y no un número: quién decide cómo se escribe una
-        amplitud es `utils.units`, y esta barra no convierte nada.
-        """
-        self._amplitud.setText(label)
 
     def set_span(self, first: str | None, last: str | None) -> None:
         """Las horas de los dos extremos del registro, a los costados de la franja.

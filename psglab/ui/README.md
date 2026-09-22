@@ -66,14 +66,14 @@ conoce las flechas del teclado.
 | `connectivity_panel.py` | Mapa de calor de la matriz de conectividad, con los nombres de canal en los ejes. | — (Parte 2) |
 | `psd_panel.py` | Dibuja el espectro que calcula `analysis/psd.py`, con sus bandas sombreadas, el eje de potencia en logarítmico y la tabla de potencia por banda —absoluta y relativa—. Arriba, una línea dice con qué método se estimó. | V1_F de "PSD" |
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada y cada una con el chip de su fase. El ancho que se pide es el preferido; se deja angostar hasta 120 px. | V1_F, V2_F, V3_F de "Übersicht" |
-| `navigation.py` | La barra inferior: ocho controles —primera, anterior, reproducir/pausar, siguiente, última, velocidad, menos y más amplitud— y una franja que muestra dónde cae la ventana en la noche, **con qué fase está scoreada cada época** (hito 34, cacheado en un `QPixmap`), y deja saltar con un clic. Desde el hito 36 la franja lleva a los costados las horas del registro y debajo la época con su hora, y la amplitud vigente se lee entre sus dos botones; reproducir es la acción primaria y va rellena con el acento. Los botones de página se sacaron en el hito 27; sus atajos siguen. | V1_F de "Navegación" |
+| `navigation.py` | La barra inferior: ocho controles —primera, anterior, reproducir/pausar, siguiente, última, velocidad, menos y más amplitud— y una franja que muestra dónde cae la ventana en la noche, **con qué fase está scoreada cada época** (hito 34, cacheado en un `QPixmap` que `apply_scheme()` tira al cambiar de esquema), y deja saltar con un clic. Desde el hito 36 la franja lleva a los costados las horas del registro y debajo la época con su hora. **La amplitud no se lee acá** y **reproducir se ve como los otros seis** desde el hito 44. Los botones de página se sacaron en el hito 27; sus atajos siguen. | V1_F de "Navegación" |
 | `playback.py` | El reloj de la reproducción: mide el tiempo real y avisa cuánto avanzar el cursor. No conoce la sesión ni mueve nada; la regla del cursor es de `Session.move_playhead()`. | V1_F de "Navegación" |
 | `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. Las fases van en su propia fila, debajo del selector, para que el mínimo del panel sea el de la fila más ancha y no la suma; abajo, un pie con la ventana y su fase, que se sigue viendo si el panel sale a otra pantalla. **Cada botón muestra su tecla y declara su fase** (hito 34): el color lo pone la hoja de estilo, así que el panel no conoce ninguno. | V1_F, V2_F, V3_F de "Scoring" |
 | `icons.py` | Los iconos de la barra de navegación y el de abrir un registro, dibujados con `QPainterPath`. **No hay ningún archivo de icono en el repositorio**, y es una decisión de licencia. | — |
 | `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas, arrancan ocultos y al abrirse se llevan `FRACCION_DE_ANALISIS` del ancho: sin eso Qt les daba más lugar que a la señal. **El título de un dock no se cambia**: Qt lo usa como texto de su entrada en «Herramientas». Lo que describe un resultado va en el panel, con `set_caption()`. | — |
 | `menus.py` | **La barra de menú**: qué acción vive en qué menú, el botón de abrir un registro —con su palabra al lado desde el hito 36— y, en la otra esquina, qué registro está abierto. No implementa ninguna acción: cada una llama a un método de la ventana. «Herramientas» lleva los modos del mouse y los paneles, sin repetir los que son las dos cosas; «Ver», los tres fondos de grilla y los dos esquemas. | — |
 | `theme.py` | **Los esquemas de color del programa: Sereno y Nocturno.** Qué color tiene cada cosa que se dibuja, incluida `stage_colors`, la escala que pinta cada fase de sueño. Los dos separan el fondo de la ventana (`chrome`) del de las áreas de dibujo y dan a las lecturas numéricas su propia tipografía. De acá salen también los tokens de forma —radio, alto de control, anillo de foco— que consume la hoja de estilo. **No se editan**: ver `docs/ARQUITECTURA.md`. | — |
-| `fonts.py` | Registra las tipografías que el programa trae —IBM Plex Sans y Mono, en `psglab/resources/fonts/`, bajo la OFL 1.1—. **Sans es la de la interfaz desde el hito 34** (`UI_FONT_FAMILY`, el valor de fábrica de `font_family`) y Mono, la de las lecturas numéricas de los esquemas que la piden. Si faltan, el programa arranca igual: `available_family()` devuelve None y se usa la del sistema, en vez de dejar que Qt sustituya por cualquier otra. | — |
+| `fonts.py` | **Las dos tipografías del programa y la escala de ocho roles.** IBM Plex Sans para lo que se lee y Mono para lo que se mide —la misma superfamilia, en `psglab/resources/fonts/`, bajo la OFL 1.1—. **Ninguna se elige** desde el hito 43; el tamaño sí. `font_for()` arma la fuente de un rol a partir de ese tamaño. Si los archivos faltan, el programa arranca igual: `available_family()` devuelve None y se usa la del sistema, en vez de dejar que Qt sustituya por cualquier otra. | — |
 | `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. La disposición de paneles ya no es parte de eso. Un campo que trae cualquier cosa vuelve al de fábrica, y `load()` no eleva nada que no sea `PsgLabError`: es lo único que atrapa el arranque. | — |
 | `settings_dialog.py` | **La ventana de configuración**: cuatro solapas, todas con algo real detrás. La de Colores se fue en el hito 35 con la edición de esquemas; elegir entre los dos que hay es el menú «Ver». Aplica en el momento y avisa por callbacks. En «Otras» se elige cuántas ventanas vecinas muestra la Übersicht, la altura de la banda de amplitud y el radio y el aumento de la lupa. | V3_F de "Herramienta Übersicht" |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
@@ -219,6 +219,47 @@ barrita al borde. La paleta de canales está verificada contra
 `MIN_GRAPHIC_CONTRAST` —3,0— porque son trazos, y el color 3 de Sereno da 3,89
 sobre el fondo: como texto habría quedado por debajo de los 4,5 que pide WCAG
 2.1. La muestra sigue siendo un gráfico y conserva la identificación por color.
+
+## `fonts.py`
+
+**Una familia y su hermana de ancho fijo, y ninguna se elige.** Hasta el hito
+43 Configuración → Tipografía ofrecía todas las familias instaladas en la
+máquina: el programa empaquetaba dos y no garantizaba ninguna. Es el mismo
+argumento que dejó los colores en dos esquemas —una lista abierta son infinitos
+aspectos posibles y ninguno garantizado— y la misma respuesta. **El tamaño sí
+se elige**, que es lo que hace falta para ver de lejos.
+
+**La escala está acá y no en cada módulo.** `ROLES` tiene ocho, cada uno con su
+familia, su paso en puntos desde el tamaño elegido, su peso, su inclinación y
+su tracking. Antes el canalón achicaba un punto y el chip dos, que eran dos
+respuestas a la misma pregunta. Es el mismo reparto que los colores: el módulo
+dice **qué cosa** está dibujando y no de qué tamaño.
+
+**La itálica significa algo, y por eso se usa en dos lugares y no en más.**
+Inclinada quiere decir «esto no lo midió ni lo eligió nadie»: el «sin medir»
+de la tabla de impedancias y el «sin scorear» del pie del panel de scoring.
+Hasta acá esa diferencia la cargaba el gris, que ya quiere decir otra cosa
+—«esto es secundario»—, y un valor ausente es lo contrario de secundario.
+
+## `navigation.py`
+
+**Lo que se cachea hay que soltarlo al cambiar de esquema.** La franja de
+posición pinta su fondo —el borde y los tramos scoreados— en un `QPixmap`,
+porque se repinta en cada época y durante la reproducción eso son veinticinco
+veces por segundo: pintar 2650 rectángulos por cuadro es lo que el hito 25 le
+sacó a la grilla. El cache se soltaba al cambiar el scoring, la cantidad de
+épocas o el ancho, y cambiar de esquema no es ninguna de las tres, así que
+pasar de Nocturno a Sereno dejaba la franja oscura. Es la misma regla por la
+que la barra rehace sus iconos: un mapa de bits ya pintado no cambia de color
+solo.
+
+**Los siete botones de transporte se ven igual** desde el hito 44. Reproducir
+iba relleno con el acento, por ser la única acción de la barra que hace algo
+por sí sola; en la pantalla se leía como otra clase de control. Su icono era un
+disco lleno con el triángulo **recortado**, dibujo que dependía de ese relleno,
+y por eso hubo que rehacerlo como anillo: lo que resuelve —que reproducir no
+sea un triángulo más entre las dos flechas de época— lo sigue resolviendo la
+silueta redonda.
 
 ## `grid.py`
 

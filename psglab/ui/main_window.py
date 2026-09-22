@@ -156,7 +156,6 @@ from psglab.ui.settings_dialog import SettingsDialog
 from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
 from psglab.ui.signal_view import SignalView
 from psglab.utils.errors import PsgLabError, UndeclaredNomenclatureError
-from psglab.utils.units import format_amplitude
 
 #: Lo que se le suma al ancho del identificador del registro para que no quede
 #: pegado al borde de la ventana ni a la última entrada del menú.
@@ -1229,7 +1228,6 @@ class MainWindow(QMainWindow):
         self.signal_view.mark_window(ventana)
         self.navigation.set_position(ventana, sesion.n_windows)
         self.navigation.set_clock_time(self._clock_label(ventana))
-        self.navigation.set_amplitude(self._amplitud_visible())
         # Los extremos no cambian con la época, pero esto es lo que corre
         # después de abrir un registro **y** después de cambiar de canales
         # visibles, que es cuando pueden dejar de ser ciertos.
@@ -1827,11 +1825,11 @@ class MainWindow(QMainWindow):
     def _aplicar_preferencias(self, prefs: preferences.Preferences) -> None:
         """Lo que se aplica enseguida y no depende de un registro abierto."""
         fuente = QFont(self._fuente_del_sistema)
-        # **La familia se pide sólo si Qt la tiene** (hito 34). Desde que la
-        # tipografía del programa es la de fábrica, un archivo que falta o no
-        # se pudo registrar dejaría a `setFamily()` sustituyendo en silencio
+        # **La familia ya no se elige** (hito 43): es la del programa y nada
+        # más. Se pide sólo si Qt la tiene, porque un archivo que falta o que
+        # no se pudo registrar dejaría a `setFamily()` sustituyendo en silencio
         # por lo que a Qt le parezca, que suele ser peor que la del sistema.
-        elegida = fonts.available_family(prefs.font_family) if prefs.font_family else None
+        elegida = fonts.available_family()
         if elegida is not None:
             fuente.setFamily(elegida)
         if prefs.font_size is not None:
@@ -2956,30 +2954,6 @@ class MainWindow(QMainWindow):
             self._session.set_selected_channels(channel_names)
         except PsgLabError as error:
             self._show_error(error)
-
-    def _amplitud_visible(self) -> str:
-        """La amplitud que muestra la barra, entre los dos botones que la cambian.
-
-        **Una sola cuando todos los canales visibles comparten escala**, y el
-        rango —«50–250 µV»— cuando no. Inventar el del primero sería peor: el
-        investigador leería 100 µV mientras mira un canal a 250.
-
-        **Decía «varias» y dejó de servir** cuando cada clase pasó a abrir con
-        su propia escala: la palabra era correcta y no decía nada, porque desde
-        entonces es lo que se lee siempre. El rango dice de dónde a dónde va lo
-        que se está mirando, y cuál es el de cada canal está en su carril.
-        """
-        if self._session is None:
-            return ""
-        escalas = {
-            self._session.scale_uv(nombre)
-            for nombre in self._session.visible_channels
-        }
-        if not escalas:
-            return ""
-        if len(escalas) > 1:
-            return f"{min(escalas):.0f}–{format_amplitude(max(escalas))}"
-        return format_amplitude(escalas.pop())
 
     def _escribir_el_identificador(self) -> None:
         """Pone el identificador del registro y **lo deja del ancho que necesita**.

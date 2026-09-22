@@ -45,6 +45,7 @@ from PySide6.QtWidgets import (
 
 from psglab.analysis.impedance import DEFAULT_LIMIT_KOHM
 from psglab.ui import theme
+from psglab.ui.fonts import font_for
 from psglab.ui.panel_header import ROL_DEL_COLOR, ChipDelegate, PanelHeader
 
 #: Lo que dice una celda sin valor. **No es "0" ni está vacía**: un cero
@@ -179,6 +180,7 @@ class ImpedancePanel(QWidget):
                 entrada.setData(
                     COLUMNA_DEL_ESTADO, ROL_DEL_COLOR, self._color_del_estado(valor)
                 )
+                self._marcar_lo_ausente(entrada, valor)
                 self.tabla.addTopLevelItem(entrada)
         finally:
             self._reflejando = False
@@ -206,6 +208,24 @@ class ImpedancePanel(QWidget):
             return None
         esquema = theme.current()
         return esquema.accent if valor <= self._limite else (esquema.danger or esquema.accent)
+
+    def _marcar_lo_ausente(self, entrada: QTreeWidgetItem, valor: float | None) -> None:
+        """Pone en itálica las dos celdas de un canal que nadie midió.
+
+        **La itálica dice «esto no lo midió nadie»** (hito 43). Hasta acá esa
+        diferencia la cargaba el gris, que en este panel ya quiere decir otra
+        cosa —«esto es secundario»—, y un valor ausente es lo contrario de
+        secundario: es la advertencia más importante de la tabla, y el módulo
+        entero existe para no confundirla con un cero.
+
+        Se rehace en cada refresco, en los dos sentidos: al escribir un valor
+        la fila vuelve a la redonda, o «sin medir» quedaría inclinado al lado
+        de un número que sí se midió.
+        """
+        base = self.tabla.font()
+        fuente = font_for("ausente", base) if valor is None else base
+        entrada.setFont(1, fuente)
+        entrada.setFont(COLUMNA_DEL_ESTADO, fuente)
 
     def _reflejar_el_encabezado(self) -> None:
         """Cuántos canales están medidos, que es lo primero que se pregunta."""
@@ -329,6 +349,7 @@ class ImpedancePanel(QWidget):
                 entrada.setData(
                     COLUMNA_DEL_ESTADO, ROL_DEL_COLOR, self._color_del_estado(valor)
                 )
+                self._marcar_lo_ausente(entrada, valor)
         finally:
             self._reflejando = False
         self._reflejar_el_encabezado()

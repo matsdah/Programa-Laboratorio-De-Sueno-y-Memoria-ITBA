@@ -2485,42 +2485,44 @@ def test_la_tipografia_elegida_llega_tambien_a_los_nombres_de_canal(
 def test_se_puede_volver_a_la_tipografia_del_sistema(
     ventana: MainWindow, fuente_restaurada
 ):
-    """**Las dos cosas a la vez**: desde el hito 34 la de fábrica es la que el
-    programa empaqueta, así que volver a la del sistema es soltar también la
-    familia y no sólo el tamaño."""
+    """**Vuelve el tamaño y no la familia**, desde el hito 43: la familia es la
+    del programa y no se elige. Lo que se suelta al destildar la casilla es el
+    tamaño."""
     del_sistema = QFont(ventana._fuente_del_sistema)
     _con(ventana, font_size=17)
 
-    _con(ventana, font_family=None, font_size=None)
+    _con(ventana, font_size=None)
 
     assert QApplication.font().pointSize() == del_sistema.pointSize()
-    assert QApplication.font().family() == del_sistema.family()
 
 
 def test_la_tipografia_del_programa_se_aplica_si_esta(
     ventana: MainWindow, fuente_restaurada
 ):
-    """La de fábrica desde el hito 34. Se registra acá adentro: la suite no
-    pasa por `create_application()`, que es quien lo hace al arrancar."""
+    """**La única desde el hito 43.** Se registra acá adentro: la suite no pasa
+    por `create_application()`, que es quien lo hace al arrancar."""
     from psglab.ui import fonts
 
     fonts.register_bundled_fonts()
 
-    _con(ventana, font_family=fonts.UI_FONT_FAMILY)
+    _con(ventana, font_size=13)
 
     assert QApplication.font().family() == fonts.UI_FONT_FAMILY
 
 
-def test_una_tipografia_que_no_esta_deja_la_del_sistema(
-    ventana: MainWindow, fuente_restaurada
+def test_sin_los_archivos_queda_la_del_sistema(
+    ventana: MainWindow, fuente_restaurada, monkeypatch
 ):
     """**`setFamily()` con un nombre que no existe no avisa**: Qt sustituye por
-    lo que le parece, que suele ser peor que la del sistema. Con la tipografía
-    del programa como valor de fábrica, eso le pasaría a cualquiera que instale
-    sin los archivos."""
-    del_sistema = QFont(ventana._fuente_del_sistema)
+    lo que le parece, que suele ser peor que la del sistema. Con la del
+    programa como la única, eso le pasaría a cualquiera que instale sin los
+    archivos."""
+    from psglab.ui import fonts
 
-    _con(ventana, font_family="Una Que No Existe")
+    del_sistema = QFont(ventana._fuente_del_sistema)
+    monkeypatch.setattr(main_window_mod.fonts, "available_family", lambda *_: None)
+
+    _con(ventana, font_size=13)
 
     assert QApplication.font().family() == del_sistema.family()
 
@@ -4164,26 +4166,19 @@ def test_sin_registro_la_barra_de_menu_lo_dice(qt_app):
         vacia.close()
 
 
-def test_la_barra_de_navegacion_muestra_la_amplitud(ventana: MainWindow):
-    """Hasta el hito 36 la amplitud sólo se veía en el eje de cada canal."""
+def test_la_amplitud_de_cada_canal_se_lee_en_su_carril(ventana: MainWindow):
+    """**La barra dejó de decirla** (hito 44), y no se perdió nada: la escala
+    de un canal se lee en el canalón, al lado de su nombre y contra su señal.
+
+    La barra la mostró desde el hito 36, y desde el 38 —cuando cada clase pasó
+    a abrir con su escala— lo que mostraba era casi siempre un rango, «37–1025
+    µV», que no es la amplitud de ningún canal: es el mínimo de uno y el máximo
+    de otro."""
     ventana.set_amplitude_scale(200.0)
 
-    assert ventana.navigation._amplitud.text() == "200 µV"
-
-
-def test_con_amplitudes_distintas_la_barra_muestra_el_rango(ventana: MainWindow):
-    """V5_F deja cambiarle la ganancia a un canal solo, y desde el hito 38 cada
-    clase abre con la suya, así que esto es lo normal y no la excepción.
-
-    **Decía «varias».** Era correcto y no decía nada: pasó a leerse siempre.
-    Decir la del primero sería peor todavía —el investigador leería 100 µV
-    mirando un canal a 400— y el de cada canal está en su carril."""
-    ventana.set_amplitude_scale(100.0)
-    canal = ventana.session.visible_channels[0]
-    ventana.session.set_scale_uv(canal, 400.0)
-    ventana._reflejar_epoca()
-
-    assert ventana.navigation._amplitud.text() == "100–400 µV"
+    detalles = [carril.detail for carril in ventana.signal_view.channel_axis.lanes()]
+    assert detalles
+    assert all(detalle == "200 µV" for detalle in detalles)
 
 
 def test_los_extremos_del_registro_llegan_a_la_franja(ventana: MainWindow):

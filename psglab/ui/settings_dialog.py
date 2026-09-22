@@ -42,7 +42,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFileDialog,
-    QFontComboBox,
     QFormLayout,
     QGridLayout,
     QGroupBox,
@@ -63,7 +62,7 @@ from psglab.analysis.psd import METHODS
 from psglab.config import VIEW_TIMESCALE_PRESETS
 from psglab.core.annotations import PALETTE
 from psglab.core.nomenclature import Nomenclature
-from psglab.ui import theme
+from psglab.ui import fonts, theme
 from psglab.ui.menus import duration_text
 from psglab.ui.preferences import (
     MAX_AMPLITUDE_BAND_UV,
@@ -613,15 +612,15 @@ class SettingsDialog(QDialog):
         solapa = QWidget()
         formulario = QFormLayout(solapa)
 
-        self.system_font = QCheckBox("Usar la tipografía del sistema")
+        # **No hay lista de familias** desde el hito 43. La tipografía es la del
+        # programa —IBM Plex Sans, y su hermana de ancho fijo para las
+        # lecturas— por el mismo argumento que dejó los colores en dos
+        # esquemas: una lista abierta son infinitos aspectos posibles y ninguno
+        # garantizado. El tamaño sí se elige, que es lo que hace falta para ver
+        # de lejos.
+        self.system_font = QCheckBox("Usar el tamaño del sistema")
         self.system_font.toggled.connect(self._cambiar_tipografia)
         formulario.addRow("", self.system_font)
-
-        self.font_family = QFontComboBox()
-        self.font_family.currentFontChanged.connect(
-            lambda _fuente: self._cambiar_tipografia(self.system_font.isChecked())
-        )
-        formulario.addRow("Tipografía:", self.font_family)
 
         self.font_size = QSpinBox()
         self.font_size.setRange(MIN_FONT_SIZE, MAX_FONT_SIZE)
@@ -631,37 +630,41 @@ class SettingsDialog(QDialog):
         )
         formulario.addRow("Tamaño:", self.font_size)
 
-        self.font_preview = QLabel("Ventana 12 de 960 — C3 (EEG) — 100 µV")
+        # **La muestra lleva las tres voces**, no una: la de leer, la de medir y
+        # la de lo que nadie midió. Con una sola, cambiar el tamaño no decía
+        # nada de la escala.
+        self.font_preview = QLabel("Ventana 12 de 960")
+        self.numeric_preview = QLabel("01:50:00 · 100 µV")
+        self.absent_preview = QLabel("sin medir")
         formulario.addRow("Muestra:", self.font_preview)
+        formulario.addRow("", self.numeric_preview)
+        formulario.addRow("", self.absent_preview)
         return solapa
 
     def _cambiar_tipografia(self, del_sistema: bool) -> None:
-        self.font_family.setEnabled(not del_sistema)
         self.font_size.setEnabled(not del_sistema)
         self._mostrar_muestra()
         if del_sistema:
-            self._cambiar(self._prefs.with_changes(font_family=None, font_size=None))
+            self._cambiar(self._prefs.with_changes(font_size=None))
             return
-        self._cambiar(
-            self._prefs.with_changes(
-                font_family=self.font_family.currentFont().family(),
-                font_size=self.font_size.value(),
-            )
-        )
+        self._cambiar(self._prefs.with_changes(font_size=self.font_size.value()))
 
     def _mostrar_muestra(self) -> None:
-        fuente = QFont(self.font_family.currentFont())
-        fuente.setPointSize(self.font_size.value())
-        self.font_preview.setFont(fuente)
+        """Las tres voces de la escala, al tamaño que se está eligiendo."""
+        base = QFont()
+        base.setPointSize(self.font_size.value())
+        for etiqueta, rol in (
+            (self.font_preview, "cuerpo"),
+            (self.numeric_preview, "lectura"),
+            (self.absent_preview, "ausente"),
+        ):
+            etiqueta.setFont(fonts.font_for(rol, base))
 
     def _reflejar_tipografia(self) -> None:
-        del_sistema = self._prefs.font_family is None and self._prefs.font_size is None
+        del_sistema = self._prefs.font_size is None
         sistema = QFont()
-        familia = self._prefs.font_family or sistema.family()
         tamano = self._prefs.font_size or max(sistema.pointSize(), MIN_FONT_SIZE)
-        self.font_family.setCurrentFont(QFont(familia))
         self.font_size.setValue(tamano)
         self.system_font.setChecked(del_sistema)
-        self.font_family.setEnabled(not del_sistema)
         self.font_size.setEnabled(not del_sistema)
         self._mostrar_muestra()
