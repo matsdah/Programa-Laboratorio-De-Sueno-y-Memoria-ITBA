@@ -388,8 +388,19 @@ class Recording:
                 **del final del registro** presentada como si fuera del
                 principio: numpy interpreta el negativo como "desde el final".
                 Es la clase de error que produce un resultado plausible y
-                equivocado, que es peor que uno vacío.
+                equivocado, que es peor que uno vacío. **También si alguno de
+                los dos no es un entero** (hito 50): con `3.5` o `None` el que
+                explotaba era el índice de numpy, con un `TypeError` crudo que
+                la ventana no sabe atrapar. Un entero de numpy sirve, porque es
+                lo que devuelve cualquier cuenta sobre un array; un booleano no,
+                aunque Python lo cuente como entero.
         """
+        for nombre, valor in (("start_sample", start_sample), ("stop_sample", stop_sample)):
+            if isinstance(valor, bool) or not isinstance(valor, (int, np.integer)):
+                raise InvalidRecordingError(
+                    "Se pidió un tramo de señal que no existe en el registro.",
+                    details=f"{nombre} = {valor!r}; se esperaba un número entero de muestra.",
+                )
         if start_sample < 0 or start_sample > stop_sample:
             raise InvalidRecordingError(
                 "Se pidió un tramo de señal que no existe en el registro.",

@@ -65,8 +65,9 @@ quedado anotados, y el
 de la interfaz lo último que quedaba largo, y el
 **[hito 48](#hito-48-la-auditoría-de-los-tests)** auditó los tests por primera
 vez desde que empezó el proyecto, y el
-**[hito 49](#hito-49-la-envolvente-se-calcula-una-vez)** hizo que la envolvente se calcule una vez, con lo que cerró el 33.
-Son **cincuenta hitos**, del 0 al 49, que son las filas de la tabla de
+**[hito 49](#hito-49-la-envolvente-se-calcula-una-vez)** hizo que la envolvente se calcule una vez, con lo que cerró el 33, y el
+**[hito 50](#hito-50-los-pendientes-revisados)** revisó las casillas que habían quedado sin tachar dentro de los
+hitos cerrados. Son **cincuenta y un hitos**, del 0 al 50, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -194,6 +195,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [47. Lo caro era ajustar, y no cambia la señal](#hito-47-lo-caro-era-ajustar-y-no-cambia-la-señal) | — | 0 | ✅ cerrado |
 | [48. La auditoría de los tests](#hito-48-la-auditoría-de-los-tests) | — | 0 | ✅ cerrado |
 | [49. La envolvente se calcula una vez](#hito-49-la-envolvente-se-calcula-una-vez) | — | 0 | ✅ cerrado |
+| [50. Los pendientes, revisados](#hito-50-los-pendientes-revisados) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -332,7 +334,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     S3 y S4 caen los dos en N3 y que volver no puede distinguirlos.
 - [x] **`psglab/core/recording.py`** · ~~7 stubs~~ · soporte de V1_F/V2_F/V3_F
       "Importación" y V4_F "Visualización"
-  - Test: `tests/test_recording.py`, **44 tests en verde**, sobre la fixture
+  - Test: `tests/test_recording.py`, **53 tests en verde**, sobre la fixture
     `synthetic_signal` de `conftest.py`.
   - **`__post_init__` rechaza un registro incoherente consigo mismo**: matriz
     que no es 2-D, canales que no coinciden con las filas, frecuencia no
@@ -1718,6 +1720,10 @@ números y el camino muerto**. Estos tres los cierran donde se puede.
       barra llega a las ramas `annotations` ni `information` de
       `MainWindow.export()`: es la forma del hito 19 una capa más abajo, y la
       encontró leer el programa, no la red.
+      - **La de anotaciones tiene camino desde el hito 33**, por el cartel del
+        trabajo sin exportar; la de Informacion.txt sigue sin ninguno. Cerrarlo
+        depende de lo que diga el cliente sobre el menú, en el hito 23.
+        Revisado en el [hito 50](#hito-50-los-pendientes-revisados).
 
       **Extender la tabla a `exporters/` no lo habría atrapado**, y ésa es la
       parte que importa. `export_annotations` y `export_information` sí se
@@ -2116,10 +2122,13 @@ sobre el registro de `data/`.
 
 ### Lo que sigue abierto
 
-- [ ] **La reproducción corre en el hilo de la interfaz**, como todo el
+- [x] **La reproducción corre en el hilo de la interfaz**, como todo el
       dibujo; es la deuda del [hito 18](#lo-que-sigue-sin-resolverse). Con 32
       canales a 1000 Hz no hay medición todavía, y el reloj compensa con pasos
       más largos, así que se vería menos fluida pero a la velocidad elegida.
+      - **La medición existe desde el hito 49**, y lo que queda es el mismo
+        pendiente que «Un registro denso llega justo», del [hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar), donde se
+        sigue. Revisado en el [hito 50](#hito-50-los-pendientes-revisados).
 - [x] **El hipnograma quedaba angosto al abrir los tres paneles de abajo.**
       `docks.py` les pedía 250, 400 y 900 px, pero la Übersicht no bajaba de
       480 y el scoring de 690: en una pantalla de 1400 px el hipnograma recibía
@@ -2236,19 +2245,21 @@ prueba, y el reloj de la reproducción pide 25. Con 32 canales a 1000 Hz quedan
 
 ### Lo que sigue abierto
 
-- [ ] **Un registro denso llega justo** —y desde el [hito 49](#hito-49-la-envolvente-se-calcula-una-vez) es lo único
-      que le queda: calcular la envolvente dejó de pesar—: 44 ms por cuadro con 32 canales a
-      1000 Hz, contra los 40 que pide el reloj. Casi todo eso es rasterizar
+- [ ] **Un registro denso llega justo** —y desde el
+      [hito 49](#hito-49-la-envolvente-se-calcula-una-vez) es lo único que le
+      queda: calcular la envolvente dejó de pesar—: 44 ms por cuadro con 32
+      canales a 1000 Hz, contra los 40 que pide el reloj. Casi todo eso es rasterizar
       71 000 puntos de trazo. Las dos salidas que quedan son dibujar menos
       puntos —una pareja de envolvente cada dos píxeles en vez de cada uno, que
       **se midió en −25 % y se descartó**: bajar la resolución horizontal del
       trazado es una decisión clínica y el usuario eligió no tomarla— o sacar
       el dibujo del hilo de la interfaz.
-- [ ] **OpenGL se probó y no sirvió.** `useOpenGL` dio 30 ms contra 19 con el
+- [x] (Decidido en el hito 25: no se usa.) **OpenGL se probó y no sirvió.** `useOpenGL` dio 30 ms contra 19 con el
       registro de prueba y 66 contra 58 con el denso: en este dibujo —muchas
       polilíneas cortas— el camino por GPU cuesta más de lo que ahorra. Queda
       anotado para que no se vuelva a proponer sin medirlo.
-- [ ] **La lectura sigue siendo de MNE**, 2,6 s de los 4,3. Un lector propio
+- [x] (Decidido en el hito 25: por ahora no.) **La lectura sigue siendo de
+      MNE**, 2,6 s de los 4,3. Un lector propio
       con numpy para el caso simple bajaría eso a medio segundo, y es un parser
       nuevo que hay que mantener: **la decisión fue no hacerlo por ahora**.
       La copia que hace `crudo.get_data()` —300 ms— tampoco se puede evitar:
@@ -2346,10 +2357,14 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
 
 ### Lo que sigue abierto
 
-- [ ] **Papel dibuja todas las señales en negro**, como el lienzo, y Claro las
+- [x] **Papel dibuja todas las señales en negro**, como el lienzo, y Claro las
       varía por canal. Es una decisión visual: el interruptor está en Colores,
       y si el laboratorio prefiere colores, es cambiar un campo del esquema.
-- [ ] **Un ancho de pila arrastrado a mano vuelve al 30 %** al abrir otro panel
+      - **Ya no existe**: el [hito 35](#hito-35-dos-esquemas-y-ninguna-perilla)
+        dejó dos esquemas, Sereno y Nocturno, sin solapa Colores. Revisado en
+        el [hito 50](#hito-50-los-pendientes-revisados).
+- [x] (Decidido en el hito 24: la disposición no se guarda.) **Un ancho de
+      pila arrastrado a mano vuelve al 30 %** al abrir otro panel
       de análisis, igual que abajo vuelve la proporción. Recordarlo sería
       guardar la disposición, que el hito 24 decidió no hacer.
 
@@ -2393,7 +2408,7 @@ lo mínimo.
       repita el recorte. No llama a `_seguir_a_la_epoca()`: con una página de
       menos de 30 s, `containing()` la sacaría del medio.
   - Test: `tests/test_session.py`, **156 tests en verde**.
-  - Test: `tests/test_contratos.py`, **992 tests en verde**, con su
+  - Test: `tests/test_contratos.py`, **1006 tests en verde**, con su
     fila en `CONTRATOS` y en `RECHAZOS_OBLIGATORIOS`: un NaN no puede pasar.
 - [x] **Una línea marca el cursor**, creada una vez y después movida, por la
       regla del hito 25. `mark_window()` mueve la banda de la época sin tocar la
@@ -2538,9 +2553,12 @@ clic derecho**.
 - [ ] **Una anotación no se puede corregir**, sólo borrar y volver a hacer:
       cambiarle la clase o arrastrar sus bordes queda para cuando el
       laboratorio lo pida.
-- [ ] **La red del hito 20 no mira `tools/`.** Recorre las funciones públicas
+- [x] **La red del hito 20 no mira `tools/`.** Recorre las funciones públicas
       de `analysis/`, así que `delete_annotation()` quedó sin
       ningún camino desde la ventana sin que nada fallara.
+      - **La cerró el [hito 30](#hito-30-las-decisiones-de-la-verificación)**,
+        que extendió la red a los métodos de `tools/` y de los paneles.
+        Revisado en el [hito 50](#hito-50-los-pendientes-revisados).
 
 ---
 
@@ -2779,21 +2797,24 @@ le hizo, y mantuvo afuera las operaciones largas.
       del hito 30 tienen camino desde la ventana.
   - Test: `tests/test_entrega.py`, **280 tests en verde**, con un registro que
     tiene un canal en cero.
-  - Test: `tests/test_recording.py`, **44 tests en verde**, y
-    `tests/test_contratos.py`, **992 tests en verde**.
+  - Test: `tests/test_recording.py`, **53 tests en verde**, y
+    `tests/test_contratos.py`, **1006 tests en verde**.
   - Test: `tests/test_magnifier.py`, **30 tests en verde**;
     `tests/test_preferences.py`, **68 tests en verde**;
     `tests/test_settings_dialog.py`, **48 tests en verde**.
 
 ### Lo que sigue abierto
 
-- [ ] **`Recording.get_segment()` no valida el tipo de sus extremos.** Lo
+- [x] **`Recording.get_segment()` no valida el tipo de sus extremos.** Lo
       encontró la red de contratos al probar `flat_channels()`: un `None` como
       `start_sample` sale como `TypeError` crudo. `flat_channels()` lo valida
       antes de llamarlo; `get_segment()` no tiene fila en `CONTRATOS` para ese
       argumento, y los que lo llaman hoy le pasan enteros.
-- [ ] **El hipnograma y la Übersicht** siguen esperando la confirmación del
+      - **Lo arregló el [hito 50](#hito-50-los-pendientes-revisados).**
+- [x] **El hipnograma y la Übersicht** siguen esperando la confirmación del
       usuario (ver el hito 31).
+      - **Era el mismo pendiente dos veces**: se sigue sólo en el
+        [hito 31](#hito-31-el-recorrido-manual). Revisado en el [hito 50](#hito-50-los-pendientes-revisados).
 
 ---
 
@@ -2951,7 +2972,7 @@ ya advertía.
         espectro no alcanza sale en cero (ver la lista de abajo).
   - Test: `tests/test_connectivity.py`, **40 tests en verde**, con los dos
     mensajes, la banda de un solo punto que sí se mide y la noche corta.
-  - Test: `tests/test_contratos.py`, **992 tests en verde**, con tres
+  - Test: `tests/test_contratos.py`, **1006 tests en verde**, con tres
     rechazos obligatorios nuevos.
   - Test: `tests/test_entrega.py`, **280 tests en verde**, con el cartel desde
     los dos menús de conectividad. Con el módulo anterior fallan los seis que
@@ -3092,7 +3113,7 @@ ya advertía.
       - El cartel nombra hasta cinco canales con sus cuentas y resume el resto,
         y dice qué implica: que filtrar las esparce, que la referencia promedio
         las pasa a todos los canales y que la PSD de esa época sale sin valor.
-  - Test: `tests/test_recording.py`, **44 tests en verde**, con el NaN, el
+  - Test: `tests/test_recording.py`, **53 tests en verde**, con el NaN, el
     infinito y el orden de los canales.
   - Test: `tests/test_readers.py`, **88 tests en verde**. `escribir_brainvision()`
     aprendió a escribir muestras sin valor, y para eso el archivo en
@@ -4349,7 +4370,7 @@ Conviene decirlo primero, porque es la mayor parte:
       - No era alcanzable por el usuario —el panel pasa valores de un combo—,
         pero sí desde un script. `check_nomenclature()` pasó a pública porque
         ahora la comparten dos módulos.
-  - Test: `tests/test_contratos.py`, **992 tests en verde**;
+  - Test: `tests/test_contratos.py`, **1006 tests en verde**;
     `tests/test_nomenclature.py`, **51 tests en verde**.
 - [x] **`tools/occupancy.py` era el módulo peor verificado, y la causa eran las
       fixtures.** Cuatro mutaciones sobrevivían a la suite **entera**:
@@ -4495,7 +4516,7 @@ según la corrida, contra los 40 que pide el reloj. Con él cierra el 33.
       Siguen sin perder ningún pico: cada muestra cae en exactamente una
       cubeta.
   - Test: `tests/test_decimation.py`, **41 tests en verde**;
-    `tests/test_contratos.py`, **992 tests en verde**.
+    `tests/test_contratos.py`, **1006 tests en verde**.
 - [x] **El visualizador guarda la envolvente por trozos de 64 cubetas**, con
       clave (canal, tamaño de cubeta, número de trozo), y arma cada página con
       los trozos que la cubren. Un paso calcula sólo el trozo que entra, cuando
@@ -4545,6 +4566,64 @@ Lo que se sostiene en las cinco es la proporción:
 - **Cruzar a un trozo nuevo cuesta 1,2 ms**, medido: con página de 5 min pasa
   en uno de cada cuatro pasos, y es calcular 64 cubetas de 32 canales. La
   mediana del banco no lo muestra; por eso se midió aparte.
+
+## Hito 50: Los pendientes, revisados
+
+**Cerrado el 22 de septiembre de 2026.** Con el hito 49 no quedaba ningún
+hito abierto, pero dentro de los cerrados había **diecinueve casillas sin
+tachar**, y nadie las había vuelto a mirar desde que se escribieron. Se
+revisaron una por una contra el código, que es lo único que dice si siguen
+siendo ciertas: es la prosa que este archivo sabe que se desincroniza.
+
+**No tiene stubs que contar.**
+
+### Lo que se tachó
+
+- [x] **Cuatro ya no eran ciertas.**
+      - «Papel dibuja las señales en negro y Claro las varía» (hito 26): esos
+        esquemas y la solapa Colores no existen desde el
+        [hito 35](#hito-35-dos-esquemas-y-ninguna-perilla).
+      - «La red del hito 20 no mira `tools/`» (hito 28): la cerró el
+        [hito 30](#hito-30-las-decisiones-de-la-verificación), y
+        `delete_annotation()` tiene camino desde la ventana.
+      - «La reproducción corre en el hilo de la interfaz» (hito 24) decía que
+        con 32 canales a 1000 Hz no había medición: la hay desde el
+        [hito 49](#hito-49-la-envolvente-se-calcula-una-vez), y el pendiente
+        es el mismo que «Un registro denso llega justo», del [hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar).
+      - El hipnograma y la Übersicht estaban **dos veces**, en los hitos 31 y
+        32; queda el del 31.
+- [x] **Tres eran decisiones tomadas anotadas como pendientes**, y pasaron a
+      llevar la forma que ya usaba el hito 32 —«Decidido en el hito N»—:
+      OpenGL y el lector propio, en el hito 25, y el ancho de la pila que
+      vuelve al 30 %, que es no guardar la disposición, del hito 24.
+- [x] **Una era un bug, y se arregló.** `Recording.get_segment()` no validaba
+      el tipo de sus extremos: con `3.5` o `None` la guarda de rango lo dejaba
+      pasar y explotaba el índice de numpy, con un `TypeError` crudo que la
+      ventana no atrapa. `True` pasaba como la muestra 1. Ahora pide un entero,
+      de Python o de numpy, y las dos filas de `CONTRATOS` que faltaban
+      existen.
+  - Test: `tests/test_recording.py`, **53 tests en verde**;
+    `tests/test_contratos.py`, **1006 tests en verde**.
+- [x] **Una se actualizó sin tacharse**: el camino muerto de `exporters/` del
+      hito 20 decía que ninguna acción llegaba a la rama de anotaciones, y el
+      cartel del trabajo sin exportar llega desde el hito 33. La de
+      Informacion.txt sigue sin camino.
+
+### Lo que queda abierto, y de quién depende
+
+Son once, y **ninguno es un hito**: cada uno sigue anotado en el suyo.
+
+- **Esperan al cliente.** Qué vía de impedancia usa el laboratorio (hito 0);
+  si Anotaciones.txt e Informacion.txt vuelven al menú (hito 23), que decide
+  también el camino muerto de `exporters/` (hito 20); y si reproducir tiene
+  que arrancar desde lo que se ve y no desde la época (hito 27).
+- **Espera al usuario.** Confirmar que el hipnograma y la Übersicht hacen lo
+  que tienen que hacer (hito 31).
+- **Son trabajo, cuando se decida hacerlo.** La señal entera en memoria, dos
+  veces (hito 18); las solapas Cursores y Calibración, que entran con las
+  reglas y los milímetros que configurarían (hito 22); el EDF+ de R&K que
+  pregunta la nomenclatura al releerlo (hito 23); pintar el registro denso
+  por debajo de 40 ms ([hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar)); y corregir una anotación sin borrarla (hito 28).
 
 ---
 
