@@ -165,7 +165,9 @@ class OccupancyTool(ViewerTool):
         self._en_curso = None
         self.notify_changed()
 
-    def on_mouse_press(self, x: float, y: float, button: str) -> None:
+    def on_mouse_press(
+        self, x: float, y: float, button: str, channel_name: str | None = None
+    ) -> None:
         """Empieza una línea nueva, o borra una existente si se hizo clic encima.
 
         El pliego pide las dos cosas con el mismo gesto (V1_F y V5_F): si el
@@ -185,7 +187,9 @@ class OccupancyTool(ViewerTool):
         self._en_curso = OccupancyLine(fraccion, y, fraccion, y)
         self.notify_changed()
 
-    def on_mouse_move(self, x: float, y: float) -> None:
+    def on_mouse_move(
+        self, x: float, y: float, channel_name: str | None = None
+    ) -> None:
         """Extiende la línea en curso mientras el usuario arrastra.
 
         Convierte los segundos que recibe a fracción de ventana con
@@ -202,7 +206,9 @@ class OccupancyTool(ViewerTool):
         )
         self.notify_changed()
 
-    def on_mouse_release(self, x: float, y: float, button: str) -> None:
+    def on_mouse_release(
+        self, x: float, y: float, button: str, channel_name: str | None = None
+    ) -> None:
         """Cierra la línea y actualiza el porcentaje mostrado (V3_F).
 
         Una línea sin ancho no se guarda: es el clic que no arrastró nada.

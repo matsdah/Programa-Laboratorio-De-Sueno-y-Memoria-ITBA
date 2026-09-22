@@ -252,7 +252,17 @@ class MainWindow(QMainWindow):
         #: La entrada de menú de cada herramienta, para poder destildarla al
         #: apagarla.
         self._tool_actions: dict[str, QAction] = {}
-        self._active_viewer_tool: ViewerTool | None = None
+        #: **Quién se queda con el mouse**, o None. Es la exclusiva activa, y
+        #: es lo único que mira `eventFilter()`.
+        self._mouse_tool: ViewerTool | None = None
+        #: **Quiénes tienen algo que dibujar**, en el orden del registro.
+        #:
+        #: Son dos campos y no uno desde el hito 45. Con uno solo, una
+        #: herramienta que dibuja sin quedarse con el clic —la banda de
+        #: amplitud, que declara `exclusive = False` con razón— no entraba en
+        #: él, así que su `overlays()` no lo llamaba nadie y tildarla no hacía
+        #: nada. Son dos preguntas distintas y ahora tienen dos respuestas.
+        self._drawing_tools: list[ViewerTool] = []
         #: Lo último que se le pasó a `signal_view.set_overlays()`. Ver
         #: `_al_cambiar_la_pagina()`.
         self._overlays_dibujados: tuple[Overlay, ...] = ()
@@ -517,7 +527,7 @@ class MainWindow(QMainWindow):
         if objeto is not self.signal_view.viewport():
             return False
 
-        herramienta = self._active_viewer_tool
+        herramienta = self._mouse_tool
         if herramienta is None or evento.type() not in (
             QEvent.Type.MouseButtonPress,
             QEvent.Type.MouseMove,
@@ -535,18 +545,25 @@ class MainWindow(QMainWindow):
         # tres, y la peor consecuencia era que la ocupación borraba una línea
         # con cualquier clic, porque comparaba su tolerancia de 10 µV contra un
         # rango de 0 a 1.
-        y = self.signal_view.microvolts_at_pixel(punto.y())
+        #
+        # **Y contra el canal bajo el cursor**, desde el hito 45. El conversor
+        # acepta el canal desde el hito 9 y nadie se lo pasaba, así que medía
+        # todo contra el primero visible: sobre tres canales, el centro del
+        # tercer carril llegaba como −444 µV en vez de 0. La lupa ampliaba
+        # siempre el primero por la misma razón.
+        canal = self.signal_view.channel_at_pixel(punto.y())
+        y = self.signal_view.microvolts_at_pixel(punto.y(), canal)
 
         if evento.type() == QEvent.Type.MouseMove:
-            herramienta.on_mouse_move(segundos, y)
+            herramienta.on_mouse_move(segundos, y, canal)
         else:
             boton = _BOTONES.get(evento.button(), "left")
             if evento.type() == QEvent.Type.MouseButtonPress:
-                herramienta.on_mouse_press(segundos, y, boton)
+                herramienta.on_mouse_press(segundos, y, boton, canal)
                 if isinstance(herramienta, AnnotatorTool) and boton == "right":
                     self._borrar_anotacion(herramienta, segundos)
             else:
-                herramienta.on_mouse_release(segundos, y, boton)
+                herramienta.on_mouse_release(segundos, y, boton, canal)
                 # **Acá se cierra el lazo de V1_F de "Anotación".** La
                 # herramienta deja el tramo pendiente y espera que alguien
                 # pregunte la clase; hasta el hito 9 no lo hacía nadie, así que
@@ -662,12 +679,19 @@ class MainWindow(QMainWindow):
         """Lo que `_redibujar_overlays()` dibuja, sin dibujarlo."""
         if self._session is None:
             return ()
-        activa = self._active_viewer_tool
-        if isinstance(activa, AnnotatorTool):
-            return tuple(activa.overlays())
-        overlays = annotation_bands(self._session)
-        if activa is not None:
-            overlays += tuple(activa.overlays())
+        # **El anotador reemplaza a las bandas, no se suma a ellas**: sus
+        # `overlays()` ya traen las anotaciones de la página más la selección
+        # en curso, así que dibujar las dos cosas las duplicaría.
+        anotador = next(
+            (t for t in self._drawing_tools if isinstance(t, AnnotatorTool)), None
+        )
+        overlays: tuple[Overlay, ...] = (
+            tuple(anotador.overlays()) if anotador is not None
+            else annotation_bands(self._session)
+        )
+        for herramienta in self._drawing_tools:
+            if herramienta is not anotador:
+                overlays += tuple(herramienta.overlays())
         return overlays
 
     def _al_cambiar_la_pagina(self, _viewport: object) -> None:
@@ -727,7 +751,7 @@ class MainWindow(QMainWindow):
         `config.OCCUPANCY_COUNTS_OVERLAP_ONCE` y quedó confirmado con el
         cliente. Se muestra tal cual, sin recortarlo.
         """
-        herramienta = self._active_viewer_tool
+        herramienta = self._mouse_tool
         if isinstance(herramienta, OccupancyTool):
             lineas = herramienta.lines()
             if lineas:
@@ -747,6 +771,11 @@ class MainWindow(QMainWindow):
             return
         self.tool_readout.setText("")
 
+    def _deja_de_dibujar(self, herramienta: Tool) -> None:
+        """La saca de las que dibujan, si estaba."""
+        if isinstance(herramienta, ViewerTool) and herramienta in self._drawing_tools:
+            self._drawing_tools.remove(herramienta)
+
     def _deactivate_all_tools(self) -> None:
         """Apaga las herramientas y destilda sus botones.
 
@@ -757,7 +786,8 @@ class MainWindow(QMainWindow):
             accion.setChecked(False)
         for herramienta in self._tools.values():
             herramienta.deactivate()
-        self._active_viewer_tool = None
+        self._mouse_tool = None
+        self._drawing_tools.clear()
         if self._session is not None:
             self._session.set_active_tool(None)
         self._redibujar_overlays()
@@ -765,17 +795,25 @@ class MainWindow(QMainWindow):
     def _activate_panel_tools(self) -> None:
         """Enciende las herramientas que son paneles, no modos del mouse.
 
-        `exclusive = False` significa justamente eso —lo declaran así el
-        histograma y la Übersicht— y un panel permanente que arranca apagado es
-        un hueco en la pantalla esperando que alguien adivine que hay que
-        apretar un botón. Los modos del mouse sí arrancan apagados: sólo puede
-        haber uno y elegirlo es del usuario.
+        Un panel permanente que arranca apagado es un hueco en la pantalla
+        esperando que alguien adivine que hay que apretar un botón. Los modos
+        del mouse sí arrancan apagados: sólo puede haber uno y elegirlo es del
+        usuario.
+
+        **La pregunta es si tiene dock, no si es exclusiva** (hito 45). Con
+        `not exclusive` acá, la banda de amplitud —que no compite por el clic
+        pero tampoco es un panel— se tildaba sola al abrir cada registro, y
+        como además no se dibujaba, el usuario encontraba una opción encendida
+        que no hacía nada. Hoy los únicos no exclusivos son la banda, el
+        histograma y la Übersicht, y los dos últimos son los que tienen dock.
         """
         if self._session is None:
             return
         for nombre, herramienta in self._tools.items():
-            if not herramienta.exclusive:
+            if nombre in self.docks:
                 herramienta.activate(self._session)
+                if isinstance(herramienta, ViewerTool) and herramienta not in self._drawing_tools:
+                    self._drawing_tools.append(herramienta)
                 accion = self._tool_actions.get(nombre)
                 if accion is not None:
                     accion.setChecked(True)
@@ -800,16 +838,25 @@ class MainWindow(QMainWindow):
             for otro in self._tools.values():
                 if otro is not herramienta and otro.exclusive:
                     otro.deactivate()
-            self._active_viewer_tool = (
+                    self._deja_de_dibujar(otro)
+                    accion = self._tool_actions.get(otro.name)
+                    if accion is not None and accion.isChecked():
+                        # **Destildarla también**, o el menú muestra dos modos
+                        # del mouse encendidos y sólo uno recibe eventos.
+                        accion.setChecked(False)
+            self._mouse_tool = (
                 herramienta if isinstance(herramienta, ViewerTool) else None
             )
 
         if activa:
             herramienta.activate(self._session)
+            if isinstance(herramienta, ViewerTool) and herramienta not in self._drawing_tools:
+                self._drawing_tools.append(herramienta)
         else:
             herramienta.deactivate()
-            if herramienta is self._active_viewer_tool:
-                self._active_viewer_tool = None
+            self._deja_de_dibujar(herramienta)
+            if herramienta is self._mouse_tool:
+                self._mouse_tool = None
         # **La sesión lleva cuál es la exclusiva activa** y hasta el hito 33 no
         # se lo decía nadie: `Session.active_tool` era siempre None, con su
         # docstring explicando un estado que no existía.

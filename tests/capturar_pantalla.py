@@ -100,8 +100,32 @@ def armar_ventana(esquema: theme.ColorScheme):
         ventana.session.scoring.set_stage(posicion, fases[posicion % len(fases)])
     ventana._reload_histogram()
     llenar_los_paneles(ventana)
+    encender_las_herramientas(ventana)
     QApplication.processEvents()
     return ventana
+
+
+def encender_las_herramientas(ventana) -> None:
+    """Pone la lupa y la banda sobre la señal, que es lo único que las muestra.
+
+    **Las dos se dibujan y ninguna tiene panel**, así que sin esto la captura
+    de la ventana no dice nada de ellas. Es justamente lo que dejó pasar que
+    la banda no se dibujara nunca y que la lupa no tuviera círculo: no había
+    ninguna imagen donde mirarlas.
+
+    La lupa necesita que el mouse haya entrado al visualizador —sin eso no
+    dibuja, para no aparecer en una posición inventada—, así que se le manda el
+    movimiento a la herramienta. Es la única llamada directa de la
+    herramienta en todo el archivo, y va con su motivo: un evento de Qt de
+    verdad necesita una ventana mapeada, que es exactamente lo que
+    `WA_DontShowOnScreen` impide.
+    """
+    ventana._toggle_tool("amplitude_band", True)
+    ventana._toggle_tool("magnifier", True)
+    vista = ventana.signal_view
+    canal = vista._visible[1] if len(vista._visible) > 1 else vista._visible[0]
+    mitad = (vista._session.viewport.start_seconds + vista._session.viewport.end_seconds) / 2
+    ventana._tools["magnifier"].on_mouse_move(mitad, 0.0, canal)
 
 
 def llenar_los_paneles(ventana) -> None:

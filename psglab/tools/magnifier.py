@@ -46,6 +46,9 @@ class MagnifierTool(ViewerTool):
         #: inventada.
         self._x_seconds: float | None = None
         self._y_uv: float = 0.0
+        #: Sobre qué canal está el cursor. La `y` se mide contra su eje, así
+        #: que el visualizador lo necesita para devolverla a la pantalla.
+        self._channel_name: str | None = None
         self._radius_seconds: float = RADIO_INICIAL_SEGUNDOS
         self._zoom: float = ZOOM_INICIAL
         self._clicks: int = 0
@@ -77,16 +80,26 @@ class MagnifierTool(ViewerTool):
         """
         self._session = None
         self._x_seconds = None
+        self._channel_name = None
         self.notify_changed()
 
-    def on_mouse_move(self, x: float, y: float) -> None:
-        """Mueve la lupa al punto donde está el mouse (V1_F)."""
+    def on_mouse_move(
+        self, x: float, y: float, channel_name: str | None = None
+    ) -> None:
+        """Mueve la lupa al punto donde está el mouse (V1_F).
+
+        **Se guarda también el canal** (hito 45): la `y` está medida contra su
+        eje, y sin saber cuál es el visualizador ampliaba siempre el primero.
+        """
         if self._session is None:
             return
         self._x_seconds, self._y_uv = x, y
+        self._channel_name = channel_name
         self.notify_changed()
 
-    def on_mouse_press(self, x: float, y: float, button: str) -> None:
+    def on_mouse_press(
+        self, x: float, y: float, button: str, channel_name: str | None = None
+    ) -> None:
         """Suma un pico al contador (V2_F).
 
         El botón derecho descuenta, para poder corregir un clic de más sin
@@ -168,6 +181,7 @@ class MagnifierTool(ViewerTool):
                 y_uv=self._y_uv,
                 radius_seconds=self._radius_seconds,
                 zoom=self._zoom,
+                channel_name=self._channel_name,
             ),
         )
 

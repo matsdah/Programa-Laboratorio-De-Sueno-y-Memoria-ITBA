@@ -47,6 +47,7 @@ from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
 from psglab.ui import main_window as main_window_mod  # noqa: E402
 from psglab.ui import preferences as preferencias_mod  # noqa: E402
 from psglab.ui import theme  # noqa: E402
+from psglab.tools.base import BandOverlay  # noqa: E402
 from psglab.ui.docks import ORDEN_DE_ANALISIS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
@@ -445,11 +446,23 @@ def evento_de_mouse(
     x: float,
     boton: Qt.MouseButton = Qt.MouseButton.LeftButton,
     vista: pg.PlotWidget | None = None,
+    canal: str | None = None,
+    uv: float = 0.0,
 ) -> QMouseEvent:
     """Un evento de mouse sobre un gráfico, en `x` de su escena.
 
     El gráfico es el visualizador si no se pide otro: el hipnograma usa el
     mismo camino.
+
+    **Con `canal`, el punto cae en ese carril**, a `uv` microvoltios de su eje;
+    sin él, en el medio del gráfico, que es lo que hacía siempre. Hizo falta en
+    el hito 45: todos los eventos de mouse de la suite apuntaban al centro, así
+    que ningún test podía distinguir un carril de otro, y la `y` que recibían
+    las herramientas se medía siempre contra el primer canal sin que nada
+    fallara.
+
+    El `uv` no puede pasarse de media escala: más arriba empieza el carril de
+    al lado, y `channel_at_pixel()` contesta ese otro canal.
 
     **Se arma como lo arma Qt**: posición relativa al viewport,
     `scenePosition()` relativa a la ventana de primer nivel y la global de la
@@ -460,7 +473,12 @@ def evento_de_mouse(
     vista = vista or ventana.signal_view
     caja = vista.getPlotItem().vb.sceneBoundingRect()
     viewport = vista.viewport()
-    local = QPointF(vista.mapFromScene(QPointF(float(x), caja.center().y())))
+    if canal is None:
+        y = caja.center().y()
+    else:
+        centro = vista._centro_de_carril(canal) + vista._a_carril(uv, canal)
+        y = vista.getPlotItem().vb.mapViewToScene(QPointF(0.0, centro)).y()
+    local = QPointF(vista.mapFromScene(QPointF(float(x), y)))
     en_ventana = QPointF(viewport.mapTo(viewport.window(), local.toPoint()))
     return QMouseEvent(
         tipo,
@@ -473,7 +491,13 @@ def evento_de_mouse(
     )
 
 
-def arrastrar(ventana: MainWindow, desde_x: float, hasta_x: float) -> None:
+def arrastrar(
+    ventana: MainWindow,
+    desde_x: float,
+    hasta_x: float,
+    canal: str | None = None,
+    uv: float = 0.0,
+) -> None:
     """Presiona, mueve y suelta el botón izquierdo sobre el visualizador."""
     viewport = ventana.signal_view.viewport()
     aplicacion = QApplication.instance()
@@ -482,7 +506,9 @@ def arrastrar(ventana: MainWindow, desde_x: float, hasta_x: float) -> None:
         (QEvent.Type.MouseMove, hasta_x),
         (QEvent.Type.MouseButtonRelease, hasta_x),
     ):
-        aplicacion.sendEvent(viewport, evento_de_mouse(ventana, tipo, x))
+        aplicacion.sendEvent(
+            viewport, evento_de_mouse(ventana, tipo, x, canal=canal, uv=uv)
+        )
 
 
 def clic_derecho(ventana: MainWindow, segundos: float) -> None:
@@ -763,8 +789,20 @@ def test_un_clic_no_borra_la_linea_de_ocupacion_que_estaba_lejos(
     herramienta = ventana._tools["occupancy"]
     herramienta.add_line(OccupancyLine(0.2, 0.0, 0.6, 0.0))
 
-    # Un clic arriba de todo, a cientos de µV de la línea, que está en y = 0.
-    arrastrar(ventana, caja.left() + caja.width() * 0.3, caja.left() + caja.width() * 0.4)
+    # **Un clic a 90 µV de la línea, que está en y = 0**, y adentro de su mismo
+    # carril: la tolerancia es el 10 % de la escala, o sea 10 µV sobre los 100
+    # del primer canal. Hasta el hito 45 acá alcanzaba con apuntar al medio del
+    # gráfico, porque la `y` se medía contra el primer canal y el medio caía a
+    # cientos de µV; con el carril bien resuelto, el medio de un carril es cero
+    # y el clic caía justo encima de la línea.
+    primero = ventana.session.visible_channels[0]
+    arrastrar(
+        ventana,
+        caja.left() + caja.width() * 0.3,
+        caja.left() + caja.width() * 0.4,
+        canal=primero,
+        uv=90.0,
+    )
 
     assert herramienta.lines(), "el clic lejano borró la línea"
 
@@ -4227,3 +4265,130 @@ def test_scorear_actualiza_la_fase_que_muestra_la_ubersicht(ventana: MainWindow)
 
     actual = [v for v in contexto.windows() if v.is_current][0]
     assert actual.stage is SleepStage.N2
+
+
+# -- El camino entre una herramienta que dibuja y la pantalla (hito 45) -------
+#
+# **Ésta es la clase de test que faltaba**, y por eso la banda de amplitud
+# estuvo sin dibujarse sin que nadie lo notara. Los tests de `tools/` afirman
+# que la herramienta publica su `BandOverlay`, y los de `signal_view` que un
+# `BandOverlay` se dibuja; ninguno afirmaba que lo primero llegue a lo segundo,
+# que es justo donde estaba el hueco. Es el mismo error de método que el hito 9
+# dejó anotado: verificar la pieza en vez del camino.
+
+
+def test_tildar_la_banda_la_dibuja(ventana: MainWindow):
+    """El síntoma que reportó el usuario: tildarla no hacía nada.
+
+    `_active_viewer_tool` contestaba dos preguntas con un valor —quién se queda
+    con el mouse, y quién tiene algo que dibujar— y sólo se asignaba en la rama
+    exclusiva. La banda declara `exclusive = False` con razón, así que su
+    `overlays()` no lo llamaba nadie.
+    """
+    ventana._toggle_tool("amplitude_band", True)
+
+    assert any(isinstance(o, BandOverlay) for o in ventana._overlays_dibujados)
+    assert ventana.signal_view._overlay_items
+
+
+def test_destildar_la_banda_la_saca(ventana: MainWindow):
+    """La otra mitad, que es la que hace afirmable a la primera."""
+    ventana._toggle_tool("amplitude_band", True)
+    ventana._toggle_tool("amplitude_band", False)
+
+    assert not any(isinstance(o, BandOverlay) for o in ventana._overlays_dibujados)
+
+
+def test_la_banda_va_sobre_el_canal_seleccionado(ventana: MainWindow):
+    """Mide contra un canal y por eso dice cuál: con ganancias distintas, 75 µV
+    no ocupan lo mismo en dos carriles."""
+    segundo = ventana.session.visible_channels[1]
+    ventana.session.set_selected_channels([segundo])
+    ventana._toggle_tool("amplitude_band", True)
+
+    bandas = [o for o in ventana._overlays_dibujados if isinstance(o, BandOverlay)]
+    assert [b.channel_name for b in bandas] == [segundo]
+
+
+def test_la_banda_no_se_tilda_sola_al_abrir(ventana: MainWindow):
+    """**Arrancaba tildada y sin dibujar nada**, porque `_activate_panel_tools()`
+    usaba `not exclusive` como si dijera «es un panel». Por eso destildarla y
+    volver a tildarla no cambiaba nada: ya estaba encendida."""
+    assert not ventana._tool_actions["amplitude_band"].isChecked()
+
+
+def test_los_paneles_si_se_encienden_solos(ventana: MainWindow):
+    """La otra mitad: un panel permanente apagado es un hueco en la pantalla
+    esperando que alguien adivine que hay que apretar un botón.
+
+    Se afirma sobre lo que producen y no sobre su entrada de menú: los que
+    tienen dock no llevan acción propia —la suya es la del panel— y por eso
+    `_tool_actions` no los tiene.
+    """
+    assert ventana._tools["overview"].windows()
+    assert ventana._tools["histogram"].bars()
+
+
+def test_la_banda_y_un_modo_del_mouse_conviven(ventana: MainWindow):
+    """No son excluyentes entre sí: la banda no compite por el clic."""
+    ventana._toggle_tool("amplitude_band", True)
+    ventana._toggle_tool("magnifier", True)
+
+    assert any(isinstance(o, BandOverlay) for o in ventana._overlays_dibujados)
+    assert ventana._mouse_tool is ventana._tools["magnifier"]
+
+
+# -- La `y` se mide contra el canal bajo el cursor (hito 45) ------------------
+
+
+def test_el_mouse_sobre_un_carril_da_la_uv_de_ese_canal(ventana: MainWindow):
+    """**El centro de un carril es cero microvoltios, sea cual sea el carril.**
+
+    Hasta el hito 45 la ventana medía todo contra el primer canal visible: con
+    tres canales, el centro del tercero llegaba como −444 µV. Un número
+    plausible y equivocado, que es la peor clase.
+    """
+    tercero = ventana.session.visible_channels[2]
+    ventana._toggle_tool("magnifier", True)
+    lupa = ventana._tools["magnifier"]
+    QApplication.instance().sendEvent(
+        ventana.signal_view.viewport(),
+        evento_de_mouse(ventana, QEvent.Type.MouseMove, 300.0, canal=tercero),
+    )
+
+    assert lupa.overlays()[0].y_uv == pytest.approx(0.0, abs=1.0)
+
+
+def test_la_lupa_amplia_el_canal_de_abajo_del_cursor(ventana: MainWindow):
+    """El otro síntoma que reportó el usuario: ampliaba siempre el primero.
+
+    `_dibujar_lupa()` tenía `canal = self._visible[0]` escrito a mano, y
+    `CircleOverlay` no tenía campo de canal, así que no había por dónde pasar
+    la respuesta.
+    """
+    segundo = ventana.session.visible_channels[1]
+    ventana._toggle_tool("magnifier", True)
+    QApplication.instance().sendEvent(
+        ventana.signal_view.viewport(),
+        evento_de_mouse(ventana, QEvent.Type.MouseMove, 300.0, canal=segundo),
+    )
+
+    assert ventana._tools["magnifier"].overlays()[0].channel_name == segundo
+
+
+def test_la_lupa_dibuja_una_lente_y_no_una_linea_suelta(ventana: MainWindow):
+    """Del hito 9 al 45 fue una polilínea estirada sin ningún círculo, pese a
+    que el tipo se llama `CircleOverlay`."""
+    ventana._toggle_tool("magnifier", True)
+    QApplication.instance().sendEvent(
+        ventana.signal_view.viewport(),
+        evento_de_mouse(
+            ventana, QEvent.Type.MouseMove, 300.0,
+            canal=ventana.session.visible_channels[0],
+        ),
+    )
+
+    lente = ventana.signal_view._overlay_items[-1]
+    tipos = [type(h).__name__ for h in lente.childItems()]
+    assert "QGraphicsPathItem" in tipos, "la lente no tiene cristal"
+    assert "TextItem" in tipos, "la lente no dice la hora"

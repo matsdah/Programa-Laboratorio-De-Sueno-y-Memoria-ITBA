@@ -75,6 +75,14 @@ Lo son **las que se quedan con el clic del mouse** sobre el visualizador: la
 lupa, el anotador y el medidor de ocupación. La banda de amplitud no, porque
 sólo se dibuja; los paneles tampoco, porque no compiten por el mouse.
 
+**`exclusive` dice quién recibe el mouse y no quién dibuja**, y confundir las
+dos cosas costó el hito 45: la ventana guardaba una sola herramienta activa, la
+asignaba únicamente en la rama exclusiva, y dibujaba nada más lo suyo. La banda
+de amplitud —no exclusiva y con `overlays()`— quedaba afuera de las dos cosas,
+así que tildarla no hacía nada. Hoy `ui/main_window.py` lleva `_mouse_tool` y
+`_drawing_tools` por separado. Una herramienta nueva que dibuje sin quedarse
+con el clic entra sola en la segunda.
+
 `name` tiene que ser único: si se repite, `@register_tool` eleva
 `DuplicateToolError` **al importar**, que es cuando conviene enterarse.
 
@@ -133,7 +141,8 @@ está enganchada ahí y le pasa el resultado a
 
 **Lo que se dibuja no es lo de quien avisó.** Ante cualquier aviso la ventana
 recompone: las bandas de las anotaciones de la página —`annotation_bands()`, de
-`annotator.py`—, más los overlays de **la herramienta activa**. Las anotaciones
+`annotator.py`—, más los overlays de **todas las herramientas activas que
+dibujan**, que desde el hito 45 pueden ser más de una. Las anotaciones
 van siempre porque son datos del registro y no parte del gesto que las creó.
 Antes se dibujaba lo de la última herramienta que avisaba, aunque estuviera
 apagada, y activar la lupa borraba las anotaciones de la pantalla. La ventana

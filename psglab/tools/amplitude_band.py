@@ -63,7 +63,9 @@ class AmplitudeBandTool(ViewerTool):
         self._session = None
         self.notify_changed()
 
-    def on_mouse_move(self, x: float, y: float) -> None:
+    def on_mouse_move(
+        self, x: float, y: float, channel_name: str | None = None
+    ) -> None:
         """Mueve la banda para que siga al mouse en vertical.
 
         Sólo mira `y`: la banda cruza la ventana entera, así que la posición

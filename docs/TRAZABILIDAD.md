@@ -64,7 +64,7 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Banda de 75 µV adaptada a la escala del usuario | `psglab/tools/amplitude_band.py`, `psglab/utils/units.py` (µV) |
+| V1_F | Banda de 75 µV adaptada a la escala del usuario | `psglab/tools/amplitude_band.py`, `psglab/ui/signal_view.py` (el dibujo), `psglab/utils/units.py` (µV) |
 
 ### Herramienta de ocupación de la página
 
