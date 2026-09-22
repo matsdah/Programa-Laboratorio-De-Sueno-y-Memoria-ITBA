@@ -64,17 +64,19 @@ quedado anotados, y el
 **[hito 47](#hito-47-lo-caro-era-ajustar-y-no-cambia-la-señal)** sacó del hilo
 de la interfaz lo último que quedaba largo, y el
 **[hito 48](#hito-48-la-auditoría-de-los-tests)** auditó los tests por primera
-vez desde que empezó el proyecto. Son
-**cuarenta y nueve hitos**, del 0 al 48, que son las filas de la tabla de
-progreso; está abierto sólo el 33, y lo que sigue abierto de los anteriores
+vez desde que empezó el proyecto, y el
+**[hito 49](#hito-49-la-envolvente-se-calcula-una-vez)** hizo que la envolvente se calcule una vez, con lo que cerró el 33.
+Son **cincuenta hitos**, del 0 al 49, que son las filas de la tabla de
+progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
-**Del 34 al 48 se hicieron con el 33 abierto.** Decía acá que el 34 era «la
-única vez que pasa» y dejó de ser cierto en el 35: es exactamente la clase de
-prosa que este archivo se desincroniza. Lo que le queda al 33 no es código
-contra el que se pudiera escribir de más —son dos ítems de rendimiento que son
-hitos propios—, y el 42 cerró la mitad de uno de ellos. La regla existe para no
-escribir contra algo que todavía no se puede testear, y acá no es el caso.
+**Del 34 al 48 se hicieron con el 33 abierto**, y lo cerró el 49. Decía acá
+que el 34 era «la única vez que pasa» y dejó de ser cierto en el 35: es
+exactamente la clase de prosa que este archivo se desincroniza. Lo que le
+quedaba al 33 no era código contra el que se pudiera escribir de más —eran dos
+ítems de rendimiento que terminaron siendo los hitos 42, 47 y 49—. La regla
+existe para no escribir contra algo que todavía no se puede testear, y ahí no
+era el caso.
 
 **La Parte 1 está terminada**, con los hitos 0 a 9 cerrados. Al cerrarla, sus
 34 requisitos se podían usar desde el programa corriendo, no sólo desde sus
@@ -175,7 +177,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [30. Las decisiones de la verificación](#hito-30-las-decisiones-de-la-verificación) | — | 0 | ✅ cerrado |
 | [31. El recorrido manual](#hito-31-el-recorrido-manual) | — | 0 | ✅ cerrado |
 | [32. Los pendientes del TODO](#hito-32-los-pendientes-del-todo) | — | 0 | ✅ cerrado |
-| [33. La auditoría del 19 de septiembre](#hito-33-la-auditoría-del-19-de-septiembre) | — | 0 | ⬜ abierto |
+| [33. La auditoría del 19 de septiembre](#hito-33-la-auditoría-del-19-de-septiembre) | — | 0 | ✅ cerrado |
 | [34. El rediseño de la pantalla principal](#hito-34-el-rediseño-de-la-pantalla-principal) | — | 0 | ✅ cerrado |
 | [35. Dos esquemas y ninguna perilla](#hito-35-dos-esquemas-y-ninguna-perilla) | — | 0 | ✅ cerrado |
 | [36. Las dos barras](#hito-36-las-dos-barras) | — | 0 | ✅ cerrado |
@@ -191,6 +193,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [46. Tres cabos sueltos](#hito-46-tres-cabos-sueltos) | — | 0 | ✅ cerrado |
 | [47. Lo caro era ajustar, y no cambia la señal](#hito-47-lo-caro-era-ajustar-y-no-cambia-la-señal) | — | 0 | ✅ cerrado |
 | [48. La auditoría de los tests](#hito-48-la-auditoría-de-los-tests) | — | 0 | ✅ cerrado |
+| [49. La envolvente se calcula una vez](#hito-49-la-envolvente-se-calcula-una-vez) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -667,7 +670,7 @@ la regla vive en `core/`.
     documenta para las ventanas.
 - [x] **`psglab/ui/signal_view.py`** · ~~13 stubs~~ · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Test: `tests/test_signal_view.py`, **80 tests en verde**. **El dibujo no se
+  - Test: `tests/test_signal_view.py`, **84 tests en verde**. **El dibujo no se
     testea**; sí los tres conversores, que es de donde salen las unidades con
     las que trabajan todas las herramientas.
   - Los píxeles de los bordes se le **preguntan al `ViewBox`** en vez de
@@ -1567,9 +1570,14 @@ proponer sin este número.
       antes de empezar a analizar. Bajarlo de verdad pide otra cosa: leer por
       tramos, o releer el archivo al deshacer en vez de guardarlo. Las dos son
       decisiones de diseño con su propio costo.
-- [ ] **Nada corre fuera del hilo de la interfaz.** El cursor de espera avisa,
+- [x] **Nada corre fuera del hilo de la interfaz.** El cursor de espera avisa,
       pero la ventana sigue congelada. Un `QThread` para los barridos de la
       noche es la solución de fondo, y hoy el programa no tiene ninguno.
+      - **Ya no es cierto**: la conectividad de la noche corre en otro hilo
+        desde el [hito 42](#hito-42-lo-largo-deja-de-congelar-la-ventana), y
+        ajustar la ICA desde el
+        [hito 47](#hito-47-lo-caro-era-ajustar-y-no-cambia-la-señal). Lo que
+        sigue en el de la interfaz cuesta décimas de segundo.
 
 ---
 
@@ -1888,7 +1896,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
 - [x] **Fase 7 — La envolvente.** Mínimo y máximo por columna de píxeles, que no
       puede perder un pico. El registro entero de prueba —22 horas— bajó de
       1749 ms a 444 ms la primera vez y a 14 ms las siguientes.
-  - Test: `tests/test_decimation.py`, **26 tests en verde**.
+  - Test: `tests/test_decimation.py`, **41 tests en verde**.
 - [x] **Fase 8 — La ventana de configuración.** Cinco solapas: Colores, Editor
       de anotaciones, Espectro de potencia, Otras y Tipografía. Todo se aplica
       en el momento. `psd.validate_band()` pasó a ser pública, para que la regla
@@ -2100,7 +2108,7 @@ a saltos. Y la captura para verificarla mostró la señal cortada.
       2240, y los últimos 7,6 s quedaban reducidos a dos puntos. Se redondea
       hacia arriba. Venía de la fase 7 del hito 22, y se escapó porque los
       tests usaban señales que dividían justo.
-  - Test: `tests/test_decimation.py`, **26 tests en verde**.
+  - Test: `tests/test_decimation.py`, **41 tests en verde**.
 
 Con las dos correcciones, un paso tarda **48 ms con una página de 30 s y 63
 ms con una de 5 min o una hora**: unos 21 y 16 cuadros por segundo, medidos
@@ -2180,7 +2188,7 @@ puntos, relleno y decimación propia, y nada de eso se usa acá.
       después sólo se le pide el rango, que además casi siempre es el mismo.
       Con eso el repintado por cuadro pasó de 2,00 a 1,00, medido con el
       filtro de eventos.
-  - Test: `tests/test_signal_view.py`, **80 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **84 tests en verde**.
 - [x] **Las curvas son `PlotCurveItem` y no `PlotDataItem`.** Medido
       intercalando las dos clases en el mismo proceso, que es la única forma
       de comparar en una máquina que varía: 28 ms contra 19 con el registro
@@ -2228,7 +2236,8 @@ prueba, y el reloj de la reproducción pide 25. Con 32 canales a 1000 Hz quedan
 
 ### Lo que sigue abierto
 
-- [ ] **Un registro denso llega justo**: 44 ms por cuadro con 32 canales a
+- [ ] **Un registro denso llega justo** —y desde el [hito 49](#hito-49-la-envolvente-se-calcula-una-vez) es lo único
+      que le queda: calcular la envolvente dejó de pesar—: 44 ms por cuadro con 32 canales a
       1000 Hz, contra los 40 que pide el reloj. Casi todo eso es rasterizar
       71 000 puntos de trazo. Las dos salidas que quedan son dibujar menos
       puntos —una pareja de envolvente cada dos píxeles en vez de cada uno, que
@@ -2384,14 +2393,14 @@ lo mínimo.
       repita el recorte. No llama a `_seguir_a_la_epoca()`: con una página de
       menos de 30 s, `containing()` la sacaría del medio.
   - Test: `tests/test_session.py`, **156 tests en verde**.
-  - Test: `tests/test_contratos.py`, **979 tests en verde**, con su
+  - Test: `tests/test_contratos.py`, **992 tests en verde**, con su
     fila en `CONTRATOS` y en `RECHAZOS_OBLIGATORIOS`: un NaN no puede pasar.
 - [x] **Una línea marca el cursor**, creada una vez y después movida, por la
       regla del hito 25. `mark_window()` mueve la banda de la época sin tocar la
       página, y **mientras se ve el cursor `show_window()` no mueve la
       página**: con la de 30 s centrada, la época no entra entera, y scorear o
       cambiar la amplitud la sacaban del medio hasta el paso siguiente.
-  - Test: `tests/test_signal_view.py`, **80 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **84 tests en verde**.
 - [x] **La ventana**: la reproducción arranca en el centro de la época actual
       —con la página de 30 s no salta—, cada paso lleva el cursor y redibuja
       sólo lo que cambió, y se detiene al final del registro y no al de la
@@ -2417,8 +2426,8 @@ borde.
 
 ### Lo que sigue abierto
 
-- [ ] **Con 32 canales a 1000 Hz, un paso con página de 5 min cuesta unos
-      90 ms**, antes y después de este hito: más del doble de lo que pide el
+- [x] **Con 32 canales a 1000 Hz, un paso con página de 5 min cuesta unos
+      90 ms** —resuelto en el [hito 49](#hito-49-la-envolvente-se-calcula-una-vez)—, antes y después de este hito: más del doble de lo que pide el
       reloj. Lo destapó el banco corregido. El de antes llegaba al final del
       registro a los ocho pasos y medía el redibujo de una página quieta, que
       sale de la caché de envolventes: de ahí los 28 ms de la tabla del
@@ -2771,7 +2780,7 @@ le hizo, y mantuvo afuera las operaciones largas.
   - Test: `tests/test_entrega.py`, **280 tests en verde**, con un registro que
     tiene un canal en cero.
   - Test: `tests/test_recording.py`, **44 tests en verde**, y
-    `tests/test_contratos.py`, **979 tests en verde**.
+    `tests/test_contratos.py`, **992 tests en verde**.
   - Test: `tests/test_magnifier.py`, **30 tests en verde**;
     `tests/test_preferences.py`, **68 tests en verde**;
     `tests/test_settings_dialog.py`, **48 tests en verde**.
@@ -2790,7 +2799,8 @@ le hizo, y mantuvo afuera las operaciones largas.
 
 ## Hito 33: La auditoría del 19 de septiembre
 
-**Abierto el 19 de septiembre de 2026.** Una auditoría del backend y de cómo
+**Abierto el 19 de septiembre de 2026 y cerrado el 22**, con el
+[hito 49](#hito-49-la-envolvente-se-calcula-una-vez). Una auditoría del backend y de cómo
 llega a la ventana, pedida por el usuario: la suite entera, recorridos por la
 ventana con eventos de Qt, archivos sintéticos con casos límite, memoria y
 rendimiento. **No tiene archivo propio**, como la del 8 de septiembre: sus
@@ -2941,7 +2951,7 @@ ya advertía.
         espectro no alcanza sale en cero (ver la lista de abajo).
   - Test: `tests/test_connectivity.py`, **40 tests en verde**, con los dos
     mensajes, la banda de un solo punto que sí se mide y la noche corta.
-  - Test: `tests/test_contratos.py`, **979 tests en verde**, con tres
+  - Test: `tests/test_contratos.py`, **992 tests en verde**, con tres
     rechazos obligatorios nuevos.
   - Test: `tests/test_entrega.py`, **280 tests en verde**, con el cartel desde
     los dos menús de conectividad. Con el módulo anterior fallan los seis que
@@ -3097,10 +3107,16 @@ ya advertía.
 
 ### Lo que sigue abierto
 
-- [ ] **Los registros densos siguen sin entrar en el cuadro**: con 32 canales a
+- [x] **Los registros densos siguen sin entrar en el cuadro**: con 32 canales a
       1000 Hz y página de 5 min, unos 100 ms contra los 40 del reloj. Es el
       pendiente del [hito 27](#hito-27-la-navegación-desde-el-medio), medido de
       nuevo.
+      - **Lo resolvió el [hito 49](#hito-49-la-envolvente-se-calcula-una-vez)**: el cuadro era caro por recalcular la
+        envolvente entera en cada paso, y ahora se calcula sólo lo que entra.
+        Ahora cuesta del orden de las páginas cortas. Cuando pasa de 40 ms es
+        pintar, les pasa igual a todas las páginas del registro denso y es el
+        ítem abierto del
+        [hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar).
 - [x] **Lo largo sigue en el hilo de la interfaz**: la conectividad de la noche,
       entre 15 y 18 s sobre ocho horas; la ICA, 9 s; filtrar, 2,5 s. Es la
       decisión del hito 32, ahora con números.
@@ -3239,7 +3255,7 @@ tecla.
       resaltado, y la fase sólo se ve en el panel de scoring, que puede estar
       cerrado. Se crea una vez y después sólo se mueve, como la banda y el
       cursor, y el texto se rearma sólo cuando cambió.
-  - Test: `tests/test_signal_view.py`, **80 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **84 tests en verde**.
   - Test: `tests/test_entrega.py`, **280 tests en verde**, con la franja por la
     ventana.
 - [x] **Los atajos de fase ya existían.** `shortcuts.py` los deriva del código
@@ -3468,7 +3484,7 @@ del diseño, y no correr el rótulo al hueco entre carriles.
         `overview_text` sólo se miraba contra `overview_background`—. Sereno da
         6,04 y Nocturno 7,18. Como los demás, lo enrola solo cualquier esquema
         que se agregue.
-  - Test: `tests/test_signal_view.py`, **80 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **84 tests en verde**.
   - Test: `tests/test_theme.py`, **68 tests en verde**.
 
 ### Medido, porque el canalón toca el camino caliente
@@ -3590,7 +3606,7 @@ misma escala**, con el respiratorio barriendo seis carriles.
       registro de verdad —«Resp oro-nasal», clase «Respiratorio»— la línea
       salía cortada con puntos suspensivos, que es peor que no decirla. La
       clase se sigue viendo en el selector, que es donde la pone el diseño.
-  - Test: `tests/test_signal_view.py`, **80 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **84 tests en verde**.
 
 ### Los tres errores que encontró la captura
 
@@ -4106,7 +4122,7 @@ overlay armado a mano, así que **nadie verificaba el camino entre los dos**.
         anotador—, así que se arregló para las tres y no sólo para la que se
         reportó. `ViewerTool` recibe ahora `channel_name` en sus tres métodos de
         mouse, opcional y último, para no romper a quien no lo necesite.
-  - Test: `tests/test_signal_view.py`, **80 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **84 tests en verde**.
 - [x] **La lupa no dibujaba ningún círculo y ampliaba un canal fijo.**
       `_dibujar_lupa()` tenía `canal = self._visible[0]` escrito a mano, y
       `CircleOverlay` no tenía campo de canal, así que no había por dónde pasar
@@ -4333,7 +4349,7 @@ Conviene decirlo primero, porque es la mayor parte:
       - No era alcanzable por el usuario —el panel pasa valores de un combo—,
         pero sí desde un script. `check_nomenclature()` pasó a pública porque
         ahora la comparten dos módulos.
-  - Test: `tests/test_contratos.py`, **979 tests en verde**;
+  - Test: `tests/test_contratos.py`, **992 tests en verde**;
     `tests/test_nomenclature.py`, **51 tests en verde**.
 - [x] **`tools/occupancy.py` era el módulo peor verificado, y la causa eran las
       fixtures.** Cuatro mutaciones sobrevivían a la suite **entera**:
@@ -4442,6 +4458,93 @@ Conviene decirlo primero, porque es la mayor parte:
   `not` —no constantes ni sentencias—, así que su resultado es un piso.
 
 ---
+
+## Hito 49: La envolvente se calcula una vez
+
+**Cerrado el 22 de septiembre de 2026.** Es el ítem que le quedaba al
+[hito 33](#hito-33-la-auditoría-del-19-de-septiembre): con 32 canales a
+1000 Hz y página de 5 min, un paso de reproducción costaba entre 73 y 152 ms
+según la corrida, contra los 40 que pide el reloj. Con él cierra el 33.
+
+**No tiene stubs que contar.**
+
+### Lo que se midió antes de tocar nada
+
+- **No había regresión.** La primera corrida del banco dio el doble de lo que
+  anotaba este archivo, también con el registro de prueba. Intercalando el
+  banco sobre el cierre del hito 33 y sobre `Add`, los dos dieron lo mismo:
+  era la máquina ocupada. La misma medición varió entre 19 y 37 ms de una
+  corrida a otra, así que **un número suelto del banco no dice nada**; sólo
+  vale intercalado.
+- **Lo caro era calcular, no dibujar.** Perfilando treinta pasos con página de
+  5 min, dos tercios del cuadro eran `argmin` y `argmax` dentro de la
+  envolvente: unos 95 ms. Pintar eran unos 40.
+- **La caché no acertaba nunca al reproducir.** Se buscaba por la primera y la
+  última muestra de la página, y la reproducción avanza la página en cada
+  cuadro. Tampoco se podía aprovechar la parte ya calculada, porque las
+  cubetas se contaban desde el borde de la página: al moverse, cada muestra
+  caía en otra cubeta.
+
+### Lo que se hizo
+
+- [x] **Las cubetas se cuentan desde el comienzo del registro.**
+      `core/decimation.py` recibe ahora el **tamaño** de cubeta y no la
+      cantidad —`envelope_by_bucket_size()`, con `bucket_size_for()` para
+      sacarlo del ancho—, porque la cantidad depende de dónde empieza el tramo
+      y el tamaño no. Reemplazan a `min_max_envelope()`, que ya nadie llamaba.
+      Siguen sin perder ningún pico: cada muestra cae en exactamente una
+      cubeta.
+  - Test: `tests/test_decimation.py`, **41 tests en verde**;
+    `tests/test_contratos.py`, **992 tests en verde**.
+- [x] **El visualizador guarda la envolvente por trozos de 64 cubetas**, con
+      clave (canal, tamaño de cubeta, número de trozo), y arma cada página con
+      los trozos que la cubren. Un paso calcula sólo el trozo que entra, cuando
+      entra uno. Las cubetas de los bordes se dibujan enteras aunque empiecen
+      antes de la página: la pantalla recorta lo que cae afuera.
+      - **De yapa, la traza dejó de titilar.** Con las cubetas contadas desde
+        el borde, una espiga caía en cubetas distintas de un cuadro al otro y
+        se redibujaba distinta. Con la grilla fija, donde dos páginas se
+        superponen se dibujan exactamente los mismos puntos, y hay un test que
+        lo exige.
+      - Los tests nuevos se probaron contra el cálculo viejo: fallan los seis
+        que tocan la caché.
+  - Test: `tests/test_signal_view.py`, **84 tests en verde**.
+
+### Lo que dio
+
+Intercalado contra `Add`, cinco corridas de cada uno, con 32 canales a
+1000 Hz. **Los números absolutos no sirven**: la misma página de 5 s del código
+viejo dio 7 ms en una corrida y 67 en otra, según lo que hiciera la máquina.
+Lo que se sostiene en las cinco es la proporción:
+
+| Página | Antes | Después |
+|---|---|---|
+| 5 s | 7–67 ms | 8–48 ms |
+| 30 s | 8–54 ms | 13–45 ms |
+| **5 min** | **73–152 ms** | **12–69 ms** |
+| registro entero, sin moverse | 4–31 ms | 7–47 ms |
+
+- **Antes, la página de 5 min costaba entre 2,2 y 10,5 veces la más cara de
+  las otras de la misma corrida.** Después, entre 0,9 y 1,9 veces: en tres de
+  las cinco corridas, lo mismo.
+- Con la máquina tranquila, sesenta pasos seguidos con página de 5 min dieron
+  una mediana de 19 ms y un máximo de 35.
+
+### Lo que este hito deja anotado
+
+- **El registro denso sigue pasando de los 40 ms en algunas corridas, con
+  cualquier página**, y lo que falta es pintar: 32 curvas de unos 2200 puntos, más los ejes, que se
+  regeneran en cada cuadro porque el rango se mueve. Es el ítem «Un registro
+  denso llega justo» del [hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar),
+  que sigue abierto con estos números.
+- **Redibujar el registro entero sin moverlo arma la página con unos
+  diecisiete trozos por canal** en vez de leer una envolvente ya armada. El
+  perfil le da unos milisegundos por cuadro y el banco no lo distingue del
+  ruido. Es el único caso en que la página no avanza, así que no es el que
+  pide el reloj.
+- **Cruzar a un trozo nuevo cuesta 1,2 ms**, medido: con página de 5 min pasa
+  en uno de cada cuatro pasos, y es calcular 64 cubetas de 32 canales. La
+  mediana del banco no lo muestra; por eso se midió aparte.
 
 ---
 

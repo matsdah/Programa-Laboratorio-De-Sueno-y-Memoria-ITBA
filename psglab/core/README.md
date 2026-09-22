@@ -27,7 +27,7 @@ ubicó mal.
 | `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. | V1_F de "Anotación de la señal" |
 | `windows.py` | Conversión entre ventanas, muestras y hora de la noche. | V1_P de "Visualización", V1_F de "Navegación", V2_F del histograma |
 | `viewport.py` | **La página visible**, separada de la época de scoring. Inmutable: cambiarla es construir otra. | — |
-| `decimation.py` | **La envolvente mínimo/máximo** que hace dibujable el registro entero sin perder un solo pico. | — |
+| `decimation.py` | **La envolvente mínimo/máximo** que hace dibujable el registro entero sin perder un solo pico. Las cubetas se cuentan desde el comienzo del registro y no desde el borde de la página (hito 49), para que el visualizador pueda guardarlas y calcular sólo las que entran. | — |
 
 ## `Session`: el objeto que todos consultan
 

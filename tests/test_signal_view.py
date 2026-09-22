@@ -40,7 +40,7 @@ from psglab.core.nomenclature import Nomenclature  # noqa: E402
 from psglab.core.recording import Channel, ChannelKind, Recording  # noqa: E402
 from psglab.core.scoring import Scoring  # noqa: E402
 from psglab.core.session import Session  # noqa: E402
-from psglab.core.windows import seconds_to_sample  # noqa: E402
+from psglab.core.windows import seconds_to_sample, seconds_to_samples  # noqa: E402
 from psglab.tools.base import CircleOverlay  # noqa: E402
 from psglab.ui.channel_axis import ANCHO_DEL_CANALON  # noqa: E402
 from psglab.ui import grid as modulo_de_la_grilla  # noqa: E402
@@ -497,13 +497,13 @@ def _ver_todo(widget: SignalView, sesion: Session) -> None:
 def envolventes_calculadas(monkeypatch) -> list[int]:
     """Cuenta cuántas veces se calcula una envolvente de verdad."""
     llamadas: list[int] = []
-    original = modulo_de_la_vista.min_max_envelope
+    original = modulo_de_la_vista.envelope_by_bucket_size
 
-    def contando(samples: np.ndarray, n_buckets: int) -> tuple[np.ndarray, np.ndarray]:
+    def contando(samples: np.ndarray, bucket_size: int) -> tuple[np.ndarray, np.ndarray]:
         llamadas.append(len(samples))
-        return original(samples, n_buckets)
+        return original(samples, bucket_size)
 
-    monkeypatch.setattr(modulo_de_la_vista, "min_max_envelope", contando)
+    monkeypatch.setattr(modulo_de_la_vista, "envelope_by_bucket_size", contando)
     return llamadas
 
 
@@ -604,15 +604,122 @@ def test_con_otra_senal_no_queda_dibujada_la_envolvente_vieja(
 
 
 def test_la_cache_de_envolventes_tiene_tope(
-    vista_larga: SignalView, sesion_larga: Session
+    vista_larga: SignalView, sesion_larga: Session, monkeypatch
 ):
-    """Recorrer muchas escalas no puede hacer crecer la memoria sin límite."""
-    tope = modulo_de_la_vista._ENVOLVENTES_EN_MEMORIA
-    for paso in range(tope + 10):
+    """Recorrer muchas escalas no puede hacer crecer la memoria sin límite.
+
+    Con el tope de verdad —miles de trozos— habría que dibujar cientos de
+    páginas para llegar; con uno chico alcanza con unas pocas escalas, y lo que
+    se verifica es el mismo `popitem`."""
+    tope = 40
+    monkeypatch.setattr(modulo_de_la_vista, "_TROZOS_EN_MEMORIA", tope)
+    for paso in range(10):
         sesion_larga.set_viewport(sesion_larga.viewport.with_span(100.0 + 10 * paso))
         vista_larga.draw_viewport()
 
-    assert len(vista_larga._envolventes) <= tope
+    assert len(vista_larga._envolventes) == tope
+
+
+# -- La envolvente al reproducir (hito 49) -----------------------------------------
+
+#: La página con que se reproduce en estos tests: 600 s a 100 Hz son 60 000
+#: muestras, sesenta por columna con el piso de mil columnas.
+PAGINA_LARGA = 600.0
+
+
+def _registro_con_ruido() -> Recording:
+    """Una hora de ruido, que es lo que distingue una cubeta de otra: sobre una
+    señal constante cualquier muestra de la cubeta es su extremo."""
+    datos = np.random.default_rng(49).normal(scale=20.0, size=(1, EPOCAS_DE_UNA_HORA * 3000))
+    return Recording(
+        file_path=Path("ruido.edf"),
+        channels=[Channel("C3", ChannelKind.EEG, "µV", 0)],
+        data=datos,
+        sampling_rate=FRECUENCIA,
+    )
+
+
+def _dibujar_desde(widget: SignalView, sesion: Session, inicio: float) -> tuple[np.ndarray, np.ndarray]:
+    sesion.set_viewport(sesion.viewport.with_span(PAGINA_LARGA).with_start(inicio))
+    widget.draw_viewport()
+    return widget._curves["C3"].getData()
+
+
+def test_avanzar_un_poco_la_pagina_calcula_solo_lo_que_entra(
+    vista_larga: SignalView, sesion_larga: Session, envolventes_calculadas: list[int]
+):
+    """**El motivo del hito 49.** Hasta entonces la caché se buscaba por la
+    primera y la última muestra de la página, y al reproducir cambian en cada
+    cuadro: cada paso recalculaba la envolvente entera. Con 32 canales a
+    1000 Hz y página de 5 min eran unos 95 ms de los 40 que tiene un cuadro.
+
+    Un paso de reproducción avanza un cincuentavo de página. Lo que se calcula
+    tiene que ser del orden de lo que entró, no de la página."""
+    _dibujar_desde(vista_larga, sesion_larga, 1000.0)
+    envolventes_calculadas.clear()
+
+    _dibujar_desde(vista_larga, sesion_larga, 1000.0 + PAGINA_LARGA / 50)
+
+    muestras_de_la_pagina = PAGINA_LARGA * FRECUENCIA
+    assert sum(envolventes_calculadas) < muestras_de_la_pagina / 10
+
+
+def test_la_traza_no_cambia_de_forma_al_avanzar(qt_app):
+    """**Hasta el hito 49 titilaba.** Cada página se partía en cubetas desde su
+    borde, así que al avanzar la misma muestra caía en otra cubeta y los picos
+    se redibujaban distintos en cada cuadro. Con la grilla fija al registro,
+    donde dos páginas se superponen se dibujan exactamente los mismos puntos."""
+    sesion = Session(_registro_con_ruido(), Scoring(EPOCAS_DE_UNA_HORA, Nomenclature.AASM), AnnotationSet())
+    widget = SignalView()
+    widget.resize(800, 400)
+    widget.set_session(sesion)
+
+    tiempos_a, alturas_a = _dibujar_desde(widget, sesion, 1000.0)
+    tiempos_b, alturas_b = _dibujar_desde(widget, sesion, 1000.0 + 7.3)
+
+    # Lejos de los dos bordes, donde cada página tiene su cubeta partida.
+    desde, hasta = 1000.0 + 20.0, 1000.0 + PAGINA_LARGA - 20.0
+    en_a = (tiempos_a > desde) & (tiempos_a < hasta)
+    en_b = (tiempos_b > desde) & (tiempos_b < hasta)
+    assert np.array_equal(tiempos_a[en_a], tiempos_b[en_b])
+    assert np.array_equal(alturas_a[en_a], alturas_b[en_b])
+
+
+def test_lo_que_se_dibuja_es_la_envolvente_del_registro(qt_app):
+    """Armarla por trozos no puede cambiar el resultado: es la envolvente del
+    canal entero con el mismo tamaño de cubeta, recortada a las cubetas que
+    tocan la página."""
+    sesion = Session(_registro_con_ruido(), Scoring(EPOCAS_DE_UNA_HORA, Nomenclature.AASM), AnnotationSet())
+    widget = SignalView()
+    widget.resize(800, 400)
+    widget.set_session(sesion)
+    inicio = 1234.5
+
+    tiempos, _ = _dibujar_desde(widget, sesion, inicio)
+
+    canal = sesion.recording.data[0]
+    primera, ultima = seconds_to_samples(
+        inicio, inicio + PAGINA_LARGA, FRECUENCIA, sesion.recording.n_samples
+    )
+    por_cubeta = modulo_de_la_vista.bucket_size_for(ultima - primera, widget._columnas())
+    esperados, _ = modulo_de_la_vista.envelope_by_bucket_size(canal, por_cubeta)
+    desde = (primera // por_cubeta) * por_cubeta
+    hasta = -(-ultima // por_cubeta) * por_cubeta
+    esperados = esperados[(esperados >= desde) & (esperados < hasta)]
+    assert np.array_equal(np.rint(tiempos * FRECUENCIA).astype(int), esperados)
+
+
+def test_una_espiga_en_el_borde_de_la_pagina_se_sigue_viendo(
+    vista_larga: SignalView, sesion_larga: Session
+):
+    """**La cubeta del borde empieza antes de la página**, y se dibuja entera.
+    Si se recortara a la página, la espiga que cae justo en la primera muestra
+    visible seguiría ahí; lo que este test cuida es que tomar la cubeta entera
+    no la cambie por una muestra de afuera."""
+    tiempos, alturas = _dibujar_desde(vista_larga, sesion_larga, ESPIGA / FRECUENCIA)
+
+    assert alturas.max() == pytest.approx(vista_larga._a_carril(500.0, "C3"))
+    assert tiempos[int(np.argmax(alturas))] == pytest.approx(ESPIGA / FRECUENCIA)
 
 
 # -- Los nombres de canal ----------------------------------------------------------
