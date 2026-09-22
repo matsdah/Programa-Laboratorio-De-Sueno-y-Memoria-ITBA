@@ -11,7 +11,13 @@ Cubre del pliego: V1_F, V2_F, V3_F de "Scoring de la señal".
 
 from dataclasses import dataclass, replace
 
-from psglab.core.nomenclature import Nomenclature, SleepStage, convert, is_valid
+from psglab.core.nomenclature import (
+    Nomenclature,
+    SleepStage,
+    check_nomenclature,
+    convert,
+    is_valid,
+)
 from psglab.utils.errors import InvalidStageError, WindowOutOfRangeError
 from psglab.utils.validation import check_index
 
@@ -181,7 +187,21 @@ class Scoring:
 
         Cambiar a la nomenclatura que ya está activa no hace nada, pero tampoco
         es un error: la interfaz puede llamar sin preguntar.
+
+        **La guarda es propia y no la de `convert()`** (hito 48). La validación
+        vivía adentro de la comprensión de abajo, que corre una vez por ventana
+        scoreada: sobre un scoring **sin scorear** el bucle no itera, así que
+        una nomenclatura inventada se guardaba tal cual. El objeto quedaba con
+        una cadena donde va un enum, y el siguiente `export_scoring()` moría con
+        un `AttributeError` crudo —que atraviesa el `except PsgLabError` de la
+        ventana y le deja al investigador una traza de Python—.
+
+        Lo encontró la auditoría de los tests: la fila de `CONTRATOS` de este
+        método construye justamente un scoring recién creado, así que
+        certificaba como seguro el único camino en el que la guarda no
+        disparaba.
         """
+        check_nomenclature(target)
         if target is self._nomenclature:
             return
         self._scores = [

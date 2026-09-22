@@ -13,6 +13,7 @@ de salida" y la vista de eventos de la herramienta Übersicht.
 """
 
 import bisect
+import re
 from dataclasses import dataclass
 from typing import Final
 
@@ -35,6 +36,23 @@ DEFAULT_LABELS: Final[tuple[str, ...]] = (
 #: La asignación es por posición, así que es **determinística**: la misma lista
 #: de clases da siempre los mismos colores, y dos registros abiertos uno tras
 #: otro se ven igual. Si hay más clases que colores, se vuelve a empezar.
+#: La forma de un color de clase: numeral y seis dígitos hexadecimales.
+_COLOR_DE_CLASE: Final[re.Pattern[str]] = re.compile(r"#[0-9a-fA-F]{6}")
+
+
+def es_color_de_clase(value: object) -> bool:
+    """Si un valor sirve como color de una clase de evento.
+
+    Es más estricta que `theme.is_valid_color()`, que pregunta a pyqtgraph y
+    acepta `red` o `#e6754aff`. Ver `AnnotationSet.add_label()` para el motivo:
+    el visualizador le concatena la transparencia al texto, y eso sólo da un
+    color con seis dígitos.
+
+    No eleva: devuelve falso para cualquier cosa que no sirva.
+    """
+    return isinstance(value, str) and _COLOR_DE_CLASE.fullmatch(value) is not None
+
+
 PALETTE: Final[tuple[str, ...]] = (
     "#e6754a",  # naranja
     "#4a90e6",  # azul
@@ -215,10 +233,29 @@ class AnnotationSet:
         Registrar una clase que ya existe no es un error —es algo que el usuario
         teclea— y si se pasa un color, reemplaza al anterior.
 
+        **El color es exactamente `#rrggbb`** (hito 48), y no cualquier cosa
+        que pyqtgraph sepa dibujar. No es purismo: el visualizador pinta la
+        banda de una anotación con `color + "55"`, o sea que le **concatena** la
+        transparencia al texto. Con `#e6754a` eso da un color válido; con `red`
+        da `red55` y con `#e6754aff` da diez dígitos, y en los dos casos dibujar
+        la anotación eleva un `ValueError` crudo. Hasta este hito se aceptaba
+        cualquier cosa, y un archivo de preferencias editado a mano con `red`
+        llegaba hasta ahí. Lo normaliza `preferences.py` al leer, que es por
+        donde entra texto arbitrario.
+
         Raises:
-            InvalidAnnotationError: si la etiqueta está vacía. Una clase sin
-                nombre no se puede elegir en ninguna lista.
+            InvalidAnnotationError: si la etiqueta está vacía —una clase sin
+                nombre no se puede elegir en ninguna lista— o si el color no
+                tiene la forma `#rrggbb`.
         """
+        if color is not None and not es_color_de_clase(color):
+            raise InvalidAnnotationError(
+                "El color de una clase de evento no es válido.",
+                details=(
+                    f"color = {color!r}; se esperaba la forma #rrggbb, que es la "
+                    "que el visualizador sabe volver transparente."
+                ),
+            )
         if not isinstance(label, str):
             raise InvalidAnnotationError(
                 "Una clase de evento necesita un nombre escrito.",

@@ -129,13 +129,18 @@ _EQUIVALENCIAS: Final[dict[Nomenclature, dict[SleepStage, SleepStage]]] = {
 }
 
 
-def _check_nomenclature(nomenclature: Nomenclature) -> None:
+def check_nomenclature(nomenclature: Nomenclature) -> None:
     """Rechaza lo que no sea una nomenclatura, con un error del programa.
 
     Las tablas de este módulo son diccionarios indexados por el enum, así que
     sin esta guarda un valor equivocado sale como `KeyError` o `TypeError`
     crudo, atraviesa el `except PsgLabError` de la ventana principal y el
     investigador ve una traza de Python.
+
+    **Es pública desde el hito 48**, porque dejó de tener un solo dueño:
+    `Scoring.change_nomenclature()` la necesita para validar antes de guardar,
+    y copiar el `isinstance` allá habría dejado el mismo mensaje escrito en dos
+    lugares.
     """
     if not isinstance(nomenclature, Nomenclature):
         raise InvalidNomenclatureError(
@@ -162,7 +167,7 @@ def stages_of(nomenclature: Nomenclature) -> tuple[SleepStage, ...]:
     No incluye `UNSCORED`, que no es una fila del histograma sino la ausencia
     de una: el pliego (V1_P) pide que lo no anotado quede **en blanco**.
     """
-    _check_nomenclature(nomenclature)
+    check_nomenclature(nomenclature)
     return STAGES_BY_NOMENCLATURE[nomenclature]
 
 
@@ -252,7 +257,7 @@ def stage_from_code(code: int, nomenclature: Nomenclature) -> SleepStage:
         InvalidStageError: si el código no corresponde a ninguna fase de esa
             nomenclatura.
     """
-    _check_nomenclature(nomenclature)
+    check_nomenclature(nomenclature)
     if isinstance(code, bool) or not isinstance(code, int):
         raise InvalidStageError(
             "El archivo de scoring tiene un código de fase que no es un número entero.",

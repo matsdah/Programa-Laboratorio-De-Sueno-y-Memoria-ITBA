@@ -9,7 +9,12 @@ investigador sin que nada avise.
 
 import pytest
 
-from psglab.core.annotations import PALETTE, Annotation, AnnotationSet
+from psglab.core.annotations import (
+    PALETTE,
+    Annotation,
+    AnnotationSet,
+    es_color_de_clase,
+)
 from psglab.utils.errors import InvalidAnnotationError, UnknownAnnotationLabelError
 
 
@@ -307,3 +312,51 @@ def test_registrar_dos_veces_una_clase_no_le_cambia_el_color(anotaciones):
     color = anotaciones.color_of("Apnea")
     anotaciones.add_label("Apnea")
     assert anotaciones.color_of("Apnea") == color
+
+
+# -- El color de una clase es exactamente #rrggbb (hito 48) ------------------
+
+
+@pytest.mark.parametrize("color", ["#e6754a", "#E6754A", "#000000", "#ffffff"])
+def test_un_color_de_seis_digitos_sirve(color: str):
+    assert es_color_de_clase(color)
+
+
+@pytest.mark.parametrize(
+    "color",
+    ["red", "#abc", "#e6754aff", "e6754a", "#e6754", "#ggg000", " #e6754a", "", None, 3],
+)
+def test_lo_que_no_es_seis_digitos_no_sirve(color):
+    """**Aunque pyqtgraph sepa dibujarlo.** `red`, `#abc` y `#e6754aff` son
+    colores para él; no lo son para la banda de una anotación, porque el
+    visualizador le concatena la transparencia al texto."""
+    assert not es_color_de_clase(color)
+
+
+def test_la_paleta_de_fabrica_cumple_su_propia_regla():
+    """Si un color de fábrica no la cumpliera, la primera clase que el usuario
+    creara sin elegir color fallaría."""
+    assert all(es_color_de_clase(color) for color in PALETTE)
+
+
+def test_una_clase_con_un_color_que_no_es_seis_digitos_se_rechaza(anotaciones):
+    """**Hasta el hito 48 se aceptaba cualquier cosa**, y un archivo de
+    preferencias editado a mano con `red` llegaba hasta el dibujo, donde la
+    banda de la anotación elevaba un `ValueError` crudo."""
+    with pytest.raises(InvalidAnnotationError):
+        anotaciones.add_label("Huso", "red")
+
+
+def test_un_color_rechazado_no_deja_la_clase_a_medias(anotaciones):
+    """Se valida antes de tocar nada: la clase no queda registrada sin color."""
+    with pytest.raises(InvalidAnnotationError):
+        anotaciones.add_label("Huso", "red")
+
+    assert "Huso" not in anotaciones.labels()
+
+
+def test_sin_color_la_clase_sigue_tomando_uno_de_la_paleta(anotaciones):
+    """`None` no es un color inválido: quiere decir «el que siga»."""
+    anotaciones.add_label("Huso")
+
+    assert es_color_de_clase(anotaciones.color_of("Huso"))

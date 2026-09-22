@@ -232,3 +232,27 @@ def test_el_scoring_de_una_ventana_no_se_puede_escribir_por_atras(scoring):
     """
     with pytest.raises(FrozenInstanceError):
         scoring.get(0).stage = SleepStage.S4
+
+
+# -- `EpochScore.is_scored`, que ningún test nombraba (hito 48) --------------
+
+
+def test_una_ventana_sin_fase_no_esta_scoreada(scoring):
+    """Lo consultan `scored_windows()` y el cartel del trabajo sin exportar: si
+    devolviera True de entrada, cerrar el programa recién abierto preguntaría
+    si se quiere guardar una noche vacía."""
+    assert scoring.get(0).is_scored is False
+
+
+def test_una_ventana_con_fase_esta_scoreada(scoring):
+    scoring.set_stage(0, SleepStage.N2)
+
+    assert scoring.get(0).is_scored is True
+
+
+def test_el_arousal_solo_no_cuenta_como_scoreada(scoring):
+    """Son dos preguntas distintas: V2_F marca arousal sobre una ventana que
+    puede no tener fase todavía."""
+    scoring.set_arousal(0, True)
+
+    assert scoring.get(0).is_scored is False

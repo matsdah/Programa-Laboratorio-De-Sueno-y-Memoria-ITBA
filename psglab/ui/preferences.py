@@ -25,6 +25,8 @@ from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Final
 
+import pyqtgraph as pg
+
 from psglab.analysis.psd import DEFAULT_BANDS, METHODS, validate_band
 from psglab.config import (
     AMPLITUDE_BAND_UV,
@@ -33,6 +35,7 @@ from psglab.config import (
     OVERVIEW_WINDOWS_AFTER,
     OVERVIEW_WINDOWS_BEFORE,
 )
+from psglab.core.annotations import es_color_de_clase
 from psglab.core.nomenclature import Nomenclature
 from psglab.tools.magnifier import RADIO_INICIAL_SEGUNDOS, ZOOM_INICIAL
 from psglab.ui.fonts import UI_FONT_FAMILY
@@ -359,7 +362,11 @@ def _validar_colores_de_clase(colores: object) -> None:
         if clase in vistas:
             _rechazar("los colores de las anotaciones (clase repetida)", clase)
         vistas.add(clase)
-        if not is_valid_color(color):
+        # **Con la regla de `core/` y no con la de pyqtgraph** (hito 48): la
+        # sesión rechaza lo que no sea `#rrggbb`, y validar acá con otra
+        # gramática dejaba pasar `red` hasta el dibujo. Lo que viene del
+        # archivo ya llega normalizado por `_normalizar_color()`.
+        if not es_color_de_clase(color):
             _rechazar(f"el color de la clase «{clase}»", color)
 
 
@@ -493,7 +500,24 @@ def _leer_colores(valor: object) -> tuple[tuple[str, str], ...]:
     """
     if not isinstance(valor, dict):
         raise TypeError("se esperaba un objeto")
-    return tuple(valor.items())
+    return tuple((clase, _normalizar_color(color)) for clase, color in valor.items())
+
+
+def _normalizar_color(color: object) -> object:
+    """Lleva un color que se puede dibujar a la forma `#rrggbb`.
+
+    **Es por donde entra texto arbitrario** —un archivo editado a mano— y la
+    forma que `AnnotationSet.add_label()` acepta es una sola, porque el
+    visualizador le concatena la transparencia al texto. Normalizar acá en vez
+    de rechazar conserva lo que funcionaba: `red` sigue siendo rojo, como
+    `#ff0000`. Es lo mismo que ya hace la ventana de configuración al elegir.
+
+    Lo que no se puede dibujar pasa tal cual, para que el constructor lo
+    rechace con su mensaje.
+    """
+    if not is_valid_color(color):
+        return color
+    return pg.mkColor(color).name()
 
 
 def _identidad(valor: object) -> object:

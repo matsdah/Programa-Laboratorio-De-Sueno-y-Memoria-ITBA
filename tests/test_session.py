@@ -36,8 +36,9 @@ from psglab.core.windows import window_to_samples
 from conftest import VENTANAS_SINTETICAS
 from psglab.utils.errors import (
     ChannelNotFoundError,
-    ScoringMismatchError,
     PsgLabError,
+    ScoringMismatchError,
+    UnknownToolError,
     WindowOutOfRangeError,
 )
 
@@ -1329,3 +1330,31 @@ def test_ajustar_al_panel_saltea_los_valores_que_no_son_numeros(recording, chann
 
     assert sesion.scale_uv(channel_names[0]) != antes
     assert math.isfinite(sesion.scale_uv(channel_names[0]))
+
+
+# -- `set_active_tool` valida que el nombre sea texto (hito 48) -------------
+
+
+def test_ninguna_herramienta_activa_es_un_nombre_valido(session):
+    session.set_active_tool("magnifier")
+    session.set_active_tool(None)
+
+    assert session.active_tool is None
+
+
+@pytest.mark.parametrize("nombre", [3.5, [], {}, object(), "", "   "])
+def test_lo_que_no_es_un_nombre_de_herramienta_se_rechaza(session, nombre):
+    """**Guardaba cualquier cosa**, y su fila en `test_contratos.py` aceptaba
+    los seis valores hostiles. Sigue sin validar el nombre contra el registro
+    —importarlo desde `core/` cerraría un ciclo—, pero sí que sea texto."""
+    with pytest.raises(UnknownToolError):
+        session.set_active_tool(nombre)
+
+
+def test_un_nombre_rechazado_no_cambia_la_activa(session):
+    session.set_active_tool("magnifier")
+
+    with pytest.raises(UnknownToolError):
+        session.set_active_tool(3.5)
+
+    assert session.active_tool == "magnifier"

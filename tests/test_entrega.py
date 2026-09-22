@@ -26,6 +26,7 @@ from pathlib import Path
 import numpy as np
 import pyqtgraph as pg
 import pytest
+import json
 import threading
 
 from PySide6.QtCore import QEvent, QPointF, Qt
@@ -4493,3 +4494,82 @@ def test_mientras_ajusta_se_puede_scorear(ventana_con_dos_eeg: MainWindow):
     assert not ventana_con_dos_eeg.carteles
     assert ventana_con_dos_eeg.session.scoring.get(0).stage is SleepStage.N2
     assert ventana_con_dos_eeg.session.current_window == 1
+
+
+# -- V2_F por el camino del usuario y no por la pieza (hito 48) --------------
+
+
+def test_un_clic_de_verdad_suma_un_pico(ventana: MainWindow):
+    """**V2_F sólo se verificaba llamando a la herramienta.**
+
+    Los tres tests que cubrían el contador de picos hacían
+    `herramienta.on_mouse_press(...)`, que es exactamente el método que el
+    hito 9 señaló como la causa de que seis hitos pasaran sin que nadie notara
+    que la lupa no llegaba a la ventana —y que `psglab/ui/README.md` prohíbe
+    con todas las letras—. Con la herramienta llamada a mano, estos tests
+    pasan en verde aunque el `eventFilter` no le mande nada.
+
+    Lo encontró la auditoría de los tests, no un fallo: el camino funciona.
+    """
+    ventana._toggle_tool("magnifier", True)
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    x = caja.left() + caja.width() * 0.5
+    aplicacion = QApplication.instance()
+    for tipo in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonRelease):
+        aplicacion.sendEvent(
+            ventana.signal_view.viewport(), evento_de_mouse(ventana, tipo, x)
+        )
+
+    assert ventana._tools["magnifier"].click_count == 1
+    assert "Picos contados: 1" in ventana.tool_readout.text()
+
+
+def test_el_boton_derecho_descuenta_por_el_mismo_camino(ventana: MainWindow):
+    """La otra mitad de V2_F: corregir un clic de más sin reiniciar la cuenta."""
+    ventana._toggle_tool("magnifier", True)
+    lupa = ventana._tools["magnifier"]
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    x = caja.left() + caja.width() * 0.5
+    aplicacion = QApplication.instance()
+    aplicacion.sendEvent(
+        ventana.signal_view.viewport(),
+        evento_de_mouse(ventana, QEvent.Type.MouseButtonPress, x),
+    )
+    assert lupa.click_count == 1
+
+    clic_derecho(ventana, 15.0)
+
+    assert lupa.click_count == 0
+
+
+# -- Un color de clase editado a mano, de punta a punta (hito 48) ------------
+
+
+def test_un_color_escrito_a_mano_en_las_preferencias_se_dibuja(
+    ventana: MainWindow, tmp_path
+):
+    """**El bug que encontró validar `add_label(color=...)`.**
+
+    Un archivo de preferencias con `"red"` pasaba la validación, que le
+    preguntaba a pyqtgraph y `red` es un color para él. La sesión lo guardaba
+    tal cual, y dibujar una anotación de esa clase elevaba un `ValueError`
+    crudo: el visualizador pinta la banda con `color + "55"`, y `red55` no es
+    un color. Ahora el archivo se normaliza al leerse y la clase llega como
+    `#ff0000`.
+
+    Por el camino entero y no por la pieza, que es lo que el hito 9 dejó
+    anotado: leer el archivo, aplicarlo a la ventana, anotar y dibujar.
+    """
+    archivo = tmp_path / "preferencias.json"
+    archivo.write_text(
+        json.dumps({"version": 1, "annotation_colors": {"Huso": "red"}}),
+        encoding="utf-8",
+    )
+    ventana.apply_preferences(preferencias_mod.load(archivo))
+
+    assert ventana.session.annotations.color_of("Huso") == "#ff0000"
+
+    ventana.session.annotations.add(Annotation("Huso", 0, 100))
+    ventana._repintar_anotaciones()
+
+    assert not ventana.carteles

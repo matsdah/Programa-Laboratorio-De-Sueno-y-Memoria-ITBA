@@ -14,7 +14,7 @@ import math
 import pytest
 
 from psglab.utils.errors import InvalidAnnotationError, PsgLabError
-from psglab.utils.validation import check_finite, clamp
+from psglab.utils.validation import check_finite, check_index, clamp
 
 MENSAJE = "El valor no sirve."
 DETALLE = "Se esperaba un número."
@@ -125,3 +125,49 @@ def test_el_recorte_rechaza_lo_que_no_puede_recortar():
     assert math.isnan(min(max(float("nan"), 1.0), 100.0))  # la forma que no sirve
     with pytest.raises(ValueError):
         clamp(float("nan"), 1.0, 100.0)
+
+
+# -- `check_index()` (hito 48) --------------------------------------------------
+#
+# **Ningún test de comportamiento la llamaba.** Tenía una fila en
+# `test_contratos.py`, que la ejercita sólo con valores hostiles y no verifica
+# que haga lo correcto con los buenos. Lo encontró la auditoría de los tests, y
+# desde entonces lo exige `test_consistencia.py`.
+
+
+def comprobar_indice(valor) -> None:
+    check_index(
+        valor, error=InvalidAnnotationError, message="Índice inválido.", details="x"
+    )
+
+
+@pytest.mark.parametrize("valor", [0, 1, 2650, -3])
+def test_un_entero_pasa(valor: int):
+    """Sólo decide el tipo: el rango lo mira quien sabe cuántas ventanas hay."""
+    comprobar_indice(valor)
+
+
+@pytest.mark.parametrize("valor", [1.0, 1.5, 0.0])
+def test_un_float_se_rechaza_aunque_valga_un_entero(valor: float):
+    """**`1.0` también.** `x/ancho*n` da un float, y `1.5` atraviesa una
+    comprobación de rango sin problema y después devuelve media ventana
+    corrida. Quien tenga un float que redondee y lo diga."""
+    with pytest.raises(InvalidAnnotationError):
+        comprobar_indice(valor)
+
+
+def test_un_booleano_se_rechaza_aunque_python_lo_cuente_como_entero():
+    """`True` es un `int` para Python y valdría como ventana 1."""
+    with pytest.raises(InvalidAnnotationError):
+        comprobar_indice(True)
+
+
+@pytest.mark.parametrize("valor", [None, "3", [3]])
+def test_lo_que_no_es_numero_se_rechaza_con_el_error_pedido(valor):
+    """Con el error **que se le pasó**, que es lo que le deja a cada capa
+    hablar de lo suyo: una ventana y una anotación no fallan igual."""
+    with pytest.raises(InvalidAnnotationError) as capturado:
+        comprobar_indice(valor)
+
+    assert isinstance(capturado.value, PsgLabError)
+    assert repr(valor) in capturado.value.details

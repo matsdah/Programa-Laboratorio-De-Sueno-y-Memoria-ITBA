@@ -422,3 +422,33 @@ def test_las_herramientas_arrancan_con_sus_valores_de_siempre():
     assert valores.amplitude_band_uv == AMPLITUDE_BAND_UV
     assert valores.magnifier_radius_seconds == RADIO_INICIAL_SEGUNDOS
     assert valores.magnifier_zoom == ZOOM_INICIAL
+
+
+# -- Los colores de clase se normalizan al leer (hito 48) --------------------
+
+
+@pytest.mark.parametrize(
+    ("escrito", "leido"),
+    [("red", "#ff0000"), ("#abc", "#aabbcc"), ("#E6754A", "#e6754a")],
+)
+def test_un_color_editado_a_mano_se_normaliza_al_leer(archivo: Path, escrito, leido):
+    """**Normalizar y no rechazar**: `red` funcionaba antes del hito 48 como
+    texto que pyqtgraph sabía dibujar, y tiene que seguir funcionando. Lo que
+    cambió es que llega a la sesión como `#ff0000`, que es la única forma a la
+    que el visualizador le puede concatenar la transparencia."""
+    archivo.write_text(
+        json.dumps({"version": 1, "annotation_colors": {"Huso": escrito}}),
+        encoding="utf-8",
+    )
+
+    assert preferences.load(archivo).annotation_color("Huso") == leido
+
+
+def test_un_color_que_no_se_puede_dibujar_se_sigue_rechazando(archivo: Path):
+    """Normalizar sólo alcanza a lo que ya era un color: `gris` no lo es."""
+    archivo.write_text(
+        json.dumps({"version": 1, "annotation_colors": {"Huso": "gris"}}),
+        encoding="utf-8",
+    )
+
+    assert preferences.load(archivo).annotation_color("Huso") is None

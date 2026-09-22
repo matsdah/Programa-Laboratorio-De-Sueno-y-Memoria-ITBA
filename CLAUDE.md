@@ -300,9 +300,9 @@ rechazar antes de dar por terminado un cambio:
 - Todos los módulos del paquete se pueden importar. Es lo único que ejercita la
   capa `ui/`.
 
-Los tres que agregó el **hito 20**, más el que sumó el **hito 30**, son la red
-contra lo que hasta entonces se buscaba a mano, y las dos veces que se buscó así
-se escapó algo:
+Los tres que agregó el **hito 20**, más los que sumaron el **hito 30** y el
+**48**, son la red contra lo que hasta entonces se buscaba a mano, y cada vez que
+se buscó así se escapó algo:
 
 - **Toda función pública de `analysis/` tiene que llegar a la ventana**, o
   figurar en `SOLO_BIBLIOTECA` con su motivo. Lo que mira es que el nombre **se
@@ -317,6 +317,13 @@ se escapó algo:
   entonces tienen que estar nombrados en `docs/TODO.md`. Es la red que habría
   encontrado `delete_annotation()` y `OverviewTool.set_span()`, que eran
   métodos y no funciones.
+- **Toda función pública de negocio la llama algún test de comportamiento**,
+  desde el hito 48, o figura en `SIN_TEST_DE_COMPORTAMIENTO` con su motivo.
+  `COBERTURA_DE_TESTS` es por archivo y no veía nada por función: la primera
+  auditoría de los tests encontró seis que ningún test nombraba, cinco de ellas
+  conversiones de `core/windows.py`. **No cuentan `test_contratos.py` ni este
+  chequeo**, que no verifican que la función haga lo correcto, ni un docstring.
+  Es un piso: que un test la llame no dice que la verifique bien.
 - La cuenta de hitos que declaran los documentos es la de la tabla de progreso
   del TODO, y con una forma fija: `<numeral> hitos … del 0 al N`. Se exige a
   `README.md`, `docs/TODO.md`, `docs/EXPLICACION.txt` y `docs/README.md`. **A
