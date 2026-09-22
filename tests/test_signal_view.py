@@ -28,6 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QPointF
+from PySide6.QtWidgets import QGraphicsItem
 
 import numpy as np
 import pytest
@@ -356,7 +357,27 @@ def test_sin_registro_la_vertical_es_cero(qt_app):
 # ampliaba nada. La herramienta publicaba los dos campos y nadie los leía.
 
 
-def lupa(widget: SignalView, x: float = 15.0, radio: float = 1.0, zoom: float = 4.0):
+def curva_de_la_lente(lente) -> pg.PlotCurveItem:
+    """La curva ampliada que vive adentro del cristal.
+
+    **La lupa dejó de ser un ítem suelto en el hito 45**: es un grupo con el
+    cristal —que recorta— y la etiqueta de la hora, que va afuera del recorte
+    porque cae debajo del círculo.
+    """
+    for hijo in lente.childItems():
+        for nieto in hijo.childItems():
+            if isinstance(nieto, pg.PlotCurveItem):
+                return nieto
+    raise AssertionError("la lente no tiene curva adentro")
+
+
+def lupa(
+    widget: SignalView,
+    x: float = 15.0,
+    radio: float = 1.0,
+    zoom: float = 4.0,
+    canal: str | None = None,
+):
     """Dibuja una lupa y devuelve los puntos que quedaron en pantalla."""
     widget.set_overlays(
         [
@@ -366,10 +387,11 @@ def lupa(widget: SignalView, x: float = 15.0, radio: float = 1.0, zoom: float = 
                 y_uv=0.0,
                 radius_seconds=radio,
                 zoom=zoom,
+                channel_name=canal,
             )
         ]
     )
-    return widget._overlay_items[0].getData()
+    return curva_de_la_lente(widget._overlay_items[0]).getData()
 
 
 def test_la_lupa_dibuja_la_señal_y_no_un_punto(vista: SignalView):
@@ -947,3 +969,87 @@ def test_la_pestana_va_encima_de_la_grilla(vista: SignalView):
     """A −19 estaba debajo de la grilla, que es un solo objeto en −10 y le
     dibujaba sus líneas por encima al texto: salía partida en dos."""
     assert vista._pestana.zValue() > modulo_de_la_grilla._Z_GRILLA
+
+
+# -- Sobre qué carril está el cursor (hito 45) --------------------------------
+
+
+def pixel_del_carril(widget: SignalView, canal: str, uv: float = 0.0) -> float:
+    """La coordenada de escena del eje de un canal, opcionalmente corrida."""
+    centro = widget._centro_de_carril(canal) + widget._a_carril(uv, canal)
+    return widget.getPlotItem().vb.mapViewToScene(QPointF(0.0, centro)).y()
+
+
+def test_cada_carril_contesta_su_canal(vista: SignalView):
+    """**El conversor que faltaba.** `microvolts_at_pixel()` acepta un canal
+    desde el hito 9 y nadie se lo pasaba nunca, así que medía todo contra el
+    primero visible: la lupa ampliaba siempre ése y el centro del segundo
+    carril llegaba a las herramientas como un valor grande y negativo."""
+    for canal in vista._visible:
+        assert vista.channel_at_pixel(pixel_del_carril(vista, canal)) == canal
+
+
+def test_el_centro_de_cada_carril_es_cero_microvoltios(vista: SignalView):
+    """Es la consecuencia que se ve: el eje de un canal son 0 µV **de ese
+    canal**, no los −222 que daba medirlo contra la ganancia de otro."""
+    for canal in vista._visible:
+        pixel = pixel_del_carril(vista, canal)
+        medido = vista.microvolts_at_pixel(pixel, vista.channel_at_pixel(pixel))
+        assert medido == pytest.approx(0.0, abs=1e-6)
+
+
+def test_arriba_del_primero_contesta_el_primero(vista: SignalView):
+    """Se recorta al carril más cercano en vez de contestar None: el mouse
+    sigue estando sobre el gráfico y hay que contestar algo."""
+    arriba = pixel_del_carril(vista, vista._visible[0]) - 500.0
+
+    assert vista.channel_at_pixel(arriba) == vista._visible[0]
+
+
+def test_debajo_del_ultimo_contesta_el_ultimo(vista: SignalView):
+    """La otra mitad del recorte."""
+    abajo = pixel_del_carril(vista, vista._visible[-1]) + 500.0
+
+    assert vista.channel_at_pixel(abajo) == vista._visible[-1]
+
+
+def test_sin_canales_no_hay_carril(qt_app):
+    """None significa que no hay ningún canal a la vista, y es distinto de
+    «está fuera de rango»."""
+    assert SignalView().channel_at_pixel(10.0) is None
+
+
+# -- La lente de la lupa (hito 45) --------------------------------------------
+
+
+def test_la_lente_tiene_cristal_y_hora(vista: SignalView):
+    """**Del hito 9 al 45 no hubo ningún círculo**, pese a que el tipo se llama
+    `CircleOverlay`: era una polilínea estirada."""
+    lupa(vista)
+    tipos = [type(h).__name__ for h in vista._overlay_items[0].childItems()]
+
+    assert "QGraphicsPathItem" in tipos
+    assert "TextItem" in tipos
+
+
+def test_la_curva_ampliada_va_adentro_del_cristal(vista: SignalView):
+    """El recorte lo hace Qt: la curva es hija del cristal, que lleva
+    `ItemClipsChildrenToShape`. Recortar los datos a mano habría dejado la onda
+    cortada en los bordes en vez de la lente."""
+    lupa(vista)
+    cristal = [
+        h for h in vista._overlay_items[0].childItems()
+        if type(h).__name__ == "QGraphicsPathItem"
+    ][0]
+
+    assert cristal.flags() & QGraphicsItem.GraphicsItemFlag.ItemClipsChildrenToShape
+    assert any(isinstance(n, pg.PlotCurveItem) for n in cristal.childItems())
+
+
+def test_la_lupa_amplia_el_canal_que_le_pidieron(vista: SignalView):
+    """Antes `_dibujar_lupa()` tenía `self._visible[0]` escrito a mano."""
+    segundo = vista._visible[1]
+    _, y_del_segundo = lupa(vista, canal=segundo)
+    _, y_del_primero = lupa(vista, canal=vista._visible[0])
+
+    assert not np.allclose(y_del_segundo, y_del_primero)

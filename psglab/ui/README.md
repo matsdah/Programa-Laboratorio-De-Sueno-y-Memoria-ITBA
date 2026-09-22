@@ -261,6 +261,33 @@ y por eso hubo que rehacerlo como anillo: lo que resuelve —que reproducir no
 sea un triángulo más entre las dos flechas de época— lo sigue resolviendo la
 silueta redonda.
 
+## Las herramientas y la señal
+
+**Dos preguntas distintas, dos campos.** `main_window` lleva `_mouse_tool` —la
+exclusiva que recibe los eventos del viewport— y `_drawing_tools` —todas las
+`ViewerTool` activas, que son las que aportan overlays—. Fueron un solo campo
+hasta el hito 45, asignado sólo en la rama exclusiva, y por eso la banda de
+amplitud nunca se dibujó: declara `exclusive = False` con razón, porque no
+compite por el clic, y eso la dejaba afuera del dibujo también. Tildarla no
+hacía nada.
+
+**`exclusive` tampoco significa «es un panel».** `_activate_panel_tools()` lo
+leía así y tildaba la banda sola al abrir cada registro. El discriminador es
+tener dock.
+
+**La `y` de un gesto se mide contra el canal bajo el cursor.** El conversor
+`microvolts_at_pixel()` acepta un canal desde el hito 9 y nadie se lo pasaba, así
+que medía todo contra el primero visible: sobre tres canales, el centro del
+tercer carril llegaba a las herramientas como −444 µV en vez de 0. Lo resuelve
+`SignalView.channel_at_pixel()`, y el canal viaja hasta la herramienta en el
+último argumento de sus tres métodos de mouse. **Un overlay que dependa de la
+escala tiene que llevar su canal**: lo llevan `BandOverlay` desde el hito 7 y
+`CircleOverlay` desde el 45.
+
+**Sobre un `QGraphicsItemGroup` se usa `addToGroup()` y no `setParentItem()`.**
+Lo segundo deja el ítem sin dueño y el recolector de Python se lo lleva al
+volver de la función, sin avisar y sin que nada falle.
+
 ## `grid.py`
 
 La grilla está separada de `SignalView` porque **cambia por motivos distintos**:

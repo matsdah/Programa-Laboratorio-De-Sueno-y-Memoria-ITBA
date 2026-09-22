@@ -38,8 +38,9 @@ from typing import Final
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QFont
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import QBrush, QColor, QFont, QPainterPath
+from PySide6.QtWidgets import QGraphicsItem, QGraphicsItemGroup, QGraphicsPathItem
 
 from psglab.config import WINDOW_SECONDS
 from psglab.core.decimation import min_max_envelope
@@ -61,11 +62,19 @@ from psglab.tools.base import (
 )
 from psglab.ui import theme
 from psglab.ui.channel_axis import ChannelAxis, ChannelLane
+from psglab.ui.fonts import font_for
 from psglab.ui.grid import GridBackground
 
 #: Separación vertical entre canales, en unidades del gráfico. Cada canal ocupa
 #: su propio carril y la señal se dibuja dentro de él.
 _ALTO_DE_CARRIL: float = 1.0
+
+#: Dónde caen en la pila de la escena las dos herramientas que se dibujan
+#: **encima** de la señal. Debajo de las curvas —que van en 0— están la grilla,
+#: en −10, y la banda de la época, en −5. La lente tapa a la banda de amplitud
+#: porque es la que el usuario está mirando en ese momento.
+_Z_DE_LA_BANDA: float = 5.0
+_Z_DE_LA_LENTE: float = 10.0
 
 #: Qué fracción del carril llena una señal que alcanza justo `scale_uv`. Menos
 #: de la mitad para que dos canales vecinos no se pisen cuando los dos están al
@@ -656,11 +665,21 @@ class SignalView(pg.PlotWidget):
                 return None
             media = self._a_carril(overlay.height_uv / 2, overlay.channel_name)
             base = centro + self._a_carril(overlay.y_center_uv, overlay.channel_name)
-            return pg.LinearRegionItem(
+            esquema = theme.current()
+            region = pg.LinearRegionItem(
                 values=(base - media, base + media),
                 orientation="horizontal",
                 movable=False,
+                brush=pg.mkBrush(QColor(esquema.accent).lighter(160).name() + "3c"),
+                pen=pg.mkPen(esquema.accent, width=2),
             )
+            # **Encima de la señal, y traslúcida.** Con el relleno de fábrica de
+            # pyqtgraph —azul a alpha 50— la banda quedaba invisible sobre un
+            # trazo azul, que es el color del primer canal: se dibujaba y no se
+            # veía. Lo que hay que poder leer son los dos bordes, que son los
+            # que dicen dónde terminan los 75 µV.
+            region.setZValue(_Z_DE_LA_BANDA)
+            return region
 
         if isinstance(overlay, SpanOverlay):
             # Ocupa todo el alto de la ventana, como pide el pliego, para que se
@@ -687,26 +706,36 @@ class SignalView(pg.PlotWidget):
         return None
 
     def _dibujar_lupa(self, overlay: CircleOverlay) -> object | None:
-        """La lupa: el tramo de señal alrededor del cursor, ampliado (V1_F).
+        """La lupa: una lente circular sobre el tramo bajo el cursor (V1_F).
 
         **Hasta el hito 9 esto era un `ScatterPlotItem` de 30 píxeles**, que
         descartaba `radius_seconds` y `zoom`: el círculo seguía al mouse y no
-        ampliaba nada. La herramienta publicaba los dos campos y nadie los leía,
-        que es el hallazgo que abrió el hito.
+        ampliaba nada. Del 9 al 45 fue lo contrario, una polilínea estirada sin
+        ningún círculo, pese a que el tipo se llama `CircleOverlay`. Hoy es la
+        lente del prototipo: borde, fondo propio, el tramo ampliado recortado
+        adentro y el instante escrito debajo.
 
-        Ahora se dibuja lo que el pliego pide: el pedazo de onda que cae bajo el
-        cursor, estirado `zoom` veces en los dos ejes alrededor de él. Se estira
-        también en horizontal a propósito —una lupa aumenta las dos
-        dimensiones—, y por eso el tramo ocupa en pantalla `radius * zoom` a
-        cada lado.
+        **El recorte lo hace Qt y no el código.** La elipse es un
+        `QGraphicsPathItem` con `ItemClipsChildrenToShape`, y la curva es su
+        hija: recortar los datos a mano habría dejado la onda cortada en los
+        bordes en vez de la lente.
 
-        Se dibuja sobre el **primer canal visible**, que es la referencia que ya
-        usan los overlays sin canal propio. Ampliar todos los carriles a la vez
-        los superpondría.
+        **La lente se dibuja redonda aunque los dos ejes no compartan unidad**
+        —`x` son segundos y `y` son carriles—. El radio vertical sale de
+        `viewPixelSize()`, que dice cuánto vale un píxel en cada eje. Se
+        recalcula en cada redibujo, o sea en cada movimiento del mouse; si la
+        ventana se redimensiona con el mouse quieto, la lente queda ovalada
+        hasta el próximo movimiento.
+
+        Se amplía **el canal bajo el cursor**, que viene en el overlay desde el
+        hito 45. Antes era siempre `self._visible[0]`, y ampliar todos los
+        carriles a la vez los superpondría.
         """
         if self._session is None or not self._visible:
             return None
-        canal = self._visible[0]
+        canal = overlay.channel_name or self._visible[0]
+        if canal not in self._visible:
+            return None
         registro = self._session.recording
         frecuencia = registro.sampling_rate
         pagina = self._session.viewport
@@ -732,9 +761,87 @@ class SignalView(pg.PlotWidget):
 
         ampliado_x = overlay.x_seconds + (tiempos - overlay.x_seconds) * overlay.zoom
         ampliado_y = base + (alturas - base) * overlay.zoom
-        return pg.PlotDataItem(
-            ampliado_x, ampliado_y, pen=pg.mkPen(width=2), antialias=False
+        return self._lente(overlay, ampliado_x, ampliado_y, base, canal)
+
+    def _lente(
+        self,
+        overlay: CircleOverlay,
+        ampliado_x: np.ndarray,
+        ampliado_y: np.ndarray,
+        base: float,
+        channel_name: str,
+    ) -> object:
+        """El cristal de la lupa, con la curva ampliada adentro."""
+        esquema = theme.current()
+        radio_x = overlay.radius_seconds * overlay.zoom
+        # Cuánto vale un píxel en cada eje, para que el círculo salga redondo.
+        por_pixel = self.getPlotItem().vb.viewPixelSize()
+        proporcion = (por_pixel[1] / por_pixel[0]) if por_pixel[0] else 1.0
+        radio_y = radio_x * proporcion
+
+        camino = QPainterPath()
+        camino.addEllipse(
+            QRectF(
+                overlay.x_seconds - radio_x, base - radio_y, 2 * radio_x, 2 * radio_y
+            )
         )
+        # **La lente es un grupo de dos piezas**, y no una sola, porque sólo
+        # una recorta: el cristal se lleva la curva adentro y la etiqueta va
+        # afuera. Colgarla del cristal la borraría entera, porque cae debajo
+        # del círculo.
+        grupo = QGraphicsItemGroup()
+        # **Encima de la señal**: el fondo de la lente es opaco justamente para
+        # que la onda de abajo no compita con la ampliada.
+        grupo.setZValue(_Z_DE_LA_LENTE)
+
+        cristal = QGraphicsPathItem(camino)
+        cristal.setBrush(QBrush(QColor(esquema.background)))
+        cristal.setPen(pg.mkPen(esquema.accent, width=2))
+        cristal.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemClipsChildrenToShape, True
+        )
+        # **`addToGroup()` y no `setParentItem()`.** Sobre un grupo, lo segundo
+        # deja el ítem sin dueño: el envoltorio de Python es la única
+        # referencia que queda, y al volver de acá se lo lleva el recolector
+        # sin avisar. La etiqueta de la hora desaparecía así, y nada fallaba.
+        grupo.addToGroup(cristal)
+
+        # **Con el color de su canal**, que es el que la identifica en el resto
+        # del programa: la onda ampliada es la misma que la de abajo, y en otra
+        # tinta parecería otra cosa.
+        curva = pg.PlotCurveItem(
+            ampliado_x,
+            ampliado_y,
+            pen=pg.mkPen(
+                esquema.color_for_channel(self._visible.index(channel_name)), width=2
+            ),
+            antialias=False,
+        )
+        curva.setParentItem(cristal)
+
+        hora = self._hora_del_cursor(overlay.x_seconds)
+        if hora is not None:
+            etiqueta = pg.TextItem(hora, color=esquema.accent, anchor=(0.5, 0.0))
+            if self._fuente is not None:
+                etiqueta.setFont(font_for("lectura_secundaria", self._fuente))
+            etiqueta.setPos(overlay.x_seconds, base - radio_y)
+            grupo.addToGroup(etiqueta)
+        return grupo
+
+    def _hora_del_cursor(self, segundos: float) -> str | None:
+        """El instante bajo la lupa, como lo escribe el eje de tiempo.
+
+        Con décimas, que es la resolución que la lupa existe para mirar: sin
+        ellas, dos posiciones distintas del cursor dirían lo mismo.
+        """
+        if self._session is None:
+            return None
+        reloj = seconds_to_clock_time(
+            segundos, self._session.recording.start_time
+        )
+        if reloj is None:
+            return f"{segundos:.1f} s".replace(".", ",")
+        return reloj.strftime("%H:%M:%S,") + f"{reloj.microsecond // 100000}"
 
     def _a_carril_desde_datos(
         self, microvoltios: np.ndarray, channel_name: str
@@ -922,6 +1029,31 @@ class SignalView(pg.PlotWidget):
             return min(self.window_seconds, max(0.0, segundos))
         pagina = self._session.viewport
         return min(pagina.end_seconds, max(pagina.start_seconds, segundos))
+
+    def channel_at_pixel(self, y_pixel: float) -> str | None:
+        """Sobre qué canal está el cursor, o None si no hay ninguno visible.
+
+        **Es el conversor que faltaba** (hito 45), y su ausencia era un bug
+        silencioso: `microvolts_at_pixel()` acepta un canal desde el hito 9,
+        pero nadie se lo pasaba nunca, así que caía siempre en el primero
+        visible. Con tres canales, el centro del tercer carril —donde la señal
+        vale cero— llegaba a las herramientas como −444 µV, medidos contra la
+        ganancia de otro canal. Nada fallaba: el número era plausible.
+
+        Invierte la geometría de `_centro_de_carril()`, que apila los carriles
+        en `-indice * _ALTO_DE_CARRIL`.
+
+        **Se recorta al carril más cercano en vez de contestar None** arriba
+        del primero o debajo del último. Ahí sigue habiendo que contestar algo
+        —el mouse está sobre el gráfico— y el carril más cercano es la
+        respuesta honesta; None significa que no hay ningún canal a la vista.
+        """
+        if not self._visible:
+            return None
+        vista = self.getPlotItem().vb
+        y_grafico = float(vista.mapSceneToView(QPointF(0.0, float(y_pixel))).y())
+        indice = int(round(-y_grafico / _ALTO_DE_CARRIL))
+        return self._visible[min(max(indice, 0), len(self._visible) - 1)]
 
     def microvolts_at_pixel(
         self, y_pixel: float, channel_name: str | None = None

@@ -68,7 +68,9 @@ class AnnotatorTool(ViewerTool):
         self._pendiente = None
         self.notify_changed()
 
-    def on_mouse_press(self, x: float, y: float, button: str) -> None:
+    def on_mouse_press(
+        self, x: float, y: float, button: str, channel_name: str | None = None
+    ) -> None:
         """Empieza la selección del evento."""
         if not self._activa or button != "left":
             return
@@ -76,14 +78,18 @@ class AnnotatorTool(ViewerTool):
         self._pendiente = None
         self.notify_changed()
 
-    def on_mouse_move(self, x: float, y: float) -> None:
+    def on_mouse_move(
+        self, x: float, y: float, channel_name: str | None = None
+    ) -> None:
         """Extiende la selección mientras el usuario arrastra."""
         if self._desde is None:
             return
         self._hasta = x
         self.notify_changed()
 
-    def on_mouse_release(self, x: float, y: float, button: str) -> None:
+    def on_mouse_release(
+        self, x: float, y: float, button: str, channel_name: str | None = None
+    ) -> None:
         """Cierra la selección y pide la clase del evento.
 
         El ancho de la banda es el que seleccionó el usuario, no uno fijo: un
