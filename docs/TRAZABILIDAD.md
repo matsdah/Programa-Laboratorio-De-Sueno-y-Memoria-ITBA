@@ -161,7 +161,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/ui/icons.py` | Los iconos de la barra, dibujados por el programa | La barra de navegación |
 | `psglab/ui/menus.py` | La barra de menú y qué acción vive en cada uno | Cómo se llega a cada funcionalidad |
 | `psglab/ui/theme.py` | Los esquemas de color: qué color tiene cada cosa que se dibuja | Todo lo que la interfaz pinta |
-| `psglab/ui/fonts.py` | Las tipografías que el programa trae consigo, bajo la OFL 1.1 | Las lecturas del esquema Papel y la lista de Tipografía |
+| `psglab/ui/fonts.py` | Las dos tipografías del programa y la escala de ocho roles, bajo la OFL 1.1 | Todo texto que se ve: los rótulos, las lecturas numéricas y lo que nadie midió |
 | `psglab/ui/panel_header.py` | El encabezado y el cartel de vacío que comparten los paneles de análisis | Los seis paneles de la Parte 2 |
 | `psglab/ui/background.py` | Correr un cálculo largo en otro hilo y devolver el resultado en el de la interfaz | La conectividad de la noche, y lo largo que se le sume |
 | `psglab/ui/preferences.py` | Lo que el programa recuerda entre sesiones | El esquema con el que arranca |

@@ -87,10 +87,21 @@ def test_sin_lineas_el_total_es_cero():
 
 @pytest.fixture
 def sesion() -> Session:
+    """Una época de dos canales.
+
+    **Dos y no uno desde el hito 48.** Con un solo canal, la mitad de lo que
+    esta herramienta decide —sobre qué carril cae una línea, con qué escala se
+    mide la tolerancia del clic— no se puede distinguir de no decidir nada: la
+    auditoría de los tests mostró que cuatro mutaciones de `occupancy.py`
+    sobrevivían a la suite entera por esto.
+    """
     registro = Recording(
         file_path=Path("noche.edf"),
-        channels=[Channel("C3", ChannelKind.EEG, "µV", 0)],
-        data=np.zeros((1, 3000)),
+        channels=[
+            Channel("C3", ChannelKind.EEG, "µV", 0),
+            Channel("C4", ChannelKind.EEG, "µV", 1),
+        ],
+        data=np.zeros((2, 3000)),
         sampling_rate=100.0,
     )
     return Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
@@ -106,8 +117,11 @@ def sesion_larga() -> Session:
     """
     registro = Recording(
         file_path=Path("noche.edf"),
-        channels=[Channel("C3", ChannelKind.EEG, "µV", 0)],
-        data=np.zeros((1, 30000)),
+        channels=[
+            Channel("C3", ChannelKind.EEG, "µV", 0),
+            Channel("C4", ChannelKind.EEG, "µV", 1),
+        ],
+        data=np.zeros((2, 30000)),
         sampling_rate=100.0,
     )
     return Session(registro, Scoring(10, Nomenclature.AASM), AnnotationSet())
@@ -127,11 +141,21 @@ def herramienta(sesion: Session) -> OccupancyTool:
     return tool
 
 
-def arrastrar(tool: OccupancyTool, desde_s: float, hasta_s: float, y: float = 0.0) -> None:
-    """Un gesto completo: apretar, mover y soltar, en segundos."""
-    tool.on_mouse_press(desde_s, y, "left")
-    tool.on_mouse_move(hasta_s, y)
-    tool.on_mouse_release(hasta_s, y, "left")
+def arrastrar(
+    tool: OccupancyTool,
+    desde_s: float,
+    hasta_s: float,
+    y: float = 0.0,
+    canal: str | None = None,
+) -> None:
+    """Un gesto completo: apretar, mover y soltar, en segundos.
+
+    **Con `canal`, la línea queda en ese carril** (hito 46). Sin él queda sin
+    canal, que es lo que pasa cuando no hay ninguno visible.
+    """
+    tool.on_mouse_press(desde_s, y, "left", canal)
+    tool.on_mouse_move(hasta_s, y, canal)
+    tool.on_mouse_release(hasta_s, y, "left", canal)
 
 
 def test_arrastrar_media_ventana_ocupa_cincuenta_por_ciento(herramienta: OccupancyTool):
@@ -246,12 +270,12 @@ def test_con_la_amplitud_al_maximo_un_clic_lejano_ya_no_borra(
     altura del canal, así que cualquier clic dentro del rango horizontal de la
     línea la borraba en vez de empezar otra.
     """
-    arrastrar(herramienta, 0.0, 20.0, y=0.0)
+    arrastrar(herramienta, 0.0, 20.0, y=0.0, canal="C3")
     for nombre in sesion.visible_channels:
         sesion.set_scale_uv(nombre, 1.0)
 
     # 5 µV son cinco alturas de canal: lejísimos en pantalla.
-    herramienta.on_mouse_press(10.0, 5.0, "left")
+    herramienta.on_mouse_press(10.0, 5.0, "left", "C3")
 
     assert len(herramienta.lines()) == 1, "la línea se borró desde muy lejos"
 
@@ -261,44 +285,87 @@ def test_con_la_amplitud_al_minimo_la_linea_se_sigue_pudiendo_borrar(
 ):
     """El error inverso: con la escala muy alta, 10 µV fijos son una milésima
     de la altura del canal y la línea se volvía imposible de señalar."""
-    arrastrar(herramienta, 0.0, 20.0, y=0.0)
+    arrastrar(herramienta, 0.0, 20.0, y=0.0, canal="C3")
     for nombre in sesion.visible_channels:
         sesion.set_scale_uv(nombre, 10_000.0)
 
     # 500 µV son un vigésimo de la altura del canal: pegado a la línea.
-    herramienta.on_mouse_press(10.0, 500.0, "left")
+    herramienta.on_mouse_press(10.0, 500.0, "left", "C3")
 
     assert herramienta.lines() == [], "la línea no se pudo borrar de tan cerca"
 
 
-def test_la_tolerancia_sigue_al_primer_canal_visible_y_no_a_los_demas():
+def test_la_tolerancia_sigue_al_canal_del_clic(sesion: Session):
     """**El canal de referencia no es una elección libre.**
 
-    La `y` que llega a los métodos de mouse la produce
-    `SignalView.microvolts_at_pixel()`, que sin canal explícito mide contra el
-    primero visible. Si la tolerancia mirara otro canal, los dos números
-    hablarían de escalas distintas y volvería el error de unidades del hito 9.
+    La `y` que llega a los métodos de mouse está medida contra el eje del canal
+    bajo el cursor. Si la tolerancia mirara otro, los dos números hablarían de
+    escalas distintas y volvería el error de unidades del hito 9.
+
+    **Decía «el primero visible», y era cierto hasta el hito 45**: hasta
+    entonces `SignalView.microvolts_at_pixel()` medía todo contra ése porque
+    nadie le pasaba un canal.
     """
-    registro = Recording(
-        file_path=Path("noche.edf"),
-        channels=[
-            Channel("C3", ChannelKind.EEG, "µV", 0),
-            Channel("C4", ChannelKind.EEG, "µV", 1),
-        ],
-        data=np.zeros((2, 3000)),
-        sampling_rate=100.0,
-    )
-    sesion = Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
     tool = OccupancyTool()
     tool.activate(sesion)
 
     sesion.set_scale_uv("C3", 200.0)
     sesion.set_scale_uv("C4", 4_000.0)
-    assert tool._tolerancia_uv() == pytest.approx(20.0)
 
-    # Y al reordenar los visibles, la referencia cambia con ellos.
-    sesion.set_visible_channels(["C4", "C3"])
-    assert tool._tolerancia_uv() == pytest.approx(400.0)
+    assert tool._tolerancia_uv("C3") == pytest.approx(20.0)
+    assert tool._tolerancia_uv("C4") == pytest.approx(400.0)
+
+
+def test_un_clic_en_otro_carril_no_borra_la_linea(sesion: Session):
+    """**El centro de todos los carriles vale 0 µV**, así que sin mirar el
+    canal un clic en el medio de cualquiera borraba una línea trazada en otro.
+
+    Estaba tapado hasta el hito 45: mientras la `y` se medía siempre contra el
+    primer canal, el centro de los demás no daba cero.
+    """
+    tool = OccupancyTool()
+    tool.activate(sesion)
+    arrastrar(tool, 0.0, 20.0, y=0.0, canal="C3")
+
+    tool.on_mouse_press(10.0, 0.0, "left", "C4")
+
+    assert len(tool.lines()) == 1, "el clic en otro carril borró la línea"
+
+
+def test_un_clic_en_el_mismo_carril_si_la_borra(sesion: Session):
+    """La otra mitad, que es la que le da sentido a la primera."""
+    tool = OccupancyTool()
+    tool.activate(sesion)
+    arrastrar(tool, 0.0, 20.0, y=0.0, canal="C3")
+
+    tool.on_mouse_press(10.0, 0.0, "left", "C3")
+
+    assert tool.lines() == []
+
+
+def test_la_linea_recuerda_sobre_que_canal_se_trazo(sesion: Session):
+    """Es lo que el visualizador necesita para dibujarla en su carril: sin el
+    nombre las dibujaba todas sobre el primero."""
+    tool = OccupancyTool()
+    tool.activate(sesion)
+
+    arrastrar(tool, 0.0, 20.0, y=0.0, canal="C4")
+
+    assert tool.lines()[0].channel_name == "C4"
+    assert tool.overlays()[0].channel_name == "C4"
+
+
+def test_cruzar_de_carril_no_le_cambia_el_dueno_a_la_linea(sesion: Session):
+    """El canal es el de donde arrancó el trazo: cambiarlo a mitad del
+    arrastre haría saltar la línea de carril mientras se dibuja."""
+    tool = OccupancyTool()
+    tool.activate(sesion)
+
+    tool.on_mouse_press(0.0, 0.0, "left", "C3")
+    tool.on_mouse_move(20.0, 0.0, "C4")
+    tool.on_mouse_release(20.0, 0.0, "left", "C4")
+
+    assert tool.lines()[0].channel_name == "C3"
 
 
 def test_sin_sesion_la_tolerancia_cae_en_la_escala_de_fabrica():
@@ -533,3 +600,85 @@ def test_las_lineas_de_otro_registro_no_pasan_al_nuevo(
     assert herramienta.lines() == []
     assert herramienta.total_percentage() == 0.0
 
+
+
+# -- Lo que la auditoría de los tests encontró sin verificar (hito 48) --------
+#
+# Cuatro mutaciones de `occupancy.py` sobrevivían a la suite **entera**: se
+# podía romper el código y nadie se enteraba. Las cuatro tienen la misma causa
+# —casos que ningún test recorría— y no una falta de tests en general: este
+# archivo ya tenía cuarenta y cuatro.
+
+
+def test_la_fraccion_se_mide_contra_la_pagina_y_no_contra_la_epoca(
+    herramienta_larga: OccupancyTool, sesion_larga: Session
+):
+    """**Mutaba `if self._session is None` a `is not None` y nadie lo veía.**
+
+    Con la fixture de una época, página y época miden lo mismo, así que la rama
+    correcta y la de respaldo dan idéntico resultado. Hace falta una página que
+    no empiece en cero y no dure una época para que se distingan.
+    """
+    sesion_larga.set_viewport(sesion_larga.viewport.with_start(60.0).with_span(30.0))
+
+    # El segundo 75 cae a la mitad de una página que va de 60 a 90.
+    assert herramienta_larga._a_fraccion(75.0) == pytest.approx(0.5)
+    # Y contra la época, que arranca en cero, daría 2,5: un número plausible.
+    assert herramienta_larga._a_fraccion(75.0) != pytest.approx(2.5)
+
+
+def test_los_segundos_vuelven_desde_la_pagina_y_no_desde_la_epoca(
+    herramienta_larga: OccupancyTool, sesion_larga: Session
+):
+    """La inversa del anterior, y el otro mutante de la misma pareja."""
+    sesion_larga.set_viewport(sesion_larga.viewport.with_start(60.0).with_span(30.0))
+
+    assert herramienta_larga._a_segundos(0.5) == pytest.approx(75.0)
+
+
+def test_una_linea_inclinada_se_borra_donde_esta_dibujada(
+    herramienta: OccupancyTool,
+):
+    """**Todas las líneas de los tests de borrado eran horizontales**, y ahí
+    interpolar y tomar el punto medio dan lo mismo: el mutante que cambiaba
+    `x2 == x1` por `!=` pasaba en verde.
+
+    Con una diagonal el punto medio y la altura real difieren, que es
+    justamente lo que el módulo documenta querer: con un rectángulo envolvente,
+    una diagonal larga se borraría haciendo clic muy lejos de donde está.
+    """
+    # De (0 s, −80 µV) a (30 s, +80 µV): en el segundo 7,5 la línea pasa por −40.
+    herramienta.add_line(OccupancyLine(0.0, -80.0, 1.0, 80.0))
+
+    # Un clic en el punto medio de la línea —0 µV— está a 40 µV de ella acá.
+    herramienta.on_mouse_press(7.5, 0.0, "left")
+    assert len(herramienta.lines()) == 1, "se borró desde el punto medio, no desde la línea"
+
+    herramienta.on_mouse_press(7.5, -40.0, "left")
+    assert herramienta.lines() == [], "no se borró donde la línea realmente pasa"
+
+
+def test_una_linea_vertical_no_rompe_al_buscar_debajo_del_clic(
+    herramienta: OccupancyTool,
+):
+    """El otro lado del mismo `if`: sin él, una vertical divide por cero.
+
+    Había una línea vertical en los tests, pero sólo en los del porcentaje:
+    nadie le hacía clic encima.
+    """
+    herramienta.add_line(OccupancyLine(0.5, 0.0, 0.5, 100.0))
+
+    herramienta.on_mouse_press(15.0, 50.0, "left")
+
+    assert herramienta.lines() == []
+
+
+def test_la_tolerancia_sin_sesion_no_rompe_aunque_le_den_un_canal():
+    """**Este hueco lo dejó el hito 46**, que escribió la guarda y probó sólo
+    la mitad: con `and` cambiado por `or`, pedir la tolerancia de un canal sin
+    sesión busca `visible_channels` en `None`."""
+    suelta = OccupancyTool()
+
+    assert suelta._tolerancia_uv("C3") == pytest.approx(
+        TOLERANCIA_DE_CLIC_EN_ESCALAS * DEFAULT_SCALE_UV
+    )

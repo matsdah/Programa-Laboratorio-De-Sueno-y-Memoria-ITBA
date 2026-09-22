@@ -188,6 +188,34 @@ def test_un_tramo_a_la_izquierda_lleva_la_pagina_a_su_comienzo():
     assert movida.start_seconds == pytest.approx(100.0)
 
 
+def test_un_tramo_que_empieza_adentro_y_termina_afuera_trae_la_pagina():
+    """**El caso que faltaba**, y lo encontró la auditoría de los tests: los
+    cinco tests de `containing()` usaban tramos totalmente adentro o totalmente
+    afuera, nunca uno a medias.
+
+    Es el caso normal cuando la página es apenas más larga que la época. Con
+    `and` cambiado por `or` en la guarda, la página no se movería y la época
+    quedaría cortada al medio; la suite entera lo atrapa por otro lado, pero
+    ningún test de este método lo hacía.
+    """
+    pagina = Viewport.clamped(0.0, 40.0, NOCHE)
+
+    movida = pagina.containing(20.0, 50.0)
+
+    assert movida is not pagina, "la página no siguió a la época"
+    assert movida.end_seconds == pytest.approx(50.0)
+    assert movida.span_seconds == pytest.approx(pagina.span_seconds)
+
+
+def test_un_tramo_que_termina_adentro_y_empieza_afuera_tambien():
+    """La simétrica, por el borde izquierdo."""
+    pagina = Viewport.clamped(100.0, 40.0, NOCHE)
+
+    movida = pagina.containing(90.0, 120.0)
+
+    assert movida.start_seconds == pytest.approx(90.0)
+
+
 def test_un_tramo_mas_largo_que_la_pagina_se_alinea_por_el_comienzo():
     """Mostrar la primera mitad de la época que se va a scorear es más útil que
     mostrar el final de la anterior."""
@@ -242,3 +270,38 @@ def test_a_un_microsegundo_del_final_no_se_considera_final():
     casi = Viewport(NOCHE - 30.0 - 0.001, 30.0, NOCHE)
 
     assert not casi.at_end
+
+
+# -- `Viewport.replaced()` (hito 48) ---------------------------------------------
+#
+# **Su docstring dice que existe «para los tests», y ningún test la
+# usaba.** Tenía sólo una fila en `test_contratos.py`, que la ejercita con
+# valores hostiles y no verifica que haga lo correcto con los buenos. Lo encontró la auditoría de los tests, y
+# desde entonces lo exige `test_consistencia.py`.
+
+
+def test_reemplazar_un_campo_da_otra_pagina_con_ese_campo(pagina: Viewport):
+    otra = pagina.replaced(start_seconds=120.0)
+
+    assert otra.start_seconds == 120.0
+    assert otra.span_seconds == pagina.span_seconds
+
+
+def test_reemplazar_no_toca_la_original(pagina: Viewport):
+    """Es inmutable: todo lo que la «cambia» devuelve otra."""
+    antes = pagina.start_seconds
+
+    pagina.replaced(start_seconds=120.0)
+
+    assert pagina.start_seconds == antes
+
+
+def test_reemplazar_no_recorta_a_proposito():
+    """**Es la diferencia con `clamped()`**, y la razón de que exista: construir
+    una página exacta, aunque se salga del registro, para poder probar qué hace
+    el resto del programa con ella."""
+    pagina = Viewport.clamped(0.0, 30.0, NOCHE)
+
+    afuera = pagina.replaced(start_seconds=NOCHE + 100.0)
+
+    assert afuera.start_seconds == NOCHE + 100.0

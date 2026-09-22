@@ -26,10 +26,24 @@ from psglab.utils.errors import InvalidScaleError
 
 @pytest.fixture
 def sesion() -> Session:
+    """Una época de tres canales.
+
+    **Tres y no uno desde el hito 48.** La lupa amplía el canal de abajo del
+    cursor desde el hito 45, y con un solo canal ese comportamiento no se
+    puede distinguir de ampliar siempre el primero, que es exactamente el bug
+    que el usuario reportó. La fixture de un canal lo volvía inalcanzable por
+    construcción: el arreglo quedó verificado en `test_entrega.py` y en
+    `test_signal_view.py`, y este archivo —que es el de la herramienta— seguía
+    sin poder verlo.
+    """
     registro = Recording(
         file_path=Path("noche.edf"),
-        channels=[Channel("C3", ChannelKind.EEG, "µV", 0)],
-        data=np.zeros((1, 3000)),
+        channels=[
+            Channel("C3", ChannelKind.EEG, "µV", 0),
+            Channel("EOG-izq", ChannelKind.EOG, "µV", 1),
+            Channel("EMG-menton", ChannelKind.EMG, "µV", 2),
+        ],
+        data=np.zeros((3, 3000)),
         sampling_rate=100.0,
     )
     return Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
@@ -206,3 +220,33 @@ def test_otro_registro_arranca_la_cuenta_de_cero(lupa: MagnifierTool):
     )
     lupa.activate(otro)
     assert lupa.click_count == 0
+
+
+# -- El canal de abajo del cursor (hito 45, verificado acá en el 48) ----------
+
+
+def test_la_lupa_recuerda_sobre_que_canal_esta_el_cursor(lupa: MagnifierTool):
+    """Es lo que el visualizador necesita para ampliar el carril correcto: sin
+    el nombre ampliaba siempre el primero, que es lo que se reportó."""
+    lupa.on_mouse_move(12.0, 30.0, "EMG-menton")
+
+    assert lupa.overlays()[0].channel_name == "EMG-menton"
+
+
+def test_sin_canal_el_circulo_no_inventa_ninguno(lupa: MagnifierTool):
+    """`None` significa «que el visualizador use el primero visible», y es
+    distinto de nombrar uno: un nombre inventado acá se dibujaría en un carril
+    que el usuario no está señalando."""
+    lupa.on_mouse_move(12.0, 30.0)
+
+    assert lupa.overlays()[0].channel_name is None
+
+
+def test_apagarla_olvida_el_canal(lupa: MagnifierTool, sesion: Session):
+    """Igual que la posición: volver a encenderla sobre otro registro no puede
+    arrastrar el carril del anterior."""
+    lupa.on_mouse_move(12.0, 30.0, "EOG-izq")
+    lupa.deactivate()
+    lupa.activate(sesion)
+
+    assert lupa.overlays() == ()

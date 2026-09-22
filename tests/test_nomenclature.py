@@ -11,6 +11,7 @@ from psglab.core.nomenclature import (
     STAGE_CODES,
     Nomenclature,
     SleepStage,
+    check_nomenclature,
     convert,
     is_valid,
     stage_code,
@@ -18,7 +19,7 @@ from psglab.core.nomenclature import (
     stage_label,
     stages_of,
 )
-from psglab.utils.errors import InvalidStageError
+from psglab.utils.errors import InvalidNomenclatureError, InvalidStageError
 
 def test_rk_incluye_rem():
     """Rechtschaffen y Kales sin REM no sería una nomenclatura válida."""
@@ -251,3 +252,25 @@ def test_el_mensaje_del_rechazo_dice_que_codigos_valen():
         stage_from_code(6, Nomenclature.AASM)
     assert "AASM" in str(excepcion.value)
     assert "-1" in str(excepcion.value.details)
+
+
+# -- `check_nomenclature()` (hito 48) --------------------------------------------
+#
+# **Era privada hasta este hito**, y pasó a pública porque dejó de tener un
+# solo dueño: `Scoring.change_nomenclature()` la necesita para no guardar
+# una nomenclatura inventada. Lo encontró la auditoría de los tests, y
+# desde entonces lo exige `test_consistencia.py`.
+
+
+@pytest.mark.parametrize("nomenclatura", list(Nomenclature))
+def test_las_dos_nomenclaturas_pasan(nomenclatura: Nomenclature):
+    check_nomenclature(nomenclatura)
+
+
+@pytest.mark.parametrize("valor", ["AASM", "R&K", None, 2])
+def test_su_nombre_escrito_no_alcanza(valor):
+    """**El texto `"AASM"` no es la nomenclatura AASM.** Es lo que llega de un
+    archivo o de un combo mal cableado, y aceptarlo es exactamente lo que dejó
+    a `Scoring` con una cadena donde va un enum."""
+    with pytest.raises(InvalidNomenclatureError):
+        check_nomenclature(valor)

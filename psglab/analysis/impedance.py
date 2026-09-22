@@ -334,8 +334,12 @@ def impedance_report(
         # **El estado que un informe descuidado pierde.** Decir "0 kΩ" o no
         # mencionarlos los haría pasar por buenos, que es exactamente el
         # electrodo suelto que este módulo existe para encontrar.
+        # **El informe es texto pelado**, no Markdown: lo lee el investigador en
+        # el panel y en el archivo exportado, así que unos asteriscos alrededor
+        # de la frase más importante se leían tal cual, como basura. El énfasis
+        # lo tiene que cargar la redacción.
         lineas.append(
-            "De esos canales no hay dato. **No quiere decir que estén bien**: "
+            "De esos canales no hay dato. No quiere decir que estén bien: "
             "quiere decir que nadie los midió."
         )
         lineas.append("")

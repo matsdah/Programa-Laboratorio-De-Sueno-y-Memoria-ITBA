@@ -400,7 +400,15 @@ class MainWindow(QMainWindow):
         `_build_tools_menu()`.
         """
         build_menus(self)
-        self._acciones_largas = (self.accion_conectividad_de_la_noche,)
+        # **Lo que no se puede pedir con un cálculo en curso.** Los dos menús
+        # enteros porque las cuatro operaciones que llevan adentro sustituyen
+        # el registro —o, en el caso de la ICA, arrancan otro cálculo—, y la
+        # acción de conectividad porque es la otra que corre en otro hilo.
+        self._acciones_largas = (
+            self.accion_conectividad_de_la_noche,
+            self.menu_montaje.menuAction(),
+            self.menu_filtrar.menuAction(),
+        )
         self._poner_pistas()
 
     def _poner_pistas(self) -> None:
@@ -2753,20 +2761,43 @@ class MainWindow(QMainWindow):
         **No aplica nada.** Ajustar e inspeccionar son dos pasos separados de
         aplicar, justamente porque quitar el componente equivocado modifica la
         señal de forma irreversible. El panel muestra las topografías y espera.
+
+        **Corre en otro hilo desde el hito 47**, que es lo que quedaba del
+        [hito 33](../../docs/TODO.md#hito-33-la-auditoría-del-19-de-septiembre).
+        Es con diferencia lo más caro del programa —la auditoría midió 9 s sobre
+        un registro real, y sobre ruido blanco, que es el peor caso para que
+        FastICA converja, se midieron 345 s—, y **no cambia la señal**: por eso
+        es el mismo trabajo que la conectividad de la noche y no necesitó
+        ninguna decisión nueva. Las dos que sí la cambian —aplicar la ICA y
+        filtrar— resultaron costar décimas de segundo; ver el hito 47.
         """
         if self._session is None:
             return
-        try:
-            with self._trabajando("Descomponiendo la señal en componentes"):
-                self._ica = fit_ica(self._session.recording)
-                topografias = [
-                    component_topography(self._ica, numero)
-                    for numero in range(int(self._ica.n_components_))
-                ]
-        except PsgLabError as error:
-            self._show_error(error)
-            return
+        # **Lo único que se lee de la sesión se lee acá**, en el hilo de la
+        # interfaz: el otro recibe el registro ya resuelto y no vuelve a
+        # preguntarle nada a `Session`.
+        registro = self._session.recording
 
+        def descomponer() -> object:
+            descomposicion = fit_ica(registro)
+            # **Las topografías se calculan adentro del hilo.** Son parte del
+            # costo y tampoco tocan widgets; dejarlas afuera devolvería el
+            # trabajo a medio hacer al hilo que se quiso liberar.
+            return descomposicion, [
+                component_topography(descomposicion, numero)
+                for numero in range(int(descomposicion.n_components_))
+            ]
+
+        self._en_segundo_plano(
+            "Descomponiendo la señal en componentes",
+            descomponer,
+            self._mostrar_la_ica,
+        )
+
+    def _mostrar_la_ica(self, resultado: object) -> None:
+        """Guarda la descomposición y abre el panel. **Acá sí se tocan widgets.**"""
+        descomposicion, topografias = resultado
+        self._ica = descomposicion
         self.ica_panel.set_components(topografias)
         self.ica_dialog.show()
         self.ica_dialog.raise_()

@@ -150,7 +150,7 @@ alcanza; con tres, la documentación se desincroniza más rápido de lo que algu
 la mira. No es una hipótesis: dos auditorías seguidas encontraron divergencias
 introducidas pocos días antes.
 
-Dos de sus tests merecen mención:
+Los tests que merecen mención:
 
 - **`test_ningun_modulo_terminado_tiene_su_test_salteado`** cierra el agujero más
   silencioso del repositorio. Si alguien implementa un módulo y se olvida de
@@ -168,6 +168,15 @@ Dos de sus tests merecen mención:
   `psglab/ui/`, no que se importe: un `from x import y` sin llamada no cuenta, y
   ésa era justamente la forma del camino muerto. Lo que la interfaz no ofrece a
   propósito va en `SOLO_BIBLIOTECA` **con su motivo**.
+- **`test_cada_funcion_de_negocio_la_llama_algun_test`**, del hito 48, cierra
+  el hueco que encontró la primera auditoría de los tests: `COBERTURA_DE_TESTS`
+  dice qué archivo cubre qué módulo, y eso no dice nada por función. Declaraba
+  que `test_units.py` cubría `units.py` mientras `is_electrical()` —que decide
+  qué canales se escalan a microvoltios— no aparecía en él, y cinco de las
+  conversiones de `core/windows.py` no las nombraba ningún test. Exige que cada
+  función pública de las capas de negocio la **llame** un test de
+  comportamiento: no cuentan `test_contratos.py`, que sólo prueba valores
+  hostiles, ni este archivo, que lee el código sin correrlo.
 
 Los otros dos del hito 20 verifican prosa con números adentro, que es lo que el
 resto del archivo no podía mirar: que la cuenta de hitos que declaran cuatro

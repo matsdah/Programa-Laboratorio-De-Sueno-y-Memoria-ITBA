@@ -45,6 +45,7 @@ import numpy as np
 import pytest
 
 from psglab.core import nomenclature as nom
+from psglab.core.annotations import es_color_de_clase
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
@@ -137,6 +138,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("change_nomenclature", lambda v: Scoring(3, Nomenclature.AASM).change_nomenclature(v)),
     ],
     "psglab/core/nomenclature.py": [
+        ("check_nomenclature", lambda v: nom.check_nomenclature(v)),
         ("stages_of", lambda v: nom.stages_of(v)),
         ("is_valid(stage=...)", lambda v: nom.is_valid(v, Nomenclature.AASM)),
         ("is_valid(nomenclature=...)", lambda v: nom.is_valid(SleepStage.N2, v)),
@@ -151,6 +153,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("add(onset=...)", lambda v: AnnotationSet().add(Annotation("Arousal", v, 10))),
         ("add(duration=...)", lambda v: AnnotationSet().add(Annotation("Arousal", 0, v))),
         ("color_of", lambda v: AnnotationSet().color_of(v)),
+        ("es_color_de_clase", lambda v: es_color_de_clase(v)),
         ("remove_at", lambda v: AnnotationSet().remove_at(v)),
         ("add(annotation=...)", lambda v: AnnotationSet().add(v)),
         ("add(label=...)", lambda v: AnnotationSet().add(Annotation(v, 0, 10))),
@@ -329,6 +332,26 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Hito 48. **Aceptaban los seis valores hostiles**, y la auditoría de los
+    # tests las encontró por eso: sus filas en CONTRATOS eran indistinguibles de
+    # un test vacío. La del color además llegaba hasta un bug: el visualizador
+    # le concatena la transparencia al texto, y `red` más `55` no es un color.
+    ("set_active_tool con algo que no es un nombre", 3.5,
+     lambda v: sesion().set_active_tool(v)),
+    ("set_active_tool con un nombre en blanco", "   ",
+     lambda v: sesion().set_active_tool(v)),
+    ("add_label con un color que no es #rrggbb", "red",
+     lambda v: AnnotationSet().add_label("Huso", v)),
+    ("add_label con un color de ocho dígitos", "#e6754aff",
+     lambda v: AnnotationSet().add_label("Huso", v)),
+    # Hito 48. **La fila de CONTRATOS no alcanzaba**, y la auditoría de los
+    # tests mostró por qué: construye un `Scoring` recién creado, y la
+    # validación vivía dentro de la comprensión que traduce las fases ya
+    # scoreadas. Sin ninguna scoreada el bucle no itera, así que la fila pasaba
+    # en verde mientras el objeto se quedaba con una cadena donde va un enum y
+    # el siguiente `export_scoring()` moría con un `AttributeError` crudo.
+    ("change_nomenclature con algo que no es una nomenclatura", "basura",
+     lambda v: Scoring(3, Nomenclature.AASM).change_nomenclature(v)),
     # Hito 27. `clamp` documenta que no valida: un NaN que pasara de la guarda
     # llegaría a la página como centro, y la reproducción dibujaría la nada
     # veinticinco veces por segundo.

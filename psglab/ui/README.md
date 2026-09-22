@@ -155,6 +155,30 @@ Y una que no: **un error inesperado se vuelve a elevar** en el hilo de la
 interfaz en vez de salir como cartel. Un `AttributeError` es un bug, no un
 mensaje para el investigador, y atraparlo en el hilo lo haría desaparecer.
 
+## Lo que corre en otro hilo
+
+**Dos operaciones lo hacen**: la conectividad de la noche desde el hito 42 y el
+ajuste de la ICA desde el 47. Las dos pasan por `_en_segundo_plano()`, que pone
+la barra indeterminada, apaga lo que no se puede pedir y devuelve el resultado
+al hilo de la interfaz.
+
+**La regla es qué lee de la sesión y cuándo.** Lo que el cálculo necesite de
+`Session` se resuelve **antes** de arrancar el hilo: el otro recibe el registro
+y los nombres ya resueltos y no vuelve a preguntar nada. Tocar un widget o
+`Session` desde el otro hilo es un cuelgue o una corrupción, no un error que se
+vea.
+
+**Con un cálculo en curso se apagan «Montaje» y «Filtrar» enteros**, más la
+conectividad de la noche. Las cuatro operaciones de esos dos menús sustituyen
+el registro, y hacerlo debajo de una ICA que se está ajustando dejaría una
+descomposición de una señal que ya no está —y eso no falla solo: MNE acepta el
+pedido y devuelve una señal reconstruida con una matriz ajena—.
+
+**Navegar, scorear y anotar siguen habilitados**, y es el punto: si hubiera que
+esperar igual para seguir trabajando, sacarlo del hilo no habría servido de
+nada. La época, el scoring y las anotaciones viven en `Session` y no dependen de
+los valores de las muestras.
+
 ## `panel_header.py`
 
 Los seis paneles de análisis tienen el mismo problema y lo resolvían cada uno
@@ -240,6 +264,8 @@ Inclinada quiere decir «esto no lo midió ni lo eligió nadie»: el «sin medir
 de la tabla de impedancias y el «sin scorear» del pie del panel de scoring.
 Hasta acá esa diferencia la cargaba el gris, que ya quiere decir otra cosa
 —«esto es secundario»—, y un valor ausente es lo contrario de secundario.
+Desde el hito 46 la itálica es un corte de verdad y no una inclinación que Qt
+sintetiza deformando la regular.
 
 ## `navigation.py`
 
@@ -281,8 +307,8 @@ que medía todo contra el primero visible: sobre tres canales, el centro del
 tercer carril llegaba a las herramientas como −444 µV en vez de 0. Lo resuelve
 `SignalView.channel_at_pixel()`, y el canal viaja hasta la herramienta en el
 último argumento de sus tres métodos de mouse. **Un overlay que dependa de la
-escala tiene que llevar su canal**: lo llevan `BandOverlay` desde el hito 7 y
-`CircleOverlay` desde el 45.
+escala tiene que llevar su canal**: lo llevan `BandOverlay` desde el hito 7,
+`CircleOverlay` desde el 45 y `SegmentOverlay` desde el 46.
 
 **Sobre un `QGraphicsItemGroup` se usa `addToGroup()` y no `setParentItem()`.**
 Lo segundo deja el ítem sin dueño y el recolector de Python se lo lleva al

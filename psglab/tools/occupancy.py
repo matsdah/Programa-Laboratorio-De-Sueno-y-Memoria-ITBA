@@ -70,12 +70,20 @@ class OccupancyLine:
     la ventana del programa.
 
     **`y` se guarda en microvoltios**, tal como lo entrega el mouse, y los dos
-    ejes no usan la misma unidad a propósito. Pasar `y` a fracción del alto
-    exigiría saber con qué escala está dibujado el canal —`Session.scale_uv()`
-    es por canal— y `SegmentOverlay` no lleva ninguno. Como **`y` no entra en la
-    medición**, que es una proyección sobre el eje horizontal, convertirlo sería
-    pagar una imprecisión a cambio de nada: sólo sirve para volver a dibujar la
-    línea donde el usuario la trazó.
+    ejes no usan la misma unidad a propósito. Como **`y` no entra en la
+    medición**, que es una proyección sobre el eje horizontal, pasarla a
+    fracción del alto sería pagar una imprecisión a cambio de nada: sólo sirve
+    para volver a dibujar la línea donde el usuario la trazó.
+
+    **Y por eso la línea guarda su canal.** Esos microvoltios están medidos
+    contra el eje de uno, y cada canal tiene su ganancia: sin el nombre, la
+    misma altura vale distinto en dos carriles. Hasta el hito 46 no lo
+    guardaba, y se notaba de dos formas —el visualizador dibujaba todas las
+    líneas sobre el primer carril, y un clic en el centro de cualquier carril
+    borraba una línea trazada en otro, porque el centro de todos vale 0 µV—.
+    La segunda apareció recién cuando el hito 45 hizo que la `y` se midiera
+    bien; antes estaba tapada por el error de medirla siempre contra el
+    primero.
 
     **Ojo con la unidad.** Los métodos de mouse de `ViewerTool` reciben `x` en
     **segundos** (0 a 30), que no es lo que esta clase guarda. La conversión la
@@ -93,6 +101,7 @@ class OccupancyLine:
     y1: float
     x2: float
     y2: float
+    channel_name: str | None = None
 
     @property
     def horizontal_fraction(self) -> float:
@@ -176,7 +185,7 @@ class OccupancyTool(ViewerTool):
         """
         if not self._activa:
             return
-        debajo = self._linea_debajo(x, y)
+        debajo = self._linea_debajo(x, y, channel_name)
         if debajo is not None:
             self._lineas.remove(debajo)
             self._en_curso = None
@@ -184,7 +193,7 @@ class OccupancyTool(ViewerTool):
             return
 
         fraccion = self._a_fraccion(x)
-        self._en_curso = OccupancyLine(fraccion, y, fraccion, y)
+        self._en_curso = OccupancyLine(fraccion, y, fraccion, y, channel_name)
         self.notify_changed()
 
     def on_mouse_move(
@@ -198,11 +207,16 @@ class OccupancyTool(ViewerTool):
         """
         if self._en_curso is None:
             return
+        # **El canal es el de donde arrancó el trazo**, no el de donde está el
+        # mouse ahora: una línea que cruza al carril de al lado sigue siendo del
+        # canal sobre el que el usuario empezó a medir, y cambiarla de dueño a
+        # mitad del arrastre la haría saltar de carril mientras se dibuja.
         self._en_curso = OccupancyLine(
             self._en_curso.x1,
             self._en_curso.y1,
             self._a_fraccion(x),
             y,
+            self._en_curso.channel_name,
         )
         self.notify_changed()
 
@@ -422,11 +436,14 @@ class OccupancyTool(ViewerTool):
                 y1_uv=linea.y1,
                 x2_seconds=self._a_segundos(linea.x2),
                 y2_uv=linea.y2,
+                channel_name=linea.channel_name,
             )
             for linea in dibujables
         )
 
-    def _linea_debajo(self, x_seconds: float, y_uv: float) -> OccupancyLine | None:
+    def _linea_debajo(
+        self, x_seconds: float, y_uv: float, channel_name: str | None = None
+    ) -> OccupancyLine | None:
         """La línea que está debajo del clic, si hay alguna (V5_F).
 
         Se compara la altura del clic contra la de la línea **en esa misma
@@ -434,14 +451,22 @@ class OccupancyTool(ViewerTool):
         diagonal larga se borraría haciendo clic muy lejos de donde está
         dibujada.
 
+        **Sólo se miran las líneas del carril donde se hizo clic** (hito 46).
+        Las alturas de dos canales distintos no son comparables —cada uno tiene
+        su ganancia— y el centro de todos los carriles vale 0 µV, así que sin
+        este filtro un clic en el medio de cualquier carril borraba una línea
+        trazada en otro.
+
         La tolerancia es una afinación de interfaz y no una regla del pliego, y
         **escala con la amplitud**: ver `TOLERANCIA_DE_CLIC_EN_ESCALAS` y
         `_tolerancia_uv()`.
         """
-        tolerancia = self._tolerancia_uv()
+        tolerancia = self._tolerancia_uv(channel_name)
         fraccion = self._a_fraccion(x_seconds)
         candidatas = []
         for linea in self._lineas:
+            if linea.channel_name != channel_name:
+                continue
             izquierda, derecha = sorted((linea.x1, linea.x2))
             if not izquierda <= fraccion <= derecha:
                 continue
@@ -457,22 +482,27 @@ class OccupancyTool(ViewerTool):
         distancia, linea = min(candidatas, key=lambda par: par[0])
         return linea if distancia <= tolerancia else None
 
-    def _tolerancia_uv(self) -> float:
+    def _tolerancia_uv(self, channel_name: str | None = None) -> float:
         """La tolerancia del clic en microvoltios, para la amplitud de ahora.
 
-        **El canal de referencia es el primero visible**, y no es una elección
-        libre: la `y` que llega a los métodos de mouse la produce
-        `SignalView.microvolts_at_pixel()`, que sin canal explícito mide contra
-        ese mismo. Elegir otro acá haría que la tolerancia y la coordenada
-        hablaran de escalas distintas, que es la clase de error que el hito 9
-        pagó caro.
+        **Se mide con la escala del canal donde se hizo clic**, que es contra
+        el que está medida la `y` que llega a los métodos de mouse. La
+        tolerancia y la coordenada tienen que hablar de la misma escala, o se
+        repite la clase de error que el hito 9 pagó caro.
 
-        Sin sesión o sin canales visibles cae a `DEFAULT_SCALE_UV`, que es la
-        escala con la que arranca cualquier canal: no hay contra qué medir y
-        devolver cero volvería imposible borrar una línea.
+        Decía «el primero visible», y era cierto hasta el hito 45: hasta
+        entonces `SignalView.microvolts_at_pixel()` medía todo contra ése
+        porque nadie le pasaba un canal. Hoy le pasan el de abajo del cursor,
+        así que este método tenía que seguirlo.
+
+        Sin canal, sin sesión o con un canal que ya no está cae a
+        `DEFAULT_SCALE_UV`, que es la escala con la que arranca cualquiera: no
+        hay contra qué medir y devolver cero volvería imposible borrar una
+        línea.
         """
-        if self._session is not None:
-            visibles = self._session.visible_channels
-            if visibles:
-                return TOLERANCIA_DE_CLIC_EN_ESCALAS * self._session.scale_uv(visibles[0])
+        if self._session is not None and channel_name is not None:
+            if channel_name in self._session.visible_channels:
+                return TOLERANCIA_DE_CLIC_EN_ESCALAS * self._session.scale_uv(
+                    channel_name
+                )
         return TOLERANCIA_DE_CLIC_EN_ESCALAS * DEFAULT_SCALE_UV

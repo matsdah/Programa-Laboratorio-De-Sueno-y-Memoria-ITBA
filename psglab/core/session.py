@@ -38,12 +38,13 @@ from psglab.core.windows import (
     window_to_samples,
 )
 from psglab.utils.errors import (
-    PsgLabError,
-    InvalidViewportError,
     InvalidAnnotationError,
     InvalidRecordingError,
     InvalidScaleError,
+    InvalidViewportError,
+    PsgLabError,
     ScoringMismatchError,
+    UnknownToolError,
     WindowOutOfRangeError,
 )
 from psglab.utils.validation import check_finite, check_index, clamp
@@ -1062,5 +1063,24 @@ class Session:
         —`core.session` → `tools.registry` → `tools.base` → `core.session`—.
         Para `Session` el nombre es un texto opaco, y quien comprueba que exista
         es la ventana principal, que ya conoce el registro.
+
+        **Lo que sí valida es que sea texto** (hito 48). Hasta entonces guardaba
+        cualquier cosa, y su fila en `test_contratos.py` aceptaba los seis
+        valores hostiles: era indistinguible de un test vacío. `None` sigue
+        siendo válido y quiere decir «ninguna».
+
+        Raises:
+            UnknownToolError: si el nombre no es `None` ni un texto con algo
+                escrito.
         """
+        if tool_name is not None and (
+            not isinstance(tool_name, str) or not tool_name.strip()
+        ):
+            raise UnknownToolError(
+                "No se reconoce la herramienta que se pidió activar.",
+                details=(
+                    f"tool_name = {tool_name!r}; se esperaba None o el nombre de "
+                    "una herramienta registrada."
+                ),
+            )
         self._active_tool = tool_name

@@ -188,8 +188,13 @@ Todas compatibles con MIT.
 
 ### Las tipografías que el programa trae
 
-Desde el hito 26 el programa distribuye tres archivos de **IBM Plex** —Sans
-regular y seminegrita, Mono regular— en `psglab/resources/fonts/`. Van bajo la
+Desde el hito 26 el programa distribuye archivos de **IBM Plex** en
+`psglab/resources/fonts/`: Sans regular y seminegrita y Mono regular desde
+entonces, y **Sans itálica desde el hito 46**. La cuarta entró porque el rol
+`ausente` de la escala tipográfica pide inclinada —es como se escribe «sin
+medir» y «sin scorear»— y, sin el corte de verdad, Qt sintetizaba la
+inclinación deformando la regular: se distinguía de la recta, pero se leía
+peor. Es la misma versión 3.005 y la misma fundición que la regular. Van bajo la
 **SIL Open Font License 1.1**, que permite empaquetarlas con un programa de
 cualquier licencia, el MIT de éste incluido, con dos condiciones: que la
 licencia viaje con los archivos —está en `OFL.txt`, al lado— y que una versión

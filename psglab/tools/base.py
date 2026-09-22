@@ -74,12 +74,23 @@ class BandOverlay(Overlay):
 
 @dataclass(frozen=True)
 class SegmentOverlay(Overlay):
-    """Segmento recto entre dos puntos. Lo usa el medidor de ocupación."""
+    """Segmento recto entre dos puntos. Lo usa el medidor de ocupación.
+
+    **Lleva el canal por lo mismo que `BandOverlay` y `CircleOverlay`**: las dos
+    `y` están en microvoltios medidos contra el eje de un canal, y cada uno
+    tiene su ganancia. Sin saber cuál es, el visualizador dibujaba todas las
+    líneas sobre el primer carril, donde el usuario no las había trazado.
+
+    Attributes:
+        channel_name: el canal sobre cuyo carril va la línea, o None para que
+            el visualizador use el primero visible.
+    """
 
     x1_seconds: float
     y1_uv: float
     x2_seconds: float
     y2_uv: float
+    channel_name: str | None = None
 
 
 @dataclass(frozen=True)

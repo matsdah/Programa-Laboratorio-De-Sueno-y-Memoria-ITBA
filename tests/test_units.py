@@ -19,6 +19,7 @@ from psglab.utils.units import (
     TO_MICROVOLTS,
     conversion_factor,
     format_amplitude,
+    is_electrical,
     normalize_unit_name,
     to_microvolts,
 )
@@ -241,3 +242,42 @@ def test_el_simbolo_que_ve_el_usuario_es_el_signo_micro():
     """
     assert MICROVOLT == "µV"
     assert format_amplitude(1.0) == "1 µV"
+
+
+# -- `is_electrical()` (hito 48) ------------------------------------------------
+#
+# **Ningún test de comportamiento la llamaba.** Tenía una fila en
+# `test_contratos.py`, que la ejercita sólo con valores hostiles y no verifica
+# que haga lo correcto con los buenos. Lo encontró la auditoría de los tests, y
+# desde entonces lo exige `test_consistencia.py`.
+
+
+@pytest.mark.parametrize("unidad", ["V", "mV", "µV", "uV", "microvolts", " uV "])
+def test_una_unidad_electrica_se_reconoce(unidad: str):
+    """**Es la función que decide si un canal se escala a microvoltios.** La
+    usan ocho lugares, entre ellos los dos lectores: si dijera que no a un
+    canal de EEG, su señal quedaría sin convertir y se vería un millón de veces
+    más chica o más grande según la unidad del archivo."""
+    assert is_electrical(unidad) is True
+
+
+@pytest.mark.parametrize("unidad", ["°C", "%", "bpm", "degC", "", "cualquiera"])
+def test_una_unidad_que_no_es_electrica_no_se_reconoce(unidad: str):
+    """La temperatura, la saturación y el pulso conservan su escala: escalarlos
+    como si fueran volts los multiplicaría por un millón."""
+    assert is_electrical(unidad) is False
+
+
+@pytest.mark.parametrize("unidad", [None, 3.5, []])
+def test_lo_que_no_es_texto_no_es_electrico_y_no_eleva(unidad):
+    """El `None` de una cabecera que no trae el campo es un caso a responder,
+    no un error: si elevara, cada lector tendría que envolverla en un
+    `try/except` para clasificar sus canales."""
+    assert is_electrical(unidad) is False
+
+
+def test_reconoce_exactamente_lo_que_sabe_convertir():
+    """Las dos preguntas tienen que coincidir: una unidad eléctrica que no se
+    supiera convertir fallaría recién al leer el archivo."""
+    for unidad in TO_MICROVOLTS:
+        assert is_electrical(unidad), unidad
