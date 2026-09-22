@@ -127,11 +127,21 @@ def herramienta(sesion: Session) -> OccupancyTool:
     return tool
 
 
-def arrastrar(tool: OccupancyTool, desde_s: float, hasta_s: float, y: float = 0.0) -> None:
-    """Un gesto completo: apretar, mover y soltar, en segundos."""
-    tool.on_mouse_press(desde_s, y, "left")
-    tool.on_mouse_move(hasta_s, y)
-    tool.on_mouse_release(hasta_s, y, "left")
+def arrastrar(
+    tool: OccupancyTool,
+    desde_s: float,
+    hasta_s: float,
+    y: float = 0.0,
+    canal: str | None = None,
+) -> None:
+    """Un gesto completo: apretar, mover y soltar, en segundos.
+
+    **Con `canal`, la línea queda en ese carril** (hito 46). Sin él queda sin
+    canal, que es lo que pasa cuando no hay ninguno visible.
+    """
+    tool.on_mouse_press(desde_s, y, "left", canal)
+    tool.on_mouse_move(hasta_s, y, canal)
+    tool.on_mouse_release(hasta_s, y, "left", canal)
 
 
 def test_arrastrar_media_ventana_ocupa_cincuenta_por_ciento(herramienta: OccupancyTool):
@@ -246,12 +256,12 @@ def test_con_la_amplitud_al_maximo_un_clic_lejano_ya_no_borra(
     altura del canal, así que cualquier clic dentro del rango horizontal de la
     línea la borraba en vez de empezar otra.
     """
-    arrastrar(herramienta, 0.0, 20.0, y=0.0)
+    arrastrar(herramienta, 0.0, 20.0, y=0.0, canal="C3")
     for nombre in sesion.visible_channels:
         sesion.set_scale_uv(nombre, 1.0)
 
     # 5 µV son cinco alturas de canal: lejísimos en pantalla.
-    herramienta.on_mouse_press(10.0, 5.0, "left")
+    herramienta.on_mouse_press(10.0, 5.0, "left", "C3")
 
     assert len(herramienta.lines()) == 1, "la línea se borró desde muy lejos"
 
@@ -261,24 +271,18 @@ def test_con_la_amplitud_al_minimo_la_linea_se_sigue_pudiendo_borrar(
 ):
     """El error inverso: con la escala muy alta, 10 µV fijos son una milésima
     de la altura del canal y la línea se volvía imposible de señalar."""
-    arrastrar(herramienta, 0.0, 20.0, y=0.0)
+    arrastrar(herramienta, 0.0, 20.0, y=0.0, canal="C3")
     for nombre in sesion.visible_channels:
         sesion.set_scale_uv(nombre, 10_000.0)
 
     # 500 µV son un vigésimo de la altura del canal: pegado a la línea.
-    herramienta.on_mouse_press(10.0, 500.0, "left")
+    herramienta.on_mouse_press(10.0, 500.0, "left", "C3")
 
     assert herramienta.lines() == [], "la línea no se pudo borrar de tan cerca"
 
 
-def test_la_tolerancia_sigue_al_primer_canal_visible_y_no_a_los_demas():
-    """**El canal de referencia no es una elección libre.**
-
-    La `y` que llega a los métodos de mouse la produce
-    `SignalView.microvolts_at_pixel()`, que sin canal explícito mide contra el
-    primero visible. Si la tolerancia mirara otro canal, los dos números
-    hablarían de escalas distintas y volvería el error de unidades del hito 9.
-    """
+def sesion_de_dos_canales() -> Session:
+    """Dos canales, para poder darles escalas distintas."""
     registro = Recording(
         file_path=Path("noche.edf"),
         channels=[
@@ -288,17 +292,85 @@ def test_la_tolerancia_sigue_al_primer_canal_visible_y_no_a_los_demas():
         data=np.zeros((2, 3000)),
         sampling_rate=100.0,
     )
-    sesion = Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
+    return Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
+
+
+def test_la_tolerancia_sigue_al_canal_del_clic():
+    """**El canal de referencia no es una elección libre.**
+
+    La `y` que llega a los métodos de mouse está medida contra el eje del canal
+    bajo el cursor. Si la tolerancia mirara otro, los dos números hablarían de
+    escalas distintas y volvería el error de unidades del hito 9.
+
+    **Decía «el primero visible», y era cierto hasta el hito 45**: hasta
+    entonces `SignalView.microvolts_at_pixel()` medía todo contra ése porque
+    nadie le pasaba un canal.
+    """
+    sesion = sesion_de_dos_canales()
     tool = OccupancyTool()
     tool.activate(sesion)
 
     sesion.set_scale_uv("C3", 200.0)
     sesion.set_scale_uv("C4", 4_000.0)
-    assert tool._tolerancia_uv() == pytest.approx(20.0)
 
-    # Y al reordenar los visibles, la referencia cambia con ellos.
-    sesion.set_visible_channels(["C4", "C3"])
-    assert tool._tolerancia_uv() == pytest.approx(400.0)
+    assert tool._tolerancia_uv("C3") == pytest.approx(20.0)
+    assert tool._tolerancia_uv("C4") == pytest.approx(400.0)
+
+
+def test_un_clic_en_otro_carril_no_borra_la_linea():
+    """**El centro de todos los carriles vale 0 µV**, así que sin mirar el
+    canal un clic en el medio de cualquiera borraba una línea trazada en otro.
+
+    Estaba tapado hasta el hito 45: mientras la `y` se medía siempre contra el
+    primer canal, el centro de los demás no daba cero.
+    """
+    sesion = sesion_de_dos_canales()
+    tool = OccupancyTool()
+    tool.activate(sesion)
+    arrastrar(tool, 0.0, 20.0, y=0.0, canal="C3")
+
+    tool.on_mouse_press(10.0, 0.0, "left", "C4")
+
+    assert len(tool.lines()) == 1, "el clic en otro carril borró la línea"
+
+
+def test_un_clic_en_el_mismo_carril_si_la_borra():
+    """La otra mitad, que es la que le da sentido a la primera."""
+    sesion = sesion_de_dos_canales()
+    tool = OccupancyTool()
+    tool.activate(sesion)
+    arrastrar(tool, 0.0, 20.0, y=0.0, canal="C3")
+
+    tool.on_mouse_press(10.0, 0.0, "left", "C3")
+
+    assert tool.lines() == []
+
+
+def test_la_linea_recuerda_sobre_que_canal_se_trazo():
+    """Es lo que el visualizador necesita para dibujarla en su carril: sin el
+    nombre las dibujaba todas sobre el primero."""
+    sesion = sesion_de_dos_canales()
+    tool = OccupancyTool()
+    tool.activate(sesion)
+
+    arrastrar(tool, 0.0, 20.0, y=0.0, canal="C4")
+
+    assert tool.lines()[0].channel_name == "C4"
+    assert tool.overlays()[0].channel_name == "C4"
+
+
+def test_cruzar_de_carril_no_le_cambia_el_dueno_a_la_linea():
+    """El canal es el de donde arrancó el trazo: cambiarlo a mitad del
+    arrastre haría saltar la línea de carril mientras se dibuja."""
+    sesion = sesion_de_dos_canales()
+    tool = OccupancyTool()
+    tool.activate(sesion)
+
+    tool.on_mouse_press(0.0, 0.0, "left", "C3")
+    tool.on_mouse_move(20.0, 0.0, "C4")
+    tool.on_mouse_release(20.0, 0.0, "left", "C4")
+
+    assert tool.lines()[0].channel_name == "C3"
 
 
 def test_sin_sesion_la_tolerancia_cae_en_la_escala_de_fabrica():

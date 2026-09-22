@@ -240,6 +240,8 @@ Inclinada quiere decir «esto no lo midió ni lo eligió nadie»: el «sin medir
 de la tabla de impedancias y el «sin scorear» del pie del panel de scoring.
 Hasta acá esa diferencia la cargaba el gris, que ya quiere decir otra cosa
 —«esto es secundario»—, y un valor ausente es lo contrario de secundario.
+Desde el hito 46 la itálica es un corte de verdad y no una inclinación que Qt
+sintetiza deformando la regular.
 
 ## `navigation.py`
 
@@ -281,8 +283,8 @@ que medía todo contra el primero visible: sobre tres canales, el centro del
 tercer carril llegaba a las herramientas como −444 µV en vez de 0. Lo resuelve
 `SignalView.channel_at_pixel()`, y el canal viaja hasta la herramienta en el
 último argumento de sus tres métodos de mouse. **Un overlay que dependa de la
-escala tiene que llevar su canal**: lo llevan `BandOverlay` desde el hito 7 y
-`CircleOverlay` desde el 45.
+escala tiene que llevar su canal**: lo llevan `BandOverlay` desde el hito 7,
+`CircleOverlay` desde el 45 y `SegmentOverlay` desde el 46.
 
 **Sobre un `QGraphicsItemGroup` se usa `addToGroup()` y no `setParentItem()`.**
 Lo segundo deja el ítem sin dueño y el recolector de Python se lo lleva al

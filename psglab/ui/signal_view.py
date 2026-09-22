@@ -692,13 +692,22 @@ class SignalView(pg.PlotWidget):
             return region
 
         if isinstance(overlay, SegmentOverlay):
-            referencia = self._visible[0] if self._visible else None
-            return pg.PlotDataItem(
+            # **Sobre el carril de su canal** (hito 46). Iba siempre sobre el
+            # primero visible, así que una línea trazada sobre el tercer canal
+            # se dibujaba sobre el primero, con la ganancia del primero.
+            canal = overlay.channel_name or (
+                self._visible[0] if self._visible else None
+            )
+            centro = self._centro_de_carril(canal) if canal else None
+            if centro is None:
+                return None
+            return pg.PlotCurveItem(
                 [overlay.x1_seconds, overlay.x2_seconds],
                 [
-                    self._a_carril(overlay.y1_uv, referencia),
-                    self._a_carril(overlay.y2_uv, referencia),
+                    centro + self._a_carril(overlay.y1_uv, canal),
+                    centro + self._a_carril(overlay.y2_uv, canal),
                 ],
+                pen=pg.mkPen(theme.current().foreground, width=2),
             )
 
         if isinstance(overlay, CircleOverlay):

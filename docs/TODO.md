@@ -58,12 +58,14 @@ tipografía en dos familias emparentadas, con una escala en un solo lugar. El
 **[hito 44](#hito-44-tres-cosas-que-se-vieron-en-la-pantalla)** atendió lo que
 el usuario encontró mirando el programa andar, y el
 **[hito 45](#hito-45-la-banda-no-se-dibujaba-y-la-lupa-miraba-un-solo-canal)**
-cerró los dos huecos que quedaban entre una herramienta y la pantalla. Son
-**cuarenta y seis hitos**, del 0 al 45, que son las filas de la tabla de
+cerró los dos huecos que quedaban entre una herramienta y la pantalla, y el
+**[hito 46](#hito-46-tres-cabos-sueltos)** ató los tres cabos que habían
+quedado anotados. Son
+**cuarenta y siete hitos**, del 0 al 46, que son las filas de la tabla de
 progreso; está abierto sólo el 33, y lo que sigue abierto de los anteriores
 está anotado dentro del hito al que le toca.
 
-**Del 34 al 45 se hicieron con el 33 abierto.** Decía acá que el 34 era «la
+**Del 34 al 46 se hicieron con el 33 abierto.** Decía acá que el 34 era «la
 única vez que pasa» y dejó de ser cierto en el 35: es exactamente la clase de
 prosa que este archivo se desincroniza. Lo que le queda al 33 no es código
 contra el que se pudiera escribir de más —son dos ítems de rendimiento que son
@@ -182,6 +184,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [43. Una tipografía, y su hermana de ancho fijo](#hito-43-una-tipografía-y-su-hermana-de-ancho-fijo) | — | 0 | ✅ cerrado |
 | [44. Tres cosas que se vieron en la pantalla](#hito-44-tres-cosas-que-se-vieron-en-la-pantalla) | — | 0 | ✅ cerrado |
 | [45. La banda no se dibujaba y la lupa miraba un solo canal](#hito-45-la-banda-no-se-dibujaba-y-la-lupa-miraba-un-solo-canal) | — | 0 | ✅ cerrado |
+| [46. Tres cabos sueltos](#hito-46-tres-cabos-sueltos) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -752,7 +755,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     herramienta sirva apenas se abre un registro.
 - [x] **`psglab/tools/occupancy.py`** · ~~13 stubs~~ · V1_F–V5_F "Ocupación" ·
       `ViewerTool`
-  - Test: `tests/test_occupancy.py`, **40 tests en verde**, sin `pytestmark`.
+  - Test: `tests/test_occupancy.py`, **44 tests en verde**, sin `pytestmark`.
     Los 7 que ya estaban escritos —los ejemplos numéricos literales del
     pliego— pasaron **sin tocarlos**. **Con esto la suite queda sin ningún
     salteado.**
@@ -1328,7 +1331,7 @@ mostrarse.
     la de `stage_durations_seconds()` en el hito 5: prometía distinguir tres
     estados y **con el diccionario solo no podía**, porque los canales sin dato
     se omiten a propósito. `channels` es lo que le permite saber qué falta.
-  - Test: `tests/test_impedance.py`, **48 tests en verde**.
+  - Test: `tests/test_impedance.py`, **54 tests en verde**.
 - [x] **`psglab/readers/brainvision.py`** · guarda las impedancias
   - Ignoraba la sección `[Comment]` entera. Ahora vuelca lo que MNE parsea a
     `Recording.metadata`, que es donde `core/recording.py` ya anticipaba que
@@ -2574,7 +2577,7 @@ llegan a la ventana.
       abajo a la vista, caía en la época 4 en vez de la 3.
   - Test: `tests/test_entrega.py`, **274 tests en verde**, con dos registros
     de verdad. Los cinco fallan sin su corrección.
-  - Test: `tests/test_occupancy.py`, **40 tests en verde**.
+  - Test: `tests/test_occupancy.py`, **44 tests en verde**.
   - Test: `tests/test_annotator.py`, **28 tests en verde**.
   - Test: `tests/test_filters.py`, **54 tests en verde**.
 
@@ -3968,13 +3971,11 @@ propio salto de tamaño.
 
 ### Lo que este hito deja anotado
 
-- **Falta empaquetar `IBMPlexSans-Italic.ttf`.** El rol `ausente` ya pide
-  itálica y funciona: sin el archivo, Qt **sintetiza** la inclinación
-  deformando la regular, que se lee peor —las curvas se estiran— pero se
-  distingue igual de la recta. Agregarlo es soltarlo en
-  `psglab/resources/fonts/` y sumarlo a `FONT_FILES`; entra bajo la misma
-  OFL 1.1 que los otros tres y pesa unos 80 kB. **No se bajó un binario al
-  repositorio sin que el usuario lo decida.**
+- ~~**Falta empaquetar `IBMPlexSans-Italic.ttf`.**~~ *(Resuelto en el
+  [hito 46](#hito-46-tres-cabos-sueltos).)* El rol `ausente` pedía itálica y
+  funcionaba, pero sin el archivo Qt **sintetizaba** la inclinación deformando
+  la regular, que se lee peor porque las curvas se estiran en vez de
+  redibujarse. El binario no se bajó hasta que el usuario lo decidió.
 - **Los roles «titulo» y «secundario» todavía no tienen quien los pida** desde
   un módulo: los escribe la hoja de estilo con sus propios tamaños. Unificarlos
   obliga a decidir qué hace `stylesheet()` cuando no hay `QFont` base, y eso es
@@ -4139,11 +4140,69 @@ mismo carril.
 
 ### Lo que este hito deja anotado
 
-- **La ocupación guarda sus líneas sin canal.** Ahora que la `y` se mide bien,
-  dos carriles distintos dan 0 µV en su centro, así que una línea en y = 0 está
-  «cerca» desde cualquiera. Es la misma discusión que el hito 7 tuvo para
-  `BandOverlay` y que este hito tuvo para `CircleOverlay`; hace falta decidir si
-  una línea de ocupación pertenece a un canal.
+- ~~**La ocupación guarda sus líneas sin canal.**~~ *(Resuelto en el
+  [hito 46](#hito-46-tres-cabos-sueltos): sí pertenece a un canal, por lo mismo
+  que `BandOverlay` en el hito 7 y `CircleOverlay` en éste.)*
+
+---
+
+## Hito 46: Tres cabos sueltos
+
+**Cerrado el 22 de septiembre de 2026.** Los tres estaban anotados al final de
+los hitos 43, 44 y 45, y los tres son chicos. Van juntos porque ninguno da para
+un hito propio y porque los tres son de la misma clase: cosas que se vieron y
+se dejaron escritas en vez de arreglarse en el momento.
+
+**No tiene stubs que contar.**
+
+- [x] **El informe de impedancias mostraba Markdown crudo.** La frase más
+      importante del informe —«no quiere decir que estén bien»— iba entre
+      asteriscos, y el informe es **texto pelado**: se lee en un
+      `QPlainTextEdit` y en el archivo exportado, así que el investigador veía
+      los asteriscos. El énfasis lo tiene que cargar la redacción.
+      - **El test es por marca y no por frase**, y barre las cuatro situaciones
+        del informe: negrita, subrayado, comillas de código, HTML y numeral de
+        título. Una frase nueva con marcas lo hace fallar aunque nadie se
+        acuerde de esta regla.
+      - Un barrido sobre todos los literales de `psglab/` que no son docstrings
+        encontró sólo este caso y dos backticks en un `details` de
+        `derivation.py`, que quedan: ahí el texto es la causa técnica y el
+        backtick rodea el nombre de un argumento.
+  - Test: `tests/test_impedance.py`, **54 tests en verde**.
+- [x] **Las líneas de ocupación no sabían de qué canal eran.** Lo dejó anotado
+      el hito 45 y es el mismo problema que `BandOverlay` tuvo en el hito 7 y
+      `CircleOverlay` en el 45: la `y` está en microvoltios medidos contra el
+      eje de un canal, y cada uno tiene su ganancia.
+      - **Se veía de dos formas.** El visualizador dibujaba todas las líneas
+        sobre el primer carril, con la ganancia del primero; y un clic en el
+        centro de cualquier carril borraba una línea trazada en otro, porque el
+        centro de todos vale 0 µV. La segunda apareció recién cuando el hito 45
+        hizo que la `y` se midiera bien: antes estaba tapada por el error.
+      - **El canal es el de donde arrancó el trazo**, no el de donde está el
+        mouse: una línea que cruza al carril de al lado sigue midiendo sobre el
+        canal en el que el usuario empezó, y cambiarla de dueño a mitad del
+        arrastre la haría saltar mientras se dibuja.
+      - **La tolerancia del clic pasó a seguir al canal del clic.** Decía «el
+        primero visible» con un motivo escrito que el hito 45 volvió falso.
+  - Test: `tests/test_occupancy.py`, **44 tests en verde**.
+- [x] **`IBMPlexSans-Italic.ttf`, empaquetada.** El rol `ausente` la pedía
+      desde el hito 43 y Qt la sintetizaba deformando la regular. La de verdad
+      tiene `italicAngle` −11° y sus propios dibujos —la «a» pasa de dos pisos
+      a uno—, es la misma versión 3.005 y la misma fundición que la regular, y
+      entra bajo la misma OFL 1.1. Pesa 203 kB.
+      - El párrafo de `docs/ARQUITECTURA.md` que lista los archivos **pide que
+        se lo actualice** al agregar uno, porque el control de licencias del CI
+        sólo mira los paquetes de pip.
+  - Test: `tests/test_fonts.py`, **19 tests en verde**, que ya exigía que todo
+    lo declarado en `FONT_FILES` exista.
+
+### Por qué el de Markdown duró tres sesiones
+
+Se encontró mirando una captura del panel de impedancias mientras se trabajaba
+en otra cosa, se avisó, y se dejó pasar dos veces por estar fuera del hito en
+curso. Es la decisión correcta —no ensanchar el alcance— y el costo es que el
+hallazgo vive sólo en una conversación hasta que alguien lo escribe. Ahora
+tiene test.
 
 ---
 

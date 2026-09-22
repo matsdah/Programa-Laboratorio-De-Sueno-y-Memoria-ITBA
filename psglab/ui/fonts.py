@@ -33,8 +33,6 @@ decir otra cosa —«esto es secundario»— y los dos se pisaban. Un valor ause
 no es secundario: es la advertencia más importante de la tabla de impedancias,
 y ese módulo entero está construido alrededor de no confundirlo con un cero.
 
-Falta empaquetar la itálica de verdad; ver `FONT_FILES`.
-
 **Los archivos no viven en esta carpeta** sino en `psglab/resources/fonts/`.
 `psglab/ui/` no lleva subcarpetas, porque los chequeos de `test_consistencia.py`
 la recorren sin entrar en ellas, y una carpeta `fonts/` al lado de este módulo
@@ -75,17 +73,19 @@ UI_FONT_FAMILY: Final[str] = "IBM Plex Sans"
 NUMERIC_FONT_FAMILY: Final[str] = "IBM Plex Mono"
 
 #: Los archivos que se registran. La negrita de Sans está porque los rótulos de
-#: la interfaz la usan; de Mono alcanza la regular, que es la de las lecturas.
+#: la interfaz la usan; la itálica, porque el rol `ausente` la pide; de Mono
+#: alcanza la regular, que es la de las lecturas.
 #:
-#: **Falta `IBMPlexSans-Italic.ttf`**, y es lo único que le queda al hito 43.
-#: El rol `ausente` ya pide itálica y funciona: sin el archivo, Qt **sintetiza**
-#: la inclinación deformando la regular, que se lee peor —las curvas se
-#: estiran— pero se distingue igual de la recta. Agregarlo es soltarlo en
-#: `psglab/resources/fonts/` y sumarlo a esta lista; entra bajo la misma OFL
-#: 1.1 que los otros tres y pesa unos 80 kB.
+#: **La itálica se empaquetó en el hito 46.** Hasta entonces el rol `ausente`
+#: la pedía igual y Qt la **sintetizaba**, deformando la regular: se distinguía
+#: de la recta pero se leía peor, porque las curvas se estiran en vez de
+#: redibujarse. La de verdad tiene `italicAngle` −11° y sus propios dibujos —la
+#: «a» de doble piso pasa a ser de un piso—, y es la misma versión 3.005 y la
+#: misma fundición que la regular que ya estaba.
 FONT_FILES: Final[tuple[str, ...]] = (
     "IBMPlexSans-Regular.ttf",
     "IBMPlexSans-SemiBold.ttf",
+    "IBMPlexSans-Italic.ttf",
     "IBMPlexMono-Regular.ttf",
 )
 
