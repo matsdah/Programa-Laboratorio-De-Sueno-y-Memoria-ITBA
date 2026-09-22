@@ -449,6 +449,11 @@ def _montaje(window: "MainWindow") -> None:
     original", que por eso vive acá y no en «Analizar».
     """
     montaje = window.menuBar().addMenu("&Montaje")
+    # **Queda en la ventana** para poder apagarlo entero mientras corre un
+    # cálculo: las tres operaciones sustituyen el registro, y hacerlo debajo de
+    # una ICA que se está ajustando dejaría una descomposición de una señal que
+    # ya no está. Ver `MainWindow._reflejar_lo_que_se_puede_pedir()`.
+    window.menu_montaje = montaje
     _agregar(montaje, "&Derivar canales…", window.derive_dialog)
     _agregar(montaje, "&Re-referenciar…", window.rereference_dialog)
     _agregar(montaje, "Referencia &promedio (EEG)", window.apply_average_reference)
@@ -468,6 +473,9 @@ def _filtrar(window: "MainWindow") -> None:
     decirle al usuario a qué familia pertenece antes de que la use.
     """
     filtrar = window.menuBar().addMenu("&Filtrar")
+    # Por lo mismo que «Montaje», y además porque ajustar la ICA es la otra
+    # operación que corre en otro hilo: con una en curso no se puede pedir otra.
+    window.menu_filtrar = filtrar
     _agregar(filtrar, "&Filtros por clase de canal…", window.show_filter_dialog)
     filtrar.addSeparator()
     _agregar(filtrar, "Componentes &independientes (ICA)…", window.show_ica_dialog)

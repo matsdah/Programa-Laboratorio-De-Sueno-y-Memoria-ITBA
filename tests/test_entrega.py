@@ -26,6 +26,8 @@ from pathlib import Path
 import numpy as np
 import pyqtgraph as pg
 import pytest
+import threading
+
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QFont, QMouseEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
@@ -1676,7 +1678,7 @@ def test_con_un_solo_eeg_la_ica_avisa(ventana: MainWindow):
     """El módulo se niega y acá eso tiene que salir como cartel, no como traza:
     con un canal no hay mezcla que separar."""
     ventana.show_ica_dialog()
-
+    ventana.wait_for_background()
     assert ventana.carteles
 
 
@@ -1687,6 +1689,7 @@ def test_ajustar_no_aplica_nada(ventana_con_dos_eeg: MainWindow):
 
     ventana_con_dos_eeg.show_ica_dialog()
 
+    ventana_con_dos_eeg.wait_for_background()
     assert ventana_con_dos_eeg.ica_panel.component_count() == 2
     assert ventana_con_dos_eeg.ica_panel.excluded() == []
     assert np.array_equal(ventana_con_dos_eeg.session.recording.data, antes)
@@ -1700,7 +1703,7 @@ def test_la_curva_del_componente_llega_a_la_pantalla(ventana_con_dos_eeg: MainWi
     topografía, o sea *dónde* pesa el componente y no *cuándo* ocurre.
     """
     ventana_con_dos_eeg.show_ica_dialog()
-
+    ventana_con_dos_eeg.wait_for_background()
     curva = ventana_con_dos_eeg.ica_panel.time_course_data()
     assert curva is not None, "el panel abrió sin curva"
     segundos, valores = curva
@@ -1716,7 +1719,7 @@ def test_la_curva_abarca_una_ventana_y_no_el_registro_entero(
     entera cuesta una copia completa de la señal."""
     sesion = ventana_con_dos_eeg.session
     ventana_con_dos_eeg.show_ica_dialog()
-
+    ventana_con_dos_eeg.wait_for_background()
     segundos, valores = ventana_con_dos_eeg.ica_panel.time_course_data()
     assert segundos[-1] < WINDOW_SECONDS
     assert len(valores) < sesion.recording.n_samples
@@ -1744,6 +1747,8 @@ def test_la_curva_se_pide_para_la_ventana_en_la_que_esta_el_usuario(
     monkeypatch.setattr(ventana_principal, "component_time_course", espiar)
 
     ventana_con_dos_eeg.show_ica_dialog()
+
+    ventana_con_dos_eeg.wait_for_background()
     assert pedidas == [0]
 
     ventana_con_dos_eeg.go_to_next_window()
@@ -1757,6 +1762,7 @@ def test_elegir_otro_componente_cambia_la_curva(ventana_con_dos_eeg: MainWindow)
     """Cada componente tiene su serie; mostrar la del anterior debajo de otra
     topografía se leería como si fuera de ésta."""
     ventana_con_dos_eeg.show_ica_dialog()
+    ventana_con_dos_eeg.wait_for_background()
     _, del_primero = ventana_con_dos_eeg.ica_panel.time_course_data()
 
     ventana_con_dos_eeg.ica_panel.lista.setCurrentRow(1)
@@ -1770,6 +1776,7 @@ def test_aplicar_deja_volver_a_la_señal_original(ventana_con_dos_eeg: MainWindo
     """**Es la única red contra una exclusión equivocada**, y por eso la ICA
     pasa por el mismo camino que los demás análisis del menú."""
     ventana_con_dos_eeg.show_ica_dialog()
+    ventana_con_dos_eeg.wait_for_background()
     original = ventana_con_dos_eeg.session.recording.data.copy()
 
     ventana_con_dos_eeg.ica_panel.set_excluded([0])
@@ -1799,6 +1806,7 @@ def test_filtrar_despues_de_ajustar_descarta_la_descomposicion(
 ):
     """El camino que encontró el bug: ajustar, filtrar, y el panel seguía vivo."""
     ventana_con_dos_eeg.show_ica_dialog()
+    ventana_con_dos_eeg.wait_for_background()
     assert ventana_con_dos_eeg.ica_panel.component_count() == 2
 
     ventana_con_dos_eeg.show_filter_dialog()
@@ -1816,6 +1824,7 @@ def test_volver_a_la_señal_original_descarta_la_descomposicion(
     ventana_con_dos_eeg.show_filter_dialog()
     ventana_con_dos_eeg.filter_panel.boton_aplicar.click()
     ventana_con_dos_eeg.show_ica_dialog()
+    ventana_con_dos_eeg.wait_for_background()
     assert ventana_con_dos_eeg._ica is not None
 
     ventana_con_dos_eeg.restore_original_recording()
@@ -1830,6 +1839,7 @@ def test_abrir_otro_registro_descarta_la_descomposicion(
     """Es el mismo motivo por el que abrir un registro suelta las herramientas:
     lo que quedó guardado es de otra señal y de otros canales."""
     ventana_con_dos_eeg.show_ica_dialog()
+    ventana_con_dos_eeg.wait_for_background()
     assert ventana_con_dos_eeg._ica is not None
 
     otro = escribir_brainvision(
@@ -1855,6 +1865,7 @@ def test_aplicar_una_ica_de_otros_canales_avisa_en_vez_de_reconstruir(
     cabeza.
     """
     ventana_con_dos_eeg.show_ica_dialog()
+    ventana_con_dos_eeg.wait_for_background()
     descomposicion = ventana_con_dos_eeg._ica
 
     otro = escribir_brainvision(
@@ -3305,6 +3316,7 @@ def test_aplicar_sin_ningun_filtro_no_toca_la_señal(ventana_con_dos_eeg: MainWi
 
     ventana = ventana_con_dos_eeg
     ventana.show_ica_dialog()
+    ventana.wait_for_background()
     ventana.show_filter_dialog()
     tabla = ventana.filter_panel.tabla
     for fila in range(tabla.topLevelItemCount()):
@@ -4392,3 +4404,92 @@ def test_la_lupa_dibuja_una_lente_y_no_una_linea_suelta(ventana: MainWindow):
     tipos = [type(h).__name__ for h in lente.childItems()]
     assert "QGraphicsPathItem" in tipos, "la lente no tiene cristal"
     assert "TextItem" in tipos, "la lente no dice la hora"
+
+
+# -- Lo largo fuera del hilo de la interfaz (hito 47) -------------------------
+#
+# **Ajustar la ICA es lo más caro del programa y no cambia la señal.** La
+# auditoría del 19 de septiembre midió 9 s sobre un registro real; sobre ruido
+# blanco, que es el peor caso para que FastICA converja, se midieron 345 s. Las
+# dos operaciones que sí cambian la señal —aplicar la ICA y filtrar— resultaron
+# costar décimas de segundo, así que la que había que sacar del hilo era ésta.
+
+
+def test_ajustar_la_ica_no_cambia_la_senal(ventana_con_dos_eeg: MainWindow):
+    """Es lo que la vuelve el mismo trabajo que la conectividad de la noche, y
+    lo que hizo que no necesitara ninguna decisión nueva."""
+    antes = ventana_con_dos_eeg.session.recording
+
+    ventana_con_dos_eeg.show_ica_dialog()
+    ventana_con_dos_eeg.wait_for_background()
+
+    assert ventana_con_dos_eeg.session.recording is antes
+    assert ventana_con_dos_eeg._ica is not None
+
+
+def test_ajustar_la_ica_apaga_lo_que_cambiaria_la_senal(
+    ventana_con_dos_eeg: MainWindow,
+):
+    """**Cambiar la señal debajo de un ajuste en curso dejaría una
+    descomposición de una señal que ya no está**, y eso no falla solo: MNE
+    acepta el pedido y devuelve una señal reconstruida con una matriz ajena.
+
+    Se mira a mitad de camino, con un `threading.Event`: sin eso el ajuste
+    termina antes de que el test pueda mirar nada.
+    """
+    empezo = threading.Event()
+    seguir = threading.Event()
+    real = main_window_mod.fit_ica
+
+    def lento(registro):
+        empezo.set()
+        seguir.wait(5.0)
+        return real(registro)
+
+    main_window_mod.fit_ica = lento
+    try:
+        ventana_con_dos_eeg.show_ica_dialog()
+        assert empezo.wait(5.0), "el ajuste no arrancó"
+
+        assert not ventana_con_dos_eeg.menu_montaje.menuAction().isEnabled()
+        assert not ventana_con_dos_eeg.menu_filtrar.menuAction().isEnabled()
+        assert not ventana_con_dos_eeg.accion_conectividad_de_la_noche.isEnabled()
+    finally:
+        seguir.set()
+        ventana_con_dos_eeg.wait_for_background()
+        main_window_mod.fit_ica = real
+
+    assert ventana_con_dos_eeg.menu_montaje.menuAction().isEnabled()
+    assert ventana_con_dos_eeg.menu_filtrar.menuAction().isEnabled()
+
+
+def test_mientras_ajusta_se_puede_scorear(ventana_con_dos_eeg: MainWindow):
+    """**Es lo que vuelve útil sacarlo del hilo.** Si hubiera que esperar igual
+    para seguir trabajando, no se habría ganado nada: la época, el scoring y las
+    anotaciones viven en `Session` y no dependen de los valores de las muestras.
+    """
+    empezo = threading.Event()
+    seguir = threading.Event()
+    real = main_window_mod.fit_ica
+
+    def lento(registro):
+        empezo.set()
+        seguir.wait(5.0)
+        return real(registro)
+
+    main_window_mod.fit_ica = lento
+    try:
+        ventana_con_dos_eeg.show_ica_dialog()
+        assert empezo.wait(5.0), "el ajuste no arrancó"
+
+        ventana_con_dos_eeg.score_current_window(SleepStage.N2)
+        # La fixture trae dos épocas, así que la 1 es la última que existe.
+        ventana_con_dos_eeg._go_to_window(1)
+    finally:
+        seguir.set()
+        ventana_con_dos_eeg.wait_for_background()
+        main_window_mod.fit_ica = real
+
+    assert not ventana_con_dos_eeg.carteles
+    assert ventana_con_dos_eeg.session.scoring.get(0).stage is SleepStage.N2
+    assert ventana_con_dos_eeg.session.current_window == 1

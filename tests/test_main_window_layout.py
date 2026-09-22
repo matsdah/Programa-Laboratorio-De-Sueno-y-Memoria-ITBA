@@ -34,10 +34,17 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # Acciones de menú que los tests prenden y apagan.
         "accion_eje_en_hora",
         "accion_señal_original",
-        # La única que arranca un cálculo en otro hilo: hay que poder apagarla
-        # mientras dura, porque con uno en curso no se puede pedir otro
-        # (hito 42).
+        # La primera que arrancó un cálculo en otro hilo: hay que poder
+        # apagarla mientras dura, porque con uno en curso no se puede pedir
+        # otro (hito 42).
         "accion_conectividad_de_la_noche",
+        # Los dos menús que sustituyen el registro —«Montaje» entero, y
+        # «Filtrar», que además lleva la otra operación que corre en otro
+        # hilo—. Se apagan mientras dura un cálculo: cambiar la señal debajo
+        # de una ICA que se está ajustando dejaría una descomposición de una
+        # señal que ya no está (hito 47).
+        "menu_montaje",
+        "menu_filtrar",
         # Los dos esquemas, en el menú «Ver» desde el hito 35: la ventana
         # necesita poder tildar el que aplique, venga del menú o del archivo
         # de preferencias.

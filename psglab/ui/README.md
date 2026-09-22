@@ -155,6 +155,30 @@ Y una que no: **un error inesperado se vuelve a elevar** en el hilo de la
 interfaz en vez de salir como cartel. Un `AttributeError` es un bug, no un
 mensaje para el investigador, y atraparlo en el hilo lo haría desaparecer.
 
+## Lo que corre en otro hilo
+
+**Dos operaciones lo hacen**: la conectividad de la noche desde el hito 42 y el
+ajuste de la ICA desde el 47. Las dos pasan por `_en_segundo_plano()`, que pone
+la barra indeterminada, apaga lo que no se puede pedir y devuelve el resultado
+al hilo de la interfaz.
+
+**La regla es qué lee de la sesión y cuándo.** Lo que el cálculo necesite de
+`Session` se resuelve **antes** de arrancar el hilo: el otro recibe el registro
+y los nombres ya resueltos y no vuelve a preguntar nada. Tocar un widget o
+`Session` desde el otro hilo es un cuelgue o una corrupción, no un error que se
+vea.
+
+**Con un cálculo en curso se apagan «Montaje» y «Filtrar» enteros**, más la
+conectividad de la noche. Las cuatro operaciones de esos dos menús sustituyen
+el registro, y hacerlo debajo de una ICA que se está ajustando dejaría una
+descomposición de una señal que ya no está —y eso no falla solo: MNE acepta el
+pedido y devuelve una señal reconstruida con una matriz ajena—.
+
+**Navegar, scorear y anotar siguen habilitados**, y es el punto: si hubiera que
+esperar igual para seguir trabajando, sacarlo del hilo no habría servido de
+nada. La época, el scoring y las anotaciones viven en `Session` y no dependen de
+los valores de las muestras.
+
 ## `panel_header.py`
 
 Los seis paneles de análisis tienen el mismo problema y lo resolvían cada uno
