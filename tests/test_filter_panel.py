@@ -310,3 +310,28 @@ def test_el_encabezado_dice_contra_que_frecuencia_se_sugirieron(
     """**La frecuencia y el tope de Nyquist son dos cosas.** Ésta dice de dónde
     salen los sugeridos; el rótulo dice por qué algunos vienen vacíos."""
     assert "sugeridos para 256 Hz" == panel_cargado.header.detail()
+
+
+# -- El color de la clase y cuántos canales (hito 55) ----------------------
+
+
+def test_cada_clase_dice_cuantos_canales_tiene(panel: FilterPanel):
+    """**Un filtro de la fila vale para todos sus canales**, y «EEG» con dos
+    canales y con veinte se leían igual."""
+    panel.set_recording(
+        registro([("C3", ChannelKind.EEG), ("C4", ChannelKind.EEG), ("EOG", ChannelKind.EOG)])
+    )
+
+    assert panel.tabla.topLevelItem(0).text(0) == "EEG · 2 canales"
+    assert panel.tabla.topLevelItem(1).text(0).endswith("· 1 canal")
+
+
+def test_cada_clase_lleva_el_color_del_selector(panel_cargado: FilterPanel):
+    assert not panel_cargado.tabla.topLevelItem(0).icon(0).isNull()
+
+
+def test_el_boton_de_aplicar_es_el_principal(panel: FilterPanel):
+    from psglab.ui import theme
+
+    assert panel.boton_aplicar.property(theme.PRIMARIO_PROPERTY) is True
+    assert not panel.boton_sugeridos.property(theme.PRIMARIO_PROPERTY)

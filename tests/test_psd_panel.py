@@ -261,3 +261,30 @@ def test_la_pista_se_va_con_un_resultado_y_vuelve_al_vaciarlo(panel: PsdPanel):
     assert panel.visible_hint() == ""
     panel.clear_spectrum()
     assert panel.visible_hint() == "Se pide desde Analizar"
+
+
+# -- Todas las bandas a la vista (hito 55) ----------------------------------
+
+
+def test_la_tabla_mide_lo_que_sus_bandas(panel: PsdPanel):
+    """**Se veían tres de las seis** y había que desplazarse: un tope de 190 px
+    con el alto de fila de fábrica."""
+    panel.set_band_powers({nombre: (1.0, 1.0 / 6) for nombre in DEFAULT_BANDS})
+    tabla = panel.tabla
+    necesario = (
+        tabla.horizontalHeader().sizeHint().height()
+        + tabla.rowCount() * tabla.verticalHeader().defaultSectionSize()
+    )
+
+    assert tabla.rowCount() == len(DEFAULT_BANDS)
+    assert tabla.height() >= necesario
+
+
+def test_con_menos_bandas_la_tabla_se_achica(panel: PsdPanel):
+    """Las bandas son configurables: la tabla mide lo que tiene."""
+    panel.set_band_powers({nombre: (1.0, 1.0 / 6) for nombre in DEFAULT_BANDS})
+    con_seis = panel.tabla.height()
+
+    panel.set_band_powers({"Delta": (1.0, 1.0)})
+
+    assert panel.tabla.height() < con_seis

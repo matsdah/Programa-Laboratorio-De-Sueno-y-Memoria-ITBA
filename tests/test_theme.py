@@ -527,3 +527,29 @@ def test_la_casilla_marcada_se_deja_al_estilo_nativo():
     """Una regla para el estado marcado obligaría a traer una imagen propia de
     la tilde: sin ella, Qt dibuja la casilla vacía."""
     assert "indicator:checked" not in theme.stylesheet(theme.SERENO)
+
+
+# -- El botón principal (hito 55) ------------------------------------------
+
+
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=list(theme.SCHEMES))
+def test_el_boton_principal_va_relleno_del_acento(esquema):
+    """«Aplicar», «Exportar…»: lo que el panel existe para hacer. El prototipo
+    los rellenaba del acento, y el hito 44 había sacado la regla."""
+    hoja = theme.stylesheet(esquema)
+    regla = hoja.split(f'QPushButton[{theme.PRIMARIO_PROPERTY}="true"] {{')[1].split("}")[0]
+
+    assert esquema.accent in regla
+
+
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=list(theme.SCHEMES))
+def test_el_texto_del_boton_principal_se_lee(esquema):
+    tinta = theme.ink_over(esquema, esquema.accent)
+
+    assert theme.contrast_ratio(tinta, esquema.accent) >= theme.MIN_TEXT_CONTRAST
+
+
+def test_el_boton_principal_apagado_no_parece_encendido():
+    """Sin la regla de apagado, el botón de la ICA sin componentes seguía
+    relleno del acento, invitando a apretar algo que no hace nada."""
+    assert ':disabled' in theme.stylesheet(theme.SERENO).split(theme.PRIMARIO_PROPERTY, 2)[2]

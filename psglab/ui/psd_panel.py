@@ -126,7 +126,13 @@ class PsdPanel(QWidget):
             QHeaderView.ResizeMode.Stretch
         )
         self.tabla.setIconSize(QSize(LADO_DE_LA_MUESTRA, LADO_DE_LA_MUESTRA))
-        self.tabla.setMaximumHeight(190)
+        # **Filas compactas y la tabla del alto de sus bandas** (hito 55). Con
+        # el alto de fila de fábrica y un tope de 190 px se veían tres de las
+        # seis bandas y había que desplazarse para leer las demás. El alto se
+        # rehace en `set_band_powers()`, porque las bandas son configurables.
+        self.tabla.verticalHeader().setDefaultSectionSize(
+            int(self.tabla.fontMetrics().height() * 1.5)
+        )
 
         #: El encabezado, con qué se está mirando y con qué se estimó: el
         #: método, el segmento, la ventana y el solape. **Sin el método, dos
@@ -269,6 +275,7 @@ class PsdPanel(QWidget):
             for nombre, (absoluta, relativa) in powers.items()
         }
         self.tabla.setRowCount(len(self._potencias))
+        self._ajustar_el_alto_de_la_tabla()
         for fila, (nombre, (absoluta, relativa)) in enumerate(self._potencias.items()):
             celdas = (
                 nombre,
@@ -285,6 +292,16 @@ class PsdPanel(QWidget):
                         Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
                     )
                 self.tabla.setItem(fila, columna, celda)
+
+    def _ajustar_el_alto_de_la_tabla(self) -> None:
+        """Que la tabla mida lo que sus filas, sin barra de desplazamiento."""
+        filas = self.tabla.rowCount()
+        alto = (
+            self.tabla.horizontalHeader().sizeHint().height()
+            + filas * self.tabla.verticalHeader().defaultSectionSize()
+            + 2 * self.tabla.frameWidth()
+        )
+        self.tabla.setFixedHeight(alto)
 
     def _rango_de(self, band: str) -> str:
         """De dónde a dónde va una banda, como se escribe en español.

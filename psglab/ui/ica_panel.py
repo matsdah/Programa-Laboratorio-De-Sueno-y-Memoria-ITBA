@@ -123,6 +123,8 @@ class IcaPanel(QWidget):
         self.aviso.setWordWrap(True)
 
         self.boton = QPushButton("Aplicar y quitar los marcados")
+        # El principal del panel, relleno del acento (hito 55).
+        self.boton.setProperty(theme.PRIMARIO_PROPERTY, True)
         self.boton.clicked.connect(self._aplicar)
         self.boton.setEnabled(False)
 

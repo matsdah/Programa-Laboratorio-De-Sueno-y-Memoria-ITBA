@@ -316,3 +316,10 @@ def test_la_curva_se_numera_en_hora_de_la_noche(panel: IcaPanel):
 
     assert isinstance(eje, TimeAxis)
     assert eje.tickStrings([6600.0], 1.0, 5.0) == ["03:40:00"]
+
+
+def test_el_boton_de_aplicar_es_el_principal(panel: IcaPanel):
+    """Hito 55: relleno del acento, como en el prototipo."""
+    from psglab.ui import theme
+
+    assert panel.boton.property(theme.PRIMARIO_PROPERTY) is True

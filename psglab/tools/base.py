@@ -84,6 +84,8 @@ class SegmentOverlay(Overlay):
     Attributes:
         channel_name: el canal sobre cuyo carril va la línea, o None para que
             el visualizador use el primero visible.
+        label: lo que se escribe sobre la línea, o vacío. Lo decide la
+            herramienta, que sabe qué mide (hito 55).
     """
 
     x1_seconds: float
@@ -91,6 +93,7 @@ class SegmentOverlay(Overlay):
     x2_seconds: float
     y2_uv: float
     channel_name: str | None = None
+    label: str = ""
 
 
 @dataclass(frozen=True)
