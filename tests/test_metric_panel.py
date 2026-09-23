@@ -212,3 +212,17 @@ def test_pedir_otra_metrica_rehace_la_leyenda_entera(panel: MetricPanel):
 
 def test_sin_metrica_no_hay_leyenda(panel: MetricPanel):
     assert panel.legend_channels() == []
+
+
+# -- Los números del eje, como son (hito 53) --------------------------------
+
+
+def test_una_metrica_menor_que_uno_no_se_multiplica_por_mil(panel: MetricPanel):
+    """**Una entropía de 0,75 se leía «750»**, con «(x0.001)» en el rótulo:
+    pyqtgraph ponía el prefijo por su cuenta. Lo encontró la comparación con el
+    prototipo; los tests miraban los datos y no lo que dice el eje."""
+    panel.set_metric("Entropía espectral", {"C3": serie([0.5, 0.62, 0.75])})
+    eje = panel.grafico.getPlotItem().getAxis("left")
+
+    assert eje.autoSIPrefixScale == 1.0
+    assert "x0.001" not in eje.labelString()

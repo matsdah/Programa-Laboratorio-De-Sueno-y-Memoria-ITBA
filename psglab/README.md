@@ -49,6 +49,10 @@ Lo único que `main.py` conoce. Arma los objetos de Qt y los devuelve cableados:
 acá es lo que permite que el punto de entrada se quede en nueve sentencias
 (requisito del pliego, sección 7).
 
+`create_application()` carga además la traducción de Qt al español
+(`install_qt_translations()`, hito 53): sin ella, los botones que arma Qt
+—«Sí / No», «Aceptar / Cancelar», «Mostrar detalles»— salían en inglés.
+
 ### `config.py`
 
 **Punto único de verdad de las constantes del pliego.** Ningún otro módulo

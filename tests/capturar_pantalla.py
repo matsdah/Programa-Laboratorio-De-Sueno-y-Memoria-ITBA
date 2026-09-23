@@ -57,6 +57,7 @@ from conftest import escribir_brainvision  # noqa: E402
 os.environ.pop("QT_QPA_PLATFORM", None)
 
 from psglab.app import create_main_window  # noqa: E402
+from psglab.core.annotations import Annotation  # noqa: E402
 from psglab.core.nomenclature import Nomenclature, stages_of  # noqa: E402
 from psglab.ui import theme  # noqa: E402
 
@@ -99,10 +100,24 @@ def armar_ventana(esquema: theme.ColorScheme):
     for posicion in range(ventana.session.n_windows // 2):
         ventana.session.scoring.set_stage(posicion, fases[posicion % len(fases)])
     ventana._reload_histogram()
+    anotar(ventana)
     llenar_los_paneles(ventana)
     encender_las_herramientas(ventana)
     QApplication.processEvents()
     return ventana
+
+
+def anotar(ventana) -> None:
+    """Dos eventos en la primera época, para ver sus bandas y sus rótulos.
+
+    **Hasta el hito 53 la captura no tenía ninguna anotación**, y la banda no
+    decía de qué clase era sin que ninguna imagen lo mostrara.
+    """
+    fs = ventana.session.recording.sampling_rate
+    for clase, desde, hasta in (("Spindle", 4.0, 7.0), ("Arousal", 18.0, 21.5)):
+        ventana.session.annotations.add(
+            Annotation(clase, int(desde * fs), int((hasta - desde) * fs))
+        )
 
 
 def encender_las_herramientas(ventana) -> None:
@@ -170,6 +185,11 @@ def llenar_los_paneles(ventana) -> None:
         ventana.session.visible_channels,
         {nombre: 3.2 + 4.0 * posicion for posicion, nombre in enumerate(ventana.session.visible_channels[:2])},
     )
+    # **El informe se rehace aparte**: cargar la tabla a mano no lo toca, y la
+    # captura mostraba un informe que decía que no había nada medido al lado de
+    # una tabla con dos valores. La ventana lo rehace sola; acá se pasa por
+    # su setter, así que hay que pedírselo.
+    ventana._refrescar_informe_de_impedancia()
     # **`refresh()` antes de leer**: la Übersicht cachea sus ventanas y las
     # rearma al cambiar de época. Acá se scorea sin navegar, igual que al
     # anotar, así que sin esto el chip de la fase saldría vacío.

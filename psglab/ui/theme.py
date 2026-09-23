@@ -370,25 +370,31 @@ def ink_over(scheme: ColorScheme, fill: str) -> str:
 
     **Se elige midiendo y no por esquema**: la misma escala de fases se usa
     sobre papel y sobre negro, y el blanco que se lee sobre el azul profundo
-    desaparece sobre el ámbar claro del esquema oscuro. Las dos candidatas son
-    el blanco y el fondo del esquema, que es la tinta más oscura de la que ese
-    esquema dispone.
+    desaparece sobre el ámbar claro del esquema oscuro.
 
-    La usan las reglas de las fases y el botón de reproducir, que es el único
-    relleno de acento de la barra de navegación.
+    **Las candidatas son tres**: el blanco, el fondo y la tinta del esquema.
+    Hasta el hito 53 eran las dos primeras, con la idea de que el fondo era la
+    tinta más oscura disponible, y eso sólo vale en Nocturno: en Sereno el
+    fondo es casi blanco, así que no podía devolver ninguna tinta oscura. Sobre
+    los colores de las clases de anotación daba entre 1,75 y 3 a 1 —el amarillo
+    no se leía en los chips de evento de la Übersicht— y la tinta del esquema
+    da entre 5,2 y 9,8. Lo encontró el rótulo de la banda de anotación.
+
+    La usan las reglas de las fases, el botón de reproducir, los chips y los
+    rótulos de las bandas.
     """
-    if contrast_ratio("#ffffff", fill) >= contrast_ratio(scheme.background, fill):
-        return "#ffffff"
-    return scheme.background
+    return max(
+        ("#ffffff", scheme.background, scheme.foreground),
+        key=lambda tinta: contrast_ratio(tinta, fill),
+    )
 
 
-#: **`ink_over()` elige entre dos tintas y ninguna sirve sobre un relleno
-#: pálido.** Las candidatas son el blanco y el fondo del esquema, así que sólo
-#: da una respuesta legible cuando el relleno está lejos de los dos: sirve para
-#: el acento, para el color de una fase y para el de una clase de canal, y no
-#: para el realce de una selección. Sobre el de Sereno devuelve blanco, que da
-#: 1,24 a 1. Ahí la tinta que corresponde es la del esquema, y la hoja de
-#: estilo la pone a mano.
+#: **Hasta el hito 53 `ink_over()` no servía sobre un relleno pálido**: elegía
+#: entre el blanco y el fondo del esquema, y sobre el realce de una selección
+#: en Sereno devolvía blanco, a 1,24 a 1. Desde que la tinta del esquema es la
+#: tercera candidata ya sirve, pero la hoja de estilo le sigue poniendo la
+#: tinta a mano a la fila seleccionada, que es una regla que no depende de
+#: esta función.
 
 
 def _reglas_de_las_fases(scheme: ColorScheme) -> str:
@@ -447,6 +453,15 @@ def stylesheet(scheme: ColorScheme) -> str:
     # tablas— con el fondo. Sin `chrome` los dos son el mismo color, y la hoja
     # sale idéntica a la de antes del hito 26.
     ventana = scheme.chrome if scheme.chrome is not None else fondo
+    # **El borde de la casilla sin marcar** (hito 53). Con el estilo nativo de
+    # Windows, en Sereno un elemento sin marcar de una lista no dibujaba
+    # ninguna casilla —el selector de canales y la lista de la ICA mostraban
+    # el nombre suelto, sin nada que tildar— y la casilla del arousal apenas
+    # se separaba del fondo. Es la tinta secundaria, la de los rótulos, que ya
+    # pasa el contraste contra el fondo. La marcada se deja al estilo nativo,
+    # que dibuja la tilde: una regla para ese estado obligaría a traer una
+    # imagen propia de la tilde.
+    casilla = scheme.overview_text
     lecturas = (
         f'QLabel[{READOUT_PROPERTY}="true"] {{ font-family: "{scheme.numeric_font}"; }}'
         if scheme.numeric_font is not None
@@ -545,6 +560,14 @@ def stylesheet(scheme: ColorScheme) -> str:
         QListWidget::item:selected {{
             background-color: {realce};
             color: {texto};
+        }}
+        QListWidget::indicator:unchecked, QTreeWidget::indicator:unchecked,
+        QCheckBox::indicator:unchecked {{
+            border: 1px solid {casilla};
+            border-radius: 3px;
+            background-color: {fondo};
+            width: 13px;
+            height: 13px;
         }}
         QSplitter::handle {{ background-color: {borde}; }}
         QScrollBar {{ background-color: {ventana}; }}
@@ -676,6 +699,14 @@ def low_contrast_elements(scheme: ColorScheme) -> list[tuple[str, float]]:
         ),
         ("las señales", scheme.signals, scheme.background, MIN_GRAPHIC_CONTRAST),
         ("la curva de los paneles", scheme.accent, scheme.background, MIN_GRAPHIC_CONTRAST),
+        # Hito 53: el borde de la casilla sin marcar es lo único que dice que
+        # un canal oculto se puede volver a tildar.
+        (
+            "el borde de la casilla sin marcar",
+            scheme.overview_text,
+            scheme.background,
+            MIN_GRAPHIC_CONTRAST,
+        ),
     ]
     if scheme.chrome is not None:
         medidas.append(

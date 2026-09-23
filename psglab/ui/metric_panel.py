@@ -43,7 +43,12 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.ui import theme
-from psglab.ui.panel_header import SECUNDARIO_PROPERTY, EmptyState, PanelHeader
+from psglab.ui.panel_header import (
+    SECUNDARIO_PROPERTY,
+    EmptyState,
+    PanelHeader,
+    plain_axes,
+)
 
 
 def _color_de_serie(posicion: int) -> str:
@@ -80,6 +85,7 @@ class MetricPanel(QWidget):
         self._leyendas: list[QLabel] = []
 
         item = self.grafico.getPlotItem()
+        plain_axes(item)
         item.setLabel("bottom", "Ventana")
         item.showGrid(x=True, y=True, alpha=0.3)
         item.setMenuEnabled(False)

@@ -4805,3 +4805,59 @@ def test_sobre_un_borde_el_cursor_lo_dice(ventana: MainWindow):
         )
         QApplication.instance().sendEvent(viewport, evento)
         assert viewport.cursor().shape() == forma
+
+
+# -- Los botones que arma Qt, en español (hito 53) ---------------------------
+
+
+def _botones(dialogo) -> list[str]:
+    from PySide6.QtWidgets import QPushButton
+
+    dialogo.show()
+    textos = [b.text().replace("&", "") for b in dialogo.findChildren(QPushButton)]
+    dialogo.close()
+    return textos
+
+
+def test_la_traduccion_de_qt_se_carga(qt_app):
+    """**Hasta el hito 53 no se cargaba ninguna**, y los botones estándar salían
+    en inglés en un programa escrito en español."""
+    from psglab.app import install_qt_translations
+
+    assert install_qt_translations(qt_app)
+
+
+def test_la_pregunta_antes_de_borrar_dice_si_y_no(ventana: MainWindow):
+    """Es la pregunta de «Borrar» en el menú de una anotación. Decía «Yes /
+    No»."""
+    pregunta = QMessageBox(
+        QMessageBox.Icon.Question,
+        "Borrar anotación",
+        "¿Borrar la anotación?",
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        ventana,
+    )
+
+    assert sorted(_botones(pregunta)) == ["No", "Sí"]
+
+
+def test_el_cartel_de_error_muestra_el_detalle_en_espanol(ventana: MainWindow):
+    """Es el cartel de `_show_error()`, con el desplegable de la causa técnica.
+    Decía «Show Details... / OK»."""
+    cartel = QMessageBox(ventana)
+    cartel.setText("No se pudo completar la operación")
+    cartel.setDetailedText("detalle técnico")
+
+    textos = _botones(cartel)
+
+    assert not any(t.startswith(("Show", "OK")) for t in textos)
+    assert any("detalles" in t.lower() for t in textos)
+
+
+def test_el_dialogo_de_la_clase_dice_aceptar_y_cancelar(ventana: MainWindow):
+    """Es el diálogo que pregunta la clase al anotar y al corregirla. Decía
+    «OK / Cancel»."""
+    dialogo = QInputDialog(ventana)
+    dialogo.setComboBoxItems(["Spindle"])
+
+    assert sorted(_botones(dialogo)) == ["Aceptar", "Cancelar"]

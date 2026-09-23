@@ -542,6 +542,10 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   el fondo de la franja de posición, que es un `QPixmap`. Mordió las dos veces,
   y la segunda pasó inadvertida a la suite entera porque los tests del cache
   comparaban identidad de objeto y no color.
+- **Los botones que arma Qt salen de la traducción que carga `app.py`**
+  (hito 53): «Sí / No», «Aceptar / Cancelar». Sin ella salían en inglés, y
+  ningún test lo veía porque ninguno miraba el texto de un botón que el
+  programa no escribe. La suite la carga igual que el programa.
 - **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
   (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
   que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril

@@ -9,6 +9,7 @@ sostiene el requisito técnico de "main.py lo más simple posible" (sección 7).
 """
 
 import pyqtgraph as pg
+from PySide6.QtCore import QLibraryInfo, QTranslator
 from PySide6.QtWidgets import QApplication
 
 from psglab.readers.base import load_all_readers
@@ -57,6 +58,7 @@ def create_application(argv: list[str]) -> QApplication:
         La aplicación de Qt lista para usar.
     """
     aplicacion = QApplication(argv)
+    install_qt_translations(aplicacion)
     aplicacion.setApplicationName("PSGLab")
     aplicacion.setOrganizationName("Laboratorio de Sueño y Memoria — ITBA")
     # **Los colores ya no se fijan acá.** Antes eran dos `setConfigOption` con
@@ -78,6 +80,34 @@ def create_application(argv: list[str]) -> QApplication:
     # un registro real de siete canales, no con señal sintética corta.
     pg.setConfigOption("antialias", False)
     return aplicacion
+
+
+def install_qt_translations(application: QApplication) -> bool:
+    """Pone en español los botones y textos que arma Qt, no el programa.
+
+    **Hasta el hito 53 salían en inglés**: la pregunta antes de borrar una
+    anotación decía «Yes / No», el cartel de error «Show Details... / OK» y el
+    diálogo de la clase «OK / Cancel». Son los botones estándar de
+    `QMessageBox`, `QInputDialog` y `QFileDialog`, que el programa no escribe:
+    los trae Qt, en el idioma de la traducción que tenga cargada, y no tenía
+    ninguna. Lo encontró la comparación con el prototipo, que los dibujaba en
+    español; ningún test miraba el texto de un botón que no escribió el
+    programa.
+
+    La traducción viene con PySide6 (`qtbase_es.qm`), así que no agrega nada
+    que empaquetar. **No se cambia el `QLocale`**: eso también cambiaría cómo
+    se escriben los números en los campos de la configuración, que es otra
+    decisión.
+
+    Returns:
+        Si se pudo cargar. Si falta —una instalación de PySide6 sin
+        traducciones— el programa arranca igual, con los botones en inglés.
+    """
+    traductor = QTranslator(application)
+    carpeta = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+    if not traductor.load("qtbase_es", carpeta):
+        return False
+    return application.installTranslator(traductor)
 
 
 def create_main_window(saved_preferences: bool = False, warm_up: bool = False) -> MainWindow:

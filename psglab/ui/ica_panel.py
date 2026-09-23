@@ -42,7 +42,7 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.ui import theme
-from psglab.ui.panel_header import EmptyState, PanelHeader
+from psglab.ui.panel_header import EmptyState, PanelHeader, plain_axes
 
 #: Color de las barras de la topografía.
 # El color de las dos curvas sale del esquema en uso: es una sola serie por
@@ -77,6 +77,7 @@ class IcaPanel(QWidget):
 
         self.grafico = pg.PlotWidget()
         item = self.grafico.getPlotItem()
+        plain_axes(item)
         item.setLabel("left", "Peso en el componente")
         item.setMenuEnabled(False)
         item.showGrid(y=True, alpha=0.3)
@@ -89,6 +90,7 @@ class IcaPanel(QWidget):
         # esto y no lo dibujaba nadie.
         self.curva = pg.PlotWidget()
         curva = self.curva.getPlotItem()
+        plain_axes(curva)
         curva.setLabel("left", "Componente")
         curva.setLabel("bottom", "Segundos de la ventana")
         curva.setMenuEnabled(False)
