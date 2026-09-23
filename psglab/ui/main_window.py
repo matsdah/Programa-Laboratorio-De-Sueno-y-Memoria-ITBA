@@ -57,7 +57,7 @@ from pathlib import Path
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, QTimer
-from PySide6.QtGui import QAction, QCloseEvent, QFont, QFontMetrics, QMouseEvent
+from PySide6.QtGui import QAction, QCloseEvent, QFont, QFontMetrics, QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -207,8 +207,24 @@ _PIXELES_DEL_BORDE: int = 5
 _CAMBIAR_CLASE = "Cambiar clase…"
 _BORRAR = "Borrar"
 
+#: Cuánto mide una muesca de la rueda en `QWheelEvent.angleDelta()`, que viene
+#: en octavos de grado: una muesca son 15°. Un panel táctil manda pedazos más
+#: chicos, y la cuenta de `_girar_la_rueda()` los suma sin redondear.
+_DELTA_POR_MUESCA = 120
 
-def _en_escena(vista: pg.PlotWidget, evento: QMouseEvent) -> QPointF:
+#: Qué fracción de la página corre una muesca de desplazamiento (hito 56).
+#: **En fracciones de la página**, por lo mismo que `_desplazar()`: en segundos
+#: fijos, con una página de 200 ms saltaría fuera de lo que se ve y con una de
+#: cuatro horas no se notaría. Un décimo deja seguir un huso con la vista.
+_PAGINA_POR_MUESCA = 0.1
+
+#: Cuántas muescas de la rueda duplican la página (hito 56). Con una sola, cada
+#: muesca sería un «×2» del menú y de 30 s a la noche entera habría diez
+#: saltos que no dejan elegir nada en el medio; con dos, veinte.
+_MUESCAS_POR_DUPLICAR = 2
+
+
+def _en_escena(vista: pg.PlotWidget, evento: QMouseEvent | QWheelEvent) -> QPointF:
     """La posición de un evento de mouse del viewport, en la escena de la vista.
 
     **No es `evento.scenePosition()`.** En un `QMouseEvent` de widget, Qt llama
@@ -549,6 +565,8 @@ class MainWindow(QMainWindow):
             return False
         if objeto is not self.signal_view.viewport():
             return False
+        if evento.type() == QEvent.Type.Wheel:
+            return self._girar_la_rueda(evento)
 
         herramienta = self._mouse_tool
         if herramienta is None or evento.type() not in (
@@ -607,6 +625,78 @@ class MainWindow(QMainWindow):
                     self._finish_annotation(herramienta)
                     self._avisar_borde_movido(herramienta)
         return False
+
+    def _girar_la_rueda(self, evento: QWheelEvent) -> bool:
+        """La rueda sobre la señal: escala o desplazamiento (hito 56).
+
+        - **Vertical, cambia la escala**; ver `_escala_con_la_rueda()`.
+        - **Horizontal, desplaza la página**: es lo que manda un panel táctil
+          al deslizar de costado, y una rueda con inclinación.
+        - **Con Mayúsculas, la vertical también desplaza**, que es la
+          convención de casi todo programa con un eje horizontal largo. macOS
+          ya la entrega convertida en horizontal y Windows no, así que se
+          acepta de las dos formas.
+
+        Un panel táctil casi nunca desliza derecho: **manda el eje que más se
+        movió**, y no los dos, o cada gesto de costado cambiaría un poco la
+        escala.
+
+        Returns:
+            Si la rueda se usó. Usada, no sigue a pyqtgraph ni al panel de
+            desplazamiento que haya afuera.
+        """
+        if self._session is None:
+            return False
+        delta = evento.angleDelta()
+        if evento.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            # Hacia atrás —hacia el usuario— es hacia adelante en el
+            # registro, como bajar en un documento.
+            horizontal = delta.x() or delta.y()
+            return self._desplazar_con_la_rueda(horizontal / _DELTA_POR_MUESCA)
+        if abs(delta.x()) > abs(delta.y()):
+            return self._desplazar_con_la_rueda(delta.x() / _DELTA_POR_MUESCA)
+        return self._escala_con_la_rueda(evento, delta.y() / _DELTA_POR_MUESCA)
+
+    def _desplazar_con_la_rueda(self, muescas: float) -> bool:
+        """Corre la página una fracción de sí misma por muesca.
+
+        **Positivo es hacia atrás en el registro**: deslizar hacia la derecha
+        en un panel táctil trae lo que estaba a la izquierda, igual que
+        arrastrar un papel. Pasa por `_desplazar()`, así que reproduciendo
+        mueve el cursor y no sólo la página.
+        """
+        if muescas == 0:
+            return False
+        self._desplazar(-muescas * _PAGINA_POR_MUESCA)
+        return True
+
+    def _escala_con_la_rueda(self, evento: QWheelEvent, muescas: float) -> bool:
+        """Acerca o aleja la página con la rueda.
+
+        **Queda quieto el instante bajo el mouse**, como en un mapa: para mirar
+        de cerca un huso se apunta y se gira, sin tener que centrarlo antes.
+        Hacia adelante acerca y hacia atrás aleja.
+
+        **Reproduciendo, el ancla es el cursor** y no el mouse: la página es
+        suya y el paso siguiente la volvería a centrar, así que anclar en el
+        mouse haría saltar el dibujo de un cuadro al otro.
+        """
+        if self._session is None or muescas == 0:
+            return False
+        factor = VIEW_ZOOM_FACTOR ** (-muescas / _MUESCAS_POR_DUPLICAR)
+        pagina = self._session.viewport
+        if self._cabezal is not None:
+            nueva = pagina.zoomed(factor)
+        else:
+            instante = self.signal_view.seconds_at_pixel(
+                _en_escena(self.signal_view, evento).x()
+            )
+            nueva = pagina.zoomed_at(factor, instante)
+        # En los topes —la página mínima, el registro entero— la rueda no
+        # cambia nada, y redibujar lo mismo en cada muesca sería puro costo.
+        if nueva != pagina:
+            self._cambiar_pagina(nueva)
+        return True
 
     def _filtrar_histograma(self, evento: QEvent) -> None:
         """Un clic en el hipnograma es una posición de la noche, no un segundo."""

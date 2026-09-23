@@ -69,6 +69,25 @@ def _check_seconds(nombre: str, valor: float) -> None:
     )
 
 
+def _check_factor(factor: float) -> None:
+    """Rechaza un factor de escala con el que la página no tendría ancho.
+
+    Raises:
+        InvalidViewportError: si no es un número finito y mayor que cero.
+    """
+    check_finite(
+        factor,
+        error=InvalidViewportError,
+        message="No se pudo cambiar la escala de tiempo.",
+        details=f"El factor tiene que ser un número finito; se recibió {factor!r}.",
+    )
+    if factor <= 0:
+        raise InvalidViewportError(
+            "No se pudo cambiar la escala de tiempo.",
+            details=f"El factor tiene que ser mayor que cero; se recibió {factor}.",
+        )
+
+
 @dataclass(frozen=True)
 class Viewport:
     """El tramo del registro que se está mirando.
@@ -244,18 +263,43 @@ class Viewport:
         Raises:
             InvalidViewportError: si el factor no es finito y mayor que cero.
         """
-        check_finite(
-            factor,
-            error=InvalidViewportError,
-            message="No se pudo cambiar la escala de tiempo.",
-            details=f"El factor tiene que ser un número finito; se recibió {factor!r}.",
-        )
-        if factor <= 0:
-            raise InvalidViewportError(
-                "No se pudo cambiar la escala de tiempo.",
-                details=f"El factor tiene que ser mayor que cero; se recibió {factor}.",
-            )
+        _check_factor(factor)
         return self.with_span(self.span_seconds * factor)
+
+    def zoomed_at(self, factor: float, anchor_seconds: float) -> "Viewport":
+        """Multiplica la duración de la página **dejando quieto un instante**.
+
+        Es lo que hace la rueda del mouse (hito 56): el instante bajo el
+        puntero sigue bajo el puntero, igual que en un mapa. Con `zoomed()`,
+        que conserva el centro, acercarse a un huso del borde lo sacaba de la
+        pantalla a la segunda muesca.
+
+        El instante queda a la misma **fracción** de la página antes y
+        después. En los bordes del registro la página se recorta y el instante
+        se corre, que es lo mismo que le pasa a `with_span()`.
+
+        Args:
+            factor: por cuánto se multiplica la duración; menos de 1 acerca.
+            anchor_seconds: el instante que no se mueve, en segundos desde el
+                inicio del registro. Fuera de la página se lleva a su borde:
+                anclar en un instante que no se ve correría la página entera.
+
+        Raises:
+            InvalidViewportError: si el factor no es finito y mayor que cero, o
+                si el instante no es un número finito.
+        """
+        _check_factor(factor)
+        _check_seconds("anchor_seconds", anchor_seconds)
+        ancla = min(max(float(anchor_seconds), self.start_seconds), self.end_seconds)
+        fraccion = (ancla - self.start_seconds) / self.span_seconds
+        # El span se recorta primero —contra el mínimo y contra el registro—
+        # para ubicar el comienzo con el ancho que va a quedar de verdad.
+        span = Viewport.clamped(
+            self.start_seconds, self.span_seconds * factor, self.duration_seconds
+        ).span_seconds
+        return Viewport.clamped(
+            ancla - fraccion * span, span, self.duration_seconds
+        )
 
     def panned(self, delta_seconds: float) -> "Viewport":
         """Desplaza la página, sin cambiar su duración."""

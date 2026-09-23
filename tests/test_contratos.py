@@ -194,6 +194,8 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("with_start", lambda v: pagina().with_start(v)),
         ("with_center", lambda v: pagina().with_center(v)),
         ("zoomed", lambda v: pagina().zoomed(v)),
+        ("zoomed_at(factor=...)", lambda v: pagina().zoomed_at(v, 10.0)),
+        ("zoomed_at(anchor=...)", lambda v: pagina().zoomed_at(0.5, v)),
         ("panned", lambda v: pagina().panned(v)),
         ("for_duration", lambda v: pagina().for_duration(v)),
         ("containing(start=...)", lambda v: pagina().containing(v, 10.0)),

@@ -26,7 +26,7 @@ ubicó mal.
 | `nomenclature.py` | Rechtschaffen y Kales frente a AASM: `Nomenclature`, `SleepStage`, conversión entre ambas. `check_nomenclature()` es pública desde el hito 48 porque `Scoring` la necesita para no guardar una nomenclatura inventada. | V1_F, V3_F de "Scoring"; V3_F del histograma |
 | `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. Una anotación es inmutable; corregirla es reemplazarla con `replace()`, que valida la nueva antes de sacar la vieja (hito 52). | V1_F de "Anotación de la señal" |
 | `windows.py` | Conversión entre ventanas, muestras y hora de la noche. | V1_P de "Visualización", V1_F de "Navegación", V2_F del histograma |
-| `viewport.py` | **La página visible**, separada de la época de scoring. Inmutable: cambiarla es construir otra. | — |
+| `viewport.py` | **La página visible**, separada de la época de scoring. Inmutable: cambiarla es construir otra. `zoomed_at()` cambia la escala dejando quieto un instante, que es lo que hace la rueda (hito 56). | — |
 | `decimation.py` | **La envolvente mínimo/máximo** que hace dibujable el registro entero sin perder un solo pico. Las cubetas se cuentan desde el comienzo del registro y no desde el borde de la página (hito 49), para que el visualizador pueda guardarlas y calcular sólo las que entran. | — |
 
 ## `Session`: el objeto que todos consultan
