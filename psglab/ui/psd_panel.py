@@ -41,7 +41,7 @@ from PySide6.QtWidgets import (
 
 from psglab.analysis.psd import DEFAULT_BANDS
 from psglab.ui import theme
-from psglab.ui.panel_header import EmptyState, PanelHeader
+from psglab.ui.panel_header import EmptyState, PanelHeader, plain_axes
 
 #: Colores de las bandas sombreadas, en orden. No salen de `config.py` porque
 #: el pliego no fija ninguno: pide mostrar la PSD por banda, y con qué color se
@@ -102,6 +102,7 @@ class PsdPanel(QWidget):
 
         self.grafico = pg.PlotWidget()
         item = self.grafico.getPlotItem()
+        plain_axes(item)
         item.setLogMode(x=False, y=True)
         item.setLabel("bottom", "Frecuencia", units="Hz")
         item.setLabel("left", "Potencia", units="µV²/Hz")

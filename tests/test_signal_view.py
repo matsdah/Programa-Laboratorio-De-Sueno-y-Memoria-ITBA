@@ -1160,3 +1160,64 @@ def test_la_lupa_amplia_el_canal_que_le_pidieron(vista: SignalView):
     _, y_del_primero = lupa(vista, canal=vista._visible[0])
 
     assert not np.allclose(y_del_segundo, y_del_primero)
+
+
+# -- El rótulo de la banda de anotación (hito 53) ---------------------------
+
+
+def _rotulos(vista: SignalView) -> list:
+    import pyqtgraph as pg
+
+    return [i for i in vista._overlay_items if isinstance(i, pg.TextItem)]
+
+
+def test_la_banda_dice_de_que_clase_es(vista: SignalView):
+    """**Hasta el hito 53 sólo tenía color**, y había que recordar qué color
+    era cada clase. El prototipo lo ponía en una pestaña, como la época."""
+    from psglab.tools.base import SpanOverlay
+
+    vista.set_overlays(
+        [SpanOverlay("annotator", 4.0, 7.0, "Spindle", "#6cb04a")]
+    )
+
+    (rotulo,) = _rotulos(vista)
+    assert rotulo.toPlainText() == "Spindle"
+    assert rotulo.pos().x() == pytest.approx(4.0)
+
+
+def test_el_rotulo_va_encima_de_su_banda(vista: SignalView):
+    """Si no, el borde de una banda más angosta que su nombre le cruza el
+    texto, que es lo que mostró la captura."""
+    import pyqtgraph as pg
+
+    from psglab.tools.base import SpanOverlay
+
+    vista.set_overlays([SpanOverlay("annotator", 4.0, 5.0, "Complejo K", "#4a90e6")])
+
+    (region,) = [i for i in vista._overlay_items if isinstance(i, pg.LinearRegionItem)]
+    (rotulo,) = _rotulos(vista)
+    assert rotulo.zValue() > region.zValue()
+
+
+def test_el_rotulo_de_una_banda_que_empieza_antes_queda_en_la_pagina(
+    vista: SignalView, sesion: Session
+):
+    """Como la pestaña de la época: si la banda empieza antes de la página, el
+    rótulo quedaría fuera de la pantalla."""
+    from psglab.tools.base import SpanOverlay
+
+    sesion.set_viewport(sesion.viewport.with_start(30.0))
+    vista.draw_viewport()
+    vista.set_overlays([SpanOverlay("annotator", 25.0, 35.0, "Arousal", "#e6754a")])
+
+    (rotulo,) = _rotulos(vista)
+    assert rotulo.pos().x() == pytest.approx(30.0)
+
+
+def test_la_seleccion_en_curso_no_lleva_rotulo(vista: SignalView):
+    """Todavía no tiene clase: se le pregunta al soltar."""
+    from psglab.tools.base import SpanOverlay
+
+    vista.set_overlays([SpanOverlay("annotator", 4.0, 7.0, "")])
+
+    assert _rotulos(vista) == []

@@ -22,6 +22,7 @@ from psglab.ui.panel_header import (  # noqa: E402
     ALTO_DEL_ENCABEZADO,
     EmptyState,
     PanelHeader,
+    plain_axes,
 )
 from psglab.ui.psd_panel import PsdPanel  # noqa: E402
 
@@ -196,3 +197,29 @@ def test_el_encabezado_de_ica_dice_cuantos_componentes_salieron(qt_app):
     panel.set_components([{"C3": 0.5, "C4": -0.2}, {"C3": 0.1, "C4": 0.8}])
 
     assert panel.header.caption() == "2 componentes · 2 canales"
+
+
+# -- Los ejes sin prefijo automático (hito 53) ------------------------------
+
+
+def test_los_ejes_numericos_de_los_paneles_no_llevan_prefijo(qt_app):
+    """Los cuatro gráficos de análisis con eje numérico pasan por
+    `plain_axes()`. Con el prefijo, una entropía de 0,75 se leía «750»."""
+    import pyqtgraph as pg
+
+    for panel in (MetricPanel(), PsdPanel(), IcaPanel()):
+        for grafico in panel.findChildren(pg.PlotWidget):
+            item = grafico.getPlotItem()
+            for lado in ("left", "bottom"):
+                assert not item.getAxis(lado).autoSIPrefix, (type(panel).__name__, lado)
+
+
+def test_plain_axes_apaga_el_prefijo_de_los_dos_ejes(qt_app):
+    import pyqtgraph as pg
+
+    grafico = pg.PlotWidget()
+    item = grafico.getPlotItem()
+    plain_axes(item)
+
+    assert not item.getAxis("left").autoSIPrefix
+    assert not item.getAxis("bottom").autoSIPrefix

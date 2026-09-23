@@ -704,11 +704,14 @@ class SignalView(pg.PlotWidget):
 
         for overlay in overlays:
             dibujado = self._dibujar_overlay(overlay)
-            if dibujado is not None:
-                item.addItem(dibujado)
-                self._overlay_items.append(dibujado)
+            if dibujado is None:
+                continue
+            # Una banda de anotación son dos objetos: la región y su rótulo.
+            for pieza in dibujado if isinstance(dibujado, tuple) else (dibujado,):
+                item.addItem(pieza)
+                self._overlay_items.append(pieza)
 
-    def _dibujar_overlay(self, overlay: Overlay) -> object | None:
+    def _dibujar_overlay(self, overlay: Overlay) -> object | tuple[object, ...] | None:
         """Traduce un `Overlay` a algo que pyqtgraph sepa pintar.
 
         Devuelve `None` para un tipo que esta versión todavía no dibuja, en vez
@@ -747,7 +750,19 @@ class SignalView(pg.PlotWidget):
             )
             if overlay.color:
                 region.setBrush(pg.mkBrush(overlay.color + "55"))
-            return region
+                # Los bordes con el color de la clase y no con el azul de
+                # pyqtgraph: desde el hito 52 se agarran para corregir el tramo.
+                for linea in region.lines:
+                    linea.setPen(pg.mkPen(overlay.color, width=1))
+            if not overlay.label:
+                return region
+            rotulo = self._rotulo_de_la_banda(overlay)
+            # **Encima de su banda**, que por omisión está encima de la señal:
+            # si no, el borde de una banda más angosta que su nombre le cruza
+            # el texto. Se probó al revés —la banda detrás de la señal— y con
+            # una página larga la envolvente es un bloque lleno que la tapaba.
+            rotulo.setZValue(region.zValue() + 1)
+            return region, rotulo
 
         if isinstance(overlay, SegmentOverlay):
             # **Sobre el carril de su canal** (hito 46). Iba siempre sobre el
@@ -771,6 +786,33 @@ class SignalView(pg.PlotWidget):
         if isinstance(overlay, CircleOverlay):
             return self._dibujar_lupa(overlay)
         return None
+
+    def _rotulo_de_la_banda(self, overlay: SpanOverlay) -> pg.TextItem:
+        """La pestaña con el nombre de la clase, colgada del borde de la banda.
+
+        **Hasta el hito 53 la banda sólo tenía color**, y para saber si era un
+        huso o un arousal había que recordar qué color tenía cada clase. El
+        prototipo la ponía en una pestaña, igual que la de la época, y es la
+        misma pieza: rellena con el color de la clase y con la tinta que elige
+        `theme.ink_over()` contra ese relleno.
+
+        **Va una línea más abajo que la de la época**, para que una anotación
+        que empieza con la época no tape el número. Se recorta contra el borde
+        de la página, como la de la época: con una banda que empieza antes, el
+        rótulo quedaría fuera de la pantalla.
+        """
+        color = overlay.color or theme.current().accent
+        rotulo = pg.TextItem(
+            overlay.label,
+            anchor=(0, -1.15),
+            color=theme.ink_over(theme.current(), color),
+            fill=pg.mkBrush(color),
+        )
+        inicio = overlay.start_seconds
+        if self._session is not None:
+            inicio = max(inicio, self._session.viewport.start_seconds)
+        rotulo.setPos(inicio, self._techo_de_la_pestana())
+        return rotulo
 
     def _dibujar_lupa(self, overlay: CircleOverlay) -> object | None:
         """La lupa: una lente circular sobre el tramo bajo el cursor (V1_F).

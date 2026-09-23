@@ -187,8 +187,10 @@ calculó**, y qué mostrar mientras no hay ningún resultado. Los tres de curva 
 metían todo en el título del gráfico, con un `_reflejar_titulo()` copiado tres
 veces.
 
-Dos piezas lo reemplazan. `PanelHeader` es la franja de 34 px, con el rótulo a
-la izquierda y el método a la derecha. `EmptyState` **reemplaza al gráfico**, no
+Dos piezas lo reemplazan, más una función. `PanelHeader` es la franja de 34 px, con el rótulo a
+la izquierda y el método a la derecha. `plain_axes()` le apaga a un gráfico el
+prefijo que pyqtgraph pone por su cuenta, que multiplicaba por mil cualquier
+métrica menor que uno (hito 53). `EmptyState` **reemplaza al gráfico**, no
 le escribe encima: con ejes, grilla y leyenda detrás de la frase, un panel
 vacío se leía como un resultado que dio cero.
 

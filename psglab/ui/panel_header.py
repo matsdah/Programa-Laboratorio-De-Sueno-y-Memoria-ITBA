@@ -52,6 +52,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pyqtgraph as pg
+
 from psglab.ui import theme
 from psglab.ui.fonts import font_for
 from psglab.ui.icons import icon
@@ -192,6 +194,22 @@ PADDING_DEL_CHIP: Final[int] = 5
 
 #: El rol del ítem que lleva el color de relleno de su chip.
 ROL_DEL_COLOR: Final[int] = int(Qt.ItemDataRole.UserRole) + 2
+
+
+def plain_axes(item: pg.PlotItem) -> None:
+    """Que los ejes de un gráfico escriban los números como son.
+
+    **pyqtgraph les pone un prefijo por su cuenta** (`autoSIPrefix`): con
+    valores menores que uno multiplica por mil y agrega «(x0.001)» al rótulo.
+    En Métrica una entropía de 0,75 se leía «750» (hito 53), y en el Espectro
+    el prefijo iría pegado a «µV²/Hz». Lo encontró la comparación con el
+    prototipo; los tests miraban los datos y no lo que dice el eje.
+
+    Está acá y no en cada panel porque es la misma decisión en los cuatro
+    gráficos de análisis que tienen eje numérico.
+    """
+    for lado in ("left", "bottom"):
+        item.getAxis(lado).enableAutoSIPrefix(False)
 
 
 def chip_font(base: QFont) -> QFont:

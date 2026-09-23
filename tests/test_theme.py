@@ -480,12 +480,50 @@ def test_la_hoja_le_pone_tinta_a_la_fila_seleccionada():
     assert "color:" in regla
 
 
-def test_ink_over_no_sirve_sobre_un_relleno_palido():
-    """La limitación que el bug dejó a la vista: elige entre el blanco y el
-    fondo del esquema, así que sólo da una respuesta legible cuando el relleno
-    está lejos de los dos. Sobre el realce de Sereno devuelve blanco."""
+def test_ink_over_se_lee_sobre_un_relleno_palido():
+    """**Hasta el hito 53 este test afirmaba lo contrario**: elegía entre el
+    blanco y el fondo del esquema, y sobre el realce de Sereno devolvía blanco,
+    a 1,24 a 1. Con la tinta del esquema como tercera candidata, se lee."""
     elegida = theme.ink_over(theme.SERENO, theme.SERENO.overview_current)
 
-    assert theme.contrast_ratio(elegida, theme.SERENO.overview_current) < (
+    assert theme.contrast_ratio(elegida, theme.SERENO.overview_current) >= (
         theme.MIN_TEXT_CONTRAST
     )
+
+
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=list(theme.SCHEMES))
+def test_ink_over_se_lee_sobre_los_colores_de_clase(esquema):
+    """Es la tinta del rótulo de una banda de anotación y de los chips de evento
+    de la Übersicht. Con dos candidatas, en Sereno el amarillo daba 1,75 a 1.
+
+    **El piso es el de un gráfico y no el de un texto**: el peor color de la
+    paleta da 4,23 en Sereno y 4,44 en Nocturno, apenas debajo de los 4,5 que
+    pide un texto chico. Subirlo es cambiar la paleta de clases, que es otra
+    decisión."""
+    from psglab.core.annotations import PALETTE
+
+    for color in PALETTE:
+        tinta = theme.ink_over(esquema, color)
+        assert theme.contrast_ratio(tinta, color) >= theme.MIN_GRAPHIC_CONTRAST
+
+
+# -- La casilla sin marcar (hito 53) ---------------------------------------
+
+
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=list(theme.SCHEMES))
+def test_la_casilla_sin_marcar_tiene_borde(esquema):
+    """**En Sereno no se veía**: con el estilo nativo de Windows, un elemento
+    sin marcar de una lista no dibujaba ninguna casilla, así que un canal
+    oculto del selector no tenía nada que tildar. Lo encontró la captura."""
+    hoja = theme.stylesheet(esquema)
+    regla = hoja.split("QCheckBox::indicator:unchecked")[1].split("}")[0]
+
+    assert "QListWidget::indicator:unchecked" in hoja
+    assert "QTreeWidget::indicator:unchecked" in hoja
+    assert esquema.overview_text in regla
+
+
+def test_la_casilla_marcada_se_deja_al_estilo_nativo():
+    """Una regla para el estado marcado obligaría a traer una imagen propia de
+    la tilde: sin ella, Qt dibuja la casilla vacía."""
+    assert "indicator:checked" not in theme.stylesheet(theme.SERENO)
