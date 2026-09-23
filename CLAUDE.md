@@ -165,12 +165,13 @@ python -m pytest -rs
 arma una ventana por test. Conviene correrla en segundo plano y **sin otra
 corrida de pytest en paralelo**: superpuestas, el tiempo casi se triplicó.
 
-Los dos bancos de medición **no son tests y pytest no los recolecta**: se
+Los tres bancos de medición **no son tests y pytest no los recolecta**: se
 corren a mano e imprimen una tabla, sin afirmar nada.
 
 ```bash
 python -m tests.medir_rendimiento
 python -m tests.medir_reparto
+python -m tests.medir_memoria
 ```
 
 El primero mide cuánto tarda abrir un registro y cada cuadro de la
@@ -185,6 +186,11 @@ sin que nadie sepa cuál de las dos está mal.
 El de reparto **abre una ventana de verdad**, al revés que la suite: el plugin
 `offscreen` que fija `conftest.py` no usa el estilo nativo, que es justamente lo
 que decide cuánto mide un botón de fase.
+
+El de memoria (hito 57) cuenta **en copias de la señal** y no en megabytes, y
+eso sí es igual en cualquier máquina. No es un test por otros dos motivos:
+tarda minutos —ajustar la ICA sobre una hora de 32 canales—, y el número
+depende de la versión de MNE, que hace la mayor parte de las copias.
 
 Hay una tercera herramienta que tampoco es un test, y que sirve para lo que
 ningún test puede afirmar: **cómo se ve**.
