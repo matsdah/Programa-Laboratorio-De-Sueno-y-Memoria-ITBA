@@ -302,6 +302,17 @@ HELP_GROUPS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("Archivo", ("Ctrl+O", "Ctrl+S")),
 )
 
+#: Lo que se hace con el mouse y no con una tecla, por grupo de la ayuda (hito
+#: 56). **No es un atajo**: no pasa por `QShortcut`, así que no puede estar en
+#: `FIXED_SHORTCUTS`, pero quien busca cómo cambiar la escala lo busca acá.
+MOUSE_HELP: Final[dict[str, tuple[tuple[str, str], ...]]] = {
+    "Navegación": (
+        ("Rueda sobre la señal", "Acercar o alejar, fijo bajo el mouse"),
+        ("Mayús+Rueda", "Desplazar la página"),
+        ("Deslizar de costado", "Desplazar la página, con el panel táctil"),
+    ),
+}
+
 
 def shortcut_groups(
     nomenclature: Nomenclature,
@@ -328,5 +339,6 @@ def shortcut_groups(
                 (tecla, texto) for tecla, texto in stage_shortcuts(nomenclature).items()
             ]
         filas += [(readable_key(tecla), FIXED_SHORTCUTS[tecla]) for tecla in teclas]
+        filas += list(MOUSE_HELP.get(nombre, ()))
         grupos.append((nombre, filas))
     return grupos

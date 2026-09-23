@@ -305,3 +305,71 @@ def test_reemplazar_no_recorta_a_proposito():
     afuera = pagina.replaced(start_seconds=NOCHE + 100.0)
 
     assert afuera.start_seconds == NOCHE + 100.0
+
+
+# -- Acercar con la rueda: un instante queda quieto (hito 56) ---------------
+
+
+def test_acercar_deja_quieto_el_instante_elegido():
+    """**Es lo que hace la rueda**: el instante bajo el mouse sigue bajo el
+    mouse. Con el centro fijo, acercarse a un huso del borde lo sacaba de la
+    pantalla."""
+    pagina = Viewport.clamped(1000.0, 60.0, NOCHE)
+
+    acercada = pagina.zoomed_at(0.5, 1015.0)
+
+    assert acercada.span_seconds == pytest.approx(30.0)
+    # Estaba a un cuarto de la página y sigue a un cuarto.
+    assert acercada.start_seconds == pytest.approx(1015.0 - 30.0 / 4)
+
+
+def test_alejar_y_acercar_en_el_mismo_instante_vuelve_a_la_misma_pagina():
+    pagina = Viewport.clamped(1000.0, 60.0, NOCHE)
+
+    vuelta = pagina.zoomed_at(2.0, 1040.0).zoomed_at(0.5, 1040.0)
+
+    assert vuelta.start_seconds == pytest.approx(pagina.start_seconds)
+    assert vuelta.span_seconds == pytest.approx(pagina.span_seconds)
+
+
+def test_en_el_borde_del_registro_la_pagina_se_recorta(pagina: Viewport):
+    """Alejar desde el comienzo no puede dejar una página que empiece antes del
+    registro: se recorta, y el instante se corre."""
+    alejada = pagina.zoomed_at(4.0, 20.0)
+
+    assert alejada.start_seconds == 0.0
+    assert alejada.span_seconds == pytest.approx(120.0)
+
+
+def test_en_el_minimo_el_ancho_no_baja_y_el_instante_no_se_mueve():
+    """Ubicar el comienzo con el ancho pedido y no con el que queda correría
+    la página al llegar al mínimo."""
+    pagina = Viewport.clamped(100.0, MIN_VIEW_SECONDS * 1.5, NOCHE)
+    instante = pagina.start_seconds + pagina.span_seconds / 3
+
+    tope = pagina.zoomed_at(0.1, instante)
+
+    assert tope.span_seconds == pytest.approx(MIN_VIEW_SECONDS)
+    assert tope.start_seconds == pytest.approx(instante - MIN_VIEW_SECONDS / 3)
+
+
+def test_un_instante_fuera_de_la_pagina_se_lleva_a_su_borde():
+    """Anclar en algo que no se ve correría la página entera fuera de lo que
+    se estaba mirando."""
+    pagina = Viewport.clamped(1000.0, 60.0, NOCHE)
+
+    acercada = pagina.zoomed_at(0.5, 5000.0)
+
+    assert acercada.end_seconds == pytest.approx(pagina.end_seconds)
+
+
+@pytest.mark.parametrize("hostil", [0.0, -1.0, float("nan"), float("inf")])
+def test_el_factor_de_la_rueda_se_valida_igual(pagina: Viewport, hostil: float):
+    with pytest.raises(InvalidViewportError):
+        pagina.zoomed_at(hostil, 10.0)
+
+
+@pytest.mark.parametrize("hostil", [float("nan"), float("inf"), None, "10"])
+def test_un_instante_que_no_es_numero_avisa(pagina: Viewport, hostil: object):
+    with pytest.raises(InvalidViewportError):
+        pagina.zoomed_at(0.5, hostil)  # type: ignore[arg-type]

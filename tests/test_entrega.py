@@ -29,8 +29,8 @@ import pytest
 import json
 import threading
 
-from PySide6.QtCore import QEvent, QPointF, Qt
-from PySide6.QtGui import QFont, QMouseEvent
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+from PySide6.QtGui import QFont, QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
 
 pytest.importorskip("pyqtgraph")
@@ -4952,3 +4952,219 @@ def test_exportar_es_el_boton_principal_del_cartel(ventana: MainWindow, monkeypa
     ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
 
     assert vistos == {"Exportar…": True, "Descartar": False, "Cancelar": False}
+
+
+# -- La rueda cambia la escala de tiempo (hito 56) --------------------------
+
+
+def girar_la_rueda(
+    ventana: MainWindow,
+    segundos: float,
+    muescas: float,
+    horizontal: bool = False,
+    mayusculas: bool = False,
+    de_costado: float = 0.0,
+) -> None:
+    """Gira la rueda sobre la señal, con el mouse en ese segundo del registro.
+
+    Por el viewport y armado como lo arma Qt, igual que `evento_de_mouse()`:
+    una muesca son 120 octavos de grado. Hacia adelante es positivo, y en el
+    eje horizontal, hacia la izquierda.
+
+    `de_costado` suma muescas horizontales a un giro vertical: un panel táctil
+    casi nunca desliza derecho.
+    """
+    vista = ventana.signal_view
+    caja = vista.getPlotItem().vb
+    x = caja.mapViewToScene(QPointF(segundos, 0.0)).x()
+    local = QPointF(vista.mapFromScene(QPointF(x, caja.sceneBoundingRect().center().y())))
+    viewport = vista.viewport()
+    delta = round(muescas * 120)
+    angulo = QPoint(delta, 0) if horizontal else QPoint(round(de_costado * 120), delta)
+    QApplication.instance().sendEvent(
+        viewport,
+        QWheelEvent(
+            local,
+            QPointF(viewport.mapToGlobal(local.toPoint())),
+            QPoint(),
+            angulo,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.ShiftModifier if mayusculas else Qt.KeyboardModifier.NoModifier,
+            Qt.ScrollPhase.NoScrollPhase,
+            False,
+        ),
+    )
+
+
+@pytest.fixture
+def pagina_de_un_minuto(ventana: MainWindow) -> MainWindow:
+    """Una página de 60 s que empieza en el segundo 30: hay lugar para
+    alejarse y para acercarse sin tocar los bordes del registro."""
+    ventana._cambiar_pagina(ventana.session.viewport.with_span(60.0).with_start(30.0))
+    return ventana
+
+
+def test_la_rueda_hacia_adelante_acerca(pagina_de_un_minuto: MainWindow):
+    """Dos muescas duplican: acá, la página pasa a durar la mitad."""
+    ventana = pagina_de_un_minuto
+
+    girar_la_rueda(ventana, 60.0, 2)
+
+    assert ventana.session.viewport.span_seconds == pytest.approx(30.0)
+    assert not ventana.carteles
+
+
+def test_la_rueda_hacia_atras_aleja(pagina_de_un_minuto: MainWindow):
+    ventana = pagina_de_un_minuto
+
+    girar_la_rueda(ventana, 60.0, -2)
+
+    assert ventana.session.viewport.span_seconds == pytest.approx(120.0)
+
+
+def test_la_rueda_deja_quieto_lo_que_esta_bajo_el_mouse(pagina_de_un_minuto: MainWindow):
+    """**Es la diferencia con Ctrl++**, que acerca hacia el centro: para mirar
+    un huso de cerca se lo apunta y se gira, sin centrarlo antes."""
+    ventana = pagina_de_un_minuto
+    antes = ventana.session.viewport
+    # El segundo que el mouse tiene de verdad debajo, después de redondear
+    # al píxel: es ése el que no se tiene que mover.
+    girar_la_rueda(ventana, 45.0, 1)
+
+    despues = ventana.session.viewport
+    fraccion_antes = (45.0 - antes.start_seconds) / antes.span_seconds
+    assert despues.span_seconds < antes.span_seconds
+    assert despues.start_seconds + fraccion_antes * despues.span_seconds == pytest.approx(
+        45.0, abs=0.2
+    )
+    assert despues.center_seconds < antes.center_seconds
+
+
+def test_la_rueda_llega_al_dibujo_y_al_cartel(pagina_de_un_minuto: MainWindow):
+    """No sólo a la sesión: el eje de la señal y el cartel de la página."""
+    ventana = pagina_de_un_minuto
+    cartel = ventana.page_readout.text()
+
+    girar_la_rueda(ventana, 60.0, 2)
+
+    izquierda, derecha = ventana.signal_view.getPlotItem().vb.viewRange()[0]
+    assert derecha - izquierda == pytest.approx(30.0, rel=0.05)
+    assert ventana.page_readout.text() != cartel
+
+
+def test_la_rueda_no_cambia_la_epoca(pagina_de_un_minuto: MainWindow):
+    """La página es lo que se ve; la época es lo que se scorea."""
+    ventana = pagina_de_un_minuto
+    epoca = ventana.session.current_window
+
+    girar_la_rueda(ventana, 80.0, 4)
+
+    assert ventana.session.current_window == epoca
+
+
+def test_deslizar_de_costado_desplaza_sin_cambiar_la_escala(pagina_de_un_minuto: MainWindow):
+    """Lo que manda un panel táctil al deslizar hacia la izquierda: la página
+    avanza en el registro, un décimo de sí misma por muesca."""
+    ventana = pagina_de_un_minuto
+    antes = ventana.session.viewport
+
+    girar_la_rueda(ventana, 60.0, -2, horizontal=True)
+
+    despues = ventana.session.viewport
+    assert despues.span_seconds == pytest.approx(antes.span_seconds)
+    assert despues.start_seconds == pytest.approx(antes.start_seconds + 0.2 * antes.span_seconds)
+
+
+def test_deslizar_hacia_el_otro_lado_retrocede(pagina_de_un_minuto: MainWindow):
+    ventana = pagina_de_un_minuto
+    antes = ventana.session.viewport
+
+    girar_la_rueda(ventana, 60.0, 2, horizontal=True)
+
+    assert ventana.session.viewport.start_seconds < antes.start_seconds
+
+
+def test_mayusculas_y_la_rueda_desplazan(pagina_de_un_minuto: MainWindow):
+    """En Windows llega como rueda vertical con Mayúsculas. Hacia atrás
+    avanza en el registro, como bajar en un documento."""
+    ventana = pagina_de_un_minuto
+    antes = ventana.session.viewport
+
+    girar_la_rueda(ventana, 60.0, -1, mayusculas=True)
+
+    despues = ventana.session.viewport
+    assert despues.span_seconds == pytest.approx(antes.span_seconds)
+    assert despues.start_seconds == pytest.approx(antes.start_seconds + 0.1 * antes.span_seconds)
+
+
+def test_mayusculas_ya_convertida_en_horizontal_tambien_desplaza(pagina_de_un_minuto: MainWindow):
+    """macOS la entrega como horizontal, con Mayúsculas todavía apretada."""
+    ventana = pagina_de_un_minuto
+    antes = ventana.session.viewport
+
+    girar_la_rueda(ventana, 60.0, -1, horizontal=True, mayusculas=True)
+
+    assert ventana.session.viewport.start_seconds == pytest.approx(
+        antes.start_seconds + 0.1 * antes.span_seconds
+    )
+
+
+def test_un_gesto_torcido_hace_una_sola_cosa(pagina_de_un_minuto: MainWindow):
+    """Deslizar de costado con un poco de vertical no puede cambiar también
+    la escala: manda el eje que más se movió."""
+    ventana = pagina_de_un_minuto
+    antes = ventana.session.viewport
+
+    girar_la_rueda(ventana, 60.0, 0.25, de_costado=-2)
+
+    despues = ventana.session.viewport
+    assert despues.span_seconds == pytest.approx(antes.span_seconds)
+    assert despues.start_seconds > antes.start_seconds
+
+
+def test_desplazar_en_el_final_no_se_pasa(pagina_de_un_minuto: MainWindow):
+    ventana = pagina_de_un_minuto
+
+    girar_la_rueda(ventana, 60.0, -100, horizontal=True)
+
+    assert ventana.session.viewport.end_seconds == pytest.approx(WINDOW_SECONDS * VENTANAS)
+    assert not ventana.carteles
+
+
+def test_reproduciendo_desplazar_mueve_el_cursor(reproduccion: MainWindow):
+    """Si se moviera sólo la página, el paso siguiente la devolvería al
+    cursor y el gesto no habría hecho nada."""
+    ventana = reproduccion
+    ventana.set_timescale(60.0)
+    ventana.toggle_playback()
+    ventana.playback.advanced.emit(40.0)
+    cursor = ventana.signal_view.playhead()
+
+    girar_la_rueda(ventana, 60.0, -1, horizontal=True)
+
+    assert ventana.signal_view.playhead() == pytest.approx(cursor + 6.0)
+
+
+def test_en_el_registro_entero_alejar_no_hace_nada(ventana: MainWindow):
+    ventana.show_whole_recording()
+    antes = ventana.session.viewport
+
+    girar_la_rueda(ventana, 60.0, -2)
+
+    assert ventana.session.viewport == antes
+    assert not ventana.carteles
+
+
+def test_reproduciendo_la_rueda_acerca_hacia_el_cursor(reproduccion: MainWindow):
+    """**La página es del cursor** mientras se reproduce: anclarla en el mouse
+    la haría saltar al cuadro siguiente, que la vuelve a centrar."""
+    ventana = reproduccion
+    ventana.set_timescale(60.0)
+    ventana.toggle_playback()
+    ventana.playback.advanced.emit(40.0)
+    cursor = ventana.signal_view.playhead()
+
+    girar_la_rueda(ventana, ventana.session.viewport.start_seconds + 5.0, 2)
+
+    assert ventana.session.viewport.span_seconds == pytest.approx(30.0)
+    assert ventana.session.viewport.center_seconds == pytest.approx(cursor)

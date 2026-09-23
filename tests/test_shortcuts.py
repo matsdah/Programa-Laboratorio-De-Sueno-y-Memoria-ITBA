@@ -207,3 +207,13 @@ def test_espacio_se_escribe_en_castellano():
 def test_la_ayuda_dice_que_espacio_necesita_el_foco_en_la_senal():
     assert "señal" in FIXED_SHORTCUTS["Space"]
     assert "Espacio" in _teclas(Nomenclature.AASM)
+
+
+def test_la_ayuda_dice_que_la_rueda_cambia_la_escala():
+    """Hito 56. No es un atajo, pero quien busca cómo acercarse lo busca en la
+    ayuda, al lado de Ctrl++."""
+    grupos = dict(shortcut_groups(Nomenclature.AASM))
+
+    teclas = [tecla for tecla, _ in grupos["Navegación"]]
+    assert "Rueda sobre la señal" in teclas
+    assert "Mayús+Rueda" in teclas
