@@ -226,3 +226,74 @@ def test_una_metrica_menor_que_uno_no_se_multiplica_por_mil(panel: MetricPanel):
 
     assert eje.autoSIPrefixScale == 1.0
     assert "x0.001" not in eje.labelString()
+
+
+# -- La época actual, el eje y los huecos (hito 54) -------------------------
+
+
+def test_la_epoca_actual_se_marca_en_base_uno(panel: MetricPanel):
+    """**La curva no decía dónde estaba parado el usuario.** La época 0 del
+    modelo es la 1 del eje, como el resto del panel."""
+    panel.set_metric("Entropía", {"C3": serie([0.5, 0.6, 0.7, 0.8])})
+
+    panel.set_current_window(2)
+
+    assert panel._marca_actual.value() == 3.0
+    assert panel._marca_actual.isVisible()
+
+
+def test_la_marca_se_mueve_y_no_se_duplica(panel: MetricPanel):
+    import pyqtgraph as pg
+
+    panel.set_metric("Entropía", {"C3": serie([0.5, 0.6, 0.7, 0.8])})
+    panel.set_current_window(0)
+    panel.set_current_window(3)
+
+    lineas = [
+        i for i in panel.grafico.getPlotItem().items if isinstance(i, pg.InfiniteLine)
+    ]
+    assert len(lineas) == 1
+    assert lineas[0].value() == 4.0
+
+
+def test_sin_epoca_la_marca_se_oculta(panel: MetricPanel):
+    panel.set_metric("Entropía", {"C3": serie([0.5, 0.6])})
+    panel.set_current_window(1)
+
+    panel.set_current_window(None)
+
+    assert not panel._marca_actual.isVisible()
+
+
+def test_el_eje_lleva_las_marcas_que_le_pasan(panel: MetricPanel):
+    """Son las del hipnograma, para que los dos gráficos de la noche hablen la
+    misma unidad."""
+    panel.set_time_ticks([(1.0, "23:00"), (3.0, "23:01")], clock_time=True)
+    eje = panel.grafico.getPlotItem().getAxis("bottom")
+
+    assert eje._tickLevels == [[(1.0, "23:00"), (3.0, "23:01")]]
+    assert "Hora" in eje.labelString()
+
+
+def test_en_numero_de_ventana_el_eje_lo_dice(panel: MetricPanel):
+    panel.set_time_ticks([(1.0, "1"), (2.0, "2")], clock_time=False)
+
+    assert "Ventana" in panel.grafico.getPlotItem().getAxis("bottom").labelString()
+
+
+def test_el_encabezado_dice_cuantas_ventanas_quedaron_sin_dato(panel: MetricPanel):
+    """**Un hueco de una ventana entre dos mil no se ve.** Se cuenta la
+    ventana sin dato en cualquier canal, una sola vez."""
+    panel.set_metric(
+        "Entropía",
+        {"C3": serie([0.5, np.nan, 0.7, np.nan]), "C4": serie([np.nan, np.nan, 0.6, 0.7])},
+    )
+
+    assert panel.gap_count() == 3
+    assert panel.header.detail() == "3 ventanas sin dato"
+
+
+def test_sin_huecos_el_encabezado_no_dice_nada(panel: MetricPanel):
+    panel.set_metric("Entropía", {"C3": serie([0.5, 0.6])})
+
+    assert panel.header.detail() == ""

@@ -1221,3 +1221,30 @@ def test_la_seleccion_en_curso_no_lleva_rotulo(vista: SignalView):
     vista.set_overlays([SpanOverlay("annotator", 4.0, 7.0, "")])
 
     assert _rotulos(vista) == []
+
+
+# -- El rótulo de la banda de amplitud (hito 54) ---------------------------
+
+
+def test_la_banda_de_amplitud_dice_cuanto_mide_y_sobre_que_canal(vista: SignalView):
+    """**No lo decía**, y es la duda que despierta: con una escala por canal,
+    75 µV ocupan distinto en cada carril."""
+    from psglab.tools.base import BandOverlay
+
+    vista.set_overlays(
+        [BandOverlay("amplitude_band", y_center_uv=0.0, height_uv=75.0, channel_name="EMG-menton")]
+    )
+
+    (rotulo,) = _rotulos(vista)
+    assert rotulo.toPlainText() == "75 µV · EMG-menton"
+
+
+def test_una_altura_con_decimales_se_escribe_con_ellos(vista: SignalView):
+    from psglab.tools.base import BandOverlay
+
+    vista.set_overlays(
+        [BandOverlay("amplitude_band", y_center_uv=0.0, height_uv=37.5, channel_name="C3")]
+    )
+
+    (rotulo,) = _rotulos(vista)
+    assert rotulo.toPlainText().startswith("37,5")

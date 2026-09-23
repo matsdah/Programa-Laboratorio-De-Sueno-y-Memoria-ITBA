@@ -169,7 +169,9 @@ def format_amplitude(value_uv: float, decimals: int = 0) -> str:
             "No se pudo mostrar la amplitud del canal.",
             details=f"decimals tiene que ser un entero no negativo; se recibió {decimals!r}.",
         )
-    return f"{value_uv:.{decimals}f} {MICROVOLT}"
+    # **Con coma decimal** (hito 54), como todo número que ve el usuario: la
+    # banda de amplitud escribía «37.5 µV» al lado del «41,7» del espectro.
+    return f"{value_uv:.{decimals}f}".replace(".", ",") + f" {MICROVOLT}"
 
 
 def normalize_unit_name(unit: str) -> str:

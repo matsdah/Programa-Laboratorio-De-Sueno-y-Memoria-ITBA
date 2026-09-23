@@ -135,13 +135,13 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos veinte se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos veintiuno se rompen hacia todos lados.
 
-Dieciocho de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Diecinueve de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
 `core/viewport.py`, `core/decimation.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
-`ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py` y `ui/settings_dialog.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py` y `ui/shortcuts_dialog.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -166,6 +166,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/ui/background.py` | Correr un cálculo largo en otro hilo y devolver el resultado en el de la interfaz | La conectividad de la noche, y lo largo que se le sume |
 | `psglab/ui/preferences.py` | Lo que el programa recuerda entre sesiones | El esquema con el que arranca |
 | `psglab/ui/settings_dialog.py` | La ventana de configuración | Todo lo que el usuario puede elegir y el programa recuerda |
+| `psglab/ui/shortcuts_dialog.py` | La ayuda de atajos, en una tabla agrupada | Ayuda → Atajos de teclado |
 
 ---
 
