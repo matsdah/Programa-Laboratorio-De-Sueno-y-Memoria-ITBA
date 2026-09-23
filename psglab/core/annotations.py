@@ -77,10 +77,12 @@ class Annotation:
         color: color de la banda, en formato "#RRGGBB". Si es None, se usa el
             color asignado a la clase.
 
-    **Inmutable a propósito.** Una anotación es un hecho registrado sobre la
-    señal: se crea, se borra, no se edita. Además así se la puede guardar en un
-    conjunto y usar como clave, que es lo que necesita el anotador para saber
-    cuál está debajo del clic.
+    **Inmutable a propósito.** Así se la puede guardar en un conjunto y usar
+    como clave, que es lo que necesita el anotador para saber cuál está debajo
+    del clic. **Corregirla es reemplazarla** (hito 52): `AnnotationSet.replace()`
+    cambia una por otra, y no hay ningún camino que la modifique en el lugar.
+    Hasta ese hito se decía que una anotación «se crea, se borra, no se edita»,
+    y para corregir una clase equivocada había que borrarla y rehacer el gesto.
     """
 
     label: str
@@ -133,6 +135,34 @@ class AnnotationSet:
                 la señal, y una banda sin ancho no se puede dibujar ni solapar
                 con nada.
         """
+        self._validar(annotation)
+        self._insertar(annotation)
+
+    def replace(self, old: Annotation, new: Annotation) -> None:
+        """Cambia una anotación por otra: es como se corrige una (hito 52).
+
+        **Valida la nueva antes de sacar la vieja.** Si la nueva no sirve —una
+        clase que no existe, un tramo sin ancho— el conjunto queda como estaba:
+        un reemplazo que fallara a la mitad le costaría al investigador el
+        evento que quería corregir.
+
+        La nueva se inserta en su lugar por muestra de inicio, que puede no ser
+        el de la vieja si se movió su comienzo: es lo que mantiene la promesa
+        de orden de la que depende `remove_at()`.
+
+        Raises:
+            InvalidAnnotationError: si `old` no está en el conjunto, o si `new`
+                no es una anotación válida (ver `add()`).
+            UnknownAnnotationLabelError: si la clase de `new` no está
+                registrada.
+        """
+        self._validar(new)
+        self.remove(old)
+        self._insertar(new)
+
+    def _validar(self, annotation: Annotation) -> None:
+        """Las reglas de `add()`, aparte para que `replace()` las use antes de
+        tocar nada."""
         if not isinstance(annotation, Annotation):
             raise InvalidAnnotationError(
                 "Se quiso guardar algo que no es una anotación.",
@@ -173,6 +203,8 @@ class AnnotationSet:
             minimum=1,
         )
 
+    def _insertar(self, annotation: Annotation) -> None:
+        """Inserta una anotación ya validada en su lugar por muestra de inicio."""
         posicion = bisect.bisect_right(
             [a.onset_sample for a in self._annotations], annotation.onset_sample
         )

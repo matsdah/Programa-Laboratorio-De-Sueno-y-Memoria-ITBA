@@ -18,7 +18,7 @@ del pliego (sección 7). El otro punto de extensión es
 | `amplitude_band.py` | Banda de referencia de 75 µV, adaptada a la escala del usuario. | `ViewerTool` | V1_F de "Herramienta de amplitud" |
 | `occupancy.py` | Líneas dibujadas con el mouse y su porcentaje de ocupación horizontal. | `ViewerTool` | V1_F–V5_F de "Ocupación de la página" |
 | `magnifier.py` | Lupa: zoom circular y contador de picos. | `ViewerTool` | V1_F, V2_F de "Herramienta Lupa" |
-| `annotator.py` | Anotación de eventos sobre la señal. | `ViewerTool` | V1_F de "Anotación de la señal" |
+| `annotator.py` | Anotación de eventos sobre la señal, y su corrección: arrastrar un borde, cambiar la clase (hito 52). | `ViewerTool` | V1_F de "Anotación de la señal" |
 | `overview.py` | Übersicht: la ventana actual en su contexto. Cada ventana publica su señal reducida, del canal seleccionado o el primero visible (hito 51). | `Tool` | V1_F–V3_F de "Herramienta Übersicht" |
 | `histogram.py` | Hipnograma de la noche completa. `runs()` agrupa las ventanas en tramos seguidos de la misma fase, que es lo que el panel pinta de color desde el hito 34. | `Tool` | V1_P–V4_F de "Histograma" |
 
@@ -149,9 +149,12 @@ apagada, y activar la lupa borraba las anotaciones de la pantalla. La ventana
 recompone también cuando cambia la página, porque cambian las anotaciones que
 entran en ella.
 
-Con «Anotar» activo, el clic derecho sobre una banda la borra, previa
-confirmación. La herramienta encuentra cuál es con `annotation_at()` y la
-ventana hace la pregunta, porque `tools/` no abre diálogos.
+Con «Anotar» activo, el clic derecho sobre una banda abre un menú para
+cambiarle la clase o borrarla, y apretar cerca de un borde lo arrastra (hito
+52). La herramienta encuentra la banda con `annotation_at()` y el borde con
+`edge_at()`; la ventana abre el menú y los diálogos, porque `tools/` no abre
+nada, y le fija la tolerancia del borde en píxeles, porque `tools/` no conoce
+la pantalla.
 
 Tres consecuencias que valen la pena:
 

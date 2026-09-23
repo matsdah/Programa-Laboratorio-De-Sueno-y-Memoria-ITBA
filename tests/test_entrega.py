@@ -527,6 +527,33 @@ def clic_derecho(ventana: MainWindow, segundos: float) -> None:
 
 
 @pytest.fixture
+def elige_en_el_menu(monkeypatch):
+    """Contesta el menú del clic derecho sin abrirlo (hito 52).
+
+    Es modal, igual que el diálogo de clase: sin esto la suite se cuelga, que
+    es lo que pasó la primera vez que se corrió con el menú. Devuelve la lista
+    de menús que se abrieron, y se le fija qué elegir con `elegir`.
+    """
+    abiertos: list[list[str]] = []
+    respuesta: dict[str, str | None] = {"opcion": None}
+
+    def elegir(_self, opciones, _donde):
+        abiertos.append(list(opciones))
+        return respuesta["opcion"]
+
+    monkeypatch.setattr(MainWindow, "_elegir_en_un_menu", elegir)
+
+    class Menu:
+        menus = abiertos
+
+        @staticmethod
+        def elegir(opcion: str | None) -> None:
+            respuesta["opcion"] = opcion
+
+    return Menu
+
+
+@pytest.fixture
 def elige_clase(monkeypatch):
     """Responde el diálogo de clase sin abrirlo.
 
@@ -674,7 +701,11 @@ def test_las_anotaciones_se_ven_con_cualquier_herramienta(
     assert (10.0, 12.0) in bandas_dibujadas(ventana)
 
 
-def test_el_clic_derecho_borra_la_anotacion(ventana: MainWindow, monkeypatch):
+def test_el_clic_derecho_borra_la_anotacion(
+    ventana: MainWindow, monkeypatch, elige_en_el_menu
+):
+    """Desde el hito 52, eligiendo «Borrar» en el menú del clic derecho."""
+    elige_en_el_menu.elegir("Borrar")
     preguntas: list[str] = []
 
     def responder(_padre, _titulo, texto, *_args, **_kwargs):
@@ -694,8 +725,11 @@ def test_el_clic_derecho_borra_la_anotacion(ventana: MainWindow, monkeypatch):
     assert not ventana.carteles
 
 
-def test_el_clic_derecho_pregunta_antes_de_borrar(ventana: MainWindow, monkeypatch):
-    """No hay deshacer: un clic de más no puede costar un evento."""
+def test_el_clic_derecho_pregunta_antes_de_borrar(
+    ventana: MainWindow, monkeypatch, elige_en_el_menu
+):
+    """No hay deshacer: elegir mal en el menú no puede costar un evento."""
+    elige_en_el_menu.elegir("Borrar")
     monkeypatch.setattr(
         QMessageBox,
         "question",
@@ -709,8 +743,12 @@ def test_el_clic_derecho_pregunta_antes_de_borrar(ventana: MainWindow, monkeypat
     assert len(ventana.session.annotations.all()) == 1
 
 
-def test_el_clic_derecho_sin_anotar_no_borra(ventana: MainWindow, monkeypatch):
-    """Sólo con «Anotar» activo: con otra herramienta el clic es suyo."""
+def test_el_clic_derecho_sin_anotar_no_borra(
+    ventana: MainWindow, monkeypatch, elige_en_el_menu
+):
+    """Sólo con «Anotar» activo: con otra herramienta el clic es suyo, y ni
+    siquiera se abre el menú."""
+    elige_en_el_menu.elegir("Borrar")
 
     def no_deberia_preguntar(*_a, **_k):
         pytest.fail("con la lupa activa, el clic derecho no puede borrar")
@@ -722,6 +760,7 @@ def test_el_clic_derecho_sin_anotar_no_borra(ventana: MainWindow, monkeypatch):
     clic_derecho(ventana, 11.0)
 
     assert len(ventana.session.annotations.all()) == 1
+    assert elige_en_el_menu.menus == []
 
 
 def test_se_puede_crear_una_clase_nueva_al_vuelo(ventana: MainWindow, elige_clase):
@@ -4635,3 +4674,134 @@ def test_la_amplitud_llega_a_la_ubersicht(ventana: MainWindow):
 
     escalas = {v.trace.scale_uv for v, _ in ventana.overview_panel.rectangles()}
     assert escalas == {ventana.session.scale_uv(canal)}
+
+
+# -- Corregir una anotación (hito 52) ----------------------------------------
+
+
+def _x_de(ventana: MainWindow, segundos: float) -> float:
+    """El `x` de escena de un segundo del registro, para `arrastrar()`."""
+    vista = ventana.signal_view.getPlotItem().vb
+    return vista.mapViewToScene(QPointF(segundos, 0.0)).x()
+
+
+def test_el_menu_ofrece_cambiar_la_clase_y_borrar(ventana: MainWindow, elige_en_el_menu):
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("annotator", True)
+
+    clic_derecho(ventana, 11.0)
+
+    assert elige_en_el_menu.menus == [["Cambiar clase…", "Borrar"]]
+
+
+def test_un_clic_derecho_donde_no_hay_nada_no_abre_el_menu(
+    ventana: MainWindow, elige_en_el_menu
+):
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("annotator", True)
+
+    clic_derecho(ventana, 20.0)
+
+    assert elige_en_el_menu.menus == []
+
+
+def test_se_le_puede_cambiar_la_clase(ventana: MainWindow, elige_en_el_menu, elige_clase):
+    """**Hasta el hito 52 había que borrarla y rehacer el gesto**, que es
+    volver a encontrar el tramo exacto. El tramo no se toca."""
+    anotar_en(ventana, 10.0, 12.0, "Spindle")
+    antes = ventana.session.annotations.all()[0]
+    ventana._toggle_tool("annotator", True)
+    elige_en_el_menu.elegir("Cambiar clase…")
+    elige_clase("Arousal")
+
+    clic_derecho(ventana, 11.0)
+
+    (despues,) = ventana.session.annotations.all()
+    assert despues.label == "Arousal"
+    assert (despues.onset_sample, despues.duration_samples) == (
+        antes.onset_sample,
+        antes.duration_samples,
+    )
+    assert not ventana.carteles
+
+
+def test_la_clase_nueva_puede_ser_una_que_no_existia(
+    ventana: MainWindow, elige_en_el_menu, elige_clase
+):
+    """Como al anotar: el diálogo es editable y lo escrito se registra."""
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("annotator", True)
+    elige_en_el_menu.elegir("Cambiar clase…")
+    elige_clase("Espiga temporal")
+
+    clic_derecho(ventana, 11.0)
+
+    assert "Espiga temporal" in ventana.session.annotations.labels()
+    assert ventana.session.annotations.all()[0].label == "Espiga temporal"
+
+
+def test_cerrar_el_menu_no_cambia_nada(ventana: MainWindow, elige_en_el_menu):
+    anotar_en(ventana, 10.0, 12.0, "Spindle")
+    ventana._toggle_tool("annotator", True)
+    elige_en_el_menu.elegir(None)
+
+    clic_derecho(ventana, 11.0)
+
+    assert [a.label for a in ventana.session.annotations.all()] == ["Spindle"]
+
+
+def test_arrastrar_el_final_de_una_banda_lo_corrige(ventana: MainWindow, elige_clase):
+    """**Con eventos de Qt de verdad**: se aprieta sobre el borde, se suelta más
+    allá, y el final queda donde se soltó. Es la otra corrección común: marcar
+    el tramo un poco corrido."""
+    anotar_en(ventana, 10.0, 12.0)
+    fs = ventana.session.recording.sampling_rate
+    ventana._toggle_tool("annotator", True)
+    elige_clase("", False)
+
+    arrastrar(ventana, _x_de(ventana, 12.0), _x_de(ventana, 14.0))
+
+    (corregida,) = ventana.session.annotations.all()
+    assert corregida.onset_sample == int(10.0 * fs)
+    assert corregida.end_sample == pytest.approx(14.0 * fs, abs=fs * 0.05)
+
+
+def test_arrastrar_el_comienzo_de_una_banda_lo_corrige(ventana: MainWindow, elige_clase):
+    anotar_en(ventana, 10.0, 12.0)
+    fs = ventana.session.recording.sampling_rate
+    ventana._toggle_tool("annotator", True)
+    elige_clase("", False)
+
+    arrastrar(ventana, _x_de(ventana, 10.0), _x_de(ventana, 8.0))
+
+    (corregida,) = ventana.session.annotations.all()
+    assert corregida.onset_sample == pytest.approx(8.0 * fs, abs=fs * 0.05)
+    assert corregida.end_sample == int(12.0 * fs)
+
+
+def test_arrastrar_lejos_de_un_borde_sigue_anotando(ventana: MainWindow, elige_clase):
+    """Lejos de un borde el arrastre es el de siempre: una anotación nueva."""
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("annotator", True)
+    elige_clase("Arousal")
+
+    arrastrar(ventana, _x_de(ventana, 20.0), _x_de(ventana, 22.0))
+
+    assert len(ventana.session.annotations.all()) == 2
+
+
+def test_sobre_un_borde_el_cursor_lo_dice(ventana: MainWindow):
+    """El ↔ es lo único en la pantalla que avisa que el borde se agarra."""
+    anotar_en(ventana, 10.0, 12.0)
+    ventana._toggle_tool("annotator", True)
+    viewport = ventana.signal_view.viewport()
+
+    for x, forma in (
+        (_x_de(ventana, 12.0), Qt.CursorShape.SizeHorCursor),
+        (_x_de(ventana, 11.0), Qt.CursorShape.ArrowCursor),
+    ):
+        evento = evento_de_mouse(
+            ventana, QEvent.Type.MouseMove, x, Qt.MouseButton.NoButton
+        )
+        QApplication.instance().sendEvent(viewport, evento)
+        assert viewport.cursor().shape() == forma
