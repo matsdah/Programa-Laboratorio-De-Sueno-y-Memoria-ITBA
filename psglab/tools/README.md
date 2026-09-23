@@ -16,7 +16,7 @@ del pliego (sección 7). El otro punto de extensión es
 | `base.py` | Los dos contratos: `Tool` y `ViewerTool`. | — | Base de las seis |
 | `registry.py` | `@register_tool`, `available_tools()`, `get_tool()`, `load_all_tools()`. | — | — |
 | `amplitude_band.py` | Banda de referencia de 75 µV, adaptada a la escala del usuario. | `ViewerTool` | V1_F de "Herramienta de amplitud" |
-| `occupancy.py` | Líneas dibujadas con el mouse y su porcentaje de ocupación horizontal. | `ViewerTool` | V1_F–V5_F de "Ocupación de la página" |
+| `occupancy.py` | Líneas dibujadas con el mouse y su porcentaje de ocupación horizontal. Cada línea publica cuánto dura, para escribirlo encima (hito 55). | `ViewerTool` | V1_F–V5_F de "Ocupación de la página" |
 | `magnifier.py` | Lupa: zoom circular y contador de picos. | `ViewerTool` | V1_F, V2_F de "Herramienta Lupa" |
 | `annotator.py` | Anotación de eventos sobre la señal, y su corrección: arrastrar un borde, cambiar la clase (hito 52). | `ViewerTool` | V1_F de "Anotación de la señal" |
 | `overview.py` | Übersicht: la ventana actual en su contexto. Cada ventana publica su señal reducida, del canal seleccionado o el primero visible (hito 51). | `Tool` | V1_F–V3_F de "Herramienta Übersicht" |

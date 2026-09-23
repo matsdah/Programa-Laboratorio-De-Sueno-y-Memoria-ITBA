@@ -137,6 +137,11 @@ def encender_las_herramientas(ventana) -> None:
     """
     ventana._toggle_tool("amplitude_band", True)
     ventana._toggle_tool("magnifier", True)
+    # Una línea de ocupación, para ver su duración escrita encima (hito 55).
+    from psglab.tools.occupancy import OccupancyLine
+
+    ventana._toggle_tool("occupancy", True)
+    ventana._tools["occupancy"].add_line(OccupancyLine(0.3, -30.0, 0.45, -30.0, ventana.signal_view._visible[0]))
     vista = ventana.signal_view
     canal = vista._visible[1] if len(vista._visible) > 1 else vista._visible[0]
     mitad = (vista._session.viewport.start_seconds + vista._session.viewport.end_seconds) / 2
@@ -210,6 +215,14 @@ def llenar_los_paneles(ventana) -> None:
         [0.71, 0.29],
     )
 
+    # La conectividad, con una matriz de mentira de cuatro canales: lo que hay
+    # que mirar son los valores en las celdas y la diagonal (hito 55).
+    nombres = ["Fpz", "C3", "C4", "Oz"]
+    cerca = np.array([[0.0, 0.62, 0.41, 0.18], [0.62, 0.0, 0.77, 0.33],
+                      [0.41, 0.77, 0.0, 0.52], [0.18, 0.33, 0.52, 0.0]])
+    ventana.connectivity_panel.set_matrix(cerca, nombres, "wPLI")
+    ventana.connectivity_panel.set_caption("wPLI · Ventana 1 · 8–12 Hz")
+
     # **Se les pide un mínimo y no un `resize()`.** Un panel adentro de un dock
     # recibe el tamaño que el dock le da, así que redimensionarlo a mano no
     # hace nada: la captura salía del alto del dock —unos 180 px— y los
@@ -236,6 +249,7 @@ def capturar(esquema: theme.ColorScheme) -> None:
         f"{nombre}-contexto": ventana.overview_panel,
         f"{nombre}-filtros": ventana.filter_panel,
         f"{nombre}-ica": ventana.ica_panel,
+        f"{nombre}-conectividad": ventana.connectivity_panel,
     }
     for archivo, widget in piezas.items():
         destino = SALIDA / f"{archivo}.png"

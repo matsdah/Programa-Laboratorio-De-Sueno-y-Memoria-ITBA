@@ -775,14 +775,31 @@ class SignalView(pg.PlotWidget):
             centro = self._centro_de_carril(canal) if canal else None
             if centro is None:
                 return None
-            return pg.PlotCurveItem(
+            y1 = centro + self._a_carril(overlay.y1_uv, canal)
+            y2 = centro + self._a_carril(overlay.y2_uv, canal)
+            linea = pg.PlotCurveItem(
                 [overlay.x1_seconds, overlay.x2_seconds],
-                [
-                    centro + self._a_carril(overlay.y1_uv, canal),
-                    centro + self._a_carril(overlay.y2_uv, canal),
-                ],
+                [y1, y2],
                 pen=pg.mkPen(theme.current().foreground, width=2),
             )
+            if not overlay.label:
+                return linea
+            # **Lo que mide, sobre el medio de la línea** (hito 55). Encima de
+            # la señal, por la regla de siempre: un texto en el gráfico que
+            # queda debajo de la onda no se lee.
+            # Con el fondo del esquema: sin él, el número se perdía sobre una
+            # señal densa, que es donde más se mide.
+            rotulo = pg.TextItem(
+                overlay.label,
+                color=theme.current().foreground,
+                anchor=(0.5, 1.0),
+                fill=pg.mkBrush(theme.current().background),
+            )
+            rotulo.setPos(
+                (overlay.x1_seconds + overlay.x2_seconds) / 2, max(y1, y2)
+            )
+            rotulo.setZValue(_Z_DE_LA_BANDA + 1)
+            return linea, rotulo
 
         if isinstance(overlay, CircleOverlay):
             return self._dibujar_lupa(overlay)

@@ -1248,3 +1248,26 @@ def test_una_altura_con_decimales_se_escribe_con_ellos(vista: SignalView):
 
     (rotulo,) = _rotulos(vista)
     assert rotulo.toPlainText().startswith("37,5")
+
+
+# -- Lo que mide una línea, escrito encima (hito 55) -----------------------
+
+
+def test_una_linea_con_rotulo_lo_dibuja_encima(vista: SignalView):
+    from psglab.tools.base import SegmentOverlay
+
+    vista.set_overlays(
+        [SegmentOverlay("occupancy", 2.0, 10.0, 6.0, 10.0, "C3", "4,0 s")]
+    )
+
+    (rotulo,) = _rotulos(vista)
+    assert rotulo.toPlainText() == "4,0 s"
+    assert rotulo.pos().x() == pytest.approx(4.0)
+
+
+def test_una_linea_sin_rotulo_no_escribe_nada(vista: SignalView):
+    from psglab.tools.base import SegmentOverlay
+
+    vista.set_overlays([SegmentOverlay("occupancy", 2.0, 10.0, 6.0, 10.0, "C3")])
+
+    assert _rotulos(vista) == []

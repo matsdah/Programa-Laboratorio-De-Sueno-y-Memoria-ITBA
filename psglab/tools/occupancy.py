@@ -437,6 +437,9 @@ class OccupancyTool(ViewerTool):
                 x2_seconds=self._a_segundos(linea.x2),
                 y2_uv=linea.y2,
                 channel_name=linea.channel_name,
+                label=_duracion(
+                    abs(self._a_segundos(linea.x2) - self._a_segundos(linea.x1))
+                ),
             )
             for linea in dibujables
         )
@@ -506,3 +509,14 @@ class OccupancyTool(ViewerTool):
                     channel_name
                 )
         return TOLERANCIA_DE_CLIC_EN_ESCALAS * DEFAULT_SCALE_UV
+
+
+def _duracion(seconds: float) -> str:
+    """Cuánto dura una línea, como se escribe sobre ella: «2,1 s» (hito 55).
+
+    **El porcentaje decía cuánto ocupan todas juntas**, y ninguna decía cuánto
+    dura ella: para saber si un huso tiene medio segundo había que medirlo a
+    ojo contra la grilla. El prototipo lo escribía sobre cada línea. Con coma
+    decimal, como todo número que ve el usuario.
+    """
+    return f"{seconds:.1f}".replace(".", ",") + " s"

@@ -4930,3 +4930,25 @@ def test_los_atajos_se_muestran_en_una_tabla(ventana: MainWindow, monkeypatch):
     (dialogo,) = abiertos
     assert ("Archivo", "Abrir un registro", "Ctrl+O") in dialogo.rows()
 
+
+# -- El botón principal del cartel (hito 55) --------------------------------
+
+
+def test_exportar_es_el_boton_principal_del_cartel(ventana: MainWindow, monkeypatch):
+    """Lo que el cartel recomienda va relleno del acento; descartar y cancelar
+    no."""
+    vistos: dict[str, bool] = {}
+
+    def espiar(cartel):
+        vistos.update(
+            {
+                boton.text(): bool(boton.property(theme.PRIMARIO_PROPERTY))
+                for boton in cartel.buttons()
+            }
+        )
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", espiar)
+    ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
+
+    assert vistos == {"Exportar…": True, "Descartar": False, "Cancelar": False}

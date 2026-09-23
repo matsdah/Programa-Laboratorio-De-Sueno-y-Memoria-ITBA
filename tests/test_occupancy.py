@@ -682,3 +682,22 @@ def test_la_tolerancia_sin_sesion_no_rompe_aunque_le_den_un_canal():
     assert suelta._tolerancia_uv("C3") == pytest.approx(
         TOLERANCIA_DE_CLIC_EN_ESCALAS * DEFAULT_SCALE_UV
     )
+
+
+# -- La duración sobre cada línea (hito 55) ---------------------------------
+
+
+def test_cada_linea_dice_cuanto_dura(herramienta: OccupancyTool):
+    """**El porcentaje decía cuánto ocupan todas juntas**, y ninguna decía
+    cuánto dura ella. Con coma decimal."""
+    arrastrar(herramienta, 3.0, 5.5)
+
+    (linea,) = herramienta.overlays()
+    assert linea.label == "2,5 s"
+
+
+def test_la_duracion_no_depende_del_sentido_del_trazo(herramienta: OccupancyTool):
+    arrastrar(herramienta, 5.5, 3.0)
+
+    (linea,) = herramienta.overlays()
+    assert linea.label == "2,5 s"

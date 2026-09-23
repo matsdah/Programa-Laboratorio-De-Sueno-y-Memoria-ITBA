@@ -1377,6 +1377,8 @@ class MainWindow(QMainWindow):
             f"Si no los exportás, se pierden al {al_hacer}. ¿Exportarlos antes?"
         )
         exportar = cartel.addButton("Exportar…", QMessageBox.ButtonRole.AcceptRole)
+        # Lo que el cartel recomienda, relleno del acento (hito 55).
+        exportar.setProperty(theme.PRIMARIO_PROPERTY, True)
         descartar = cartel.addButton("Descartar", QMessageBox.ButtonRole.DestructiveRole)
         # **El rol no alcanza para que se vea distinto.** `DestructiveRole` le
         # dice a Qt dónde ubicar el botón y con qué tecla responde, no de qué

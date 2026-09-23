@@ -32,9 +32,17 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtWidgets import QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtCore import QRectF
+from PySide6.QtGui import QBrush, QColor, QPen
+from PySide6.QtWidgets import QGraphicsRectItem, QStackedWidget, QVBoxLayout, QWidget
 
+from psglab.ui import theme
+from psglab.ui.fonts import font_for
 from psglab.ui.panel_header import EmptyState, PanelHeader
+
+#: Hasta cuántos canales se escribe el valor dentro de cada celda (hito 55).
+#: Con más, la celda es más chica que el número y los textos se pisan.
+MAXIMO_DE_CANALES_CON_VALORES: int = 12
 
 #: Extremos de la escala de color. Las cinco medidas de `METHODS` están
 #: acotadas a este rango, así que la escala fija es correcta para todas.
@@ -59,6 +67,9 @@ class ConnectivityPanel(QWidget):
         #: Qué mide la escala de color. Ver `set_measure()`.
         self._medida: str = ""
 
+        #: Los valores escritos en las celdas y el gris de la diagonal.
+        #: Se rehacen con cada matriz.
+        self._rotulos: list[object] = []
         self._imagen = pg.ImageItem()
         item = self.grafico.getPlotItem()
         item.addItem(self._imagen)
@@ -137,7 +148,67 @@ class ConnectivityPanel(QWidget):
         ]
         item.getAxis("bottom").setTicks([marcas])
         item.getAxis("left").setTicks([marcas])
+        self._escribir_las_celdas()
         self._reflejar_titulo()
+
+    def _escribir_las_celdas(self) -> None:
+        """El valor de cada celda y la diagonal marcada «—» (hito 55).
+
+        **El mapa sólo tenía color**, y un tono de viridis no se lee como un
+        número: el prototipo escribía el valor en cada celda. La tinta se
+        elige contra el color de esa celda, con la misma función que los
+        chips. Sólo hasta `MAXIMO_DE_CANALES_CON_VALORES`: con más, la celda es
+        más chica que el número.
+
+        **La diagonal no se calcula**: un canal contra sí mismo daría siempre
+        1, y `compute_connectivity()` la deja en cero. Pintada como cero se
+        leía como «estos canales no se parecen», que es falso; va en gris.
+        """
+        item = self.grafico.getPlotItem()
+        for rotulo in self._rotulos:
+            item.removeItem(rotulo)
+        self._rotulos.clear()
+        if self._matriz is None:
+            return
+        esquema = theme.current()
+        mapa = self._barra.colorMap()
+        cuantos = len(self._canales)
+        for fila in range(cuantos):
+            celda = QGraphicsRectItem(QRectF(fila, fila, 1.0, 1.0))
+            celda.setBrush(QBrush(QColor(esquema.overview_background)))
+            # **Cosmética**: sin eso el grosor de 1 es de una celda entera, en
+            # las unidades del gráfico, y la diagonal salía como una mancha.
+            borde = QPen(QColor(esquema.overview_border))
+            borde.setCosmetic(True)
+            celda.setPen(borde)
+            item.addItem(celda)
+            self._rotulos.append(celda)
+        if cuantos > MAXIMO_DE_CANALES_CON_VALORES:
+            return
+        bajo, alto = self._barra.levels()
+        fuente = font_for("chip", self.font())
+        for fila in range(cuantos):
+            for columna in range(cuantos):
+                valor = float(self._matriz[fila, columna])
+                if fila == columna:
+                    texto, fondo = "—", esquema.overview_background
+                elif np.isnan(valor):
+                    continue
+                else:
+                    texto = f"{valor:.2f}".replace(".", ",")
+                    posicion = 0.0 if alto <= bajo else (valor - bajo) / (alto - bajo)
+                    fondo = mapa.map(min(max(posicion, 0.0), 1.0), mode="qcolor").name()
+                rotulo = pg.TextItem(
+                    texto, color=theme.ink_over(esquema, fondo), anchor=(0.5, 0.5)
+                )
+                rotulo.setFont(fuente)
+                rotulo.setPos(fila + 0.5, columna + 0.5)
+                item.addItem(rotulo)
+                self._rotulos.append(rotulo)
+
+    def cell_labels(self) -> list[str]:
+        """Los textos escritos en las celdas, en orden: lo que se afirma sin mirar."""
+        return [r.toPlainText() for r in self._rotulos if isinstance(r, pg.TextItem)]
 
     def set_measure(self, text: str) -> None:
         """Rotula la escala de color con lo que mide."""
@@ -154,6 +225,7 @@ class ConnectivityPanel(QWidget):
         self._matriz = None
         self._canales = []
         self._imagen.clear()
+        self._escribir_las_celdas()
         # Sin matriz no hay contraste que conservar: la próxima arranca de 0 a 1.
         self._barra.setLevels((_MINIMO, _MAXIMO))
         self.set_measure("")

@@ -1112,7 +1112,7 @@ SIN_CAMINO_A_PROPOSITO: dict[str, str] = {
         )
         for archivo, clase, metodos in (
             ("connectivity_panel.py", "ConnectivityPanel",
-             ("visible_hint", "caption", "axis_labels", "color_range")),
+             ("visible_hint", "caption", "axis_labels", "color_range", "cell_labels")),
             ("filter_panel.py", "FilterPanel", ("kinds", "displayed_value")),
             ("ica_panel.py", "IcaPanel",
              ("visible_hint", "component_count", "topography_bars", "time_course_data")),

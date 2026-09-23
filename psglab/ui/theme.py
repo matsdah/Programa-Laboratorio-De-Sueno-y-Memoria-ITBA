@@ -130,6 +130,13 @@ READOUT_PROPERTY: Final[str] = "lectura"
 #: programa que pierde trabajo del investigador.
 DESTRUCTIVO_PROPERTY: Final[str] = "destructivo"
 
+#: La propiedad dinámica del botón **principal** de un panel o un cartel: el
+#: que hace lo que el panel existe para hacer —«Aplicar», «Exportar…»—. Se
+#: rellena con el acento, como en el prototipo (hito 55). El hito 44 había
+#: sacado la regla, que entonces sólo usaba el botón de reproducir y lo volvía
+#: un bloque oscuro en la barra; reproducir no la lleva.
+PRIMARIO_PROPERTY: Final[str] = "primario"
+
 #: Contraste mínimo para lo que se dibuja y hay que distinguir —curvas,
 #: la paleta de canales—, según WCAG 2.1 (criterio 1.4.11). La grilla y la
 #: línea de base quedan afuera a propósito: son referencias que tienen que
@@ -471,6 +478,18 @@ def stylesheet(scheme: ColorScheme) -> str:
     # **La tinta de lo que destruye.** Un esquema puede no traerla, y entonces
     # el botón se ve como cualquier otro, que es como se veía antes de que
     # existiera: el cartel que lo rodea sigue diciendo qué se pierde.
+    principal = f"""
+        QPushButton[{PRIMARIO_PROPERTY}="true"] {{
+            background-color: {scheme.accent};
+            border: 1px solid {scheme.accent};
+            color: {ink_over(scheme, scheme.accent)};
+        }}
+        QPushButton[{PRIMARIO_PROPERTY}="true"]:disabled {{
+            background-color: {ventana};
+            border: 1px solid {borde};
+            color: {scheme.overview_text};
+        }}
+    """
     peligro = (
         f'QPushButton[{DESTRUCTIVO_PROPERTY}="true"] {{ color: {scheme.danger}; }}'
         if scheme.danger is not None
@@ -537,6 +556,7 @@ def stylesheet(scheme: ColorScheme) -> str:
         }}
         QPushButton:checked, QPushButton:pressed {{ background-color: {realce}; }}
         QPushButton:disabled {{ color: {borde}; }}
+        {principal}
         {peligro}
         PanelHeader {{
             background-color: {ventana};
