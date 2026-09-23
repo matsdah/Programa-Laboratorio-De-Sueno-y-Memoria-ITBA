@@ -76,7 +76,8 @@ conoce las flechas del teclado.
 | `fonts.py` | **Las dos tipografías del programa y la escala de ocho roles.** IBM Plex Sans para lo que se lee y Mono para lo que se mide —la misma superfamilia, en `psglab/resources/fonts/`, bajo la OFL 1.1—. **Ninguna se elige** desde el hito 43; el tamaño sí. `font_for()` arma la fuente de un rol a partir de ese tamaño. Si los archivos faltan, el programa arranca igual: `available_family()` devuelve None y se usa la del sistema, en vez de dejar que Qt sustituya por cualquier otra. | — |
 | `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. La disposición de paneles ya no es parte de eso. Un campo que trae cualquier cosa vuelve al de fábrica, y `load()` no eleva nada que no sea `PsgLabError`: es lo único que atrapa el arranque. | — |
 | `settings_dialog.py` | **La ventana de configuración**: cuatro solapas, todas con algo real detrás. La de Colores se fue en el hito 35 con la edición de esquemas; elegir entre los dos que hay es el menú «Ver». Aplica en el momento y avisa por callbacks. En «Otras» se elige cuántas ventanas vecinas muestra la Übersicht, la altura de la banda de amplitud y el radio y el aumento de la lupa. | V3_F de "Herramienta Übersicht" |
-| `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
+| `shortcuts_dialog.py` | La ayuda de atajos, en una tabla agrupada —navegación, scoring, visualización, archivo— con la tecla en su columna (hito 54). Era un cartel de texto plano. | — (ayuda) |
+| `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** También dice en qué grupo va cada uno en la ayuda. | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
 
 ## `main_window.py` conecta, no implementa
 

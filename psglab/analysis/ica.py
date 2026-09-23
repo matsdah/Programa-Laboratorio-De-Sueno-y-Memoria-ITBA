@@ -49,6 +49,10 @@ from psglab.utils.errors import (
 #: Semilla del algoritmo. Fija a propósito: ver el docstring del módulo.
 RANDOM_STATE: Final[int] = 0
 
+#: Cuántas ventanas de la noche se usan para medir la varianza que explica
+#: cada componente. Ver `explained_variance()`.
+VARIANCE_SAMPLE_WINDOWS: Final[int] = 40
+
 #: Tope de iteraciones antes de darse por vencido. El valor por omisión de MNE
 #: ("auto") es bajo para señal ruidosa y deja avisos de no convergencia en
 #: mitad de un análisis; con este tope converge y si no lo hace, no convergió.
@@ -225,6 +229,63 @@ def component_topography(ica: Any, component: int) -> dict[str, float]:
     return {
         nombre: float(peso / escala) for nombre, peso in zip(ica.ch_names, pesos)
     }
+
+
+def explained_variance(ica: Any, recording: Recording) -> list[float]:
+    """Qué fracción de la varianza de los canales EEG explica cada componente.
+
+    **Es la pista de cuál pesa más** antes de quitar nada (hito 54): el
+    prototipo la mostraba al lado de cada componente, y sin ella la lista son
+    nombres iguales. Un parpadeo suele explicar mucho; un componente que
+    explica el 1 % rara vez es lo que molesta.
+
+    **Se mide con la definición de MNE** (`get_explained_variance_ratio`), que
+    reconstruye la señal desde cada componente solo. Se probó sacarla de las
+    normas de la matriz de mezcla, sin tocar la señal, y **no coincide**: con
+    cinco canales sintéticos daba 51 % donde MNE da 62 %, porque
+    `get_components()` no está en las unidades del sensor.
+
+    **Sobre una muestra de la noche y no la noche entera**: reconstruir una
+    vez por componente cuesta una copia de la señal cada vez, casi 2 GB por
+    componente con 32 canales y ocho horas. Se usan hasta
+    `VARIANCE_SAMPLE_WINDOWS` ventanas repartidas a lo largo del registro,
+    todas si son menos. Es una estimación, y por eso el número se muestra
+    redondeado.
+
+    Returns:
+        Una fracción por componente, en orden, entre 0 y 1. Con tantos
+        componentes como canales suman 1; con menos, lo que falta es lo que la
+        descomposición dejó afuera.
+
+    Raises:
+        InvalidRecordingError: si no es una ICA ajustada o no hay registro.
+    """
+    _exigir_ica(ica)
+    _exigir_registro(recording)
+
+    total = count_windows(recording.n_samples, recording.sampling_rate)
+    cuantas = min(total, VARIANCE_SAMPLE_WINDOWS)
+    elegidas = np.unique(np.linspace(0, total - 1, cuantas).round().astype(int))
+    tramos = []
+    for ventana in elegidas:
+        inicio, fin = window_to_samples(int(ventana), recording.sampling_rate)
+        tramos.append(np.asarray(recording.get_segment(inicio, min(fin, recording.n_samples))))
+    muestra = Recording(
+        file_path=recording.file_path,
+        channels=list(recording.channels),
+        data=np.concatenate(tramos, axis=1),
+        sampling_rate=recording.sampling_rate,
+        start_time=recording.start_time,
+        metadata=dict(recording.metadata),
+    )
+    raw = to_raw(muestra)
+    fracciones = []
+    for numero in range(int(ica.n_components_)):
+        razon = ica.get_explained_variance_ratio(
+            raw, components=[numero], ch_type="eeg"
+        )
+        fracciones.append(float(razon["eeg"]))
+    return fracciones
 
 
 def _recorte_de_ventana(recording: Recording, window_index: int) -> Recording:

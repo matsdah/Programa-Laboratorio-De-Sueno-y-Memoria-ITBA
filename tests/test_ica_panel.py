@@ -252,3 +252,67 @@ def test_la_pista_se_va_con_un_resultado_y_vuelve_al_vaciarlo(panel: IcaPanel):
     assert panel.visible_hint() == ""
     panel.clear_components()
     assert panel.visible_hint() == "Se pide desde Analizar"
+
+
+# -- La varianza, el botón y la hora (hito 54) ------------------------------
+
+
+def test_cada_componente_dice_cuanta_varianza_explica(panel: IcaPanel):
+    """**Era una lista de nombres iguales.** El prototipo ponía al lado de
+    cada uno cuánto explica, que es la pista de cuál pesa más."""
+    panel.set_components(topografias(3), [0.62, 0.3, 0.004])
+
+    textos = [panel.lista.item(fila).text() for fila in range(panel.lista.count())]
+
+    assert textos == ["Componente 1 · 62 %", "Componente 2 · 30 %", "Componente 3 · <1 %"]
+
+
+def test_sin_varianzas_la_lista_es_la_de_antes(panel: IcaPanel):
+    panel.set_components(topografias(2))
+
+    assert panel.lista.item(0).text() == "Componente 1"
+
+
+@pytest.mark.parametrize(
+    ("marcados", "texto"),
+    [
+        ([], "Aplicar y quitar los marcados"),
+        ([1], "Aplicar y quitar el marcado"),
+        ([0, 2], "Aplicar y quitar los 2 marcados"),
+    ],
+)
+def test_el_boton_dice_cuantos_va_a_quitar(panel: IcaPanel, marcados, texto):
+    """Sobre una operación que no se puede deshacer, el número es lo último
+    que se lee antes de apretar. Decía lo mismo con uno, con cinco y con
+    ninguno."""
+    panel.set_components(topografias(3))
+
+    panel.set_excluded(marcados)
+
+    assert panel.boton.text() == texto
+
+
+def test_el_boton_cambia_al_tildar_con_el_mouse(panel: IcaPanel):
+    """Por la señal de la lista y no por `set_excluded()`: es como lo tilda el
+    usuario."""
+    from PySide6.QtCore import Qt
+
+    panel.set_components(topografias(3))
+    panel.lista.item(1).setCheckState(Qt.CheckState.Checked)
+
+    assert panel.boton.text() == "Aplicar y quitar el marcado"
+
+
+def test_la_curva_se_numera_en_hora_de_la_noche(panel: IcaPanel):
+    """**Decía «Segundos de la ventana» y contaba desde cero**: no había cómo
+    ubicar un pico de la curva en la señal de arriba. El eje es el del
+    visualizador."""
+    from datetime import datetime
+
+    from psglab.ui.signal_view import TimeAxis
+
+    panel.set_start_time(datetime(2026, 9, 23, 1, 50, 0))
+    eje = panel.curva.getPlotItem().getAxis("bottom")
+
+    assert isinstance(eje, TimeAxis)
+    assert eje.tickStrings([6600.0], 1.0, 5.0) == ["03:40:00"]

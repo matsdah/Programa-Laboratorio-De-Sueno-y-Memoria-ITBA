@@ -180,6 +180,9 @@ def llenar_los_paneles(ventana) -> None:
         {"C3": 0.62 + 0.13 * np.sin(epocas / 3.0), "EOG-izq": 0.7 + 0.08 * np.cos(epocas / 4.0)},
     )
     ventana.metric_panel.set_caption("Entropía espectral · 2 canales")
+    # El eje y la marca de la época actual, que la ventana pone al calcular
+    # (hito 54): acá se pasa por el setter, así que hay que pedírselos.
+    ventana._preparar_el_eje_de_la_metrica()
 
     ventana.impedance_panel.set_channels(
         ventana.session.visible_channels,
@@ -203,7 +206,8 @@ def llenar_los_paneles(ventana) -> None:
         [
             {nombre: 0.8 - 0.3 * posicion for posicion, nombre in enumerate(ventana.session.visible_channels)},
             {nombre: -0.2 + 0.5 * posicion for posicion, nombre in enumerate(ventana.session.visible_channels)},
-        ]
+        ],
+        [0.71, 0.29],
     )
 
     # **Se les pide un mínimo y no un `resize()`.** Un panel adentro de un dock

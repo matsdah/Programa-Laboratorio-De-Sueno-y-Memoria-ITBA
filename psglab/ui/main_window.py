@@ -101,6 +101,7 @@ from psglab.analysis.ica import (
     apply_ica,
     component_time_course,
     component_topography,
+    explained_variance,
     fit_ica,
 )
 from psglab.analysis.impedance import (
@@ -154,7 +155,8 @@ from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
 from psglab.ui.scoring_panel import ScoringPanel
 from psglab.ui.settings_dialog import SettingsDialog
-from psglab.ui.shortcuts import install_shortcuts, shortcuts_help_text
+from psglab.ui.shortcuts import install_shortcuts
+from psglab.ui.shortcuts_dialog import ShortcutsDialog
 from psglab.ui.signal_view import SignalView
 from psglab.utils.errors import PsgLabError, UndeclaredNomenclatureError
 
@@ -1435,6 +1437,8 @@ class MainWindow(QMainWindow):
         epoca = sesion.scoring.get(ventana)
         self.scoring_panel.set_current(epoca.stage, epoca.arousal, ventana)
         self._redraw_histogram()
+        # La época actual, también sobre la curva de la métrica (hito 54).
+        self.metric_panel.set_current_window(ventana)
         self.statusBar().showMessage(
             f"Ventana {ventana + 1} de {sesion.n_windows}"
             + (f" — {self._clock_label(ventana)}" if self._clock_label(ventana) else "")
@@ -2626,6 +2630,7 @@ class MainWindow(QMainWindow):
             self._show_error(error)
             return
 
+        self._preparar_el_eje_de_la_metrica()
         self.metric_panel.set_metric(medida, series)
         self.metric_panel.set_caption(
             f"{medida} — «{canal}»" + self._nota_de_la_noche(series)
@@ -2754,6 +2759,7 @@ class MainWindow(QMainWindow):
     ) -> None:
         """Dibuja lo que midió el otro hilo. **Acá sí se tocan widgets.**"""
         etiqueta = f"Conectividad en {banda}"
+        self._preparar_el_eje_de_la_metrica()
         self.metric_panel.set_metric(
             etiqueta, {f"Promedio de {len(canales)} canales": promedios}
         )
@@ -2932,10 +2938,13 @@ class MainWindow(QMainWindow):
             # **Las topografías se calculan adentro del hilo.** Son parte del
             # costo y tampoco tocan widgets; dejarlas afuera devolvería el
             # trabajo a medio hacer al hilo que se quiso liberar.
-            return descomposicion, [
+            topografias = [
                 component_topography(descomposicion, numero)
                 for numero in range(int(descomposicion.n_components_))
             ]
+            # La varianza de cada componente también (hito 54): reconstruye la
+            # señal desde cada uno, sobre una muestra de la noche.
+            return descomposicion, topografias, explained_variance(descomposicion, registro)
 
         self._en_segundo_plano(
             "Descomponiendo la señal en componentes",
@@ -2945,9 +2954,11 @@ class MainWindow(QMainWindow):
 
     def _mostrar_la_ica(self, resultado: object) -> None:
         """Guarda la descomposición y abre el panel. **Acá sí se tocan widgets.**"""
-        descomposicion, topografias = resultado
+        descomposicion, topografias, varianzas = resultado
         self._ica = descomposicion
-        self.ica_panel.set_components(topografias)
+        if self._session is not None:
+            self.ica_panel.set_start_time(self._session.recording.start_time)
+        self.ica_panel.set_components(topografias, varianzas)
         self.ica_dialog.show()
         self.ica_dialog.raise_()
 
@@ -2975,7 +2986,11 @@ class MainWindow(QMainWindow):
             # investigador conserva la mitad del criterio que sí se pudo dar.
             self._show_error(error)
             return
-        segundos = np.arange(len(valores)) / self._session.recording.sampling_rate
+        # **En segundos del registro** (hito 54), que es lo que numera el eje del
+        # visualizador: así la curva se lee en la misma hora que la señal.
+        frecuencia = self._session.recording.sampling_rate
+        inicio, _ = window_to_samples(ventana, frecuencia)
+        segundos = (inicio + np.arange(len(valores))) / frecuencia
         self.ica_panel.set_time_course(segundos, valores)
 
     def _apply_ica(self, exclude: list[int]) -> None:
@@ -3350,6 +3365,30 @@ class MainWindow(QMainWindow):
             )
         )
 
+    def _preparar_el_eje_de_la_metrica(self) -> None:
+        """Le da al eje de la métrica las marcas del hipnograma (hito 54).
+
+        **Son los dos gráficos de la noche entera** y el de la métrica decía
+        «Ventana» aunque el hipnograma estuviera en hora: se leían en unidades
+        distintas. Salen de `_marcas_del_histograma()`, corridas a base 1, que
+        es como la métrica numera sus ventanas. También le pone la marca de la
+        época actual, que de otro modo aparecería recién con la próxima flecha.
+        """
+        if self._session is None:
+            return
+        herramienta = self._tools.get("histogram")
+        en_hora = (
+            isinstance(herramienta, HistogramTool)
+            and herramienta.uses_clock_time
+            and self._session.recording.start_time is not None
+        )
+        marcas = [
+            (posicion + 1, texto)
+            for posicion, texto in self._marcas_del_histograma(self._session.n_windows)
+        ]
+        self.metric_panel.set_time_ticks(marcas, en_hora)
+        self.metric_panel.set_current_window(self._session.current_window)
+
     def _marcas_del_histograma(self, cuantas: int) -> list[tuple[float, str]]:
         """Las marcas del eje horizontal del hipnograma (V2_F).
 
@@ -3402,6 +3441,7 @@ class MainWindow(QMainWindow):
             self._show_error(error)
             return
         self._redraw_histogram()
+        self._preparar_el_eje_de_la_metrica()
 
     def _show_shortcuts(self) -> None:
         nomenclatura = (
@@ -3409,9 +3449,9 @@ class MainWindow(QMainWindow):
             if self._session is not None
             else Nomenclature.AASM
         )
-        QMessageBox.information(
-            self, "Atajos de teclado", shortcuts_help_text(nomenclatura)
-        )
+        # Una tabla agrupada y no un cartel de texto (hito 54): ver
+        # `ui/shortcuts_dialog.py`.
+        ShortcutsDialog(nomenclatura, self).exec()
 
     def _show_error(self, error: PsgLabError) -> None:
         """Un solo lugar para los errores que ve el investigador.

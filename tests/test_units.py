@@ -230,7 +230,8 @@ def test_se_pueden_pedir_decimales():
     Fijar acá el modo de redondeo sería testear la aritmética de punto flotante,
     no el módulo.
     """
-    assert format_amplitude(12.34, decimals=1) == f"12.3 {MICROVOLT}"
+    # Con coma decimal desde el hito 54: es texto que ve el usuario.
+    assert format_amplitude(12.34, decimals=1) == f"12,3 {MICROVOLT}"
 
 
 def test_el_simbolo_que_ve_el_usuario_es_el_signo_micro():

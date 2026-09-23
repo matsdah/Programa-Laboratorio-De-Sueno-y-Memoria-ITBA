@@ -18,7 +18,7 @@ desde un script del laboratorio sin abrir el programa.
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
 | `filters.py` | Filtrado de la señal cruda. `FilterSettings`, `apply_filters()`, `default_for(kind, sampling_rate)`, `settings_for_kinds()`. | V1_F de "Filtración" |
-| `ica.py` | Componentes independientes: ajustar, ver topografía y curso temporal, y aplicar excluyendo componentes. | V5_F de "Filtración" |
+| `ica.py` | Componentes independientes: ajustar, ver topografía, curso temporal y cuánta varianza explica cada uno (hito 54), y aplicar excluyendo componentes. | V5_F de "Filtración" |
 | `reference.py` | Re-referenciación, incluida la referencia promedio. | "Rereferenciar" |
 | `derivation.py` | Canales nuevos calculados a partir de los existentes (`derive`, `derive_montage`). | "Derivar" |
 | `impedance.py` | Control de impedancia de los electrodos y canales por encima del límite. | V1_F de "Impedancia" |

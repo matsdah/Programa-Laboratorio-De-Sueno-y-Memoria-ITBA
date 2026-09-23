@@ -34,6 +34,7 @@ from psglab.analysis.ica import (
     apply_ica,
     component_time_course,
     component_topography,
+    explained_variance,
     fit_ica,
 )
 from psglab.analysis.psd import band_power, compute_psd
@@ -396,3 +397,77 @@ def test_lo_que_no_es_una_ica_sale_como_error_del_programa(
 def test_lo_que_no_es_un_registro_sale_como_error_del_programa(hostil):
     with pytest.raises(PsgLabError):
         fit_ica(hostil)
+
+
+# -- Cuánta varianza explica cada componente (hito 54) ----------------------
+
+
+def test_el_parpadeo_es_el_que_mas_varianza_explica(mezclado: Recording):
+    """El parpadeo se mezcló con cinco veces la amplitud del alfa: es el que
+    más pesa, y es justamente la pista que la lista tiene que dar."""
+    ica = fit_ica(mezclado)
+    varianzas = explained_variance(ica, mezclado)
+
+    assert int(np.argmax(varianzas)) == componente_frontal(ica)
+
+
+def test_hay_una_fraccion_por_componente_y_entre_cero_y_uno(mezclado: Recording):
+    ica = fit_ica(mezclado)
+    varianzas = explained_variance(ica, mezclado)
+
+    assert len(varianzas) == ica.n_components_
+    assert all(0.0 <= v <= 1.0 for v in varianzas)
+
+
+def test_con_tantos_componentes_como_canales_suman_uno(mezclado: Recording):
+    """Con cuatro componentes sobre cuatro canales, la descomposición explica
+    toda la señal."""
+    varianzas = explained_variance(fit_ica(mezclado), mezclado)
+
+    assert sum(varianzas) == pytest.approx(1.0, abs=0.02)
+
+
+def test_con_pocas_ventanas_coincide_con_mne_sobre_el_registro_entero(
+    mezclado: Recording,
+):
+    """**Es la definición de MNE**, no una aproximación propia: con menos
+    ventanas que la muestra, se mide sobre el registro entero y da lo mismo.
+    Se probó sacarla de la matriz de mezcla y no coincidía."""
+    from psglab.analysis.mne_bridge import to_raw
+
+    ica = fit_ica(mezclado)
+    raw = to_raw(mezclado)
+    de_mne = [
+        ica.get_explained_variance_ratio(raw, components=[i], ch_type="eeg")["eeg"]
+        for i in range(ica.n_components_)
+    ]
+
+    assert explained_variance(ica, mezclado) == pytest.approx(de_mne, abs=1e-6)
+
+
+def test_con_muchas_ventanas_mide_sobre_una_muestra(mezclado: Recording, monkeypatch):
+    """Reconstruir una vez por componente sobre la noche entera cuesta una copia
+    de la señal cada vez. Con más ventanas que la muestra, mide sobre la
+    muestra."""
+    import psglab.analysis.ica as modulo
+
+    ica = fit_ica(mezclado)
+    medidas: list[int] = []
+    original = modulo.to_raw
+
+    def contando(recording):
+        medidas.append(recording.n_samples)
+        return original(recording)
+
+    monkeypatch.setattr(modulo, "VARIANCE_SAMPLE_WINDOWS", 1)
+    monkeypatch.setattr(modulo, "to_raw", contando)
+
+    varianzas = explained_variance(ica, mezclado)
+
+    assert medidas == [int(WINDOW_SECONDS * FS)]
+    assert len(varianzas) == ica.n_components_
+
+
+def test_sin_ica_ajustada_se_rechaza(mezclado: Recording):
+    with pytest.raises(PsgLabError):
+        explained_variance(object(), mezclado)

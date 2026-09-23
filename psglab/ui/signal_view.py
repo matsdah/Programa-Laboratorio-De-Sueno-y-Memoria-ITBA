@@ -64,6 +64,7 @@ from psglab.ui import theme
 from psglab.ui.channel_axis import ChannelAxis, ChannelLane
 from psglab.ui.fonts import font_for
 from psglab.ui.grid import GridBackground
+from psglab.utils.units import format_amplitude
 
 #: Separación vertical entre canales, en unidades del gráfico. Cada canal ocupa
 #: su propio carril y la señal se dibuja dentro de él.
@@ -740,7 +741,7 @@ class SignalView(pg.PlotWidget):
             # veía. Lo que hay que poder leer son los dos bordes, que son los
             # que dicen dónde terminan los 75 µV.
             region.setZValue(_Z_DE_LA_BANDA)
-            return region
+            return region, self._rotulo_de_la_amplitud(overlay, base + media)
 
         if isinstance(overlay, SpanOverlay):
             # Ocupa todo el alto de la ventana, como pide el pliego, para que se
@@ -786,6 +787,32 @@ class SignalView(pg.PlotWidget):
         if isinstance(overlay, CircleOverlay):
             return self._dibujar_lupa(overlay)
         return None
+
+    def _rotulo_de_la_amplitud(self, overlay: BandOverlay, techo: float) -> pg.TextItem:
+        """Cuántos µV mide la banda y sobre qué canal, en su borde de arriba.
+
+        **La banda no lo decía** (hito 54), y es la duda que despierta: con una
+        escala por canal, 75 µV ocupan distinto en cada carril, y la banda mide
+        contra el seleccionado o, si no hay, el primero visible, sin avisar
+        cuál. El prototipo lo escribía al lado de la banda.
+
+        Va a la derecha de la página, que es donde menos tapa: la banda sigue
+        al mouse y el mouse casi nunca está en el borde. Encima de la banda,
+        por la misma razón que el rótulo de una anotación.
+        """
+        decimales = 0 if float(overlay.height_uv).is_integer() else 1
+        texto = f"{format_amplitude(overlay.height_uv, decimales)} · {overlay.channel_name}"
+        esquema = theme.current()
+        rotulo = pg.TextItem(
+            texto,
+            anchor=(1, 1),
+            color=theme.ink_over(esquema, esquema.accent),
+            fill=pg.mkBrush(esquema.accent),
+        )
+        derecha = self._session.viewport.end_seconds if self._session is not None else 0.0
+        rotulo.setPos(derecha, techo)
+        rotulo.setZValue(_Z_DE_LA_BANDA + 1)
+        return rotulo
 
     def _rotulo_de_la_banda(self, overlay: SpanOverlay) -> pg.TextItem:
         """La pestaña con el nombre de la clase, colgada del borde de la banda.

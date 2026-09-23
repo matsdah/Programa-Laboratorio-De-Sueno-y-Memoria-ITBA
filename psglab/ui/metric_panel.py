@@ -83,6 +83,9 @@ class MetricPanel(QWidget):
         self._etiqueta: str = ""
         #: Las etiquetas de la leyenda, una por canal dibujado.
         self._leyendas: list[QLabel] = []
+        #: La línea de la época actual. Se crea la primera vez que hace falta y
+        #: después sólo se mueve, como el cursor del visualizador.
+        self._marca_actual: pg.InfiniteLine | None = None
 
         item = self.grafico.getPlotItem()
         plain_axes(item)
@@ -171,6 +174,62 @@ class MetricPanel(QWidget):
             item.setXRange(1, max(largo, 1), padding=0.01)
         self._reflejar_titulo()
 
+    def set_current_window(self, window_index: int | None) -> None:
+        """Marca sobre la curva la época que se está scoreando (hito 54).
+
+        **La curva no decía dónde estaba parado el usuario**, así que no había
+        cómo relacionar un pico con lo que se mira arriba: el prototipo la
+        marcaba con una línea del acento, y es la que se usa acá. `None` la
+        oculta.
+
+        Args:
+            window_index: la época, **en base 0**; se dibuja en base 1, como el
+                resto del eje.
+        """
+        if window_index is None:
+            if self._marca_actual is not None:
+                self._marca_actual.hide()
+            return
+        if self._marca_actual is None:
+            self._marca_actual = pg.InfiniteLine(
+                angle=90,
+                movable=False,
+                pen=pg.mkPen(theme.current().accent, width=2),
+            )
+            self.grafico.getPlotItem().addItem(self._marca_actual)
+        # **Sólo si cambió**: la ventana lo llama en cada paso de la
+        # reproducción, que tiene 40 ms, y la época cambia una vez cada
+        # treinta segundos de señal.
+        if self._marca_actual.value() != float(window_index + 1):
+            self._marca_actual.setValue(float(window_index + 1))
+        if not self._marca_actual.isVisible():
+            self._marca_actual.show()
+
+    def set_time_ticks(self, ticks: list[tuple[float, str]], clock_time: bool) -> None:
+        """Las marcas del eje de abajo: las mismas que el hipnograma (hito 54).
+
+        **El eje decía «Ventana» siempre**, y el del hipnograma puede ir en
+        hora de la noche: los dos gráficos de la noche entera hablaban unidades
+        distintas. La ventana principal le pasa las mismas marcas, en base 1.
+
+        Args:
+            ticks: posición —la ventana, en base 1— y texto de cada marca.
+            clock_time: si el texto es una hora, para rotular el eje.
+        """
+        eje = self.grafico.getPlotItem().getAxis("bottom")
+        eje.setTicks([ticks] if ticks else None)
+        self.grafico.getPlotItem().setLabel("bottom", "Hora" if clock_time else "Ventana")
+
+    def gap_count(self) -> int:
+        """Cuántas ventanas quedaron sin dato en algún canal."""
+        if not self._series:
+            return 0
+        largo = max(len(v) for v in self._series.values())
+        sin_dato = np.zeros(largo, dtype=bool)
+        for valores in self._series.values():
+            sin_dato[: len(valores)] |= np.isnan(valores)
+        return int(sin_dato.sum())
+
     def clear_metric(self) -> None:
         """Deja el panel vacío."""
         self._titulo = ""
@@ -254,6 +313,17 @@ class MetricPanel(QWidget):
         vacio = not self._series
         self._pista_visible = bool(self._pista) and vacio
         self.header.set_caption("" if vacio else self._titulo)
+        # **Cuántas ventanas quedaron sin dato** (hito 54): se dibujan como
+        # hueco, y un hueco de una ventana entre dos mil no se ve. El prototipo
+        # lo decía abajo; va a la derecha del encabezado, que es donde los
+        # otros paneles dicen cómo se calculó lo que muestran.
+        huecos = self.gap_count()
+        if vacio or not huecos:
+            self.header.set_detail("")
+        else:
+            self.header.set_detail(
+                "1 ventana sin dato" if huecos == 1 else f"{huecos} ventanas sin dato"
+            )
         self.vacio.set_text(self._pista)
         self._pila.setCurrentWidget(self.vacio if self._pista_visible else self.grafico)
 

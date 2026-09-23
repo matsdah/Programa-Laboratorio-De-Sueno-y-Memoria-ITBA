@@ -4861,3 +4861,72 @@ def test_el_dialogo_de_la_clase_dice_aceptar_y_cancelar(ventana: MainWindow):
     dialogo.setComboBoxItems(["Spindle"])
 
     assert sorted(_botones(dialogo)) == ["Aceptar", "Cancelar"]
+
+
+# -- Los faltantes del prototipo, por la ventana (hito 54) -------------------
+
+
+def test_la_metrica_marca_la_epoca_actual(ventana: MainWindow, elige_opciones):
+    """Moverse de época mueve la marca de la curva, sin volver a calcular."""
+    elige_opciones(("C3", True), ("permutation_entropy", True))
+    ventana.show_complexity_dialog()
+
+    ventana._go_to_window(3)
+
+    assert ventana.metric_panel._marca_actual.value() == 4.0
+
+
+def test_el_eje_de_la_metrica_sigue_al_del_hipnograma(ventana: MainWindow, elige_opciones):
+    """**Los dos gráficos de la noche hablaban unidades distintas**: el
+    hipnograma podía ir en hora y la métrica decía «Ventana» siempre."""
+    elige_opciones(("C3", True), ("permutation_entropy", True))
+    ventana.show_complexity_dialog()
+    eje = ventana.metric_panel.grafico.getPlotItem().getAxis("bottom")
+
+    ventana.set_histogram_time_axis(True)
+    assert "Hora" in eje.labelString()
+    assert eje._tickLevels[0][0] == (1.0, "13:00")
+
+    ventana.set_histogram_time_axis(False)
+    assert "Ventana" in eje.labelString()
+    assert eje._tickLevels[0][0] == (1.0, "1")
+    assert not ventana.carteles
+
+
+def test_la_ica_dice_cuanta_varianza_explica_cada_componente(
+    ventana_con_dos_eeg: MainWindow,
+):
+    """Se calcula en el mismo hilo que el ajuste, y llega a la lista."""
+    ventana_con_dos_eeg.show_ica_dialog()
+    ventana_con_dos_eeg.wait_for_background()
+
+    lista = ventana_con_dos_eeg.ica_panel.lista
+    textos = [lista.item(fila).text() for fila in range(lista.count())]
+    assert textos and all(texto.endswith("%") for texto in textos)
+    assert not ventana_con_dos_eeg.carteles
+
+
+def test_la_curva_de_la_ica_va_en_segundos_del_registro(ventana_con_dos_eeg: MainWindow):
+    """**Iba en segundos de la ventana**, desde cero en cualquier época: no
+    había cómo ubicar un pico en la señal. Ahora empieza donde empieza la
+    época."""
+    ventana_con_dos_eeg._go_to_window(1)
+    ventana_con_dos_eeg.show_ica_dialog()
+    ventana_con_dos_eeg.wait_for_background()
+
+    segundos, _ = ventana_con_dos_eeg.ica_panel.time_course_data()
+    assert segundos[0] == pytest.approx(WINDOW_SECONDS)
+
+
+def test_los_atajos_se_muestran_en_una_tabla(ventana: MainWindow, monkeypatch):
+    """**Era un cartel de texto plano** con las columnas desalineadas."""
+    from psglab.ui.shortcuts_dialog import ShortcutsDialog
+
+    abiertos: list[ShortcutsDialog] = []
+    monkeypatch.setattr(ShortcutsDialog, "exec", lambda self: abiertos.append(self) or 0)
+
+    ventana._show_shortcuts()
+
+    (dialogo,) = abiertos
+    assert ("Archivo", "Abrir un registro", "Ctrl+O") in dialogo.rows()
+
