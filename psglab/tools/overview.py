@@ -9,12 +9,24 @@ Responde a un problema real del scoring: la ventana de 30 segundos es una
 grilla arbitraria y los eventos no la respetan. Un huso que arranca en el
 segundo 29 se ve cortado, y sin contexto es difícil decidir.
 
+**Cada ventana lleva su señal** desde el hito 51, reducida a una miniatura.
+Hasta entonces el panel mostraba el número, la fase y los eventos anotados, y
+nada más: servía para ver un huso justo antes sólo si alguien ya lo había
+anotado, que es justamente lo que el panel existe para ayudar a encontrar. Es
+**un canal**, el mismo que elige la banda de amplitud: el seleccionado, o el
+primero visible si no hay ninguno. En una caja de noventa píxeles, más de uno
+no se lee.
+
 Cubre del pliego: V1_F, V2_F, V3_F de "Herramienta Übersicht".
 """
 
 from dataclasses import dataclass, field
+from typing import Final
+
+import numpy as np
 
 from psglab.config import OVERVIEW_WINDOWS_AFTER, OVERVIEW_WINDOWS_BEFORE
+from psglab.core.decimation import bucket_size_for, envelope_by_bucket_size
 from psglab.core.nomenclature import SleepStage
 from psglab.core.session import Session
 from psglab.core.windows import window_to_samples
@@ -22,6 +34,43 @@ from psglab.tools.base import Tool
 from psglab.tools.registry import register_tool
 from psglab.utils.errors import InvalidScaleError
 from psglab.utils.validation import check_index
+
+
+#: En cuántas cubetas se reduce la señal de una ventana para la miniatura.
+#:
+#: **No depende del ancho del panel**, a propósito: así la miniatura no hay
+#: que recalcularla al agrandarlo, que es V2_F. Cuatrocientas son más columnas
+#: de las que una caja tiene casi nunca, y la envolvente no pierde un pico con
+#: ninguna cantidad.
+TRACE_BUCKETS: Final[int] = 400
+
+
+@dataclass(frozen=True, eq=False)
+class OverviewTrace:
+    """La señal de una ventana, reducida para dibujarla en su caja.
+
+    **Es dato, no dibujo**, como `OverviewWindow`. La interfaz decide el color
+    y los píxeles; esto dice qué muestras y con qué escala.
+
+    Attributes:
+        channel_name: de qué canal es.
+        positions: dónde cae cada punto, como fracción de la ventana: 0 es su
+            comienzo y 1 su final. La última ventana de un registro que no
+            termina en un múltiplo de la época no llega a 1.
+        microvolts: el valor de cada punto, en µV.
+        scale_uv: cuántos µV ocupan medio carril en la señal. Se dibuja con la
+            misma escala que el visualizador para que una ventana tranquila se
+            vea tranquila: ajustar cada caja a su propio máximo haría que el
+            ruido de una ventana plana llene la caja igual que un complejo K.
+        offset_uv: el desplazamiento vertical del canal, que se resta antes de
+            escalar, igual que en el visualizador.
+    """
+
+    channel_name: str
+    positions: np.ndarray
+    microvolts: np.ndarray
+    scale_uv: float
+    offset_uv: float
 
 
 @dataclass(frozen=True)
@@ -44,12 +93,17 @@ class OverviewWindow:
             escala que el hipnograma y la franja de posición.
         annotation_labels: clases de los eventos que caen dentro. Es lo que
             permite ver que hay un huso justo antes o justo después.
+        trace: la señal de la ventana, o `None` si no hay ningún canal
+            visible. **No entra en la comparación** entre ventanas: dos
+            descripciones son la misma ventana aunque sus arrays sean objetos
+            distintos.
     """
 
     index: int
     is_current: bool
     annotation_labels: tuple[str, ...] = field(default_factory=tuple)
     stage: SleepStage = SleepStage.UNSCORED
+    trace: OverviewTrace | None = field(default=None, compare=False)
 
 
 @register_tool
@@ -160,6 +214,42 @@ class OverviewTool(Tool):
             is_current=is_current,
             annotation_labels=etiquetas,
             stage=self._session.scoring.get(window_index).stage,
+            trace=self._trazo(window_index),
+        )
+
+    def _canal(self) -> str | None:
+        """De qué canal es la miniatura: el seleccionado, o el primero visible.
+
+        Es la misma regla que `AmplitudeBandTool._channel()`, y por el mismo
+        motivo: la herramienta tiene que mostrar algo apenas se abre un
+        registro, antes de que el usuario elija nada.
+        """
+        assert self._session is not None
+        elegidos = self._session.selected_channels or self._session.visible_channels
+        return elegidos[0] if elegidos else None
+
+    def _trazo(self, window_index: int) -> OverviewTrace | None:
+        """La señal de una ventana, reducida a `TRACE_BUCKETS` cubetas."""
+        assert self._session is not None
+        canal = self._canal()
+        if canal is None:
+            return None
+        registro = self._session.recording
+        inicio, fin = window_to_samples(window_index, registro.sampling_rate)
+        largo = fin - inicio
+        muestras = registro.get_segment(inicio, fin, [canal])[0]
+        if len(muestras) <= 2 * TRACE_BUCKETS:
+            indices, valores = np.arange(len(muestras)), muestras
+        else:
+            indices, valores = envelope_by_bucket_size(
+                muestras, bucket_size_for(len(muestras), TRACE_BUCKETS)
+            )
+        return OverviewTrace(
+            channel_name=canal,
+            positions=indices / largo,
+            microvolts=np.array(valores),
+            scale_uv=self._session.scale_uv(canal),
+            offset_uv=self._session.offset_uv(canal),
         )
 
     def set_span(

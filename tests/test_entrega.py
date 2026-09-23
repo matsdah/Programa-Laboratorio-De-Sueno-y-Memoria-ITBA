@@ -4573,3 +4573,65 @@ def test_un_color_escrito_a_mano_en_las_preferencias_se_dibuja(
     ventana._repintar_anotaciones()
 
     assert not ventana.carteles
+
+
+# -- La Übersicht dibuja señal y lleva a su ventana (hito 51) ----------------
+
+
+def _clic_en_la_ubersicht(ventana: MainWindow, indice: int) -> None:
+    """Un clic de Qt de verdad sobre la caja de una ventana del contexto."""
+    panel = ventana.overview_panel
+    (caja,) = [c for v, c in panel.rectangles() if v.index == indice]
+    punto = caja.center()
+    for tipo in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonRelease):
+        evento = QMouseEvent(
+            tipo,
+            punto,
+            panel.mapTo(panel.window(), punto.toPoint()).toPointF(),
+            panel.mapToGlobal(punto.toPoint()).toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton if tipo == QEvent.Type.MouseButtonPress else Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        QApplication.sendEvent(panel, evento)
+
+
+def test_un_clic_en_la_ubersicht_lleva_a_esa_ventana(ventana: MainWindow):
+    """**Hasta el hito 51 el panel no respondía al mouse.** Ahora un clic en la
+    caja de la ventana siguiente la vuelve la actual, y el contexto se
+    recentra sobre ella."""
+    ventana._go_to_window(2)
+
+    _clic_en_la_ubersicht(ventana, 3)
+
+    assert ventana.session.current_window == 3
+    assert ventana.overview_panel.current_index == 3
+    assert not ventana.carteles
+
+
+def test_la_ubersicht_dibuja_la_senal_del_canal_seleccionado(ventana: MainWindow):
+    """Sin selección es el primer canal visible; al seleccionar otro, el
+    contexto lo sigue sin que haga falta navegar, y con el color de su carril."""
+    visibles = ventana.session.visible_channels
+    assert {v.trace.channel_name for v, _ in ventana.overview_panel.rectangles()} == {
+        visibles[0]
+    }
+
+    ventana._set_selected_channels([visibles[1]])
+
+    assert {v.trace.channel_name for v, _ in ventana.overview_panel.rectangles()} == {
+        visibles[1]
+    }
+    assert ventana.overview_panel._trace_color == theme.current().color_for_channel(1)
+
+
+def test_la_amplitud_llega_a_la_ubersicht(ventana: MainWindow):
+    """La miniatura usa la escala del visualizador, así que subir la amplitud
+    también la cambia a ella, sin esperar a la próxima flecha."""
+    canal = ventana.session.visible_channels[0]
+    ventana._set_selected_channels([canal])
+
+    ventana.increase_amplitude()
+
+    escalas = {v.trace.scale_uv for v, _ in ventana.overview_panel.rectangles()}
+    assert escalas == {ventana.session.scale_uv(canal)}

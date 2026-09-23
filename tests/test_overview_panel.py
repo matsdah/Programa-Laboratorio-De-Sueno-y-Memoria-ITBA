@@ -11,11 +11,16 @@ funcionalidades que el pliego pide para la Übersicht no se podían ver en el
 programa corriendo.
 """
 
+import numpy as np
 import pytest
 
 pytest.importorskip("pyqtgraph")
 
-from psglab.tools.overview import OverviewWindow  # noqa: E402
+from PySide6.QtCore import QPointF  # noqa: E402
+from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtTest import QTest  # noqa: E402
+
+from psglab.tools.overview import OverviewTrace, OverviewWindow  # noqa: E402
 from psglab.ui.overview_panel import ANCHO_MINIMO, OverviewPanel  # noqa: E402
 
 ANCHO = 500
@@ -210,3 +215,97 @@ def test_volver_a_dibujar_sin_colores_conserva_los_anteriores(panel: OverviewPan
     panel.set_windows(vecinas(actual=11))
 
     assert panel._colors == {"Spindle": "#4a90e6"}
+
+
+# -- El clic y la señal (hito 51) -------------------------------------------
+
+
+def _clics(panel: OverviewPanel) -> list[int]:
+    recibidos: list[int] = []
+    panel.window_clicked.connect(recibidos.append)
+    return recibidos
+
+
+def test_un_clic_en_una_caja_pide_ir_a_esa_ventana(panel: OverviewPanel):
+    """**Hasta el hito 51 el panel no respondía al mouse.** El prototipo lo
+    pedía: «un clic lleva la señal a esa época»."""
+    panel.set_windows(vecinas(actual=10, antes=1, despues=1))
+    recibidos = _clics(panel)
+    (_, caja), = [(v, c) for v, c in panel.rectangles() if v.index == 11]
+
+    QTest.mouseClick(panel, Qt.MouseButton.LeftButton, pos=caja.center().toPoint())
+
+    assert recibidos == [11]
+
+
+def test_un_clic_entre_dos_cajas_no_pide_nada(panel: OverviewPanel):
+    panel.set_windows(vecinas(actual=10, antes=1, despues=1))
+    recibidos = _clics(panel)
+    (_, primera), (_, segunda), _ = panel.rectangles()
+    entre = QPointF((primera.right() + segunda.left()) / 2, primera.center().y())
+
+    QTest.mouseClick(panel, Qt.MouseButton.LeftButton, pos=entre.toPoint())
+
+    assert recibidos == []
+
+
+def test_el_clic_derecho_no_navega(panel: OverviewPanel):
+    panel.set_windows(vecinas(actual=10, antes=1, despues=1))
+    recibidos = _clics(panel)
+    _, caja = panel.rectangles()[0]
+
+    QTest.mouseClick(panel, Qt.MouseButton.RightButton, pos=caja.center().toPoint())
+
+    assert recibidos == []
+
+
+def test_cada_caja_es_un_encabezado_y_debajo_la_senal(panel: OverviewPanel):
+    """El encabezado lleva el número, la fase y los eventos; la señal se queda
+    con el resto, sin pisarlo."""
+    panel.set_windows(vecinas(actual=10))
+
+    for _, caja in panel.rectangles():
+        cabecera, senal = panel._partes(caja)
+        assert cabecera.top() == caja.top()
+        assert senal.top() == cabecera.bottom()
+        assert senal.bottom() == pytest.approx(caja.bottom())
+        assert 0 < cabecera.height() < senal.height()
+
+
+def _con_senal(actual: int, valores: np.ndarray) -> tuple[OverviewWindow, ...]:
+    trazo = OverviewTrace(
+        channel_name="C3",
+        positions=np.linspace(0.0, 0.99, len(valores)),
+        microvolts=valores,
+        scale_uv=50.0,
+        offset_uv=0.0,
+    )
+    return (OverviewWindow(index=actual, is_current=True, trace=trazo),)
+
+
+def _pixeles_rojos(panel: OverviewPanel) -> int:
+    imagen = panel.grab().toImage()
+    _, senal = panel._partes(panel.rectangles()[0][1])
+    rojos = 0
+    for x in range(int(senal.left()) + 2, int(senal.right()) - 2, 2):
+        for y in range(int(senal.top()) + 2, int(senal.bottom()) - 2):
+            color = imagen.pixelColor(x, y)
+            if color.red() > 200 and color.green() < 90 and color.blue() < 90:
+                rojos += 1
+    return rojos
+
+
+def test_la_senal_se_dibuja_con_el_color_de_su_canal(panel: OverviewPanel):
+    """**Es lo único del dibujo que se afirma**, porque es lo que el hito
+    agregó: que la señal llegue a la pantalla y con el color que le pasa la
+    ventana, que es el de su carril en el visualizador."""
+    panel.set_windows(_con_senal(3, 40.0 * np.sin(np.linspace(0, 30, 800))), {}, "#ff0000")
+
+    assert _pixeles_rojos(panel) > 20
+
+
+def test_sin_senal_no_se_dibuja_ninguna(panel: OverviewPanel):
+    """El contraste que vuelve significativo al test de arriba."""
+    panel.set_windows((OverviewWindow(index=3, is_current=True),), {}, "#ff0000")
+
+    assert _pixeles_rojos(panel) == 0

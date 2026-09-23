@@ -92,6 +92,21 @@ def status_text(window_index: int, stage: SleepStage, arousal: bool) -> str:
     return f"{texto} · arousal" if arousal else texto
 
 
+def _texto_del_boton(fase: SleepStage) -> str:
+    """La fase y, debajo, su tecla; **una sola vez si son la misma**.
+
+    En W y R la tecla es la inicial de la etiqueta, que es la etiqueta entera:
+    el botón decía «W» sobre «W» (hito 51). La tecla sigue saliendo de
+    `shortcuts.key_for_stage()`, así que si alguna vez dejan de coincidir
+    vuelve a escribirse sola.
+    """
+    etiqueta = stage_label(fase)
+    tecla = key_for_stage(fase)
+    if tecla.casefold() == etiqueta.casefold():
+        return etiqueta
+    return f"{etiqueta}\n{tecla}"
+
+
 class ScoringPanel(QWidget):
     """Botones de fase de sueño y de arousal."""
 
@@ -244,7 +259,7 @@ class ScoringPanel(QWidget):
             # scoreaba una noche entera a golpe de mouse. Sale de
             # `shortcuts.key_for_stage()` y no escrita acá, por el mismo motivo
             # que los menús leen la suya de ese módulo.
-            boton = QPushButton(f"{stage_label(fase)}\n{key_for_stage(fase)}")
+            boton = QPushButton(_texto_del_boton(fase))
             boton.setCheckable(True)
             # **El color lo pone la hoja de estilo**, que arma una regla por
             # fase a partir de `ColorScheme.stage_colors`. Acá sólo se declara

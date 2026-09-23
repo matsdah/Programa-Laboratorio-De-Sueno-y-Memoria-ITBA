@@ -121,7 +121,23 @@ def test_cada_boton_muestra_su_tecla(panel: ScoringPanel, nomenclatura: Nomencla
     panel.set_nomenclature(nomenclatura)
 
     for fase, boton in panel._botones.items():
-        assert boton.text().splitlines() == [stage_label(fase), key_for_stage(fase)]
+        lineas = boton.text().splitlines()
+        assert lineas[0] == stage_label(fase)
+        assert lineas[-1] == key_for_stage(fase)
+
+
+@pytest.mark.parametrize("nomenclatura", list(Nomenclature))
+def test_si_la_tecla_es_la_etiqueta_se_escribe_una_vez(
+    panel: ScoringPanel, nomenclatura: Nomenclature
+):
+    """**Hasta el hito 51 el botón de W decía «W» sobre «W»**, y el de R lo
+    mismo: la tecla es la inicial de la etiqueta, que ahí es la etiqueta
+    entera. Donde difieren —«N2» y «2»— siguen las dos líneas."""
+    panel.set_nomenclature(nomenclatura)
+
+    for fase, boton in panel._botones.items():
+        repetida = key_for_stage(fase).casefold() == stage_label(fase).casefold()
+        assert len(boton.text().splitlines()) == (1 if repetida else 2)
 
 
 def test_la_tecla_no_se_escribe_en_el_panel(panel: ScoringPanel):
