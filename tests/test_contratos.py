@@ -80,6 +80,13 @@ POTENCIAS = np.ones((1, 51))
 SEÑAL = np.sin(np.linspace(0.0, 20.0, 400))
 
 
+def _con_una() -> AnnotationSet:
+    """Un conjunto con una sola anotación, para reemplazarla."""
+    conjunto = AnnotationSet()
+    conjunto.add(Annotation("Arousal", 0, 10))
+    return conjunto
+
+
 def registro(canales: int = 2, muestras: int = 3000, fs: float = 100.0) -> Recording:
     """Un registro válido de una ventana, para partir de algo sano."""
     return Recording(
@@ -157,6 +164,8 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("color_of", lambda v: AnnotationSet().color_of(v)),
         ("es_color_de_clase", lambda v: es_color_de_clase(v)),
         ("remove_at", lambda v: AnnotationSet().remove_at(v)),
+        ("replace(old=...)", lambda v: AnnotationSet().replace(v, Annotation("Arousal", 0, 10))),
+        ("replace(new=...)", lambda v: _con_una().replace(Annotation("Arousal", 0, 10), v)),
         ("add(annotation=...)", lambda v: AnnotationSet().add(v)),
         ("add(label=...)", lambda v: AnnotationSet().add(Annotation(v, 0, 10))),
         ("add_label(label=...)", lambda v: AnnotationSet().add_label(v)),
@@ -446,6 +455,10 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     ("add_label con None", None, lambda v: AnnotationSet().add_label(v)),
     # Guardar algo que no es una anotación reventaba al pedirle `.label`.
     ("add con algo que no es una anotación", "Arousal", lambda v: AnnotationSet().add(v)),
+    # Hito 52. Reemplazar por algo que no es una anotación tiene que rechazarse
+    # **antes** de sacar la vieja: si no, se pierde el evento que se corregía.
+    ("replace por algo que no es una anotación", "Arousal",
+     lambda v: _con_una().replace(Annotation("Arousal", 0, 10), v)),
     # Hito 4. La frecuencia original de un canal se muestra al lado de su
     # nombre: un NaN se leería como "nan Hz" en la lista de canales, y un cero
     # afirmaría que el canal no trae ninguna muestra por segundo.

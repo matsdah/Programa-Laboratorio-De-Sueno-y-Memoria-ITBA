@@ -60,7 +60,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_recording.py` | El registro en memoria y lo que no deja construir. |
 | `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
 | `test_session.py` | Navegación, canales y amplitud, sin abrir una ventana, y qué cuenta como scoring sin exportar. |
-| `test_annotations.py` | Los eventos sobre la señal: qué se borra y qué se dibuja. |
+| `test_annotations.py` | Los eventos sobre la señal: qué se borra, qué se dibuja y cómo se reemplaza uno sin perderlo. |
 | `test_channel_types.py` | Que cada canal se clasifique solo: EEG, EOG, EMG, ECG u otro. |
 | `test_readers.py` | El despacho por formato, y que la señal de un EDF y un BrainVision salga en la escala correcta. |
 | `test_scoring_reader.py` | Importar un scoring ya hecho sin adivinar con qué nomenclatura se escribió. |
@@ -69,7 +69,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_amplitude_band.py` | La banda de 75 µV, y sobre qué canal se dibuja. |
 | `test_occupancy.py` | La ocupación horizontal: los ejemplos del pliego y el gesto del mouse. |
 | `test_magnifier.py` | La lupa y su contador de picos, que se cuenta sin dibujar nada. |
-| `test_annotator.py` | Anotar un evento, y que los segundos lleguen a la muestra correcta. |
+| `test_annotator.py` | Anotar un evento, que los segundos lleguen a la muestra correcta, y corregirlo: sus bordes y su clase. |
 | `test_overview.py` | El panel de contexto: qué ventanas muestra, qué eventos caen en ellas y qué señal lleva cada una. |
 | `test_histogram.py` | El hipnograma de la noche y la navegación por clic. |
 | `test_shortcuts.py` | Los atajos, y que los de fase se deriven de la nomenclatura. |

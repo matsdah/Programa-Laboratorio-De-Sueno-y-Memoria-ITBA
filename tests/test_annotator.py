@@ -393,3 +393,168 @@ def test_solo_el_boton_izquierdo_selecciona(anotador: AnnotatorTool):
 
 def test_es_exclusiva_porque_se_queda_con_el_arrastre():
     assert AnnotatorTool.exclusive is True
+
+
+# -- Corregir una anotación hecha (hito 52) ---------------------------------
+
+
+def _con_una(sesion: Session, desde: float = 36.0, hasta: float = 38.0) -> Annotation:
+    """Una anotación de Arousal en segundos absolutos, directo a la sesión."""
+    anotacion = Annotation(
+        "Arousal",
+        seconds_to_sample_absolute(desde, FRECUENCIA),
+        seconds_to_sample_absolute(hasta, FRECUENCIA)
+        - seconds_to_sample_absolute(desde, FRECUENCIA),
+    )
+    sesion.annotations.add(anotacion)
+    return anotacion
+
+
+def _arrastrar(tool: AnnotatorTool, desde: float, hasta: float) -> None:
+    tool.on_mouse_press(desde, 0.0, "left")
+    tool.on_mouse_move(hasta, 0.0)
+    tool.on_mouse_release(hasta, 0.0, "left")
+
+
+def test_el_borde_bajo_el_mouse_se_encuentra(anotador: AnnotatorTool, sesion: Session):
+    anotacion = _con_una(sesion)
+    anotador.set_edge_tolerance(0.2)
+
+    assert anotador.edge_at(36.1) == (anotacion, "start")
+    assert anotador.edge_at(37.9) == (anotacion, "end")
+    assert anotador.edge_at(37.0) is None
+
+
+def test_la_tolerancia_decide_que_es_cerca(anotador: AnnotatorTool, sesion: Session):
+    """La fija la ventana en píxeles: con la noche entera en pantalla, un
+    segundo no llega a un píxel."""
+    _con_una(sesion)
+
+    anotador.set_edge_tolerance(0.05)
+    assert anotador.edge_at(36.1) is None
+
+    anotador.set_edge_tolerance(0.5)
+    assert anotador.edge_at(36.1) is not None
+
+
+def test_entre_dos_bordes_pegados_gana_el_mas_cercano(anotador: AnnotatorTool, sesion: Session):
+    """Dos anotaciones seguidas comparten un punto; el mouse está de un lado."""
+    primera = _con_una(sesion, 36.0, 38.0)
+    segunda = _con_una(sesion, 38.2, 40.0)
+    anotador.set_edge_tolerance(0.3)
+
+    assert anotador.edge_at(37.95) == (primera, "end")
+    assert anotador.edge_at(38.25) == (segunda, "start")
+
+
+def test_arrastrar_el_final_lo_mueve(anotador: AnnotatorTool, sesion: Session):
+    _con_una(sesion)
+    anotador.set_edge_tolerance(0.2)
+
+    _arrastrar(anotador, 38.0, 39.5)
+
+    (corregida,) = sesion.annotations.all()
+    assert corregida.onset_sample == 3600
+    assert corregida.end_sample == 3950
+    assert anotador.moved_annotation == corregida
+    assert anotador.pending_selection_samples is None
+
+
+def test_arrastrar_el_comienzo_lo_mueve(anotador: AnnotatorTool, sesion: Session):
+    _con_una(sesion)
+    anotador.set_edge_tolerance(0.2)
+
+    _arrastrar(anotador, 36.0, 35.0)
+
+    (corregida,) = sesion.annotations.all()
+    assert (corregida.onset_sample, corregida.end_sample) == (3500, 3800)
+
+
+def test_los_bordes_no_se_cruzan(anotador: AnnotatorTool, sesion: Session):
+    """**Llevar el comienzo más allá del final lo deja una muestra antes.**
+    Invertirla en silencio cambiaría cuál borde tiene el usuario en la mano, y
+    una de duración cero el conjunto la rechaza."""
+    _con_una(sesion)
+    anotador.set_edge_tolerance(0.2)
+
+    _arrastrar(anotador, 36.0, 45.0)
+
+    (corregida,) = sesion.annotations.all()
+    assert (corregida.onset_sample, corregida.end_sample) == (3799, 3800)
+
+
+def test_el_borde_no_se_sale_del_registro(anotador: AnnotatorTool, sesion: Session):
+    _con_una(sesion, 80.0, 85.0)
+    anotador.set_edge_tolerance(0.2)
+
+    _arrastrar(anotador, 85.0, 500.0)
+
+    (corregida,) = sesion.annotations.all()
+    assert corregida.end_sample == sesion.recording.n_samples
+
+
+def test_mientras_se_arrastra_la_banda_se_ve_donde_va_a_quedar(
+    anotador: AnnotatorTool, sesion: Session
+):
+    """El usuario tiene que ver el tramo nuevo antes de soltar."""
+    sesion.set_viewport(sesion.viewport.with_start(30.0))
+    _con_una(sesion)
+    anotador.set_edge_tolerance(0.2)
+
+    anotador.on_mouse_press(38.0, 0.0, "left")
+    anotador.on_mouse_move(39.0, 0.0)
+
+    tramos = [(b.start_seconds, b.end_seconds) for b in anotador.overlays()]
+    assert tramos == [(36.0, 39.0)]
+    # Todavía no se tocó el conjunto: soltar es lo que corrige.
+    assert sesion.annotations.all()[0].end_sample == 3800
+
+
+def test_soltar_sin_moverlo_no_corrige_nada(anotador: AnnotatorTool, sesion: Session):
+    anotacion = _con_una(sesion)
+    anotador.set_edge_tolerance(0.2)
+
+    _arrastrar(anotador, 38.0, 38.0)
+
+    assert sesion.annotations.all() == [anotacion]
+    assert anotador.moved_annotation is None
+
+
+def test_lejos_de_un_borde_se_sigue_seleccionando(anotador: AnnotatorTool, sesion: Session):
+    """El gesto de siempre no cambia: lejos de un borde, arrastrar marca un
+    tramo nuevo."""
+    _con_una(sesion)
+    anotador.set_edge_tolerance(0.2)
+
+    _arrastrar(anotador, 50.0, 52.0)
+
+    assert anotador.pending_selection_samples == (5000, 200)
+    assert len(sesion.annotations.all()) == 1
+
+
+def test_se_le_cambia_la_clase_sin_tocar_el_tramo(anotador: AnnotatorTool, sesion: Session):
+    anotacion = _con_una(sesion)
+
+    nueva = anotador.change_label(anotacion, "Spindle")
+
+    assert sesion.annotations.all() == [nueva]
+    assert nueva.label == "Spindle"
+    assert (nueva.onset_sample, nueva.duration_samples) == (
+        anotacion.onset_sample,
+        anotacion.duration_samples,
+    )
+
+
+def test_cambiar_a_una_clase_sin_registrar_no_toca_nada(anotador: AnnotatorTool, sesion: Session):
+    anotacion = _con_una(sesion)
+
+    with pytest.raises(PsgLabError):
+        anotador.change_label(anotacion, "Inventada")
+
+    assert sesion.annotations.all() == [anotacion]
+
+
+def test_sin_registro_no_se_corrige_nada():
+    with pytest.raises(PsgLabError):
+        AnnotatorTool().change_label(Annotation("Arousal", 0, 10), "Spindle")
+    assert AnnotatorTool().edge_at(1.0) is None

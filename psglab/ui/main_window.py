@@ -56,7 +56,7 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QObject, QPointF, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QFont, QFontMetrics, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -65,6 +65,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QProgressBar,
     QToolBar,
@@ -78,7 +79,7 @@ from psglab.config import (
     VIEW_PAN_FRACTION,
     VIEW_ZOOM_FACTOR,
 )
-from psglab.core.annotations import AnnotationSet
+from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import (
     Nomenclature,
     SleepStage,
@@ -194,6 +195,15 @@ _BOTONES = {
     Qt.MouseButton.RightButton: "right",
     Qt.MouseButton.MiddleButton: "middle",
 }
+
+#: A cuántos píxeles del borde de una banda el anotador lo toma por ese borde
+#: (hito 52). Cinco es lo que un mouse acierta sin tener que apuntar; más, y
+#: una anotación corta no deja lugar para empezar otra adentro.
+_PIXELES_DEL_BORDE: int = 5
+
+#: Las entradas del menú del clic derecho sobre una banda.
+_CAMBIAR_CLASE = "Cambiar clase…"
+_BORRAR = "Borrar"
 
 
 def _en_escena(vista: pg.PlotWidget, evento: QMouseEvent) -> QPointF:
@@ -565,14 +575,26 @@ class MainWindow(QMainWindow):
         canal = self.signal_view.channel_at_pixel(punto.y())
         y = self.signal_view.microvolts_at_pixel(punto.y(), canal)
 
+        if isinstance(herramienta, AnnotatorTool):
+            # **Un borde se agarra a unos píxeles, no a unos segundos** (hito
+            # 52): un segundo son cientos de píxeles con una página de 5 s y
+            # ninguno con la noche entera. La herramienta no conoce la
+            # pantalla, así que se lo dice la ventana en cada evento.
+            segundos_por_pixel = self.signal_view.getPlotItem().vb.viewPixelSize()[0]
+            herramienta.set_edge_tolerance(segundos_por_pixel * _PIXELES_DEL_BORDE)
+
         if evento.type() == QEvent.Type.MouseMove:
             herramienta.on_mouse_move(segundos, y, canal)
+            if isinstance(herramienta, AnnotatorTool):
+                self._cursor_del_anotador(herramienta, segundos, evento)
         else:
             boton = _BOTONES.get(evento.button(), "left")
             if evento.type() == QEvent.Type.MouseButtonPress:
                 herramienta.on_mouse_press(segundos, y, boton, canal)
                 if isinstance(herramienta, AnnotatorTool) and boton == "right":
-                    self._borrar_anotacion(herramienta, segundos)
+                    self._menu_de_anotacion(
+                        herramienta, segundos, evento.globalPosition().toPoint()
+                    )
             else:
                 herramienta.on_mouse_release(segundos, y, boton, canal)
                 # **Acá se cierra el lazo de V1_F de "Anotación".** La
@@ -581,6 +603,7 @@ class MainWindow(QMainWindow):
                 # se podía arrastrar una selección y no pasaba nada.
                 if isinstance(herramienta, AnnotatorTool):
                     self._finish_annotation(herramienta)
+                    self._avisar_borde_movido(herramienta)
         return False
 
     def _filtrar_histograma(self, evento: QEvent) -> None:
@@ -643,16 +666,101 @@ class MainWindow(QMainWindow):
             contexto.refresh()
         self.statusBar().showMessage(f"Se anotó «{clase}»", 5000)
 
-    def _borrar_anotacion(self, herramienta: AnnotatorTool, segundos: float) -> None:
-        """Borra la anotación que está bajo el clic derecho, confirmándolo antes.
+    def _menu_de_anotacion(
+        self, herramienta: AnnotatorTool, segundos: float, donde: QPoint
+    ) -> None:
+        """El clic derecho sobre una banda: cambiarle la clase o borrarla.
 
-        **Pregunta** porque no hay deshacer, y una anotación es trabajo del
-        investigador: un clic derecho de más no puede costarle un evento que
-        tardó en encontrar. Un clic derecho donde no hay nada no hace nada.
+        **Hasta el hito 52 el clic derecho borraba**, con confirmación, y era lo
+        único que se podía hacer con una anotación hecha. Un clic derecho donde
+        no hay nada no hace nada.
         """
         anotacion = herramienta.annotation_at(segundos)
         if anotacion is None:
             return
+        eleccion = self._elegir_en_un_menu(
+            [_CAMBIAR_CLASE, _BORRAR], donde
+        )
+        if eleccion == _CAMBIAR_CLASE:
+            self._cambiar_clase(herramienta, anotacion)
+        elif eleccion == _BORRAR:
+            self._borrar_anotacion(herramienta, anotacion)
+
+    def _elegir_en_un_menu(self, opciones: list[str], donde: QPoint) -> str | None:
+        """Muestra un menú contextual y devuelve lo que se eligió, o `None`.
+
+        Aparte para que los tests lo contesten sin abrirlo: es modal, y sin
+        nadie que elija la suite se colgaría.
+        """
+        menu = QMenu(self)
+        for opcion in opciones:
+            menu.addAction(opcion)
+        elegida = menu.exec(donde)
+        return elegida.text() if elegida is not None else None
+
+    def _cambiar_clase(self, herramienta: AnnotatorTool, anotacion: Annotation) -> None:
+        """Pregunta la clase nueva de una anotación hecha y se la cambia.
+
+        El diálogo es el mismo que al anotar —editable, así que una clase nueva
+        se puede escribir— pero arranca en la clase que tiene. Elegir la misma
+        no hace nada.
+        """
+        if self._session is None:
+            return
+        clases = self._session.annotations.labels()
+        actual = clases.index(anotacion.label) if anotacion.label in clases else 0
+        clase, acepto = QInputDialog.getItem(
+            self,
+            "Cambiar la clase",
+            "Clase del evento (se puede escribir una nueva):",
+            clases,
+            actual,
+            True,
+        )
+        clase = clase.strip()
+        if not acepto or not clase or clase == anotacion.label:
+            return
+        try:
+            if clase not in clases:
+                herramienta.add_label(clase)
+            herramienta.change_label(anotacion, clase)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self._refrescar_contexto()
+        self.statusBar().showMessage(
+            f"«{anotacion.label}» pasó a ser «{clase}»", 5000
+        )
+
+    def _avisar_borde_movido(self, herramienta: AnnotatorTool) -> None:
+        """Después de soltar un borde arrastrado: la Übersicht y el aviso."""
+        movida = herramienta.moved_annotation
+        if movida is None:
+            return
+        self._refrescar_contexto()
+        self.statusBar().showMessage(f"Se corrigió el tramo de «{movida.label}»", 5000)
+
+    def _cursor_del_anotador(
+        self, herramienta: AnnotatorTool, segundos: float, evento: QMouseEvent
+    ) -> None:
+        """↔ sobre el borde de una banda, que es lo único que dice que se puede
+        arrastrar. Mientras se arrastra, el cursor no cambia."""
+        if evento.buttons() != Qt.MouseButton.NoButton:
+            return
+        viewport = self.signal_view.viewport()
+        if herramienta.edge_at(segundos) is not None:
+            viewport.setCursor(Qt.CursorShape.SizeHorCursor)
+        else:
+            viewport.unsetCursor()
+
+    def _borrar_anotacion(self, herramienta: AnnotatorTool, anotacion: Annotation) -> None:
+        """Borra una anotación, confirmándolo antes.
+
+        **Pregunta** porque no hay deshacer, y una anotación es trabajo del
+        investigador. Desde el hito 52 se llega eligiendo «Borrar» en el menú
+        del clic derecho, así que un clic de más ya no borra solo; la pregunta
+        se conservó igual, porque elegir mal en un menú también es un clic.
+        """
         respuesta = QMessageBox.question(
             self,
             "Borrar anotación",

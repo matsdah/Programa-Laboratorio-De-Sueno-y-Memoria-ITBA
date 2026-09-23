@@ -360,3 +360,59 @@ def test_sin_color_la_clase_sigue_tomando_uno_de_la_paleta(anotaciones):
     anotaciones.add_label("Huso")
 
     assert es_color_de_clase(anotaciones.color_of("Huso"))
+
+
+# -- Corregir es reemplazar (hito 52) ---------------------------------------
+
+
+def test_reemplazar_cambia_una_por_otra(anotaciones):
+    vieja = evento(100)
+    anotaciones.add(vieja)
+
+    anotaciones.replace(vieja, evento(100, label="Spindle"))
+
+    assert [a.label for a in anotaciones.all()] == ["Spindle"]
+
+
+def test_la_reemplazante_va_a_su_lugar_por_inicio(anotaciones):
+    """**La promesa de orden sobrevive a corregir**: mover el comienzo de una
+    anotación más allá de otra la cambia de lugar, y `remove_at()` depende de
+    que el índice sea la posición en `all()`."""
+    primera, segunda = evento(100), evento(500)
+    anotaciones.add(primera)
+    anotaciones.add(segunda)
+
+    anotaciones.replace(primera, evento(900))
+
+    assert [a.onset_sample for a in anotaciones.all()] == [500, 900]
+
+
+def test_una_reemplazante_invalida_no_toca_nada(anotaciones):
+    """**Valida antes de sacar la vieja.** Si no, un reemplazo que falla a la
+    mitad le costaría al investigador el evento que quería corregir."""
+    vieja = evento(100)
+    anotaciones.add(vieja)
+
+    with pytest.raises(InvalidAnnotationError):
+        anotaciones.replace(vieja, evento(100, duracion=0))
+
+    assert anotaciones.all() == [vieja]
+
+
+def test_una_clase_sin_registrar_tampoco(anotaciones):
+    vieja = evento(100)
+    anotaciones.add(vieja)
+
+    with pytest.raises(UnknownAnnotationLabelError):
+        anotaciones.replace(vieja, evento(100, label="Inventada"))
+
+    assert anotaciones.all() == [vieja]
+
+
+def test_reemplazar_una_que_no_esta_avisa(anotaciones):
+    """Un reemplazo silencioso de algo inexistente agregaría una anotación que
+    nadie hizo."""
+    with pytest.raises(InvalidAnnotationError):
+        anotaciones.replace(evento(100), evento(200))
+
+    assert anotaciones.all() == []
