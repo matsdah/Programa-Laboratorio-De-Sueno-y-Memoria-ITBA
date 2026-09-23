@@ -73,8 +73,8 @@ hitos cerrados, y el **[hito 51](#hito-51-la-übersicht-muestra-la-señal)** ter
 **[hito 54](#hito-54-lo-que-faltaba-del-prototipo)** sumó lo que le faltaba de peso medio, y el
 **[hito 55](#hito-55-lo-último-del-prototipo)** lo de peso bajo. El
 **[hito 56](#hito-56-la-rueda-y-el-panel-táctil-sobre-la-señal)** hace que la rueda del mouse cambie la escala de tiempo
-y desplace la página.
-Son **cincuenta y siete hitos**, del 0 al 56, que son las filas de la tabla de
+y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)** midió cuánta memoria cuesta cada cosa.
+Son **cincuenta y ocho hitos**, del 0 al 57, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -209,6 +209,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [54. Lo que faltaba del prototipo](#hito-54-lo-que-faltaba-del-prototipo) | — | 0 | ✅ cerrado |
 | [55. Lo último del prototipo](#hito-55-lo-último-del-prototipo) | — | 0 | ✅ cerrado |
 | [56. La rueda y el panel táctil sobre la señal](#hito-56-la-rueda-y-el-panel-táctil-sobre-la-señal) | — | 0 | ✅ cerrado |
+| [57. Cuánta memoria cuesta cada cosa](#hito-57-cuánta-memoria-cuesta-cada-cosa) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1581,7 +1582,10 @@ proponer sin este número.
 
 - [ ] **La señal sigue entera en memoria, y la ventana principal guarda dos.**
       El registro original —el que hace posible "Volver a la señal original"— y
-      el que se está viendo. Sobre 32 canales y 8 horas son 1,9 GB cada uno
+      el que se está viendo.
+      - **Medido en el [hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa): guarda dos sólo después de un análisis**, y
+        lo caro es otra cosa: ajustar la ICA, con 7 copias de pico. Las dos
+        decisiones que salieron de medir están anotadas allá. Sobre 32 canales y 8 horas son 1,9 GB cada uno
       antes de empezar a analizar. Bajarlo de verdad pide otra cosa: leer por
       tramos, o releer el archivo al deshacer en vez de guardarlo. Las dos son
       decisiones de diseño con su propio costo.
@@ -4637,7 +4641,7 @@ Son once, y **ninguno es un hito**: cada uno sigue anotado en el suyo.
 - **Espera al usuario.** Confirmar que el hipnograma y la Übersicht hacen lo
   que tienen que hacer (hito 31).
 - **Son trabajo, cuando se decida hacerlo.** La señal entera en memoria, dos
-  veces (hito 18); las solapas Cursores y Calibración, que entran con las
+  veces (hito 18), que el [hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa) midió y dejó en dos decisiones; las solapas Cursores y Calibración, que entran con las
   reglas y los milímetros que configurarían (hito 22); el EDF+ de R&K que
   pregunta la nomenclatura al releerlo (hito 23); pintar el registro denso
   por debajo de 40 ms ([hito 25](#hito-25-rendimiento-al-abrir-y-al-desplazar)); y corregir una anotación sin borrarla (hito 28).
@@ -5040,6 +5044,92 @@ el centro fijo, anclando en el mouse al reproducir, con el ancho pedido, sin
 llevar el ancla al borde de la página, sin Mayúsculas, con Mayúsculas sólo
 vertical, sin el desplazamiento horizontal, con el sentido al revés, moviendo
 sólo la página al reproducir y sin las filas de la ayuda— y falla.
+
+## Hito 57: Cuánta memoria cuesta cada cosa
+
+**Cerrado el 23 de septiembre de 2026.** Es la medición que pedía el pendiente
+del [hito 18](#lo-que-sigue-sin-resolverse), «la señal sigue entera en memoria,
+y la ventana principal guarda dos», antes de decidir nada. **La medición
+corrige el pendiente**, y encontró que lo caro está en otro lado.
+
+**No tiene stubs que contar.**
+
+### Cómo se midió
+
+Con un banco nuevo, `tests/medir_memoria.py`, que se corre a mano como los
+otros dos. Mide **por la ventana** —`open_recording()`, `_aplicar_analisis()`,
+`restore_original_recording()`— y no llamando a los módulos sueltos, que es
+como midió el hito 18 y lo que no ve cuánto retiene la ventana. Cuenta
+**en copias de la señal** —la señal entera como `float64`—, que es la unidad
+que no depende del registro, y dice qué línea reservó cada bloque que queda
+vivo.
+
+- La primera corrida daba siete copias y media después de abrir un registro
+  de 20 MB, y **seis y media eran MNE y scipy importándose** por primera vez.
+  El banco hace ahora una pasada sobre un registro de un minuto antes de medir.
+
+### Lo que cuesta
+
+EDF sintético de 32 canales a 256 Hz y una hora: una copia son **236 MB**.
+Sobre 8 canales y 20 minutos lo que queda es lo mismo y los picos salen un
+poco más altos —abrir 2,7 en vez de 2,1, la ICA 8,3 en vez de 7,0—: lo que
+MNE reserva aparte de la señal pesa más cuanto más chica es la señal.
+
+| Operación | Pico | Queda |
+|---|---|---|
+| Abrir el registro | 2,1 copias | **1,0** |
+| Mostrar el registro entero, volver a 30 s | 1,0 | 1,0 |
+| Filtrar con los de fábrica | 3,1 | 2,0 |
+| Filtrar otra vez, encima | 4,1 | 2,0 |
+| Re-referenciar al promedio | 3,0 | 2,0 |
+| Volver a la señal original | 2,0 | **1,0** |
+| **Ajustar la ICA** y medir su varianza | **7,0** | 1,0 |
+| Quitar un componente | 4,0 | 2,0 |
+| Abrir otro registro, con la señal procesada | 4,1 | 1,0 |
+
+Llevado a una noche de 8 horas con esos 32 canales, una copia son 1,9 GB:
+ajustar la ICA pide **13 GB** de pico.
+
+### Lo que dice
+
+- [x] **La ventana guarda dos copias sólo después de un análisis**, y no
+      siempre, como decía el pendiente. Mientras no se filtra nada, el
+      original y la señal que se ve son **el mismo objeto**. Volver a la
+      original suelta la procesada, y abrir otro registro suelta las dos: no
+      hay ninguna fuga.
+- [x] **Mirar no cuesta memoria**: la envolvente del registro entero cabe en lo
+      que se redondea a la décima.
+- [x] **El pico más alto es ajustar la ICA**, 7 copias, más del doble que
+      cualquier otra cosa. Seis son de MNE: `ICA.fit()` copia los canales,
+      los blanquea en otra copia y la descomposición en componentes principales
+      arma una matriz del tamaño de la señal. Pedirle a MNE que use una de
+      cada `decim` muestras **no alcanza**: copia la señal entera antes de
+      descartar, y el pico queda en 3,2.
+- [x] **Abrir otro registro con la señal procesada suma los dos**: el
+      anterior sigue vivo mientras se lee el nuevo, a propósito. Si el archivo
+      no se puede abrir, lo que se estaba haciendo sigue ahí.
+
+### Lo que queda por decidir
+
+- [ ] **Ajustar la ICA sobre una muestra de la noche.** Medido sobre 8
+      canales y 20 minutos, pasándole a `fit_ica()` una de cada ocho muestras:
+
+      | Muestras | Pico | Tiempo |
+      |---|---|---|
+      | todas | 6,0 copias | 88 s |
+      | una de cada 4 | 1,8 | 14 s |
+      | una de cada 8 | **0,9** | **8 s** |
+
+      La ICA no mira el orden de las muestras —separa fuentes mezcladas en el
+      mismo instante—, así que saltear muestras no filtra nada: es ajustar con
+      menos datos. **Cambia los componentes que salen**, y por eso no se hizo
+      sin preguntar. Lo que hay que decidir es cuántas muestras alcanzan: la
+      regla de uso habitual es unas veinte veces el cuadrado de los canales, y
+      una noche de 32 canales a 256 Hz trae más de trescientas veces eso.
+- [ ] **Volver a la original releyendo el archivo** en vez de guardarlo. Baja
+      de dos copias a una lo que queda después de un análisis. Lo que cuesta:
+      volver deja de ser instantáneo —leer son segundos— y depende de que el
+      archivo siga donde estaba y sin cambios.
 
 ---
 
