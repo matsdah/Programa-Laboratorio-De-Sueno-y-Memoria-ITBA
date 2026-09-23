@@ -498,6 +498,9 @@ class MainWindow(QMainWindow):
         activa: `ViewerTool` recibe segundos, nunca píxeles.
         """
         self.navigation.window_requested.connect(self._go_to_window)
+        # Hito 51: un clic en una caja de la Übersicht va a esa ventana, igual
+        # que un clic en la franja de posición.
+        self.overview_panel.window_clicked.connect(self._go_to_window)
         self.navigation.amplitude_up_requested.connect(self.increase_amplitude)
         self.navigation.amplitude_down_requested.connect(self.decrease_amplitude)
         self.navigation.playback_toggle_requested.connect(self.toggle_playback)
@@ -739,9 +742,41 @@ class MainWindow(QMainWindow):
             colores = {
                 clase: anotaciones.color_of(clase) for clase in anotaciones.labels()
             }
-        self.overview_panel.set_windows(herramienta.windows(), colores)
+        self.overview_panel.set_windows(
+            herramienta.windows(), colores, self._color_del_contexto(herramienta)
+        )
         ancho, alto = herramienta.size_px
         self.overview_panel.set_panel_size(ancho, alto)
+
+    def _color_del_contexto(self, herramienta: OverviewTool) -> str | None:
+        """El color con que la Übersicht dibuja su señal: el de su canal.
+
+        Es el que el canal tiene en el visualizador, que depende de en qué
+        carril está (`ColorScheme.color_for_channel()`). Así la miniatura se
+        reconoce como el mismo canal de arriba sin leer el nombre.
+        """
+        if self._session is None:
+            return None
+        for ventana in herramienta.windows():
+            if ventana.trace is None:
+                continue
+            visibles = self._session.visible_channels
+            if ventana.trace.channel_name in visibles:
+                posicion = visibles.index(ventana.trace.channel_name)
+                return theme.current().color_for_channel(posicion)
+        return None
+
+    def _refrescar_contexto(self) -> None:
+        """Rehace la Übersicht sin que el usuario haya cambiado de ventana.
+
+        **Desde el hito 51 la Übersicht dibuja señal**, así que depende de más
+        cosas que la época: de qué canal está seleccionado, de cuáles se ven, de
+        su amplitud y de la señal misma, que filtrar reemplaza. Ninguna de esas
+        cosas le llega por `on_window_changed()`.
+        """
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.refresh()
 
     def _update_tool_readout(self) -> None:
         """Escribe en la barra de estado el número que la herramienta calcula.
@@ -1260,6 +1295,7 @@ class MainWindow(QMainWindow):
             return
         self.signal_view.show_window(self._session.current_window)
         self.channel_selector.set_visible(self._session.visible_channels)
+        self._refrescar_contexto()
         self._reflejar_epoca()
         # Cambiar de época puede mover la página, así que el cartel de la
         # página se recalcula también acá y no sólo al desplazar.
@@ -1728,6 +1764,9 @@ class MainWindow(QMainWindow):
         self.signal_view.apply_scheme()
         self.navigation.apply_scheme()
         self.open_button.setIcon(icon("abrir", theme.icon_ink(scheme)))
+        # La señal de la Übersicht toma el color de su canal, que cambia con el
+        # esquema: no alcanza con repintar.
+        self._refrescar_contexto()
         self.overview_panel.update()
         self._redraw_histogram()
         # **La tilde del menú, cuando el esquema no vino del menú**: lo elige
@@ -1969,10 +2008,12 @@ class MainWindow(QMainWindow):
     def increase_amplitude(self) -> None:
         """Flecha arriba. La cuenta la hace `Session`."""
         self.signal_view.increase_amplitude()
+        self._refrescar_contexto()
 
     def decrease_amplitude(self) -> None:
         """Flecha abajo."""
         self.signal_view.decrease_amplitude()
+        self._refrescar_contexto()
 
     def toggle_arousal(self) -> None:
         """Tecla A: marca o desmarca el arousal de la ventana actual (V2_F)."""
@@ -3023,6 +3064,7 @@ class MainWindow(QMainWindow):
             self._show_error(error)
             return
         self.signal_view.set_visible_channels(channel_names)
+        self._refrescar_contexto()
 
     def _set_selected_channels(self, channel_names: list[str]) -> None:
         """Sobre qué canales actúan los cambios de amplitud (V5_F)."""
@@ -3032,6 +3074,8 @@ class MainWindow(QMainWindow):
             self._session.set_selected_channels(channel_names)
         except PsgLabError as error:
             self._show_error(error)
+            return
+        self._refrescar_contexto()
 
     def _escribir_el_identificador(self) -> None:
         """Pone el identificador del registro y **lo deja del ancho que necesita**.

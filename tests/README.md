@@ -70,7 +70,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_occupancy.py` | La ocupación horizontal: los ejemplos del pliego y el gesto del mouse. |
 | `test_magnifier.py` | La lupa y su contador de picos, que se cuenta sin dibujar nada. |
 | `test_annotator.py` | Anotar un evento, y que los segundos lleguen a la muestra correcta. |
-| `test_overview.py` | El panel de contexto: qué ventanas muestra y qué eventos caen en ellas. |
+| `test_overview.py` | El panel de contexto: qué ventanas muestra, qué eventos caen en ellas y qué señal lleva cada una. |
 | `test_histogram.py` | El hipnograma de la noche y la navegación por clic. |
 | `test_shortcuts.py` | Los atajos, y que los de fase se deriven de la nomenclatura. |
 | `test_grid.py` | La grilla de fondo: cuántas líneas y dónde caen. |
@@ -78,7 +78,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_background.py` | Correr algo largo en otro hilo: que el resultado vuelva, que un error del programa salga por su señal y que uno inesperado se vuelva a elevar. |
 | `test_panel_header.py` | La carrocería de los paneles: el encabezado y el cartel de vacío que reemplaza al gráfico. |
 | `test_channel_selector.py` | El selector de canales: el orden de la lista, el atajo por clase del pie y que su estado siga a las casillas. |
-| `test_overview_panel.py` | El panel de contexto: qué ventanas entran, cuál es la actual y dónde va cada una. |
+| `test_overview_panel.py` | El panel de contexto: qué ventanas entran, cuál es la actual, dónde va cada una, que la señal llegue a la pantalla y que un clic pida ir a su ventana. |
 | `test_signal_view.py` | Las cuatro conversiones desde píxeles, que es de donde salen las unidades de las herramientas. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 | `test_mne_bridge.py` | El puente con MNE: que ida y vuelta devuelva lo mismo, y que un termómetro no se escale como si fuera un EEG. |
