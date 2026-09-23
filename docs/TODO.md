@@ -73,8 +73,9 @@ hitos cerrados, y el **[hito 51](#hito-51-la-übersicht-muestra-la-señal)** ter
 **[hito 54](#hito-54-lo-que-faltaba-del-prototipo)** sumó lo que le faltaba de peso medio, y el
 **[hito 55](#hito-55-lo-último-del-prototipo)** lo de peso bajo. El
 **[hito 56](#hito-56-la-rueda-y-el-panel-táctil-sobre-la-señal)** hace que la rueda del mouse cambie la escala de tiempo
-y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)** midió cuánta memoria cuesta cada cosa.
-Son **cincuenta y ocho hitos**, del 0 al 57, que son las filas de la tabla de
+y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)** midió cuánta memoria cuesta cada cosa, y el
+**[hito 58](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche)** bajó lo más caro: ajustar la ICA.
+Son **cincuenta y nueve hitos**, del 0 al 58, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -210,6 +211,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [55. Lo último del prototipo](#hito-55-lo-último-del-prototipo) | — | 0 | ✅ cerrado |
 | [56. La rueda y el panel táctil sobre la señal](#hito-56-la-rueda-y-el-panel-táctil-sobre-la-señal) | — | 0 | ✅ cerrado |
 | [57. Cuánta memoria cuesta cada cosa](#hito-57-cuánta-memoria-cuesta-cada-cosa) | — | 0 | ✅ cerrado |
+| [58. La ICA se ajusta sobre una muestra de la noche](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1311,7 +1313,7 @@ mostrarse.
   - **Se ajusta sobre los EEG y sólo sobre ellos**: meter un termómetro en la
     descomposición no tiene sentido físico y ensuciaría todos los componentes.
     `apply_ica()` devuelve el registro entero con el resto intacto.
-  - Test: `tests/test_ica.py`, **42 tests en verde**.
+  - Test: `tests/test_ica.py`, **51 tests en verde**.
 - [x] **`psglab/ui/ica_panel.py`** · el panel de inspección
   - Diseñado alrededor de la advertencia del módulo: quitar el componente
     equivocado modifica la señal de forma irreversible. De ahí salen sus tres
@@ -4913,7 +4915,7 @@ notan al usar el programa y ninguno pide una decisión de fondo.
       - El botón pasó de «Aplicar y quitar los marcados» a decir cuántos.
       - La curva usa el eje del visualizador: decía «Segundos de la ventana» y
         contaba desde cero en cualquier época.
-  - Test: `tests/test_ica.py`, **42 tests en verde**;
+  - Test: `tests/test_ica.py`, **51 tests en verde**;
     `tests/test_ica_panel.py`, **30 tests en verde**;
     `tests/test_contratos.py`, **1043 tests en verde**.
 - [x] **Los atajos, en una tabla agrupada**: navegación, scoring,
@@ -5111,7 +5113,8 @@ ajustar la ICA pide **13 GB** de pico.
 
 ### Lo que queda por decidir
 
-- [ ] **Ajustar la ICA sobre una muestra de la noche.** Medido sobre 8
+- [x] **Ajustar la ICA sobre una muestra de la noche** —hecho en el
+      [hito 58](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche)—. Medido sobre 8
       canales y 20 minutos, pasándole a `fit_ica()` una de cada ocho muestras:
 
       | Muestras | Pico | Tiempo |
@@ -5130,6 +5133,75 @@ ajustar la ICA pide **13 GB** de pico.
       de dos copias a una lo que queda después de un análisis. Lo que cuesta:
       volver deja de ser instantáneo —leer son segundos— y depende de que el
       archivo siga donde estaba y sin cambios.
+
+## Hito 58: La ICA se ajusta sobre una muestra de la noche
+
+**Cerrado el 23 de septiembre de 2026.** Es la primera de las dos decisiones
+que dejó el [hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa), y la tomó el
+usuario: ajustar la ICA era lo que más memoria pedía del programa, siete
+copias de la señal, y seis eran de MNE.
+
+**No tiene stubs que contar.**
+
+### Lo que se hizo
+
+- [x] **`fit_ica()` le pasa a MNE una muestra repartida a lo largo de la
+      noche**: una de cada `paso` muestras, **por lo menos `FIT_SAMPLES`**
+      —200 000, trece minutos a 256 Hz— y menos del doble. Un registro más
+      corto se ajusta entero, igual que antes. La ICA separa fuentes mezcladas
+      **en el mismo instante** y no mira el orden de las muestras, así que
+      saltear algunas no filtra nada: ajusta con menos datos, que sobran.
+      - **Repartida y no un tramo**: una hora seguida puede ser toda vigilia,
+        y el componente de parpadeo de la vigilia no es el de la noche.
+      - **Un piso por la cantidad de canales**: treinta veces su cuadrado
+        (`FIT_SAMPLES_PER_SQUARED_CHANNEL`), que es la regla de uso habitual.
+        Con 32 canales son 30 720 y el tope fijo ya es seis veces eso; manda
+        recién pasados los 80 canales.
+      - **Sólo se copia lo que se usa**: la vista con el paso se toma antes de
+        elegir los canales. Al revés, `data[filas]` copiaba los EEG enteros
+        para descartar casi todo, y lo encontró el test de memoria.
+      - **A MNE sólo le llegan los EEG.** Antes se le pasaba el registro
+        entero y elegía él: una copia de más de cada canal que no se
+        descompone.
+      - La muestra declara su frecuencia verdadera, `fs / paso`. MNE ajusta
+        igual y aplica después sobre la señal a la frecuencia original.
+      - **El paso se redondea hacia abajo**: hacia arriba, un registro apenas
+        más largo que el tope se ajustaba con la mitad. Lo encontró un test
+        antes de que llegara a ningún lado.
+  - Test: `tests/test_ica.py`, **51 tests en verde**. Los de antes siguen
+    pasando sin tocarlos: su registro dura 60 s y se ajusta entero. Los nuevos
+    bajan el tope para que el paso sea de verdad mayor que uno, y afirman
+    **que la muestra sigue separando el parpadeo** con los pesos que se
+    mezclaron, que lo ajustado sobre ella limpia la señal entera sin
+    llevarse el alfa, y que el pico de memoria queda por debajo de una copia.
+- [x] **El banco separa el ajuste de la varianza.** Medidos juntos, la
+      varianza —que usa cuarenta épocas fijas, un tercio de un registro de
+      una hora— tapaba cuánto había bajado el ajuste.
+
+Cada test nuevo se probó contra el programa sin su cambio —con la noche
+entera, con un tramo seguido, copiando los EEG enteros antes, con el paso
+hacia arriba, sin el piso de los canales y declarando la frecuencia
+original— y falla.
+
+### Lo que cuesta ahora
+
+Con `tests/medir_memoria.py`, en copias de la señal, contando la que ya está
+abierta:
+
+| Registro | Ajustar la ICA | Su varianza |
+|---|---|---|
+| 32 canales, 1 hora (hito 57: 7,0 las dos juntas) | 2,5 | 3,4 |
+| 8 canales, 8 horas | **1,2** | **1,3** |
+
+En la noche entera, ajustar **pasó de siete copias a poco más de la que ya
+estaba**. Con una hora baja menos porque la muestra es un cuarto del registro
+y no un treintaiseisavo. El tiempo, medido en el hito 57 sobre 8 canales y
+20 minutos: de 88 s a 8 s con un octavo de las muestras.
+
+- [ ] **Ahora el pico más alto es quitar un componente, 4,0 copias**, igual
+      que filtrar dos veces seguidas. `apply_ica()` pasa la señal entera por
+      MNE, que la copia a la ida y a la vuelta. Es el mismo viaje que el
+      filtrado, y no se tocó acá.
 
 ---
 

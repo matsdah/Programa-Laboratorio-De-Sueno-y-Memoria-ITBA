@@ -331,6 +331,29 @@ hace. Si algún día se revisa, hay que volver a medir esto primero.
 
 ---
 
+### La ICA se ajusta sobre una muestra de la noche — decisión del hito 58
+
+Ajustar la ICA sobre la noche entera pedía **siete copias de la señal** —13 GB
+con 32 canales y 8 horas—, y seis eran de MNE. `fit_ica()` le pasa una muestra
+repartida a lo largo del registro: por lo menos 200 000 muestras por canal, y
+todas si son menos. Con 8 canales y 8 horas, el pico bajó a 1,2 copias.
+
+**No cambia qué se separa, y ése es el argumento.** La ICA separa fuentes
+mezcladas en el mismo instante —la fila de cada muestra es una combinación de
+las fuentes de ese instante— y no mira el orden: saltear muestras no filtra la
+señal, sólo ajusta con menos filas. La regla de uso habitual pide unas veinte o
+treinta veces el cuadrado de los canales, y el tope es seis veces eso con 32.
+
+**Sí cambia los componentes que salen**, en el detalle: con menos datos la
+estimación es otra. Por eso lo decidió el usuario y no se hizo de paso. Lo que
+se sigue exigiendo es lo que importa: el test que mezcla un parpadeo con pesos
+conocidos los recupera igual desde la muestra.
+
+La muestra es **repartida y no un tramo**: una hora seguida puede ser toda
+vigilia, y un parpadeo ajustado ahí no es el de la noche.
+
+---
+
 ### Cuánto tarda dibujar la señal — medido el 15 de septiembre de 2026
 
 La justificación de pyqtgraph decía "medio segundo de demora por ventana vuelve

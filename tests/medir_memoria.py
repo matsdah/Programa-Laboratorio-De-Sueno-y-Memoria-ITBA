@@ -211,14 +211,16 @@ def main() -> int:
         print("\n== ICA ==")
         ajuste: list = []
 
-        def ajustar() -> None:
-            # Lo mismo que el hilo de fondo de la ventana: ajustar y medir la
-            # varianza de cada componente.
-            registro = ventana.session.recording
-            ajuste.append(fit_ica(registro))
-            explained_variance(ajuste[0], registro)
-
-        medidor.medir("ajustar la ICA y su varianza", ajustar)
+        # Lo mismo que el hilo de fondo de la ventana, en dos pasos: medidos
+        # juntos, la varianza —que usa una cantidad fija de épocas— tapaba
+        # cuánto bajó el ajuste en el hito 58 sobre un registro de una hora.
+        medidor.medir(
+            "ajustar la ICA", lambda: ajuste.append(fit_ica(ventana.session.recording))
+        )
+        medidor.medir(
+            "medir la varianza de cada componente",
+            lambda: explained_variance(ajuste[0], ventana.session.recording),
+        )
         medidor.medir(
             "quitar un componente",
             lambda: ventana._aplicar_analisis(
