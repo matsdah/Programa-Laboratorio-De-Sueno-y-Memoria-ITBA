@@ -514,10 +514,11 @@ panel: es la única vía de navegación con el mouse. Los menús viven en
 lleva también los paneles** desde el hito 28 —ya no hay menú «Paneles»—: arriba
 los modos del mouse, que se siguen armando desde el registro, y abajo los
 paneles, que salen de `window.docks`. Una herramienta que se llama igual que un
-dock —la Übersicht, el hipnograma— aparece una sola vez, como su panel. Desde el
-hito 23 es la única vía para activar una herramienta: **no hay barra de
-herramientas**. Abrir un registro es el botón de la esquina de la barra de menú
-(`window.open_button`), no un menú.
+dock —el contexto, que el pliego llama Übersicht, y el hipnograma— aparece una
+sola vez, como su panel. Desde el hito 23 es la única vía para activar una
+herramienta: **no hay barra de herramientas**. Abrir un registro es el botón de
+la esquina de la barra de menú (`window.open_button`), y desde el hito 64
+también «Archivo», con los recientes, el scoring y la configuración.
 
 Los colores salen de `ui/theme.py` (dos esquemas inmutables, con su contraste
 verificado contra WCAG 2.1) y lo que el usuario elige, de `ui/preferences.py`,
@@ -537,7 +538,9 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   trabaja con los valores de fábrica y no escribe nada; si lo hiciera, correr la
   suite pisaría la configuración de quien la corre, que ya pasó una vez. **La
   disposición de paneles no se guarda** desde el hito 24: el programa abre
-  siempre con la señal y el selector de canales.
+  siempre con la señal, el selector de canales y, desde el hito 64, el
+  hipnograma. Lo que sí se guarda son los registros recientes y las vistas de
+  canales, que también escribe sólo esa ventana.
 - **Los menús muestran los atajos pero no los registran.** La tecla sale de
   `ui/shortcuts.py` con `key_for()` y va después de un tabulador en el texto.
   Llamar a `setShortcut()` la duplicaría con el `QShortcut` que ya existe, y ante

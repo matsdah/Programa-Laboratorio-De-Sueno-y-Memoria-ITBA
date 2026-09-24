@@ -111,7 +111,7 @@ class OverviewTool(Tool):
     """Panel de contexto con las ventanas vecinas."""
 
     name = "overview"
-    label = "Übersicht"
+    label = "Contexto"
     description = "Ver la ventana actual junto a las anteriores y las siguientes"
     exclusive = False  # Es un panel: no compite por el clic del mouse.
 

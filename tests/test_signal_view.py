@@ -941,7 +941,7 @@ def test_la_pestana_dice_que_epoca_es(vista: SignalView, sesion: Session):
 
     vista.show_window(2)
 
-    assert vista._pestana.toPlainText() == "Época 3"
+    assert vista._pestana.toPlainText() == "Ventana 3"
 
 
 def test_la_pestana_dice_la_fase_cuando_la_hay(vista: SignalView, sesion: Session):
@@ -953,7 +953,19 @@ def test_la_pestana_dice_la_fase_cuando_la_hay(vista: SignalView, sesion: Sessio
 
     vista.show_window(2)
 
-    assert vista._pestana.toPlainText() == "Época 3 · N2"
+    assert vista._pestana.toPlainText() == "Ventana 3 · N2"
+
+
+def test_la_pestana_va_encima_de_las_bandas_de_anotacion(vista: SignalView, sesion: Session):
+    """Hito 64: la pestaña toma el color de la fase, y una banda
+    semitransparente encima la teñía —un «W» bajo un spindle verde se leía
+    como otra fase—."""
+    from psglab.ui.signal_view import _Z_DE_LA_BANDA
+
+    vista.set_session(sesion)
+    vista.show_window(0)
+
+    assert vista._pestana.zValue() > _Z_DE_LA_BANDA
 
 
 def test_la_pestana_se_mueve_con_la_banda(vista: SignalView, sesion: Session):

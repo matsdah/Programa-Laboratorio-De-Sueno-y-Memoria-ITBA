@@ -452,3 +452,98 @@ def test_un_color_que_no_se_puede_dibujar_se_sigue_rechazando(archivo: Path):
     )
 
     assert preferences.load(archivo).annotation_color("Huso") is None
+
+
+# -- Avance, recientes y vistas de canales (hito 64) ---------------------------
+
+
+def test_pasar_a_la_siguiente_arranca_encendido():
+    """Como en los programas de scoring comerciales: una noche de 960
+    ventanas eran 1920 teclas."""
+    assert preferences.Preferences().advance_after_scoring is True
+
+
+def test_un_reciente_nuevo_va_primero_y_uno_repetido_sube():
+    prefs = preferences.Preferences().with_recent_file("a.edf").with_recent_file("b.edf")
+
+    assert prefs.recent_files == ("b.edf", "a.edf")
+    assert prefs.with_recent_file("a.edf").recent_files == ("a.edf", "b.edf")
+
+
+def test_los_recientes_tienen_tope():
+    prefs = preferences.Preferences()
+    for numero in range(preferences.MAX_RECENT_FILES + 3):
+        prefs = prefs.with_recent_file(f"{numero}.edf")
+
+    assert len(prefs.recent_files) == preferences.MAX_RECENT_FILES
+    assert prefs.recent_files[0] == f"{preferences.MAX_RECENT_FILES + 2}.edf"
+
+
+def test_quitar_un_reciente():
+    prefs = preferences.Preferences().with_recent_file("a.edf").with_recent_file("b.edf")
+
+    assert prefs.without_recent_file("a.edf").recent_files == ("b.edf",)
+
+
+@pytest.mark.parametrize("hostil", [("",), (3,), tuple(f"{i}" for i in range(20))])
+def test_unos_recientes_que_no_sirven_se_rechazan(hostil):
+    with pytest.raises(InvalidPreferencesError):
+        preferences.Preferences(recent_files=hostil)
+
+
+def test_una_vista_se_guarda_y_se_reemplaza_en_su_lugar():
+    """Guardar otra vez la misma vista no la manda al final del menú."""
+    prefs = (
+        preferences.Preferences()
+        .with_channel_view("Scoring", (("C3", 50.0),))
+        .with_channel_view("Respiratorio", (("Flujo", 100.0),))
+        .with_channel_view("Scoring", (("C3", 75.0), ("EOG-izq", 100.0)))
+    )
+
+    assert [nombre for nombre, _ in prefs.channel_views] == ["Scoring", "Respiratorio"]
+    assert prefs.channel_view("Scoring") == (("C3", 75.0), ("EOG-izq", 100.0))
+    assert prefs.without_channel_view("Scoring").channel_view("Scoring") is None
+
+
+@pytest.mark.parametrize(
+    "hostil",
+    [
+        (("", (("C3", 50.0),)),),
+        (("Vacía", ()),),
+        (("Cero", (("C3", 0.0),)),),
+        (("Rara", (("C3", float("nan")),)),),
+        (("A", (("C3", 50.0),)), ("A", (("C4", 50.0),))),
+    ],
+    ids=["sin-nombre", "sin-canales", "escala-cero", "escala-nan", "nombre-repetido"],
+)
+def test_una_vista_que_no_sirve_se_rechaza(hostil):
+    with pytest.raises(InvalidPreferencesError):
+        preferences.Preferences(channel_views=hostil)
+
+
+def test_los_campos_nuevos_van_y_vuelven_del_archivo(archivo: Path):
+    guardadas = preferences.Preferences(
+        advance_after_scoring=False,
+        recent_files=("C:/noches/uno.edf",),
+        channel_views=(("Scoring", (("C3", 75.0), ("EOG-izq", 100.0))),),
+    )
+    preferences.save(guardadas, archivo)
+
+    leidas = preferences.load(archivo)
+
+    assert leidas.advance_after_scoring is False
+    assert leidas.recent_files == ("C:/noches/uno.edf",)
+    assert leidas.channel_views == guardadas.channel_views
+
+
+def test_una_vista_rota_en_el_archivo_no_impide_arrancar(archivo: Path):
+    """Un campo roto vuelve a su valor de fábrica y el resto se conserva."""
+    archivo.write_text(
+        json.dumps({"version": 1, "channel_views": {"Rota": [["C3"]]}, "recent_files": ["a.edf"]}),
+        encoding="utf-8",
+    )
+
+    leidas = preferences.load(archivo)
+
+    assert leidas.channel_views == ()
+    assert leidas.recent_files == ("a.edf",)

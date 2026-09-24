@@ -60,7 +60,7 @@ ALTO: int = 800
 #: Los tres paneles del borde inferior, con el nombre que ve el usuario.
 ABAJO: tuple[str, ...] = ("overview", "scoring", "histogram")
 ROTULOS: dict[str, str] = {
-    "overview": "Übersicht",
+    "overview": "Contexto",
     "scoring": "Scoring",
     "histogram": "Hipnograma",
 }

@@ -51,6 +51,10 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         "acciones_de_esquema",
         # El menú que se puebla desde el registro de herramientas.
         "tools_menu",
+        # Los dos submenús que se rearman desde las preferencias (hito 64):
+        # «Abrir reciente» y «Vistas de canales».
+        "menu_recientes",
+        "menu_vistas",
         # El botón de la esquina de la barra de menú, que abre un registro. El
         # cambio de esquema le vuelve a dibujar el icono.
         "open_button",
@@ -147,6 +151,11 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "go_to_first_window",
         "go_to_last_window",
         "ask_window",
+        # Hito 64: recientes y vistas de canales.
+        "open_recent_file",
+        "save_channel_view",
+        "apply_channel_view",
+        "delete_channel_view",
         "annotate_current_window",
         "annotation_menu_for_current_window",
         "go_to_previous_window",

@@ -146,6 +146,9 @@ def test_el_arousal_es_aparte_de_la_fase(ventana: MainWindow):
     sesion = ventana.session
     ventana._go_to_window(0)
     ventana.score_current_window(stages_of(sesion.scoring.nomenclature)[0])
+    # Puntuar pasa a la siguiente desde el hito 64: se vuelve a marcar el
+    # arousal de la misma.
+    ventana._go_to_window(0)
     ventana.toggle_arousal()
 
     epoca = sesion.scoring.get(0)
@@ -1218,7 +1221,7 @@ def test_el_panel_de_contexto_arranca_encendido(ventana: MainWindow):
 
 
 @pytest.mark.parametrize(
-    "texto, clave", [("Übersicht", "overview"), ("Hipnograma", "histogram")]
+    "texto, clave", [("Contexto (Übersicht)", "overview"), ("Hipnograma", "histogram")]
 )
 def test_tildar_un_panel_desde_herramientas_lo_muestra_con_contenido(
     ventana: MainWindow, texto: str, clave: str
@@ -1234,6 +1237,10 @@ def test_tildar_un_panel_desde_herramientas_lo_muestra_con_contenido(
             return bool(ventana.overview_panel.rectangles())
         return bool(ventana.histogram_view.getPlotItem().listDataItems())
 
+    # El hipnograma arranca visible desde el hito 64: se lo oculta primero.
+    # Con `hide()` y no con la acción, que sigue la visibilidad del panel
+    # sólo con la ventana en pantalla, y ésta no se muestra.
+    dock.hide()
     assert dock.isHidden()
 
     entrada.trigger()
@@ -3243,11 +3250,12 @@ def test_espacio_reproduce_y_pausa(reproduccion: MainWindow):
     assert not ventana.playback.is_playing
 
 
-def test_el_programa_abre_solo_con_la_senal_y_los_canales(ventana: MainWindow):
-    """Hito 24. Con un registro abierto sigue igual: abrir no despliega nada."""
+def test_el_programa_abre_con_la_senal_los_canales_y_el_hipnograma(ventana: MainWindow):
+    """Hito 24, con el hipnograma de vuelta desde el 64. Con un registro
+    abierto sigue igual: abrir no despliega nada más."""
     visibles = [clave for clave, dock in ventana.docks.items() if not dock.isHidden()]
 
-    assert visibles == ["channels"]
+    assert visibles == ["channels", "histogram"]
 
 
 # -- El hipnograma, por el camino del mouse (V4_F) ----------------------------
@@ -4315,8 +4323,9 @@ def test_scorear_actualiza_la_fase_que_muestra_la_ubersicht(ventana: MainWindow)
 
     ventana.score_current_window(SleepStage.N2)
 
-    actual = [v for v in contexto.windows() if v.is_current][0]
-    assert actual.stage is SleepStage.N2
+    # Puntuar pasa a la siguiente (hito 64): la recién puntuada es la 0.
+    puntuada = [v for v in contexto.windows() if v.index == 0][0]
+    assert puntuada.stage is SleepStage.N2
 
 
 # -- El camino entre una herramienta que dibuja y la pantalla (hito 45) -------
@@ -5298,3 +5307,159 @@ def test_la_senal_con_foco_se_ve(ventana: MainWindow):
     QApplication.processEvents()
     assert vista.hasFocus()
     assert borde() == acento
+
+
+# -- El flujo de scoring (hito 64) --------------------------------------------
+
+
+def test_puntuar_pasa_a_la_siguiente(ventana: MainWindow):
+    """Una tecla por ventana y no dos."""
+    ventana.score_current_window(SleepStage.N2)
+
+    assert ventana.session.scoring.get(0).stage is SleepStage.N2
+    assert ventana.session.current_window == 1
+
+
+def test_en_la_ultima_puntuar_no_se_pasa(ventana: MainWindow):
+    ventana.go_to_last_window()
+
+    ventana.score_current_window(SleepStage.N2)
+
+    assert ventana.session.current_window == VENTANAS - 1
+    assert not ventana.carteles
+
+
+def test_con_el_paso_apagado_se_queda(ventana: MainWindow):
+    ventana._preferencias = ventana._preferencias.with_changes(advance_after_scoring=False)
+
+    ventana.score_current_window(SleepStage.N2)
+
+    assert ventana.session.current_window == 0
+
+
+def test_reproduciendo_puntuar_no_adelanta_la_reproduccion(reproduccion: MainWindow):
+    """La época la lleva el cursor: saltar adelantaría la reproducción una
+    ventana por cada tecla."""
+    ventana = reproduccion
+    ventana.toggle_playback()
+    ventana.playback.advanced.emit(10.0)
+    cursor = ventana.signal_view.playhead()
+
+    ventana.score_current_window(SleepStage.N2)
+
+    assert ventana.signal_view.playhead() == pytest.approx(cursor)
+    assert ventana.session.scoring.get(0).stage is SleepStage.N2
+
+
+def test_la_pestana_toma_el_color_de_la_fase(ventana: MainWindow):
+    """**Confirma lo puntuado sin leer la letra**: el color es el mismo de la
+    franja y el hipnograma. Sin puntuar, el acento."""
+    esquema = theme.current()
+    assert ventana.signal_view.epoch_tab_fill() == esquema.accent
+
+    ventana.score_current_window(SleepStage.N2)
+    ventana._go_to_window(0)
+
+    assert ventana.signal_view._pestana.toPlainText() == "Ventana 1 · N2"
+    assert ventana.signal_view.epoch_tab_fill() == esquema.color_for_stage("N2")
+
+
+def test_la_pestana_cambia_de_color_con_el_esquema(ventana: MainWindow):
+    anterior = theme.current()
+    ventana._preferencias = ventana._preferencias.with_changes(advance_after_scoring=False)
+    ventana.score_current_window(SleepStage.N2)
+    try:
+        ventana.set_color_scheme(theme.NOCTURNO, remember=False)
+
+        assert ventana.signal_view.epoch_tab_fill() == theme.NOCTURNO.color_for_stage("N2")
+    finally:
+        ventana.set_color_scheme(anterior, remember=False)
+
+
+def test_abrir_un_registro_lo_deja_en_recientes(ventana: MainWindow):
+    (ruta,) = ventana.current_preferences.recent_files
+    textos = [a.text() for a in ventana.menu_recientes.actions()]
+
+    assert ruta.endswith("sintetico.vhdr")
+    assert textos == ["&1  sintetico.vhdr"]
+
+
+def test_elegir_un_reciente_lo_abre(ventana: MainWindow, tmp_path):
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 2)
+
+    ventana.open_recent_file(str(otro))
+
+    assert ventana.session.n_windows == 2
+    assert ventana.current_preferences.recent_files[0] == str(otro.resolve())
+
+
+def test_un_reciente_que_ya_no_esta_se_quita_y_se_avisa(ventana: MainWindow, tmp_path):
+    fantasma = str(tmp_path / "ya-no-esta.vhdr")
+    ventana._preferencias = ventana._preferencias.with_recent_file(fantasma)
+
+    ventana.open_recent_file(fantasma)
+
+    assert fantasma not in ventana.current_preferences.recent_files
+    assert "ya no está" in ventana.carteles[0]
+    assert ventana.session.n_windows == VENTANAS
+
+
+def test_guardar_una_vista_guarda_canales_orden_y_escala(ventana: MainWindow, monkeypatch):
+    monkeypatch.setattr(QInputDialog, "getText", lambda *_a, **_k: ("Scoring", True))
+    ventana._set_visible_channels(["EOG-izq", "C3"])
+    ventana.session.set_scale_uv("C3", 40.0)
+
+    ventana.save_channel_view()
+
+    assert ventana.current_preferences.channel_view("Scoring") == (
+        ("EOG-izq", ventana.session.scale_uv("EOG-izq")),
+        ("C3", 40.0),
+    )
+    assert "Scoring" in [a.text() for a in ventana.menu_vistas.actions()]
+
+
+def test_aplicar_una_vista_muestra_sus_canales_con_su_escala(ventana: MainWindow):
+    ventana._preferencias = ventana._preferencias.with_channel_view(
+        "Ocular", (("EOG-izq", 120.0), ("C3", 40.0))
+    )
+
+    ventana.apply_channel_view("Ocular")
+
+    assert ventana.session.visible_channels == ["EOG-izq", "C3"]
+    assert ventana.session.scale_uv("EOG-izq") == pytest.approx(120.0)
+    assert ventana.session.scale_uv("C3") == pytest.approx(40.0)
+    assert ventana.signal_view._visible == ["EOG-izq", "C3"]
+    assert not ventana.carteles
+
+
+def test_una_vista_con_canales_que_no_estan_usa_los_que_hay(ventana: MainWindow):
+    """Una vista armada con otro montaje sirve igual para lo que coincide."""
+    ventana._preferencias = ventana._preferencias.with_channel_view(
+        "Otro montaje", (("F4", 50.0), ("C3", 40.0))
+    )
+
+    ventana.apply_channel_view("Otro montaje")
+
+    assert ventana.session.visible_channels == ["C3"]
+    assert "un canal no está" in ventana.statusBar().currentMessage()
+
+
+def test_una_vista_sin_ningun_canal_del_registro_no_toca_nada(ventana: MainWindow):
+    antes = ventana.session.visible_channels
+    ventana._preferencias = ventana._preferencias.with_channel_view(
+        "Ajena", (("F4", 50.0),)
+    )
+
+    ventana.apply_channel_view("Ajena")
+
+    assert ventana.session.visible_channels == antes
+    assert "Ninguno" in ventana.carteles[0]
+
+
+def test_borrar_una_vista(ventana: MainWindow, monkeypatch):
+    ventana._preferencias = ventana._preferencias.with_channel_view("Vieja", (("C3", 50.0),))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("Vieja", True))
+
+    ventana.delete_channel_view()
+
+    assert ventana.current_preferences.channel_views == ()

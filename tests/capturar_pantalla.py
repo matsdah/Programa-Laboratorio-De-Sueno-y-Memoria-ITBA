@@ -100,6 +100,10 @@ def armar_ventana(esquema: theme.ColorScheme):
     for posicion in range(ventana.session.n_windows // 2):
         ventana.session.scoring.set_stage(posicion, fases[posicion % len(fases)])
     ventana._reload_histogram()
+    # **Y la pestaña de la señal**, que dice la fase de la ventana actual con
+    # su color (hito 64): las fases se pusieron sin pasar por la ventana, y
+    # sin esto la captura la mostraba sin puntuar.
+    ventana.refresh()
     anotar(ventana)
     llenar_los_paneles(ventana)
     encender_las_herramientas(ventana)

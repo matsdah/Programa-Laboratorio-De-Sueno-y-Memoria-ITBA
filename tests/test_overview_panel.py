@@ -317,7 +317,7 @@ def test_sin_senal_no_se_dibuja_ninguna(panel: OverviewPanel):
 
 def test_se_alcanza_con_el_teclado(panel: OverviewPanel):
     assert panel.focusPolicy() & Qt.FocusPolicy.TabFocus
-    assert panel.accessibleName() == "Übersicht"
+    assert panel.accessibleName() == "Contexto"
 
 
 def test_un_lector_de_pantalla_lee_lo_que_dicen_las_cajas(panel: OverviewPanel):

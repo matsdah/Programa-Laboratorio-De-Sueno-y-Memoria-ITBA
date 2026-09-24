@@ -79,8 +79,9 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 60](#hito-60-re-referenciar-ya-estaba-en-el-mínimo)** midió re-referenciar, que ya estaba en el mínimo, y el
 **[hito 61](#hito-61-la-varianza-de-la-ica-sin-reconstruir-la-señal)** bajó lo que esa medición encontró: la varianza de la ICA. El
 **[hito 62](#hito-62-accesibilidad-teclado-foco-y-bordes)** hizo lo importante de una auditoría de accesibilidad, y el
-**[hito 63](#hito-63-lo-menor-de-la-auditoría-de-accesibilidad)** lo menor que no pedía decisiones.
-Son **sesenta y cuatro hitos**, del 0 al 63, que son las filas de la tabla de
+**[hito 63](#hito-63-lo-menor-de-la-auditoría-de-accesibilidad)** lo menor que no pedía decisiones. El
+**[hito 64](#hito-64-el-flujo-de-scoring)** acortó el flujo de puntuar, después de una revisión de diseño.
+Son **sesenta y cinco hitos**, del 0 al 64, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -222,6 +223,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [61. La varianza de la ICA sin reconstruir la señal](#hito-61-la-varianza-de-la-ica-sin-reconstruir-la-señal) | — | 0 | ✅ cerrado |
 | [62. Accesibilidad: teclado, foco y bordes](#hito-62-accesibilidad-teclado-foco-y-bordes) | — | 0 | ✅ cerrado |
 | [63. Lo menor de la auditoría de accesibilidad](#hito-63-lo-menor-de-la-auditoría-de-accesibilidad) | — | 0 | ✅ cerrado |
+| [64. El flujo de scoring](#hito-64-el-flujo-de-scoring) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -698,7 +700,7 @@ la regla vive en `core/`.
     documenta para las ventanas.
 - [x] **`psglab/ui/signal_view.py`** · ~~13 stubs~~ · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Test: `tests/test_signal_view.py`, **92 tests en verde**. **El dibujo no se
+  - Test: `tests/test_signal_view.py`, **93 tests en verde**. **El dibujo no se
     testea**; sí los tres conversores, que es de donde salen las unidades con
     las que trabajan todas las herramientas.
   - Los píxeles de los bordes se le **preguntan al `ViewBox`** en vez de
@@ -1894,7 +1896,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       canal toma su color. **El esquema Claro deja el programa exactamente como
       era.**
   - Test: `tests/test_theme.py`, **89 tests en verde**.
-  - Test: `tests/test_preferences.py`, **68 tests en verde**.
+  - Test: `tests/test_preferences.py`, **86 tests en verde**.
 - [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
       y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
@@ -1936,7 +1938,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       de anotaciones, Espectro de potencia, Otras y Tipografía. Todo se aplica
       en el momento. `psd.validate_band()` pasó a ser pública, para que la regla
       de qué banda es válida siga siendo una sola.
-  - Test: `tests/test_settings_dialog.py`, **48 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **49 tests en verde**.
 - [x] **Fase 9 — Cierre.** La conectividad de la noche entera, que era el
       pendiente del [hito 20](#hito-20-la-red). Los menús muestran los atajos
       sin registrarlos otra vez, F6 recorre los paneles, y el contraste de los
@@ -2107,7 +2109,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
       `apply_saved_layout()` pasó a `apply_saved_preferences()` y ya no
       restaura nada, y la ventana dejó de guardar la disposición al cerrar.
   - Test: `tests/test_docks.py`, **39 tests en verde**.
-  - Test: `tests/test_preferences.py`, **68 tests en verde**.
+  - Test: `tests/test_preferences.py`, **86 tests en verde**.
 - [x] **Los botones de página.** ≪ ‹ › ≫ en la barra de abajo, con chevrones
       para que no se confundan con los triángulos de la época.
       `Viewport.at_start` y `Viewport.at_end` dicen cuándo apagarlos.
@@ -2226,7 +2228,7 @@ puntos, relleno y decimación propia, y nada de eso se usa acá.
       después sólo se le pide el rango, que además casi siempre es el mismo.
       Con eso el repintado por cuadro pasó de 2,00 a 1,00, medido con el
       filtro de eventos.
-  - Test: `tests/test_signal_view.py`, **92 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **93 tests en verde**.
 - [x] **Las curvas son `PlotCurveItem` y no `PlotDataItem`.** Medido
       intercalando las dos clases en el mismo proceso, que es la única forma
       de comparar en una máquina que varía: 28 ms contra 19 con el registro
@@ -2360,7 +2362,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       17,5–22,2 ms con Claro y 13,1–21,0 con Papel: la hoja no cuesta
       repintado.
   - Test: `tests/test_theme.py`, **89 tests en verde**.
-  - Test: `tests/test_settings_dialog.py`, **48 tests en verde**, con el
+  - Test: `tests/test_settings_dialog.py`, **49 tests en verde**, con el
     botón nuevo de «Fondo de la ventana».
 - [x] **Las tipografías IBM Plex**, Sans y Mono, en `psglab/resources/fonts/`
       con su licencia, la OFL 1.1. `ui/fonts.py` las registra al arrancar; si
@@ -2444,14 +2446,14 @@ lo mínimo.
       página, y **mientras se ve el cursor `show_window()` no mueve la
       página**: con la de 30 s centrada, la época no entra entera, y scorear o
       cambiar la amplitud la sacaban del medio hasta el paso siguiente.
-  - Test: `tests/test_signal_view.py`, **92 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **93 tests en verde**.
 - [x] **La ventana**: la reproducción arranca en el centro de la época actual
       —con la página de 30 s no salta—, cada paso lleva el cursor y redibuja
       sólo lo que cambió, y se detiene al final del registro y no al de la
       página. Reproduciendo, las flechas, la franja, el hipnograma y los atajos
       de página llevan el cursor y la reproducción sigue. `refresh()` se partió:
       `_reflejar_epoca()` es la mitad que la reproducción necesita sola.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**.
+  - Test: `tests/test_entrega.py`, **339 tests en verde**.
 
 ### Lo que se midió
 
@@ -2523,7 +2525,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
   - Test: `tests/test_menus.py`, **44 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**: tildar
+  - Test: `tests/test_entrega.py`, **339 tests en verde**: tildar
     un panel desde Herramientas lo muestra con contenido, y destildarlo sólo lo
     oculta.
 
@@ -2544,7 +2546,7 @@ amplitud también quedaban corridas.
 - [x] **El test no podía verlo**: `arrastrar()` armaba el evento con las tres
       posiciones iguales. Ahora lo arma como Qt, con `scenePosition()` relativa
       a la ventana.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con que la
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con que la
     anotación empiece y termine a un píxel del mouse. Falla sin la corrección,
     corrida 7,5 s.
 
@@ -2572,7 +2574,7 @@ clic derecho**.
       más corta, que es la que no se puede señalar en ningún otro lugar.
   - Test: `tests/test_annotator.py`, **41 tests en verde**, con
     `annotation_at()` y las bandas sin la herramienta activada.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con eventos de Qt
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con eventos de Qt
     de verdad: las bandas al ir y volver de época con cada herramienta, y el
     clic derecho con la confirmación aceptada, rechazada y con otra
     herramienta activa. Fallan con la ventana anterior.
@@ -2639,7 +2641,7 @@ llegan a la ventana.
 - [x] **El clic del hipnograma no tenía ningún test con eventos**, y tenía el
       mismo error que el anotador hasta el hito 28: con los tres paneles de
       abajo a la vista, caía en la época 4 en vez de la 3.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con dos registros
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con dos registros
     de verdad. Los cinco fallan sin su corrección.
   - Test: `tests/test_occupancy.py`, **51 tests en verde**.
   - Test: `tests/test_annotator.py`, **41 tests en verde**.
@@ -2710,10 +2712,10 @@ todas con la recomendación que se le hizo.
       métodos y no sólo funciones: son `SIN_CAMINO_A_PROPOSITO` y
       `HUECOS_ABIERTOS` en `tests/test_consistencia.py`. Un hueco abierto no se
       exime: tiene que figurar por su nombre en este archivo.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**. Los siete nuevos
+  - Test: `tests/test_entrega.py`, **339 tests en verde**. Los siete nuevos
     fallan con la ventana anterior.
-  - Test: `tests/test_preferences.py`, **68 tests en verde**.
-  - Test: `tests/test_settings_dialog.py`, **48 tests en verde**.
+  - Test: `tests/test_preferences.py`, **86 tests en verde**.
+  - Test: `tests/test_settings_dialog.py`, **49 tests en verde**.
   - Test: `tests/test_menus.py`, **44 tests en verde**.
   - Test: `tests/test_psd_panel.py`, **27 tests en verde**; y dos por panel en
     `tests/test_metric_panel.py` (**18 tests en verde**),
@@ -2778,7 +2780,7 @@ tiempo.
       tarda 0,3 s. Pedida apenas abierto el registro todavía espera lo que le
       falta a la compilación: 4,6 s. Lempel-Ziv tarda 2,7 s por el cálculo en
       sí, compilado o no.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**: el menú no cambia
+  - Test: `tests/test_entrega.py`, **339 tests en verde**: el menú no cambia
     después de los cuatro análisis, y `main.py` precalienta y la suite no.
   - Test: `tests/test_connectivity_panel.py`, **24 tests en verde**.
   - Test: `tests/test_filter_panel.py`, **26 tests en verde**, y
@@ -2831,13 +2833,13 @@ le hizo, y mantuvo afuera las operaciones largas.
       es de la ventana.
 - [x] **`HUECOS_ABIERTOS` queda vacía**: los cuatro métodos que encontró la red
       del hito 30 tienen camino desde la ventana.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con un registro que
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con un registro que
     tiene un canal en cero.
   - Test: `tests/test_recording.py`, **53 tests en verde**, y
     `tests/test_contratos.py`, **1043 tests en verde**.
   - Test: `tests/test_magnifier.py`, **30 tests en verde**;
-    `tests/test_preferences.py`, **68 tests en verde**;
-    `tests/test_settings_dialog.py`, **48 tests en verde**.
+    `tests/test_preferences.py`, **86 tests en verde**;
+    `tests/test_settings_dialog.py`, **49 tests en verde**.
 
 ### Lo que sigue abierto
 
@@ -2933,7 +2935,7 @@ ya advertía.
         «trae 4 h 10 min de los 8 h 00 min que declara su cabecera».
   - Test: `tests/test_readers.py`, **88 tests en verde**, con el truncado, el
     entero y el de -1 registros.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, abriéndolos por la
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, abriéndolos por la
     ventana.
 - [x] **Una fila de bandas mal formada en las preferencias impedía arrancar.**
       `_leer_bandas()` elevaba `IndexError`, que no estaba entre lo que
@@ -2946,11 +2948,11 @@ ya advertía.
       - **Un archivo dañado ahora se avisa al arrancar.** `load()` armaba el
         mensaje para el investigador y nadie lo mostraba; lo muestra
         `apply_saved_preferences()` con la ventana ya a la vista.
-  - Test: `tests/test_preferences.py`, **68 tests en verde**, con un barrido
+  - Test: `tests/test_preferences.py`, **86 tests en verde**, con un barrido
     que le pone a cada campo guardado todos los tipos de JSON y exige que
     `load()` no eleve nada que no sea `PsgLabError`. Con el módulo anterior
     falla sólo `psd_bands`, con cuatro de esos valores.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con el arranque
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con el arranque
     y el cartel. El del cartel encontró que el `except ... as error` borra la
     variable antes de que el temporizador la use.
 - [x] **Abrir otro registro o cerrar la ventana descartaba el scoring sin
@@ -2970,7 +2972,7 @@ ya advertía.
         nuevo está roto, la sesión anterior sigue y no hay nada que preguntar.
   - Test: `tests/test_session.py`, **156 tests en verde**, con nueve sobre qué
     cuenta como trabajo sin exportar.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con doce por la
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con doce por la
     ventana: cerrar y abrir otro registro con cada una de las tres
     respuestas, un guardado cancelado o fallido, y el cartel de verdad con sus
     tres botones. Con la ventana anterior fallan once; el que pasa igual es el
@@ -2986,7 +2988,7 @@ ya advertía.
         importa seguro.
       - El cartel dice «se pierden al importar «Scoring.txt»», con el nombre
         del archivo que se está por traer.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con los tres
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con los tres
     botones, con que lo ya exportado no pregunte y con que un archivo ilegible
     tampoco. Seis fallan sin la corrección, cuatro de ellos el viaje de ida y
     vuelta de cada formato, que importa justamente sobre trabajo sin exportar.
@@ -3010,7 +3012,7 @@ ya advertía.
     mensajes, la banda de un solo punto que sí se mide y la noche corta.
   - Test: `tests/test_contratos.py`, **1043 tests en verde**, con tres
     rechazos obligatorios nuevos.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con el cartel desde
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con el cartel desde
     los dos menús de conectividad. Con el módulo anterior fallan los seis que
     rechazan.
 - [x] **La primera apertura de cada sesión del programa congelaba unos 9 s**, y
@@ -3033,7 +3035,7 @@ ya advertía.
   - Test: `tests/test_readers.py`, **88 tests en verde**, con lo que queda
     importado, el lector que no adelanta nada y que precalentar no lea ningún
     archivo.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con el orden de los
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con el orden de los
     dos precalentamientos y con que la suite no precaliente.
 - [x] **Lo que se leía sin avisar o se mostraba sin explicar.** Siete cosas
       chicas, cada una con su test:
@@ -3066,7 +3068,7 @@ ya advertía.
   - Test: `tests/test_scoring_reader.py`, **38 tests en verde**;
     `tests/test_session.py`, **156 tests en verde**;
     `tests/test_readers.py`, **88 tests en verde**;
-    `tests/test_entrega.py`, **325 tests en verde**. Doce fallan sin la
+    `tests/test_entrega.py`, **339 tests en verde**. Doce fallan sin la
     corrección.
 - [x] **Lo que dicen los documentos y el código no.** Se corrigieron en el
       documento cuando el documento estaba viejo, y en el código cuando el
@@ -3124,7 +3126,7 @@ ya advertía.
         pie y sigue sin confirmarse con el cliente.
   - Test: `tests/test_session.py`, **156 tests en verde**, con las seis reglas
     de qué cuenta como anotación sin exportar.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con el cartel por la
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con el cartel por la
     ventana: sólo anotaciones, las dos cosas juntas con sus dos diálogos, un
     guardado cancelado a mitad de camino y los tres textos. Diez fallan sin la
     corrección.
@@ -3154,7 +3156,7 @@ ya advertía.
   - Test: `tests/test_readers.py`, **88 tests en verde**. `escribir_brainvision()`
     aprendió a escribir muestras sin valor, y para eso el archivo en
     `IEEE_FLOAT_32`: es el único de los dos formatos que puede traerlas.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con el cartel por la
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con el cartel por la
     ventana. Seis fallan sin la corrección.
 - [x] **Un esquema propio inválido descartaba todas las preferencias.** La
       pregunta se cerró sola en el [hito 35](#hito-35-dos-esquemas-y-ninguna-perilla):
@@ -3233,8 +3235,8 @@ tecla.
   - Test: `tests/test_theme.py`, **89 tests en verde**, con la escala de
     fases, las reglas por fase y el contraste de los dos esquemas nuevos, que
     el control de accesibilidad recorre solo porque mira `theme.SCHEMES`.
-  - Test: `tests/test_preferences.py`, **68 tests en verde**, y
-    `tests/test_settings_dialog.py`, **48 tests en verde**: los dos afirmaban
+  - Test: `tests/test_preferences.py`, **86 tests en verde**, y
+    `tests/test_settings_dialog.py`, **49 tests en verde**: los dos afirmaban
     «Claro» donde querían decir «el esquema de fábrica».
 
 ### Lo que entró después del sistema visual
@@ -3255,7 +3257,7 @@ tecla.
         quien lo elige en Configuración → Tipografía.
   - Test: `tests/test_fonts.py`, **19 tests en verde**, con la familia
     disponible y con una que no existe.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con la tipografía
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con la tipografía
     aplicada y con la que no está. Los cuatro fallan sin la corrección.
 - [x] **Los botones de fase**: 46 px de alto, dos renglones y el color de su
       fase. Es el control que más se aprieta en toda la noche —uno por época—
@@ -3290,7 +3292,7 @@ tecla.
         medido nada: es el error que estuvo a punto de quedar escrito acá.
   - Test: `tests/test_histogram.py`, **33 tests en verde**, con los tramos, el
     hueco que los parte y que agrupar no pierda ni agregue ventanas.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con el color por la
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con el color por la
     ventana y con que un esquema sin escala no pinte nada.
 - [x] **La franja de posición con el scoring pintado.** Decía dónde estoy y no
       cuánto llevo hecho, que es la otra mitad de la pregunta que un scorer se
@@ -3312,8 +3314,8 @@ tecla.
       resaltado, y la fase sólo se ve en el panel de scoring, que puede estar
       cerrado. Se crea una vez y después sólo se mueve, como la banda y el
       cursor, y el texto se rearma sólo cuando cambió.
-  - Test: `tests/test_signal_view.py`, **92 tests en verde**.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con la franja por la
+  - Test: `tests/test_signal_view.py`, **93 tests en verde**.
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con la franja por la
     ventana.
 - [x] **Los atajos de fase ya existían.** `shortcuts.py` los deriva del código
       de la fase desde el principio —W, R, 1 a 4 y M— y se reinstalan al
@@ -3387,7 +3389,7 @@ se ve en todas.
       líneas de 3 s, las dos densidades— son verticales y siguen donde estaban.
   - Test: `tests/test_theme.py`, **89 tests en verde**; `tests/test_grid.py`,
     **19 tests en verde**; `tests/test_settings_dialog.py`, **48 tests en
-    verde**; `tests/test_preferences.py`, **68 tests en verde**;
+    verde**; `tests/test_preferences.py`, **86 tests en verde**;
     `tests/test_menus.py`, **44 tests en verde**, con las dos entradas nuevas y
     su exclusividad. Entre los cinco se borraron treinta y seis tests de lo que
     dejó de existir.
@@ -3449,7 +3451,7 @@ pintaron lo que había, y lo que había en las dos barras no era lo del diseño.
       - «Velocidad» y «Amplitud» quedaron rotuladas: eran un combo y dos
         flechas sin nada que dijera de qué.
   - Test: `tests/test_navigation.py`, **42 tests en verde**.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con las dos barras
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con las dos barras
     por la ventana.
 
 - [x] **Una herramienta para mirar**, `tests/capturar_pantalla.py`. Deja PNG de
@@ -3541,7 +3543,7 @@ del diseño, y no correr el rótulo al hueco entre carriles.
         `overview_text` sólo se miraba contra `overview_background`—. Sereno da
         6,04 y Nocturno 7,18. Como los demás, lo enrola solo cualquier esquema
         que se agregue.
-  - Test: `tests/test_signal_view.py`, **92 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **93 tests en verde**.
   - Test: `tests/test_theme.py`, **89 tests en verde**.
 
 ### Medido, porque el canalón toca el camino caliente
@@ -3663,7 +3665,7 @@ misma escala**, con el respiratorio barriendo seis carriles.
       registro de verdad —«Resp oro-nasal», clase «Respiratorio»— la línea
       salía cortada con puntos suspensivos, que es peor que no decirla. La
       clase se sigue viendo en el selector, que es donde la pone el diseño.
-  - Test: `tests/test_signal_view.py`, **92 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **93 tests en verde**.
 
 ### Los tres errores que encontró la captura
 
@@ -3735,7 +3737,7 @@ viera distinto sin que ninguno estuviera mal.
         6,09 sobre la ventana. Un esquema puede no traerla, y entonces el botón
         se ve como cualquier otro.
   - Test: `tests/test_theme.py`, **89 tests en verde**;
-    `tests/test_entrega.py`, **325 tests en verde**.
+    `tests/test_entrega.py`, **339 tests en verde**.
 - [x] **Un icono más**, el del cartel de vacío: tres barras y una base. Es el
       único que no vive en un botón, y por eso es la silueta más neutra de
       todas: no sugiere ninguna acción.
@@ -3836,7 +3838,7 @@ Anotar ya pedía `refresh()` por exactamente este motivo —está escrito en
 nada de lo que la Übersicht mostraba dependía del scoring.
 
 No se veía antes de este hito porque no había nada que mirar. Tiene su test en
-`tests/test_entrega.py`, **325 tests en verde**.
+`tests/test_entrega.py`, **339 tests en verde**.
 
 ### Lo que este hito deja anotado
 
@@ -3954,7 +3956,7 @@ arrastrar y el sistema la marcaba como «no responde».
       - La entrada del menú **se apaga mientras dura**. `BackgroundTask` lo
         rechaza igual, pero un menú que deja pedir algo que va a fallar es peor
         que uno que lo muestra apagado.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**.
+  - Test: `tests/test_entrega.py`, **339 tests en verde**.
 - [x] **Una barra de espera en la barra de estado, indeterminada.** Ni la
       conectividad ni la ICA informan cuánto llevan hecho, así que un
       porcentaje sería inventado: el cartel de progreso del canvas mostraba un
@@ -4011,8 +4013,8 @@ propio salto de tamaño.
       - La solapa muestra **tres muestras** en vez de una: el cuerpo, una
         lectura numérica y un valor ausente. Son los tres estilos de la escala,
         y es la única forma de ver de un vistazo qué hace el tamaño elegido.
-  - Test: `tests/test_preferences.py`, **68 tests en verde**;
-    `tests/test_settings_dialog.py`, **48 tests en verde**.
+  - Test: `tests/test_preferences.py`, **86 tests en verde**;
+    `tests/test_settings_dialog.py`, **49 tests en verde**.
 - [x] **La escala vive en `psglab/ui/fonts.py` y en ningún otro lado.** Ocho
       roles en `ROLES`, cada uno con su familia, su paso en puntos, su peso, su
       inclinación y su tracking; `font_for()` los arma desde el tamaño que
@@ -4087,7 +4089,7 @@ dos son decisiones de diseño que no sobrevivieron al contacto con la pantalla.
       - Se fueron `NavigationBar.set_amplitude()`, `ANCHO_DE_LA_AMPLITUD` y
         `MainWindow._amplitud_visible()`.
   - Test: `tests/test_navigation.py`, **42 tests en verde**;
-    `tests/test_entrega.py`, **325 tests en verde**.
+    `tests/test_entrega.py`, **339 tests en verde**.
 - [x] **Reproducir se ve como los otros seis.** Iba relleno con el acento por
       ser la única acción de la barra que hace algo por sí sola y no un paso
       más de lo mismo. El usuario lo pidió al revés y el argumento se sostiene
@@ -4163,7 +4165,7 @@ overlay armado a mano, así que **nadie verificaba el camino entre los dos**.
       - **Activar un modo del mouse ahora destilda el anterior.** `_toggle_tool()`
         desactivaba a las otras exclusivas pero no tocaba su entrada de menú,
         así que se podían ver dos encendidas con una sola recibiendo eventos.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con el camino
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con el camino
     completo: tildar deja un `BandOverlay` dibujado y destildar lo saca.
 - [x] **La `y` en microvoltios se medía siempre contra el primer canal.**
       `microvolts_at_pixel()` acepta un canal desde el hito 9 y **nadie se lo
@@ -4179,7 +4181,7 @@ overlay armado a mano, así que **nadie verificaba el camino entre los dos**.
         anotador—, así que se arregló para las tres y no sólo para la que se
         reportó. `ViewerTool` recibe ahora `channel_name` en sus tres métodos de
         mouse, opcional y último, para no romper a quien no lo necesite.
-  - Test: `tests/test_signal_view.py`, **92 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **93 tests en verde**.
 - [x] **La lupa no dibujaba ningún círculo y ampliaba un canal fijo.**
       `_dibujar_lupa()` tenía `canal = self._visible[0]` escrito a mano, y
       `CircleOverlay` no tenía campo de canal, así que no había por dónde pasar
@@ -4327,7 +4329,7 @@ decisión nueva: es el mismo trabajo que la conectividad.
       - **Las topografías se calculan adentro del hilo.** Son parte del costo
         —aunque acá den 0,00 s— y tampoco tocan widgets; dejarlas afuera
         devolvería el trabajo a medio hacer al hilo que se quiso liberar.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**.
+  - Test: `tests/test_entrega.py`, **339 tests en verde**.
 - [x] **«Montaje» y «Filtrar» se apagan mientras dura un cálculo.** No es
       cosmético: las cuatro operaciones que llevan adentro sustituyen el
       registro, y hacerlo debajo de una ICA que se está ajustando dejaría una
@@ -4434,7 +4436,7 @@ Conviene decirlo primero, porque es la mayor parte:
       la causa de que seis hitos pasaran sin ver que la lupa no llegaba a la
       ventana, y que `psglab/ui/README.md` prohíbe. Ningún test mandaba un clic
       de Qt real. El camino funcionaba: era hueco de test.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**.
+  - Test: `tests/test_entrega.py`, **339 tests en verde**.
 - [x] **Seis funciones públicas que ningún test nombraba**, y cinco eran de
       `core/windows.py`: `sample_to_seconds_absolute`, `seconds_to_samples`,
       `seconds_to_view_fraction`, `view_fraction_to_seconds` y
@@ -4565,7 +4567,7 @@ según la corrida, contra los 40 que pide el reloj. Con él cierra el 33.
         lo exige.
       - Los tests nuevos se probaron contra el cálculo viejo: fallan los seis
         que tocan la caché.
-  - Test: `tests/test_signal_view.py`, **92 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **93 tests en verde**.
 
 ### Lo que dio
 
@@ -4709,7 +4711,7 @@ qué eventos caen en cada una, que es todo lo que el panel hacía.
 - [x] **Un clic en una caja lleva a esa época**, por el mismo camino que la
       franja de posición.
   - Test: `tests/test_overview_panel.py`, **27 tests en verde**;
-    `tests/test_entrega.py`, **325 tests en verde**, con clics de Qt de verdad.
+    `tests/test_entrega.py`, **339 tests en verde**, con clics de Qt de verdad.
 - [x] **La miniatura se rehace cuando cambia lo que dibuja**: el canal
       seleccionado, los visibles, la amplitud, el esquema y la señal misma
       —filtrar, volver a la original—. Ninguna de esas cosas le llegaba antes,
@@ -4776,7 +4778,7 @@ lo pida», y el usuario lo eligió como siguiente paso.
       la clase usa el mismo diálogo que al anotar —editable, así que una clase
       nueva se puede escribir— y arranca en la que tenía. **Borrar sigue
       preguntando**: el pedido fue agregar el menú, no sacar la confirmación.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con eventos de Qt de
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con eventos de Qt de
     verdad: el menú, cambiar la clase, arrastrar cada borde, arrastrar lejos
     de un borde y el cursor.
 
@@ -4817,7 +4819,7 @@ anotados abajo.
       `app.install_qt_translations()` carga `qtbase_es.qm`, que viene con
       PySide6. No se cambia el `QLocale`, que también cambiaría cómo se escriben
       los números en los campos. La suite corre con la misma traducción.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**.
+  - Test: `tests/test_entrega.py`, **339 tests en verde**.
 - [x] **Métrica multiplicaba por mil.** Una entropía de 0,75 se leía «750», con
       «(x0.001)» en el rótulo: pyqtgraph les pone un prefijo por su cuenta a los
       ejes con valores menores que uno. `panel_header.plain_axes()` lo apaga en
@@ -4833,7 +4835,7 @@ anotados abajo.
       revés —la banda detrás de la señal— y con una página larga la envolvente
       es un bloque lleno que la tapaba. Los bordes de la banda llevan también
       el color de la clase, desde que se agarran para corregirla (hito 52).
-  - Test: `tests/test_signal_view.py`, **92 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **93 tests en verde**.
 - [x] **En Sereno, una casilla sin marcar no se veía.** Con el estilo nativo de
       Windows, un elemento sin marcar de una lista no dibujaba ninguna casilla:
       **un canal oculto del selector no tenía nada que tildar**, y lo mismo las
@@ -4915,7 +4917,7 @@ notan al usar el programa y ninguno pide una decisión de fondo.
       - **`format_amplitude()` escribía con punto decimal**: «37.5 µV» al lado
         del «41,7» del espectro. Lo encontró el test del rótulo; ahora usa
         coma, como todo número que ve el usuario.
-  - Test: `tests/test_signal_view.py`, **92 tests en verde**;
+  - Test: `tests/test_signal_view.py`, **93 tests en verde**;
     `tests/test_units.py`, **47 tests en verde**.
 - [x] **La ICA dice cuánto explica cada componente**, cuántos va a quitar el
       botón, y su curva va en hora.
@@ -4940,7 +4942,7 @@ notan al usar el programa y ninguno pide una decisión de fondo.
       solo. La tabla es `ui/shortcuts_dialog.py`, nuevo.
   - Test: `tests/test_shortcuts.py`, **35 tests en verde**;
     `tests/test_shortcuts_dialog.py`, **5 tests en verde**.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**,
+  - Test: `tests/test_entrega.py`, **339 tests en verde**,
     con los cuatro por la ventana. Cada uno se probó contra el programa sin
     su conexión —sin mover la marca, sin seguir al hipnograma, con los
     segundos de la ventana, sin la varianza— y falla.
@@ -4973,7 +4975,7 @@ el [54](#hito-54-lo-que-faltaba-del-prototipo) quedan hechos los nueve.
       y reproducir no la lleva. **Apagado no parece encendido**: el de la ICA
       sin componentes tenía que dejar de invitar a apretar.
   - Test: `tests/test_theme.py`, **89 tests en verde**;
-    `tests/test_entrega.py`, **325 tests en verde**.
+    `tests/test_entrega.py`, **339 tests en verde**.
 - [x] **La conectividad escribe el valor en cada celda**, con la tinta que se
       lee sobre ese color, y **la diagonal va en gris con «—»**: no se calcula,
       y pintada como cero se leía «estos canales no se parecen». Hasta doce
@@ -4998,7 +5000,7 @@ el [54](#hito-54-lo-que-faltaba-del-prototipo) quedan hechos los nueve.
       `SegmentOverlay` gana un `label` que decide la herramienta, que es la que
       sabe qué mide.
   - Test: `tests/test_occupancy.py`, **51 tests en verde**;
-    `tests/test_signal_view.py`, **92 tests en verde**.
+    `tests/test_signal_view.py`, **93 tests en verde**.
 
 Cada test nuevo se probó contra el programa sin su cambio —sin la duración,
 sin el botón principal, sin la cantidad, sin las celdas, con el tope de la
@@ -5021,7 +5023,7 @@ costado en el panel táctil, o girarla con Mayúsculas, tiene que desplazarla.
       cada muesca sería un «×2» del menú y de 30 s a la noche entera habría
       diez saltos sin nada en el medio. Un panel táctil manda pedazos de
       muesca, y la cuenta los suma sin redondear.
-  - Test: `tests/test_entrega.py`, **325 tests en verde**, con
+  - Test: `tests/test_entrega.py`, **339 tests en verde**, con
     eventos de rueda de Qt de verdad, mandados al viewport.
 - [x] **Queda quieto el instante bajo el mouse**, como en un mapa, y ésa es la
       diferencia con Ctrl++, que acerca hacia el centro: para mirar un huso
@@ -5449,7 +5451,7 @@ pantalla**, y eso sigue pendiente.
         `QDoubleSpinBox`, que es su hermano, y el aumento de la lupa se quedaba
         sin anillo.
   - Test: `tests/test_theme.py`, **89 tests en verde**;
-    `tests/test_entrega.py`, **325 tests en verde**;
+    `tests/test_entrega.py`, **339 tests en verde**;
     `tests/test_shortcuts_dialog.py`, **5 tests en verde**.
 
 Cada test nuevo se probó contra el programa sin su cambio y falla. Las nueve
@@ -5537,6 +5539,88 @@ versiones rotas fueron:
 Anotado en el hito 62: la métrica y la conectividad sólo como dibujo; Cerrar y
 Flotante de los paneles; la ocupación y la lupa sólo de puntero; y **probar con
 un lector de pantalla**, que es lo que dice si el resto hace falta.
+
+## Hito 64: El flujo de scoring
+
+**Cerrado el 24 de septiembre de 2026.** Salió de una revisión de diseño del
+programa entero contra los de scoring comerciales —Profusion, Noxturnal,
+Sleepware, RemLogic, EDFbrowser—, pedida por el usuario, que eligió hacer las
+cuatro prioridades juntas. **La oportunidad más grande era de flujo y no
+visual**: puntuar una noche costaba más pasos que en esos programas.
+
+**No tiene stubs que contar.**
+
+### Lo que se hizo
+
+- [x] **Puntuar pasa a la ventana siguiente.** Una noche de 960 ventanas eran
+      1920 teclas, la fase y la flecha. Es lo que hacen los programas de
+      scoring, y **arranca encendido**; se apaga en Configuración con
+      `advance_after_scoring`. No pasa en la última ni mientras se reproduce,
+      donde la época la lleva el cursor y saltar adelantaría la reproducción
+      una ventana por tecla.
+- [x] **La pestaña de la señal toma el color de la fase**, el mismo de la
+      franja y el hipnograma: confirma lo puntuado sin leer la letra. **Y se
+      dibuja encima de las bandas de anotación**, que son semitransparentes y
+      la teñían: con color, un «W» debajo de un spindle verde se leía como
+      otra fase. Lo mostró la captura.
+      - **La revisión se equivocó en una cosa**: decía que la fase no se
+        veía en la pestaña, y la pestaña la dice desde el hito 34. Salía sin
+        fase en la captura porque la herramienta ponía las fases sin redibujar;
+        ahora redibuja.
+      - Al cambiar de esquema la pestaña se vuelve a pintar. El test no fija
+        esa línea: en los dos esquemas cada fase tiene otro color, así que se
+        repinta igual sin ella. Importaría con dos esquemas que compartan el
+        color de una fase.
+- [x] **El hipnograma arranca visible**, como tira a todo el ancho de abajo.
+      En los programas de scoring es lo único que está siempre a la vista; se
+      había ocultado en el hito 24 junto con el scoring y el contexto, que
+      siguen ocultos.
+- [x] **Un nombre por cosa.** La pestaña decía «Época» y el resto del
+      programa —la barra de estado, la franja, el scoring, el pliego—
+      «Ventana»: ahora todo dice «Ventana». Y **la Übersicht se llama
+      «Contexto»**, que era como la llamaba su propio tooltip: era el único
+      rótulo en alemán. El menú dice «Contexto (Übersicht)», para que quien la
+      busque por el nombre del pliego la encuentre.
+- [x] **Volvió «Archivo»**, con abrir, «Abrir reciente», importar y exportar
+      el scoring y la configuración. Desde el hito 23 abrir era sólo el botón,
+      el scoring tenía su menú y la configuración era una entrada suelta de la
+      barra. El botón «Abrir» se queda.
+      - **Los recientes** son los últimos ocho registros, el abierto sube al
+        frente, y uno que ya no está se quita al elegirlo y se avisa.
+- [x] **Vistas de canales** (Ver › Vistas de canales): qué canales, en qué
+      orden y con qué escala, guardados con un nombre. Una vista armada con
+      otro montaje sirve para lo que coincide: los canales que el registro no
+      tiene se saltean y la barra de estado dice cuántos.
+  - Test: `tests/test_preferences.py`, **86 tests en verde**;
+    `tests/test_settings_dialog.py`, **49 tests en verde**;
+    `tests/test_entrega.py`, **339 tests en verde**;
+    `tests/test_menus.py`, **44 tests en verde**;
+    `tests/test_docks.py`, **39 tests en verde**;
+    `tests/test_signal_view.py`, **93 tests en verde**;
+    `tests/test_overview_panel.py`, **27 tests en verde**.
+
+**Revierte dos decisiones anteriores, a pedido del usuario**: que el scoring
+fuera un menú aparte de «Archivo» (hito 23) y que sólo los canales arrancaran
+visibles (hito 24). Los tests que las fijaban se reescribieron con la regla
+nueva; uno de ellos, el que reparte el ancho de los paneles de abajo, daba
+por sentado que los tres arrancaban ocultos y terminaba escondiendo el
+hipnograma.
+
+Cada test nuevo se probó contra el programa sin su cambio. Catorce de quince
+versiones rotas fallan:
+
+- sin el paso a la siguiente, sin mirar la preferencia o avanzando mientras se
+  reproduce;
+- la pestaña siempre del acento;
+- abrir sin dejar reciente, o un reciente perdido que queda;
+- la vista sin escalas, sin su orden o sin saltear los canales que faltan;
+- recientes repetidos o sin tope;
+- una vista reemplazada que se va al final;
+- las vistas que no se guardan en el archivo;
+- el hipnograma oculto al abrir.
+
+La que pasa es la de repintar la pestaña al cambiar de esquema, por el motivo
+anotado arriba.
 
 ---
 
