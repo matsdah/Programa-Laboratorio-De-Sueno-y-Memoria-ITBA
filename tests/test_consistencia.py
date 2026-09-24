@@ -56,6 +56,14 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "cincuenta y tres": 53, "cincuenta y cuatro": 54, "cincuenta y cinco": 55,
     "cincuenta y seis": 56, "cincuenta y siete": 57, "cincuenta y ocho": 58,
     "cincuenta y nueve": 59, "sesenta": 60,
+    # Y otra vez en el hito 60, al llegar a 61. Va de un saque hasta 79.
+    "sesenta y uno": 61, "sesenta y un": 61, "sesenta y dos": 62,
+    "sesenta y tres": 63, "sesenta y cuatro": 64, "sesenta y cinco": 65,
+    "sesenta y seis": 66, "sesenta y siete": 67, "sesenta y ocho": 68,
+    "sesenta y nueve": 69, "setenta": 70, "setenta y uno": 71, "setenta y un": 71,
+    "setenta y dos": 72, "setenta y tres": 73, "setenta y cuatro": 74,
+    "setenta y cinco": 75, "setenta y seis": 76, "setenta y siete": 77,
+    "setenta y ocho": 78, "setenta y nueve": 79,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
