@@ -728,8 +728,19 @@ class MainWindow(QMainWindow):
         pendiente = herramienta.pending_selection_samples
         if pendiente is None:
             return
-        inicio, duracion = pendiente
+        self._preguntar_clase_y_anotar(herramienta, *pendiente)
 
+    def _preguntar_clase_y_anotar(
+        self, herramienta: AnnotatorTool, inicio: int, duracion: int
+    ) -> None:
+        """Pregunta la clase de un tramo y lo anota.
+
+        Es el final común del arrastre con el mouse y de «Anotar la ventana
+        actual» con el teclado (hito 62): los dos llegan con un tramo en
+        muestras y lo demás es igual.
+        """
+        if self._session is None:
+            return
         clases = self._session.annotations.labels()
         clase, acepto = QInputDialog.getItem(
             self,
@@ -770,6 +781,12 @@ class MainWindow(QMainWindow):
         anotacion = herramienta.annotation_at(segundos)
         if anotacion is None:
             return
+        self._ofrecer_cambios(herramienta, anotacion, donde)
+
+    def _ofrecer_cambios(
+        self, herramienta: AnnotatorTool, anotacion: Annotation, donde: QPoint
+    ) -> None:
+        """El menú de una anotación: cambiarle la clase o borrarla."""
         eleccion = self._elegir_en_un_menu(
             [_CAMBIAR_CLASE, _BORRAR], donde
         )
@@ -777,6 +794,62 @@ class MainWindow(QMainWindow):
             self._cambiar_clase(herramienta, anotacion)
         elif eleccion == _BORRAR:
             self._borrar_anotacion(herramienta, anotacion)
+
+    # -- Anotar con el teclado (hito 62) ------------------------------------
+    #
+    # **Anotar era lo único del pliego que exigía mouse**: arrastrar sobre la
+    # señal para crear, clic derecho para corregir. WCAG 2.1.1 pide que todo
+    # se pueda con el teclado, y la unidad natural del teclado es la época,
+    # que es lo que mueven las flechas.
+
+    def annotate_current_window(self) -> None:
+        """E: anota la ventana actual entera y pregunta su clase.
+
+        **Enciende el modo «Anotar»** si no lo estaba, igual que elegirlo del
+        menú: la herramienta es la que sabe anotar, y dejarla encendida es lo
+        que permite después corregir con Mayús+F10 o con el mouse.
+        """
+        herramienta = self._anotador_encendido()
+        if herramienta is None or self._session is None:
+            return
+        inicio, fin = self._muestras_de_la_ventana_actual()
+        self._preguntar_clase_y_anotar(herramienta, inicio, fin - inicio)
+
+    def annotation_menu_for_current_window(self) -> None:
+        """Mayús+F10 o la tecla Menú, con el foco en la señal: el menú del
+        clic derecho para la anotación de la ventana actual.
+
+        Si hay varias se elige **la más corta**, con la misma regla que el
+        clic derecho: la larga se puede alcanzar desde otra ventana, la corta
+        no. Sin ninguna, la barra de estado lo dice en vez de no hacer nada.
+        """
+        herramienta = self._anotador_encendido()
+        if herramienta is None or self._session is None:
+            return
+        inicio, fin = self._muestras_de_la_ventana_actual()
+        en_la_ventana = self._session.annotations.in_range(inicio, fin)
+        if not en_la_ventana:
+            self.statusBar().showMessage("No hay ninguna anotación en esta ventana", 5000)
+            return
+        anotacion = min(en_la_ventana, key=lambda candidata: candidata.duration_samples)
+        vista = self.signal_view.viewport()
+        self._ofrecer_cambios(herramienta, anotacion, vista.mapToGlobal(vista.rect().center()))
+
+    def _anotador_encendido(self) -> AnnotatorTool | None:
+        """La herramienta de anotar, encendida por el mismo camino que el menú."""
+        herramienta = self._tools.get("annotator")
+        accion = self._tool_actions.get("annotator")
+        if not isinstance(herramienta, AnnotatorTool) or accion is None:
+            return None
+        if not accion.isChecked():
+            accion.setChecked(True)
+        return herramienta
+
+    def _muestras_de_la_ventana_actual(self) -> tuple[int, int]:
+        """Dónde empieza y termina la ventana actual, recortada al registro."""
+        registro = self._session.recording
+        inicio, fin = window_to_samples(self._session.current_window, registro.sampling_rate)
+        return inicio, min(fin, registro.n_samples)
 
     def _elegir_en_un_menu(self, opciones: list[str], donde: QPoint) -> str | None:
         """Muestra un menú contextual y devuelve lo que se eligió, o `None`.
@@ -2208,6 +2281,37 @@ class MainWindow(QMainWindow):
             return
         self._session.previous_window()
         self.refresh()
+
+    # **Llegar a cualquier ventana sin mouse** (hito 62). Hasta acá sólo lo
+    # hacían los clics en la franja, el hipnograma y la Übersicht, y con el
+    # teclado la ventana 500 de una noche eran 500 flechas.
+
+    def go_to_first_window(self) -> None:
+        """Inicio: la primera ventana."""
+        if self._session is not None:
+            self._go_to_window(0)
+
+    def go_to_last_window(self) -> None:
+        """Fin: la última ventana."""
+        if self._session is not None:
+            self._go_to_window(self._session.n_windows - 1)
+
+    def ask_window(self) -> None:
+        """Ctrl+G: pregunta a qué ventana ir, contando desde uno como la
+        barra de estado."""
+        if self._session is None:
+            return
+        total = self._session.n_windows
+        numero, acepto = QInputDialog.getInt(
+            self,
+            "Ir a una ventana",
+            f"Ventana (1 a {total}):",
+            self._session.current_window + 1,
+            1,
+            total,
+        )
+        if acepto:
+            self._go_to_window(numero - 1)
 
     def increase_amplitude(self) -> None:
         """Flecha arriba. La cuenta la hace `Session`."""

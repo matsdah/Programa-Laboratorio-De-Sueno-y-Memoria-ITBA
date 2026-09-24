@@ -5168,3 +5168,133 @@ def test_reproduciendo_la_rueda_acerca_hacia_el_cursor(reproduccion: MainWindow)
 
     assert ventana.session.viewport.span_seconds == pytest.approx(30.0)
     assert ventana.session.viewport.center_seconds == pytest.approx(cursor)
+
+
+# -- Accesibilidad: el teclado llega a todo (hito 62) ------------------------
+
+
+def test_inicio_y_fin_van_a_la_primera_y_la_ultima_ventana(ventana: MainWindow):
+    ventana.go_to_last_window()
+    assert ventana.session.current_window == VENTANAS - 1
+
+    ventana.go_to_first_window()
+    assert ventana.session.current_window == 0
+
+
+def test_ctrl_g_pregunta_a_que_ventana_ir(ventana: MainWindow, monkeypatch):
+    """**Cuenta desde uno**, como la barra de estado; adentro es base 0."""
+    pedidos: list[tuple] = []
+
+    def preguntar(_padre, _titulo, _rotulo, valor, minimo, maximo, *_resto):
+        pedidos.append((valor, minimo, maximo))
+        return 4, True
+
+    monkeypatch.setattr(QInputDialog, "getInt", preguntar)
+    ventana.ask_window()
+
+    assert pedidos == [(1, 1, VENTANAS)]
+    assert ventana.session.current_window == 3
+
+
+def test_cancelar_ctrl_g_no_mueve_nada(ventana: MainWindow, monkeypatch):
+    ventana.go_to_next_window()
+    monkeypatch.setattr(QInputDialog, "getInt", lambda *_a, **_k: (5, False))
+
+    ventana.ask_window()
+
+    assert ventana.session.current_window == 1
+
+
+def test_los_atajos_nuevos_estan_colgados_de_la_ventana(ventana: MainWindow):
+    """Que el método exista no alcanza: tiene que haber un atajo que lo
+    llame, o para el teclado sigue sin existir."""
+    from PySide6.QtGui import QKeySequence, QShortcut
+
+    teclas = {atajo.key().toString() for atajo in ventana.findChildren(QShortcut)}
+
+    for tecla in ("Home", "End", "Ctrl+G", "E", "Shift+F10", "Menu"):
+        assert QKeySequence(tecla).toString() in teclas, tecla
+
+
+def test_e_anota_la_ventana_actual(ventana: MainWindow, monkeypatch):
+    """**Anotar era lo único del pliego que exigía mouse.** Con E se anota la
+    ventana entera, con la misma pregunta de clase que al arrastrar."""
+    from psglab.core.windows import window_to_samples
+
+    ventana.go_to_next_window()
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("Apnea", True))
+
+    ventana.annotate_current_window()
+
+    (anotacion,) = ventana.session.annotations.all()
+    inicio, fin = window_to_samples(1, ventana.session.recording.sampling_rate)
+    assert (anotacion.label, anotacion.onset_sample, anotacion.duration_samples) == (
+        "Apnea", inicio, fin - inicio
+    )
+    assert ventana._tool_actions["annotator"].isChecked()
+    assert not ventana.carteles
+
+
+def test_anotar_la_ultima_ventana_no_se_pasa_del_registro(
+    ventana: MainWindow, monkeypatch, tmp_path
+):
+    """Un registro de 145 s tiene la quinta ventana incompleta: anotarla
+    entera se pasaría 5 s del final."""
+    ventana.open_recording(escribir_brainvision(tmp_path / "corto", segundos=145.0))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("Apnea", True))
+    ventana.go_to_last_window()
+
+    ventana.annotate_current_window()
+
+    (anotacion,) = ventana.session.annotations.all()
+    assert anotacion.onset_sample + anotacion.duration_samples <= ventana.session.recording.n_samples
+
+
+def test_mayus_f10_corrige_la_anotacion_de_la_ventana(
+    ventana: MainWindow, monkeypatch, elige_en_el_menu
+):
+    """El menú del clic derecho, sin mouse: cambiar la clase de la anotación
+    de la ventana actual. **Si hay dos, la más corta**, como el clic."""
+    respuestas = iter([("Apnea", True), ("Arousal", True)])
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: next(respuestas))
+    ventana.annotate_current_window()
+    fs = ventana.session.recording.sampling_rate
+    herramienta = ventana._tools["annotator"]
+    herramienta.create_annotation("Apnea", int(5 * fs), int(2 * fs))
+    elige_en_el_menu.elegir(main_window_mod._CAMBIAR_CLASE)
+
+    ventana.annotation_menu_for_current_window()
+
+    assert elige_en_el_menu.menus == [[main_window_mod._CAMBIAR_CLASE, main_window_mod._BORRAR]]
+    clases = sorted((a.duration_samples, a.label) for a in ventana.session.annotations.all())
+    assert clases[0][1] == "Arousal"
+    assert clases[1][1] == "Apnea"
+
+
+def test_mayus_f10_sin_anotacion_lo_dice(ventana: MainWindow, elige_en_el_menu):
+    ventana.annotation_menu_for_current_window()
+
+    assert elige_en_el_menu.menus == []
+    assert "No hay ninguna anotación" in ventana.statusBar().currentMessage()
+
+
+def test_la_senal_con_foco_se_ve(ventana: MainWindow):
+    """El marco de acento aparece con el foco y se va sin él. Se mira el
+    borde de lo que se dibuja, no la hoja de estilo."""
+    ventana.show()
+    ventana.activateWindow()
+    vista = ventana.signal_view
+    acento = theme.current().accent
+
+    def borde() -> str:
+        imagen = vista.grab().toImage()
+        return imagen.pixelColor(0, imagen.height() // 2).name()
+
+    ventana.channel_selector.setFocus()
+    QApplication.processEvents()
+    assert borde() != acento
+
+    vista.setFocus()
+    QApplication.processEvents()
+    assert vista.hasFocus()
+    assert borde() == acento

@@ -35,7 +35,7 @@ def test_cada_grupo_lleva_su_rotulo_en_mayusculas(qt_app):
         if dialogo.tabla.columnSpan(fila, 0) == 2
     ]
 
-    assert rotulos == ["NAVEGACIÓN", "SCORING", "VISUALIZACIÓN", "ARCHIVO"]
+    assert rotulos == ["NAVEGACIÓN", "SCORING", "ANOTACIÓN", "VISUALIZACIÓN", "ARCHIVO"]
 
 
 def test_la_tecla_va_en_su_propia_columna(qt_app):

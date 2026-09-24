@@ -178,6 +178,13 @@ class ColorScheme:
             `READOUT_PROPERTY`), o vacío para usar la de siempre. Va en el
             esquema y no aparte porque es parte del aspecto que el nombre del
             esquema promete, como los colores.
+        control_border: el borde de lo que se toca —campos, botones, listas,
+            tablas—, o vacío para usar `coarse_grid`. **Existe por WCAG 1.4.11**
+            (hito 62): en un campo de texto el borde es lo único que dice dónde
+            se escribe, y tiene que llegar a 3:1 contra el fondo del control y
+            contra el de la ventana. El de la grilla no puede: la grilla tiene
+            que ser tenue para no competir con la señal, y los dos compartían
+            color, a 1,42 en Sereno y 1,53 en Nocturno.
         stage_colors: qué color tiene cada fase de sueño, como (valor de
             `SleepStage`, color). De acá salen el hipnograma, la franja de
             posición y los botones de fase. **Vacío significa «una sola
@@ -210,6 +217,7 @@ class ColorScheme:
     chrome: str | None = None
     numeric_font: str | None = None
     danger: str | None = None
+    control_border: str | None = None
     stage_colors: tuple[tuple[str, str], ...] = ()
 
     def color_for_channel(self, position: int) -> str:
@@ -283,6 +291,7 @@ SERENO: Final[ColorScheme] = ColorScheme(
     chrome="#edebe4",
     numeric_font="IBM Plex Mono",
     danger="#9e3b22",
+    control_border="#838688",
     stage_colors=_FASES_CLARAS,
 )
 
@@ -308,6 +317,7 @@ NOCTURNO: Final[ColorScheme] = ColorScheme(
     chrome="#14171b",
     numeric_font="IBM Plex Mono",
     danger="#e07a5f",
+    control_border="#5e6670",
     stage_colors=_FASES_OSCURAS,
 )
 
@@ -454,6 +464,7 @@ def stylesheet(scheme: ColorScheme) -> str:
     fondo = scheme.background
     texto = scheme.foreground
     borde = scheme.coarse_grid
+    borde_de_control = scheme.control_border or scheme.coarse_grid
     realce = scheme.overview_current
     # **La ventana y el contenido**: lo que rodea —barras, paneles, títulos,
     # encabezados— va con `chrome`, y lo que se lee adentro —campos, listas,
@@ -542,18 +553,20 @@ def stylesheet(scheme: ColorScheme) -> str:
             border-color: {scheme.accent};
         }}
         QToolBar {{ border-bottom: 1px solid {borde}; }}
-        QPushButton, QComboBox, QLineEdit, QSpinBox {{
+        QPushButton, QComboBox, QLineEdit, QAbstractSpinBox {{
             background-color: {fondo};
             color: {texto};
-            border: 1px solid {borde};
+            border: 1px solid {borde_de_control};
             border-radius: {RADIO_DE_CONTROL}px;
             padding: {PADDING_DE_CONTROL};
             min-height: {ALTO_DE_CONTROL - 10}px;
         }}
         QPushButton:hover, QComboBox:hover {{ border-color: {scheme.accent}; }}
-        QPushButton:focus, QComboBox:focus, QLineEdit:focus, QSpinBox:focus {{
+        QPushButton:focus, QComboBox:focus, QLineEdit:focus, QAbstractSpinBox:focus {{
             border: {ANILLO_DE_FOCO}px solid {scheme.accent};
         }}
+        PlotWidget {{ border: {ANILLO_DE_FOCO}px solid transparent; }}
+        PlotWidget:focus {{ border: {ANILLO_DE_FOCO}px solid {scheme.accent}; }}
         QPushButton:checked, QPushButton:pressed {{ background-color: {realce}; }}
         QPushButton:disabled {{ color: {borde}; }}
         {principal}
@@ -569,7 +582,7 @@ def stylesheet(scheme: ColorScheme) -> str:
         QTreeWidget, QTableWidget, QListWidget, QTextEdit, QPlainTextEdit {{
             background-color: {fondo};
             color: {texto};
-            border: 1px solid {borde};
+            border: 1px solid {borde_de_control};
         }}
         QHeaderView::section {{
             background-color: {ventana};
@@ -719,6 +732,21 @@ def low_contrast_elements(scheme: ColorScheme) -> list[tuple[str, float]]:
         ),
         ("las señales", scheme.signals, scheme.background, MIN_GRAPHIC_CONTRAST),
         ("la curva de los paneles", scheme.accent, scheme.background, MIN_GRAPHIC_CONTRAST),
+        # Hito 62: en un campo de texto el borde es lo único que dice dónde se
+        # escribe (WCAG 1.4.11). Contra el fondo del control y contra el de la
+        # ventana, que son los dos que tiene a cada lado.
+        (
+            "el borde de los controles",
+            scheme.control_border or scheme.coarse_grid,
+            scheme.background,
+            MIN_GRAPHIC_CONTRAST,
+        ),
+        (
+            "el borde de los controles sobre la ventana",
+            scheme.control_border or scheme.coarse_grid,
+            scheme.chrome or scheme.background,
+            MIN_GRAPHIC_CONTRAST,
+        ),
         # Hito 53: el borde de la casilla sin marcar es lo único que dice que
         # un canal oculto se puede volver a tildar.
         (
