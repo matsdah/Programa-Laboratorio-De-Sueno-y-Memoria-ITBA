@@ -60,6 +60,7 @@ implementa el método de `main_window.py` al que llama.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QSize, Qt
@@ -109,7 +110,7 @@ def build_menus(window: "MainWindow") -> None:
     window.menuBar().setNativeMenuBar(False)
     _abrir(window)
     _identificador(window)
-    _scoring(window)
+    _archivo(window)
     _escala_de_tiempo(window)
     _amplitud(window)
     _ver(window)
@@ -117,7 +118,6 @@ def build_menus(window: "MainWindow") -> None:
     _filtrar(window)
     _analizar(window)
     _herramientas(window)
-    _configuracion(window)
     _ayuda(window)
     _mostrar_atajos(window)
 
@@ -257,12 +257,14 @@ def _identificador(window: "MainWindow") -> None:
     window.recording_summary = etiqueta
 
 
-def _scoring(window: "MainWindow") -> None:
-    """El scoring: lo que el investigador produce, en los cuatro formatos.
+def _archivo(window: "MainWindow") -> None:
+    """Abrir, los recientes, el scoring y la configuración (hito 64).
 
-    **Se separó de «Archivo» a propósito.** Abrir un registro es abrir el dato
-    de entrada; importar y exportar un scoring es manejar el trabajo propio, y
-    son las dos cosas que más veces por sesión se hacen.
+    **Volvió a haber «Archivo».** Desde el hito 23 abrir era sólo el botón, el
+    scoring tenía su menú y la configuración era una entrada suelta de la
+    barra. Es donde cualquier programa de escritorio pone esas cosas, y donde
+    las busca quien llega de otro programa de scoring. El botón «Abrir» se
+    queda: es el primer control que usa quien abre el programa.
 
     Las exportaciones se arman recorriendo `SCORING_FORMATS`, así que un
     formato nuevo aparece solo. **Anotaciones.txt e Informacion.txt ya no se
@@ -272,17 +274,65 @@ def _scoring(window: "MainWindow") -> None:
     del trabajo sin exportar ofrece guardarlas antes de perderlas—, que no es
     lo mismo que poder pedirlas cuando uno quiere.
     """
-    scoring = window.menuBar().addMenu("&Scoring")
-    _agregar(scoring, "&Importar scoring…", window.open_scoring_dialog)
-    scoring.addSeparator()
+    archivo = window.menuBar().addMenu("&Archivo")
+    _agregar(archivo, "&Abrir registro…", window.open_recording_dialog)
+    window.menu_recientes = archivo.addMenu("Abrir &reciente")
+    rebuild_recent_menu(window)
+    archivo.addSeparator()
+    _agregar(archivo, "&Importar scoring…", window.open_scoring_dialog)
     for extension in SCORING_FORMATS:
-        accion = scoring.addAction(
-            f"Exportar .{extension}…",
+        accion = archivo.addAction(
+            f"Exportar el scoring como .{extension}…",
             lambda _=False, e=extension: window.export_scoring_dialog(e),
         )
         # El `.txt` es lo que exporta Ctrl+S: el mismo método, sin argumento.
         if extension == "txt":
             accion.setData("export_scoring_dialog")
+    archivo.addSeparator()
+    _agregar(archivo, "&Configuración…", window.show_settings_dialog)
+
+
+def rebuild_recent_menu(window: "MainWindow") -> None:
+    """Rearma «Abrir reciente» con las rutas de las preferencias.
+
+    **Se rearma y no se edita**: son a lo sumo ocho entradas, y la lista cambia
+    entera cada vez que se abre un registro, porque el abierto sube al frente.
+    Sin recientes, el submenú queda con una entrada apagada que lo dice.
+    """
+    menu = window.menu_recientes
+    menu.clear()
+    recientes = window.current_preferences.recent_files
+    if not recientes:
+        vacio = menu.addAction("Todavía no se abrió ningún registro")
+        vacio.setEnabled(False)
+        return
+    for posicion, ruta in enumerate(recientes, start=1):
+        accion = menu.addAction(
+            f"&{posicion}  {Path(ruta).name}",
+            lambda _=False, r=ruta: window.open_recent_file(r),
+        )
+        # La ruta entera va en la barra de estado: dos noches del mismo
+        # participante suelen llamarse igual en carpetas distintas.
+        accion.setStatusTip(ruta)
+        accion.setToolTip(ruta)
+
+
+def rebuild_views_menu(window: "MainWindow") -> None:
+    """Rearma «Vistas de canales» con las vistas de las preferencias (hito 64)."""
+    menu = window.menu_vistas
+    menu.clear()
+    vistas = window.current_preferences.channel_views
+    for nombre, canales in vistas:
+        accion = menu.addAction(
+            nombre.replace("&", "&&"),
+            lambda _=False, n=nombre: window.apply_channel_view(n),
+        )
+        accion.setStatusTip(", ".join(canal for canal, _ in canales))
+    if vistas:
+        menu.addSeparator()
+    _agregar(menu, "&Guardar la vista actual…", window.save_channel_view)
+    borrar = _agregar(menu, "&Borrar una vista…", window.delete_channel_view)
+    borrar.setEnabled(bool(vistas))
 
 
 def _escala_de_tiempo(window: "MainWindow") -> None:
@@ -399,6 +449,14 @@ def _ver(window: "MainWindow") -> None:
     window.acciones_de_esquema[theme.current().name].setChecked(True)
 
     ver.addSeparator()
+    # **Las vistas de canales** (hito 64): qué canales, en qué orden y con qué
+    # escala, guardados con un nombre. Los programas de scoring traen una para
+    # puntuar, otra respiratoria y otra cardíaca; sin esto, cada registro
+    # obligaba a elegir los canales de nuevo.
+    window.menu_vistas = ver.addMenu("Vistas de &canales")
+    rebuild_views_menu(window)
+
+    ver.addSeparator()
     # V2_F del histograma: el pliego pide poder elegir el eje.
     window.accion_eje_en_hora = ver.addAction("Histograma en hora real de la noche")
     window.accion_eje_en_hora.setCheckable(True)
@@ -501,16 +559,6 @@ def _analizar(window: "MainWindow") -> None:
     window.accion_conectividad_de_la_noche = _agregar(
         analizar, "Conectividad de la &noche…", window.show_connectivity_night_dialog
     )
-
-
-def _configuracion(window: "MainWindow") -> None:
-    """Las preferencias del usuario: un clic abre su ventana.
-
-    Es una entrada de la barra sin submenú. Tenía uno con «Configuración…» y
-    los esquemas de color, que repetían la solapa Colores de esa misma ventana,
-    donde además se ve el esquema antes de elegirlo.
-    """
-    _agregar(window.menuBar(), "&Configuración", window.show_settings_dialog)
 
 
 def _ayuda(window: "MainWindow") -> None:

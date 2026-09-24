@@ -78,6 +78,11 @@ MAX_MAGNIFIER_RADIUS_SECONDS: Final[float] = 10.0
 MIN_MAGNIFIER_ZOOM: Final[float] = 1.0
 MAX_MAGNIFIER_ZOOM: Final[float] = 20.0
 
+#: Cuántos registros recientes se recuerdan (hito 64). Ocho es lo que entra
+#: en un submenú sin barra de desplazamiento y más de lo que se usa en una
+#: semana de trabajo.
+MAX_RECENT_FILES: Final[int] = 8
+
 #: Lo que puede elevar un campo del archivo cuando trae un valor que no sirve:
 #: el rechazo del constructor, o lo que eleva Python al tratar como lista lo
 #: que es un número, o como texto lo que es un objeto. **Un campo roto vuelve
@@ -132,6 +137,16 @@ class Preferences:
             la del pliego; hay criterios que usan otros umbrales.
         magnifier_radius_seconds: el radio de la lupa, en segundos de señal.
         magnifier_zoom: cuánto amplía la lupa. 1 es sin aumento.
+        advance_after_scoring: si puntuar una ventana pasa a la siguiente
+            (hito 64). **Arranca en sí**, como en los programas de scoring
+            comerciales: una noche de 960 ventanas eran 1920 teclas, la fase y
+            la flecha. Con la flecha se sigue pudiendo revisar sin puntuar.
+        recent_files: los registros abiertos últimamente, el más nuevo
+            primero, hasta `MAX_RECENT_FILES`. Rutas como texto.
+        channel_views: las vistas de canales guardadas (hito 64), como
+            (nombre, ((canal, escala en µV), ...)), en el orden en que se
+            muestran los canales. **Por nombre de canal**, así que una vista
+            sirve para cualquier registro que traiga esos canales.
 
     **Todo valor se comprueba al construir.** Es el criterio de
     `core/recording.py`: rechazar al armar el objeto lo que después no se puede
@@ -158,6 +173,9 @@ class Preferences:
     amplitude_band_uv: float = AMPLITUDE_BAND_UV
     magnifier_radius_seconds: float = RADIO_INICIAL_SEGUNDOS
     magnifier_zoom: float = ZOOM_INICIAL
+    advance_after_scoring: bool = True
+    recent_files: tuple[str, ...] = ()
+    channel_views: tuple[tuple[str, tuple[tuple[str, float], ...]], ...] = ()
 
     def __post_init__(self) -> None:
         """Rechaza lo que el programa no podría usar. Ver el docstring de la clase."""
@@ -202,6 +220,15 @@ class Preferences:
         ):
             if not (_es_numero(valor) and math.isfinite(valor) and minimo <= valor <= maximo):
                 _rechazar(f"{que} (entre {minimo:g} y {maximo:g})", valor)
+        if not isinstance(self.advance_after_scoring, bool):
+            _rechazar("pasar a la siguiente ventana al puntuar", self.advance_after_scoring)
+        if not (
+            isinstance(self.recent_files, tuple)
+            and len(self.recent_files) <= MAX_RECENT_FILES
+            and all(isinstance(ruta, str) and ruta.strip() for ruta in self.recent_files)
+        ):
+            _rechazar("los registros recientes", self.recent_files)
+        _validar_vistas(self.channel_views)
 
     def with_changes(self, **changes: object) -> "Preferences":
         """Las mismas preferencias con algunos campos cambiados, ya comprobados.
@@ -290,6 +317,50 @@ class Preferences:
         except PsgLabError:
             return scheme_by_name(DEFAULT_SCHEME_NAME)
 
+    def with_recent_file(self, path: str) -> "Preferences":
+        """Las mismas preferencias con un registro al frente de los recientes.
+
+        Si ya estaba, sube al primer lugar en vez de repetirse; el que queda
+        último se cae cuando ya hay `MAX_RECENT_FILES`.
+        """
+        recientes = (path, *(ruta for ruta in self.recent_files if ruta != path))
+        return replace(self, recent_files=recientes[:MAX_RECENT_FILES])
+
+    def without_recent_file(self, path: str) -> "Preferences":
+        """Sin ese registro entre los recientes: por ejemplo, porque ya no está."""
+        return replace(
+            self, recent_files=tuple(ruta for ruta in self.recent_files if ruta != path)
+        )
+
+    def channel_view(self, name: str) -> tuple[tuple[str, float], ...] | None:
+        """Los canales y escalas de una vista guardada, o None si no existe."""
+        return dict(self.channel_views).get(name)
+
+    def with_channel_view(
+        self, name: str, channels: tuple[tuple[str, float], ...]
+    ) -> "Preferences":
+        """Las mismas preferencias con una vista guardada o reemplazada.
+
+        Una vista con el mismo nombre se reemplaza **en su lugar**: el orden
+        del menú es el de creación, y guardar otra vez no la manda al final.
+
+        Raises:
+            InvalidPreferencesError: si el nombre está vacío, la vista no tiene
+                canales o alguna escala no es un número positivo.
+        """
+        vistas = dict(self.channel_views)
+        vistas[name] = tuple(channels)
+        return replace(self, channel_views=tuple(vistas.items()))
+
+    def without_channel_view(self, name: str) -> "Preferences":
+        """Sin esa vista."""
+        return replace(
+            self,
+            channel_views=tuple(
+                (nombre, canales) for nombre, canales in self.channel_views if nombre != name
+            ),
+        )
+
     def with_scheme(self, scheme: ColorScheme) -> "Preferences":
         """Las mismas preferencias con el otro esquema elegido.
 
@@ -346,6 +417,35 @@ def _validar_bandas(bandas: object) -> None:
                 f"La banda «{nombre}» no se puede usar: {error}",
                 details=error.details,
             ) from error
+
+
+def _validar_vistas(vistas: object) -> None:
+    """Comprueba las vistas de canales: nombre, canales y escala de cada uno."""
+    if not isinstance(vistas, tuple):
+        _rechazar("las vistas de canales", vistas)
+    nombres: set[str] = set()
+    for fila in vistas:
+        if not isinstance(fila, tuple) or len(fila) != 2:
+            _rechazar("las vistas de canales", fila)
+        nombre, canales = fila
+        if not isinstance(nombre, str) or not nombre.strip():
+            _rechazar("el nombre de una vista de canales", nombre)
+        if nombre in nombres:
+            _rechazar("las vistas de canales (nombre repetido)", nombre)
+        nombres.add(nombre)
+        if not isinstance(canales, tuple) or not canales:
+            _rechazar(f"los canales de la vista «{nombre}»", canales)
+        for canal in canales:
+            if not (
+                isinstance(canal, tuple)
+                and len(canal) == 2
+                and isinstance(canal[0], str)
+                and canal[0].strip()
+                and _es_numero(canal[1])
+                and math.isfinite(canal[1])
+                and canal[1] > 0
+            ):
+                _rechazar(f"un canal de la vista «{nombre}»", canal)
 
 
 def _validar_colores_de_clase(colores: object) -> None:
@@ -520,6 +620,25 @@ def _normalizar_color(color: object) -> object:
     return pg.mkColor(color).name()
 
 
+def _leer_recientes(valor: object) -> tuple[str, ...]:
+    """Del JSON —una lista de rutas— a lo que guarda la clase."""
+    if not isinstance(valor, list):
+        raise TypeError("se esperaba una lista de rutas")
+    return tuple(valor)
+
+
+def _leer_vistas(valor: object) -> tuple[tuple[str, tuple[tuple[str, float], ...]], ...]:
+    """Del JSON —un objeto {nombre: [[canal, escala], ...]}— a lo que guarda
+    la clase. Objeto y no lista por lo mismo que los colores: no puede repetir
+    un nombre."""
+    if not isinstance(valor, dict):
+        raise TypeError("se esperaba un objeto")
+    return tuple(
+        (nombre, tuple((canal[0], canal[1]) for canal in canales))
+        for nombre, canales in valor.items()
+    )
+
+
 def _identidad(valor: object) -> object:
     return valor
 
@@ -540,6 +659,9 @@ _LECTORES: Final[dict[str, object]] = {
     "amplitude_band_uv": _identidad,
     "magnifier_radius_seconds": _identidad,
     "magnifier_zoom": _identidad,
+    "advance_after_scoring": _identidad,
+    "recent_files": _leer_recientes,
+    "channel_views": _leer_vistas,
 }
 
 
@@ -587,6 +709,12 @@ def save(preferences: Preferences, path: Path | None = None) -> None:
     datos["amplitude_band_uv"] = preferences.amplitude_band_uv
     datos["magnifier_radius_seconds"] = preferences.magnifier_radius_seconds
     datos["magnifier_zoom"] = preferences.magnifier_zoom
+    datos["advance_after_scoring"] = preferences.advance_after_scoring
+    datos["recent_files"] = list(preferences.recent_files)
+    datos["channel_views"] = {
+        nombre: [list(canal) for canal in canales]
+        for nombre, canales in preferences.channel_views
+    }
 
     temporal = destino.with_name(destino.name + ".tmp")
     try:

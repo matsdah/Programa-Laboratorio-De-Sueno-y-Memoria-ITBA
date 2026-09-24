@@ -142,7 +142,13 @@ from psglab.ui import fonts, preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.docks import build_docks
 from psglab.ui.icons import icon
-from psglab.ui.menus import build_menus, duration_text, menu_path
+from psglab.ui.menus import (
+    build_menus,
+    duration_text,
+    menu_path,
+    rebuild_recent_menu,
+    rebuild_views_menu,
+)
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.playback import PlaybackClock
@@ -1264,11 +1270,135 @@ class MainWindow(QMainWindow):
         if self._preferencias.open_clock_axis and registro.start_time is not None:
             self.accion_eje_en_hora.setChecked(True)
         self.refresh()
+        self._recordar_reciente(path)
         # **Lo que el lector pudo leer con reservas**, después de dibujar: el
         # registro ya está abierto y el cartel explica lo que se ve (hito 33).
         avisos = registro.metadata.get(IMPORT_WARNINGS_KEY)
         if avisos:
             self._mostrar_avisos_de_lectura([str(aviso) for aviso in avisos])
+
+    def _recordar_reciente(self, path: Path) -> None:
+        """Pone el registro recién abierto al frente de «Abrir reciente»."""
+        try:
+            ruta = str(Path(path).resolve())
+        except OSError:
+            ruta = str(path)
+        self._preferencias = self._preferencias.with_recent_file(ruta)
+        self._guardar_preferencias()
+        rebuild_recent_menu(self)
+
+    def open_recent_file(self, path: str) -> None:
+        """Abre uno de «Abrir reciente».
+
+        **Si ya no está, se lo saca de la lista** y se avisa: una entrada que
+        falla cada vez que se elige no sirve de nada.
+        """
+        if not Path(path).exists():
+            self._preferencias = self._preferencias.without_recent_file(path)
+            self._guardar_preferencias()
+            rebuild_recent_menu(self)
+            self._show_error(
+                PsgLabError(
+                    f"«{Path(path).name}» ya no está donde se abrió la última vez, "
+                    "así que se lo quitó de los recientes.",
+                    details=f"No existe {path}.",
+                )
+            )
+            return
+        self.open_recording(Path(path))
+
+    # -- Vistas de canales (hito 64) ------------------------------------------
+
+    def save_channel_view(self) -> None:
+        """Guarda con un nombre los canales que se ven, su orden y su escala.
+
+        Un nombre que ya existe se reemplaza: es «guardar», y volver a guardar
+        la misma vista después de ajustarla es el uso normal.
+        """
+        if self._session is None:
+            return
+        visibles = self._session.visible_channels
+        if not visibles:
+            self._show_error(
+                PsgLabError(
+                    "No hay canales a la vista para guardar.",
+                    details="La sesión no tiene canales visibles.",
+                )
+            )
+            return
+        nombre, acepto = QInputDialog.getText(
+            self, "Guardar la vista de canales", "Nombre de la vista:"
+        )
+        nombre = nombre.strip()
+        if not acepto or not nombre:
+            return
+        canales = tuple((canal, self._session.scale_uv(canal)) for canal in visibles)
+        try:
+            self._preferencias = self._preferencias.with_channel_view(nombre, canales)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self._guardar_preferencias()
+        rebuild_views_menu(self)
+        self.statusBar().showMessage(f"Se guardó la vista «{nombre}»", 5000)
+
+    def apply_channel_view(self, name: str) -> None:
+        """Muestra los canales de una vista, en su orden y con su escala.
+
+        **Los que este registro no tiene se saltean**, y se dice cuántos: una
+        vista armada con otro montaje sirve igual para lo que coincide. Si no
+        coincide ninguno, no se toca nada.
+        """
+        if self._session is None:
+            return
+        canales = self._preferencias.channel_view(name)
+        if canales is None:
+            return
+        presentes = set(self._session.recording.channel_names())
+        a_mostrar = [(canal, escala) for canal, escala in canales if canal in presentes]
+        if not a_mostrar:
+            self._show_error(
+                PsgLabError(
+                    f"Ninguno de los canales de la vista «{name}» está en este registro.",
+                    details=f"canales de la vista: {[canal for canal, _ in canales]}",
+                )
+            )
+            return
+        nombres = [canal for canal, _ in a_mostrar]
+        try:
+            self._session.set_visible_channels(nombres)
+            for canal, escala in a_mostrar:
+                self._session.set_scale_uv(canal, escala)
+        except PsgLabError as error:
+            self._show_error(error)
+            return
+        self.channel_selector.set_visible(nombres)
+        self.signal_view.set_visible_channels(nombres)
+        self._refrescar_contexto()
+        self.refresh()
+        faltan = len(canales) - len(a_mostrar)
+        if faltan == 0:
+            aviso = f"Vista «{name}»"
+        elif faltan == 1:
+            aviso = f"Vista «{name}»: un canal no está en este registro"
+        else:
+            aviso = f"Vista «{name}»: {faltan} canales no están en este registro"
+        self.statusBar().showMessage(aviso, 5000)
+
+    def delete_channel_view(self) -> None:
+        """Pregunta qué vista borrar y la borra."""
+        nombres = [nombre for nombre, _ in self._preferencias.channel_views]
+        if not nombres:
+            return
+        nombre, acepto = QInputDialog.getItem(
+            self, "Borrar una vista", "Vista a borrar:", nombres, 0, False
+        )
+        if not acepto or nombre not in nombres:
+            return
+        self._preferencias = self._preferencias.without_channel_view(nombre)
+        self._guardar_preferencias()
+        rebuild_views_menu(self)
+        self.statusBar().showMessage(f"Se borró la vista «{nombre}»", 5000)
 
     def _mostrar_avisos_de_lectura(self, avisos: list[str]) -> None:
         """Muestra lo que el investigador tiene que saber del archivo que abrió.
@@ -2008,6 +2138,10 @@ class MainWindow(QMainWindow):
         # las preferencias del disco entran a la ventana.
         self._preferencias = guardadas
         self._aplicar_preferencias(guardadas)
+        # Los recientes y las vistas salen de las preferencias: el menú se armó
+        # con las de fábrica, antes de leer el archivo.
+        rebuild_recent_menu(self)
+        rebuild_views_menu(self)
 
     def set_color_scheme(self, scheme: theme.ColorScheme, remember: bool = True) -> None:
         """Cambia el esquema de color de todo el programa y lo deja repintado.
@@ -2348,6 +2482,16 @@ class MainWindow(QMainWindow):
         contexto = self._tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
+        # **Pasa sola a la ventana siguiente** (hito 64), salvo en la última y
+        # mientras se reproduce: ahí la época la lleva el cursor, y saltar
+        # adelantaría la reproducción una ventana por cada tecla.
+        if (
+            self._preferencias.advance_after_scoring
+            and self._cabezal is None
+            and self._session.current_window < self._session.n_windows - 1
+        ):
+            self.go_to_next_window()
+            return
         self.refresh()
 
     # -- Las esperas largas --------------------------------------------------

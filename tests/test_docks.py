@@ -71,12 +71,13 @@ def test_los_nombres_de_objeto_no_se_repiten(ventana: MainWindow):
     assert len(set(nombres)) == len(nombres)
 
 
-def test_solo_el_de_canales_arranca_visible(ventana: MainWindow):
-    """Hito 24: la señal ocupa todo lo demás. Scoring, hipnograma y Übersicht
-    se abren desde «Paneles»; las fases y el arousal tienen su tecla."""
+def test_arrancan_visibles_los_canales_y_el_hipnograma(ventana: MainWindow):
+    """Hito 24: la señal ocupa todo lo demás, y el scoring y el contexto se
+    abren desde «Herramientas». **El hipnograma volvió en el hito 64**: en
+    los programas de scoring es lo único que está siempre a la vista."""
     visibles = [clave for clave, dock in ventana.docks.items() if not dock.isHidden()]
 
-    assert visibles == ["channels"]
+    assert visibles == ["channels", "histogram"]
 
 
 @pytest.mark.parametrize("clave", ["overview", "scoring", "histogram"])
@@ -153,7 +154,7 @@ def test_restaurar_vuelve_a_la_vista_limpia(ventana: MainWindow):
 
     ventana.restore_default_layout()
 
-    assert [c for c, d in ventana.docks.items() if not d.isHidden()] == ["channels"]
+    assert [c for c, d in ventana.docks.items() if not d.isHidden()] == ["channels", "histogram"]
 
 
 def test_la_disposicion_va_y_vuelve(ventana: MainWindow):
@@ -204,7 +205,7 @@ def test_la_disposicion_no_se_recuerda(qt_app, tmp_path, monkeypatch):
     nueva = create_main_window(saved_preferences=True)
     nueva.close()
 
-    assert [c for c, d in nueva.docks.items() if not d.isHidden()] == ["channels"]
+    assert [c for c, d in nueva.docks.items() if not d.isHidden()] == ["channels", "histogram"]
     assert archivo.read_text(encoding="utf-8") == guardadas
 
 
@@ -224,8 +225,11 @@ def mostrar_los_de_abajo(ventana: MainWindow, ancho: int = 1400) -> list[QDockWi
     ventana.show()
     QApplication.processEvents()
     abajo = [ventana.docks[clave] for clave in docks.ANCHOS_DE_ABAJO]
+    # **Sólo los ocultos**: el hipnograma arranca visible desde el hito 64, y
+    # tildarlo otra vez lo ocultaría.
     for dock in abajo:
-        dock.toggleViewAction().trigger()
+        if dock.isHidden():
+            dock.toggleViewAction().trigger()
     for _ in range(3):
         QApplication.processEvents()
     return abajo

@@ -488,3 +488,12 @@ def test_los_ajustes_de_herramienta_se_muestran_sin_avisar(dialogo: SettingsDial
     assert dialogo.amplitude_band.value() == 120.0
     assert dialogo.magnifier_zoom.value() == 6.0
     assert cambios == []
+
+
+def test_apagar_el_paso_a_la_siguiente(dialogo: SettingsDialog, cambios):
+    """Hito 64: arranca encendido, y se puede apagar."""
+    assert dialogo.advance_after_scoring.isChecked()
+
+    dialogo.advance_after_scoring.setChecked(False)
+
+    assert ultima(cambios).advance_after_scoring is False

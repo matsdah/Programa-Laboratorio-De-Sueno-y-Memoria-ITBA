@@ -522,6 +522,17 @@ class SettingsDialog(QDialog):
         )
         formulario.addRow("", self.open_clock_axis)
 
+        # Hito 64: como en los programas de scoring, se puede apagar.
+        self.advance_after_scoring = QCheckBox(
+            "Al puntuar una ventana, pasar a la siguiente"
+        )
+        self.advance_after_scoring.toggled.connect(
+            lambda activo: self._cambiar(
+                self._prefs.with_changes(advance_after_scoring=bool(activo))
+            )
+        )
+        formulario.addRow("", self.advance_after_scoring)
+
         # V3_F de la Übersicht: cuántas ventanas vecinas, de cada lado por
         # separado, porque el pliego la pide asimétrica.
         contexto = QGroupBox("Panel de contexto (Übersicht)")
@@ -600,6 +611,7 @@ class SettingsDialog(QDialog):
             self.open_nomenclature.findData(self._prefs.open_nomenclature)
         )
         self.open_clock_axis.setChecked(self._prefs.open_clock_axis)
+        self.advance_after_scoring.setChecked(self._prefs.advance_after_scoring)
         self.overview_before.setValue(self._prefs.overview_before)
         self.overview_after.setValue(self._prefs.overview_after)
         self.amplitude_band.setValue(self._prefs.amplitude_band_uv)

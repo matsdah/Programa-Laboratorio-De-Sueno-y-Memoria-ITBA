@@ -131,7 +131,7 @@ class OverviewPanel(QWidget):
         # dibuja el anillo de foco. Las flechas ya mueven la ventana actual en
         # toda la ventana, así que no hace falta manejarlas acá.
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setAccessibleName("Übersicht")
+        self.setAccessibleName("Contexto")
 
     # -- Lo que le da la ventana principal ----------------------------------
 

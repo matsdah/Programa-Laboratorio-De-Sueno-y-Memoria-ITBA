@@ -197,6 +197,8 @@ class SignalView(pg.PlotWidget):
         self._overlay_items: list[object] = []
         #: La pestaña con el número de época y su fase. Ver `_marcar_la_pestana()`.
         self._pestana: pg.TextItem | None = None
+        #: El relleno que tiene hoy la pestaña, para no repintarla si no cambió.
+        self._relleno_de_la_pestana: str | None = None
         #: La banda que marca la epoca de scoring sobre la pagina visible.
         self._epoca: object | None = None
         #: La línea que marca por dónde va la reproducción. Se crea la primera
@@ -528,34 +530,61 @@ class SignalView(pg.PlotWidget):
 
         La época va en base 1, como en la barra de estado y en los archivos de
         salida; la conversión se hace acá, al mostrar.
+
+        **Dice «Ventana» y no «Época»** (hito 64): era el único lugar del
+        programa que la llamaba distinto que la barra de estado, la franja, el
+        scoring y el pliego. Y **toma el color de la fase** cuando la ventana
+        está puntuada, el mismo de la franja y el hipnograma: confirma lo que
+        se acaba de puntuar sin leer la letra.
         """
         if self._session is None:
             return
         fase = self._session.scoring.get(self._window_index).stage
-        texto = f"Época {self._window_index + 1}"
+        texto = f"Ventana {self._window_index + 1}"
         if fase is not SleepStage.UNSCORED:
             texto = f"{texto} · {stage_label(fase)}"
         if self._pestana is None:
-            esquema = theme.current()
             # **Rellena y no texto suelto**: es una pestaña colgada del borde de
-            # la banda, como en el diseño. La tinta la elige `theme.ink_over()`
-            # midiendo contra el relleno, que es la misma función que decide la
-            # del botón de la fase marcada y la del icono de reproducir.
-            self._pestana = pg.TextItem(
-                texto,
-                anchor=(0, 0),
-                color=theme.ink_over(esquema, esquema.accent),
-                fill=pg.mkBrush(esquema.accent),
-            )
-            # **Encima de la grilla y debajo de las curvas.** A −19 estaba
-            # debajo de la grilla, que es un solo objeto en −10 y le dibujaba
-            # sus líneas por encima al texto: en la captura la pestaña salía
-            # partida en dos.
-            self._pestana.setZValue(-5)
+            # la banda, como en el diseño.
+            self._pestana = pg.TextItem(texto, anchor=(0, 0))
+            # **Encima de la grilla y de las bandas de anotación** (hito 64). A
+            # −19 estaba debajo de la grilla, que le dibujaba sus líneas por
+            # encima; a −5, debajo de las bandas, que son semitransparentes y
+            # la teñían: con el color de la fase, un «W» debajo de un spindle
+            # verde se leía como otra fase. Queda debajo de los rótulos de las
+            # bandas. Tapa la señal sólo si una curva sube hasta el medio
+            # carril de margen de arriba, que es donde vive la pestaña.
+            self._pestana.setZValue(_Z_DE_LA_BANDA + 0.5)
             self.getPlotItem().addItem(self._pestana)
         elif self._pestana.toPlainText() != texto:
             self._pestana.setText(texto)
+        self._pintar_la_pestana(fase)
         self._pestana.setPos(inicio, self._techo_de_la_pestana())
+
+    def _pintar_la_pestana(self, fase: SleepStage) -> None:
+        """El relleno de la pestaña: el color de la fase, o el acento sin puntuar.
+
+        La tinta la elige `theme.ink_over()` midiendo contra el relleno, que es
+        la misma función que decide la del botón de la fase marcada. Un esquema
+        sin escala de fases la deja en el acento.
+        """
+        if self._pestana is None:
+            return
+        esquema = theme.current()
+        relleno = (
+            esquema.color_for_stage(fase.value) if fase is not SleepStage.UNSCORED else None
+        ) or esquema.accent
+        if relleno == self._relleno_de_la_pestana:
+            return
+        self._relleno_de_la_pestana = relleno
+        self._pestana.setColor(theme.ink_over(esquema, relleno))
+        self._pestana.fill = pg.mkBrush(relleno)
+        self._pestana.updateTextPos()
+
+    def epoch_tab_fill(self) -> str | None:
+        """El color de relleno de la pestaña de la ventana actual, o None si
+        todavía no hay pestaña. Para verificar en un test qué se pinta."""
+        return self._relleno_de_la_pestana if self._pestana is not None else None
 
     def _techo_de_la_pestana(self) -> float:
         """La altura a la que se apoya la pestaña: el borde de arriba del eje.
@@ -674,10 +703,9 @@ class SignalView(pg.PlotWidget):
         # hay que cambiarlo acá: es lo único que la ataba al esquema.
         if self._epoca is not None:
             self._epoca.setBrush(self._pincel_de_la_epoca())
-        if self._pestana is not None:
-            self._pestana.setColor(theme.ink_over(esquema, esquema.accent))
-            self._pestana.fill = pg.mkBrush(esquema.accent)
-            self._pestana.updateTextPos()
+        if self._pestana is not None and self._session is not None:
+            self._relleno_de_la_pestana = None
+            self._pintar_la_pestana(self._session.scoring.get(self._window_index).stage)
         if self._cursor is not None:
             self._cursor.setPen(self._pluma_del_cursor())
 
