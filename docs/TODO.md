@@ -76,8 +76,9 @@ hitos cerrados, y el **[hito 51](#hito-51-la-übersicht-muestra-la-señal)** ter
 y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)** midió cuánta memoria cuesta cada cosa, y el
 **[hito 58](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche)** bajó lo más caro: ajustar la ICA. El
 **[hito 59](#hito-59-filtrar-y-quitar-componentes-sin-copiar-la-señal-entera)** bajó lo que seguía: filtrar y quitar componentes. El
-**[hito 60](#hito-60-re-referenciar-ya-estaba-en-el-mínimo)** midió re-referenciar, que ya estaba en el mínimo.
-Son **sesenta y un hitos**, del 0 al 60, que son las filas de la tabla de
+**[hito 60](#hito-60-re-referenciar-ya-estaba-en-el-mínimo)** midió re-referenciar, que ya estaba en el mínimo, y el
+**[hito 61](#hito-61-la-varianza-de-la-ica-sin-reconstruir-la-señal)** bajó lo que esa medición encontró: la varianza de la ICA.
+Son **sesenta y dos hitos**, del 0 al 61, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -216,6 +217,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [58. La ICA se ajusta sobre una muestra de la noche](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche) | — | 0 | ✅ cerrado |
 | [59. Filtrar y quitar componentes sin copiar la señal entera](#hito-59-filtrar-y-quitar-componentes-sin-copiar-la-señal-entera) | — | 0 | ✅ cerrado |
 | [60. Re-referenciar ya estaba en el mínimo](#hito-60-re-referenciar-ya-estaba-en-el-mínimo) | — | 0 | ✅ cerrado |
+| [61. La varianza de la ICA sin reconstruir la señal](#hito-61-la-varianza-de-la-ica-sin-reconstruir-la-señal) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1317,7 +1319,7 @@ mostrarse.
   - **Se ajusta sobre los EEG y sólo sobre ellos**: meter un termómetro en la
     descomposición no tiene sentido físico y ensuciaría todos los componentes.
     `apply_ica()` devuelve el registro entero con el resto intacto.
-  - Test: `tests/test_ica.py`, **54 tests en verde**.
+  - Test: `tests/test_ica.py`, **61 tests en verde**.
 - [x] **`psglab/ui/ica_panel.py`** · el panel de inspección
   - Diseñado alrededor de la advertencia del módulo: quitar el componente
     equivocado modifica la señal de forma irreversible. De ahí salen sus tres
@@ -4923,7 +4925,7 @@ notan al usar el programa y ninguno pide una decisión de fondo.
       - El botón pasó de «Aplicar y quitar los marcados» a decir cuántos.
       - La curva usa el eje del visualizador: decía «Segundos de la ventana» y
         contaba desde cero en cualquier época.
-  - Test: `tests/test_ica.py`, **54 tests en verde**;
+  - Test: `tests/test_ica.py`, **61 tests en verde**;
     `tests/test_ica_panel.py`, **30 tests en verde**;
     `tests/test_contratos.py`, **1043 tests en verde**.
 - [x] **Los atajos, en una tabla agrupada**: navegación, scoring,
@@ -5176,7 +5178,7 @@ copias de la señal, y seis eran de MNE.
       - **El paso se redondea hacia abajo**: hacia arriba, un registro apenas
         más largo que el tope se ajustaba con la mitad. Lo encontró un test
         antes de que llegara a ningún lado.
-  - Test: `tests/test_ica.py`, **54 tests en verde**. Los de antes siguen
+  - Test: `tests/test_ica.py`, **61 tests en verde**. Los de antes siguen
     pasando sin tocarlos: su registro dura 60 s y se ajusta entero. Los nuevos
     bajan el tope para que el paso sea de verdad mayor que uno, y afirman
     **que la muestra sigue separando el parpadeo** con los pesos que se
@@ -5247,7 +5249,7 @@ que lo compara contra la forma anterior.
       - El tramo son 65 536 muestras (`_MUESTRAS_POR_TRAMO`), unos cuatro
         minutos a 256 Hz. Cuatro veces más grande ahorraba un cuarto de
         segundo por hora de registro y costaba cinco sextos de copia más.
-  - Test: `tests/test_ica.py`, **54 tests en verde**.
+  - Test: `tests/test_ica.py`, **61 tests en verde**.
 - [x] **Un solo lugar arma el pedazo que se le pasa a MNE**,
       `_registro_parcial()` en `mne_bridge.py`: una tanda para filtrar, un
       tramo para quitar componentes, la muestra del hito 58 para ajustar.
@@ -5331,7 +5333,8 @@ señal:
 | Quitar un componente | 2,3 | 1,3 |
 | Abrir otro, con la señal procesada | 4,1 | 2,1 |
 
-- [ ] **Lo que más suma es medir la varianza de la ICA, 2,4 copias, y es el
+- [x] *(Hecho en el [hito 61](#hito-61-la-varianza-de-la-ica-sin-reconstruir-la-señal): suma 0,7 y tarda 0,15 s.)*
+      **Lo que más suma es medir la varianza de la ICA, 2,4 copias, y es el
       paso más lento del menú: 24 s.** Usa cuarenta épocas fijas, que en una
       hora son un tercio del registro; en una noche de 8 horas son 1/24, y
       el hito 58 lo midió en 1,3 copias de pico. MNE reconstruye la muestra
@@ -5342,6 +5345,59 @@ señal:
 - **Abrir otro con la señal procesada suma lo mismo que abrir**: su pico de
   4,1 son las dos copias que ya había, que es la decisión anotada en el
   hito 59.
+
+## Hito 61: La varianza de la ICA sin reconstruir la señal
+
+**Cerrado el 24 de septiembre de 2026.** Lo encontró el
+[hito 60](#hito-60-re-referenciar-ya-estaba-en-el-mínimo) al medir cuánto suma
+cada paso: medir la varianza que explica cada componente era lo que más
+memoria sumaba del menú Análisis y el paso más lento, 24 s sobre una hora de
+32 canales. **La definición no cambia**: es la de MNE, y un test la compara
+contra la cuenta de MNE en cada corrida.
+
+**No tiene stubs que contar.**
+
+### Lo que se hizo
+
+- [x] **Las fuentes se calculan una sola vez.** MNE, para cada componente,
+      reconstruye la muestra sólo con él y mide la varianza de lo que queda:
+      32 reconstrucciones con 32 componentes. Esa varianza se abre en sumas
+      sobre la señal blanqueada y sus fuentes —la cuenta está escrita en
+      `_varianza_de_una_vez()`—, y todas salen de una pasada.
+      - **Hito 54**: sacarla de las normas de la matriz de mezcla no
+        coincidía con MNE —51 % contra 62 %—, porque esas normas no están en
+        las unidades del sensor. Esta cuenta sí usa el blanqueo y la media del
+        ajuste, y coincide hasta 1e-15.
+- [x] **La muestra se arma en un solo arreglo, en volts, y sin pasar por un
+      `Raw`**: juntar las épocas en una lista y concatenarlas la tenía dos
+      veces, y MNE la copiaba otra vez. La escala a volts es la del puente,
+      `_factor_hacia_mne()`, que es el único que sabe cuál es. **Sólo entran
+      los canales de la descomposición**, que son los que MNE mide.
+- [x] **Una ICA que no tiene la forma habitual se mide con MNE**, que es la
+      definición: con matriz de ruido el blanqueo es una matriz y no una
+      escala por canal. `fit_ica()` nunca la arma así, pero la función acepta
+      cualquier ICA de MNE.
+  - Test: `tests/test_ica.py`, **61 tests en verde**. Compara contra la
+    cuenta de MNE con todos los componentes, con menos componentes que
+    canales y con continua en la señal; con una ICA ajustada con matriz de
+    ruido; que no llama a la reconstrucción de MNE; y el pico de memoria.
+
+Cada test nuevo se probó contra el programa sin su cambio —siempre por MNE,
+sin restar la media del ajuste, sin la segunda parte de la varianza, sin
+pasar a volts y con la guarda aceptando cualquier forma— y falla. La última
+pasó la primera vez: ningún test armaba una ICA con matriz de ruido.
+
+### Lo que cuesta ahora
+
+32 canales a 256 Hz y una hora:
+
+| | Antes | Ahora |
+|---|---|---|
+| Suma, en copias de la señal | 2,4 | **0,7** |
+| Tiempo, sin `tracemalloc` | 8,4 s | **0,15 s** |
+
+Sobre la muestra sola, la cuenta nueva usa 2,2 veces su tamaño —la muestra y
+sus fuentes— y la de MNE usaba 6,1.
 
 ---
 
