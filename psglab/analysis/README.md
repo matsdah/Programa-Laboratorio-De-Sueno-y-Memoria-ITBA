@@ -17,15 +17,15 @@ desde un script del laboratorio sin abrir el programa.
 
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
-| `filters.py` | Filtrado de la señal cruda. `FilterSettings`, `apply_filters()`, `default_for(kind, sampling_rate)`, `settings_for_kinds()`. | V1_F de "Filtración" |
-| `ica.py` | Componentes independientes: ajustar, ver topografía, curso temporal y cuánta varianza explica cada uno (hito 54), y aplicar excluyendo componentes. Se ajusta sobre una muestra repartida a lo largo de la noche, no sobre la noche entera (hito 58). | V5_F de "Filtración" |
+| `filters.py` | Filtrado de la señal cruda. `FilterSettings`, `apply_filters()`, `default_for(kind, sampling_rate)`, `settings_for_kinds()`. Filtra de a tandas de cuatro canales, no la señal entera de una vez (hito 59). | V1_F de "Filtración" |
+| `ica.py` | Componentes independientes: ajustar, ver topografía, curso temporal y cuánta varianza explica cada uno (hito 54), y aplicar excluyendo componentes. Se ajusta sobre una muestra repartida a lo largo de la noche, no sobre la noche entera (hito 58), y los componentes se quitan por tramos de tiempo (hito 59). | V5_F de "Filtración" |
 | `reference.py` | Re-referenciación, incluida la referencia promedio. | "Rereferenciar" |
 | `derivation.py` | Canales nuevos calculados a partir de los existentes (`derive`, `derive_montage`). | "Derivar" |
 | `impedance.py` | Control de impedancia de los electrodos y canales por encima del límite. | V1_F de "Impedancia" |
 | `psd.py` | Densidad espectral de potencia y potencia por banda, absoluta o relativa. `describe_method()` dice con qué se estimó —segmento, ventana y solape de Welch— armado con las mismas constantes que usa el cálculo. | V1_F de "PSD" |
 | `complexity.py` | Entropía de muestra y de permutación, Lempel-Ziv, dimensión fractal de Higuchi. `warm_up()` adelanta la compilación de `antropy`, que la interfaz lanza en otro hilo al arrancar. | "Complejidad" |
 | `connectivity.py` | Conectividad entre canales, por ventana o promediada. Rechaza la banda que no contiene ninguna frecuencia medible —por encima de Nyquist, o más angosta que la resolución— en vez de dejar escapar el `ValueError` de mne-connectivity. | "Conectividad de la señal" |
-| `mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw` en las dos direcciones, y la escala volts ↔ µV. | — (infraestructura) |
+| `mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw` en las dos direcciones, y la escala volts ↔ µV. `_registro_parcial()` arma el pedazo que se le pasa a MNE cuando no va la señal entera (hitos 58 y 59). | — (infraestructura) |
 
 Varias funciones vienen en dos sabores: una sobre una ventana concreta
 (`compute_psd`, `compute_connectivity`) y otra sobre el registro entero

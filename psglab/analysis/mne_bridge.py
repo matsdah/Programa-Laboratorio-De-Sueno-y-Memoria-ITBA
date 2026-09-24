@@ -28,6 +28,7 @@ lo usan el filtrado, la ICA y el re-referenciado, que sí tienen los suyos.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -80,6 +81,38 @@ def _factor_hacia_mne(canal: Channel) -> float:
     devolverlo escalado sería inventarle una magnitud.
     """
     return 1.0 / _MICROVOLTIOS_POR_VOLT if is_electrical(canal.unit) else 1.0
+
+
+def _registro_parcial(
+    recording: Recording,
+    nombres: list[str],
+    datos: np.ndarray,
+    sampling_rate: float | None = None,
+) -> Recording:
+    """Un registro con algunos canales de otro y los datos que se le pasan.
+
+    **Es cómo se le pasa a MNE un pedazo y no la señal entera** (hitos 58 y
+    59): un canal para filtrarlo, un tramo para quitarle componentes, una
+    muestra para ajustar la ICA. Pasa por `to_raw()` y `from_raw()` como
+    cualquier otro registro, así que la regla de la unidad sigue escrita una
+    sola vez.
+
+    Args:
+        nombres: los canales, en el orden de las filas de `datos`.
+        datos: una fila por canal. Puede ser una vista: `to_raw()` copia.
+        sampling_rate: la frecuencia de `datos`, si no es la del registro.
+    """
+    return Recording(
+        file_path=recording.file_path,
+        channels=[
+            replace(recording.channel_by_name(nombre), index=posicion)
+            for posicion, nombre in enumerate(nombres)
+        ],
+        data=datos,
+        sampling_rate=recording.sampling_rate if sampling_rate is None else sampling_rate,
+        start_time=recording.start_time,
+        metadata=dict(recording.metadata),
+    )
 
 
 def to_raw(recording: Recording) -> Any:

@@ -37,6 +37,7 @@ import gc
 import os
 import sys
 import tempfile
+import time
 import tracemalloc
 from collections.abc import Callable
 from pathlib import Path
@@ -83,17 +84,26 @@ class Medidor:
         Las dos cifras se cuentan **desde antes de abrir nada**, así que «queda»
         es todo lo que el programa sostiene en ese momento y no la diferencia
         con el paso anterior.
+
+        Imprime también cuánto tardó (hito 59): bajar la memoria partiendo el
+        trabajo en pedazos puede costar tiempo, y hay que verlo al lado.
+        **Con `tracemalloc` encendido**, que enlentece cada reserva: el número
+        sirve para comparar dos corridas de este banco, no como el tiempo que
+        ve el usuario.
         """
         gc.collect()
         tracemalloc.reset_peak()
+        arranque = time.perf_counter()
         operacion()
         QApplication.processEvents()
+        segundos = time.perf_counter() - arranque
         pico = tracemalloc.get_traced_memory()[1] - self.base
         gc.collect()
         queda = tracemalloc.get_traced_memory()[0] - self.base
         print(
             f"  {que:<46} pico {pico / self.copia:4.1f} copias ({pico / 1e6:6.0f} MB)"
             f"   queda {queda / self.copia:4.1f} ({queda / 1e6:6.0f} MB)"
+            f"   {segundos:6.1f} s"
         )
 
     def retenedores(self) -> None:
