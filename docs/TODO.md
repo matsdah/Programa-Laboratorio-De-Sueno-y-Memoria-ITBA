@@ -75,8 +75,9 @@ hitos cerrados, y el **[hito 51](#hito-51-la-übersicht-muestra-la-señal)** ter
 **[hito 56](#hito-56-la-rueda-y-el-panel-táctil-sobre-la-señal)** hace que la rueda del mouse cambie la escala de tiempo
 y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)** midió cuánta memoria cuesta cada cosa, y el
 **[hito 58](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche)** bajó lo más caro: ajustar la ICA. El
-**[hito 59](#hito-59-filtrar-y-quitar-componentes-sin-copiar-la-señal-entera)** bajó lo que seguía: filtrar y quitar componentes.
-Son **sesenta hitos**, del 0 al 59, que son las filas de la tabla de
+**[hito 59](#hito-59-filtrar-y-quitar-componentes-sin-copiar-la-señal-entera)** bajó lo que seguía: filtrar y quitar componentes. El
+**[hito 60](#hito-60-re-referenciar-ya-estaba-en-el-mínimo)** midió re-referenciar, que ya estaba en el mínimo.
+Son **sesenta y un hitos**, del 0 al 60, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -214,6 +215,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [57. Cuánta memoria cuesta cada cosa](#hito-57-cuánta-memoria-cuesta-cada-cosa) | — | 0 | ✅ cerrado |
 | [58. La ICA se ajusta sobre una muestra de la noche](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche) | — | 0 | ✅ cerrado |
 | [59. Filtrar y quitar componentes sin copiar la señal entera](#hito-59-filtrar-y-quitar-componentes-sin-copiar-la-señal-entera) | — | 0 | ✅ cerrado |
+| [60. Re-referenciar ya estaba en el mínimo](#hito-60-re-referenciar-ya-estaba-en-el-mínimo) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -5281,8 +5283,65 @@ Llevado a una noche de 8 horas con 32 canales, filtrar pedía 5,9 GB y pide
       la procesada y la salida. Es la decisión que quedó abierta en el
       [hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa): volver a la original
       releyendo el archivo.
-- [ ] **Re-referenciar: 3,0.** No pasa por MNE; `reference.py` arma la
+- [x] **Re-referenciar: 3,0.** No pasa por MNE; `reference.py` arma la
       referencia y la resta. No se miró en este hito.
+      - **Medido en el [hito 60](#hito-60-re-referenciar-ya-estaba-en-el-mínimo): suma una copia**, la señal nueva que devuelve.
+        Las otras dos eran las que ya había.
+
+## Hito 60: Re-referenciar ya estaba en el mínimo
+
+**Cerrado el 23 de septiembre de 2026.** Se abrió para bajar el pico de
+re-referenciar, 3,0 copias según el
+[hito 59](#hito-59-filtrar-y-quitar-componentes-sin-copiar-la-señal-entera),
+**y la medición dijo que no había nada que bajar**. El 3,0 era el pico
+contado desde antes de abrir el registro, y el banco lo midió justo después de
+filtrar dos veces: dos de esas copias eran el original y la señal filtrada.
+Re-referenciar suma **1,03 copias**, que es el registro nuevo que devuelve.
+
+**No cambia código del programa, y no tiene stubs que contar.**
+
+### Lo que se hizo
+
+- [x] **Se midió re-referenciar solo**, sobre 32 canales y una hora: 1,03
+      copias con la referencia promedio y 1,03 con dos canales. Una función
+      que devuelve un registro nuevo no puede sumar menos de una.
+      - La copia de los canales de la referencia que hace `np.mean()` no
+        importa: vive antes de reservar la salida y no al mismo tiempo.
+- [x] **El banco de memoria dice cuánto suma cada paso**: el pico menos lo
+      que ya había antes de empezarlo. Con el pico solo se leyó mal una vez,
+      que es este hito; con las dos columnas no se puede.
+- [x] **La tabla de numerales de `test_consistencia.py` llega a setenta y
+      nueve.** Terminaba en «sesenta», y con este hito la cuenta pasó a
+      sesenta y uno: es la tercera vez que se corta, y ahora se extendió de un
+      saque.
+
+### Lo que suma cada paso
+
+`tests/medir_memoria.py`, 32 canales a 256 Hz y una hora, en copias de la
+señal:
+
+| Paso | Pico | Suma |
+|---|---|---|
+| Abrir el registro | 2,1 | 2,1 |
+| Filtrar | 2,5 | 1,4 |
+| Filtrar otra vez, encima | 3,5 | 1,4 |
+| Re-referenciar al promedio | 3,0 | **1,0** |
+| Ajustar la ICA | 2,5 | 1,5 |
+| **Medir la varianza de cada componente** | 3,4 | **2,4** |
+| Quitar un componente | 2,3 | 1,3 |
+| Abrir otro, con la señal procesada | 4,1 | 2,1 |
+
+- [ ] **Lo que más suma es medir la varianza de la ICA, 2,4 copias, y es el
+      paso más lento del menú: 24 s.** Usa cuarenta épocas fijas, que en una
+      hora son un tercio del registro; en una noche de 8 horas son 1/24, y
+      el hito 58 lo midió en 1,3 copias de pico. MNE reconstruye la muestra
+      una vez por componente. No se miró en este hito.
+- **Abrir suma 2,1** porque MNE lee la señal y `get_data()` la copia; el
+  [hito 18](#hito-18-escala) ya anotó que la versión de MNE que fija
+  `requirements.txt` no ofrece leer sin copiar.
+- **Abrir otro con la señal procesada suma lo mismo que abrir**: su pico de
+  4,1 son las dos copias que ya había, que es la decisión anotada en el
+  hito 59.
 
 ---
 

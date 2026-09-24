@@ -85,6 +85,12 @@ class Medidor:
         es todo lo que el programa sostiene en ese momento y no la diferencia
         con el paso anterior.
 
+        **Y cuánto suma el paso**, que es el pico menos lo que ya había antes
+        de empezar (hito 60). El pico solo engañaba: re-referenciar marcaba
+        3,0 copias y sumaba una, la señal nueva que devuelve; las otras dos
+        eran el original y la filtrada del paso anterior, y se propuso un hito
+        para bajar algo que ya estaba en el mínimo.
+
         Imprime también cuánto tardó (hito 59): bajar la memoria partiendo el
         trabajo en pedazos puede costar tiempo, y hay que verlo al lado.
         **Con `tracemalloc` encendido**, que enlentece cada reserva: el número
@@ -92,6 +98,7 @@ class Medidor:
         ve el usuario.
         """
         gc.collect()
+        antes = tracemalloc.get_traced_memory()[0] - self.base
         tracemalloc.reset_peak()
         arranque = time.perf_counter()
         operacion()
@@ -102,6 +109,7 @@ class Medidor:
         queda = tracemalloc.get_traced_memory()[0] - self.base
         print(
             f"  {que:<46} pico {pico / self.copia:4.1f} copias ({pico / 1e6:6.0f} MB)"
+            f"   suma {(pico - antes) / self.copia:4.1f}"
             f"   queda {queda / self.copia:4.1f} ({queda / 1e6:6.0f} MB)"
             f"   {segundos:6.1f} s"
         )
