@@ -567,6 +567,13 @@ def stylesheet(scheme: ColorScheme) -> str:
         }}
         PlotWidget {{ border: {ANILLO_DE_FOCO}px solid transparent; }}
         PlotWidget:focus {{ border: {ANILLO_DE_FOCO}px solid {scheme.accent}; }}
+        QCheckBox {{
+            border: {ANILLO_DE_FOCO}px solid transparent;
+            border-radius: {RADIO_DE_CONTROL}px;
+            padding: 1px 3px;
+        }}
+        QCheckBox:focus {{ border-color: {scheme.accent}; }}
+        QTabBar::tab:focus {{ border: {ANILLO_DE_FOCO}px solid {scheme.accent}; border-bottom: 0; }}
         QPushButton:checked, QPushButton:pressed {{ background-color: {realce}; }}
         QPushButton:disabled {{ color: {borde}; }}
         {principal}
@@ -588,6 +595,10 @@ def stylesheet(scheme: ColorScheme) -> str:
             background-color: {ventana};
             color: {texto};
             border: 1px solid {borde};
+        }}
+        QTreeWidget:focus, QTableWidget:focus, QListWidget:focus,
+        QTextEdit:focus, QPlainTextEdit:focus {{
+            border: {ANILLO_DE_FOCO}px solid {scheme.accent};
         }}
         QTreeWidget::item:selected, QTableWidget::item:selected,
         QListWidget::item:selected {{

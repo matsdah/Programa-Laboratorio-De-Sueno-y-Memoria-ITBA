@@ -54,6 +54,9 @@ ANCHO_MINIMO_DE_BOTON: Final[int] = 40
 #: que se le da un alto propio por eso.
 ALTO_DEL_BOTON: Final[int] = 46
 
+#: El alto mínimo de lo que se aprieta con el mouse, en píxeles (WCAG 2.5.8).
+ALTO_MINIMO_DE_UN_OBJETIVO = 24
+
 #: Hasta dónde se achica el selector de nomenclatura. Alcanza para «AASM».
 ANCHO_MINIMO_DEL_SELECTOR: Final[int] = 72
 
@@ -142,9 +145,16 @@ class ScoringPanel(QWidget):
                 posicion, nomenclatura.value, Qt.ItemDataRole.ToolTipRole
             )
         self._nomenclaturas.currentIndexChanged.connect(self._on_nomenclature)
+        # **Un nombre y no sólo un tooltip** (hito 63): un lector de pantalla
+        # lee el tooltip como descripción, y el selector se anunciaba como
+        # «combo, AASM» sin decir de qué.
+        self._nomenclaturas.setAccessibleName("Nomenclatura")
 
         self._arousal = QCheckBox("Arousal")
         self._arousal.toggled.connect(self._on_arousal)
+        # 24 px de alto como mínimo (WCAG 2.5.8): medía 15, y es lo único del
+        # panel que se aprieta con el mouse sin ser un botón.
+        self._arousal.setMinimumHeight(ALTO_MINIMO_DE_UN_OBJETIVO)
 
         # **El pie parte las palabras** en vez de exigir su ancho entero: con
         # AASM la fila de las fases es la más angosta, y «Ventana 2650 · sin

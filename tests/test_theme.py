@@ -596,3 +596,64 @@ def test_un_grafico_con_foco_lleva_el_anillo():
 
     assert theme.SERENO.accent in _regla(hoja, "PlotWidget:focus")
     assert "transparent" in _regla(hoja, "PlotWidget")
+
+
+# -- El anillo de foco en lo que la hoja tapaba (hito 63) ---------------------
+
+
+def _pixeles_de_acento(widget, acento) -> int:
+    """Cuántos píxeles del color de acento tiene lo que se dibuja."""
+    from PySide6.QtGui import QColor
+
+    objetivo = QColor(acento)
+    imagen = widget.grab().toImage()
+    return sum(
+        1
+        for x in range(imagen.width())
+        for y in range(imagen.height())
+        if abs(imagen.pixelColor(x, y).red() - objetivo.red())
+        + abs(imagen.pixelColor(x, y).green() - objetivo.green())
+        + abs(imagen.pixelColor(x, y).blue() - objetivo.blue())
+        < 30
+    )
+
+
+@pytest.mark.parametrize("clase", ["QCheckBox", "QListWidget", "QTreeWidget", "QTableWidget", "QTabBar"])
+def test_con_el_foco_se_ve_el_anillo(qt_app, clase):
+    """**La hoja de estilo tapaba el indicador nativo**: medido, estos cinco no
+    cambiaban ni un píxel al recibir el foco. Se mira lo que se dibuja, no la
+    hoja: una regla que Qt no aplica a ese control pasaría una prueba de
+    texto."""
+    from PySide6 import QtWidgets
+
+    # **La hoja va en esta ventana y no en la aplicación.** En la aplicación,
+    # Qt re-estiliza cada widget vivo de los tests anteriores: cada uno de
+    # estos tardaba 115 s en la suite entera y medio segundo solo.
+    ventana = QtWidgets.QWidget()
+    ventana.setStyleSheet(theme.stylesheet(theme.SERENO))
+    try:
+        capa = QtWidgets.QVBoxLayout(ventana)
+        otro = QtWidgets.QLineEdit()
+        control = getattr(QtWidgets, clase)()
+        if clase == "QCheckBox":
+            control.setText("Arousal")
+        elif clase == "QTabBar":
+            control.addTab("Espectro")
+            control.addTab("Métrica")
+        capa.addWidget(otro)
+        capa.addWidget(control)
+        ventana.resize(300, 300)
+        ventana.show()
+        ventana.activateWindow()
+
+        otro.setFocus()
+        qt_app.processEvents()
+        sin_foco = _pixeles_de_acento(control, theme.SERENO.accent)
+        control.setFocus()
+        qt_app.processEvents()
+
+        assert control.hasFocus()
+        assert sin_foco == 0
+        assert _pixeles_de_acento(control, theme.SERENO.accent) > 0
+    finally:
+        ventana.close()

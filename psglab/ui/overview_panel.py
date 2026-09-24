@@ -74,6 +74,34 @@ _SIN_COLOR = "#999999"
 ANCHO_MINIMO: int = 120
 
 
+def accessible_summary(windows: tuple[OverviewWindow, ...]) -> str:
+    """Lo que muestran las cajas, en palabras, para un lector de pantalla.
+
+    **El panel es sólo dibujo** y un lector no lee ningún número de él (hito
+    63): esto es lo mismo que dicen las cabeceras —número base 1, fase y
+    eventos—, con la actual marcada.
+    """
+    partes = []
+    for ventana in windows:
+        texto = f"ventana {ventana.index + 1}"
+        if ventana.is_current:
+            texto += " (actual)"
+        texto += ": " + (
+            "sin scorear"
+            if ventana.stage is SleepStage.UNSCORED
+            else stage_label(ventana.stage)
+        )
+        if ventana.annotation_labels:
+            texto += ", " + ", ".join(ventana.annotation_labels)
+        partes.append(texto)
+    if not partes:
+        return "Sin registro abierto"
+    # Sólo la primera letra: `capitalize()` pasa el resto a minúscula, y «N1»
+    # salía «n1».
+    texto = "; ".join(partes)
+    return texto[0].upper() + texto[1:]
+
+
 class OverviewPanel(QWidget):
     """Dibuja las ventanas vecinas que publica `OverviewTool`."""
 
@@ -99,6 +127,11 @@ class OverviewPanel(QWidget):
             "Un clic lleva la señal a esa ventana."
         )
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        # **Se alcanza con el teclado** (hito 63): con Tab o F6, y entonces
+        # dibuja el anillo de foco. Las flechas ya mueven la ventana actual en
+        # toda la ventana, así que no hace falta manejarlas acá.
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAccessibleName("Übersicht")
 
     # -- Lo que le da la ventana principal ----------------------------------
 
@@ -123,6 +156,7 @@ class OverviewPanel(QWidget):
             self._colors = dict(colors)
         if trace_color is not None:
             self._trace_color = trace_color
+        self.setAccessibleDescription(accessible_summary(self._windows))
         self.update()
 
     def set_panel_size(self, width_px: int, height_px: int) -> None:
@@ -245,6 +279,13 @@ class OverviewPanel(QWidget):
             pintor.drawLine(cabecera.bottomLeft(), cabecera.bottomRight())
             self._pintar_la_senal(pintor, ventana, senal)
             self._pintar_la_cabecera(pintor, ventana, cabecera)
+        if self.hasFocus():
+            # El mismo anillo que la hoja de estilo le pone a los controles:
+            # este panel se pinta a mano y la hoja no lo alcanza.
+            mitad = theme.ANILLO_DE_FOCO / 2
+            pintor.setBrush(Qt.BrushStyle.NoBrush)
+            pintor.setPen(QPen(QColor(esquema.accent), theme.ANILLO_DE_FOCO))
+            pintor.drawRect(QRectF(self.rect()).adjusted(mitad, mitad, -mitad, -mitad))
         pintor.end()
 
     def _pintar_la_cabecera(
