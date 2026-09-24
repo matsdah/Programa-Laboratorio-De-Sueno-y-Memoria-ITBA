@@ -143,6 +143,12 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "ask_amplitude_scale",
         # Navegación y scoring.
         "go_to_next_window",
+        # Hito 62: ir a cualquier ventana y anotar, sin mouse.
+        "go_to_first_window",
+        "go_to_last_window",
+        "ask_window",
+        "annotate_current_window",
+        "annotation_menu_for_current_window",
         "go_to_previous_window",
         "increase_amplitude",
         "decrease_amplitude",

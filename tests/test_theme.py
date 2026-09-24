@@ -553,3 +553,46 @@ def test_el_boton_principal_apagado_no_parece_encendido():
     """Sin la regla de apagado, el botón de la ICA sin componentes seguía
     relleno del acento, invitando a apretar algo que no hace nada."""
     assert ':disabled' in theme.stylesheet(theme.SERENO).split(theme.PRIMARIO_PROPERTY, 2)[2]
+
+
+# -- Accesibilidad: bordes y foco (hito 62) ---------------------------------
+
+
+def _regla(hoja: str, selector: str) -> str:
+    return hoja.split(selector + " {")[1].split("}")[0]
+
+
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=list(theme.SCHEMES))
+def test_el_borde_de_un_campo_es_el_de_los_controles(esquema):
+    """**WCAG 1.4.11**: en un campo de texto el borde es lo único que dice
+    dónde se escribe. Compartía color con la grilla, a 1,42 contra el fondo;
+    la medida de contraste no alcanza si la hoja de estilo sigue usando el
+    color de la grilla."""
+    hoja = theme.stylesheet(esquema)
+
+    assert esquema.control_border in _regla(hoja, "QPushButton, QComboBox, QLineEdit, QAbstractSpinBox")
+    assert esquema.control_border in _regla(
+        hoja, "QTreeWidget, QTableWidget, QListWidget, QTextEdit, QPlainTextEdit"
+    )
+
+
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=list(theme.SCHEMES))
+def test_el_borde_de_los_controles_llega_a_tres_a_uno(esquema):
+    ventana = esquema.chrome or esquema.background
+    for fondo in (esquema.background, ventana):
+        assert theme.contrast_ratio(esquema.control_border, fondo) >= theme.MIN_GRAPHIC_CONTRAST
+
+
+def test_un_selector_decimal_tambien_muestra_el_foco():
+    """Una regla para `QSpinBox` no alcanza a `QDoubleSpinBox`: son hermanos,
+    no padre e hijo. El aumento de la lupa se quedaba sin anillo."""
+    assert "QAbstractSpinBox:focus" in theme.stylesheet(theme.SERENO)
+
+
+def test_un_grafico_con_foco_lleva_el_anillo():
+    """La señal y el hipnograma toman el foco del teclado, y Espacio reproduce
+    sólo con el foco en la señal: sin marco no se veía dónde estaba."""
+    hoja = theme.stylesheet(theme.SERENO)
+
+    assert theme.SERENO.accent in _regla(hoja, "PlotWidget:focus")
+    assert "transparent" in _regla(hoja, "PlotWidget")

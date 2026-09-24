@@ -69,6 +69,13 @@ FIXED_SHORTCUTS: Final[dict[str, str]] = {
     # o al scoring sin mouse obligaba a atravesar todos los controles con Tab.
     "F6": "Pasar al panel siguiente",
     "Shift+F6": "Volver al panel anterior",
+    # Hito 62, WCAG 2.1.1: llegar a cualquier ventana y anotar sin mouse.
+    "Home": "Primera ventana",
+    "End": "Última ventana",
+    "Ctrl+G": "Ir a una ventana…",
+    "E": "Anotar la ventana actual",
+    "Shift+F10": "Corregir la anotación de esta ventana (con el foco en la señal)",
+    "Menu": "Corregir la anotación de esta ventana (con el foco en la señal)",
 }
 
 #: Qué método de la ventana principal ejecuta cada atajo fijo. Está separado de
@@ -96,6 +103,10 @@ ACTIONS: Final[dict[str, str]] = {
     "Ctrl+0": "show_whole_recording",
     "F6": "focus_next_pane",
     "Shift+F6": "focus_previous_pane",
+    "Home": "go_to_first_window",
+    "End": "go_to_last_window",
+    "Ctrl+G": "ask_window",
+    "E": "annotate_current_window",
 }
 
 #: Los atajos que sólo andan **con el foco en la señal**, y el método que
@@ -104,6 +115,10 @@ ACTIONS: Final[dict[str, str]] = {
 #: a la ventana cuando el foco está en otro panel.
 SIGNAL_ACTIONS: Final[dict[str, str]] = {
     "Space": "toggle_playback",
+    # Las dos teclas con que Windows y Linux abren el menú contextual. Sólo en
+    # la señal, porque es sobre la señal donde está la anotación.
+    "Shift+F10": "annotation_menu_for_current_window",
+    "Menu": "annotation_menu_for_current_window",
 }
 
 #: Cómo se le escribe cada tecla al usuario. Las flechas se dibujan, y
@@ -115,6 +130,9 @@ _NOMBRES_DE_TECLA: Final[dict[str, str]] = {
     "Down": "↓",
     "Shift": "Mayús",
     "Space": "Espacio",
+    "Home": "Inicio",
+    "End": "Fin",
+    "Menu": "Menú",
 }
 
 
@@ -293,11 +311,13 @@ HELP_GROUPS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     (
         "Navegación",
         (
-            "Right", "Left", "Shift+Right", "Shift+Left", "Ctrl+Right", "Ctrl+Left",
+            "Right", "Left", "Home", "End", "Ctrl+G",
+            "Shift+Right", "Shift+Left", "Ctrl+Right", "Ctrl+Left",
             "Ctrl++", "Ctrl+-", "Ctrl+0", "Space",
         ),
     ),
     ("Scoring", ("A",)),
+    ("Anotación", ("E", "Shift+F10", "Menu")),
     ("Visualización", ("Up", "Down", "F6", "Shift+F6")),
     ("Archivo", ("Ctrl+O", "Ctrl+S")),
 )
