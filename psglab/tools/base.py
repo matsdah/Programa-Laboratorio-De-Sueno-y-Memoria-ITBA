@@ -74,12 +74,26 @@ class BandOverlay(Overlay):
 
 @dataclass(frozen=True)
 class SegmentOverlay(Overlay):
-    """Segmento recto entre dos puntos. Lo usa el medidor de ocupación."""
+    """Segmento recto entre dos puntos. Lo usa el medidor de ocupación.
+
+    **Lleva el canal por lo mismo que `BandOverlay` y `CircleOverlay`**: las dos
+    `y` están en microvoltios medidos contra el eje de un canal, y cada uno
+    tiene su ganancia. Sin saber cuál es, el visualizador dibujaba todas las
+    líneas sobre el primer carril, donde el usuario no las había trazado.
+
+    Attributes:
+        channel_name: el canal sobre cuyo carril va la línea, o None para que
+            el visualizador use el primero visible.
+        label: lo que se escribe sobre la línea, o vacío. Lo decide la
+            herramienta, que sabe qué mide (hito 55).
+    """
 
     x1_seconds: float
     y1_uv: float
     x2_seconds: float
     y2_uv: float
+    channel_name: str | None = None
+    label: str = ""
 
 
 @dataclass(frozen=True)
@@ -98,12 +112,23 @@ class CircleOverlay(Overlay):
 
     El radio va en segundos y no en píxeles: la herramienta no conoce la
     pantalla, y el visualizador sabe cuántos píxeles son.
+
+    **Lleva el canal por lo mismo que `BandOverlay`** (hito 45): la `y_uv` está
+    medida contra el eje de un canal y cada uno tiene su ganancia, así que sin
+    saber cuál es no se puede volver a la pantalla. Sin este campo el
+    visualizador ampliaba siempre el primer canal visible, que es lo que el
+    usuario reportó.
+
+    Attributes:
+        channel_name: el canal sobre el que se amplía, o None para que el
+            visualizador use el primero visible.
     """
 
     x_seconds: float
     y_uv: float
     radius_seconds: float
     zoom: float
+    channel_name: str | None = None
 
 
 class Tool(ABC):
@@ -192,7 +217,8 @@ class ViewerTool(Tool):
     Las coordenadas que reciben sus métodos son siempre las del visualizador:
 
         x: segundos **desde el inicio del registro**
-        y: microvoltios
+        y: microvoltios, medidos **contra el eje del canal bajo el cursor**
+        channel_name: cuál es ese canal, o None si no hay ninguno visible
 
     **La `x` eran segundos desde el inicio de la ventana de 30 segundos.**
     Cambió con la escala de tiempo libre, y el motivo es que esa referencia
@@ -230,6 +256,19 @@ class ViewerTool(Tool):
     `seconds_to_epoch_offset()`, **y no escribe `seconds % 30`**: ésa es
     exactamente la cuenta que `core/windows.py` existe para impedir.
 
+    **La `y` se mide contra un canal, y hay que saber cuál** (hito 45). Un
+    carril no es una escala común: cada canal tiene su ganancia, así que la
+    misma altura en pantalla vale distintos microvoltios en dos carriles. Hasta
+    este hito la ventana medía todo contra el **primer canal visible** sin
+    decirlo, y con tres canales el centro del tercer carril —donde la señal
+    vale cero— llegaba como −444 µV. Un número plausible y equivocado, que es
+    exactamente lo que la tabla de acá arriba advierte de las unidades
+    horizontales.
+
+    Por eso los tres métodos reciben además `channel_name`. Es opcional y va
+    último para no romper a quien no lo necesite: la ocupación y el anotador
+    sólo quieren la altura de su canal, ya convertida, y no preguntan cuál era.
+
     Los tres métodos de mouse no hacen nada por defecto. Cada herramienta
     sobrescribe los que necesita: la banda de amplitud sólo escucha el
     movimiento, el anotador necesita los tres.
@@ -248,20 +287,28 @@ class ViewerTool(Tool):
         """
         return ()
 
-    def on_mouse_press(self, x: float, y: float, button: str) -> None:
+    def on_mouse_press(
+        self, x: float, y: float, button: str, channel_name: str | None = None
+    ) -> None:
         """Se apretó un botón del mouse sobre el visualizador.
 
         Args:
             x: segundos desde el inicio del registro.
-            y: microvoltios.
+            y: microvoltios, medidos contra el eje de `channel_name`.
             button: "left", "right" o "middle".
+            channel_name: el canal bajo el cursor, o None si no hay ninguno
+                visible.
         """
         return None
 
-    def on_mouse_move(self, x: float, y: float) -> None:
+    def on_mouse_move(
+        self, x: float, y: float, channel_name: str | None = None
+    ) -> None:
         """El mouse se movió sobre el visualizador."""
         return None
 
-    def on_mouse_release(self, x: float, y: float, button: str) -> None:
+    def on_mouse_release(
+        self, x: float, y: float, button: str, channel_name: str | None = None
+    ) -> None:
         """Se soltó el botón del mouse sobre el visualizador."""
         return None

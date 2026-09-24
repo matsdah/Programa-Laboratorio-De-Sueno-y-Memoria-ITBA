@@ -174,3 +174,90 @@ def test_vaciar_el_panel_devuelve_la_barra_a_cero_uno(panel: ConnectivityPanel):
     panel.clear_matrix()
 
     assert panel._barra.levels() == (0.0, 1.0)
+
+
+# -- Qué mide la escala de color (hito 40) -----------------------------------
+
+
+def test_la_escala_dice_que_mide(panel: ConnectivityPanel):
+    """**Decía de 0 a 1 y no de qué.** Un mapa de colores sin la unidad se
+    puede leer de izquierda a derecha, pero no se puede comparar con el de otra
+    medida."""
+    panel.set_matrix(np.eye(2), ["C3", "C4"], measure="wPLI")
+
+    assert panel.measure() == "wPLI"
+
+
+def test_sin_medida_la_escala_no_rotula_nada(panel: ConnectivityPanel):
+    """Es lo que pasa con el camino viejo, que no la pasaba: mejor sin rótulo
+    que con uno inventado."""
+    panel.set_matrix(np.eye(2), ["C3", "C4"])
+
+    assert panel.measure() == ""
+
+
+def test_vaciar_el_panel_borra_la_medida(panel: ConnectivityPanel):
+    """Una escala rotulada sobre un panel vacío diría que hay un resultado."""
+    panel.set_matrix(np.eye(2), ["C3", "C4"], measure="wPLI")
+
+    panel.clear_matrix()
+
+    assert panel.measure() == ""
+
+
+# -- Los valores y la diagonal (hito 55) ------------------------------------
+
+
+def _matriz(cuantos: int) -> np.ndarray:
+    datos = np.full((cuantos, cuantos), 0.5)
+    np.fill_diagonal(datos, 0.0)
+    return datos
+
+
+def test_cada_celda_lleva_su_valor(panel: ConnectivityPanel):
+    """**El mapa sólo tenía color**, y un tono no se lee como un número."""
+    datos = np.array([[0.0, 0.62, 0.41], [0.62, 0.0, 0.77], [0.41, 0.77, 0.0]])
+
+    panel.set_matrix(datos, ["C3", "C4", "Oz"])
+
+    assert panel.cell_labels() == [
+        "—", "0,62", "0,41",
+        "0,62", "—", "0,77",
+        "0,41", "0,77", "—",
+    ]
+
+
+def test_la_diagonal_no_se_pinta_como_cero(panel: ConnectivityPanel):
+    """Un canal contra sí mismo no se calcula: pintado como cero se leía
+    «estos canales no se parecen»."""
+    from PySide6.QtWidgets import QGraphicsRectItem
+
+    panel.set_matrix(_matriz(3), ["A", "B", "C"])
+
+    grises = [r for r in panel._rotulos if isinstance(r, QGraphicsRectItem)]
+    assert len(grises) == 3
+
+
+def test_con_muchos_canales_no_se_escriben_los_valores(panel: ConnectivityPanel):
+    """Con más de doce, la celda es más chica que el número."""
+    from psglab.ui.connectivity_panel import MAXIMO_DE_CANALES_CON_VALORES
+
+    cuantos = MAXIMO_DE_CANALES_CON_VALORES + 1
+    panel.set_matrix(_matriz(cuantos), [f"E{i}" for i in range(cuantos)])
+
+    assert panel.cell_labels() == []
+
+
+def test_otra_matriz_reemplaza_los_valores(panel: ConnectivityPanel):
+    panel.set_matrix(_matriz(4), ["A", "B", "C", "D"])
+    panel.set_matrix(_matriz(2), ["A", "B"])
+
+    assert len(panel.cell_labels()) == 4
+
+
+def test_vaciar_borra_los_valores(panel: ConnectivityPanel):
+    panel.set_matrix(_matriz(3), ["A", "B", "C"])
+
+    panel.clear_matrix()
+
+    assert panel._rotulos == []

@@ -16,11 +16,11 @@ del pliego (sección 7). El otro punto de extensión es
 | `base.py` | Los dos contratos: `Tool` y `ViewerTool`. | — | Base de las seis |
 | `registry.py` | `@register_tool`, `available_tools()`, `get_tool()`, `load_all_tools()`. | — | — |
 | `amplitude_band.py` | Banda de referencia de 75 µV, adaptada a la escala del usuario. | `ViewerTool` | V1_F de "Herramienta de amplitud" |
-| `occupancy.py` | Líneas dibujadas con el mouse y su porcentaje de ocupación horizontal. | `ViewerTool` | V1_F–V5_F de "Ocupación de la página" |
+| `occupancy.py` | Líneas dibujadas con el mouse y su porcentaje de ocupación horizontal. Cada línea publica cuánto dura, para escribirlo encima (hito 55). | `ViewerTool` | V1_F–V5_F de "Ocupación de la página" |
 | `magnifier.py` | Lupa: zoom circular y contador de picos. | `ViewerTool` | V1_F, V2_F de "Herramienta Lupa" |
-| `annotator.py` | Anotación de eventos sobre la señal. | `ViewerTool` | V1_F de "Anotación de la señal" |
-| `overview.py` | Übersicht: la ventana actual en su contexto. | `Tool` | V1_F–V3_F de "Herramienta Übersicht" |
-| `histogram.py` | Hipnograma de la noche completa. | `Tool` | V1_P–V4_F de "Histograma" |
+| `annotator.py` | Anotación de eventos sobre la señal, y su corrección: arrastrar un borde, cambiar la clase (hito 52). | `ViewerTool` | V1_F de "Anotación de la señal" |
+| `overview.py` | Übersicht: la ventana actual en su contexto. Cada ventana publica su señal reducida, del canal seleccionado o el primero visible (hito 51). | `Tool` | V1_F–V3_F de "Herramienta Übersicht" |
+| `histogram.py` | Hipnograma de la noche completa. `runs()` agrupa las ventanas en tramos seguidos de la misma fase, que es lo que el panel pinta de color desde el hito 34. | `Tool` | V1_P–V4_F de "Histograma" |
 
 ## Dos contratos, no uno
 
@@ -74,6 +74,14 @@ class MiHerramienta(ViewerTool):
 Lo son **las que se quedan con el clic del mouse** sobre el visualizador: la
 lupa, el anotador y el medidor de ocupación. La banda de amplitud no, porque
 sólo se dibuja; los paneles tampoco, porque no compiten por el mouse.
+
+**`exclusive` dice quién recibe el mouse y no quién dibuja**, y confundir las
+dos cosas costó el hito 45: la ventana guardaba una sola herramienta activa, la
+asignaba únicamente en la rama exclusiva, y dibujaba nada más lo suyo. La banda
+de amplitud —no exclusiva y con `overlays()`— quedaba afuera de las dos cosas,
+así que tildarla no hacía nada. Hoy `ui/main_window.py` lleva `_mouse_tool` y
+`_drawing_tools` por separado. Una herramienta nueva que dibuje sin quedarse
+con el clic entra sola en la segunda.
 
 `name` tiene que ser único: si se repite, `@register_tool` eleva
 `DuplicateToolError` **al importar**, que es cuando conviene enterarse.
@@ -133,16 +141,20 @@ está enganchada ahí y le pasa el resultado a
 
 **Lo que se dibuja no es lo de quien avisó.** Ante cualquier aviso la ventana
 recompone: las bandas de las anotaciones de la página —`annotation_bands()`, de
-`annotator.py`—, más los overlays de **la herramienta activa**. Las anotaciones
+`annotator.py`—, más los overlays de **todas las herramientas activas que
+dibujan**, que desde el hito 45 pueden ser más de una. Las anotaciones
 van siempre porque son datos del registro y no parte del gesto que las creó.
 Antes se dibujaba lo de la última herramienta que avisaba, aunque estuviera
 apagada, y activar la lupa borraba las anotaciones de la pantalla. La ventana
 recompone también cuando cambia la página, porque cambian las anotaciones que
 entran en ella.
 
-Con «Anotar» activo, el clic derecho sobre una banda la borra, previa
-confirmación. La herramienta encuentra cuál es con `annotation_at()` y la
-ventana hace la pregunta, porque `tools/` no abre diálogos.
+Con «Anotar» activo, el clic derecho sobre una banda abre un menú para
+cambiarle la clase o borrarla, y apretar cerca de un borde lo arrastra (hito
+52). La herramienta encuentra la banda con `annotation_at()` y el borde con
+`edge_at()`; la ventana abre el menú y los diálogos, porque `tools/` no abre
+nada, y le fija la tolerancia del borde en píxeles, porque `tools/` no conoce
+la pantalla.
 
 Tres consecuencias que valen la pena:
 

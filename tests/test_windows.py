@@ -13,12 +13,20 @@ import pytest
 from psglab.config import WINDOW_SECONDS
 from psglab.core.windows import (
     count_windows,
+    epoch_to_seconds,
+    sample_to_seconds_absolute,
     sample_to_seconds,
     sample_to_window,
+    seconds_to_epoch_offset,
     seconds_to_sample,
+    seconds_to_sample_absolute,
+    seconds_to_samples,
+    seconds_to_view_fraction,
     seconds_to_window_fraction,
+    view_fraction_to_seconds,
     window_duration,
     window_fraction_to_seconds,
+    seconds_to_clock_time,
     window_to_clock_time,
     window_span_seconds,
     window_to_samples,
@@ -132,6 +140,19 @@ def test_la_hora_de_la_noche_avanza_una_ventana_por_ventana():
     una_hora = int(3600 / WINDOW_SECONDS)
     assert window_to_clock_time(0, inicio) == inicio
     assert window_to_clock_time(una_hora, inicio) == datetime(2026, 9, 5, 0, 0, 0)
+
+
+def test_un_instante_cualquiera_tambien_tiene_su_hora():
+    """El eje del visualizador no trabaja en ventanas sino en segundos: con una
+    página de cuatro horas las marcas no caen en bordes de época."""
+    inicio = datetime(2026, 9, 4, 23, 58, 30)
+
+    assert seconds_to_clock_time(0.0, inicio) == inicio
+    assert seconds_to_clock_time(90.5, inicio) == datetime(2026, 9, 5, 0, 0, 0, 500_000)
+
+
+def test_sin_horario_de_inicio_tampoco_hay_hora_de_un_instante():
+    assert seconds_to_clock_time(1234.5, None) is None
 
 
 # -- Duración real de la ventana --------------------------------------------
@@ -400,3 +421,98 @@ def test_tramo_y_evento_son_inversas(primera, cuantas):
     assert windows_in_span(*window_span_seconds(primera, cuantas)) == range(
         primera, primera + cuantas
     )
+
+
+# -- Las conversiones de la página libre (hito 22, verificadas en el 48) ------
+#
+# **Ningún test las nombraba**, y lo encontró la auditoría de los tests. No es
+# que el módulo estuviera sin probar —este archivo tiene cuarenta y un tests—:
+# es que estas cinco entraron con la escala de tiempo libre y quedaron
+# verificadas sólo de rebote, por lo que hacen el visualizador y la ocupación.
+#
+# Importa más que en otras porque son justamente las cuatro unidades que
+# `tools/base.py` advierte que no hay que confundir: confundirlas no rompe
+# nada de forma visible, produce números plausibles y equivocados.
+
+
+def test_una_muestra_vuelve_al_segundo_del_que_salio(sampling_rate):
+    """`seconds_to_sample_absolute` y su inversa tienen que cerrar."""
+    muestra = seconds_to_sample_absolute(123.0, sampling_rate)
+
+    assert sample_to_seconds_absolute(muestra, sampling_rate) == pytest.approx(123.0)
+
+
+def test_el_tramo_de_muestras_sale_de_los_segundos(sampling_rate):
+    inicio, fin = seconds_to_samples(10.0, 20.0, sampling_rate, n_samples=1_000_000)
+
+    assert (inicio, fin) == (int(10 * sampling_rate), int(20 * sampling_rate))
+
+
+def test_un_tramo_que_empieza_antes_del_registro_se_recorta_en_cero(sampling_rate):
+    """**No es hipotético con la página libre**: desplazarse hacia atrás en el
+    primer minuto produce comienzos negativos todo el tiempo, y `get_segment()`
+    leería un negativo como «desde el final», devolviendo señal del amanecer
+    presentada como si fuera del principio."""
+    inicio, fin = seconds_to_samples(-30.0, 10.0, sampling_rate, n_samples=1_000_000)
+
+    assert inicio == 0
+    assert fin == int(10 * sampling_rate)
+
+
+def test_un_tramo_posterior_al_final_se_recorta_y_no_se_da_vuelta(sampling_rate):
+    """El contrato promete `inicio <= fin`: sin el recorte cruzado, un tramo
+    entero más allá del final devolvería un rango invertido."""
+    inicio, fin = seconds_to_samples(10_000.0, 20_000.0, sampling_rate, n_samples=3000)
+
+    assert inicio == fin == 3000
+
+
+def test_la_fraccion_se_mide_contra_la_pagina_y_no_contra_la_epoca():
+    """Es la diferencia que hace que la ocupación siga informando un porcentaje
+    que significa algo cuando el usuario cambia de escala."""
+    assert seconds_to_view_fraction(75.0, 60.0, 30.0) == pytest.approx(0.5)
+    assert seconds_to_view_fraction(60.0, 60.0, 30.0) == pytest.approx(0.0)
+    assert seconds_to_view_fraction(90.0, 60.0, 30.0) == pytest.approx(1.0)
+
+
+def test_la_fraccion_vuelve_al_segundo_del_que_salio():
+    for segundos in (60.0, 75.0, 89.9):
+        fraccion = seconds_to_view_fraction(segundos, 60.0, 30.0)
+        assert view_fraction_to_seconds(fraccion, 60.0, 30.0) == pytest.approx(segundos)
+
+
+def test_un_segundo_absoluto_dice_su_epoca_y_cuanto_lleva(sampling_rate):
+    """**El puente de vuelta**, para que nadie escriba `seconds % 30`."""
+    epoca, desde_su_inicio = seconds_to_epoch_offset(
+        2 * WINDOW_SECONDS + 7.0, sampling_rate
+    )
+
+    assert epoca == 2
+    assert desde_su_inicio == pytest.approx(7.0, abs=1 / sampling_rate)
+
+
+def test_el_borde_de_una_epoca_pertenece_a_la_que_empieza(sampling_rate):
+    """El intervalo es semiabierto, como en todo el módulo: el segundo 30 es el
+    primero de la ventana 1 y no el último de la 0."""
+    epoca, desde_su_inicio = seconds_to_epoch_offset(WINDOW_SECONDS, sampling_rate)
+
+    assert epoca == 1
+    assert desde_su_inicio == pytest.approx(0.0)
+
+
+def test_la_epoca_dice_que_tramo_de_segundos_abarca(sampling_rate):
+    """`epoch_to_seconds` devuelve el tramo entero, no sólo el comienzo: lo
+    usan el resaltado de la época y `Session` para saber si ya está en la
+    página."""
+    desde, hasta = epoch_to_seconds(3, sampling_rate)
+
+    assert desde == pytest.approx(3 * WINDOW_SECONDS, abs=1 / sampling_rate)
+    assert hasta == pytest.approx(4 * WINDOW_SECONDS, abs=1 / sampling_rate)
+
+
+def test_el_tramo_de_la_epoca_cierra_con_el_puente_de_vuelta(sampling_rate):
+    """Las dos conversiones tienen que hablar de la misma época: el comienzo
+    que da una cae en la época que nombra la otra, con resto cero."""
+    desde, _ = epoch_to_seconds(3, sampling_rate)
+
+    assert seconds_to_epoch_offset(desde, sampling_rate) == (3, pytest.approx(0.0))

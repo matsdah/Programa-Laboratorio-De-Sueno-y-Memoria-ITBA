@@ -23,11 +23,12 @@ lo decida.
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMenu, QToolBar, QToolButton
+from PySide6.QtWidgets import QFrame, QMenu, QToolBar, QToolButton
 
 pytest.importorskip("pyqtgraph")
 
 import psglab.ui.menus as menus  # noqa: E402
+from psglab.ui import theme  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.exporters.scoring_formats import SCORING_FORMATS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
@@ -157,10 +158,20 @@ def test_el_menu_de_herramientas_queda_listo_para_poblarse(ventana: MainWindow):
 
 
 def test_el_boton_de_abrir_queda_en_la_esquina_de_la_barra(ventana: MainWindow):
+    """**La esquina es un contenedor y no el botón**: desde el hito 38 lleva
+    también la línea que separa «Abrir» de los menús, y la esquina de una
+    `QMenuBar` acepta un widget, uno solo."""
     esquina = ventana.menuBar().cornerWidget(Qt.Corner.TopLeftCorner)
 
     assert isinstance(ventana.open_button, QToolButton)
-    assert esquina is ventana.open_button
+    assert ventana.open_button.parent() is esquina
+
+
+def test_una_linea_separa_abrir_de_los_menus(ventana: MainWindow):
+    """Sin ella, «Abrir» se lee como el primero de la fila de menús."""
+    esquina = ventana.menuBar().cornerWidget(Qt.Corner.TopLeftCorner)
+
+    assert esquina.findChild(QFrame) is not None
 
 
 # -- El botón de abrir -------------------------------------------------------
@@ -173,13 +184,22 @@ def test_abrir_es_un_boton_con_icono_y_no_un_menu(ventana: MainWindow):
 
     assert "&Archivo" not in titulos
     assert not ventana.open_button.icon().isNull()
-    assert ventana.open_button.text() == ""
+    # **Con la palabra al lado desde el hito 36**: una carpeta sola en la
+    # esquina de una barra de menú se lee como decoración, y lo único que decía
+    # qué hacía era el tooltip.
+    assert ventana.open_button.text() == "Abrir"
 
 
-def test_el_boton_de_abrir_se_realza_al_pasar_el_mouse(ventana: MainWindow):
-    """`autoRaise` es lo que le da el realce: sin él, el botón se ve siempre
-    igual y no parece clickeable."""
-    assert ventana.open_button.autoRaise()
+def test_el_boton_de_abrir_muestra_el_texto_al_lado_del_icono(ventana: MainWindow):
+    """Los dos: el icono lo hace reconocible de un vistazo y la palabra dice
+    qué hace. Hasta el hito 36 era `autoRaise` y sólo el icono, y la hoja de
+    estilo no podía darle caja porque un botón así no dibuja marco."""
+    from PySide6.QtCore import Qt
+
+    assert (
+        ventana.open_button.toolButtonStyle()
+        is Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+    )
 
 
 def test_el_boton_de_abrir_dice_que_hace_y_su_atajo(ventana: MainWindow):
@@ -365,6 +385,41 @@ def test_una_herramienta_con_panel_esta_como_su_panel(
     assert clave not in ventana._tool_actions
 
 
+def test_los_dos_esquemas_estan_en_ver(ventana: MainWindow):
+    """**Estaban en la solapa Colores** hasta el hito 35, junto con la edición
+    de cada color. Al quedar sólo la elección entre dos, una solapa entera era
+    más camino que el que ahorraba; acá quedan al lado de los tres fondos de
+    grilla, que es lo otro que cambia cómo se ve la señal."""
+    ver = menu_llamado(ventana, "&Ver")
+    textos = [a.text() for a in ver.actions()]
+
+    for nombre in theme.SCHEMES:
+        assert nombre in textos
+
+
+def test_elegir_un_esquema_desde_el_menu_lo_aplica(ventana: MainWindow):
+    anterior = theme.current()
+    try:
+        ventana.acciones_de_esquema["Nocturno"].trigger()
+
+        assert theme.current() is theme.NOCTURNO
+    finally:
+        ventana.set_color_scheme(anterior, remember=False)
+
+
+def test_los_esquemas_son_excluyentes(ventana: MainWindow):
+    """Elegir uno destilda el otro sin que nadie lo maneje a mano: es lo mismo
+    que hacen los tres fondos de grilla."""
+    anterior = theme.current()
+    try:
+        ventana.acciones_de_esquema["Nocturno"].trigger()
+
+        tildados = [n for n, a in ventana.acciones_de_esquema.items() if a.isChecked()]
+        assert tildados == ["Nocturno"]
+    finally:
+        ventana.set_color_scheme(anterior, remember=False)
+
+
 def test_ver_ya_no_tiene_submenus(ventana: MainWindow):
     ver = menu_llamado(ventana, "&Ver")
 
@@ -474,3 +529,24 @@ def test_un_metodo_sin_menu_no_tiene_ruta(ventana: MainWindow):
     from psglab.ui.menus import menu_path
 
     assert menu_path(ventana, "no_existe") is None
+
+
+# -- El identificador del registro (hito 36) ---------------------------------
+
+
+def test_sin_registro_la_esquina_lo_dice(ventana: MainWindow):
+    assert ventana.recording_summary.text() == "Sin registro"
+
+
+def test_el_identificador_es_una_lectura(ventana: MainWindow):
+    """El esquema le da la tipografía numérica: es la que hace que la
+    frecuencia y las horas no bailen de ancho al cambiar de registro."""
+    assert ventana.recording_summary.property(theme.READOUT_PROPERTY) is True
+
+
+def test_el_identificador_esta_en_la_esquina_de_la_barra(ventana: MainWindow):
+    from PySide6.QtCore import Qt
+
+    esquina = ventana.menuBar().cornerWidget(Qt.Corner.TopRightCorner)
+
+    assert esquina is ventana.recording_summary

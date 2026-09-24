@@ -33,11 +33,11 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_P | Ventana de 30 s con ojos, C3, C4 y EMG; nº de ventana y total; nombres; escala en µV | `psglab/ui/signal_view.py`, `psglab/ui/navigation.py` (nº de ventana), `psglab/core/windows.py` (cuenta de ventanas), `psglab/utils/units.py` (µV) |
+| V1_P | Ventana de 30 s con ojos, C3, C4 y EMG; nº de ventana y total; nombres; escala en µV | `psglab/ui/signal_view.py`, `psglab/ui/channel_axis.py` (nombres y escala), `psglab/ui/navigation.py` (nº de ventana), `psglab/core/windows.py` (cuenta de ventanas), `psglab/utils/units.py` (µV) |
 | V2_P | Aumentar la amplitud con flechas y con botón; escala adaptada | `psglab/ui/signal_view.py`, `psglab/core/session.py`, `psglab/ui/shortcuts.py` (flechas) |
 | V3_P | Elegir cuántos y cuáles canales visualizar | `psglab/ui/channel_selector.py` (elección), `psglab/ui/signal_view.py` (dibujo), `psglab/core/session.py` (estado) |
-| V4_F | Cualquier canal sin límite de tipo, con detección automática de clase | `psglab/readers/channel_types.py`, `psglab/ui/signal_view.py`, `psglab/ui/channel_selector.py`, `psglab/core/recording.py` (`ChannelKind`) |
-| V5_F | Amplitud de todos los canales, o sólo de los seleccionados | `psglab/core/session.py`, `psglab/ui/signal_view.py`, `psglab/ui/channel_selector.py` (selección), `psglab/ui/shortcuts.py` (flechas) |
+| V4_F | Cualquier canal sin límite de tipo, con detección automática de clase | `psglab/readers/channel_types.py`, `psglab/ui/signal_view.py`, `psglab/ui/channel_axis.py` (el nombre de cada carril), `psglab/ui/channel_selector.py` (la clase junto al nombre, en un chip), `psglab/core/recording.py` (`ChannelKind`) |
+| V5_F | Amplitud de todos los canales, o sólo de los seleccionados | `psglab/core/session.py`, `psglab/ui/signal_view.py`, `psglab/ui/channel_axis.py` (la escala de cada canal), `psglab/ui/channel_selector.py` (selección), `psglab/ui/shortcuts.py` (flechas) |
 
 ### Navegación en la señal
 
@@ -64,7 +64,7 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Banda de 75 µV adaptada a la escala del usuario | `psglab/tools/amplitude_band.py`, `psglab/utils/units.py` (µV) |
+| V1_F | Banda de 75 µV adaptada a la escala del usuario | `psglab/tools/amplitude_band.py`, `psglab/ui/signal_view.py` (el dibujo), `psglab/utils/units.py` (µV) |
 
 ### Herramienta de ocupación de la página
 
@@ -135,13 +135,13 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos dieciocho se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos veintiuno se rompen hacia todos lados.
 
-Dieciséis de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Diecinueve de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
 `core/viewport.py`, `core/decimation.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
-`ui/theme.py`, `ui/fonts.py`, `ui/preferences.py` y `ui/settings_dialog.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py` y `ui/shortcuts_dialog.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -161,9 +161,12 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/ui/icons.py` | Los iconos de la barra, dibujados por el programa | La barra de navegación |
 | `psglab/ui/menus.py` | La barra de menú y qué acción vive en cada uno | Cómo se llega a cada funcionalidad |
 | `psglab/ui/theme.py` | Los esquemas de color: qué color tiene cada cosa que se dibuja | Todo lo que la interfaz pinta |
-| `psglab/ui/fonts.py` | Las tipografías que el programa trae consigo, bajo la OFL 1.1 | Las lecturas del esquema Papel y la lista de Tipografía |
+| `psglab/ui/fonts.py` | Las dos tipografías del programa y la escala de ocho roles, bajo la OFL 1.1 | Todo texto que se ve: los rótulos, las lecturas numéricas y lo que nadie midió |
+| `psglab/ui/panel_header.py` | El encabezado y el cartel de vacío que comparten los paneles de análisis | Los seis paneles de la Parte 2 |
+| `psglab/ui/background.py` | Correr un cálculo largo en otro hilo y devolver el resultado en el de la interfaz | La conectividad de la noche, y lo largo que se le sume |
 | `psglab/ui/preferences.py` | Lo que el programa recuerda entre sesiones | El esquema con el que arranca |
 | `psglab/ui/settings_dialog.py` | La ventana de configuración | Todo lo que el usuario puede elegir y el programa recuerda |
+| `psglab/ui/shortcuts_dialog.py` | La ayuda de atajos, en una tabla agrupada | Ayuda → Atajos de teclado |
 
 ---
 

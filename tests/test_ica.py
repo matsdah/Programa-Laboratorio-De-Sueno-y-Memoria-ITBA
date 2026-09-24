@@ -34,6 +34,7 @@ from psglab.analysis.ica import (
     apply_ica,
     component_time_course,
     component_topography,
+    explained_variance,
     fit_ica,
 )
 from psglab.analysis.psd import band_power, compute_psd
@@ -396,3 +397,244 @@ def test_lo_que_no_es_una_ica_sale_como_error_del_programa(
 def test_lo_que_no_es_un_registro_sale_como_error_del_programa(hostil):
     with pytest.raises(PsgLabError):
         fit_ica(hostil)
+
+
+# -- Cuánta varianza explica cada componente (hito 54) ----------------------
+
+
+def test_el_parpadeo_es_el_que_mas_varianza_explica(mezclado: Recording):
+    """El parpadeo se mezcló con cinco veces la amplitud del alfa: es el que
+    más pesa, y es justamente la pista que la lista tiene que dar."""
+    ica = fit_ica(mezclado)
+    varianzas = explained_variance(ica, mezclado)
+
+    assert int(np.argmax(varianzas)) == componente_frontal(ica)
+
+
+def test_hay_una_fraccion_por_componente_y_entre_cero_y_uno(mezclado: Recording):
+    ica = fit_ica(mezclado)
+    varianzas = explained_variance(ica, mezclado)
+
+    assert len(varianzas) == ica.n_components_
+    assert all(0.0 <= v <= 1.0 for v in varianzas)
+
+
+def test_con_tantos_componentes_como_canales_suman_uno(mezclado: Recording):
+    """Con cuatro componentes sobre cuatro canales, la descomposición explica
+    toda la señal."""
+    varianzas = explained_variance(fit_ica(mezclado), mezclado)
+
+    assert sum(varianzas) == pytest.approx(1.0, abs=0.02)
+
+
+def test_con_pocas_ventanas_coincide_con_mne_sobre_el_registro_entero(
+    mezclado: Recording,
+):
+    """**Es la definición de MNE**, no una aproximación propia: con menos
+    ventanas que la muestra, se mide sobre el registro entero y da lo mismo.
+    Se probó sacarla de la matriz de mezcla y no coincidía."""
+    from psglab.analysis.mne_bridge import to_raw
+
+    ica = fit_ica(mezclado)
+    raw = to_raw(mezclado)
+    de_mne = [
+        ica.get_explained_variance_ratio(raw, components=[i], ch_type="eeg")["eeg"]
+        for i in range(ica.n_components_)
+    ]
+
+    assert explained_variance(ica, mezclado) == pytest.approx(de_mne, abs=1e-6)
+
+
+def test_con_muchas_ventanas_mide_sobre_una_muestra(mezclado: Recording, monkeypatch):
+    """Reconstruir una vez por componente sobre la noche entera cuesta una copia
+    de la señal cada vez. Con más ventanas que la muestra, mide sobre la
+    muestra."""
+    import psglab.analysis.ica as modulo
+
+    ica = fit_ica(mezclado)
+    medidas: list[int] = []
+    original = modulo.to_raw
+
+    def contando(recording):
+        medidas.append(recording.n_samples)
+        return original(recording)
+
+    monkeypatch.setattr(modulo, "VARIANCE_SAMPLE_WINDOWS", 1)
+    monkeypatch.setattr(modulo, "to_raw", contando)
+
+    varianzas = explained_variance(ica, mezclado)
+
+    assert medidas == [int(WINDOW_SECONDS * FS)]
+    assert len(varianzas) == ica.n_components_
+
+
+def test_sin_ica_ajustada_se_rechaza(mezclado: Recording):
+    with pytest.raises(PsgLabError):
+        explained_variance(object(), mezclado)
+
+
+# -- Ajustar sobre una muestra de la noche (hito 58) --------------------------
+#
+# La fixture dura 60 s, menos que `FIT_SAMPLES`, así que los tests de arriba se
+# ajustan con todas sus muestras y no pasan por la muestra. Éstos bajan el tope
+# para que el paso sea de verdad mayor que uno.
+
+
+@pytest.fixture
+def tope_bajo(monkeypatch) -> int:
+    """Un tope de 1920 muestras: sobre los 60 s de la fixture, una de cada 8."""
+    import psglab.analysis.ica as modulo
+
+    monkeypatch.setattr(modulo, "FIT_SAMPLES", 1920)
+    monkeypatch.setattr(modulo, "FIT_SAMPLES_PER_SQUARED_CHANNEL", 1)
+    return 1920
+
+
+def espiar_lo_que_se_ajusta(monkeypatch) -> list[Recording]:
+    """Lo que `fit_ica()` le pasa a MNE, en el orden en que se lo pasa."""
+    import psglab.analysis.ica as modulo
+
+    vistos: list[Recording] = []
+    original = modulo.to_raw
+
+    def espiando(recording):
+        vistos.append(recording)
+        return original(recording)
+
+    monkeypatch.setattr(modulo, "to_raw", espiando)
+    return vistos
+
+
+def test_sobre_una_muestra_sigue_separando_el_parpadeo(mezclado: Recording, tope_bajo):
+    """**La verificación fuerte, otra vez**, con un octavo de las muestras:
+    ajustar con menos datos no puede perder lo que se mezcló."""
+    ica = fit_ica(mezclado)
+    pesos = component_topography(ica, componente_frontal(ica))
+
+    puestos = PESOS[:, 1] / PESOS[:, 1].max()
+    recuperados = np.array([abs(pesos[c]) for c in ["Fp1", "Fp2", "O1", "O2"]])
+    assert np.allclose(recuperados, puestos, atol=0.15)
+
+
+def test_lo_ajustado_sobre_la_muestra_limpia_la_senal_entera(mezclado: Recording, tope_bajo):
+    """Se ajusta sobre una muestra y se aplica sobre todo: el parpadeo tiene
+    que bajar en la señal a la frecuencia original, sin llevarse el alfa."""
+    ica = fit_ica(mezclado)
+    limpio = apply_ica(mezclado, ica, [componente_frontal(ica)])
+
+    assert limpio.n_samples == mezclado.n_samples
+    assert potencia(limpio, "Fp1", (0.1, 1.0)) < potencia(mezclado, "Fp1", (0.1, 1.0)) / 10
+    assert potencia(limpio, "O1", (8.0, 12.0)) == pytest.approx(
+        potencia(mezclado, "O1", (8.0, 12.0)), rel=0.25
+    )
+
+
+def test_a_mne_le_llega_la_muestra_y_no_la_noche(mezclado: Recording, tope_bajo, monkeypatch):
+    vistos = espiar_lo_que_se_ajusta(monkeypatch)
+
+    fit_ica(mezclado)
+
+    (muestra,) = vistos
+    assert muestra.n_samples == tope_bajo == mezclado.n_samples / 8
+
+
+def test_el_tope_es_un_minimo(mezclado: Recording, monkeypatch):
+    """**Por lo menos** `FIT_SAMPLES`: con el paso redondeado hacia arriba,
+    un registro apenas más largo que el tope se ajustaba con la mitad."""
+    import psglab.analysis.ica as modulo
+
+    monkeypatch.setattr(modulo, "FIT_SAMPLES", mezclado.n_samples // 2 + 1)
+    monkeypatch.setattr(modulo, "FIT_SAMPLES_PER_SQUARED_CHANNEL", 1)
+    vistos = espiar_lo_que_se_ajusta(monkeypatch)
+
+    fit_ica(mezclado)
+
+    assert vistos[0].n_samples >= mezclado.n_samples // 2 + 1
+
+
+def test_la_muestra_recorre_el_registro_entero(mezclado: Recording, tope_bajo, monkeypatch):
+    """**Repartida y no un tramo**: una hora seguida puede ser toda vigilia, y
+    el componente de parpadeo de la vigilia no es el de la noche."""
+    vistos = espiar_lo_que_se_ajusta(monkeypatch)
+
+    fit_ica(mezclado)
+
+    (muestra,) = vistos
+    assert muestra.duration_seconds == pytest.approx(mezclado.duration_seconds, rel=0.01)
+    assert np.array_equal(muestra.data[:, 0], mezclado.data[:, 0])
+    assert np.array_equal(muestra.data[:, 1], mezclado.data[:, 8])
+
+
+def test_a_mne_solo_le_llegan_los_eeg(mezclado: Recording, tope_bajo, monkeypatch):
+    """Antes se le pasaba el registro entero y MNE elegía: una copia de más de
+    cada canal que no se descompone."""
+    n = mezclado.n_samples
+    con_temperatura = Recording(
+        file_path=mezclado.file_path,
+        channels=[*mezclado.channels, Channel("Temp", ChannelKind.OTHER, "DegC", 4)],
+        data=np.vstack([mezclado.data, np.full(n, 36.5)]),
+        sampling_rate=FS,
+    )
+    vistos = espiar_lo_que_se_ajusta(monkeypatch)
+
+    fit_ica(con_temperatura)
+
+    assert vistos[0].channel_names() == ["Fp1", "Fp2", "O1", "O2"]
+
+
+def test_un_registro_corto_se_ajusta_entero(mezclado: Recording, monkeypatch):
+    """Por debajo del tope no se descarta nada: es lo que hacía antes del
+    hito 58, y lo que siguen afirmando los tests de arriba."""
+    vistos = espiar_lo_que_se_ajusta(monkeypatch)
+
+    fit_ica(mezclado)
+
+    assert vistos[0].n_samples == mezclado.n_samples
+
+
+def test_muchos_canales_suben_el_piso(mezclado: Recording, monkeypatch):
+    """La ICA necesita más muestras cuantos más canales separa: unas veinte o
+    treinta veces su cuadrado. Con un tope fijo muy bajo, manda el piso."""
+    import psglab.analysis.ica as modulo
+
+    monkeypatch.setattr(modulo, "FIT_SAMPLES", 10)
+    monkeypatch.setattr(modulo, "FIT_SAMPLES_PER_SQUARED_CHANNEL", 120)
+    vistos = espiar_lo_que_se_ajusta(monkeypatch)
+
+    fit_ica(mezclado)
+
+    assert vistos[0].n_samples >= 120 * 4**2
+
+
+def test_ajustar_ya_no_cuesta_varias_copias_de_la_senal(tope_bajo):
+    """**Es el número que midió el hito 57**: sobre la noche entera, ajustar
+    pedía seis copias de la señal además de la que ya estaba. Con la muestra,
+    menos de una.
+
+    Se mide con `tracemalloc`, que numpy alimenta con cada array que reserva.
+    La señal se arma antes de empezar a medir, así que no cuenta.
+    """
+    import tracemalloc
+
+    n = int(FS * 600)
+    t = np.arange(n) / FS
+    fuentes = np.vstack([30.0 * np.sin(2 * np.pi * 10 * t), 150.0 * np.sin(2 * np.pi * 0.3 * t)])
+    datos = PESOS @ fuentes + np.random.default_rng(1).normal(0.0, 1.0, (4, n))
+    largo = Recording(
+        file_path=Path("largo.edf"),
+        channels=[
+            Channel(nombre, ChannelKind.EEG, MICROVOLT, posicion)
+            for posicion, nombre in enumerate(["Fp1", "Fp2", "O1", "O2"])
+        ],
+        data=datos,
+        sampling_rate=FS,
+    )
+
+    tracemalloc.start()
+    try:
+        fit_ica(largo)
+        _, pico = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert pico < datos.nbytes

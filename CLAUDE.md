@@ -74,6 +74,16 @@ está terminado cuando además tiene su test corriendo (borrando el `pytestmark`
 si el archivo ya existía), su fila de `docs/TRAZABILIDAD.md` sigue siendo cierta
 y el README de su carpeta también.
 
+**Cerrar un hito son seis ediciones y ninguna es opcional.** `test_consistencia.py`
+las exige, pero de a una y recién al correr la suite entera, así que conviene
+hacerlas juntas: la sección del hito en `docs/TODO.md`, su fila en la tabla de
+progreso, el párrafo de la introducción que encadena los hitos, la cuenta de
+hitos en los **cuatro** documentos que la declaran, el `README.md` de cada
+carpeta tocada, y las cuentas `**N tests en verde**` de cada archivo de test que
+cambió de tamaño. Esa última se compara contra lo que pytest recolecta de
+verdad, así que hay que leerla de
+`python -m pytest tests/test_x.py --collect-only -q` y no contar los `def test_`.
+
 `docs/TRAZABILIDAD.md` **no lleva estado**: dice dónde va cada requisito, no
 qué falta. Duplicar el avance en los dos lugares garantiza que se
 desincronicen.
@@ -155,12 +165,13 @@ python -m pytest -rs
 arma una ventana por test. Conviene correrla en segundo plano y **sin otra
 corrida de pytest en paralelo**: superpuestas, el tiempo casi se triplicó.
 
-Los dos bancos de medición **no son tests y pytest no los recolecta**: se
+Los tres bancos de medición **no son tests y pytest no los recolecta**: se
 corren a mano e imprimen una tabla, sin afirmar nada.
 
 ```bash
 python -m tests.medir_rendimiento
 python -m tests.medir_reparto
+python -m tests.medir_memoria
 ```
 
 El primero mide cuánto tarda abrir un registro y cada cuadro de la
@@ -175,6 +186,40 @@ sin que nadie sepa cuál de las dos está mal.
 El de reparto **abre una ventana de verdad**, al revés que la suite: el plugin
 `offscreen` que fija `conftest.py` no usa el estilo nativo, que es justamente lo
 que decide cuánto mide un botón de fase.
+
+El de memoria (hito 57) cuenta **en copias de la señal** y no en megabytes, y
+eso sí es igual en cualquier máquina. No es un test por otros dos motivos:
+tarda minutos —ajustar la ICA sobre una hora de 32 canales—, y el número
+depende de la versión de MNE, que hace la mayor parte de las copias.
+
+Hay una tercera herramienta que tampoco es un test, y que sirve para lo que
+ningún test puede afirmar: **cómo se ve**.
+
+```bash
+python -m tests.capturar_pantalla
+```
+
+Deja en el temporal un PNG de la ventana y de cada barra, con los dos esquemas.
+**No abre ninguna ventana en la pantalla** —`WA_DontShowOnScreen` maqueta el
+widget sin mapearlo— y tampoco corre offscreen, por el mismo motivo que el banco
+de reparto: sin estilo nativo la captura muestra cuadraditos en vez de letras.
+La primera vez que se usó encontró dos cosas que la suite daba por buenas: un
+rótulo cortado a un tercio y un icono a 2,87 de contraste sobre su relleno. La
+segunda, el nombre de cada canal dibujado encima de su propia señal.
+
+**Conviene correrla después de cualquier cambio de la interfaz, y mirar los
+PNG.** Los seis defectos que encontró los tenía la suite en verde, y ninguno era
+sutil de ver: se veían de un vistazo y no había ningún vistazo. Para un icono o
+un rótulo chico hay que recortar y agrandar la imagen —un `QImage.copy().scaled()`
+de cuatro líneas alcanza—; a tamaño real, un icono de 34 px no deja juzgar nada.
+
+**Nada de lo que la captura llame puede abrir un cartel modal.** Sobre una
+ventana con `WA_DontShowOnScreen` un modal no se muestra en ninguna parte, así
+que nadie lo puede contestar y el proceso queda colgado sin consumir CPU y sin
+decir nada. Ya pasó dos veces: con el cartel del trabajo sin exportar, que
+abría `closeEvent`, y con los `QInputDialog` de «Espectro» y «Complejidad». Por
+eso la herramienta no cierra las ventanas y les pone el resultado a los paneles
+llamando a sus setters en vez de pasar por el menú.
 
 En la consola de Windows los acentos de los mensajes salen como mojibake
 (`configuraci�n`) por la codepage cp1252. Es cosmético y no un bug del código:
@@ -244,11 +289,12 @@ rechazar antes de dar por terminado un cambio:
 - Todo módulo tiene test, figura en `SIN_TEST_PROPIO` o el TODO promete el suyo
   **por nombre de archivo**. Un módulo nuevo sin ninguna de las tres cosas hace
   fallar la suite. La exención **no es `ui/` entero**: son `app.py`, `config.py`
-  y dos módulos de `ui/` —`main_window.py` y `channel_selector.py`—.
-  `navigation.py` salió de la lista cuando ganó la franja de posición, que
-  traduce un clic a una ventana, y `scoring_panel.py` cuando ganó el pie con la
-  ventana y su fase. Los demás módulos de `ui/` tienen test propio, así que
-  agregar uno sin test rompe la suite.
+  y un módulo de `ui/`, `main_window.py`. `navigation.py` salió de la lista
+  cuando ganó la franja de posición, que traduce un clic a una ventana;
+  `scoring_panel.py` cuando ganó el pie con la ventana y su fase; y
+  `channel_selector.py` cuando el árbol pasó a ser una lista con un pie de
+  atajos por clase, que lleva estado propio. Los demás módulos de `ui/` tienen
+  test propio, así que agregar uno sin test rompe la suite.
 - Todo método público de `core/`, `utils/` y `analysis/` que reciba argumentos
   tiene su fila en `CONTRATOS` de `tests/test_contratos.py`, o figura en
   `SIN_CONTRATO` con el motivo. Son las tres capas donde vive la regla de
@@ -260,9 +306,9 @@ rechazar antes de dar por terminado un cambio:
 - Todos los módulos del paquete se pueden importar. Es lo único que ejercita la
   capa `ui/`.
 
-Los tres que agregó el **hito 20**, más el que sumó el **hito 30**, son la red
-contra lo que hasta entonces se buscaba a mano, y las dos veces que se buscó así
-se escapó algo:
+Los tres que agregó el **hito 20**, más los que sumaron el **hito 30** y el
+**48**, son la red contra lo que hasta entonces se buscaba a mano, y cada vez que
+se buscó así se escapó algo:
 
 - **Toda función pública de `analysis/` tiene que llegar a la ventana**, o
   figurar en `SOLO_BIBLIOTECA` con su motivo. Lo que mira es que el nombre **se
@@ -277,6 +323,13 @@ se escapó algo:
   entonces tienen que estar nombrados en `docs/TODO.md`. Es la red que habría
   encontrado `delete_annotation()` y `OverviewTool.set_span()`, que eran
   métodos y no funciones.
+- **Toda función pública de negocio la llama algún test de comportamiento**,
+  desde el hito 48, o figura en `SIN_TEST_DE_COMPORTAMIENTO` con su motivo.
+  `COBERTURA_DE_TESTS` es por archivo y no veía nada por función: la primera
+  auditoría de los tests encontró seis que ningún test nombraba, cinco de ellas
+  conversiones de `core/windows.py`. **No cuentan `test_contratos.py` ni este
+  chequeo**, que no verifican que la función haga lo correcto, ni un docstring.
+  Es un piso: que un test la llame no dice que la verifique bien.
 - La cuenta de hitos que declaran los documentos es la de la tabla de progreso
   del TODO, y con una forma fija: `<numeral> hitos … del 0 al N`. Se exige a
   `README.md`, `docs/TODO.md`, `docs/EXPLICACION.txt` y `docs/README.md`. **A
@@ -403,7 +456,11 @@ repintarlo por su cuenta.
 
 `psglab/config.py` es el punto único de verdad de las constantes del pliego
 (ventana de 30 s, grilla de 0,5 s y 3 s, banda de 75 µV, nombres de los tres
-archivos de salida). No repetir esos números en ningún otro módulo.
+archivos de salida). No repetir esos números en ningún otro módulo. Ahí vive
+también `DEFAULT_SCALE_BY_KIND_UV`, que no es del pliego pero es de la misma
+familia que los límites de la amplitud: **cada clase de canal abre con su
+escala**, y volver a una sola para todos deja al canal respiratorio tapando
+seis carriles.
 
 `psglab/core/windows.py` es el único lugar donde se convierte entre ventanas,
 muestras, segundos absolutos, fracción de página y hora de la noche, para que no
@@ -462,12 +519,18 @@ hito 23 es la única vía para activar una herramienta: **no hay barra de
 herramientas**. Abrir un registro es el botón de la esquina de la barra de menú
 (`window.open_button`), no un menú.
 
-Los colores salen de `ui/theme.py` (esquemas inmutables, con el contraste de los
-de fábrica verificado contra WCAG 2.1) y lo que el usuario elige, de
-`ui/preferences.py`, que lo guarda en un JSON de su perfil. No es `config.py`:
-aquél fija el pliego, esto es lo que se elige.
+Los colores salen de `ui/theme.py` (dos esquemas inmutables, con su contraste
+verificado contra WCAG 2.1) y lo que el usuario elige, de `ui/preferences.py`,
+que lo guarda en un JSON de su perfil. No es `config.py`: aquél fija el pliego,
+esto es lo que se elige.
 
-Cinco reglas de esta capa que no se ven leyendo un solo archivo:
+Del esquema sale también **el color de cada fase de sueño** (`stage_colors`),
+que pinta el hipnograma, la franja de posición y el botón de scoring con la
+misma escala. Un esquema puede no traerla, y entonces esas tres cosas se
+dibujan con una sola tinta, que es como se veían antes del hito 34. El motivo
+de que viva ahí y no en `core/` está en `docs/ARQUITECTURA.md`.
+
+Reglas de esta capa que no se ven leyendo un solo archivo:
 
 - **Sólo `main.py` lee y escribe el archivo de preferencias**, a través de
   `create_main_window(saved_preferences=True)`. La ventana que arman los tests
@@ -479,13 +542,43 @@ Cinco reglas de esta capa que no se ven leyendo un solo archivo:
   `ui/shortcuts.py` con `key_for()` y va después de un tabulador en el texto.
   Llamar a `setShortcut()` la duplicaría con el `QShortcut` que ya existe, y ante
   un atajo duplicado Qt no ejecuta ninguno de los dos.
+- **Lo que se cachea hay que soltarlo al cambiar de esquema.** Un mapa de bits
+  ya pintado no cambia de color solo, y `apply_scheme()` tiene que rehacerlo:
+  vale para los iconos de la barra, que se redibujan con la tinta nueva, y para
+  el fondo de la franja de posición, que es un `QPixmap`. Mordió las dos veces,
+  y la segunda pasó inadvertida a la suite entera porque los tests del cache
+  comparaban identidad de objeto y no color.
+- **Los botones que arma Qt salen de la traducción que carga `app.py`**
+  (hito 53): «Sí / No», «Aceptar / Cancelar». Sin ella salían en inglés, y
+  ningún test lo veía porque ninguno miraba el texto de un botón que el
+  programa no escribe. La suite la carga igual que el programa.
+- **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
+  (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
+  que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril
+  hasta el hito 37, y la onda se dibujaba encima: cualquier cosa que viva en
+  coordenadas del gráfico termina tapada por la señal.
 - **`psglab/ui/` no lleva subpaquetes.** El chequeo de `SOLO_BIBLIOTECA` y el que
   exige que cada README nombre sus archivos recorren la carpeta sin entrar en
   subcarpetas: un `ui/panels/` dejaría funciones de `analysis/` como huérfanas.
 - **No se agrega una opción de configuración que nada consuma.** Por eso la
-  ventana de configuración tiene cinco solapas y no las siete de la referencia:
-  Cursores y Calibración entran cuando existan las reglas y la conversión a
-  milímetros que configurarían.
+  ventana de configuración tiene cuatro solapas y no las siete de la
+  referencia: Cursores y Calibración entran cuando existan las reglas y la
+  conversión a milímetros que configurarían.
+- **Los colores no se configuran.** Hay dos esquemas —Sereno y Nocturno—, se
+  eligen desde el menú «Ver» y no se pueden editar. Eran ocho y con cada color
+  editable hasta el hito 35, y eso significaba infinitos aspectos posibles y
+  ninguno garantizado: el control de contraste sólo alcanzaba a los de fábrica.
+  Agregar un esquema es sumarlo a `SCHEMES` —el control de contraste lo enrola
+  solo—; agregar una perilla de color es volver atrás una decisión tomada.
+- **La tipografía tampoco, y por el mismo argumento** (hito 43). Son dos
+  familias emparentadas —IBM Plex Sans para lo que se lee, Mono para lo que se
+  mide—, se empaquetan con el programa y no se eligen; **el tamaño sí**, que es
+  lo que hace falta para ver de lejos. Los tamaños no se escriben en el módulo
+  que dibuja: se nombra un rol de `ui/fonts.py` y `font_for()` lo arma desde el
+  tamaño elegido. Antes el canalón achicaba un punto y el chip dos, que eran
+  dos respuestas a la misma pregunta. **La itálica quiere decir «esto no lo
+  midió ni lo eligió nadie»** —«sin medir», «sin scorear»— y no «esto es
+  importante»: usarla para otra cosa le saca el significado.
 - **Un cuadro tiene 40 ms de presupuesto**, que es lo que pide el reloj de la
   reproducción. El hito 25 los consiguió con tres decisiones que se deshacen
   sin querer: la grilla es **un solo objeto** de la escena y no una
@@ -493,8 +586,15 @@ Cinco reglas de esta capa que no se ven leyendo un solo archivo:
   cuadro—, la banda de la época y el cursor de la reproducción se **mueven**
   en vez de rehacerse, y las curvas
   son `PlotCurveItem` y no `PlotDataItem`, que es un envoltorio con puntos,
-  relleno y decimación propia que acá no se usan. `useOpenGL` se midió y
-  **empeora**. Lo que se proponga en su lugar, medirlo con el banco.
+  relleno y decimación propia que acá no se usan. La cuarta es del hito 49:
+  **las cubetas de la envolvente se cuentan desde el comienzo del registro**,
+  y el visualizador las guarda por trozos. Contadas desde el borde de la
+  página, cada paso de la reproducción las recalculaba enteras —95 ms con
+  32 canales a 1000 Hz y página de 5 min— porque ninguna servía de un cuadro
+  al otro. `useOpenGL` se midió y **empeora**. Lo que se proponga en su lugar,
+  medirlo con el banco, **intercalado** contra el árbol sin el cambio: un
+  número suelto no dice nada, porque la misma medición varía al doble de una
+  corrida a otra.
 
 ## Convenciones
 

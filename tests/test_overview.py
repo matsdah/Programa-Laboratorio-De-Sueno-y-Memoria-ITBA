@@ -16,11 +16,11 @@ import pytest
 
 from psglab.config import OVERVIEW_WINDOWS_AFTER, OVERVIEW_WINDOWS_BEFORE
 from psglab.core.annotations import Annotation, AnnotationSet
-from psglab.core.nomenclature import Nomenclature
+from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
-from psglab.tools.overview import OverviewTool
+from psglab.tools.overview import TRACE_BUCKETS, OverviewTool
 from psglab.utils.errors import InvalidScaleError
 
 
@@ -186,3 +186,151 @@ def test_avisa_cuando_hay_que_repintarlo(sesion: Session):
 
     assert len(avisos) == 5
     assert all(aviso is tool for aviso in avisos)
+
+
+def test_cada_ventana_del_contexto_trae_su_fase(panel: OverviewTool, sesion: Session):
+    """**El panel mostraba tres ventanas y ninguna decía en qué fase estaba.**
+    La Übersicht existe para ver el contexto de la que se scorea, y la fase es
+    la mitad de ese contexto. Es dato y no dibujo: la herramienta dice cuál es
+    y la interfaz decide con qué color pintarla."""
+    sesion.scoring.set_stage(1, SleepStage.N2)
+    sesion.go_to_window(1)
+    panel.on_window_changed(1)
+
+    actual = [v for v in panel.windows() if v.is_current][0]
+
+    assert actual.stage is SleepStage.N2
+
+
+def test_una_ventana_sin_scorear_lo_dice(panel: OverviewTool):
+    """`UNSCORED` y no `None`: es el mismo vocabulario que el resto del
+    programa, y lo que le permite a la interfaz no dibujar ningún chip."""
+    assert all(v.stage is SleepStage.UNSCORED for v in panel.windows())
+
+
+# -- La señal de cada ventana (hito 51) --------------------------------------
+
+#: Dónde cae la espiga del canal EOG: en la ventana 3, a 12 s de su comienzo.
+ESPIGA = 3 * 3000 + 1200
+
+
+def _sesion_con_senal(frecuencia: float = 100.0) -> Session:
+    """Cinco ventanas de dos canales: ruido chico en C3, y en EOG una espiga
+    de 300 µV en la ventana 3."""
+    muestras = int(5 * 30 * frecuencia)
+    datos = np.random.default_rng(51).normal(scale=5.0, size=(2, muestras))
+    donde = int(ESPIGA * frecuencia / 100.0)
+    datos[1, donde] = 300.0
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[
+            Channel("C3", ChannelKind.EEG, "µV", 0),
+            Channel("EOG", ChannelKind.EOG, "µV", 1),
+        ],
+        data=datos,
+        sampling_rate=frecuencia,
+    )
+    return Session(registro, Scoring(5, Nomenclature.AASM), AnnotationSet())
+
+
+def _contexto(sesion: Session, actual: int = 2) -> OverviewTool:
+    sesion.go_to_window(actual)
+    tool = OverviewTool()
+    tool.activate(sesion)
+    return tool
+
+
+def test_cada_ventana_trae_su_senal():
+    """**Hasta el hito 51 la Übersicht no mostraba señal**: número, fase y
+    eventos anotados. Un huso justo antes sólo se veía si alguien ya lo había
+    anotado, que es lo que el panel existe para ayudar a encontrar."""
+    tool = _contexto(_sesion_con_senal())
+
+    assert [v.index for v in tool.windows()] == [1, 2, 3]
+    assert all(v.trace is not None for v in tool.windows())
+
+
+def test_sin_seleccion_es_el_primer_canal_visible():
+    """La misma regla que la banda de amplitud: tiene que mostrar algo apenas
+    se abre el registro."""
+    tool = _contexto(_sesion_con_senal())
+
+    assert {v.trace.channel_name for v in tool.windows()} == {"C3"}
+
+
+def test_sigue_al_canal_seleccionado():
+    sesion = _sesion_con_senal()
+    tool = _contexto(sesion)
+
+    sesion.set_selected_channels(["EOG"])
+    tool.refresh()
+
+    assert {v.trace.channel_name for v in tool.windows()} == {"EOG"}
+
+
+def test_la_espiga_de_la_ventana_siguiente_se_ve_en_su_lugar():
+    """**Para esto existe el panel**: lo que pasa en la ventana de al lado,
+    sin ir hasta ahí. La espiga sale a su altura y en su posición: 12 s de
+    30 son el 40 % de la caja."""
+    sesion = _sesion_con_senal()
+    sesion.set_selected_channels(["EOG"])
+    tool = _contexto(sesion)
+
+    siguiente = [v for v in tool.windows() if v.index == 3][0].trace
+    donde = int(np.argmax(siguiente.microvolts))
+
+    assert siguiente.microvolts[donde] == 300.0
+    assert siguiente.positions[donde] == pytest.approx(0.4)
+
+
+def test_una_ventana_densa_se_reduce_sin_perder_la_espiga():
+    """A 1000 Hz son 30 000 muestras por ventana. Se reducen con la misma
+    envolvente que el visualizador, que no puede perder un pico."""
+    sesion = _sesion_con_senal(frecuencia=1000.0)
+    sesion.set_selected_channels(["EOG"])
+    tool = _contexto(sesion)
+
+    siguiente = [v for v in tool.windows() if v.index == 3][0].trace
+
+    assert len(siguiente.positions) <= 2 * TRACE_BUCKETS + 2
+    assert siguiente.microvolts.max() == 300.0
+
+
+def test_la_escala_es_la_del_canal_en_el_visualizador():
+    """**No se ajusta cada caja a su propio máximo**: una ventana tranquila
+    tiene que verse tranquila, y ajustada a su máximo el ruido llenaría la caja
+    igual que un complejo K."""
+    sesion = _sesion_con_senal()
+    sesion.set_scale_uv("C3", 37.5)
+    tool = _contexto(sesion)
+
+    assert all(v.trace.scale_uv == 37.5 for v in tool.windows())
+
+
+def test_la_posicion_va_de_cero_a_uno_dentro_de_la_ventana():
+    tool = _contexto(_sesion_con_senal())
+
+    for ventana in tool.windows():
+        assert ventana.trace.positions.min() >= 0.0
+        assert ventana.trace.positions.max() < 1.0
+
+
+def test_sin_canales_visibles_no_hay_senal():
+    """Sin nada que mostrar no se inventa un canal: la caja queda sin señal."""
+    sesion = _sesion_con_senal()
+    tool = _contexto(sesion)
+
+    sesion.set_visible_channels([])
+    tool.refresh()
+
+    assert all(v.trace is None for v in tool.windows())
+
+
+def test_la_senal_no_cuenta_al_comparar_ventanas():
+    """Dos descripciones de la misma ventana son iguales aunque sus arrays sean
+    objetos distintos: la comparación con arrays de numpy elevaría."""
+    sesion = _sesion_con_senal()
+    primera = _contexto(sesion).windows()
+    segunda = _contexto(sesion).windows()
+
+    assert primera == segunda

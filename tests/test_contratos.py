@@ -45,6 +45,7 @@ import numpy as np
 import pytest
 
 from psglab.core import nomenclature as nom
+from psglab.core.annotations import es_color_de_clase
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
@@ -61,7 +62,7 @@ from psglab.analysis import (
     reference,
 )
 from psglab.core.session import Session
-from psglab.core.decimation import min_max_envelope
+from psglab.core.decimation import bucket_size_for, envelope_by_bucket_size
 from psglab.core.viewport import Viewport
 from psglab.utils import units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
@@ -77,6 +78,13 @@ POTENCIAS = np.ones((1, 51))
 #: Una señal cualquiera, para las filas de `complexity.py`. Corta a
 #: propósito: la entropía de muestra es O(n²).
 SEÑAL = np.sin(np.linspace(0.0, 20.0, 400))
+
+
+def _con_una() -> AnnotationSet:
+    """Un conjunto con una sola anotación, para reemplazarla."""
+    conjunto = AnnotationSet()
+    conjunto.add(Annotation("Arousal", 0, 10))
+    return conjunto
 
 
 def registro(canales: int = 2, muestras: int = 3000, fs: float = 100.0) -> Recording:
@@ -124,6 +132,8 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("channel_by_name", lambda v: registro().channel_by_name(v)),
         ("channels_of_kind", lambda v: registro().channels_of_kind(v)),
         ("get_segment(channel_names=...)", lambda v: registro().get_segment(0, 10, [v])),
+        ("get_segment(start_sample=...)", lambda v: registro().get_segment(v, 10)),
+        ("get_segment(stop_sample=...)", lambda v: registro().get_segment(0, v)),
         ("flat_channels(channel_names=...)", lambda v: registro().flat_channels(0, 10, [v])),
         ("flat_channels(start_sample=...)", lambda v: registro().flat_channels(v, 10)),
         ("Recording(original_sampling_rate=...)", lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0, v)], np.zeros((1, 10)), 100.0)),
@@ -137,6 +147,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("change_nomenclature", lambda v: Scoring(3, Nomenclature.AASM).change_nomenclature(v)),
     ],
     "psglab/core/nomenclature.py": [
+        ("check_nomenclature", lambda v: nom.check_nomenclature(v)),
         ("stages_of", lambda v: nom.stages_of(v)),
         ("is_valid(stage=...)", lambda v: nom.is_valid(v, Nomenclature.AASM)),
         ("is_valid(nomenclature=...)", lambda v: nom.is_valid(SleepStage.N2, v)),
@@ -151,7 +162,10 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("add(onset=...)", lambda v: AnnotationSet().add(Annotation("Arousal", v, 10))),
         ("add(duration=...)", lambda v: AnnotationSet().add(Annotation("Arousal", 0, v))),
         ("color_of", lambda v: AnnotationSet().color_of(v)),
+        ("es_color_de_clase", lambda v: es_color_de_clase(v)),
         ("remove_at", lambda v: AnnotationSet().remove_at(v)),
+        ("replace(old=...)", lambda v: AnnotationSet().replace(v, Annotation("Arousal", 0, 10))),
+        ("replace(new=...)", lambda v: _con_una().replace(Annotation("Arousal", 0, 10), v)),
         ("add(annotation=...)", lambda v: AnnotationSet().add(v)),
         ("add(label=...)", lambda v: AnnotationSet().add(Annotation(v, 0, 10))),
         ("add_label(label=...)", lambda v: AnnotationSet().add_label(v)),
@@ -161,8 +175,13 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("in_range(stop_sample=...)", lambda v: anotaciones().in_range(0, v)),
     ],
     "psglab/core/decimation.py": [
-        ("min_max_envelope(samples=...)", lambda v: min_max_envelope(v, 10)),
-        ("min_max_envelope(n_buckets=...)", lambda v: min_max_envelope(np.zeros(100), v)),
+        ("bucket_size_for(n_samples=...)", lambda v: bucket_size_for(v, 10)),
+        ("bucket_size_for(n_buckets=...)", lambda v: bucket_size_for(100, v)),
+        ("envelope_by_bucket_size(samples=...)", lambda v: envelope_by_bucket_size(v, 10)),
+        (
+            "envelope_by_bucket_size(bucket_size=...)",
+            lambda v: envelope_by_bucket_size(np.zeros(100), v),
+        ),
     ],
     "psglab/core/viewport.py": [
         ("Viewport(start=...)", lambda v: Viewport(v, 30.0, 3600.0)),
@@ -175,6 +194,8 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("with_start", lambda v: pagina().with_start(v)),
         ("with_center", lambda v: pagina().with_center(v)),
         ("zoomed", lambda v: pagina().zoomed(v)),
+        ("zoomed_at(factor=...)", lambda v: pagina().zoomed_at(v, 10.0)),
+        ("zoomed_at(anchor=...)", lambda v: pagina().zoomed_at(0.5, v)),
         ("panned", lambda v: pagina().panned(v)),
         ("for_duration", lambda v: pagina().for_duration(v)),
         ("containing(start=...)", lambda v: pagina().containing(v, 10.0)),
@@ -240,6 +261,8 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("component_topography(component=...)", lambda v: ica.component_topography(object(), v)),
         ("component_time_course(ica=...)", lambda v: ica.component_time_course(v, 0, registro())),
         ("component_time_course(recording=...)", lambda v: ica.component_time_course(object(), 0, v)),
+        ("explained_variance(ica=...)", lambda v: ica.explained_variance(v, registro())),
+        ("explained_variance(recording=...)", lambda v: ica.explained_variance(object(), v)),
         ("apply_ica(recording=...)", lambda v: ica.apply_ica(v, object(), [])),
         ("apply_ica(ica=...)", lambda v: ica.apply_ica(registro(), v, [])),
         ("apply_ica(exclude=...)", lambda v: ica.apply_ica(registro(), object(), v)),
@@ -329,6 +352,26 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Hito 48. **Aceptaban los seis valores hostiles**, y la auditoría de los
+    # tests las encontró por eso: sus filas en CONTRATOS eran indistinguibles de
+    # un test vacío. La del color además llegaba hasta un bug: el visualizador
+    # le concatena la transparencia al texto, y `red` más `55` no es un color.
+    ("set_active_tool con algo que no es un nombre", 3.5,
+     lambda v: sesion().set_active_tool(v)),
+    ("set_active_tool con un nombre en blanco", "   ",
+     lambda v: sesion().set_active_tool(v)),
+    ("add_label con un color que no es #rrggbb", "red",
+     lambda v: AnnotationSet().add_label("Huso", v)),
+    ("add_label con un color de ocho dígitos", "#e6754aff",
+     lambda v: AnnotationSet().add_label("Huso", v)),
+    # Hito 48. **La fila de CONTRATOS no alcanzaba**, y la auditoría de los
+    # tests mostró por qué: construye un `Scoring` recién creado, y la
+    # validación vivía dentro de la comprensión que traduce las fases ya
+    # scoreadas. Sin ninguna scoreada el bucle no itera, así que la fila pasaba
+    # en verde mientras el objeto se quedaba con una cadena donde va un enum y
+    # el siguiente `export_scoring()` moría con un `AttributeError` crudo.
+    ("change_nomenclature con algo que no es una nomenclatura", "basura",
+     lambda v: Scoring(3, Nomenclature.AASM).change_nomenclature(v)),
     # Hito 27. `clamp` documenta que no valida: un NaN que pasara de la guarda
     # llegaría a la página como centro, y la reproducción dibujaría la nada
     # veinticinco veces por segundo.
@@ -346,16 +389,21 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     # Fase 7 del refactor. **Mientras se arma la ventana el grafico no tiene
     # ancho**, y ese cero llega como cantidad de cubetas. Sin la guarda sale un
     # ZeroDivisionError, que la ventana principal no sabe atrapar.
-    ("min_max_envelope sin cubetas", 0,
-     lambda v: min_max_envelope(np.zeros(1000), v)),
+    # Desde el hito 49 la cantidad de cubetas la recibe `bucket_size_for()`.
+    ("bucket_size_for sin cubetas", 0,
+     lambda v: bucket_size_for(1000, v)),
     # `True` es un `int` para Python: sin excluirlo pasaria como una cubeta y
     # la noche entera se dibujaria como dos puntos.
-    ("min_max_envelope con un booleano como cubetas", True,
-     lambda v: min_max_envelope(np.zeros(1000), v)),
+    ("bucket_size_for con un booleano como cubetas", True,
+     lambda v: bucket_size_for(1000, v)),
+    # Hito 49. Una cubeta de cero muestras es un `reshape` imposible, y el
+    # ValueError de numpy atravesaria la ventana.
+    ("envelope_by_bucket_size con cubetas vacias", 0,
+     lambda v: envelope_by_bucket_size(np.zeros(1000), v)),
     # `Recording.data` es una matriz de canales, y pasarla entera es el error
     # esperable. `argmin` sobre dos dimensiones no falla: devuelve otra cosa.
-    ("min_max_envelope con una matriz de canales", np.zeros((2, 1000)),
-     lambda v: min_max_envelope(v, 10)),
+    ("envelope_by_bucket_size con una matriz de canales", np.zeros((2, 1000)),
+     lambda v: envelope_by_bucket_size(v, 10)),
     # Hito 12. **La guarda que MNE no hace.** Se midió: con un pasa-altos de 40
     # y un pasa-bajos de 10, MNE acepta el par, arma una banda eliminada, no
     # emite ningún aviso y devuelve la señal sin atenuar nada. Borrar esta
@@ -382,6 +430,13 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     # porque numpy lee el índice negativo como "desde el final".
     ("get_segment desde antes del registro", -1,
      lambda v: registro().get_segment(v, 10)),
+    # Hito 50. Con 3.5 el que explotaba era el índice de numpy, con un
+    # TypeError crudo; la guarda de rango comparaba bien y lo dejaba pasar.
+    ("get_segment con un extremo fraccionario", 3.5,
+     lambda v: registro().get_segment(0, v)),
+    # `True` es un `int` para Python y se leía como la muestra 1.
+    ("get_segment con un booleano como extremo", True,
+     lambda v: registro().get_segment(v, 10)),
     # La nomenclatura como cadena se aceptaba y daba `KeyError: 'AASM'` la
     # primera vez que alguien asignaba una fase, lejos de donde estaba el bug.
     ("Scoring con la nomenclatura como cadena", "AASM",
@@ -404,6 +459,10 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     ("add_label con None", None, lambda v: AnnotationSet().add_label(v)),
     # Guardar algo que no es una anotación reventaba al pedirle `.label`.
     ("add con algo que no es una anotación", "Arousal", lambda v: AnnotationSet().add(v)),
+    # Hito 52. Reemplazar por algo que no es una anotación tiene que rechazarse
+    # **antes** de sacar la vieja: si no, se pierde el evento que se corregía.
+    ("replace por algo que no es una anotación", "Arousal",
+     lambda v: _con_una().replace(Annotation("Arousal", 0, 10), v)),
     # Hito 4. La frecuencia original de un canal se muestra al lado de su
     # nombre: un NaN se leería como "nan Hz" en la lista de canales, y un cero
     # afirmaría que el canal no trae ninguna muestra por segundo.

@@ -24,7 +24,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -38,6 +39,9 @@ from PySide6.QtWidgets import (
 from psglab.analysis.filters import FilterSettings, default_for
 from psglab.core.recording import ChannelKind, Recording
 from psglab.ui.impedance_panel import FixedColumnDelegate
+from psglab.ui import theme
+from psglab.ui.channel_selector import color_de_la_clase
+from psglab.ui.panel_header import PanelHeader
 
 #: Cómo se llama cada clase de canal en la pantalla. El enum está en inglés
 #: —convención del proyecto— y todo lo que ve el usuario, en español.
@@ -71,6 +75,7 @@ class FilterPanel(QWidget):
         #: A quién avisarle cuando el usuario pide aplicar.
         self.on_apply: Callable[[], None] | None = None
 
+        self._cuantos: dict[ChannelKind, int] = {}
         self.tabla = QTreeWidget()
         self.tabla.setHeaderLabels(["Canales", *(rotulo for rotulo, _ in CAMPOS)])
         self.tabla.setRootIsDecorated(False)
@@ -78,6 +83,8 @@ class FilterPanel(QWidget):
         self.tabla.setItemDelegateForColumn(0, FixedColumnDelegate(self.tabla))
 
         self.boton_aplicar = QPushButton("Aplicar")
+        # El principal del panel, relleno del acento (hito 55).
+        self.boton_aplicar.setProperty(theme.PRIMARIO_PROPERTY, True)
         self.boton_sugeridos = QPushButton("Restaurar sugeridos")
         self.boton_aplicar.clicked.connect(self._al_aplicar)
         self.boton_sugeridos.clicked.connect(self.restore_defaults)
@@ -87,16 +94,28 @@ class FilterPanel(QWidget):
         botones.addWidget(self.boton_sugeridos)
         botones.addWidget(self.boton_aplicar)
 
-        columna = QVBoxLayout(self)
+        #: El encabezado, con cuántas clases tiene el registro y contra qué
+        #: frecuencia se sugirieron los cortes. Ver `PanelHeader`.
+        self.header = PanelHeader("Filtros")
+
         self.rotulo = QLabel(
             "Dejá la celda vacía para desactivar ese filtro. Los valores "
             "sugeridos son los habituales en polisomnografía, no una "
             "imposición."
         )
         self.rotulo.setWordWrap(True)
-        columna.addWidget(self.rotulo)
-        columna.addWidget(self.tabla)
-        columna.addLayout(botones)
+
+        cuerpo = QVBoxLayout()
+        cuerpo.setContentsMargins(8, 8, 8, 8)
+        cuerpo.addWidget(self.rotulo)
+        cuerpo.addWidget(self.tabla)
+        cuerpo.addLayout(botones)
+
+        columna = QVBoxLayout(self)
+        columna.setContentsMargins(0, 0, 0, 0)
+        columna.setSpacing(0)
+        columna.addWidget(self.header)
+        columna.addLayout(cuerpo)
 
     # -- Lo que le da la ventana principal ----------------------------------
 
@@ -108,13 +127,30 @@ class FilterPanel(QWidget):
         orden del archivo: el investigador las busca donde las vio.
         """
         vistas: list[ChannelKind] = []
+        cuantos: dict[ChannelKind, int] = {}
         for canal in recording.channels:
             if canal.kind not in vistas:
                 vistas.append(canal.kind)
+            cuantos[canal.kind] = cuantos.get(canal.kind, 0) + 1
         self._clases = vistas
+        self._cuantos = cuantos
         self._frecuencia = recording.sampling_rate
         self._explicar_el_tope()
+        self._reflejar_el_encabezado()
         self.restore_defaults()
+
+    def _reflejar_el_encabezado(self) -> None:
+        """Cuántas clases hay que filtrar, y contra qué frecuencia.
+
+        **La frecuencia va en el encabezado y el tope de Nyquist en el
+        rótulo**, que son dos cosas distintas: la primera dice de dónde salen
+        los sugeridos y la segunda por qué algunos vienen vacíos.
+        """
+        cuantas = len(self._clases)
+        plural = "clase" if cuantas == 1 else "clases"
+        self.header.set_caption(f"{cuantas} {plural} de canal")
+        if self._frecuencia is not None:
+            self.header.set_detail(f"sugeridos para {self._frecuencia:g} Hz")
 
     def restore_defaults(self) -> None:
         """Vuelve a los valores sugeridos para cada clase.
@@ -189,12 +225,38 @@ class FilterPanel(QWidget):
             filtros = por_clase.get(clase, FilterSettings())
             entrada = QTreeWidgetItem(
                 [
-                    NOMBRE_DE_CLASE[clase],
+                    self._rotulo_de(clase),
                     *(self._texto(getattr(filtros, atributo)) for _, atributo in CAMPOS),
                 ]
             )
             entrada.setFlags(entrada.flags() | Qt.ItemFlag.ItemIsEditable)
+            entrada.setIcon(0, self._muestra_de(clase))
             self.tabla.addTopLevelItem(entrada)
+        # La columna de la clase, del ancho de su texto: con la cantidad de
+        # canales, «EOG (ocular) · 1 canal» se cortaba en «EOG (ocular)…» y
+        # se perdía justo lo que se había agregado.
+        self.tabla.resizeColumnToContents(0)
+
+    def _rotulo_de(self, clase: ChannelKind) -> str:
+        """La clase y cuántos canales tiene (hito 55).
+
+        **Un filtro de la fila vale para todos sus canales**, y la tabla no
+        decía cuántos eran: «EEG» con dos canales y con veinte se leían igual.
+        El prototipo lo escribía debajo; va al lado, que en una tabla no cabe
+        una segunda línea.
+        """
+        cuantos = self._cuantos.get(clase, 0)
+        plural = "canal" if cuantos == 1 else "canales"
+        return f"{NOMBRE_DE_CLASE[clase]} · {cuantos} {plural}"
+
+    def _muestra_de(self, clase: ChannelKind) -> QIcon:
+        """El cuadradito del color de la clase, el mismo del selector de canales.
+
+        Se rearma cada vez que se vuelca la tabla, así que sigue al esquema.
+        """
+        lienzo = QPixmap(10, 10)
+        lienzo.fill(QColor(color_de_la_clase(clase)))
+        return QIcon(lienzo)
 
     def _texto(self, valor: float | None) -> str:
         """Cómo se escribe un corte en la celda, con la coma del idioma."""

@@ -97,7 +97,17 @@ def qt_app():
     """
     from PySide6.QtWidgets import QApplication
 
-    yield QApplication.instance() or QApplication([])
+    from psglab.app import install_qt_translations
+
+    existente = QApplication.instance()
+    if existente is not None:
+        yield existente
+        return
+    # **Con la traducción que carga el programa** (hito 53): si no, la suite
+    # verificaría los botones en inglés que el usuario ya no ve.
+    aplicacion = QApplication([])
+    install_qt_translations(aplicacion)
+    yield aplicacion
 
 
 #: Resolución del BrainVision sintético: cuántos µV vale una cuenta entera del

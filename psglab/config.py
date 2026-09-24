@@ -50,7 +50,34 @@ FINE_GRID_SECONDS: Final[float] = 0.5
 AMPLITUDE_BAND_UV: Final[float] = 75.0
 
 #: Escala vertical por defecto de cada canal, en microvoltios.
+#:
+#: Es la de un EEG, y la que reciben las clases que no tienen la suya en
+#: `DEFAULT_SCALE_BY_KIND_UV`.
 DEFAULT_SCALE_UV: Final[float] = 100.0
+
+#: Con qué escala arranca cada clase de canal, en microvoltios por carril.
+#:
+#: **Una sola escala para todos no sirve.** Con los 100 µV de un EEG, un canal
+#: respiratorio se sale de su carril y barre media pantalla, y un EMG queda
+#: aplastado contra su eje: son señales de órdenes de magnitud distintos, y el
+#: pliego pide soportarlas todas (V4_F) sin limitar por tipo. Los valores son
+#: los de uso corriente en un laboratorio de sueño.
+#:
+#: **La clave es el valor de `ChannelKind`, no la clase**, porque este módulo
+#: no puede importar `core/`: es la capa de abajo de todas. Que ninguna clave
+#: apunte a una clase que ya no existe lo verifica `tests/test_session.py`;
+#: sin eso, renombrar una clase dejaría su escala sin aplicarse en silencio.
+#:
+#: **Las clases que no están acá no se olvidaron.** Respiratorio y Otro no
+#: tienen ninguna escala de uso corriente —un termómetro y un flujo de aire no
+#: comparten unidad ni orden de magnitud— así que se miden: ver
+#: `Session.fit_to_pane()`, que es lo que se les aplica al abrir el registro.
+DEFAULT_SCALE_BY_KIND_UV: Final[dict[str, float]] = {
+    "EEG": 100.0,
+    "EOG": 250.0,
+    "EMG": 50.0,
+    "ECG": 1000.0,
+}
 
 #: Factor por el que se multiplica o divide la amplitud con cada pulsación
 #: de las flechas "Arriba" y "Abajo".

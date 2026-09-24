@@ -15,12 +15,19 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from psglab.core.nomenclature import Nomenclature, SleepStage  # noqa: E402
+from psglab.core.nomenclature import (  # noqa: E402
+    Nomenclature,
+    SleepStage,
+    stage_label,
+)
 from psglab.ui.scoring_panel import (  # noqa: E402
+    ALTO_DEL_BOTON,
     PIE_SIN_REGISTRO,
+    SIN_SCOREAR,
     ScoringPanel,
     status_text,
 )
+from psglab.ui.shortcuts import key_for_stage  # noqa: E402
 
 
 @pytest.fixture
@@ -102,3 +109,108 @@ def test_las_fases_van_en_su_propia_fila(panel: ScoringPanel):
     assert en_la_fila == list(panel._botones.values())
     assert panel._nomenclaturas not in en_la_fila
     assert panel._arousal not in en_la_fila
+
+
+# -- El botón de fase (hito 34) ----------------------------------------------
+
+
+@pytest.mark.parametrize("nomenclatura", list(Nomenclature))
+def test_cada_boton_muestra_su_tecla(panel: ScoringPanel, nomenclatura: Nomenclature):
+    """La tecla existía desde el principio y no se veía en ningún lado: quien
+    no leía la ayuda scoreaba la noche entera a golpe de mouse."""
+    panel.set_nomenclature(nomenclatura)
+
+    for fase, boton in panel._botones.items():
+        lineas = boton.text().splitlines()
+        assert lineas[0] == stage_label(fase)
+        assert lineas[-1] == key_for_stage(fase)
+
+
+@pytest.mark.parametrize("nomenclatura", list(Nomenclature))
+def test_si_la_tecla_es_la_etiqueta_se_escribe_una_vez(
+    panel: ScoringPanel, nomenclatura: Nomenclature
+):
+    """**Hasta el hito 51 el botón de W decía «W» sobre «W»**, y el de R lo
+    mismo: la tecla es la inicial de la etiqueta, que ahí es la etiqueta
+    entera. Donde difieren —«N2» y «2»— siguen las dos líneas."""
+    panel.set_nomenclature(nomenclatura)
+
+    for fase, boton in panel._botones.items():
+        repetida = key_for_stage(fase).casefold() == stage_label(fase).casefold()
+        assert len(boton.text().splitlines()) == (1 if repetida else 2)
+
+
+def test_la_tecla_no_se_escribe_en_el_panel(panel: ScoringPanel):
+    """Sale de `shortcuts`, que es el único lugar que dice qué tecla hace qué:
+    escribirla al lado del control es como se desincronizan."""
+    panel.set_nomenclature(Nomenclature.AASM)
+
+    assert panel._botones[SleepStage.N2].text().endswith(
+        key_for_stage(SleepStage.N2)
+    )
+
+
+@pytest.mark.parametrize("nomenclatura", list(Nomenclature))
+def test_cada_boton_declara_su_fase(panel: ScoringPanel, nomenclatura: Nomenclature):
+    """Es lo que le deja a la hoja de estilo pintarlo con el color de su fase
+    sin que el panel conozca ningún color."""
+    panel.set_nomenclature(nomenclatura)
+
+    for fase, boton in panel._botones.items():
+        assert boton.property("fase") == fase.value
+
+
+def test_los_botones_de_fase_tienen_alto_propio(panel: ScoringPanel):
+    """Es el control que más se aprieta en toda la noche, uno por época."""
+    for boton in panel._botones.values():
+        assert boton.minimumHeight() == ALTO_DEL_BOTON
+
+
+def test_cambiar_de_nomenclatura_no_deja_botones_viejos(panel: ScoringPanel):
+    """Con la propiedad `fase` puesta, un botón que sobreviviera se seguiría
+    pintando con el color de una fase que ya no existe."""
+    panel.set_nomenclature(Nomenclature.RK)
+    panel.set_nomenclature(Nomenclature.AASM)
+
+    en_la_fila = [panel._fila.itemAt(i).widget() for i in range(panel._fila.count())]
+    assert [b.property("fase") for b in en_la_fila] == [
+        f.value for f in panel._botones
+    ]
+
+
+# -- La itálica de lo que nadie eligió ----------------------------------------
+
+
+def test_el_pie_inclina_la_ausencia(panel: ScoringPanel):
+    """**La itálica dice «esto no lo eligió nadie»** (hito 43). Es la misma
+    clase de dato que el «sin medir» de la tabla de impedancias, y hasta acá
+    los dos se apoyaban en el gris, que ya quiere decir «esto es secundario»."""
+    panel.set_current(SleepStage.UNSCORED, False, window_index=340)
+
+    assert f"<i>{SIN_SCOREAR}</i>" in panel._pie.text()
+
+
+def test_el_pie_no_inclina_la_ventana(panel: ScoringPanel):
+    """**Se inclina la ausencia y no el renglón.** Inclinar «Ventana 341»
+    diría que la ventana tampoco la eligió nadie, que es falso."""
+    panel.set_current(SleepStage.UNSCORED, False, window_index=340)
+
+    assert "<i>Ventana" not in panel._pie.text()
+    assert panel._pie.text().startswith("Ventana 341")
+
+
+def test_scorearla_endereza_el_pie(panel: ScoringPanel):
+    """La otra mitad: si todo estuviera inclinado, la inclinación no diría
+    nada, y «Ventana 341 · N2» no es ninguna ausencia."""
+    panel.set_current(SleepStage.N2, False, window_index=340)
+
+    assert "<i>" not in panel._pie.text()
+
+
+def test_el_pie_se_contesta_en_texto_pelado(panel: ScoringPanel):
+    """`status()` es lo que compara el resto del programa, y el rótulo guarda
+    el suyo con marcas: `text()` no sirve para contestarlo."""
+    panel.set_current(SleepStage.UNSCORED, False, window_index=340)
+
+    assert panel.status() == status_text(340, SleepStage.UNSCORED, False)
+    assert "<" not in panel.status()

@@ -251,6 +251,24 @@ def window_to_clock_time(
     return start_time + timedelta(seconds=window_index * window_seconds)
 
 
+def seconds_to_clock_time(
+    seconds: float,
+    start_time: datetime | None,
+) -> datetime | None:
+    """Horario real de un instante del registro, dado en segundos absolutos.
+
+    Es `window_to_clock_time()` para el eje del visualizador, que no trabaja
+    en ventanas sino en segundos desde el inicio: con una página de cuatro
+    horas las marcas no caen en bordes de época.
+
+    Devuelve None si el archivo no informó el horario de inicio, y en ese caso
+    el eje se numera en segundos, como antes de que esto existiera.
+    """
+    if start_time is None:
+        return None
+    return start_time + timedelta(seconds=seconds)
+
+
 def window_duration(
     window_index: int,
     n_samples: int,

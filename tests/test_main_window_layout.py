@@ -34,11 +34,28 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # Acciones de menú que los tests prenden y apagan.
         "accion_eje_en_hora",
         "accion_señal_original",
+        # La primera que arrancó un cálculo en otro hilo: hay que poder
+        # apagarla mientras dura, porque con uno en curso no se puede pedir
+        # otro (hito 42).
+        "accion_conectividad_de_la_noche",
+        # Los dos menús que sustituyen el registro —«Montaje» entero, y
+        # «Filtrar», que además lleva la otra operación que corre en otro
+        # hilo—. Se apagan mientras dura un cálculo: cambiar la señal debajo
+        # de una ICA que se está ajustando dejaría una descomposición de una
+        # señal que ya no está (hito 47).
+        "menu_montaje",
+        "menu_filtrar",
+        # Los dos esquemas, en el menú «Ver» desde el hito 35: la ventana
+        # necesita poder tildar el que aplique, venga del menú o del archivo
+        # de preferencias.
+        "acciones_de_esquema",
         # El menú que se puebla desde el registro de herramientas.
         "tools_menu",
         # El botón de la esquina de la barra de menú, que abre un registro. El
         # cambio de esquema le vuelve a dibujar el icono.
         "open_button",
+        # Qué registro está abierto, en la otra esquina de esa barra (hito 36).
+        "recording_summary",
         # Los paneles acoplables, por nombre, y los cuatro de trabajo.
         "docks",
         "channels_dock",
@@ -150,6 +167,10 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         # de `antropy`—, que pide `main.py` por
         # `create_main_window(warm_up=True)` (hitos 31 y 33).
         "warm_up_in_background",
+        # Esperar el cálculo largo que esté corriendo. La llama el cierre de la
+        # ventana antes de soltar la sesión, y cualquier test que necesite el
+        # resultado (hito 42).
+        "wait_for_background",
         # El contador de la lupa, desde «Herramientas» (hito 32).
         "reset_magnifier_count",
     }

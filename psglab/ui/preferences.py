@@ -25,6 +25,8 @@ from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Final
 
+import pyqtgraph as pg
+
 from psglab.analysis.psd import DEFAULT_BANDS, METHODS, validate_band
 from psglab.config import (
     AMPLITUDE_BAND_UV,
@@ -33,15 +35,15 @@ from psglab.config import (
     OVERVIEW_WINDOWS_AFTER,
     OVERVIEW_WINDOWS_BEFORE,
 )
+from psglab.core.annotations import es_color_de_clase
 from psglab.core.nomenclature import Nomenclature
 from psglab.tools.magnifier import RADIO_INICIAL_SEGUNDOS, ZOOM_INICIAL
+from psglab.ui.fonts import UI_FONT_FAMILY
 from psglab.ui.theme import (
     DEFAULT_SCHEME_NAME,
     ColorScheme,
     is_valid_color,
     scheme_by_name,
-    scheme_from_dict,
-    scheme_to_dict,
 )
 from psglab.utils.errors import InvalidPreferencesError, PsgLabError
 
@@ -99,12 +101,12 @@ class Preferences:
     puede dejar el objeto a medio actualizar si algo falla en el medio.
 
     Attributes:
-        scheme_name: nombre del esquema de color elegido. Se guarda el nombre y
-            no el esquema entero mientras sea uno de fábrica, para que
-            mejorarlos en una versión nueva alcance a quien ya los eligió.
-        custom_scheme: el esquema completo, cuando el usuario lo modificó y ya
-            no es ninguno de fábrica. None mientras use uno de los cinco.
-        font_family: la tipografía de la interfaz, o None para la del sistema.
+        scheme_name: nombre del esquema de color elegido, uno de los dos que
+            hay. **Se guarda el nombre y no el esquema**, así que mejorar los
+            colores en una versión nueva alcanza a quien ya lo eligió.
+            **Arranca en la que el programa empaqueta** (hito 34), que es la del
+            diseño; si los archivos no estuvieran, la ventana se queda con la
+            del sistema en vez de dejar que Qt sustituya por cualquier cosa.
         font_size: su tamaño en puntos, o None para el del sistema.
         psd_method: cómo se estima el espectro; uno de `psd.METHODS`.
         psd_bands: las bandas de frecuencia, como (nombre, desde, hasta), o
@@ -143,8 +145,6 @@ class Preferences:
     """
 
     scheme_name: str = DEFAULT_SCHEME_NAME
-    custom_scheme: ColorScheme | None = None
-    font_family: str | None = None
     font_size: int | None = None
     psd_method: str = METHODS[0]
     psd_bands: tuple[tuple[str, float, float], ...] | None = None
@@ -161,10 +161,6 @@ class Preferences:
 
     def __post_init__(self) -> None:
         """Rechaza lo que el programa no podría usar. Ver el docstring de la clase."""
-        if self.font_family is not None and (
-            not isinstance(self.font_family, str) or not self.font_family.strip()
-        ):
-            _rechazar("la tipografía", self.font_family)
         if self.font_size is not None and not (
             _es_entero(self.font_size)
             and MIN_FONT_SIZE <= self.font_size <= MAX_FONT_SIZE
@@ -289,26 +285,19 @@ class Preferences:
         devuelve el de fábrica. Quedarse sin colores no es motivo para no
         arrancar.
         """
-        if self.custom_scheme is not None:
-            return self.custom_scheme
         try:
             return scheme_by_name(self.scheme_name)
         except PsgLabError:
             return scheme_by_name(DEFAULT_SCHEME_NAME)
 
     def with_scheme(self, scheme: ColorScheme) -> "Preferences":
-        """Las mismas preferencias con otro esquema elegido.
+        """Las mismas preferencias con el otro esquema elegido.
 
-        Si el esquema es uno de fábrica se guarda sólo su nombre; si no, se
-        guarda entero.
+        Se guarda el nombre. Un esquema que no sea uno de los dos no se
+        rechaza acá: `scheme()` lo resuelve al leer, devolviendo el de fábrica
+        si el nombre ya no existe.
         """
-        try:
-            de_fabrica = scheme_by_name(scheme.name) == scheme
-        except PsgLabError:
-            de_fabrica = False
-        if de_fabrica:
-            return replace(self, scheme_name=scheme.name, custom_scheme=None)
-        return replace(self, scheme_name=scheme.name, custom_scheme=scheme)
+        return replace(self, scheme_name=scheme.name)
 
 
 def _rechazar(que: str, valor: object) -> None:
@@ -373,7 +362,11 @@ def _validar_colores_de_clase(colores: object) -> None:
         if clase in vistas:
             _rechazar("los colores de las anotaciones (clase repetida)", clase)
         vistas.add(clase)
-        if not is_valid_color(color):
+        # **Con la regla de `core/` y no con la de pyqtgraph** (hito 48): la
+        # sesión rechaza lo que no sea `#rrggbb`, y validar acá con otra
+        # gramática dejaba pasar `red` hasta el dibujo. Lo que viene del
+        # archivo ya llega normalizado por `_normalizar_color()`.
+        if not es_color_de_clase(color):
             _rechazar(f"el color de la clase «{clase}»", color)
 
 
@@ -447,14 +440,11 @@ def load(path: Path | None = None) -> Preferences:
     if not isinstance(nombre, str):
         nombre = DEFAULT_SCHEME_NAME
 
-    propio = datos.get("custom_scheme")
-    esquema = scheme_from_dict(propio) if isinstance(propio, dict) else None
-
-    # **Una clave `window_state` se ignora**, sin error. Es la disposición de
-    # paneles que se guardaba hasta el hito 24, y los archivos de antes la
-    # siguen trayendo: desde entonces el programa abre siempre con la vista de
-    # fábrica.
-    base = Preferences(scheme_name=nombre, custom_scheme=esquema)
+    # **Las claves que ya no existen se ignoran**, sin error: `window_state`,
+    # la disposición de paneles que se guardaba hasta el hito 24, y
+    # `custom_scheme`, el esquema editado a mano que se quitó en el 35. Un
+    # archivo viejo las sigue trayendo y eso no puede impedir arrancar.
+    base = Preferences(scheme_name=nombre)
     return _con_campos_nuevos(base, datos)
 
 
@@ -510,7 +500,24 @@ def _leer_colores(valor: object) -> tuple[tuple[str, str], ...]:
     """
     if not isinstance(valor, dict):
         raise TypeError("se esperaba un objeto")
-    return tuple(valor.items())
+    return tuple((clase, _normalizar_color(color)) for clase, color in valor.items())
+
+
+def _normalizar_color(color: object) -> object:
+    """Lleva un color que se puede dibujar a la forma `#rrggbb`.
+
+    **Es por donde entra texto arbitrario** —un archivo editado a mano— y la
+    forma que `AnnotationSet.add_label()` acepta es una sola, porque el
+    visualizador le concatena la transparencia al texto. Normalizar acá en vez
+    de rechazar conserva lo que funcionaba: `red` sigue siendo rojo, como
+    `#ff0000`. Es lo mismo que ya hace la ventana de configuración al elegir.
+
+    Lo que no se puede dibujar pasa tal cual, para que el constructor lo
+    rechace con su mensaje.
+    """
+    if not is_valid_color(color):
+        return color
+    return pg.mkColor(color).name()
 
 
 def _identidad(valor: object) -> object:
@@ -520,7 +527,6 @@ def _identidad(valor: object) -> object:
 #: Cómo se lee cada campo nuevo desde el JSON. Los que no necesitan conversión
 #: pasan tal cual y los comprueba el constructor.
 _LECTORES: Final[dict[str, object]] = {
-    "font_family": _identidad,
     "font_size": _identidad,
     "psd_method": _identidad,
     "psd_bands": _leer_bandas,
@@ -560,13 +566,10 @@ def save(preferences: Preferences, path: Path | None = None) -> None:
         "version": FORMAT_VERSION,
         "scheme_name": preferences.scheme_name,
     }
-    if preferences.custom_scheme is not None:
-        datos["custom_scheme"] = scheme_to_dict(preferences.custom_scheme)
     # Los campos de la ventana de configuración. **Se escriben siempre**, aunque
     # tengan el valor de fábrica: el archivo es también lo que alguien abre
     # para ver qué puede cambiar. Una versión anterior del programa los ignora,
     # así que no hizo falta cambiar `FORMAT_VERSION`.
-    datos["font_family"] = preferences.font_family
     datos["font_size"] = preferences.font_size
     datos["psd_method"] = preferences.psd_method
     datos["psd_bands"] = (
@@ -599,47 +602,3 @@ def save(preferences: Preferences, path: Path | None = None) -> None:
         ) from error
 
 
-def load_scheme(path: Path) -> ColorScheme:
-    """Lee un esquema de color de un archivo suelto.
-
-    Es lo que hace el botón "Cargar" de la referencia. Un esquema es un archivo
-    propio y no una entrada de las preferencias justamente para que el
-    laboratorio pueda pasarse uno por correo y que todas las máquinas se vean
-    igual.
-
-    Raises:
-        InvalidPreferencesError: si el archivo no se puede leer o no es un JSON.
-        UnknownColorSchemeError: si es un JSON pero no describe un esquema.
-    """
-    try:
-        datos = json.loads(Path(path).read_text(encoding="utf-8"))
-    except OSError as error:
-        raise InvalidPreferencesError(
-            "No se pudo abrir el archivo de esquema de color.",
-            details=f"No se pudo leer {path}: {error}",
-        ) from error
-    except json.JSONDecodeError as error:
-        raise InvalidPreferencesError(
-            "El archivo no es un esquema de color válido.",
-            details=f"{path} no es un JSON válido: {error}",
-        ) from error
-    return scheme_from_dict(datos)
-
-
-def save_scheme(path: Path, scheme: ColorScheme) -> None:
-    """Escribe un esquema de color en un archivo suelto.
-
-    Raises:
-        UnknownColorSchemeError: si no es un `ColorScheme`.
-        InvalidPreferencesError: si no se pudo escribir.
-    """
-    datos = scheme_to_dict(scheme)
-    try:
-        Path(path).write_text(
-            json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-    except OSError as error:
-        raise InvalidPreferencesError(
-            "No se pudo guardar el esquema de color.",
-            details=f"No se pudo escribir {path}: {error}",
-        ) from error

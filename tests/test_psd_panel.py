@@ -16,7 +16,7 @@ import pytest
 pytest.importorskip("pyqtgraph")
 
 from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
-from psglab.ui.psd_panel import PsdPanel  # noqa: E402
+from psglab.ui.psd_panel import COLUMNAS, PsdPanel  # noqa: E402
 
 
 @pytest.fixture
@@ -209,16 +209,17 @@ def test_la_tabla_muestra_la_banda_la_absoluta_y_la_relativa(panel: PsdPanel):
     panel.set_spectrum(*espectro(), ["C3"])
     panel.set_band_powers({"Delta": (12.5, 0.625)})
 
-    fila = [panel.tabla.item(0, columna).text() for columna in range(3)]
+    fila = [panel.tabla.item(0, columna).text() for columna in range(len(COLUMNAS))]
     assert fila[0] == "Delta"
-    assert fila[2] == "62,5", "la relativa tiene que salir como porcentaje"
+    assert fila[2] == "12,5", "la absoluta va tal cual, en µV²"
+    assert fila[3] == "62,5", "la relativa tiene que salir como porcentaje"
 
 
 def test_el_separador_decimal_es_la_coma(panel: PsdPanel):
     """La misma convención que el informe de impedancia y la ocupación."""
     panel.set_band_powers({"Alpha": (1.5, 0.5)})
 
-    for columna in (1, 2):
+    for columna in range(len(COLUMNAS)):
         assert "." not in panel.tabla.item(0, columna).text()
 
 
@@ -260,3 +261,30 @@ def test_la_pista_se_va_con_un_resultado_y_vuelve_al_vaciarlo(panel: PsdPanel):
     assert panel.visible_hint() == ""
     panel.clear_spectrum()
     assert panel.visible_hint() == "Se pide desde Analizar"
+
+
+# -- Todas las bandas a la vista (hito 55) ----------------------------------
+
+
+def test_la_tabla_mide_lo_que_sus_bandas(panel: PsdPanel):
+    """**Se veían tres de las seis** y había que desplazarse: un tope de 190 px
+    con el alto de fila de fábrica."""
+    panel.set_band_powers({nombre: (1.0, 1.0 / 6) for nombre in DEFAULT_BANDS})
+    tabla = panel.tabla
+    necesario = (
+        tabla.horizontalHeader().sizeHint().height()
+        + tabla.rowCount() * tabla.verticalHeader().defaultSectionSize()
+    )
+
+    assert tabla.rowCount() == len(DEFAULT_BANDS)
+    assert tabla.height() >= necesario
+
+
+def test_con_menos_bandas_la_tabla_se_achica(panel: PsdPanel):
+    """Las bandas son configurables: la tabla mide lo que tiene."""
+    panel.set_band_powers({nombre: (1.0, 1.0 / 6) for nombre in DEFAULT_BANDS})
+    con_seis = panel.tabla.height()
+
+    panel.set_band_powers({"Delta": (1.0, 1.0)})
+
+    assert panel.tabla.height() < con_seis

@@ -14,6 +14,13 @@ eléctricas mezcladas en el cuero cabelludo— y ensuciaría todos los component
 `apply_ica()` devuelve el registro entero, con los EEG reconstruidos y el resto
 intacto.
 
+**Se ajusta sobre una muestra de la noche** (hito 58), repartida a lo largo
+del registro: por lo menos `FIT_SAMPLES` muestras por canal y menos del doble,
+o todas si son menos. La ICA separa fuentes mezcladas **en el mismo instante**
+y no mira el orden de las muestras, así que saltear algunas no filtra nada:
+ajusta con menos datos, que sobran. Con la noche entera el ajuste pedía siete copias de la señal —13 GB
+con 32 canales y 8 horas— y tardaba minutos; ver `fit_ica()`.
+
 **La semilla es fija**, y no es un detalle: ICA es estocástica, así que sin
 semilla el mismo registro da componentes distintos en cada corrida, en otro
 orden y con otro signo. Un investigador que rehace un análisis tiene que obtener
@@ -33,6 +40,7 @@ Cubre del pliego: V5_F de "Filtración de la señal".
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Final
 
 import numpy as np
@@ -48,6 +56,21 @@ from psglab.utils.errors import (
 
 #: Semilla del algoritmo. Fija a propósito: ver el docstring del módulo.
 RANDOM_STATE: Final[int] = 0
+
+#: Cuántas ventanas de la noche se usan para medir la varianza que explica
+#: cada componente. Ver `explained_variance()`.
+VARIANCE_SAMPLE_WINDOWS: Final[int] = 40
+
+#: Cuántas muestras por canal se usan para ajustar la descomposición, como
+#: mínimo. Ver `fit_ica()`. Doscientas mil son 13 minutos a 256 Hz: un
+#: registro más corto se ajusta entero, igual que antes del hito 58.
+FIT_SAMPLES: Final[int] = 200_000
+
+#: El piso que pone la cantidad de canales: tantas veces su cuadrado. La regla
+#: de uso habitual de la ICA pide entre veinte y treinta; con 32 canales son
+#: 30 720 muestras, y `FIT_SAMPLES` ya es más de seis veces eso. Es la que
+#: manda recién pasados los 80 canales, que ningún polisomnógrafo trae.
+FIT_SAMPLES_PER_SQUARED_CHANNEL: Final[int] = 30
 
 #: Tope de iteraciones antes de darse por vencido. El valor por omisión de MNE
 #: ("auto") es bajo para señal ruidosa y deja avisos de no convergencia en
@@ -125,6 +148,39 @@ def _exigir_componente(ica: Any, component: int) -> int:
     return component
 
 
+def _muestra_para_ajustar(recording: Recording, nombres: list[str]) -> Recording:
+    """Los canales EEG, con una de cada `paso` muestras a lo largo del registro.
+
+    **Repartida y no un tramo**: una hora seguida puede ser toda vigilia, y un
+    componente de parpadeo ajustado ahí no es el de la noche. Una de cada
+    `paso` pasa por todas las fases.
+
+    **Sólo se copia lo que se usa.** Se toma la vista con el paso antes de
+    elegir los canales: al revés, `data[filas]` copiaría los EEG enteros para
+    después descartar casi todo, y el pico volvería a ser la señal completa.
+
+    La muestra declara la frecuencia que tiene de verdad, `fs / paso`: MNE
+    ajusta igual y la aplica después sobre la señal a la frecuencia original.
+    """
+    cuantas = max(FIT_SAMPLES, FIT_SAMPLES_PER_SQUARED_CHANNEL * len(nombres) ** 2)
+    # **Hacia abajo**, para que `cuantas` sea un mínimo: hacia arriba, un
+    # registro apenas más largo que el tope se ajustaba con la mitad.
+    paso = max(1, recording.n_samples // cuantas)
+    filas = [recording.channel_by_name(nombre).index for nombre in nombres]
+    datos = np.ascontiguousarray(recording.data[:, ::paso][filas])
+    return Recording(
+        file_path=recording.file_path,
+        channels=[
+            replace(recording.channel_by_name(nombre), index=posicion)
+            for posicion, nombre in enumerate(nombres)
+        ],
+        data=datos,
+        sampling_rate=recording.sampling_rate / paso,
+        start_time=recording.start_time,
+        metadata=dict(recording.metadata),
+    )
+
+
 def fit_ica(recording: Recording, n_components: int | None = None) -> Any:
     """Ajusta la descomposición ICA sobre el registro.
 
@@ -141,6 +197,15 @@ def fit_ica(recording: Recording, n_components: int | None = None) -> Any:
 
     Es **reproducible**: con la misma señal devuelve la misma descomposición,
     porque la semilla está fija en `RANDOM_STATE`.
+
+    **Se ajusta sobre una muestra**, y es la decisión del hito 58: una de cada
+    `paso` muestras, por lo menos `FIT_SAMPLES` por canal. Medido con
+    `tests/medir_memoria.py`, sobre la noche entera el ajuste pedía **siete
+    copias** de la señal —seis eran de MNE, que copia los canales, los
+    blanquea en otra copia y arma una matriz del tamaño de la señal para la
+    descomposición en componentes principales—. Su propio `decim` no
+    alcanzaba: copia la señal entera antes de descartar, y dejaba el pico en
+    3,2. Con un octavo de las muestras eran 0,9 copias y 8 s en vez de 88.
 
     Raises:
         InvalidRecordingError: si no hay al menos dos canales EEG, o si se piden
@@ -167,7 +232,7 @@ def fit_ica(recording: Recording, n_components: int | None = None) -> Any:
             )
         cuantos = n_components
 
-    raw = to_raw(recording)
+    raw = to_raw(_muestra_para_ajustar(recording, nombres))
     ica = ICA(
         n_components=cuantos,
         random_state=RANDOM_STATE,
@@ -225,6 +290,63 @@ def component_topography(ica: Any, component: int) -> dict[str, float]:
     return {
         nombre: float(peso / escala) for nombre, peso in zip(ica.ch_names, pesos)
     }
+
+
+def explained_variance(ica: Any, recording: Recording) -> list[float]:
+    """Qué fracción de la varianza de los canales EEG explica cada componente.
+
+    **Es la pista de cuál pesa más** antes de quitar nada (hito 54): el
+    prototipo la mostraba al lado de cada componente, y sin ella la lista son
+    nombres iguales. Un parpadeo suele explicar mucho; un componente que
+    explica el 1 % rara vez es lo que molesta.
+
+    **Se mide con la definición de MNE** (`get_explained_variance_ratio`), que
+    reconstruye la señal desde cada componente solo. Se probó sacarla de las
+    normas de la matriz de mezcla, sin tocar la señal, y **no coincide**: con
+    cinco canales sintéticos daba 51 % donde MNE da 62 %, porque
+    `get_components()` no está en las unidades del sensor.
+
+    **Sobre una muestra de la noche y no la noche entera**: reconstruir una
+    vez por componente cuesta una copia de la señal cada vez, casi 2 GB por
+    componente con 32 canales y ocho horas. Se usan hasta
+    `VARIANCE_SAMPLE_WINDOWS` ventanas repartidas a lo largo del registro,
+    todas si son menos. Es una estimación, y por eso el número se muestra
+    redondeado.
+
+    Returns:
+        Una fracción por componente, en orden, entre 0 y 1. Con tantos
+        componentes como canales suman 1; con menos, lo que falta es lo que la
+        descomposición dejó afuera.
+
+    Raises:
+        InvalidRecordingError: si no es una ICA ajustada o no hay registro.
+    """
+    _exigir_ica(ica)
+    _exigir_registro(recording)
+
+    total = count_windows(recording.n_samples, recording.sampling_rate)
+    cuantas = min(total, VARIANCE_SAMPLE_WINDOWS)
+    elegidas = np.unique(np.linspace(0, total - 1, cuantas).round().astype(int))
+    tramos = []
+    for ventana in elegidas:
+        inicio, fin = window_to_samples(int(ventana), recording.sampling_rate)
+        tramos.append(np.asarray(recording.get_segment(inicio, min(fin, recording.n_samples))))
+    muestra = Recording(
+        file_path=recording.file_path,
+        channels=list(recording.channels),
+        data=np.concatenate(tramos, axis=1),
+        sampling_rate=recording.sampling_rate,
+        start_time=recording.start_time,
+        metadata=dict(recording.metadata),
+    )
+    raw = to_raw(muestra)
+    fracciones = []
+    for numero in range(int(ica.n_components_)):
+        razon = ica.get_explained_variance_ratio(
+            raw, components=[numero], ch_type="eeg"
+        )
+        fracciones.append(float(razon["eeg"]))
+    return fracciones
 
 
 def _recorte_de_ventana(recording: Recording, window_index: int) -> Recording:
@@ -366,6 +488,8 @@ def apply_ica(recording: Recording, ica: Any, exclude: list[int]) -> Recording:
 
 
 __all__ = [
+    "FIT_SAMPLES",
+    "FIT_SAMPLES_PER_SQUARED_CHANNEL",
     "MAX_ITER",
     "RANDOM_STATE",
     "apply_ica",

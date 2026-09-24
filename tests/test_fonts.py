@@ -8,11 +8,13 @@ igual**: una tipografía es una preferencia visual, no una dependencia.
 from pathlib import Path
 
 import pytest
+from PySide6.QtGui import QFont
 
 pytest.importorskip("PySide6")
 
 import psglab.ui.fonts as fonts  # noqa: E402
 from psglab.ui import theme  # noqa: E402
+from psglab.utils.errors import UnknownTypeRoleError  # noqa: E402
 
 
 def test_registra_las_dos_familias(qt_app):
@@ -33,9 +35,31 @@ def test_registrar_dos_veces_no_las_vuelve_a_cargar(qt_app):
     assert fonts._registradas == cargados
 
 
-def test_la_tipografia_de_papel_es_una_que_el_programa_trae(qt_app):
-    """Si el esquema nombrara una que no está, Qt usaría otra sin avisar."""
-    assert theme.PAPEL.numeric_font in fonts.register_bundled_fonts()
+@pytest.mark.parametrize("nombre", list(theme.SCHEMES))
+def test_la_tipografia_numerica_es_una_que_el_programa_trae(qt_app, nombre: str):
+    """Si un esquema nombrara una que no está, Qt usaría otra sin avisar."""
+    esquema = theme.SCHEMES[nombre]
+
+    assert esquema.numeric_font in fonts.register_bundled_fonts()
+
+
+def test_la_de_la_interfaz_tambien(qt_app):
+    """Es la de fábrica desde el hito 34, así que un nombre mal escrito dejaría
+    la ventana entera con la tipografía que Qt eligiera."""
+    assert fonts.UI_FONT_FAMILY in fonts.register_bundled_fonts()
+
+
+def test_una_familia_registrada_esta_disponible(qt_app):
+    fonts.register_bundled_fonts()
+
+    assert fonts.available_family() == fonts.UI_FONT_FAMILY
+
+
+def test_una_familia_que_no_existe_no_lo_esta(qt_app):
+    """**Es lo que separa degradar a lo conocido de degradar a cualquier cosa**:
+    `QFont.setFamily()` con un nombre que no existe no avisa, y Qt sustituye
+    por lo que le parece."""
+    assert fonts.available_family("Una Que No Existe") is None
 
 
 def test_una_carpeta_que_no_existe_no_impide_arrancar(qt_app, tmp_path: Path):
@@ -59,3 +83,79 @@ def test_la_licencia_viaja_con_los_archivos():
     licencia = (fonts.FONTS_DIR / "OFL.txt").read_text(encoding="utf-8")
 
     assert "SIL OPEN FONT LICENSE Version 1.1" in licencia
+
+
+# -- La escala tipográfica (hito 43) -----------------------------------------
+
+
+def base(puntos: int = 13) -> QFont:
+    """Una tipografía base como la que tiene la aplicación."""
+    fuente = QFont()
+    fuente.setPointSize(puntos)
+    return fuente
+
+
+def test_los_ocho_roles_usan_dos_familias(qt_app):
+    """**Es la promesa del módulo.** Una tercera familia la rompe, y un rol
+    nuevo es justo donde se colaría sin que nadie lo note."""
+    familias = {rol.family for rol in fonts.ROLES.values()}
+
+    assert familias == {fonts.UI_FONT_FAMILY, fonts.NUMERIC_FONT_FAMILY}
+
+
+def test_los_pasos_se_cuentan_desde_el_tamano_base(qt_app):
+    """Subir el tamaño en Configuración tiene que agrandar la interfaz entera
+    sin romper ninguna proporción."""
+    chica = fonts.font_for("secundario", base(11))
+    grande = fonts.font_for("secundario", base(17))
+
+    assert chica.pointSize() == 10
+    assert grande.pointSize() == 16
+
+
+def test_un_paso_no_achica_hasta_lo_ilegible(qt_app):
+    """Con el tamaño base en su mínimo, un paso de −2 llegaría ahí."""
+    assert fonts.font_for("chip", base(6)).pointSize() >= fonts.MIN_POINT_SIZE
+
+
+def test_el_rol_ausente_va_en_italica(qt_app):
+    """Inclinada quiere decir «esto no lo midió ni lo eligió nadie», que hasta
+    el hito 43 lo cargaba el gris —y el gris ya decía «esto es secundario»."""
+    assert fonts.font_for("ausente", base()).italic()
+    assert not fonts.font_for("secundario", base()).italic()
+
+
+def test_el_rotulo_lleva_espaciado_entre_letras(qt_app):
+    """Va en mayúsculas, y sin aire se apelmaza. Es el único rol que lo pide."""
+    rotulo = fonts.font_for("rotulo", base())
+
+    assert rotulo.letterSpacing() > 0
+    assert fonts.font_for("cuerpo", base()).letterSpacing() == 0
+
+
+def test_la_base_no_se_toca(qt_app):
+    """Devuelve una `QFont` nueva: la de la aplicación la comparten todos."""
+    original = base(13)
+
+    fonts.font_for("titulo", original)
+
+    assert original.pointSize() == 13
+    assert not original.bold()
+
+
+def test_un_rol_que_no_existe_se_rechaza(qt_app):
+    """El nombre lo escribe quien dibuja, y un error de tipeo es la causa
+    habitual: el mensaje los enumera, como hace `icons.icon()`."""
+    with pytest.raises(UnknownTypeRoleError) as error:
+        fonts.font_for("inventado", base())
+
+    assert "rotulo" in str(error.value.details)
+
+
+def test_un_tamano_en_pixeles_no_se_desplaza_en_puntos(qt_app):
+    """Qt devuelve −1 en `pointSize()` cuando la tipografía se fijó en
+    píxeles: desplazarlo daría un tamaño de otra unidad."""
+    en_pixeles = QFont()
+    en_pixeles.setPixelSize(20)
+
+    assert fonts.font_for("chip", en_pixeles).pixelSize() == 20

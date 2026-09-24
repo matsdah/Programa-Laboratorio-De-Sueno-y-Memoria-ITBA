@@ -13,6 +13,7 @@ de salida" y la vista de eventos de la herramienta Übersicht.
 """
 
 import bisect
+import re
 from dataclasses import dataclass
 from typing import Final
 
@@ -35,6 +36,23 @@ DEFAULT_LABELS: Final[tuple[str, ...]] = (
 #: La asignación es por posición, así que es **determinística**: la misma lista
 #: de clases da siempre los mismos colores, y dos registros abiertos uno tras
 #: otro se ven igual. Si hay más clases que colores, se vuelve a empezar.
+#: La forma de un color de clase: numeral y seis dígitos hexadecimales.
+_COLOR_DE_CLASE: Final[re.Pattern[str]] = re.compile(r"#[0-9a-fA-F]{6}")
+
+
+def es_color_de_clase(value: object) -> bool:
+    """Si un valor sirve como color de una clase de evento.
+
+    Es más estricta que `theme.is_valid_color()`, que pregunta a pyqtgraph y
+    acepta `red` o `#e6754aff`. Ver `AnnotationSet.add_label()` para el motivo:
+    el visualizador le concatena la transparencia al texto, y eso sólo da un
+    color con seis dígitos.
+
+    No eleva: devuelve falso para cualquier cosa que no sirva.
+    """
+    return isinstance(value, str) and _COLOR_DE_CLASE.fullmatch(value) is not None
+
+
 PALETTE: Final[tuple[str, ...]] = (
     "#e6754a",  # naranja
     "#4a90e6",  # azul
@@ -59,10 +77,12 @@ class Annotation:
         color: color de la banda, en formato "#RRGGBB". Si es None, se usa el
             color asignado a la clase.
 
-    **Inmutable a propósito.** Una anotación es un hecho registrado sobre la
-    señal: se crea, se borra, no se edita. Además así se la puede guardar en un
-    conjunto y usar como clave, que es lo que necesita el anotador para saber
-    cuál está debajo del clic.
+    **Inmutable a propósito.** Así se la puede guardar en un conjunto y usar
+    como clave, que es lo que necesita el anotador para saber cuál está debajo
+    del clic. **Corregirla es reemplazarla** (hito 52): `AnnotationSet.replace()`
+    cambia una por otra, y no hay ningún camino que la modifique en el lugar.
+    Hasta ese hito se decía que una anotación «se crea, se borra, no se edita»,
+    y para corregir una clase equivocada había que borrarla y rehacer el gesto.
     """
 
     label: str
@@ -115,6 +135,34 @@ class AnnotationSet:
                 la señal, y una banda sin ancho no se puede dibujar ni solapar
                 con nada.
         """
+        self._validar(annotation)
+        self._insertar(annotation)
+
+    def replace(self, old: Annotation, new: Annotation) -> None:
+        """Cambia una anotación por otra: es como se corrige una (hito 52).
+
+        **Valida la nueva antes de sacar la vieja.** Si la nueva no sirve —una
+        clase que no existe, un tramo sin ancho— el conjunto queda como estaba:
+        un reemplazo que fallara a la mitad le costaría al investigador el
+        evento que quería corregir.
+
+        La nueva se inserta en su lugar por muestra de inicio, que puede no ser
+        el de la vieja si se movió su comienzo: es lo que mantiene la promesa
+        de orden de la que depende `remove_at()`.
+
+        Raises:
+            InvalidAnnotationError: si `old` no está en el conjunto, o si `new`
+                no es una anotación válida (ver `add()`).
+            UnknownAnnotationLabelError: si la clase de `new` no está
+                registrada.
+        """
+        self._validar(new)
+        self.remove(old)
+        self._insertar(new)
+
+    def _validar(self, annotation: Annotation) -> None:
+        """Las reglas de `add()`, aparte para que `replace()` las use antes de
+        tocar nada."""
         if not isinstance(annotation, Annotation):
             raise InvalidAnnotationError(
                 "Se quiso guardar algo que no es una anotación.",
@@ -155,6 +203,8 @@ class AnnotationSet:
             minimum=1,
         )
 
+    def _insertar(self, annotation: Annotation) -> None:
+        """Inserta una anotación ya validada en su lugar por muestra de inicio."""
         posicion = bisect.bisect_right(
             [a.onset_sample for a in self._annotations], annotation.onset_sample
         )
@@ -215,10 +265,29 @@ class AnnotationSet:
         Registrar una clase que ya existe no es un error —es algo que el usuario
         teclea— y si se pasa un color, reemplaza al anterior.
 
+        **El color es exactamente `#rrggbb`** (hito 48), y no cualquier cosa
+        que pyqtgraph sepa dibujar. No es purismo: el visualizador pinta la
+        banda de una anotación con `color + "55"`, o sea que le **concatena** la
+        transparencia al texto. Con `#e6754a` eso da un color válido; con `red`
+        da `red55` y con `#e6754aff` da diez dígitos, y en los dos casos dibujar
+        la anotación eleva un `ValueError` crudo. Hasta este hito se aceptaba
+        cualquier cosa, y un archivo de preferencias editado a mano con `red`
+        llegaba hasta ahí. Lo normaliza `preferences.py` al leer, que es por
+        donde entra texto arbitrario.
+
         Raises:
-            InvalidAnnotationError: si la etiqueta está vacía. Una clase sin
-                nombre no se puede elegir en ninguna lista.
+            InvalidAnnotationError: si la etiqueta está vacía —una clase sin
+                nombre no se puede elegir en ninguna lista— o si el color no
+                tiene la forma `#rrggbb`.
         """
+        if color is not None and not es_color_de_clase(color):
+            raise InvalidAnnotationError(
+                "El color de una clase de evento no es válido.",
+                details=(
+                    f"color = {color!r}; se esperaba la forma #rrggbb, que es la "
+                    "que el visualizador sabe volver transparente."
+                ),
+            )
         if not isinstance(label, str):
             raise InvalidAnnotationError(
                 "Una clase de evento necesita un nombre escrito.",

@@ -18,10 +18,12 @@ import numpy as np
 import pytest
 
 from psglab.config import (
+    DEFAULT_SCALE_BY_KIND_UV,
     DEFAULT_SCALE_UV,
     DEFAULT_VIEW_SECONDS,
     MAX_SCALE_UV,
     MIN_SCALE_UV,
+    WINDOW_SECONDS,
 )
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature
@@ -34,8 +36,9 @@ from psglab.core.windows import window_to_samples
 from conftest import VENTANAS_SINTETICAS
 from psglab.utils.errors import (
     ChannelNotFoundError,
-    ScoringMismatchError,
     PsgLabError,
+    ScoringMismatchError,
+    UnknownToolError,
     WindowOutOfRangeError,
 )
 
@@ -226,9 +229,59 @@ def test_las_listas_de_canales_son_copias(session, propiedad):
 # -- Amplitud (V2_P, V5_F de "Visualización") -------------------------------
 
 
-def test_todos_los_canales_arrancan_con_la_escala_por_defecto(session, channel_names):
-    for nombre in channel_names:
-        assert session.scale_uv(nombre) == pytest.approx(DEFAULT_SCALE_UV)
+def test_cada_canal_arranca_con_la_escala_de_su_clase(session, channel_names):
+    """**Una sola escala para todos no sirve** y era lo que había: con los
+    100 µV de un EEG, un canal respiratorio se sale de su carril y barre media
+    pantalla, y un EMG queda aplastado contra su eje."""
+    esperadas = [DEFAULT_SCALE_BY_KIND_UV[clase.value] for clase in CLASES]
+
+    medidas = [session.scale_uv(nombre) for nombre in channel_names]
+
+    assert medidas == pytest.approx(esperadas)
+    assert len(set(medidas)) > 1
+
+
+def test_una_clase_sin_escala_propia_se_mide(sampling_rate):
+    """Respiratorio y Otro no tienen ninguna escala de uso corriente —un
+    termómetro y un flujo de aire no comparten unidad— así que se miden sobre
+    la primera época, que es la que se va a ver."""
+    tiempos = np.arange(int(sampling_rate * WINDOW_SECONDS)) / sampling_rate
+    datos = np.vstack([800.0 * np.sin(2 * np.pi * 0.3 * tiempos)])
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("Resp oro-nasal", ChannelKind.RESPIRATORY, "µV", 0)],
+        data=datos,
+        sampling_rate=sampling_rate,
+    )
+
+    sesion = Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
+
+    assert sesion.scale_uv("Resp oro-nasal") == pytest.approx(800.0, rel=0.01)
+
+
+def test_un_canal_plano_sin_escala_propia_se_queda_con_la_de_fabrica(sampling_rate):
+    """No hay ninguna escala "correcta" para una línea recta, y dividir por
+    cero dejaría el canal invisible."""
+    muestras = int(sampling_rate * WINDOW_SECONDS)
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("Temp rectal", ChannelKind.OTHER, "µV", 0)],
+        data=np.zeros((1, muestras)),
+        sampling_rate=sampling_rate,
+    )
+
+    sesion = Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
+
+    assert sesion.scale_uv("Temp rectal") == pytest.approx(DEFAULT_SCALE_UV)
+
+
+def test_la_tabla_de_escalas_no_nombra_una_clase_que_no_existe():
+    """`config.py` no puede importar `core/`, así que la tabla se escribe con
+    el valor de cada clase. Renombrar una clase dejaría su escala sin aplicarse
+    **en silencio**: el canal seguiría abriendo con la de fábrica."""
+    clases = {clase.value for clase in ChannelKind}
+
+    assert set(DEFAULT_SCALE_BY_KIND_UV) <= clases
 
 
 def test_la_flecha_arriba_hace_que_el_canal_represente_menos_microvoltios(session):
@@ -1277,3 +1330,31 @@ def test_ajustar_al_panel_saltea_los_valores_que_no_son_numeros(recording, chann
 
     assert sesion.scale_uv(channel_names[0]) != antes
     assert math.isfinite(sesion.scale_uv(channel_names[0]))
+
+
+# -- `set_active_tool` valida que el nombre sea texto (hito 48) -------------
+
+
+def test_ninguna_herramienta_activa_es_un_nombre_valido(session):
+    session.set_active_tool("magnifier")
+    session.set_active_tool(None)
+
+    assert session.active_tool is None
+
+
+@pytest.mark.parametrize("nombre", [3.5, [], {}, object(), "", "   "])
+def test_lo_que_no_es_un_nombre_de_herramienta_se_rechaza(session, nombre):
+    """**Guardaba cualquier cosa**, y su fila en `test_contratos.py` aceptaba
+    los seis valores hostiles. Sigue sin validar el nombre contra el registro
+    —importarlo desde `core/` cerraría un ciclo—, pero sí que sea texto."""
+    with pytest.raises(UnknownToolError):
+        session.set_active_tool(nombre)
+
+
+def test_un_nombre_rechazado_no_cambia_la_activa(session):
+    session.set_active_tool("magnifier")
+
+    with pytest.raises(UnknownToolError):
+        session.set_active_tool(3.5)
+
+    assert session.active_tool == "magnifier"

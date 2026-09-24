@@ -113,18 +113,29 @@ def test_reproducir_no_se_confunde_con_la_flecha_de_epoca(qt_app):
     assert reproducir != pausa
 
 
-def test_el_centro_de_reproducir_esta_calado(qt_app):
-    """Si la regla de relleno no fuera par-impar, el icono sería un círculo
-    lleno y los dos estados se verían iguales."""
+def test_reproducir_es_un_anillo_y_no_un_disco(qt_app):
+    """**Era un disco lleno con el triángulo recortado** hasta el hito 44, y
+    servía mientras el botón iba relleno con el acento: sobre ese fondo el
+    disco era la silueta y el hueco, el símbolo. Con el botón como los otros
+    seis pasó a ser una mancha oscura, que es lo que el usuario señaló.
+
+    Se miran tres puntos, que es lo que distingue un anillo de un disco y de
+    un triángulo suelto: el trazo entintado, el aire entre el trazo y el
+    símbolo, y el símbolo. Si la regla de relleno no fuera par-impar, los tres
+    estarían pintados y el icono sería un disco.
+    """
     imagen = icons.icon("reproducir", "#000000").pixmap(
         QSize(icons.LADO, icons.LADO)
     ).toImage()
+    medio = icons.LADO // 2
 
-    centro = imagen.pixelColor(icons.LADO // 2, icons.LADO // 2)
-    borde = imagen.pixelColor(icons.LADO // 2, int(icons.LADO * 0.22))
+    trazo = imagen.pixelColor(medio, int(icons.LADO * 0.19))
+    aire = imagen.pixelColor(medio, int(icons.LADO * 0.28))
+    simbolo = imagen.pixelColor(medio, medio)
 
-    assert centro.alpha() == 0
-    assert borde.alpha() > 0
+    assert trazo.alpha() > 0
+    assert aire.alpha() == 0
+    assert simbolo.alpha() > 0
 
 
 @pytest.mark.parametrize(

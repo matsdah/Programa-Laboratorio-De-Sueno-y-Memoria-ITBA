@@ -306,3 +306,33 @@ def test_una_impedancia_que_no_es_numero_se_rechaza():
 def test_una_lista_de_canales_invalida_se_rechaza(hostil):
     with pytest.raises(InvalidRecordingError):
         impedance_report({"C3": 4.2}, channels=hostil)
+
+
+# -- El informe es texto pelado -----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "marca", ["**", "__", "`", "<b>", "# "],
+    ids=["negrita", "subrayado", "codigo", "html", "titulo"],
+)
+def test_el_informe_no_lleva_ninguna_marca_de_markdown(marca: str):
+    """**Lo lee el investigador, no un renderizador.**
+
+    El informe va a un `QPlainTextEdit` y a un archivo exportado, así que una
+    marca de Markdown se lee tal cual. Tenía asteriscos alrededor de la frase
+    más importante —«no quiere decir que estén bien»— y en pantalla se veían
+    los asteriscos. El énfasis lo tiene que cargar la redacción.
+
+    Se cubren las tres situaciones del informe a la vez, porque cada una
+    aporta sus propias frases.
+    """
+    texto = impedance_report(
+        {"C3": 2.0, "O1": 9.9}, channels=["C3", "O1", "EOG-izq"]
+    )
+
+    assert marca not in texto
+
+
+def test_el_informe_sin_ninguna_medida_tampoco():
+    """La cuarta situación: el caso de todo EDF, que trae otra frase."""
+    assert "**" not in impedance_report({}, channels=["C3", "O1"])

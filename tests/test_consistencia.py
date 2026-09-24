@@ -93,8 +93,13 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_overview.py": ("psglab/tools/overview.py",),
     "test_histogram.py": ("psglab/tools/histogram.py",),
     "test_shortcuts.py": ("psglab/ui/shortcuts.py",),
+    "test_shortcuts_dialog.py": ("psglab/ui/shortcuts_dialog.py",),
     "test_signal_view.py": ("psglab/ui/signal_view.py",),
     "test_grid.py": ("psglab/ui/grid.py",),
+    "test_channel_axis.py": ("psglab/ui/channel_axis.py",),
+    "test_channel_selector.py": ("psglab/ui/channel_selector.py",),
+    "test_panel_header.py": ("psglab/ui/panel_header.py",),
+    "test_background.py": ("psglab/ui/background.py",),
     "test_registry.py": (
         "psglab/tools/registry.py",
         "psglab/tools/base.py",
@@ -1107,15 +1112,16 @@ SIN_CAMINO_A_PROPOSITO: dict[str, str] = {
         )
         for archivo, clase, metodos in (
             ("connectivity_panel.py", "ConnectivityPanel",
-             ("visible_hint", "caption", "axis_labels", "color_range")),
+             ("visible_hint", "caption", "axis_labels", "color_range", "cell_labels")),
             ("filter_panel.py", "FilterPanel", ("kinds", "displayed_value")),
             ("ica_panel.py", "IcaPanel",
              ("visible_hint", "component_count", "topography_bars", "time_course_data")),
             ("impedance_panel.py", "ImpedancePanel",
-             ("unmeasured", "displayed_value", "report_text")),
+             ("unmeasured", "displayed_value", "displayed_state", "state_color",
+              "report_text")),
             ("metric_panel.py", "MetricPanel",
              ("visible_hint", "caption", "window_positions", "gap_windows",
-              "metric_label")),
+              "legend_channels", "metric_label")),
             ("overview_panel.py", "OverviewPanel", ("current_index",)),
             ("psd_panel.py", "PsdPanel",
              ("visible_hint", "caption", "method_description", "band_powers",
@@ -1249,6 +1255,123 @@ def test_las_exenciones_de_herramientas_y_paneles_siguen_existiendo():
                 problemas.append(f"{nombre_de_tabla} nombra algo que no existe: {objetivo}")
             elif objetivo.rsplit(".", 1)[1] in usados:
                 problemas.append(f"{nombre_de_tabla} exime algo que ya tiene camino: {objetivo}")
+    assert not problemas, "\n".join(problemas)
+
+
+# -- Cada función de negocio la llama algún test (hito 48) -------------------
+#
+# **Es la red que habría encontrado lo que encontró la auditoría de los tests.**
+# `COBERTURA_DE_TESTS` dice qué archivo de test cubre qué módulo, y es cierto a
+# nivel de archivo: `test_windows.py` cubre `core/windows.py`. Pero no dice
+# nada por función, y cinco de las ocho conversiones de ese módulo —las que
+# `tools/base.py` manda a usar para no confundir unidades— no las nombraba
+# ningún test. Tampoco `is_electrical()`, que decide qué canales se escalan a
+# microvoltios y usan ocho lugares.
+#
+# **No cuentan los dos tests transversales.** `test_contratos.py` ejercita cada
+# método sólo con valores hostiles y no verifica que haga lo correcto con los
+# buenos; `test_consistencia.py` lee el código y no lo corre. Una función que
+# sólo aparece ahí está exactamente tan sin verificar como una que no aparece.
+#
+# **Es un piso, no un techo.** Que un test la llame no dice que la verifique
+# bien: eso lo midió la mutación de la auditoría, y no es algo que un chequeo
+# estático pueda afirmar. Lo que sí afirma es que nadie se olvidó de escribirle
+# nada, que fue la forma de los seis hallazgos.
+
+#: Las capas donde vive la regla de negocio. Las mismas de la red de contratos
+#: más `tools/` y `readers/`, que también toman decisiones sobre el dato.
+CAPAS_DE_NEGOCIO: tuple[str, ...] = ("core", "utils", "tools", "analysis", "readers")
+
+#: Tests que nombran funciones sin verificar su comportamiento. Ver arriba.
+TESTS_TRANSVERSALES: frozenset[str] = frozenset(
+    {"test_consistencia.py", "test_contratos.py"}
+)
+
+#: Funciones públicas de negocio que a propósito no llama ningún test de
+#: comportamiento, con el motivo. Hoy vacía: las cuatro que la red encontró al
+#: escribirse tienen su test. Una fila acá tiene que explicar por qué verificar
+#: esa función no sirve, no por qué no se hizo todavía.
+SIN_TEST_DE_COMPORTAMIENTO: dict[str, str] = {}
+
+
+def funciones_publicas_de_negocio() -> list[tuple[str, str]]:
+    """Cada función pública y cada método público de una clase pública.
+
+    **Los métodos de una clase privada quedan afuera**: `_Tramo.fase_en()`, de
+    `readers/scoring_formats.py`, es público para su clase pero la clase no es
+    de nadie más, y se verifica por `read_scoring()`, que tiene su test.
+
+    Returns:
+        Pares (`ruta::Clase.metodo` o `ruta::funcion`, nombre suelto).
+    """
+    encontradas: list[tuple[str, str]] = []
+    for capa in CAPAS_DE_NEGOCIO:
+        for archivo in sorted((RAIZ / "psglab" / capa).glob("*.py")):
+            arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+            ruta = ruta_relativa(archivo)
+            for nodo in arbol.body:
+                if isinstance(nodo, ast.FunctionDef) and not nodo.name.startswith("_"):
+                    encontradas.append((f"{ruta}::{nodo.name}", nodo.name))
+                elif isinstance(nodo, ast.ClassDef) and not nodo.name.startswith("_"):
+                    for metodo in nodo.body:
+                        if isinstance(metodo, ast.FunctionDef) and not metodo.name.startswith("_"):
+                            encontradas.append(
+                                (f"{ruta}::{nodo.name}.{metodo.name}", metodo.name)
+                            )
+    return encontradas
+
+
+def nombres_que_llaman_los_tests_de_comportamiento() -> set[str]:
+    """Todo nombre que aparece **como código** en un test que no es transversal.
+
+    Como código y no en un docstring: mencionar una función al explicar otra no
+    la verifica. `is_electrical()` aparecía en un docstring de
+    `test_channel_types.py`, y ése era todo su contacto con la suite.
+    """
+    usados: set[str] = set()
+    for archivo in (RAIZ / "tests").glob("test_*.py"):
+        if archivo.name in TESTS_TRANSVERSALES:
+            continue
+        for nodo in ast.walk(ast.parse(archivo.read_text(encoding="utf-8"))):
+            if isinstance(nodo, ast.Name):
+                usados.add(nodo.id)
+            elif isinstance(nodo, ast.Attribute):
+                usados.add(nodo.attr)
+    return usados
+
+
+def test_cada_funcion_de_negocio_la_llama_algun_test():
+    """Ninguna función pública de negocio puede quedar sin test en silencio.
+
+    O un test de comportamiento la llama, o figura en
+    `SIN_TEST_DE_COMPORTAMIENTO` con su motivo.
+    """
+    usados = nombres_que_llaman_los_tests_de_comportamiento()
+    huerfanas = [
+        objetivo
+        for objetivo, nombre in funciones_publicas_de_negocio()
+        if nombre not in usados and objetivo not in SIN_TEST_DE_COMPORTAMIENTO
+    ]
+    assert not huerfanas, (
+        "estas funciones públicas de negocio no las llama ningún test de "
+        "comportamiento —una fila en test_contratos.py no alcanza, porque sólo "
+        "prueba valores hostiles— y no figuran en SIN_TEST_DE_COMPORTAMIENTO: "
+        f"{huerfanas}"
+    )
+
+
+def test_las_exenciones_de_comportamiento_siguen_siendo_ciertas():
+    """Lo mismo que con las otras tablas de exenciones, que envejecen peor que
+    el código: una fila que apunte a algo borrado tapa lo que venga después, y
+    una que sobre deja de verificar lo que ya se probó."""
+    reales = {objetivo for objetivo, _ in funciones_publicas_de_negocio()}
+    usados = nombres_que_llaman_los_tests_de_comportamiento()
+    problemas: list[str] = []
+    for objetivo in SIN_TEST_DE_COMPORTAMIENTO:
+        if objetivo not in reales:
+            problemas.append(f"nombra algo que no existe: {objetivo}")
+        elif objetivo.rsplit("::", 1)[1].rsplit(".", 1)[-1] in usados:
+            problemas.append(f"exime algo que ya tiene test: {objetivo}")
     assert not problemas, "\n".join(problemas)
 
 
@@ -1596,7 +1719,6 @@ SIN_TEST_PROPIO: frozenset[str] = frozenset(
         "psglab/app.py",
         "psglab/config.py",
         "psglab/ui/main_window.py",
-        "psglab/ui/channel_selector.py",
     }
 )
 

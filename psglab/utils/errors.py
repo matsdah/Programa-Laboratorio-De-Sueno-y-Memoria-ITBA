@@ -176,6 +176,15 @@ class UnknownColorSchemeError(PsgLabError):
     """
 
 
+class UnknownTypeRoleError(PsgLabError):
+    """Se pidió un rol tipográfico que no existe.
+
+    Del mismo tipo que `UnknownIconError` y por el mismo motivo: el nombre lo
+    escribe quien dibuja y no el investigador, pero hereda igual de
+    `PsgLabError` para no atravesar el `except` de la ventana como traza.
+    """
+
+
 class UnknownIconError(PsgLabError):
     """Se pidió un icono que el programa no sabe dibujar.
 
@@ -203,6 +212,20 @@ class DuplicateToolError(PsgLabError):
 
 class UnknownToolError(PsgLabError):
     """Se pidió una herramienta que no está registrada."""
+
+
+class AlreadyRunningError(PsgLabError):
+    """Se pidió arrancar un cálculo largo con otro todavía en curso.
+
+    **No lo ve el investigador si la ventana hace su parte**: la entrada del
+    menú se apaga mientras dura el cálculo, así que llegar acá significa que
+    algo la llamó igual. Es un error del programa y no del usuario, y por eso
+    su `details` habla del código y no de lo que hay que hacer.
+
+    Existe igual porque dos cálculos a la vez sobre la misma sesión se pisan el
+    resultado, y cuál gana depende de cuál termine primero: un fallo que
+    depende del reloj es el peor de todos para encontrar.
+    """
 
 
 class RecordingTooLargeError(PsgLabError):

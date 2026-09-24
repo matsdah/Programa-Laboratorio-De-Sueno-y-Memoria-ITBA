@@ -21,7 +21,8 @@ from psglab.ui.shortcuts import (
     SIGNAL_ACTIONS,
     key_for,
     readable_key,
-    shortcuts_help_text,
+    HELP_GROUPS,
+    shortcut_groups,
     stage_shortcuts,
 )
 
@@ -110,31 +111,44 @@ def test_las_flechas_y_el_arousal_estan_declarados():
 # -- La ayuda ----------------------------------------------------------------
 
 
+def _teclas(nomenclatura: Nomenclature) -> list[str]:
+    return [tecla for _, filas in shortcut_groups(nomenclatura) for tecla, _ in filas]
+
+
 @pytest.mark.parametrize("nomenclatura", list(Nomenclature))
 def test_la_ayuda_lista_todos_los_atajos(nomenclatura: Nomenclature):
     """Se arma desde los diccionarios del módulo, así que no puede quedar
     desactualizada: es el motivo de que exista la función."""
-    texto = shortcuts_help_text(nomenclatura)
+    teclas = _teclas(nomenclatura)
     # Las fijas se escriben como las lee el usuario —«→» y no «Right»—, que es
     # lo mismo que muestran los menús.
     for tecla in FIXED_SHORTCUTS:
-        assert readable_key(tecla) in texto
+        assert readable_key(tecla) in teclas
     for tecla in stage_shortcuts(nomenclatura):
-        assert tecla in texto
+        assert tecla in teclas
 
 
-def test_la_ayuda_dice_de_que_nomenclatura_son_las_fases():
-    """El mismo "2" es S2 o N2 según el sistema; la ayuda tiene que decir cuál."""
-    assert Nomenclature.AASM.value in shortcuts_help_text(Nomenclature.AASM)
-    assert Nomenclature.RK.value in shortcuts_help_text(Nomenclature.RK)
+def test_cada_atajo_fijo_esta_en_un_solo_grupo():
+    """**Hito 54.** Un atajo nuevo que nadie sumó a un grupo no aparecería en
+    la ayuda, y uno en dos grupos aparecería dos veces."""
+    agrupadas = [tecla for _, teclas in HELP_GROUPS for tecla in teclas]
+
+    assert sorted(agrupadas) == sorted(FIXED_SHORTCUTS)
+
+
+def test_las_fases_van_al_principio_de_scoring():
+    """Son lo que más se usa, y lo que cambia con la nomenclatura."""
+    grupos = dict(shortcut_groups(Nomenclature.AASM))
+    fases = list(stage_shortcuts(Nomenclature.AASM))
+
+    assert [tecla for tecla, _ in grupos["Scoring"]][: len(fases)] == fases
 
 
 def test_la_ayuda_cambia_con_la_nomenclatura():
     """El usuario que cambia de sistema tiene que ver la lista nueva sin que
-    nadie edite nada."""
-    assert shortcuts_help_text(Nomenclature.RK) != shortcuts_help_text(
-        Nomenclature.AASM
-    )
+    nadie edite nada: con R&K aparecen S4 y MT."""
+    assert _teclas(Nomenclature.RK) != _teclas(Nomenclature.AASM)
+    assert "M" in _teclas(Nomenclature.RK)
 
 
 # -- Cómo se le escribe una tecla al usuario ----------------------------------------
@@ -192,4 +206,14 @@ def test_espacio_se_escribe_en_castellano():
 
 def test_la_ayuda_dice_que_espacio_necesita_el_foco_en_la_senal():
     assert "señal" in FIXED_SHORTCUTS["Space"]
-    assert "Espacio" in shortcuts_help_text(Nomenclature.AASM)
+    assert "Espacio" in _teclas(Nomenclature.AASM)
+
+
+def test_la_ayuda_dice_que_la_rueda_cambia_la_escala():
+    """Hito 56. No es un atajo, pero quien busca cómo acercarse lo busca en la
+    ayuda, al lado de Ctrl++."""
+    grupos = dict(shortcut_groups(Nomenclature.AASM))
+
+    teclas = [tecla for tecla, _ in grupos["Navegación"]]
+    assert "Rueda sobre la señal" in teclas
+    assert "Mayús+Rueda" in teclas

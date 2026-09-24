@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los cincuenta y cinco
+camino de búsqueda. Con `pytest` directo la recolección falla en los sesenta
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -55,12 +55,12 @@ verde por omisión, que es peor que dar rojo.
 | `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
 | `test_viewport.py` | La página visible: que se recorte en un solo lugar y que navegar no la mueva si la época ya está dentro. |
-| `test_decimation.py` | La envolvente: que una espiga de una sola muestra sobreviva a reducir ocho horas, y que no copie la señal. |
+| `test_decimation.py` | La envolvente: que una espiga de una sola muestra sobreviva a reducir ocho horas, que no copie la señal, y que calcularla por trozos alineados al registro dé lo mismo que de una vez. |
 | `test_nomenclature.py` | Las dos nomenclaturas, la conversión entre ellas y los códigos de `Scoring.txt`. |
 | `test_recording.py` | El registro en memoria y lo que no deja construir. |
 | `test_scoring.py` | Fases, arousals y cambio de nomenclatura. |
 | `test_session.py` | Navegación, canales y amplitud, sin abrir una ventana, y qué cuenta como scoring sin exportar. |
-| `test_annotations.py` | Los eventos sobre la señal: qué se borra y qué se dibuja. |
+| `test_annotations.py` | Los eventos sobre la señal: qué se borra, qué se dibuja y cómo se reemplaza uno sin perderlo. |
 | `test_channel_types.py` | Que cada canal se clasifique solo: EEG, EOG, EMG, ECG u otro. |
 | `test_readers.py` | El despacho por formato, y que la señal de un EDF y un BrainVision salga en la escala correcta. |
 | `test_scoring_reader.py` | Importar un scoring ya hecho sin adivinar con qué nomenclatura se escribió. |
@@ -69,12 +69,17 @@ verde por omisión, que es peor que dar rojo.
 | `test_amplitude_band.py` | La banda de 75 µV, y sobre qué canal se dibuja. |
 | `test_occupancy.py` | La ocupación horizontal: los ejemplos del pliego y el gesto del mouse. |
 | `test_magnifier.py` | La lupa y su contador de picos, que se cuenta sin dibujar nada. |
-| `test_annotator.py` | Anotar un evento, y que los segundos lleguen a la muestra correcta. |
-| `test_overview.py` | El panel de contexto: qué ventanas muestra y qué eventos caen en ellas. |
+| `test_annotator.py` | Anotar un evento, que los segundos lleguen a la muestra correcta, y corregirlo: sus bordes y su clase. |
+| `test_overview.py` | El panel de contexto: qué ventanas muestra, qué eventos caen en ellas y qué señal lleva cada una. |
 | `test_histogram.py` | El hipnograma de la noche y la navegación por clic. |
 | `test_shortcuts.py` | Los atajos, y que los de fase se deriven de la nomenclatura. |
+| `test_shortcuts_dialog.py` | La ayuda de atajos: una fila por atajo, en su grupo, con la tecla en su columna. |
 | `test_grid.py` | La grilla de fondo: cuántas líneas y dónde caen. |
-| `test_overview_panel.py` | El panel de contexto: qué ventanas entran, cuál es la actual y dónde va cada una. |
+| `test_channel_axis.py` | El canalón: qué dice de cada canal, y que su ancho salga del área de trazo en vez de dibujarse encima de la señal. |
+| `test_background.py` | Correr algo largo en otro hilo: que el resultado vuelva, que un error del programa salga por su señal y que uno inesperado se vuelva a elevar. |
+| `test_panel_header.py` | La carrocería de los paneles: el encabezado y el cartel de vacío que reemplaza al gráfico. |
+| `test_channel_selector.py` | El selector de canales: el orden de la lista, el atajo por clase del pie y que su estado siga a las casillas. |
+| `test_overview_panel.py` | El panel de contexto: qué ventanas entran, cuál es la actual, dónde va cada una, que la señal llegue a la pantalla y que un clic pida ir a su ventana. |
 | `test_signal_view.py` | Las cuatro conversiones desde píxeles, que es de donde salen las unidades de las herramientas. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 | `test_mne_bridge.py` | El puente con MNE: que ida y vuelta devuelva lo mismo, y que un termómetro no se escale como si fuera un EEG. |
@@ -102,9 +107,11 @@ verde por omisión, que es peor que dar rojo.
 | `test_icons.py` | Los iconos que dibuja el programa: que no salgan vacíos y que tomen el color pedido. |
 | `medir_rendimiento.py` | **No es un test**: el banco de medición. Se corre a mano con `python -m tests.medir_rendimiento` e imprime cuánto tarda abrir un registro y cada cuadro de la reproducción. |
 | `medir_reparto.py` | **No es un test**: el otro banco. Se corre a mano con `python -m tests.medir_reparto` e imprime cuánto ancho recibe cada panel de abajo y la pila de análisis, y el mínimo de cada uno, que es lo que decide el reparto. Abre una ventana de verdad: offscreen no usa el estilo nativo y daría otros mínimos. |
+| `medir_memoria.py` | **No es un test**: el banco de la memoria (hito 57). Se corre a mano con `python -m tests.medir_memoria` y abre, filtra, re-referencia, ajusta la ICA y vuelve a la señal original por la ventana, midiendo el pico y lo que queda de cada paso **en copias de la señal**, y qué línea reservó cada bloque que sigue vivo. Escribe su propio EDF sintético en el temporal. |
+| `capturar_pantalla.py` | **No es un test**: la herramienta de capturas. Se corre a mano con `python -m tests.capturar_pantalla` y deja PNG de la ventana y de sus barras, con los dos esquemas. Tampoco corre offscreen, y **no abre ninguna ventana en la pantalla**: `WA_DontShowOnScreen` maqueta el widget sin mapearlo. Lo que un test afirma es la estructura; cómo se ve, no. **Las ventanas no se cierran**: `closeEvent` pregunta por el trabajo sin exportar con un cartel modal que una ventana sin mapear no muestra, y el proceso quedaba colgado después del primer esquema. |
 | `test_navigation.py` | La barra inferior: que la franja convierta bien un clic en una ventana, sobre todo en los bordes, que queden los ocho controles en el orden pedido y que reproducir pida lo suyo. |
 | `test_scoring_panel.py` | El panel de scoring: el pie con la ventana y su fase, que reflejar la ventana no la vuelva a scorear, y las fases en su propia fila. |
-| `test_fonts.py` | Las tipografías que trae el programa: que estén con su licencia, que el esquema Papel nombre una que existe, y que si faltan el programa arranque igual. |
+| `test_fonts.py` | Las tipografías que trae el programa: que estén con su licencia, que la que nombra cada esquema exista y que la de la interfaz esté disponible, y que si faltan el programa arranque igual. |
 | `test_playback.py` | El reloj de la reproducción: que avance a la velocidad pedida aunque dibujar tarde, sin esperar al temporizador. |
 
 Los de `core/` y `exporters/` corren sin interfaz gráfica, que es justamente el
@@ -145,7 +152,7 @@ alcanza; con tres, la documentación se desincroniza más rápido de lo que algu
 la mira. No es una hipótesis: dos auditorías seguidas encontraron divergencias
 introducidas pocos días antes.
 
-Dos de sus tests merecen mención:
+Los tests que merecen mención:
 
 - **`test_ningun_modulo_terminado_tiene_su_test_salteado`** cierra el agujero más
   silencioso del repositorio. Si alguien implementa un módulo y se olvida de
@@ -163,6 +170,15 @@ Dos de sus tests merecen mención:
   `psglab/ui/`, no que se importe: un `from x import y` sin llamada no cuenta, y
   ésa era justamente la forma del camino muerto. Lo que la interfaz no ofrece a
   propósito va en `SOLO_BIBLIOTECA` **con su motivo**.
+- **`test_cada_funcion_de_negocio_la_llama_algun_test`**, del hito 48, cierra
+  el hueco que encontró la primera auditoría de los tests: `COBERTURA_DE_TESTS`
+  dice qué archivo cubre qué módulo, y eso no dice nada por función. Declaraba
+  que `test_units.py` cubría `units.py` mientras `is_electrical()` —que decide
+  qué canales se escalan a microvoltios— no aparecía en él, y cinco de las
+  conversiones de `core/windows.py` no las nombraba ningún test. Exige que cada
+  función pública de las capas de negocio la **llame** un test de
+  comportamiento: no cuentan `test_contratos.py`, que sólo prueba valores
+  hostiles, ni este archivo, que lee el código sin correrlo.
 
 Los otros dos del hito 20 verifican prosa con números adentro, que es lo que el
 resto del archivo no podía mirar: que la cuenta de hitos que declaran cuatro

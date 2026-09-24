@@ -130,7 +130,7 @@ def stage_shortcuts(nomenclature: Nomenclature) -> dict[str, str]:
     nueva trae su tecla sola, que es justamente lo que este módulo promete.
     """
     return {
-        _tecla_de_fase(fase): f"Marcar la ventana como {stage_label(fase)}"
+        key_for_stage(fase): f"Marcar la ventana como {stage_label(fase)}"
         for fase in stages_of(nomenclature)
     }
 
@@ -203,11 +203,16 @@ def install_shortcuts(window: QMainWindow, session: Session | None) -> None:
         _conectar_fase(window, tecla, fase)
 
 
-def _tecla_de_fase(stage: SleepStage) -> str:
+def key_for_stage(stage: SleepStage) -> str:
     """La tecla natural de una fase, derivada de su código.
 
     Los códigos 1 a 4 son las fases numeradas y su tecla es su propio número.
     Los otros tres son letras: W de vigilia, R de REM y M de movimiento.
+
+    **Es pública desde el hito 34**, que la muestra en el botón de la fase. Es
+    el mismo trato que `key_for()` le da a los menús: la tecla se lee de este
+    módulo en vez de escribirse al lado del control, que es como se
+    desincronizan.
     """
     codigo = stage_code(stage)
     if 1 <= codigo <= 4:
@@ -217,7 +222,7 @@ def _tecla_de_fase(stage: SleepStage) -> str:
 
 def _fases_por_tecla(nomenclature: Nomenclature) -> dict[str, SleepStage]:
     """La inversa de `stage_shortcuts()`: qué fase asigna cada tecla."""
-    return {_tecla_de_fase(fase): fase for fase in stages_of(nomenclature)}
+    return {key_for_stage(fase): fase for fase in stages_of(nomenclature)}
 
 
 def _quitar_atajos_anteriores(window: QMainWindow) -> None:
@@ -279,23 +284,61 @@ def _conectar_fase(window: QMainWindow, tecla: str, stage: SleepStage) -> None:
     _nuevo_atajo(window, tecla).activated.connect(lambda fase=stage: accion(fase))
 
 
-def shortcuts_help_text(nomenclature: Nomenclature) -> str:
-    """Texto de ayuda con todos los atajos disponibles.
+#: En qué grupo va cada atajo fijo en la ayuda, y en qué orden. Las fases no
+#: están porque dependen de la nomenclatura: van al principio de «Scoring».
+#:
+#: **Cada atajo fijo tiene que estar en uno solo**, y hay un test que lo exige:
+#: un atajo nuevo que nadie sumó a un grupo no aparecería en la ayuda.
+HELP_GROUPS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
+    (
+        "Navegación",
+        (
+            "Right", "Left", "Shift+Right", "Shift+Left", "Ctrl+Right", "Ctrl+Left",
+            "Ctrl++", "Ctrl+-", "Ctrl+0", "Space",
+        ),
+    ),
+    ("Scoring", ("A",)),
+    ("Visualización", ("Up", "Down", "F6", "Shift+F6")),
+    ("Archivo", ("Ctrl+O", "Ctrl+S")),
+)
 
-    Se muestra en el menú Ayuda. Se arma desde los diccionarios de este
-    módulo, así que nunca queda desactualizado.
+#: Lo que se hace con el mouse y no con una tecla, por grupo de la ayuda (hito
+#: 56). **No es un atajo**: no pasa por `QShortcut`, así que no puede estar en
+#: `FIXED_SHORTCUTS`, pero quien busca cómo cambiar la escala lo busca acá.
+MOUSE_HELP: Final[dict[str, tuple[tuple[str, str], ...]]] = {
+    "Navegación": (
+        ("Rueda sobre la señal", "Acercar o alejar, fijo bajo el mouse"),
+        ("Mayús+Rueda", "Desplazar la página"),
+        ("Deslizar de costado", "Desplazar la página, con el panel táctil"),
+    ),
+}
 
-    Las fases van al final y aparte, porque son las que cambian con la
-    nomenclatura: el usuario que cambia de R&K a AASM tiene que ver la lista
-    nueva sin que nadie edite nada.
+
+def shortcut_groups(
+    nomenclature: Nomenclature,
+) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Los atajos agrupados como los muestra la ayuda (hito 54).
+
+    **Era un texto con las columnas rellenadas con espacios**, que en la letra
+    proporcional del cartel salían desalineadas. El prototipo los mostraba en
+    una tabla agrupada, y esto es lo que la tabla lee: se arma desde los
+    diccionarios de este módulo, así que no puede quedar desactualizada.
+
+    Las fases van al principio de «Scoring», y son las que cambian con la
+    nomenclatura: el usuario que pasa de R&K a AASM ve la lista nueva sin que
+    nadie edite nada.
+
+    Returns:
+        (grupo, [(tecla como la lee el usuario, qué hace), …]), en orden.
     """
-    lineas = ["Atajos de teclado", ""]
-    lineas += [
-        f"  {readable_key(tecla):10}  {texto}" for tecla, texto in FIXED_SHORTCUTS.items()
-    ]
-    lineas += ["", f"Fases ({nomenclature.value})", ""]
-    lineas += [
-        f"  {tecla:8}  {texto}"
-        for tecla, texto in stage_shortcuts(nomenclature).items()
-    ]
-    return "\n".join(lineas)
+    grupos: list[tuple[str, list[tuple[str, str]]]] = []
+    for nombre, teclas in HELP_GROUPS:
+        filas: list[tuple[str, str]] = []
+        if nombre == "Scoring":
+            filas += [
+                (tecla, texto) for tecla, texto in stage_shortcuts(nomenclature).items()
+            ]
+        filas += [(readable_key(tecla), FIXED_SHORTCUTS[tecla]) for tecla in teclas]
+        filas += list(MOUSE_HELP.get(nombre, ()))
+        grupos.append((nombre, filas))
+    return grupos

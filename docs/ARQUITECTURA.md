@@ -188,8 +188,13 @@ Todas compatibles con MIT.
 
 ### Las tipografías que el programa trae
 
-Desde el hito 26 el programa distribuye tres archivos de **IBM Plex** —Sans
-regular y seminegrita, Mono regular— en `psglab/resources/fonts/`. Van bajo la
+Desde el hito 26 el programa distribuye archivos de **IBM Plex** en
+`psglab/resources/fonts/`: Sans regular y seminegrita y Mono regular desde
+entonces, y **Sans itálica desde el hito 46**. La cuarta entró porque el rol
+`ausente` de la escala tipográfica pide inclinada —es como se escribe «sin
+medir» y «sin scorear»— y, sin el corte de verdad, Qt sintetizaba la
+inclinación deformando la regular: se distinguía de la recta, pero se leía
+peor. Es la misma versión 3.005 y la misma fundición que la regular. Van bajo la
 **SIL Open Font License 1.1**, que permite empaquetarlas con un programa de
 cualquier licencia, el MIT de éste incluido, con dos condiciones: que la
 licencia viaje con los archivos —está en `OFL.txt`, al lado— y que una versión
@@ -200,9 +205,14 @@ de pip. Por eso quedan anotadas acá, y un archivo que se agregue a esa carpeta
 tiene que traer su licencia y sumarse a este párrafo.
 
 Se bajaron del repositorio oficial, `github.com/IBM/plex`, y se verificaron
-contra los tamaños que publica su API. Registrarlas no cambia lo que se ve al
-arrancar: el programa sigue con la tipografía del sistema y el esquema Claro, y
-las usa quien elige el esquema Papel o las elige en Tipografía.
+contra los tamaños que publica su API.
+
+**Desde el hito 34 son las que se ven al arrancar**: Sans en la interfaz, por
+el valor de fábrica de `font_family`, y Mono en las lecturas numéricas, por los
+dos esquemas nuevos. Hasta entonces sólo las usaba quien elegía el esquema
+Papel o las pedía en Tipografía. Lo que no cambió es qué pasa si faltan: el
+programa arranca igual, con la del sistema, y `fonts.available_family()` es lo
+que impide que Qt sustituya por cualquier otra sin avisar.
 
 Verificar antes de cada release:
 
@@ -321,6 +331,29 @@ hace. Si algún día se revisa, hay que volver a medir esto primero.
 
 ---
 
+### La ICA se ajusta sobre una muestra de la noche — decisión del hito 58
+
+Ajustar la ICA sobre la noche entera pedía **siete copias de la señal** —13 GB
+con 32 canales y 8 horas—, y seis eran de MNE. `fit_ica()` le pasa una muestra
+repartida a lo largo del registro: por lo menos 200 000 muestras por canal, y
+todas si son menos. Con 8 canales y 8 horas, el pico bajó a 1,2 copias.
+
+**No cambia qué se separa, y ése es el argumento.** La ICA separa fuentes
+mezcladas en el mismo instante —la fila de cada muestra es una combinación de
+las fuentes de ese instante— y no mira el orden: saltear muestras no filtra la
+señal, sólo ajusta con menos filas. La regla de uso habitual pide unas veinte o
+treinta veces el cuadrado de los canales, y el tope es seis veces eso con 32.
+
+**Sí cambia los componentes que salen**, en el detalle: con menos datos la
+estimación es otra. Por eso lo decidió el usuario y no se hizo de paso. Lo que
+se sigue exigiendo es lo que importa: el test que mezcla un parpadeo con pesos
+conocidos los recupera igual desde la muestra.
+
+La muestra es **repartida y no un tramo**: una hora seguida puede ser toda
+vigilia, y un parpadeo ajustado ahí no es el de la noche.
+
+---
+
 ### Cuánto tarda dibujar la señal — medido el 15 de septiembre de 2026
 
 La justificación de pyqtgraph decía "medio segundo de demora por ventana vuelve
@@ -389,13 +422,37 @@ Dos advertencias sobre estos números, para quien los vuelva a medir:
 
 ### Contraste de los esquemas de color — WCAG 2.1, verificado por test
 
-Los seis esquemas de fábrica se comprueban contra los umbrales de **WCAG 2.1**:
-4,5 a 1 para el texto (criterio 1.4.3) y 3 a 1 para lo que hay que distinguir
-de un vistazo, que en este programa son las curvas y la paleta de canales
-(criterio 1.4.11). `theme.low_contrast_elements()` hace la cuenta y
-`tests/test_theme.py` exige que ningún esquema de fábrica tenga nada en esa
-lista. Un esquema con fondo de ventana propio —Papel, desde el hito 26— suma
-el texto sobre ese fondo a la cuenta.
+Los dos esquemas del programa se comprueban contra los umbrales de **WCAG
+2.1**: 4,5 a 1 para el texto (criterio 1.4.3) y 3 a 1 para lo que hay que
+distinguir de un vistazo, que en este programa son las curvas, la paleta de
+canales y —desde el hito 34— la escala de fases (criterio 1.4.11).
+`theme.low_contrast_elements()` hace la cuenta y `tests/test_theme.py` exige
+que ningún esquema de fábrica tenga nada en esa lista. Un esquema con fondo de
+ventana propio —Papel, desde el hito 26— suma el texto sobre ese fondo a la
+cuenta.
+
+**El control se hereda solo**: recorre `theme.SCHEMES`, así que un esquema
+nuevo queda enrolado sin que nadie se acuerde de agregarlo. Los dos del hito 34
+entraron así.
+
+### Por qué el color de una fase vive en el esquema
+
+Hasta el hito 34 el programa no tenía ninguno: el hipnograma se dibujaba con
+una sola tinta. Al agregarlos había tres lugares posibles y uno solo es
+correcto.
+
+**No en `config.py`**, que guarda lo que fija el pliego: el pliego no dice nada
+de colores, igual que con la paleta de canales. **No en `core/nomenclature.py`**,
+donde vive `SleepStage`: el modelo no puede saber de presentación, y la regla
+de que `core/` no conoce `ui/` es lo que permite testear el scoring sin abrir
+una ventana. **Sí en `ColorScheme`**, porque el color de una fase depende del
+fondo sobre el que se dibuja —el azul profundo que se lee sobre papel
+desaparece sobre negro— y porque la misma escala tiene que pintar el
+hipnograma, la franja de posición y el botón: si viviera en cada uno, se
+separarían.
+
+El campo se pide por el **valor** de la fase (`"N2"`) y no por el miembro del
+enum, que es lo que evita que `ui/theme.py` importe `core/`.
 
 **Se eligió un estándar y no un criterio propio** porque un umbral inventado se
 discute cada vez que alguien no ve bien un color; uno publicado, no.
@@ -410,9 +467,28 @@ paleta compartida habría cambiado el esquema claro sin motivo.
 tienen que verse menos que la señal: exigirles 3 a 1 las volvería tan
 llamativas como lo que están ayudando a medir.
 
-**Un esquema propio con poco contraste se permite**, con un aviso en la ventana
-de configuración. Puede ser buscado —para imprimir, por ejemplo—, pero quien lo
-elige tiene que saberlo.
+### Por qué son dos esquemas y no se editan
+
+Hasta el hito 35 eran ocho, cada color se cambiaba uno por uno y un esquema
+propio con poco contraste se permitía con un aviso al costado. El resultado era
+que **el programa tenía infinitos aspectos posibles y ninguno garantizado**: el
+control de arriba sólo alcanzaba a los de fábrica, y el que se armaba a mano
+podía dejar la señal casi invisible con un cartel que nadie lee dos veces.
+
+El usuario decidió quedarse con los dos del rediseño y ninguna perilla. Lo que
+se gana no es sólo código de menos: **lo que se ve en una máquina del
+laboratorio es lo que se ve en todas**, y las dos combinaciones posibles están
+medidas. Lo que se pierde —un esquema para imprimir en blanco y negro, o uno
+armado para una pantalla concreta— no lo pidió nadie en doce hitos de
+interfaz. Si alguna vez hace falta, vuelve como un esquema más en la lista,
+verificado como los dos que hay, y no como una perilla por color.
+
+Con eso se fueron también el archivo suelto de esquema —`save_scheme` y
+`load_scheme`, la vía para pasarse uno por correo—, el campo `custom_scheme`
+de las preferencias y la grilla cuadriculada del esquema ECG, que era lo único
+que la usaba. Un archivo de preferencias viejo que traiga cualquiera de esas
+claves **sigue cargando**: el nombre que ya no existe cae en el de fábrica y lo
+demás se ignora.
 
 ## Convenciones de código
 

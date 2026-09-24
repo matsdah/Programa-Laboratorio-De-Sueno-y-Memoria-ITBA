@@ -13,7 +13,13 @@ import pytest
 
 pytest.importorskip("pyqtgraph")
 
-from psglab.ui.impedance_panel import SIN_MEDIR, ImpedancePanel  # noqa: E402
+from psglab.analysis.impedance import DEFAULT_LIMIT_KOHM  # noqa: E402
+from psglab.ui.impedance_panel import (  # noqa: E402
+    PASA,
+    SIN_MEDIR,
+    SUPERA,
+    ImpedancePanel,
+)
 
 
 @pytest.fixture
@@ -205,3 +211,104 @@ def test_el_nombre_de_la_fila_no_se_edita(panel_cargado):
 def panel_cargado(panel: ImpedancePanel) -> ImpedancePanel:
     panel.set_channels(["C3", "C4"], {"C3": 5.0})
     return panel
+
+
+# -- La columna de estado (hito 40) ------------------------------------------
+
+
+def test_un_canal_bajo_el_limite_pasa(panel: ImpedancePanel):
+    """El límite es el mismo con el que `impedance_report()` arma el informe,
+    así que la columna y el informe no se pueden contradecir."""
+    panel.set_channels(["C3"], {"C3": DEFAULT_LIMIT_KOHM - 1.0})
+
+    assert panel.displayed_state("C3") == PASA
+
+
+def test_exactamente_el_limite_pasa(panel: ImpedancePanel):
+    """`channels_above_limit()` documenta que el límite es **inclusivo**: 5 kΩ
+    con un límite de 5 kΩ pasa. El chip tiene que decir lo mismo."""
+    panel.set_channels(["C3"], {"C3": DEFAULT_LIMIT_KOHM})
+
+    assert panel.displayed_state("C3") == PASA
+
+
+def test_por_encima_del_limite_supera(panel: ImpedancePanel):
+    panel.set_channels(["C3"], {"C3": DEFAULT_LIMIT_KOHM + 0.1})
+
+    assert panel.displayed_state("C3") == SUPERA
+
+
+def test_un_canal_sin_medir_no_lleva_capsula(panel: ImpedancePanel):
+    """Una cápsula gris parecería estar afirmando algo sobre una medición que
+    no existe, que es lo que el módulo entero evita con «sin medir»."""
+    panel.set_channels(["C3"], {})
+
+    assert panel.displayed_state("C3") == SIN_MEDIR
+    assert panel.state_color("C3") is None
+
+
+def test_escribir_un_valor_cambia_su_estado(panel: ImpedancePanel):
+    """El estado sale del valor y no se escribe: editar la celda lo rehace."""
+    panel.set_channels(["C3"], {})
+    panel.tabla.topLevelItem(0).setText(1, "12")
+
+    assert panel.displayed_state("C3") == SUPERA
+
+
+def test_el_encabezado_dice_cuantos_estan_medidos(panel: ImpedancePanel):
+    """Es lo primero que se pregunta al abrir el panel."""
+    panel.set_channels(["C3", "C4", "O1"], {"C3": 3.0})
+
+    assert panel.header.caption() == "1 de 3 medidos"
+
+
+def test_el_encabezado_dice_contra_que_limite(panel: ImpedancePanel):
+    """Sin el límite a la vista, «supera» no dice a qué."""
+    panel.set_channels(["C3"], {"C3": 3.0})
+
+    assert "5" in panel.header.detail()
+
+
+# -- La itálica de lo que nadie midió -----------------------------------------
+
+
+def fila_de(panel: ImpedancePanel, canal: str):
+    """La entrada de la tabla que le corresponde a un canal."""
+    for numero in range(panel.tabla.topLevelItemCount()):
+        entrada = panel.tabla.topLevelItem(numero)
+        if entrada.text(0) == canal:
+            return entrada
+    raise AssertionError(f"no está el canal {canal}")
+
+
+def test_un_canal_sin_medir_se_escribe_inclinado(panel: ImpedancePanel):
+    """**La itálica dice «esto no lo midió nadie»** (hito 43).
+
+    Hasta acá esa diferencia la cargaba el gris, que en este panel ya quiere
+    decir otra cosa —«esto es secundario»—, y un valor ausente es lo contrario
+    de secundario: es la advertencia más importante de la tabla.
+    """
+    panel.set_channels(["C3"], {})
+    entrada = fila_de(panel, "C3")
+
+    assert entrada.font(1).italic()
+    assert entrada.font(2).italic()
+
+
+def test_un_canal_medido_no_se_inclina(panel: ImpedancePanel):
+    """La otra mitad, que es la que le da significado a la primera: si todo
+    estuviera inclinado, la inclinación no diría nada."""
+    panel.set_channels(["C3"], {"C3": 3.0})
+    entrada = fila_de(panel, "C3")
+
+    assert not entrada.font(1).italic()
+    assert not entrada.font(2).italic()
+
+
+def test_escribir_un_valor_endereza_la_fila(panel: ImpedancePanel):
+    """Al medirse el canal la fila vuelve a la redonda. Sin esto, «sin medir»
+    quedaría inclinado al lado de un número que sí se midió."""
+    panel.set_channels(["C3"], {})
+    escribir(panel, "C3", "3")
+
+    assert not fila_de(panel, "C3").font(1).italic()

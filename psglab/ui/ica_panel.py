@@ -26,6 +26,7 @@ Cubre del pliego: ningún ID propio. Es la mitad que se ve de V5_F de
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 
 import numpy as np
 import pyqtgraph as pg
@@ -36,15 +37,31 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from psglab.ui import theme
+from psglab.ui.panel_header import EmptyState, PanelHeader, plain_axes
+from psglab.ui.signal_view import TimeAxis
 
 #: Color de las barras de la topografía.
 # El color de las dos curvas sale del esquema en uso: es una sola serie por
 # gráfico, así que le toca el color de acento y no la paleta de canales.
+
+
+def _porcentaje(fraccion: float) -> str:
+    """Una fracción como porcentaje entero, con «<1 %» para lo que no llega.
+
+    **Entero a propósito**: la varianza se estima sobre una muestra de la
+    noche, y un decimal diría una precisión que no tiene. Menos de uno no se
+    escribe «0 %», que se leería como un componente vacío.
+    """
+    porcentaje = 100.0 * fraccion
+    if porcentaje < 1.0:
+        return "<1 %"
+    return f"{round(porcentaje)} %"
 
 
 class IcaPanel(QWidget):
@@ -72,9 +89,11 @@ class IcaPanel(QWidget):
 
         self.lista = QListWidget()
         self.lista.currentRowChanged.connect(self._mostrar)
+        self.lista.itemChanged.connect(self._reflejar_el_boton)
 
         self.grafico = pg.PlotWidget()
         item = self.grafico.getPlotItem()
+        plain_axes(item)
         item.setLabel("left", "Peso en el componente")
         item.setMenuEnabled(False)
         item.showGrid(y=True, alpha=0.3)
@@ -85,10 +104,15 @@ class IcaPanel(QWidget):
         # las dos, el investigador decide a ciegas sobre una operación que no se
         # puede deshacer. Hasta el hito 19 `component_time_course()` calculaba
         # esto y no lo dibujaba nadie.
-        self.curva = pg.PlotWidget()
+        # **El eje de abajo es el del visualizador** (hito 54): hora de la noche
+        # si el archivo la informa, segundos si no. Decía «Segundos de la
+        # ventana» y contaba desde cero, así que no había cómo ubicar un pico
+        # de la curva en la señal de arriba.
+        self._eje_de_tiempo = TimeAxis()
+        self.curva = pg.PlotWidget(axisItems={"bottom": self._eje_de_tiempo})
         curva = self.curva.getPlotItem()
+        plain_axes(curva)
         curva.setLabel("left", "Componente")
-        curva.setLabel("bottom", "Segundos de la ventana")
         curva.setMenuEnabled(False)
         curva.showGrid(x=True, y=True, alpha=0.3)
 
@@ -99,8 +123,16 @@ class IcaPanel(QWidget):
         self.aviso.setWordWrap(True)
 
         self.boton = QPushButton("Aplicar y quitar los marcados")
+        # El principal del panel, relleno del acento (hito 55).
+        self.boton.setProperty(theme.PRIMARIO_PROPERTY, True)
         self.boton.clicked.connect(self._aplicar)
         self.boton.setEnabled(False)
+
+        #: El encabezado, con cuántos componentes salieron. Ver `PanelHeader`.
+        self.header = PanelHeader("ICA")
+
+        #: Lo que se ve mientras no hay ninguna descomposición. Ver `EmptyState`.
+        self.vacio = EmptyState()
 
         izquierda = QVBoxLayout()
         izquierda.addWidget(QLabel("Componentes (marcar los que se quitan):"))
@@ -112,27 +144,57 @@ class IcaPanel(QWidget):
         derecha.addWidget(self.grafico, stretch=3)
         derecha.addWidget(self.curva, stretch=2)
 
-        fila = QHBoxLayout(self)
+        cuerpo = QWidget()
+        fila = QHBoxLayout(cuerpo)
+        fila.setContentsMargins(8, 8, 8, 8)
         fila.addLayout(izquierda, stretch=1)
         fila.addLayout(derecha, stretch=2)
 
+        #: El cuerpo o el cartel de panel vacío, nunca los dos.
+        #:
+        #: **Acá el cartel reemplaza las dos columnas y no sólo los gráficos**:
+        #: sin descomposición, la lista de componentes está vacía y el botón de
+        #: aplicar, apagado. Media pantalla de controles muertos al lado de una
+        #: frase se lee como un panel roto.
+        self._pila = QStackedWidget()
+        self._pila.addWidget(cuerpo)
+        self._pila.addWidget(self.vacio)
+
+        columna = QVBoxLayout(self)
+        columna.setContentsMargins(0, 0, 0, 0)
+        columna.setSpacing(0)
+        columna.addWidget(self.header)
+        columna.addWidget(self._pila)
+        self._reflejar_pista()
+
     # -- Lo que le da la ventana principal ----------------------------------
 
-    def set_components(self, topographies: list[dict[str, float]]) -> None:
+    def set_components(
+        self,
+        topographies: list[dict[str, float]],
+        variances: list[float] | None = None,
+    ) -> None:
         """Carga las topografías de todos los componentes.
 
         Args:
             topographies: una por componente, en orden, tal como las devuelve
                 `analysis.ica.component_topography()`.
+            variances: la fracción de la varianza que explica cada uno, como
+                la devuelve `analysis.ica.explained_variance()`. Se escribe al
+                lado del nombre (hito 54): es la pista de cuál pesa más.
 
         **Ninguno queda marcado**: elegir por el usuario sobre una operación
         irreversible sería decidir por él.
         """
         self._topografias = [dict(t) for t in topographies]
+        self._varianzas = list(variances) if variances is not None else []
         self.lista.clear()
         for numero in range(len(self._topografias)):
             # Base 1 al mostrar, como todo lo que el usuario numera.
-            entrada = QListWidgetItem(f"Componente {numero + 1}")
+            texto = f"Componente {numero + 1}"
+            if numero < len(self._varianzas):
+                texto = f"{texto} · {_porcentaje(self._varianzas[numero])}"
+            entrada = QListWidgetItem(texto)
             entrada.setFlags(entrada.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             entrada.setCheckState(Qt.CheckState.Unchecked)
             self.lista.addItem(entrada)
@@ -142,7 +204,32 @@ class IcaPanel(QWidget):
             self.lista.setCurrentRow(0)
         else:
             self.grafico.getPlotItem().clear()
+        self._reflejar_el_boton()
         self._reflejar_pista()
+
+    def set_start_time(self, start_time: datetime | None) -> None:
+        """A qué hora empezó el registro, para numerar la curva en hora real.
+
+        `None` si el archivo no lo informa: la curva vuelve a los segundos, en
+        vez de inventar una hora.
+        """
+        self._eje_de_tiempo.set_start_time(start_time)
+
+    def _reflejar_el_boton(self, *_args: object) -> None:
+        """El botón dice cuántos va a quitar (hito 54).
+
+        Decía «Aplicar y quitar los marcados» con uno, con cinco y con ninguno:
+        sobre una operación que no se puede deshacer, el número es lo último
+        que se lee antes de apretar.
+        """
+        cuantos = len(self.excluded())
+        if cuantos == 0:
+            texto = "Aplicar y quitar los marcados"
+        elif cuantos == 1:
+            texto = "Aplicar y quitar el marcado"
+        else:
+            texto = f"Aplicar y quitar los {cuantos} marcados"
+        self.boton.setText(texto)
 
     def clear_components(self) -> None:
         """Deja el panel vacío."""
@@ -167,9 +254,26 @@ class IcaPanel(QWidget):
         return self._pista if self._pista_visible else ""
 
     def _reflejar_pista(self) -> None:
-        """Muestra la pista como título del gráfico, sólo con el panel vacío."""
+        """Pone el encabezado y decide si se ve el cuerpo o el cartel de vacío.
+
+        **La pista iba al título del gráfico** hasta el hito 41, con la lista de
+        componentes vacía y el botón apagado a su lado: media pantalla de
+        controles muertos junto a una frase.
+        """
         self._pista_visible = bool(self._pista) and not self._topografias
-        self.grafico.getPlotItem().setTitle(self._pista if self._pista_visible else None)
+        self.header.set_caption(self._describirse())
+        self.vacio.set_text(self._pista)
+        self._pila.setCurrentWidget(
+            self.vacio if self._pista_visible else self._pila.widget(0)
+        )
+
+    def _describirse(self) -> str:
+        """Cuántos componentes salieron, que es lo primero que se mira."""
+        cuantos = len(self._topografias)
+        if not cuantos:
+            return ""
+        canales = len(self._topografias[0])
+        return f"{cuantos} componentes · {canales} canales"
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 
@@ -215,7 +319,9 @@ class IcaPanel(QWidget):
         """Dibuja la serie temporal del componente que se está mostrando.
 
         Args:
-            seconds: segundos desde el inicio de la ventana.
+            seconds: segundos **desde el inicio del registro** (hito 54), que es
+                lo que numera el eje del visualizador. Eran segundos desde el
+                inicio de la ventana.
             values: el componente, en sus unidades arbitrarias.
 
         El eje vertical **no se fija**, a diferencia del de la topografía: ahí la

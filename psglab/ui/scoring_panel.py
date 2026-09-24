@@ -26,6 +26,7 @@ y un botón marcado no siempre comunica.
 Cubre del pliego: V1_F, V2_F, V3_F de "Scoring de la señal".
 """
 
+from html import escape
 from typing import Final
 
 from PySide6.QtCore import Qt, Signal
@@ -41,10 +42,17 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.core.nomenclature import Nomenclature, SleepStage, stage_label, stages_of
+from psglab.ui.shortcuts import key_for_stage
 
 #: Hasta dónde se achica un botón de fase. Alcanza para «REM», la etiqueta
 #: más larga, con el margen del estilo.
 ANCHO_MINIMO_DE_BOTON: Final[int] = 40
+
+#: Cuánto mide de alto, desde el hito 34. **Son dos renglones**: la fase y
+#: debajo su tecla, que es la que scorea la ventana. Es el control que más se
+#: aprieta en toda la noche —uno por época, miles por registro— y el único al
+#: que se le da un alto propio por eso.
+ALTO_DEL_BOTON: Final[int] = 46
 
 #: Hasta dónde se achica el selector de nomenclatura. Alcanza para «AASM».
 ANCHO_MINIMO_DEL_SELECTOR: Final[int] = 72
@@ -61,6 +69,11 @@ ABREVIATURAS: Final[dict[Nomenclature, str]] = {
 #: dice la barra de navegación en ese momento.
 PIE_SIN_REGISTRO: Final[str] = "Sin registro"
 
+#: Cómo se nombra una ventana a la que todavía nadie le eligió fase. **No es el
+#: «-» con que se guarda**: en un texto suelto, un guion no se lee como nada.
+#: Es también lo único del pie que va inclinado; ver `_reflejar_el_pie()`.
+SIN_SCOREAR: Final[str] = "sin scorear"
+
 
 def status_text(window_index: int, stage: SleepStage, arousal: bool) -> str:
     """El pie del panel: la ventana, su fase y el arousal si lo hay.
@@ -74,9 +87,24 @@ def status_text(window_index: int, stage: SleepStage, arousal: bool) -> str:
         stage: su fase, `SleepStage.UNSCORED` si todavía no se scoreó.
         arousal: si la ventana tiene arousal marcado.
     """
-    fase = "sin scorear" if stage is SleepStage.UNSCORED else stage_label(stage)
+    fase = SIN_SCOREAR if stage is SleepStage.UNSCORED else stage_label(stage)
     texto = f"Ventana {window_index + 1} · {fase}"
     return f"{texto} · arousal" if arousal else texto
+
+
+def _texto_del_boton(fase: SleepStage) -> str:
+    """La fase y, debajo, su tecla; **una sola vez si son la misma**.
+
+    En W y R la tecla es la inicial de la etiqueta, que es la etiqueta entera:
+    el botón decía «W» sobre «W» (hito 51). La tecla sigue saliendo de
+    `shortcuts.key_for_stage()`, así que si alguna vez dejan de coincidir
+    vuelve a escribirse sola.
+    """
+    etiqueta = stage_label(fase)
+    tecla = key_for_stage(fase)
+    if tecla.casefold() == etiqueta.casefold():
+        return etiqueta
+    return f"{etiqueta}\n{tecla}"
 
 
 class ScoringPanel(QWidget):
@@ -121,9 +149,14 @@ class ScoringPanel(QWidget):
         # **El pie parte las palabras** en vez de exigir su ancho entero: con
         # AASM la fila de las fases es la más angosta, y «Ventana 2650 · sin
         # scorear · arousal» en una sola línea pasaba a ser el mínimo del panel.
-        self._pie = QLabel(PIE_SIN_REGISTRO)
+        self._pie = QLabel()
         self._pie.setWordWrap(True)
         self._pie.setAccessibleName("Ventana actual y su fase")
+        #: Lo que dice el pie en texto pelado. El rótulo guarda el suyo con
+        #: marcas, así que `text()` no sirve para contestar `status()`.
+        self._texto_del_pie = ""
+        # Sin registro tampoco hay nada scoreado; ver `_reflejar_el_pie()`.
+        self._reflejar_el_pie(PIE_SIN_REGISTRO)
 
         self._columna = QVBoxLayout(self)
         # Los márgenes de fábrica son 11 px por lado: en un panel que se
@@ -164,9 +197,37 @@ class ScoringPanel(QWidget):
             return
         self.stage_selected.emit(stage)
 
+    def _reflejar_el_pie(self, texto: str) -> None:
+        """Escribe el pie, con la ausencia inclinada y nada más.
+
+        **La itálica dice «esto no lo eligió nadie»** (hito 43). El «sin
+        scorear» de una ventana es la misma clase de dato que el «sin medir» de
+        la tabla de impedancias, y hasta acá los dos se apoyaban en el gris, que
+        ya quiere decir otra cosa: «esto es secundario».
+
+        **Se inclina la ausencia y no el renglón.** Inclinar «Ventana 341»
+        diría que la ventana tampoco la eligió nadie, que es falso, y una marca
+        que aparece en todos lados no distingue nada. Por eso el rótulo lleva
+        marcas y `status()` contesta con el texto pelado, que es lo que el
+        resto del programa compara.
+
+        Args:
+            texto: el pie ya armado, en texto pelado.
+        """
+        self._texto_del_pie = texto
+        self._pie.setText(
+            escape(texto).replace(
+                escape(SIN_SCOREAR), f"<i>{escape(SIN_SCOREAR)}</i>"
+            )
+        )
+
     def status(self) -> str:
-        """Lo que dice el pie ahora."""
-        return self._pie.text()
+        """Lo que dice el pie ahora, en texto pelado.
+
+        **No es `self._pie.text()`**: el rótulo guarda el suyo con las marcas
+        que inclinan la ausencia, y el resto del programa compara el texto.
+        """
+        return self._texto_del_pie
 
     def set_nomenclature(self, nomenclature: Nomenclature) -> None:
         """Reconstruye los botones para la nomenclatura elegida (V3_F).
@@ -193,11 +254,22 @@ class ScoringPanel(QWidget):
         self._botones.clear()
 
         for fase in stages_of(nomenclature):
-            boton = QPushButton(stage_label(fase))
+            # **La tecla va en el botón** desde el hito 34. Existía desde el
+            # principio y no se veía en ningún lado: quien no leía la ayuda
+            # scoreaba una noche entera a golpe de mouse. Sale de
+            # `shortcuts.key_for_stage()` y no escrita acá, por el mismo motivo
+            # que los menús leen la suya de ese módulo.
+            boton = QPushButton(_texto_del_boton(fase))
             boton.setCheckable(True)
+            # **El color lo pone la hoja de estilo**, que arma una regla por
+            # fase a partir de `ColorScheme.stage_colors`. Acá sólo se declara
+            # cuál es: así el panel no conoce ningún color, y un esquema sin
+            # escala deja los botones como estaban.
+            boton.setProperty("fase", fase.value)
             # Un mínimo explícito es lo que le gana al de Qt, que en Windows
             # es de 75 px por botón aunque diga «W».
             boton.setMinimumWidth(ANCHO_MINIMO_DE_BOTON)
+            boton.setMinimumHeight(ALTO_DEL_BOTON)
             boton.clicked.connect(lambda _=False, f=fase: self._on_stage(f))
             self._grupo.addButton(boton)
             self._fila.addWidget(boton)
@@ -232,4 +304,4 @@ class ScoringPanel(QWidget):
             self._arousal.setChecked(arousal)
         finally:
             self._reflejando = False
-        self._pie.setText(status_text(window_index, stage, arousal))
+        self._reflejar_el_pie(status_text(window_index, stage, arousal))

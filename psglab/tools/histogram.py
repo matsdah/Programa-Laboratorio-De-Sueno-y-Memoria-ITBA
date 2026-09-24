@@ -81,6 +81,31 @@ class HistogramTool(Tool):
         """
         return self._barras
 
+    def runs(self) -> tuple[tuple[int, int, SleepStage], ...]:
+        """Los tramos seguidos de la misma fase: (primera ventana, cuántas, fase).
+
+        **Es `bars()` agrupado**, y existe para que el panel pueda pintar la
+        noche por tramos en vez de por ventana (hito 34). Sobre un registro de
+        ocho horas son unos cientos de tramos contra 960 ventanas, y el
+        hipnograma se redibuja en cada cambio de época: la diferencia se paga
+        en cada tecla.
+
+        **Las ventanas sin scorear no son un tramo.** `UNSCORED` es la ausencia
+        de fase, que el panel deja en blanco (V1_P), así que no se agrupa ni se
+        devuelve: un tramo de "nada" pintado de algún color sería exactamente lo
+        que ese requisito no quiere.
+        """
+        tramos: list[tuple[int, int, SleepStage]] = []
+        for posicion, fase in enumerate(self._barras):
+            if fase is SleepStage.UNSCORED:
+                continue
+            if tramos and tramos[-1][2] is fase and posicion == tramos[-1][0] + tramos[-1][1]:
+                inicio, cuantas, misma = tramos[-1]
+                tramos[-1] = (inicio, cuantas + 1, misma)
+                continue
+            tramos.append((posicion, 1, fase))
+        return tuple(tramos)
+
     @property
     def current_window(self) -> int:
         """La ventana marcada como actual en el histograma."""
