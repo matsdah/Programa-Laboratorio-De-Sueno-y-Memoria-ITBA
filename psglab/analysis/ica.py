@@ -44,7 +44,12 @@ from typing import Any, Final
 
 import numpy as np
 
-from psglab.analysis.mne_bridge import _registro_parcial, from_raw, to_raw
+from psglab.analysis.mne_bridge import (
+    _factor_hacia_mne,
+    _registro_parcial,
+    from_raw,
+    to_raw,
+)
 from psglab.core.recording import ChannelKind, Recording
 from psglab.core.windows import count_windows, window_to_samples
 from psglab.utils.errors import (
@@ -302,6 +307,13 @@ def explained_variance(ica: Any, recording: Recording) -> list[float]:
     cinco canales sintéticos daba 51 % donde MNE da 62 %, porque
     `get_components()` no está en las unidades del sensor.
 
+    **La definición es la de MNE, la cuenta no** (hito 61). MNE reconstruye la
+    muestra una vez por componente —32 reconstrucciones con 32 canales— y era
+    el paso más lento del menú: 24 s y 2,4 copias de la señal sobre una hora.
+    Acá se calculan las fuentes una sola vez y la varianza de lo que queda al
+    quitar cada una sale de sumas sobre ellas; ver `_varianza_de_una_vez()`.
+    Coincide con MNE hasta el redondeo, y un test lo compara en cada corrida.
+
     **Sobre una muestra de la noche y no la noche entera**: reconstruir una
     vez por componente cuesta una copia de la señal cada vez, casi 2 GB por
     componente con 32 canales y ocho horas. Se usan hasta
@@ -323,19 +335,31 @@ def explained_variance(ica: Any, recording: Recording) -> list[float]:
     total = count_windows(recording.n_samples, recording.sampling_rate)
     cuantas = min(total, VARIANCE_SAMPLE_WINDOWS)
     elegidas = np.unique(np.linspace(0, total - 1, cuantas).round().astype(int))
-    tramos = []
+    # **Sólo los canales de la descomposición**, que son los que la varianza
+    # mira: MNE la mide sobre los EEG, y la ICA se ajustó sobre ellos.
+    nombres = list(ica.ch_names)
+    limites = []
     for ventana in elegidas:
         inicio, fin = window_to_samples(int(ventana), recording.sampling_rate)
-        tramos.append(np.asarray(recording.get_segment(inicio, min(fin, recording.n_samples))))
-    muestra = Recording(
-        file_path=recording.file_path,
-        channels=list(recording.channels),
-        data=np.concatenate(tramos, axis=1),
-        sampling_rate=recording.sampling_rate,
-        start_time=recording.start_time,
-        metadata=dict(recording.metadata),
-    )
-    raw = to_raw(muestra)
+        limites.append((inicio, min(fin, recording.n_samples)))
+    # **Un solo arreglo, llenado época por época**: juntarlas en una lista y
+    # después concatenar tenía la muestra dos veces a la vez.
+    muestra = np.empty((len(nombres), sum(fin - inicio for inicio, fin in limites)))
+    posicion = 0
+    for inicio, fin in limites:
+        muestra[:, posicion : posicion + fin - inicio] = recording.get_segment(
+            inicio, fin, nombres
+        )
+        posicion += fin - inicio
+
+    if _se_puede_de_una_vez(ica):
+        # **En volts y sin pasar por un `Raw`**, que la volvería a copiar: la
+        # escala es la del puente, que es el único que sabe cuál es.
+        muestra *= np.array(
+            [_factor_hacia_mne(recording.channel_by_name(nombre)) for nombre in nombres]
+        )[:, None]
+        return _varianza_de_una_vez(ica, muestra)
+    raw = to_raw(_registro_parcial(recording, nombres, muestra))
     fracciones = []
     for numero in range(int(ica.n_components_)):
         razon = ica.get_explained_variance_ratio(
@@ -343,6 +367,80 @@ def explained_variance(ica: Any, recording: Recording) -> list[float]:
         )
         fracciones.append(float(razon["eeg"]))
     return fracciones
+
+
+def _se_puede_de_una_vez(ica: Any) -> bool:
+    """Si la descomposición tiene la forma que `_varianza_de_una_vez()` supone.
+
+    Es la que deja `fit_ica()`: sin matriz de ruido —el blanqueo previo es una
+    escala por canal— y sin proyectores. Otra cosa se mide con la cuenta de
+    MNE, que es la definición.
+    """
+    blanqueo = np.asarray(getattr(ica, "pre_whitener_", np.empty((0, 0))))
+    return (
+        getattr(ica, "noise_cov", None) is None
+        and blanqueo.ndim == 2
+        and blanqueo.shape == (len(ica.ch_names), 1)
+        and not ica.info.get("projs")
+    )
+
+
+def _varianza_de_una_vez(ica: Any, x: np.ndarray) -> list[float]:
+    """La varianza explicada de MNE, con las fuentes calculadas una sola vez.
+
+    MNE, para el componente `k`, reconstruye la señal sólo con él y compara
+    lo que queda al restarla, `d = x - x_k`, contra la señal `x`: la varianza
+    **entre canales** en cada instante, promediada en el tiempo. La razón es
+    `1 - var(d) / var(x)`.
+
+    Con `y` la señal blanqueada y centrada, `s = U y` las fuentes, `p` el
+    blanqueo por canal y `m_k` la columna `k` de la mezcla, lo que queda es
+    `d = p·y - (p·m_k) s_k`. Llamando `a = p·y` y `b = p·m_k`, la varianza
+    entre canales de `a - b s_k`, promediada en el tiempo, se abre en sumas
+    que no dependen de `k` —la de `a²`— o que salen de un solo producto de
+    matrices —`a sᵀ`—. **Ninguna reconstruye la señal**, y eso es todo el
+    ahorro: una pasada en vez de una por componente.
+
+    **Trabaja sobre el arreglo de la muestra y no hace otro del mismo
+    tamaño**: además de él sólo están las fuentes. Lo pisa: al terminar, `x`
+    queda blanqueada y centrada.
+
+    Args:
+        x: la muestra en las unidades de MNE, un canal por fila en el orden de
+            `ica.ch_names`.
+    """
+    n_canales, n_muestras = x.shape
+    # La varianza de la señal, antes de pisarla: por instante, entre canales.
+    media = x.mean(axis=0)
+    var_x = float(np.mean(np.einsum("ij,ij->j", x, x) / n_canales - media * media))
+
+    blanqueo = np.asarray(ica.pre_whitener_)
+    x /= blanqueo
+    if ica.pca_mean_ is not None:
+        x -= ica.pca_mean_[:, None]
+    y = x  # la misma memoria, ya blanqueada y centrada
+
+    cuantos = int(ica.n_components_)
+    pca = ica.pca_components_[:cuantos]
+    fuentes = (ica.unmixing_matrix_ @ pca) @ y
+    b = blanqueo * (pca.T @ ica.mixing_matrix_)
+    p2 = (blanqueo * blanqueo)[:, 0]
+
+    # Los promedios en el tiempo que necesita la cuenta, sin armar `a = p·y`.
+    a2 = float(p2 @ np.einsum("ij,ij->i", y, y)) / (n_canales * n_muestras)
+    a_por_fuente = blanqueo * (y @ fuentes.T) / n_muestras
+    a_media = (blanqueo[:, 0] @ y) / n_canales
+    s2 = np.einsum("ij,ij->i", fuentes, fuentes) / n_muestras
+
+    cruzado = (b * a_por_fuente).sum(axis=0) / n_canales
+    primer_momento = a2 - 2 * cruzado + (b * b).mean(axis=0) * s2
+    b_media = b.mean(axis=0)
+    segundo_momento = (
+        float(a_media @ a_media) / n_muestras
+        - 2 * b_media * (fuentes @ a_media) / n_muestras
+        + b_media * b_media * s2
+    )
+    return [float(1 - v / var_x) for v in primer_momento - segundo_momento]
 
 
 def _recorte_de_ventana(recording: Recording, window_index: int) -> Recording:
