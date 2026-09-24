@@ -638,3 +638,89 @@ def test_ajustar_ya_no_cuesta_varias_copias_de_la_senal(tope_bajo):
         tracemalloc.stop()
 
     assert pico < datos.nbytes
+
+
+# -- Quitar componentes por tramos (hito 59) ---------------------------------
+
+
+@pytest.fixture
+def tramos_chicos(monkeypatch) -> int:
+    """Tramos de 1000 muestras: la fixture de 60 s se parte en dieciséis, y el
+    último queda más corto que los demás."""
+    import psglab.analysis.ica as modulo
+
+    monkeypatch.setattr(modulo, "_MUESTRAS_POR_TRAMO", 1000)
+    return 1000
+
+
+def test_por_tramos_da_lo_mismo_que_de_una_vez(mezclado: Recording, tramos_chicos):
+    """**Quitar un componente es una cuenta muestra por muestra** con las
+    matrices del ajuste: partirla en tramos no puede cambiar un número. La
+    referencia es lo que hacía `apply_ica()` hasta el hito 59, la señal entera
+    en un solo `Raw`."""
+    from psglab.analysis.mne_bridge import from_raw, to_raw
+
+    ica = fit_ica(mezclado)
+    frontal = componente_frontal(ica)
+    raw = to_raw(mezclado)
+    ica.apply(raw, exclude=[frontal], verbose="ERROR")
+
+    limpio = apply_ica(mezclado, ica, [frontal])
+
+    assert np.allclose(limpio.data, from_raw(raw, mezclado).data, rtol=0, atol=1e-9)
+
+
+def test_los_canales_que_no_son_eeg_ni_pasan_por_mne(mezclado: Recording, tramos_chicos):
+    """Idénticos bit a bit, no parecidos: salen del original y no hacen el
+    viaje µV → V → µV, que deja error de punto flotante."""
+    n = mezclado.n_samples
+    temperatura = 36.5 + 0.1 * np.sin(np.arange(n) / 100.0)
+    con_temperatura = Recording(
+        file_path=mezclado.file_path,
+        channels=[*mezclado.channels, Channel("Temp", ChannelKind.OTHER, "DegC", 4)],
+        data=np.vstack([mezclado.data, temperatura]),
+        sampling_rate=FS,
+    )
+    ica = fit_ica(con_temperatura)
+
+    limpio = apply_ica(con_temperatura, ica, [0])
+
+    assert np.array_equal(limpio.data[4], temperatura)
+
+
+def test_quitar_no_cuesta_varias_copias_de_la_senal(monkeypatch):
+    """**Es el número que midió el hito 57**: cuatro copias con la que ya
+    estaba. Por tramos son la salida y un tramo.
+
+    El tramo se achica para que sea, como en una noche real, una fracción
+    chica del registro: con el de fábrica, los diez minutos de este test son
+    tres tramos y cada uno pesa casi la mitad.
+    """
+    import tracemalloc
+
+    import psglab.analysis.ica as modulo
+
+    monkeypatch.setattr(modulo, "_MUESTRAS_POR_TRAMO", 4096)
+    n = int(FS * 600)
+    t = np.arange(n) / FS
+    fuentes = np.vstack([30.0 * np.sin(2 * np.pi * 10 * t), 150.0 * np.sin(2 * np.pi * 0.3 * t)])
+    datos = PESOS @ fuentes + np.random.default_rng(1).normal(0.0, 1.0, (4, n))
+    largo = Recording(
+        file_path=Path("largo.edf"),
+        channels=[
+            Channel(nombre, ChannelKind.EEG, MICROVOLT, posicion)
+            for posicion, nombre in enumerate(["Fp1", "Fp2", "O1", "O2"])
+        ],
+        data=datos,
+        sampling_rate=FS,
+    )
+    ica = fit_ica(largo)
+
+    tracemalloc.start()
+    try:
+        apply_ica(largo, ica, [0])
+        _, pico = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert pico < 1.5 * datos.nbytes

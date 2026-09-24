@@ -40,12 +40,11 @@ Cubre del pliego: V5_F de "Filtración de la señal".
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Any, Final
 
 import numpy as np
 
-from psglab.analysis.mne_bridge import from_raw, to_raw
+from psglab.analysis.mne_bridge import _registro_parcial, from_raw, to_raw
 from psglab.core.recording import ChannelKind, Recording
 from psglab.core.windows import count_windows, window_to_samples
 from psglab.utils.errors import (
@@ -71,6 +70,11 @@ FIT_SAMPLES: Final[int] = 200_000
 #: 30 720 muestras, y `FIT_SAMPLES` ya es más de seis veces eso. Es la que
 #: manda recién pasados los 80 canales, que ningún polisomnógrafo trae.
 FIT_SAMPLES_PER_SQUARED_CHANNEL: Final[int] = 30
+
+#: Cuántas muestras por tramo se le pasan a MNE al quitar componentes (hito
+#: 59). Unos cuatro minutos a 256 Hz: con 32 canales son 16 MB por tramo, y
+#: una llamada a MNE por tramo no se nota en el tiempo total.
+_MUESTRAS_POR_TRAMO: Final[int] = 65_536
 
 #: Tope de iteraciones antes de darse por vencido. El valor por omisión de MNE
 #: ("auto") es bajo para señal ruidosa y deja avisos de no convergencia en
@@ -168,16 +172,8 @@ def _muestra_para_ajustar(recording: Recording, nombres: list[str]) -> Recording
     paso = max(1, recording.n_samples // cuantas)
     filas = [recording.channel_by_name(nombre).index for nombre in nombres]
     datos = np.ascontiguousarray(recording.data[:, ::paso][filas])
-    return Recording(
-        file_path=recording.file_path,
-        channels=[
-            replace(recording.channel_by_name(nombre), index=posicion)
-            for posicion, nombre in enumerate(nombres)
-        ],
-        data=datos,
-        sampling_rate=recording.sampling_rate / paso,
-        start_time=recording.start_time,
-        metadata=dict(recording.metadata),
+    return _registro_parcial(
+        recording, nombres, datos, sampling_rate=recording.sampling_rate / paso
     )
 
 
@@ -445,6 +441,13 @@ def apply_ica(recording: Recording, ica: Any, exclude: list[int]) -> Recording:
     prácticamente la original: sirve para comprobar que la descomposición no
     está rompiendo la señal antes de confiarle un componente.
 
+    **Se aplica por tramos de tiempo** (hito 59), y da exactamente lo mismo que
+    de una vez: quitar un componente es una cuenta con las matrices que dejó
+    el ajuste, muestra por muestra, y no mira el resto de la señal. De una vez
+    pedía cuatro copias de la señal —MNE la copia a la ida, la transforma y la
+    copia a la vuelta—; así, la salida y un tramo. **Los canales que no son
+    EEG no pasan por MNE**: salen del original sin el viaje de ida y vuelta.
+
     **La descomposición tiene que ser de este registro**, y acá sólo se puede
     comprobar la mitad que se ve: que los canales sobre los que se ajustó sigan
     existiendo. Una ICA ajustada sobre la señal **sin filtrar** y aplicada a la
@@ -480,11 +483,27 @@ def apply_ica(recording: Recording, ica: Any, exclude: list[int]) -> Recording:
             ),
         )
 
-    raw = to_raw(recording)
-    # `ica.apply` modifica el `Raw` que recibe, y por eso se le pasa el que
-    # acaba de armar el puente y no algo del registro: el original no se toca.
-    ica.apply(raw, exclude=list(exclude), verbose="ERROR")
-    return from_raw(raw, recording)
+    nombres = list(ica.ch_names)
+    filas = [recording.channel_by_name(nombre).index for nombre in nombres]
+    with memoria_suficiente("quitar componentes"):
+        salida = np.array(recording.data, dtype=float, copy=True)
+    for desde in range(0, recording.n_samples, _MUESTRAS_POR_TRAMO):
+        hasta = min(desde + _MUESTRAS_POR_TRAMO, recording.n_samples)
+        tramo = _registro_parcial(recording, nombres, recording.data[filas, desde:hasta])
+        # `ica.apply` modifica el `Raw` que recibe, y por eso se le pasa el que
+        # acaba de armar el puente y no algo del registro: el original no se
+        # toca.
+        raw = to_raw(tramo)
+        ica.apply(raw, exclude=list(exclude), verbose="ERROR")
+        salida[filas, desde:hasta] = from_raw(raw, tramo).data
+    return Recording(
+        file_path=recording.file_path,
+        channels=list(recording.channels),
+        data=salida,
+        sampling_rate=recording.sampling_rate,
+        start_time=recording.start_time,
+        metadata=dict(recording.metadata),
+    )
 
 
 __all__ = [

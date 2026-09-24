@@ -74,8 +74,9 @@ hitos cerrados, y el **[hito 51](#hito-51-la-übersicht-muestra-la-señal)** ter
 **[hito 55](#hito-55-lo-último-del-prototipo)** lo de peso bajo. El
 **[hito 56](#hito-56-la-rueda-y-el-panel-táctil-sobre-la-señal)** hace que la rueda del mouse cambie la escala de tiempo
 y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)** midió cuánta memoria cuesta cada cosa, y el
-**[hito 58](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche)** bajó lo más caro: ajustar la ICA.
-Son **cincuenta y nueve hitos**, del 0 al 58, que son las filas de la tabla de
+**[hito 58](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche)** bajó lo más caro: ajustar la ICA. El
+**[hito 59](#hito-59-filtrar-y-quitar-componentes-sin-copiar-la-señal-entera)** bajó lo que seguía: filtrar y quitar componentes.
+Son **sesenta hitos**, del 0 al 59, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -212,6 +213,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [56. La rueda y el panel táctil sobre la señal](#hito-56-la-rueda-y-el-panel-táctil-sobre-la-señal) | — | 0 | ✅ cerrado |
 | [57. Cuánta memoria cuesta cada cosa](#hito-57-cuánta-memoria-cuesta-cada-cosa) | — | 0 | ✅ cerrado |
 | [58. La ICA se ajusta sobre una muestra de la noche](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche) | — | 0 | ✅ cerrado |
+| [59. Filtrar y quitar componentes sin copiar la señal entera](#hito-59-filtrar-y-quitar-componentes-sin-copiar-la-señal-entera) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1150,7 +1152,7 @@ ventana y no existía.
     pide filtrar **por tipo de canal** y `apply_filters()` recibe filtros por
     **nombre**, que es la firma general. Traducir de una a la otra es la regla
     del pliego, así que va en `analysis/` y no en el diálogo.
-  - Test: `tests/test_filters.py`, **54 tests en verde**.
+  - Test: `tests/test_filters.py`, **56 tests en verde**.
 - [x] **`psglab/ui/filter_panel.py`** · una fila por clase de canal
   - Sólo aparecen las clases que el registro tiene: ofrecer una fila de ECG en
     un registro sin ECG le pide al usuario que decida sobre algo que no existe.
@@ -1313,7 +1315,7 @@ mostrarse.
   - **Se ajusta sobre los EEG y sólo sobre ellos**: meter un termómetro en la
     descomposición no tiene sentido físico y ensuciaría todos los componentes.
     `apply_ica()` devuelve el registro entero con el resto intacto.
-  - Test: `tests/test_ica.py`, **51 tests en verde**.
+  - Test: `tests/test_ica.py`, **54 tests en verde**.
 - [x] **`psglab/ui/ica_panel.py`** · el panel de inspección
   - Diseñado alrededor de la advertencia del módulo: quitar el componente
     equivocado modifica la señal de forma irreversible. De ahí salen sus tres
@@ -2633,7 +2635,7 @@ llegan a la ventana.
     de verdad. Los cinco fallan sin su corrección.
   - Test: `tests/test_occupancy.py`, **51 tests en verde**.
   - Test: `tests/test_annotator.py`, **41 tests en verde**.
-  - Test: `tests/test_filters.py`, **54 tests en verde**.
+  - Test: `tests/test_filters.py`, **56 tests en verde**.
 
 ### Lo que sigue abierto
 
@@ -2780,11 +2782,14 @@ tiempo.
 - [x] (Decidido en el hito 32: se quedan así.) **Las demás operaciones largas siguen congelando la ventana**: leer un
       registro, la conectividad de la noche, la ICA. El usuario eligió
       precalentar y nada más; moverlas a otro hilo quedó descartado por ahora.
-- [ ] **El hipnograma y la Übersicht no los pudo verificar el usuario**, porque
+- [x] **El hipnograma y la Übersicht no los pudo verificar el usuario**, porque
       no conoce su funcionamiento. Se le explicó cómo probarlos; queda por
       confirmar.
       - **Al probar la Übersicht encontró que no dibujaba señal**, y la
         terminó el [hito 51](#hito-51-la-übersicht-muestra-la-señal). Falta que confirme esa versión, y el hipnograma.
+      - **Confirmado por el usuario el 23 de septiembre de 2026**, usando el
+        programa: la Übersicht, el hipnograma, las anotaciones y la métrica
+        hacen lo que tienen que hacer.
 
 ---
 
@@ -4641,7 +4646,7 @@ Son once, y **ninguno es un hito**: cada uno sigue anotado en el suyo.
   también el camino muerto de `exporters/` (hito 20); y si reproducir tiene
   que arrancar desde lo que se ve y no desde la época (hito 27).
 - **Espera al usuario.** Confirmar que el hipnograma y la Übersicht hacen lo
-  que tienen que hacer (hito 31).
+  que tienen que hacer (hito 31). *Confirmado el 23 de septiembre de 2026.*
 - **Son trabajo, cuando se decida hacerlo.** La señal entera en memoria, dos
   veces (hito 18), que el [hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa) midió y dejó en dos decisiones; las solapas Cursores y Calibración, que entran con las
   reglas y los milímetros que configurarían (hito 22); el EDF+ de R&K que
@@ -4713,7 +4718,8 @@ dibujar la señal—, y falla.
 ### Lo que este hito deja anotado
 
 - **El usuario todavía no la confirmó**: el pendiente del hito 31 sigue
-  abierto, ahora con la versión que sí muestra algo.
+  abierto, ahora con la versión que sí muestra algo. *La confirmó el 23 de
+  septiembre de 2026, y el pendiente del hito 31 quedó cerrado.*
 - **La miniatura es de un solo canal.** Si el laboratorio quiere ver varios,
   es otra decisión: más canales en una caja de noventa píxeles no se leen, y
   agrandar el panel es V2_F.
@@ -4915,7 +4921,7 @@ notan al usar el programa y ninguno pide una decisión de fondo.
       - El botón pasó de «Aplicar y quitar los marcados» a decir cuántos.
       - La curva usa el eje del visualizador: decía «Segundos de la ventana» y
         contaba desde cero en cualquier época.
-  - Test: `tests/test_ica.py`, **51 tests en verde**;
+  - Test: `tests/test_ica.py`, **54 tests en verde**;
     `tests/test_ica_panel.py`, **30 tests en verde**;
     `tests/test_contratos.py`, **1043 tests en verde**.
 - [x] **Los atajos, en una tabla agrupada**: navegación, scoring,
@@ -5168,7 +5174,7 @@ copias de la señal, y seis eran de MNE.
       - **El paso se redondea hacia abajo**: hacia arriba, un registro apenas
         más largo que el tope se ajustaba con la mitad. Lo encontró un test
         antes de que llegara a ningún lado.
-  - Test: `tests/test_ica.py`, **51 tests en verde**. Los de antes siguen
+  - Test: `tests/test_ica.py`, **54 tests en verde**. Los de antes siguen
     pasando sin tocarlos: su registro dura 60 s y se ajusta entero. Los nuevos
     bajan el tope para que el paso sea de verdad mayor que uno, y afirman
     **que la muestra sigue separando el parpadeo** con los pesos que se
@@ -5198,10 +5204,85 @@ estaba**. Con una hora baja menos porque la muestra es un cuarto del registro
 y no un treintaiseisavo. El tiempo, medido en el hito 57 sobre 8 canales y
 20 minutos: de 88 s a 8 s con un octavo de las muestras.
 
-- [ ] **Ahora el pico más alto es quitar un componente, 4,0 copias**, igual
-      que filtrar dos veces seguidas. `apply_ica()` pasa la señal entera por
+- [x] **Ahora el pico más alto es quitar un componente, 4,0 copias**, igual
+      que filtrar dos veces seguidas. *Bajados en el [hito 59](#hito-59-filtrar-y-quitar-componentes-sin-copiar-la-señal-entera).* `apply_ica()` pasa la señal entera por
       MNE, que la copia a la ida y a la vuelta. Es el mismo viaje que el
       filtrado, y no se tocó acá.
+
+## Hito 59: Filtrar y quitar componentes sin copiar la señal entera
+
+**Cerrado el 23 de septiembre de 2026.** Después del
+[hito 58](#hito-58-la-ica-se-ajusta-sobre-una-muestra-de-la-noche), lo más caro
+del menú Análisis eran quitar un componente y filtrar dos veces seguidas, las
+dos arriba de cuatro copias de la señal. Las dos pasaban la señal entera por
+MNE, que la copia a la ida y a la vuelta. **Ningún resultado cambia**: las dos
+cuentas se pueden partir sin que cambie un número, y hay un test de cada una
+que lo compara contra la forma anterior.
+
+**No tiene stubs que contar.**
+
+### Lo que se hizo
+
+- [x] **Filtrar de a tandas de canales**, sobre una salida que se reserva una
+      sola vez. Cada filtro mira un solo canal, así que pasarlos de a cuatro por
+      MNE da lo mismo que pasarlos juntos. Una tanda son canales con los mismos
+      filtros, porque MNE arma el núcleo del filtro una vez por llamada.
+      - **Cuatro es una medición** (`_CANALES_POR_TANDA`), sobre 32 canales y
+        una hora: de a uno, 1,13 copias y 4,0 s; de a cuatro, 1,32 y 2,9 s;
+        todos juntos, 3,07 y 2,5 s. De a uno era la primera versión, y el banco
+        la mostró tardando el triple con `tracemalloc` y un 60 % más sin él.
+      - **Los canales que nadie pidió filtrar ya no pasan por MNE**: salen
+        copiados del original. Antes se los restauraba después, porque el viaje
+        µV → V → µV les dejaba error de punto flotante.
+  - Test: `tests/test_filters.py`, **56 tests en verde**. El de
+    equivalencia pone una señal distinta en cada canal: con la misma en todos,
+    una tanda que escribiera sus filas cruzadas pasaba, y así la encontró la
+    mutación.
+- [x] **Quitar componentes por tramos de tiempo**, también sobre una salida
+      que se reserva una vez. Es una cuenta muestra por muestra con las
+      matrices del ajuste, así que los tramos no cambian nada. **Los canales
+      que no son EEG no pasan por MNE**, y salen idénticos bit a bit.
+      - El tramo son 65 536 muestras (`_MUESTRAS_POR_TRAMO`), unos cuatro
+        minutos a 256 Hz. Cuatro veces más grande ahorraba un cuarto de
+        segundo por hora de registro y costaba cinco sextos de copia más.
+  - Test: `tests/test_ica.py`, **54 tests en verde**.
+- [x] **Un solo lugar arma el pedazo que se le pasa a MNE**,
+      `_registro_parcial()` en `mne_bridge.py`: una tanda para filtrar, un
+      tramo para quitar componentes, la muestra del hito 58 para ajustar.
+- [x] **El banco de memoria dice cuánto tardó cada paso**: bajar la memoria
+      partiendo el trabajo puede costar tiempo, y hay que verlo al lado.
+
+Cada test nuevo se probó contra el programa sin su cambio —la versión anterior
+de cada archivo, sin copiar los canales que no se tocan, con las filas
+cruzadas y con tramos que dejan un hueco— y falla.
+
+### Lo que cuesta ahora
+
+32 canales a 256 Hz y una hora. El pico, en copias de la señal y con la que
+ya está abierta, con `tests/medir_memoria.py`. El tiempo, **sin**
+`tracemalloc` e intercalando la versión anterior con la nueva:
+
+| Operación | Pico antes | Pico ahora | Tiempo antes | Tiempo ahora |
+|---|---|---|---|---|
+| Filtrar | 3,1 | **2,5** | 2,4 s | 2,9 s |
+| Filtrar otra vez, encima | 4,1 | **3,5** | | |
+| Quitar un componente | 4,0 | **2,3** | 0,6 s | 1,0 s |
+
+Llevado a una noche de 8 horas con 32 canales, filtrar pedía 5,9 GB y pide
+4,7; quitar un componente pedía 7,6 y pide 4,3.
+
+### Lo que sigue siendo lo más caro
+
+- [ ] **Abrir otro registro con la señal procesada: 4,1 copias**. El anterior
+      sigue vivo mientras se lee el nuevo, a propósito: si el archivo no se
+      puede abrir, lo que se estaba haciendo sigue ahí. Bajarlo es decidir
+      soltar eso antes, y no se decidió.
+- [ ] **Filtrar sobre una señal ya procesada: 3,5**, porque están el original,
+      la procesada y la salida. Es la decisión que quedó abierta en el
+      [hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa): volver a la original
+      releyendo el archivo.
+- [ ] **Re-referenciar: 3,0.** No pasa por MNE; `reference.py` arma la
+      referencia y la resta. No se miró en este hito.
 
 ---
 
