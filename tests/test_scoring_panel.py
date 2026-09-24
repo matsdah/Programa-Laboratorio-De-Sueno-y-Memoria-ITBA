@@ -214,3 +214,19 @@ def test_el_pie_se_contesta_en_texto_pelado(panel: ScoringPanel):
 
     assert panel.status() == status_text(340, SleepStage.UNSCORED, False)
     assert "<" not in panel.status()
+
+
+# -- Accesibilidad (hito 63) --------------------------------------------------
+
+
+def test_el_selector_de_nomenclatura_tiene_nombre(panel: ScoringPanel):
+    """Un lector de pantalla lee el tooltip como descripción: sin nombre se
+    anunciaba como «combo, AASM» sin decir de qué."""
+    assert panel._nomenclaturas.accessibleName() == "Nomenclatura"
+
+
+def test_la_casilla_de_arousal_se_puede_apuntar(panel: ScoringPanel):
+    """Medía 15 px de alto; WCAG 2.5.8 pide 24."""
+    panel.show()
+
+    assert panel._arousal.height() >= 24

@@ -78,8 +78,9 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 59](#hito-59-filtrar-y-quitar-componentes-sin-copiar-la-señal-entera)** bajó lo que seguía: filtrar y quitar componentes. El
 **[hito 60](#hito-60-re-referenciar-ya-estaba-en-el-mínimo)** midió re-referenciar, que ya estaba en el mínimo, y el
 **[hito 61](#hito-61-la-varianza-de-la-ica-sin-reconstruir-la-señal)** bajó lo que esa medición encontró: la varianza de la ICA. El
-**[hito 62](#hito-62-accesibilidad-teclado-foco-y-bordes)** hizo lo importante de una auditoría de accesibilidad.
-Son **sesenta y tres hitos**, del 0 al 62, que son las filas de la tabla de
+**[hito 62](#hito-62-accesibilidad-teclado-foco-y-bordes)** hizo lo importante de una auditoría de accesibilidad, y el
+**[hito 63](#hito-63-lo-menor-de-la-auditoría-de-accesibilidad)** lo menor que no pedía decisiones.
+Son **sesenta y cuatro hitos**, del 0 al 63, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -220,6 +221,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [60. Re-referenciar ya estaba en el mínimo](#hito-60-re-referenciar-ya-estaba-en-el-mínimo) | — | 0 | ✅ cerrado |
 | [61. La varianza de la ICA sin reconstruir la señal](#hito-61-la-varianza-de-la-ica-sin-reconstruir-la-señal) | — | 0 | ✅ cerrado |
 | [62. Accesibilidad: teclado, foco y bordes](#hito-62-accesibilidad-teclado-foco-y-bordes) | — | 0 | ✅ cerrado |
+| [63. Lo menor de la auditoría de accesibilidad](#hito-63-lo-menor-de-la-auditoría-de-accesibilidad) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1891,7 +1893,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       Las curvas no tenían pluma y salían todas del mismo gris; ahora cada
       canal toma su color. **El esquema Claro deja el programa exactamente como
       era.**
-  - Test: `tests/test_theme.py`, **84 tests en verde**.
+  - Test: `tests/test_theme.py`, **89 tests en verde**.
   - Test: `tests/test_preferences.py`, **68 tests en verde**.
 - [x] **Fase 2 — Menús por dominio.** «Análisis» era el cajón de toda la Parte 2
       y se repartió: Montaje cambia de dónde viene cada canal, Filtrar cambia la
@@ -2056,7 +2058,7 @@ reorganiza lo que ya andaba.
       y deja el aspecto nativo, que sigue al sistema. `theme.icon_ink()` elige
       la tinta, y la usan los dos lugares que dibujan iconos. Venía del hito
       22; apareció al dibujar el icono de abrir.
-  - Test: `tests/test_theme.py`, **84 tests en verde**.
+  - Test: `tests/test_theme.py`, **89 tests en verde**.
 
 ### Lo que queda por confirmar
 
@@ -2357,7 +2359,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       Intercalados en el mismo proceso, un paso de reproducción de 30 s dio
       17,5–22,2 ms con Claro y 13,1–21,0 con Papel: la hoja no cuesta
       repintado.
-  - Test: `tests/test_theme.py`, **84 tests en verde**.
+  - Test: `tests/test_theme.py`, **89 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **48 tests en verde**, con el
     botón nuevo de «Fondo de la ventana».
 - [x] **Las tipografías IBM Plex**, Sans y Mono, en `psglab/resources/fonts/`
@@ -2373,7 +2375,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       dicen las barras de navegación y de estado a propósito: el panel se puede
       sacar a otra pantalla, donde ninguna de las dos se ve.
       `scoring_panel.py` sale de `SIN_TEST_PROPIO`.
-  - Test: `tests/test_scoring_panel.py`, **27 tests en verde**.
+  - Test: `tests/test_scoring_panel.py`, **29 tests en verde**.
 - [x] **El espectro dice con qué se estimó**: «Welch · segmentos de 4 s · Hann
       · solape 50 %». La ventana y el solape de Welch pasan a ser constantes
       explícitas —son los valores por defecto de scipy, así que el espectro no
@@ -3228,7 +3230,7 @@ tecla.
         de la fase marcada **se elige midiendo el contraste**, no por esquema:
         el blanco que se lee sobre el azul profundo desaparece sobre el ámbar
         del esquema oscuro.
-  - Test: `tests/test_theme.py`, **84 tests en verde**, con la escala de
+  - Test: `tests/test_theme.py`, **89 tests en verde**, con la escala de
     fases, las reglas por fase y el contraste de los dos esquemas nuevos, que
     el control de accesibilidad recorre solo porque mira `theme.SCHEMES`.
   - Test: `tests/test_preferences.py`, **68 tests en verde**, y
@@ -3270,7 +3272,7 @@ tecla.
         ancho, así que el reparto con el hipnograma es el mismo. Medido con
         `tests/medir_reparto.py`: el scoring pide 312 px con R&K y 224 con
         AASM, como antes.
-  - Test: `tests/test_scoring_panel.py`, **27 tests en verde**, con la tecla,
+  - Test: `tests/test_scoring_panel.py`, **29 tests en verde**, con la tecla,
     la propiedad de la fase y que cambiar de nomenclatura no deje botones
     viejos, que ahora se pintarían con el color de una fase que ya no existe.
 - [x] **El hipnograma a color**, con la misma escala.
@@ -3383,7 +3385,7 @@ se ve en todas.
 - [x] **Se fue la grilla cuadriculada del esquema ECG.** Era lo único que usaba
       `ecg_grid`, y el pliego no la pide: sus tres fondos —blanco, sólo las
       líneas de 3 s, las dos densidades— son verticales y siguen donde estaban.
-  - Test: `tests/test_theme.py`, **84 tests en verde**; `tests/test_grid.py`,
+  - Test: `tests/test_theme.py`, **89 tests en verde**; `tests/test_grid.py`,
     **19 tests en verde**; `tests/test_settings_dialog.py`, **48 tests en
     verde**; `tests/test_preferences.py`, **68 tests en verde**;
     `tests/test_menus.py`, **44 tests en verde**, con las dos entradas nuevas y
@@ -3540,7 +3542,7 @@ del diseño, y no correr el rótulo al hueco entre carriles.
         6,04 y Nocturno 7,18. Como los demás, lo enrola solo cualquier esquema
         que se agregue.
   - Test: `tests/test_signal_view.py`, **92 tests en verde**.
-  - Test: `tests/test_theme.py`, **84 tests en verde**.
+  - Test: `tests/test_theme.py`, **89 tests en verde**.
 
 ### Medido, porque el canalón toca el camino caliente
 
@@ -3732,7 +3734,7 @@ viera distinto sin que ninguno estuviera mal.
         gráfico, porque es el rótulo de un botón: Sereno da 5,67 y Nocturno
         6,09 sobre la ventana. Un esquema puede no traerla, y entonces el botón
         se ve como cualquier otro.
-  - Test: `tests/test_theme.py`, **84 tests en verde**;
+  - Test: `tests/test_theme.py`, **89 tests en verde**;
     `tests/test_entrega.py`, **325 tests en verde**.
 - [x] **Un icono más**, el del cartel de vacío: tres barras y una base. Es el
       único que no vive en un botón, y por eso es la silueta más neutra de
@@ -4048,7 +4050,7 @@ propio salto de tamaño.
         marcas y `status()` contesta el texto pelado, que es lo que el resto
         del programa compara.
   - Test: `tests/test_impedance_panel.py`, **27 tests en verde**;
-    `tests/test_scoring_panel.py`, **27 tests en verde**.
+    `tests/test_scoring_panel.py`, **29 tests en verde**.
 
 ### Lo que este hito deja anotado
 
@@ -4706,7 +4708,7 @@ qué eventos caen en cada una, que es todo lo que el panel hacía.
         Lo encontró la captura.
 - [x] **Un clic en una caja lleva a esa época**, por el mismo camino que la
       franja de posición.
-  - Test: `tests/test_overview_panel.py`, **24 tests en verde**;
+  - Test: `tests/test_overview_panel.py`, **27 tests en verde**;
     `tests/test_entrega.py`, **325 tests en verde**, con clics de Qt de verdad.
 - [x] **La miniatura se rehace cuando cambia lo que dibuja**: el canal
       seleccionado, los visibles, la amplitud, el esquema y la señal misma
@@ -4715,7 +4717,7 @@ qué eventos caen en cada una, que es todo lo que el panel hacía.
 - [x] **De paso, el botón de W decía «W» sobre «W»**, y el de R lo mismo: la
       tecla es la inicial de la etiqueta, que ahí es la etiqueta entera. Lo
       vio el usuario en su captura. Ahora se escribe una vez cuando coinciden.
-  - Test: `tests/test_scoring_panel.py`, **27 tests en verde**.
+  - Test: `tests/test_scoring_panel.py`, **29 tests en verde**.
 
 Cada test nuevo de la ventana se probó contra el programa sin su pieza —sin el
 clic, sin refrescar al seleccionar, sin refrescar al cambiar la amplitud, sin
@@ -4839,7 +4841,7 @@ anotados abajo.
       fondo. La hoja de estilo le da borde a la casilla sin marcar, con la
       tinta secundaria, y el control de contraste la vigila; la marcada se deja
       al estilo nativo, que dibuja la tilde.
-  - Test: `tests/test_theme.py`, **84 tests en verde**.
+  - Test: `tests/test_theme.py`, **89 tests en verde**.
 
 ### Lo que apareció en el camino
 
@@ -4970,7 +4972,7 @@ el [54](#hito-54-lo-que-faltaba-del-prototipo) quedan hechos los nueve.
       lo volvía un bloque oscuro en la barra; vuelve con `PRIMARIO_PROPERTY`,
       y reproducir no la lleva. **Apagado no parece encendido**: el de la ICA
       sin componentes tenía que dejar de invitar a apretar.
-  - Test: `tests/test_theme.py`, **84 tests en verde**;
+  - Test: `tests/test_theme.py`, **89 tests en verde**;
     `tests/test_entrega.py`, **325 tests en verde**.
 - [x] **La conectividad escribe el valor en cada celda**, con la tinta que se
       lee sobre ese color, y **la diagonal va en gris con «—»**: no se calcula,
@@ -5446,7 +5448,7 @@ pantalla**, y eso sigue pendiente.
         `QAbstractSpinBox`**: en una hoja de estilo de Qt la primera no alcanza a
         `QDoubleSpinBox`, que es su hermano, y el aumento de la lupa se quedaba
         sin anillo.
-  - Test: `tests/test_theme.py`, **84 tests en verde**;
+  - Test: `tests/test_theme.py`, **89 tests en verde**;
     `tests/test_entrega.py`, **325 tests en verde**;
     `tests/test_shortcuts_dialog.py`, **5 tests en verde**.
 
@@ -5462,21 +5464,79 @@ encender el anotador. La captura muestra los bordes en los dos esquemas.
 - [ ] **La métrica por ventana y la conectividad sólo existen como dibujo**
       (1.1.1): un lector de pantalla no lee ningún valor. El espectro sí tiene
       su tabla.
-- [ ] **El anillo de foco no está verificado a ojo** en casillas, listas,
+- [x] *(Hecho en el [hito 63](#hito-63-lo-menor-de-la-auditoría-de-accesibilidad).)* **El anillo de foco no está verificado a ojo** en casillas, listas,
       árboles y las pestañas de los paneles agrupados (2.4.7): probablemente
       dibujen el del estilo nativo. Hay que recorrerlo con Tab en la ventana
       de verdad.
-- [ ] **La Übersicht no toma el foco** (2.1.1): sus cuadros sólo responden al
+- [x] *(Hecho en el [hito 63](#hito-63-lo-menor-de-la-auditoría-de-accesibilidad).)* **La Übersicht no toma el foco** (2.1.1): sus cuadros sólo responden al
       clic. Lo cubren Ctrl+G, Inicio y Fin.
 - [ ] **Cerrar y Flotante de cada panel** no toman el foco y miden menos de
       24 px. Los paneles se abren y cierran desde «Herramientas».
-- [ ] **La casilla «Arousal» mide 15 px de alto** (2.5.5); se marca también con
+- [x] *(Hecho en el [hito 63](#hito-63-lo-menor-de-la-auditoría-de-accesibilidad).)* **La casilla «Arousal» mide 15 px de alto** (2.5.5); se marca también con
       la tecla A.
 - [ ] **La ocupación y la lupa son sólo de puntero** (2.1.1). La lupa tiene su
       alternativa en Ctrl++.
-- [ ] **El selector de nomenclatura del Scoring no tiene nombre accesible**
+- [x] *(Hecho en el [hito 63](#hito-63-lo-menor-de-la-auditoría-de-accesibilidad).)* **El selector de nomenclatura del Scoring no tiene nombre accesible**
       (4.1.2), sólo un tooltip.
 - [ ] **Nada se probó con un lector de pantalla** (NVDA o Narrador).
+
+## Hito 63: Lo menor de la auditoría de accesibilidad
+
+**Cerrado el 24 de septiembre de 2026.** Cuatro de los siete menores que dejó
+el [hito 62](#hito-62-accesibilidad-teclado-foco-y-bordes): los rápidos y sin
+decisiones de por medio.
+
+**No tiene stubs que contar.**
+
+### Lo que se hizo
+
+- [x] **El anillo de foco en casillas, listas, árboles, tablas y pestañas**
+      (WCAG 2.4.7). El hito 62 lo había dejado «probablemente nativo, sin
+      verificar». **Medido, no lo era**: la hoja de estilo tapaba el indicador
+      nativo, y la casilla, el árbol, la tabla y las pestañas no cambiaban
+      **ni un píxel** al recibir el foco. Ahora llevan el mismo anillo de
+      acento que los botones. La casilla tiene un borde transparente en reposo,
+      para que no se corra al recibirlo.
+- [x] **La Übersicht se alcanza con el teclado**, con Tab o F6, y dibuja el
+      anillo a mano, porque se pinta sola y la hoja no la alcanza. Las flechas
+      ya movían la ventana actual en toda la ventana, así que no maneja
+      teclas. **Un lector de pantalla puede leerla**: su descripción dice lo
+      mismo que las cabeceras, por ejemplo «Ventana 1: N1; ventana 2 (actual):
+      sin scorear, Apnea».
+      - Lo encontró su test: `str.capitalize()` pasa a minúscula todo lo que no
+        es la primera letra, y «N1» salía «n1».
+- [x] **La casilla «Arousal» mide 24 px de alto como mínimo** (WCAG 2.5.8);
+      medía 15.
+- [x] **El selector de nomenclatura tiene nombre accesible** (4.1.2): se
+      anunciaba como «combo, AASM» sin decir de qué.
+  - Test: `tests/test_theme.py`, **89 tests en verde**, que mira
+    los píxeles del anillo en cada tipo de control y no la hoja de estilo;
+    `tests/test_scoring_panel.py`, **29 tests en verde**;
+    `tests/test_overview_panel.py`, **27 tests en verde**.
+
+**Un test que cambia la hoja de estilo tiene que cambiarla en su ventana y no
+en la aplicación.** La primera versión del test del anillo usaba la de la
+aplicación, y Qt re-estilizaba cada widget vivo de los tests anteriores: solo
+tardaba medio segundo, y en la suite entera cada uno tardaba 115 s y la suite
+pasó de 2 a 12 minutos.
+
+Cada test nuevo se probó contra el programa sin su cambio y falla. Las ocho
+versiones rotas fueron:
+
+- sin el anillo de la casilla;
+- sin el de listas, árboles y tablas;
+- sin el de las pestañas;
+- el selector sin nombre;
+- la casilla sin alto mínimo;
+- la Übersicht sin foco;
+- la Übersicht sin su anillo;
+- el resumen sin marcar la ventana actual.
+
+### Lo que sigue de la auditoría
+
+Anotado en el hito 62: la métrica y la conectividad sólo como dibujo; Cerrar y
+Flotante de los paneles; la ocupación y la lupa sólo de puntero; y **probar con
+un lector de pantalla**, que es lo que dice si el resto hace falta.
 
 ---
 
