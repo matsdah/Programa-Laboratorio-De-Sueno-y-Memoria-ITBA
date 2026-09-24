@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.core.nomenclature import Nomenclature, SleepStage, stage_label, stages_of
+from psglab.ui.panel_header import SIN_REGISTRO
 from psglab.ui.shortcuts import key_for_stage
 
 #: Hasta dónde se achica un botón de fase. Alcanza para «REM», la etiqueta
@@ -67,10 +68,6 @@ ABREVIATURAS: Final[dict[Nomenclature, str]] = {
     Nomenclature.RK: "R&K",
     Nomenclature.AASM: "AASM",
 }
-
-#: Lo que dice el pie antes de que haya un registro abierto. Es lo mismo que
-#: dice la barra de navegación en ese momento.
-PIE_SIN_REGISTRO: Final[str] = "Sin registro"
 
 #: Cómo se nombra una ventana a la que todavía nadie le eligió fase. **No es el
 #: «-» con que se guarda**: en un texto suelto, un guion no se lee como nada.
@@ -166,7 +163,7 @@ class ScoringPanel(QWidget):
         #: marcas, así que `text()` no sirve para contestar `status()`.
         self._texto_del_pie = ""
         # Sin registro tampoco hay nada scoreado; ver `_reflejar_el_pie()`.
-        self._reflejar_el_pie(PIE_SIN_REGISTRO)
+        self._reflejar_el_pie(SIN_REGISTRO)
 
         self._columna = QVBoxLayout(self)
         # Los márgenes de fábrica son 11 px por lado: en un panel que se

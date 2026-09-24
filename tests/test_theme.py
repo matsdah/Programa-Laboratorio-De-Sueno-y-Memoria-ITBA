@@ -435,8 +435,8 @@ def test_el_color_de_los_iconos_pide_un_esquema():
 
 @pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=lambda e: e.name)
 def test_los_dos_esquemas_traen_la_tinta_de_lo_que_destruye(esquema):
-    """La usa «Descartar», que es el único control del programa que pierde
-    trabajo del investigador."""
+    """La usan «Descartar» y «Borrar» una anotación, los dos controles del
+    programa que pierden trabajo del investigador."""
     assert esquema.danger is not None
     assert f'QPushButton[{theme.DESTRUCTIVO_PROPERTY}="true"]' in theme.stylesheet(esquema)
 

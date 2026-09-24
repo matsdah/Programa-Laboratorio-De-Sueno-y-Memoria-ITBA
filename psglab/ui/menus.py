@@ -73,6 +73,7 @@ from psglab.ui import theme
 from psglab.ui.docks import ORDEN_DE_ANALISIS
 from psglab.ui.grid import BackgroundStyle
 from psglab.ui.icons import icon
+from psglab.ui.panel_header import SIN_REGISTRO
 from psglab.ui.shortcuts import key_for, readable_key
 
 if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
@@ -249,7 +250,7 @@ def _identificador(window: "MainWindow") -> None:
     Es una lectura: el esquema le da la tipografía numérica, que es la que
     hace que la frecuencia y las horas no bailen.
     """
-    etiqueta = QLabel("Sin registro")
+    etiqueta = QLabel(SIN_REGISTRO)
     etiqueta.setProperty(theme.READOUT_PROPERTY, True)
     etiqueta.setAccessibleName("Registro abierto")
     etiqueta.setContentsMargins(0, 0, 10, 0)
@@ -451,14 +452,14 @@ def _ver(window: "MainWindow") -> None:
     ver.addSeparator()
     # **Las vistas de canales** (hito 64): qué canales, en qué orden y con qué
     # escala, guardados con un nombre. Los programas de scoring traen una para
-    # puntuar, otra respiratoria y otra cardíaca; sin esto, cada registro
+    # scorear, otra respiratoria y otra cardíaca; sin esto, cada registro
     # obligaba a elegir los canales de nuevo.
     window.menu_vistas = ver.addMenu("Vistas de &canales")
     rebuild_views_menu(window)
 
     ver.addSeparator()
     # V2_F del histograma: el pliego pide poder elegir el eje.
-    window.accion_eje_en_hora = ver.addAction("Histograma en hora real de la noche")
+    window.accion_eje_en_hora = ver.addAction("Hipnograma en hora real de la noche")
     window.accion_eje_en_hora.setCheckable(True)
     window.accion_eje_en_hora.toggled.connect(window.set_histogram_time_axis)
 

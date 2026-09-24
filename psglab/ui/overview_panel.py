@@ -50,7 +50,7 @@ from psglab.core.nomenclature import SleepStage, stage_label
 from psglab.tools.overview import OverviewWindow
 from psglab.ui import theme
 from psglab.ui.fonts import font_for
-from psglab.ui.panel_header import chip_font, chip_width, draw_chip
+from psglab.ui.panel_header import SIN_REGISTRO, chip_font, chip_width, draw_chip
 
 #: Separación entre rectángulos, en píxeles. Sin ella las ventanas se leen como
 #: una sola barra continua y se pierde justamente lo que el panel muestra.
@@ -95,7 +95,7 @@ def accessible_summary(windows: tuple[OverviewWindow, ...]) -> str:
             texto += ", " + ", ".join(ventana.annotation_labels)
         partes.append(texto)
     if not partes:
-        return "Sin registro abierto"
+        return SIN_REGISTRO
     # Sólo la primera letra: `capitalize()` pasa el resto a minúscula, y «N1»
     # salía «n1».
     texto = "; ".join(partes)

@@ -194,7 +194,7 @@ def derive_montage(recording: Recording, pairs: list[tuple[str, str]]) -> Record
             if canal.name == nombre:
                 return canal
         raise ChannelNotFoundError(
-            f"El registro no tiene ningún canal llamado '{nombre}'.",
+            f"El registro no tiene ningún canal llamado «{nombre}».",
             details=f"Canales disponibles: {', '.join(c.name for c in canales)}.",
         )
 

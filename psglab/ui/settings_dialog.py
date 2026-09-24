@@ -513,7 +513,7 @@ class SettingsDialog(QDialog):
         formulario.addRow("Nomenclatura de un scoring nuevo:", self.open_nomenclature)
 
         self.open_clock_axis = QCheckBox(
-            "Histograma en hora real, si el registro la informa"
+            "Hipnograma en hora real, si el registro la informa"
         )
         self.open_clock_axis.toggled.connect(
             lambda activo: self._cambiar(
@@ -524,7 +524,7 @@ class SettingsDialog(QDialog):
 
         # Hito 64: como en los programas de scoring, se puede apagar.
         self.advance_after_scoring = QCheckBox(
-            "Al puntuar una ventana, pasar a la siguiente"
+            "Al scorear una ventana, pasar a la siguiente"
         )
         self.advance_after_scoring.toggled.connect(
             lambda activo: self._cambiar(

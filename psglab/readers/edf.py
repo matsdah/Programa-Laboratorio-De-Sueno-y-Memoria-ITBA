@@ -245,21 +245,21 @@ class EdfReader(Reader):
             # Antes caía en el `except` de abajo y se informaba como dañado, que
             # manda a buscar el problema al lugar equivocado (hito 33).
             raise UnreadableFileError(
-                f"No se encontró el archivo '{path.name}'.",
+                f"No se encontró el archivo «{path.name}».",
                 details=f"No existe {path}.",
             )
         try:
             crudo = mne.io.read_raw_edf(path, preload=True, verbose="ERROR")
         except Exception as error:  # noqa: BLE001 - MNE eleva de todo
             raise UnreadableFileError(
-                f"No se pudo leer el registro '{path.name}': el archivo está dañado o "
+                f"No se pudo leer el registro «{path.name}»: el archivo está dañado o "
                 "no tiene el formato EDF esperado.",
                 details=f"{type(error).__name__}: {error}",
             ) from error
 
         if not crudo.ch_names:
             raise UnreadableFileError(
-                f"El archivo '{path.name}' no trae ninguna señal, así que no es un "
+                f"El archivo «{path.name}» no trae ninguna señal, así que no es un "
                 "registro. Si es un scoring o un hipnograma, se importa desde la "
                 "opción de importar un scoring y no desde la de abrir un registro.",
                 details="El EDF sólo contiene el canal de anotaciones de EDF+.",
@@ -278,7 +278,7 @@ class EdfReader(Reader):
             # señal corrida en un factor mil o un millón. Hasta el hito 33 este
             # caso seguía con todo sin convertir.
             raise UnreadableFileError(
-                f"No se pudo leer el registro '{path.name}': no se entiende en qué "
+                f"No se pudo leer el registro «{path.name}»: no se entiende en qué "
                 "unidad está cada canal.",
                 details=(
                     f"La cabecera describe {len(cabecera)} canales de señal y MNE "

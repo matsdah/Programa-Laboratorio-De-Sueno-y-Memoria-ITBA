@@ -194,7 +194,7 @@ def test_la_posicion_se_muestra_en_base_uno(barra):
 def test_sin_registro_lo_dice_en_vez_de_mostrar_cero(barra):
     barra.set_position(0, 0)
 
-    assert barra._posicion.text() == "Sin registro"
+    assert barra._posicion.text() == "Sin registro abierto"
 
 
 def test_el_horario_va_con_la_epoca(barra):

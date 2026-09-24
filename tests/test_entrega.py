@@ -53,6 +53,7 @@ from psglab.ui import theme  # noqa: E402
 from psglab.tools.base import BandOverlay  # noqa: E402
 from psglab.ui.docks import ORDEN_DE_ANALISIS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
+from psglab.ui.overview_panel import accessible_summary  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
 
 from conftest import FRECUENCIA_BV, escribir_brainvision, escribir_edf  # noqa: E402
@@ -71,9 +72,14 @@ def ventana(qt_app, tmp_path, monkeypatch):
     afirmación más de cada test.
     """
     carteles: list[str] = []
-    monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
-    )
+    # Qué no se pudo hacer, en el mismo orden: es el título del cartel.
+    titulos: list[str | None] = []
+
+    def anotar_el_cartel(_ventana, error, accion=None):
+        carteles.append(str(error))
+        titulos.append(accion)
+
+    monkeypatch.setattr(MainWindow, "_show_error", anotar_el_cartel)
 
     # **Por `create_main_window()`, que es por donde entra `main.py`.** Armar
     # la `MainWindow` a mano saltea la carga de los dos registros, y entonces
@@ -85,6 +91,7 @@ def ventana(qt_app, tmp_path, monkeypatch):
 
     assert not carteles, f"abrir el registro mostró un error: {carteles}"
     principal.carteles = carteles
+    principal.titulos = titulos
     return principal
 
 
@@ -704,18 +711,30 @@ def test_las_anotaciones_se_ven_con_cualquier_herramienta(
     assert (10.0, 12.0) in bandas_dibujadas(ventana)
 
 
+@pytest.fixture
+def confirmacion(monkeypatch):
+    """Contesta `_confirmar()` con la respuesta que se fije y anota cada pregunta.
+
+    Como `cartel_del_scoring`: el cartel es modal, y sin nadie que lo cierre
+    colgaría la suite.
+    """
+    estado: dict[str, object] = {"respuesta": True, "preguntas": []}
+
+    def responder(_ventana, titulo, pregunta, accion, **opciones) -> bool:
+        estado["preguntas"].append(
+            {"titulo": titulo, "pregunta": pregunta, "accion": accion, **opciones}
+        )
+        return bool(estado["respuesta"])
+
+    monkeypatch.setattr(MainWindow, "_confirmar", responder)
+    return estado
+
+
 def test_el_clic_derecho_borra_la_anotacion(
-    ventana: MainWindow, monkeypatch, elige_en_el_menu
+    ventana: MainWindow, confirmacion, elige_en_el_menu
 ):
     """Desde el hito 52, eligiendo «Borrar» en el menú del clic derecho."""
     elige_en_el_menu.elegir("Borrar")
-    preguntas: list[str] = []
-
-    def responder(_padre, _titulo, texto, *_args, **_kwargs):
-        preguntas.append(texto)
-        return QMessageBox.StandardButton.Yes
-
-    monkeypatch.setattr(QMessageBox, "question", staticmethod(responder))
     anotar_en(ventana, 10.0, 12.0, "Spindle")
     queda = anotar_en(ventana, 20.0, 22.0)
     ventana._toggle_tool("annotator", True)
@@ -724,20 +743,16 @@ def test_el_clic_derecho_borra_la_anotacion(
 
     assert ventana.session.annotations.all() == [queda]
     assert (10.0, 12.0) not in bandas_dibujadas(ventana)
-    assert "Spindle" in preguntas[0]
+    assert "Spindle" in confirmacion["preguntas"][0]["pregunta"]
     assert not ventana.carteles
 
 
 def test_el_clic_derecho_pregunta_antes_de_borrar(
-    ventana: MainWindow, monkeypatch, elige_en_el_menu
+    ventana: MainWindow, confirmacion, elige_en_el_menu
 ):
     """No hay deshacer: elegir mal en el menú no puede costar un evento."""
     elige_en_el_menu.elegir("Borrar")
-    monkeypatch.setattr(
-        QMessageBox,
-        "question",
-        staticmethod(lambda *_a, **_k: QMessageBox.StandardButton.No),
-    )
+    confirmacion["respuesta"] = False
     anotar_en(ventana, 10.0, 12.0)
     ventana._toggle_tool("annotator", True)
 
@@ -756,7 +771,7 @@ def test_el_clic_derecho_sin_anotar_no_borra(
     def no_deberia_preguntar(*_a, **_k):
         pytest.fail("con la lupa activa, el clic derecho no puede borrar")
 
-    monkeypatch.setattr(QMessageBox, "question", staticmethod(no_deberia_preguntar))
+    monkeypatch.setattr(MainWindow, "_confirmar", no_deberia_preguntar)
     anotar_en(ventana, 10.0, 12.0)
     ventana._toggle_tool("magnifier", True)
 
@@ -899,7 +914,7 @@ def test_el_programa_se_construye_sin_registro(qt_app):
 def test_exportar_sin_registro_no_revienta(qt_app, tmp_path, monkeypatch):
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     ventana = create_main_window()
 
@@ -1192,7 +1207,7 @@ def test_pedir_la_hora_real_sin_hora_de_inicio_avisa(
 
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     principal = create_main_window()
     sin_hora = Recording(
@@ -1708,7 +1723,7 @@ def ventana_con_dos_eeg(qt_app, tmp_path, monkeypatch):
     """
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     principal = create_main_window()
     vhdr = escribir_brainvision(
@@ -1727,6 +1742,8 @@ def test_con_un_solo_eeg_la_ica_avisa(ventana: MainWindow):
     ventana.show_ica_dialog()
     ventana.wait_for_background()
     assert ventana.carteles
+    # El título dice qué no se pudo hacer, también desde otro hilo (hito 65).
+    assert ventana.titulos == ["calcular la ICA"]
 
 
 def test_ajustar_no_aplica_nada(ventana_con_dos_eeg: MainWindow):
@@ -1941,7 +1958,7 @@ def ventana_con_impedancias(qt_app, tmp_path, monkeypatch):
     """
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     principal = create_main_window()
     vhdr = escribir_brainvision(
@@ -2141,7 +2158,7 @@ def ventana_a_100_hz(qt_app, tmp_path, monkeypatch):
     """
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     principal = create_main_window()
     vhdr = escribir_brainvision(
@@ -3413,7 +3430,9 @@ def test_un_panel_vacio_dice_desde_donde_se_pide(ventana: MainWindow, clave: str
 
     panel = getattr(ventana, f"{clave}_panel")
     ventana.docks[clave].toggleViewAction().trigger()
-    pista = panel.visible_hint()
+    que_falta, _, pista = panel.visible_hint().partition("<br>")
+    # Primero qué falta (hito 65), y después desde dónde se pide.
+    assert que_falta.endswith(".") and "Se pide" not in que_falta
     assert pista.startswith("Se pide desde ")
 
     # Una ruta por renglón: la métrica tiene dos.
@@ -3446,7 +3465,7 @@ def test_filtrar_vacia_los_resultados_de_la_señal_anterior(
 
     assert ventana.psd_panel.channels() == []
     assert ventana.psd_panel.caption() == ""
-    assert ventana.psd_panel.visible_hint().startswith("Se pide desde ")
+    assert ventana.psd_panel.visible_hint().startswith("No hay ningún espectro calculado.")
 
 
 def test_volver_a_la_original_vacia_los_resultados_de_la_procesada(
@@ -3575,7 +3594,7 @@ def ventana_con_un_plano(qt_app, tmp_path, monkeypatch):
     """Dos EEG, el primero en cero: un electrodo desconectado."""
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     principal = create_main_window()
     vhdr = escribir_brainvision(
@@ -4153,7 +4172,7 @@ def test_un_archivo_de_preferencias_danado_se_avisa_al_arrancar(
     archivo.write_text("{esto no es json", encoding="utf-8")
     monkeypatch.setattr(preferencias_mod, "preferences_path", lambda: archivo)
     carteles: list[str] = []
-    monkeypatch.setattr(MainWindow, "_show_error", lambda _v, error: carteles.append(str(error)))
+    monkeypatch.setattr(MainWindow, "_show_error", lambda _v, error, accion=None: carteles.append(str(error)))
 
     nueva = create_main_window(saved_preferences=True)
     assert carteles == []
@@ -4203,13 +4222,10 @@ def test_la_barra_de_estado_no_se_queda_calculando(ventana: MainWindow, elige_op
     assert "…" not in ventana.statusBar().currentMessage()
 
 
-@pytest.mark.parametrize(
-    ("respuesta", "sobrescribe"),
-    [(QMessageBox.StandardButton.Yes, True), (QMessageBox.StandardButton.No, False)],
-)
+@pytest.mark.parametrize("sobrescribe", [True, False])
 def test_el_nombre_sin_extension_pregunta_antes_de_pisar(
-    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado, monkeypatch,
-    respuesta, sobrescribe: bool,
+    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado, confirmacion,
+    sobrescribe: bool,
 ):
     """La extensión se agrega **después** de que el diálogo confirmó, así que el
     archivo que se iba a pisar no era el que el usuario vio: escribía «noche» y
@@ -4217,12 +4233,14 @@ def test_el_nombre_sin_extension_pregunta_antes_de_pisar(
     ya_estaba = tmp_path / "noche.txt"
     ya_estaba.write_text("lo que habia antes", encoding="utf-8")
     dialogo_de_guardado["respuesta"] = tmp_path / "noche"
-    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: respuesta))
+    confirmacion["respuesta"] = sobrescribe
 
     ventana.export_scoring_dialog("txt")
 
     piso = ya_estaba.read_text(encoding="utf-8") != "lo que habia antes"
     assert piso is sobrescribe
+    assert confirmacion["preguntas"][0]["accion"] == "Reemplazar"
+    assert "noche.txt" in confirmacion["preguntas"][0]["pregunta"]
 
 
 def test_el_espectro_dice_que_una_banda_queda_fuera(
@@ -4256,10 +4274,18 @@ def test_la_barra_de_menu_identifica_el_registro(ventana: MainWindow):
     assert "canales" in resumen
 
 
-def test_sin_registro_la_barra_de_menu_lo_dice(qt_app):
+def test_sin_registro_todo_lo_dice_con_las_mismas_palabras(qt_app):
+    """Hito 65: eran «Sin registro» y «Sin registro abierto» para el mismo
+    estado, según dónde se mirara."""
     vacia = create_main_window()
     try:
-        assert vacia.recording_summary.text() == "Sin registro"
+        assert vacia.recording_summary.text() == "Sin registro abierto"
+        assert vacia.statusBar().currentMessage() == "Sin registro abierto"
+        assert vacia.navigation._posicion.text() == "Sin registro abierto"
+        assert vacia.scoring_panel.status() == "Sin registro abierto"
+        # El contexto lo dice sólo al lector de pantalla, y recién cuando le
+        # llegan ventanas: se pregunta a la función que arma ese texto.
+        assert accessible_summary(()) == "Sin registro abierto"
     finally:
         vacia.close()
 
@@ -4291,8 +4317,7 @@ def test_el_boton_de_descartar_lleva_la_tinta_de_lo_que_destruye(
 ):
     """**El rol no alcanza.** `DestructiveRole` le dice a Qt dónde ubicar el
     botón y con qué tecla responde, no de qué color pintarlo: en Windows sale
-    idéntico a «Cancelar». La tinta la pone el esquema por una propiedad, y es
-    el único control del programa que la lleva."""
+    idéntico a «Cancelar». La tinta la pone el esquema por una propiedad."""
     vistos: dict[str, bool] = {}
 
     def espiar(cartel):
@@ -4834,20 +4859,6 @@ def test_la_traduccion_de_qt_se_carga(qt_app):
     from psglab.app import install_qt_translations
 
     assert install_qt_translations(qt_app)
-
-
-def test_la_pregunta_antes_de_borrar_dice_si_y_no(ventana: MainWindow):
-    """Es la pregunta de «Borrar» en el menú de una anotación. Decía «Yes /
-    No»."""
-    pregunta = QMessageBox(
-        QMessageBox.Icon.Question,
-        "Borrar anotación",
-        "¿Borrar la anotación?",
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        ventana,
-    )
-
-    assert sorted(_botones(pregunta)) == ["No", "Sí"]
 
 
 def test_el_cartel_de_error_muestra_el_detalle_en_espanol(ventana: MainWindow):
@@ -5463,3 +5474,154 @@ def test_borrar_una_vista(ventana: MainWindow, monkeypatch):
     ventana.delete_channel_view()
 
     assert ventana.current_preferences.channel_views == ()
+
+
+# -- Los textos de la interfaz (hito 65) -------------------------------------
+
+#: El `_show_error` de verdad: las fixtures lo reemplazan por una lista.
+_MOSTRAR_EL_ERROR = MainWindow._show_error
+
+
+class EspiaDeCarteles:
+    """Reemplaza `QMessageBox.exec`: anota el cartel y aprieta un botón.
+
+    Apretar un botón fuera de `exec()` deja igual `clickedButton()`, que es lo
+    único que mira el programa.
+    """
+
+    def __init__(self, apretar: str | None = None) -> None:
+        self.apretar = apretar
+        self.vistos: list[dict[str, object]] = []
+
+    def __call__(self, cartel: QMessageBox) -> int:
+        botones = {b.text(): b for b in cartel.buttons()}
+        self.vistos.append(
+            {
+                "titulo": cartel.windowTitle(),
+                "informativo": cartel.informativeText(),
+                "botones": sorted(botones),
+                "por_omision": cartel.defaultButton().text() if cartel.defaultButton() else None,
+                "destructivos": sorted(
+                    t for t, b in botones.items() if b.property(theme.DESTRUCTIVO_PROPERTY)
+                ),
+            }
+        )
+        if self.apretar is not None:
+            botones[self.apretar].click()
+        return 0
+
+
+def test_confirmar_nombra_la_accion_en_el_boton(ventana: MainWindow, monkeypatch):
+    """«Borrar / Cancelar» y no «Sí / No», que obligaba a releer la pregunta
+    para saber cuál era cuál. **Cancelar va por omisión** cuando se pierde
+    algo: un Enter apurado no puede borrar."""
+    espia = EspiaDeCarteles(apretar="Borrar")
+    monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
+
+    confirmado = ventana._confirmar(
+        "Borrar la anotación", "¿Borrar?", "Borrar",
+        informativo="No se puede deshacer.", destructivo=True,
+    )
+
+    assert confirmado is True
+    (visto,) = espia.vistos
+    assert visto["botones"] == ["Borrar", "Cancelar"]
+    assert visto["por_omision"] == "Cancelar"
+    assert visto["destructivos"] == ["Borrar"]
+    assert visto["informativo"] == "No se puede deshacer."
+
+
+@pytest.mark.parametrize("apretar", ["Cancelar", None], ids=["cancelar", "cerrar"])
+def test_confirmar_sin_apretar_la_accion_no_confirma(
+    ventana: MainWindow, monkeypatch, apretar
+):
+    espia = EspiaDeCarteles(apretar=apretar)
+    monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
+
+    assert ventana._confirmar("Reemplazar el archivo", "¿Reemplazarlo?", "Reemplazar") is False
+
+
+def test_sin_perder_nada_la_accion_va_por_omision(ventana: MainWindow, monkeypatch):
+    espia = EspiaDeCarteles()
+    monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
+
+    ventana._confirmar("Cambiar de nomenclatura", "¿Convertir?", "Convertir")
+
+    assert espia.vistos[0]["por_omision"] == "Convertir"
+    assert espia.vistos[0]["destructivos"] == []
+
+
+def test_borrar_una_anotacion_avisa_que_no_se_deshace(
+    ventana: MainWindow, confirmacion, elige_en_el_menu
+):
+    elige_en_el_menu.elegir("Borrar")
+    anotar_en(ventana, 10.0, 12.0, "Spindle")
+    ventana._toggle_tool("annotator", True)
+
+    clic_derecho(ventana, 11.0)
+
+    (pregunta,) = confirmacion["preguntas"]
+    assert pregunta["accion"] == "Borrar"
+    assert pregunta["destructivo"] is True
+    assert "deshacer" in pregunta["informativo"]
+
+
+@pytest.mark.parametrize("convierte", [True, False])
+def test_cambiar_de_nomenclatura_pregunta_con_convertir(
+    ventana: MainWindow, confirmacion, convierte: bool
+):
+    from psglab.core.nomenclature import Nomenclature
+
+    antes = ventana.session.scoring.nomenclature
+    otra = Nomenclature.RK if antes is Nomenclature.AASM else Nomenclature.AASM
+    ventana.score_current_window(stages_of(antes)[0])
+    confirmacion["respuesta"] = convierte
+
+    ventana.scoring_panel.nomenclature_changed.emit(otra)
+
+    assert confirmacion["preguntas"][0]["accion"] == "Convertir"
+    assert ventana.session.scoring.nomenclature is (otra if convierte else antes)
+
+
+def test_sin_nada_scoreado_cambiar_de_nomenclatura_no_pregunta(
+    ventana: MainWindow, confirmacion
+):
+    from psglab.core.nomenclature import Nomenclature
+
+    ventana.scoring_panel.nomenclature_changed.emit(Nomenclature.RK)
+
+    assert confirmacion["preguntas"] == []
+    assert ventana.session.scoring.nomenclature is Nomenclature.RK
+
+
+def test_el_titulo_del_error_dice_que_no_se_pudo_hacer(ventana: MainWindow, monkeypatch):
+    """Era «No se pudo completar la operación» para todos: después de un
+    cálculo largo, nadie recuerda qué había pedido."""
+    monkeypatch.setattr(MainWindow, "_show_error", _MOSTRAR_EL_ERROR)
+    espia = EspiaDeCarteles()
+    monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
+
+    ventana._show_error(PsgLabError("algo"), "abrir «noche.edf»")
+    ventana._show_error(PsgLabError("algo"))
+
+    assert [v["titulo"] for v in espia.vistos] == [
+        "No se pudo abrir «noche.edf»",
+        "No se pudo completar la operación",
+    ]
+
+
+def test_abrir_un_archivo_que_no_esta_lo_nombra_en_el_titulo(
+    ventana: MainWindow, tmp_path
+):
+    ventana.open_recording(tmp_path / "noche.edf")
+
+    assert ventana.titulos == ["abrir «noche.edf»"]
+
+
+def test_un_analisis_que_falla_dice_cual_en_el_titulo(ventana: MainWindow):
+    def falla(_registro):
+        raise PsgLabError("no")
+
+    ventana._aplicar_analisis("Se derivó", falla, accion="derivar «C3-EOG-izq»")
+
+    assert ventana.titulos == ["derivar «C3-EOG-izq»"]

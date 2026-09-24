@@ -137,10 +137,10 @@ class Preferences:
             la del pliego; hay criterios que usan otros umbrales.
         magnifier_radius_seconds: el radio de la lupa, en segundos de señal.
         magnifier_zoom: cuánto amplía la lupa. 1 es sin aumento.
-        advance_after_scoring: si puntuar una ventana pasa a la siguiente
+        advance_after_scoring: si scorear una ventana pasa a la siguiente
             (hito 64). **Arranca en sí**, como en los programas de scoring
             comerciales: una noche de 960 ventanas eran 1920 teclas, la fase y
-            la flecha. Con la flecha se sigue pudiendo revisar sin puntuar.
+            la flecha. Con la flecha se sigue pudiendo revisar sin scorear.
         recent_files: los registros abiertos últimamente, el más nuevo
             primero, hasta `MAX_RECENT_FILES`. Rutas como texto.
         channel_views: las vistas de canales guardadas (hito 64), como
@@ -203,7 +203,7 @@ class Preferences:
         if self.open_nomenclature not in Nomenclature.__members__:
             _rechazar("la nomenclatura al abrir", self.open_nomenclature)
         if not isinstance(self.open_clock_axis, bool):
-            _rechazar("el eje del histograma al abrir", self.open_clock_axis)
+            _rechazar("el eje del hipnograma al abrir", self.open_clock_axis)
         for que, valor in (
             ("las ventanas anteriores del contexto", self.overview_before),
             ("las ventanas posteriores del contexto", self.overview_after),
@@ -221,7 +221,7 @@ class Preferences:
             if not (_es_numero(valor) and math.isfinite(valor) and minimo <= valor <= maximo):
                 _rechazar(f"{que} (entre {minimo:g} y {maximo:g})", valor)
         if not isinstance(self.advance_after_scoring, bool):
-            _rechazar("pasar a la siguiente ventana al puntuar", self.advance_after_scoring)
+            _rechazar("pasar a la siguiente ventana al scorear", self.advance_after_scoring)
         if not (
             isinstance(self.recent_files, tuple)
             and len(self.recent_files) <= MAX_RECENT_FILES

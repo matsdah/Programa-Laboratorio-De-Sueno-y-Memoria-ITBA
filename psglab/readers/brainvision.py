@@ -252,7 +252,7 @@ class BrainVisionReader(Reader):
             # Por lo mismo que en `edf.py`: informar "dañado" un archivo que no
             # está manda a buscar el problema al lugar equivocado (hito 33).
             raise UnreadableFileError(
-                f"No se encontró el archivo '{path.name}'.",
+                f"No se encontró el archivo «{path.name}».",
                 details=f"No existe {path}.",
             )
         try:
@@ -265,20 +265,20 @@ class BrainVisionReader(Reader):
             ]
             if faltantes:
                 raise UnreadableFileError(
-                    f"Para abrir '{path.name}' hacen falta sus tres archivos, y no se "
+                    f"Para abrir «{path.name}» hacen falta sus tres archivos, y no se "
                     f"encontró {', '.join(path.stem + e for e in faltantes)}. Los tres "
                     "tienen que estar en la misma carpeta y con el mismo nombre.",
                     details=f"{type(error).__name__}: {error}",
                 ) from error
             raise UnreadableFileError(
-                f"No se pudo leer el registro '{path.name}': el archivo está dañado o "
+                f"No se pudo leer el registro «{path.name}»: el archivo está dañado o "
                 "no tiene el formato BrainVision esperado.",
                 details=f"{type(error).__name__}: {error}",
             ) from error
 
         if not crudo.ch_names:
             raise UnreadableFileError(
-                f"El archivo '{path.name}' no declara ningún canal, así que no hay nada "
+                f"El archivo «{path.name}» no declara ningún canal, así que no hay nada "
                 "que mostrar ni que scorear.",
                 details="La cabecera no trae ninguna línea de canal.",
             )
@@ -288,7 +288,7 @@ class BrainVisionReader(Reader):
             # Sin la unidad no se sabe qué hizo MNE con cada canal, y adivinar
             # deja la señal corrida en un factor mil o un millón (hito 33).
             raise UnreadableFileError(
-                f"No se pudo leer el registro '{path.name}': no se entiende en qué "
+                f"No se pudo leer el registro «{path.name}»: no se entiende en qué "
                 "unidad está cada canal.",
                 details="La sección [Channel Infos] del .vhdr no se pudo interpretar.",
             )
