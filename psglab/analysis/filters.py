@@ -36,6 +36,15 @@ inventa una temperatura, pero filtrar es una operación sobre el tiempo y no
 sobre la unidad, y el canal respiratorio de `DEFAULT_FILTERS` existe justamente
 para eso: un pasa-bajos de 5 Hz sobre el flujo es lo habitual.
 
+**Un canal grabado más lento que el registro** (hito 67). Un EDF puede traer
+canales de 1 Hz junto a otros de 100 Hz, y MNE los lleva a todos a la más
+alta: el canal lento llega a 100 Hz, pero no tiene nada por encima de 0,5 Hz.
+Un pasa-altos por encima de eso lo deja plano —el EMG submental del EDF del
+laboratorio quedaba con el 0,0 % de su desvío con el de 10 Hz que se sugiere
+para EMG— y el programa decía «Se filtró la señal». `apply_filters()` lo
+rechaza, y `settings_for_kinds()`, que reparte los filtros de una clase, no se
+lo da a ese canal. La frecuencia de origen es `Channel.original_sampling_rate`.
+
 Cubre del pliego: V1_F de "Filtración de la señal".
 """
 
@@ -48,7 +57,7 @@ from typing import Any, Final
 import numpy as np
 
 from psglab.analysis.mne_bridge import _registro_parcial, from_raw, to_raw
-from psglab.core.recording import ChannelKind, Recording
+from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.utils.errors import (
     InvalidFilterError,
     InvalidRecordingError,
@@ -160,6 +169,35 @@ def _frecuencia_de_muestreo(valor: object) -> float:
     return numero
 
 
+def _original_mas_lenta(channel: Channel, sampling_rate: float) -> float | None:
+    """La frecuencia a la que se grabó el canal, si es menor que la del registro.
+
+    Es la que dice hasta dónde tiene contenido de verdad: por encima de su
+    mitad, lo que trae es interpolación. `None` si el archivo no la informa o
+    si el canal se grabó a la frecuencia del registro, que es lo común.
+    """
+    original = channel.original_sampling_rate
+    if original is None or not original < sampling_rate:
+        return None
+    return float(original)
+
+
+def _hz(valor: float) -> str:
+    """Una frecuencia como la lee el investigador: 0,5 y no 0.5."""
+    return f"{valor:g}".replace(".", ",")
+
+
+def _borra_el_canal(filtros: FilterSettings, original: float | None) -> bool:
+    """Si el pasa-altos queda por encima de lo que el canal contiene."""
+    paso_alto = filtros.highpass_hz
+    return (
+        original is not None
+        and isinstance(paso_alto, (int, float))
+        and not isinstance(paso_alto, bool)
+        and paso_alto >= original / 2
+    )
+
+
 def _mismo_registro_con(recording: Recording, datos: np.ndarray) -> Recording:
     """Un `Recording` nuevo con los mismos canales y otros datos.
 
@@ -191,8 +229,9 @@ def apply_filters(
 
     Raises:
         InvalidFilterError: si una frecuencia de corte supera la frecuencia de
-            Nyquist del registro, o si el pasa-altos queda por encima del
-            pasa-bajos.
+            Nyquist del registro, si el pasa-altos queda por encima del
+            pasa-bajos, o si queda por encima de la mitad de la frecuencia a
+            la que **se grabó** el canal, que lo dejaría plano (hito 67).
         ChannelNotFoundError: si `settings` nombra un canal que el registro no
             tiene. **No se lo ignora en silencio**: un nombre mal escrito
             dejaría al investigador convencido de que filtró un canal que quedó
@@ -225,7 +264,20 @@ def apply_filters(
                 ),
             )
         validate(filtros, recording.sampling_rate)
-        indices[nombre] = recording.channel_by_name(nombre).index
+        canal = recording.channel_by_name(nombre)
+        original = _original_mas_lenta(canal, recording.sampling_rate)
+        if original is not None and _borra_el_canal(filtros, original):
+            raise InvalidFilterError(
+                f"El pasa-altos de {_hz(filtros.highpass_hz)} Hz no se puede aplicar a "
+                f"«{nombre}»: se grabó a {_hz(original)} Hz, así que no tiene nada por "
+                f"encima de {_hz(original / 2)} Hz, y el filtro lo dejaría plano.",
+                details=(
+                    f"highpass_hz = {filtros.highpass_hz}, frecuencia original = "
+                    f"{original} Hz, frecuencia del registro = "
+                    f"{recording.sampling_rate} Hz."
+                ),
+            )
+        indices[nombre] = canal.index
 
     activos = {
         nombre: filtros
@@ -321,6 +373,12 @@ def settings_for_kinds(
     y no en el diálogo: en `ui/` no se podría correr desde un script del
     laboratorio ni testear sin abrir una ventana.
 
+    **A un canal grabado más lento que el registro no le da el pasa-altos**
+    que lo dejaría plano (hito 67): el resto de los filtros de su clase sí.
+    Es la misma regla con que `default_for()` deja vacío un corte que el
+    registro no admite, aplicada a cada canal; `apply_filters()` rechazaría
+    el pedido entero, y la clase no puede saber qué canales la comparten.
+
     Args:
         by_kind: filtros por clase. Las clases que no aparezcan quedan sin
             filtrar, igual que los canales que no aparecen en `apply_filters()`.
@@ -354,11 +412,15 @@ def settings_for_kinds(
                 details=f"by_kind[{clase!r}] es {type(filtros).__name__}.",
             )
 
-    return {
-        canal.name: by_kind[canal.kind]
-        for canal in recording.channels
-        if canal.kind in by_kind
-    }
+    por_canal: dict[str, FilterSettings] = {}
+    for canal in recording.channels:
+        if canal.kind not in by_kind:
+            continue
+        filtros = by_kind[canal.kind]
+        if _borra_el_canal(filtros, _original_mas_lenta(canal, recording.sampling_rate)):
+            filtros = replace(filtros, highpass_hz=None)
+        por_canal[canal.name] = filtros
+    return por_canal
 
 
 def default_for(

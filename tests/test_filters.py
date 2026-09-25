@@ -34,6 +34,7 @@ from psglab.analysis.filters import (
     FilterSettings,
     apply_filters,
     default_for,
+    settings_for_kinds,
     validate,
 )
 from psglab.core.recording import Channel, ChannelKind, Recording
@@ -627,3 +628,96 @@ def test_filtrar_no_cuesta_varias_copias_de_la_senal():
     # La salida es una copia, y una tanda por MNE suma menos de media más:
     # medido, 1,45. Todos juntos eran 3,07. La cota queda lejos de los dos.
     assert pico < 2 * crudo.data.nbytes
+
+
+# -- Un canal grabado más lento que el registro (hito 67) --------------------
+
+
+def registro_con_un_canal_lento() -> Recording:
+    """Un EEG de 100 Hz y un EMG grabado a 1 Hz, como el EDF del laboratorio.
+
+    El EMG trae una onda de 0,1 Hz, que es lo que un canal de 1 Hz puede
+    contener: por encima de 0,5 Hz no tiene nada. MNE lo lleva a los 100 Hz del
+    registro, y eso es lo que llega acá.
+    """
+    fs = 100.0
+    tiempos = np.arange(int(fs * 120)) / fs
+    return Recording(
+        file_path=Path("lento.edf"),
+        channels=[
+            Channel("C3", ChannelKind.EEG, MICROVOLT, 0, original_sampling_rate=100.0),
+            Channel("EMG", ChannelKind.EMG, MICROVOLT, 1, original_sampling_rate=1.0),
+        ],
+        data=np.vstack(
+            [
+                50.0 * np.sin(2 * np.pi * 10.0 * tiempos),
+                20.0 * np.sin(2 * np.pi * 0.1 * tiempos),
+            ]
+        ),
+        sampling_rate=fs,
+    )
+
+
+def test_el_pasa_altos_de_la_clase_no_le_llega_al_canal_lento():
+    """**El 0,0 % del desvío**: eso dejaba el pasa-altos de 10 Hz que se sugiere
+    para EMG en el EMG del EDF del laboratorio, grabado a 1 Hz. El pasa-bajos
+    y el notch de la clase no lo borran, y se le siguen dando."""
+    registro = registro_con_un_canal_lento()
+    emg = FilterSettings(highpass_hz=10.0, lowpass_hz=40.0, notch_hz=None)
+
+    por_canal = settings_for_kinds(registro, {ChannelKind.EMG: emg})
+
+    assert por_canal["EMG"] == FilterSettings(highpass_hz=None, lowpass_hz=40.0)
+
+
+def test_un_pasa_altos_que_el_canal_lento_admite_se_le_da():
+    """0,05 Hz está por debajo de los 0,5 Hz que contiene un canal de 1 Hz: es
+    el pasa-altos del respiratorio, que se graba lento a propósito."""
+    registro = registro_con_un_canal_lento()
+    emg = FilterSettings(highpass_hz=0.05)
+
+    assert settings_for_kinds(registro, {ChannelKind.EMG: emg})["EMG"] == emg
+
+
+def test_a_los_canales_de_la_frecuencia_del_registro_no_se_les_toca_nada():
+    registro = registro_con_un_canal_lento()
+    eeg = FilterSettings(highpass_hz=10.0, lowpass_hz=35.0)
+
+    assert settings_for_kinds(registro, {ChannelKind.EEG: eeg})["C3"] == eeg
+
+
+def test_filtrar_por_clase_ya_no_deja_plano_al_canal_lento():
+    """Lo que el usuario ve: el EMG sale entero, y el EEG, filtrado."""
+    registro = registro_con_un_canal_lento()
+    filtros = {
+        ChannelKind.EEG: FilterSettings(highpass_hz=20.0),
+        ChannelKind.EMG: FilterSettings(highpass_hz=10.0),
+    }
+
+    filtrado = apply_filters(registro, settings_for_kinds(registro, filtros))
+
+    emg_antes = registro.get_segment(0, registro.n_samples, ["EMG"])[0]
+    emg_despues = filtrado.get_segment(0, filtrado.n_samples, ["EMG"])[0]
+    assert np.std(emg_despues) == pytest.approx(np.std(emg_antes))
+    eeg_despues = filtrado.get_segment(0, filtrado.n_samples, ["C3"])[0]
+    assert np.std(eeg_despues) < 0.1 * np.std(registro.get_segment(0, registro.n_samples, ["C3"])[0])
+
+
+def test_pedirle_directo_el_pasa_altos_al_canal_lento_se_rechaza():
+    """Desde un script también: el canal quedaría plano y nada lo diría."""
+    registro = registro_con_un_canal_lento()
+
+    with pytest.raises(InvalidFilterError) as error:
+        apply_filters(registro, {"EMG": FilterSettings(highpass_hz=0.5)})
+
+    assert "«EMG»" in str(error.value)
+    assert "1 Hz" in str(error.value)
+    assert "0,5 Hz" in str(error.value)
+
+
+def test_sin_frecuencia_original_se_filtra_como_siempre():
+    """Un canal que no informa a cuánto se grabó no se da por lento."""
+    registro = armar_registro([("EMG", ChannelKind.EMG, MICROVOLT)])
+    emg = FilterSettings(highpass_hz=10.0)
+
+    assert settings_for_kinds(registro, {ChannelKind.EMG: emg})["EMG"] == emg

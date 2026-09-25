@@ -335,3 +335,43 @@ def test_el_boton_de_aplicar_es_el_principal(panel: FilterPanel):
 
     assert panel.boton_aplicar.property(theme.PRIMARIO_PROPERTY) is True
     assert not panel.boton_sugeridos.property(theme.PRIMARIO_PROPERTY)
+
+
+# -- Los canales grabados más lento (hito 67) ----------------------------------
+
+
+def registro_con_lentos(originales: dict[str, float | None]) -> Recording:
+    """Un registro de 100 Hz cuyos canales se grabaron a lo que diga `originales`."""
+    return Recording(
+        file_path=Path("lento.edf"),
+        channels=[
+            Channel(nombre, ChannelKind.EMG, MICROVOLT, posicion, original_sampling_rate=f)
+            for posicion, (nombre, f) in enumerate(originales.items())
+        ],
+        data=np.zeros((len(originales), 512)),
+        sampling_rate=100.0,
+    )
+
+
+def test_el_panel_nombra_el_canal_que_se_grabo_mas_lento(panel: FilterPanel):
+    """Se dice **antes** de aplicar: el pasa-altos de su clase no le llega."""
+    panel.set_recording(registro_con_lentos({"C3": 100.0, "EMG": 1.0}))
+
+    texto = panel.rotulo.text()
+    assert "«EMG» se grabó a 1 Hz: no se le aplica un pasa-altos de 0,5 Hz o más" in texto
+    assert "«C3»" not in texto
+
+
+def test_varios_lentos_a_la_misma_frecuencia_van_en_una_frase(panel: FilterPanel):
+    panel.set_recording(registro_con_lentos({"EMG": 1.0, "Resp": 1.0, "Temp": 1.0}))
+
+    assert "«EMG», «Resp» y «Temp» se grabaron a 1 Hz: no se les aplica" in panel.rotulo.text()
+
+
+def test_sin_canales_lentos_el_panel_no_los_menciona(panel: FilterPanel):
+    """Ni con la frecuencia original sin informar, que es lo que trae un
+    registro sintético o un BrainVision."""
+    panel.set_recording(registro_con_lentos({"C3": 100.0, "C4": None}))
+
+    assert "se grabó a" not in panel.rotulo.text()
+    assert "se grabaron a" not in panel.rotulo.text()

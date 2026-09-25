@@ -5656,3 +5656,257 @@ def test_un_analisis_que_falla_dice_cual_en_el_cartel(ventana: MainWindow):
     ventana._aplicar_analisis("Se derivó", falla, accion="derivar «C3-EOG-izq»")
 
     assert ventana.acciones == ["derivar «C3-EOG-izq»"]
+
+
+# -- Las teclas son del control que tiene el foco (hito 67) ------------------
+
+
+@pytest.fixture
+def a_la_vista(ventana: MainWindow):
+    """La ventana mostrada y activa: sin eso no hay foco, y sin foco Qt no
+    decide entre un atajo y el control. Se oculta y no se cierra al terminar:
+    cerrar preguntaría por el scoring sin exportar, que es modal."""
+    ventana.resize(1400, 900)
+    ventana.show()
+    ventana.activateWindow()
+    QApplication.processEvents()
+    yield ventana
+    ventana.hide()
+
+
+def teclear(*teclas: Qt.Key) -> None:
+    """Cada tecla a lo que tenga el foco **en ese momento**: la primera que
+    se tipea en una celda abre su editor, y la siguiente ya va ahí."""
+    from PySide6.QtTest import QTest
+
+    for tecla in teclas:
+        QTest.keyClick(QApplication.focusWidget(), tecla)
+        QApplication.processEvents()
+
+
+def test_tipear_en_la_tabla_de_impedancias_escribe_el_valor(a_la_vista: MainWindow):
+    """**Scoreaba la ventana**: «2» la marcaba N2 y el paso a la siguiente del
+    hito 64 hacía que «25» scoreara dos, mientras el usuario creía estar
+    escribiendo la impedancia que la pista del panel le pide."""
+    ventana = a_la_vista
+    ventana.show_impedance_dialog()
+    tabla = ventana.impedance_panel.tabla
+    tabla.setFocus()
+    tabla.setCurrentItem(tabla.topLevelItem(0), 1)
+    QApplication.processEvents()
+
+    teclear(Qt.Key.Key_2, Qt.Key.Key_5, Qt.Key.Key_Return)
+
+    canal = tabla.topLevelItem(0).text(0)
+    assert ventana.impedance_panel.values()[canal] == pytest.approx(25.0)
+    assert ventana.session.scoring.scored_windows() == 0
+    assert ventana.session.current_window == 0
+
+
+def test_tipear_en_la_tabla_de_filtros_escribe_el_corte(a_la_vista: MainWindow):
+    ventana = a_la_vista
+    ventana.show_filter_dialog()
+    tabla = ventana.filter_panel.tabla
+    tabla.setFocus()
+    tabla.setCurrentItem(tabla.topLevelItem(0), 1)
+    QApplication.processEvents()
+
+    teclear(Qt.Key.Key_2, Qt.Key.Key_Return)
+
+    assert tabla.topLevelItem(0).text(1) == "2"
+    assert ventana.session.scoring.scored_windows() == 0
+
+
+def test_las_flechas_recorren_la_tabla_y_no_cambian_la_amplitud(a_la_vista: MainWindow):
+    """↓ agrandaba la escala en vez de bajar de fila: la tabla no se podía
+    recorrer con el teclado."""
+    ventana = a_la_vista
+    ventana.show_impedance_dialog()
+    tabla = ventana.impedance_panel.tabla
+    tabla.setFocus()
+    tabla.setCurrentItem(tabla.topLevelItem(0), 1)
+    QApplication.processEvents()
+    escalas = {c: ventana.session.scale_uv(c) for c in ventana.session.visible_channels}
+
+    teclear(Qt.Key.Key_Down, Qt.Key.Key_Down)
+
+    assert tabla.indexOfTopLevelItem(tabla.currentItem()) == 2
+    assert {c: ventana.session.scale_uv(c) for c in escalas} == escalas
+
+
+def test_en_la_lista_de_canales_las_flechas_son_de_la_lista(a_la_vista: MainWindow):
+    """Pero las teclas que escriben siguen scoreando: la lista no carga datos,
+    y quien tildó un canal sigue trabajando con el teclado."""
+    from PySide6.QtWidgets import QListWidget
+
+    ventana = a_la_vista
+    lista = ventana.channel_selector.findChildren(QListWidget)[0]
+    lista.setFocus()
+    lista.setCurrentRow(0)
+    QApplication.processEvents()
+    escalas = {c: ventana.session.scale_uv(c) for c in ventana.session.visible_channels}
+
+    teclear(Qt.Key.Key_Down)
+
+    assert lista.currentRow() == 1
+    assert {c: ventana.session.scale_uv(c) for c in escalas} == escalas
+    teclear(Qt.Key.Key_2)
+    assert ventana.session.scoring.get(0).stage is SleepStage.N2
+
+
+def test_las_flechas_eligen_la_velocidad_en_su_selector(a_la_vista: MainWindow):
+    ventana = a_la_vista
+    selector = ventana.navigation.speed_selector
+    selector.setFocus()
+    QApplication.processEvents()
+    antes = selector.currentIndex()
+
+    teclear(Qt.Key.Key_Down)
+
+    assert selector.currentIndex() == antes + 1
+
+
+def test_con_el_foco_en_la_senal_los_atajos_siguen_iguales(a_la_vista: MainWindow):
+    """**Lo que no tenía que cambiar**: la señal no es ninguno de los
+    controles que se quedan con sus teclas."""
+    ventana = a_la_vista
+    sesion = ventana.session
+    ventana.signal_view.setFocus()
+    QApplication.processEvents()
+    canal = sesion.visible_channels[0]
+    escala = sesion.scale_uv(canal)
+
+    teclear(Qt.Key.Key_Down, Qt.Key.Key_Right, Qt.Key.Key_2)
+
+    assert sesion.scale_uv(canal) > escala
+    assert sesion.scoring.get(1).stage is SleepStage.N2
+    assert sesion.current_window == 2
+
+
+def test_el_filtro_de_las_teclas_es_uno_solo_en_toda_la_aplicacion(
+    ventana: MainWindow,
+):
+    """Los atajos se reinstalan al armar cada ventana, al abrir un registro y
+    al cambiar de nomenclatura. **Uno por ventana dejó la suite sin
+    terminar**: las de los tests no se destruyen, y cada evento pasaba por
+    todos. A esta altura de la suite ya se armaron cientos de ventanas."""
+    from PySide6.QtCore import QObject
+
+    from psglab.core.nomenclature import Nomenclature
+
+    create_main_window()
+    ventana.scoring_panel.nomenclature_changed.emit(Nomenclature.RK)
+
+    aplicacion = QApplication.instance()
+    assert len(aplicacion.findChildren(QObject, "psglab-teclas-del-control")) == 1
+
+
+# -- Un cálculo de la señal anterior se descarta (hito 67) -------------------
+
+
+def test_la_ica_de_otro_registro_no_se_muestra(
+    ventana_con_dos_eeg: MainWindow, tmp_path
+):
+    """**Se aplicaba sobre el registro nuevo**: «Abrir» sigue habilitado
+    mientras la ICA calcula, y la de la noche A quedaba en el panel como si
+    fuera de la B. Con los mismos canales, «Aplicar y quitar» la usaba sin
+    avisar."""
+    ventana = ventana_con_dos_eeg
+    empezo = threading.Event()
+    seguir = threading.Event()
+    real = main_window_mod.fit_ica
+
+    def lento(registro):
+        empezo.set()
+        seguir.wait(5.0)
+        return real(registro)
+
+    otra = escribir_brainvision(
+        tmp_path / "otra_noche",
+        segundos=WINDOW_SECONDS * 2,
+        canales=[("C3", "µV"), ("C4", "µV"), ("EOG-izq", "µV")],
+    )
+    main_window_mod.fit_ica = lento
+    try:
+        ventana.show_ica_dialog()
+        assert empezo.wait(5.0), "el ajuste no arrancó"
+        ventana.open_recording(otra)
+    finally:
+        seguir.set()
+        ventana.wait_for_background()
+        main_window_mod.fit_ica = real
+
+    assert ventana.session.recording.file_path == otra
+    assert ventana._ica is None
+    assert ventana.ica_panel.component_count() == 0
+    assert "Se descartó" in ventana.statusBar().currentMessage()
+    assert not ventana.carteles
+
+
+def test_el_error_de_un_calculo_de_otro_registro_no_se_muestra(
+    ventana_con_dos_eeg: MainWindow, tmp_path
+):
+    """Habla de una señal que ya no está en pantalla."""
+    ventana = ventana_con_dos_eeg
+    empezo = threading.Event()
+    seguir = threading.Event()
+    real = main_window_mod.fit_ica
+
+    def falla(registro):
+        empezo.set()
+        seguir.wait(5.0)
+        raise PsgLabError("La ICA no convergió.")
+
+    main_window_mod.fit_ica = falla
+    try:
+        ventana.show_ica_dialog()
+        assert empezo.wait(5.0), "el ajuste no arrancó"
+        ventana.open_recording(escribir_brainvision(tmp_path / "otra", segundos=WINDOW_SECONDS))
+    finally:
+        seguir.set()
+        ventana.wait_for_background()
+        main_window_mod.fit_ica = real
+
+    assert not ventana.carteles
+    assert "Se descartó" in ventana.statusBar().currentMessage()
+
+
+# -- Filtrar sin borrar un canal grabado más lento (hito 67) -----------------
+
+
+def test_filtrar_desde_el_panel_no_deja_plano_al_canal_lento(
+    ventana: MainWindow, tmp_path, monkeypatch
+):
+    """**El 0,0 %**: así quedaba el EMG del EDF del laboratorio, grabado a
+    1 Hz, con los sugeridos del panel, y la barra decía sólo «Se filtró la
+    señal». Ahora conserva su señal, y la barra dice por qué."""
+    from psglab.core.recording import Channel, ChannelKind, Recording
+
+    fs = 100.0
+    tiempos = np.arange(int(fs * WINDOW_SECONDS * 2)) / fs
+    lento = Recording(
+        file_path=tmp_path / "lento.edf",
+        channels=[
+            Channel("C3", ChannelKind.EEG, "µV", 0, original_sampling_rate=fs),
+            Channel("EMG", ChannelKind.EMG, "µV", 1, original_sampling_rate=1.0),
+        ],
+        data=np.vstack(
+            [
+                50.0 * np.sin(2 * np.pi * 10.0 * tiempos),
+                20.0 * np.sin(2 * np.pi * 0.1 * tiempos),
+            ]
+        ),
+        sampling_rate=fs,
+    )
+    monkeypatch.setattr(main_window_mod, "read_recording", lambda _ruta: lento)
+    ventana.open_recording(tmp_path / "lento.edf")
+    ventana.show_filter_dialog()
+    assert "«EMG» se grabó a 1 Hz" in ventana.filter_panel.rotulo.text()
+
+    ventana.filter_panel.boton_aplicar.click()
+
+    registro = ventana.session.recording
+    emg = registro.get_segment(0, registro.n_samples, ["EMG"])[0]
+    assert np.std(emg) == pytest.approx(np.std(lento.data[1]), rel=0.05)
+    assert "sin pasa-altos en «EMG»" in ventana.statusBar().currentMessage()
+    assert not ventana.carteles
