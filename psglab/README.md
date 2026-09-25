@@ -53,6 +53,11 @@ acá es lo que permite que el punto de entrada se quede en nueve sentencias
 (`install_qt_translations()`, hito 53): sin ella, los botones que arma Qt
 —«Sí / No», «Aceptar / Cancelar», «Mostrar detalles»— salían en inglés.
 
+`create_main_window(report_unexpected_errors=True)` muestra en un cartel los
+errores que no son `PsgLabError` (hito 68): sin eso, abierto sin consola, no
+los veía nadie. El cartel dice que es un defecto del programa y trae la traza;
+lo prende sólo `main.py`, porque en la suite un cartel modal la colgaría.
+
 ### `config.py`
 
 **Punto único de verdad de las constantes del pliego.** Ningún otro módulo

@@ -5910,3 +5910,131 @@ def test_filtrar_desde_el_panel_no_deja_plano_al_canal_lento(
     assert np.std(emg) == pytest.approx(np.std(lento.data[1]), rel=0.05)
     assert "sin pasa-altos en «EMG»" in ventana.statusBar().currentMessage()
     assert not ventana.carteles
+
+
+# -- Los errores inesperados (hito 68) ----------------------------------------
+
+
+def test_un_error_inesperado_en_otro_hilo_no_deja_la_ventana_esperando(
+    ventana: MainWindow,
+):
+    """La barra de espera seguía girando, la barra de estado decía que se
+    estaba calculando y los menús largos quedaban apagados hasta cerrar el
+    programa. El error se sigue elevando: es un bug, y no se disfraza."""
+
+    def rompe() -> None:
+        raise ValueError("algo que nadie previó")
+
+    ventana._en_segundo_plano("Probando", rompe, lambda _r: None, accion="probar")
+    with pytest.raises(ValueError):
+        ventana.wait_for_background()
+
+    assert not ventana._barra_de_espera.isVisible()
+    assert ventana.statusBar().currentMessage() != "Probando…"
+    assert ventana.menu_filtrar.menuAction().isEnabled()
+    assert ventana.accion_conectividad_de_la_noche.isEnabled()
+
+
+@pytest.fixture
+def aviso_de_errores(qt_app, monkeypatch):
+    """Una ventana con el aviso de errores inesperados, como la arma `main.py`.
+
+    `sys.excepthook` se reemplaza antes por uno mudo: el aviso lo llama igual
+    —para que la consola siga mostrando la traza— y así la suite no la
+    imprime. `monkeypatch` deja el original al terminar, y con él se va el
+    aviso. Los carteles se anotan en vez de mostrarse: son modales.
+    """
+    import sys
+
+    monkeypatch.setattr(sys, "excepthook", lambda *_a: None)
+    carteles: list[dict[str, str]] = []
+
+    def anotar(cartel: QMessageBox) -> int:
+        carteles.append(
+            {
+                "texto": cartel.text(),
+                "informativo": cartel.informativeText(),
+                "detalle": cartel.detailedText(),
+            }
+        )
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", anotar)
+    create_main_window(report_unexpected_errors=True)
+    return carteles
+
+
+def elevar(error: BaseException) -> None:
+    """Le pasa a `sys.excepthook` un error elevado de verdad, con su traza."""
+    import sys
+
+    try:
+        raise error
+    except BaseException as capturado:  # noqa: BLE001 - es lo que se prueba
+        sys.excepthook(type(capturado), capturado, capturado.__traceback__)
+
+
+def test_un_error_inesperado_se_muestra_como_defecto_del_programa(aviso_de_errores):
+    """**Abierto sin consola no lo veía nadie**, y el programa seguía con lo
+    que se estaba haciendo a medio hacer. El cartel no lo disfraza de mensaje
+    para el investigador: dice que es un defecto, y trae la traza."""
+    elevar(KeyError("canal"))
+
+    (cartel,) = aviso_de_errores
+    assert cartel["texto"] == "Ocurrió un error del programa."
+    assert "No es un problema de tus datos" in cartel["informativo"]
+    assert "KeyError: 'canal'" in cartel["detalle"]
+    assert "Traceback" in cartel["detalle"]
+
+
+def test_el_mismo_error_se_muestra_una_sola_vez(aviso_de_errores):
+    """Uno que salta al pintar se repetiría en cada cuadro."""
+    for _ in range(3):
+        elevar(KeyError("canal"))
+    elevar(ValueError("otro"))
+
+    assert len(aviso_de_errores) == 2
+
+
+def test_un_error_en_un_slot_llega_al_aviso(aviso_de_errores):
+    """El camino de verdad: PySide6 le pasa a `sys.excepthook` lo que sale de
+    un slot, y el bucle de eventos sigue."""
+    from PySide6.QtCore import QTimer
+
+    QTimer.singleShot(0, lambda: {}["falta"])
+    QApplication.processEvents()
+
+    assert len(aviso_de_errores) == 1
+    assert "KeyError" in aviso_de_errores[0]["detalle"]
+
+
+def test_cortar_con_ctrl_c_no_es_un_error_del_programa(aviso_de_errores):
+    elevar(KeyboardInterrupt())
+
+    assert aviso_de_errores == []
+
+
+def test_sin_pedirlo_la_ventana_no_toca_el_manejador(qt_app):
+    """La suite, la captura de pantalla y los bancos arman la ventana sin
+    pedirlo: un cartel modal los colgaría."""
+    import sys
+
+    antes = sys.excepthook
+    create_main_window()
+
+    assert sys.excepthook is antes
+
+
+def test_la_consola_sigue_mostrando_la_traza(qt_app, monkeypatch):
+    """El cartel se suma a la consola, no la reemplaza: quien corre el
+    programa desde una terminal sigue viendo la traza donde la veía."""
+    import sys
+
+    consola: list[type[BaseException]] = []
+    monkeypatch.setattr(sys, "excepthook", lambda tipo, *_a: consola.append(tipo))
+    monkeypatch.setattr(QMessageBox, "exec", lambda _cartel: 0)
+    create_main_window(report_unexpected_errors=True)
+
+    elevar(KeyError("canal"))
+
+    assert consola == [KeyError]
