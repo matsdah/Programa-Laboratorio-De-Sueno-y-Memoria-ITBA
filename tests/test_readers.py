@@ -911,3 +911,17 @@ def test_revisar_la_señal_no_la_copia(registro_aislado, tmp_path: Path):
     registro = read_recording(tmp_path / "noche.mentira")
 
     assert registro.data is LectorQueMarca.matriz
+
+
+def test_un_vhdr_en_mayusculas_no_se_informa_como_danado(brainvision_sintetico: Path):
+    """**Hito 71.** `can_read()` lo acepta y MNE lo rechaza; el cartel decía
+    que el archivo estaba dañado, y el investigador buscaba el problema en
+    los datos. Ahora dice qué hacer."""
+    mayusculas = brainvision_sintetico.with_name(brainvision_sintetico.stem + ".VHDR")
+    mayusculas.write_bytes(brainvision_sintetico.read_bytes())
+
+    with pytest.raises(UnreadableFileError) as error:
+        read_recording(mayusculas)
+
+    assert "dañado" not in str(error.value)
+    assert f"«{brainvision_sintetico.stem}.vhdr»" in str(error.value)

@@ -13,6 +13,7 @@ de salida" y la vista de eventos de la herramienta Übersicht.
 """
 
 import bisect
+import operator
 import re
 from dataclasses import dataclass
 from typing import Final
@@ -202,6 +203,20 @@ class AnnotationSet:
             details="Se esperaba una duración finita de 1 muestra o más.",
             minimum=1,
         )
+        # **En muestras enteras** (hito 71). Se aceptaba 10,5: `Anotaciones.txt`
+        # guarda puntos del registro, que son enteros, y una fracción no es un
+        # lugar de la señal.
+        for campo, valor in (
+            ("onset_sample", annotation.onset_sample),
+            ("duration_samples", annotation.duration_samples),
+        ):
+            try:
+                operator.index(valor)
+            except TypeError:
+                raise InvalidAnnotationError(
+                    "Una anotación se guarda en muestras enteras del registro.",
+                    details=f"{campo} = {valor!r}.",
+                ) from None
 
     def _insertar(self, annotation: Annotation) -> None:
         """Inserta una anotación ya validada en su lugar por muestra de inicio."""

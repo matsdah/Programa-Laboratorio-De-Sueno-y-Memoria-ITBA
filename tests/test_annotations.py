@@ -416,3 +416,17 @@ def test_reemplazar_una_que_no_esta_avisa(anotaciones):
         anotaciones.replace(evento(100), evento(200))
 
     assert anotaciones.all() == []
+
+
+# -- En muestras enteras (hito 71) ------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("inicio", "duracion"), [(10.5, 100), (10, 3.2)], ids=["inicio", "duracion"]
+)
+def test_una_anotacion_en_fracciones_de_muestra_se_rechaza(anotaciones, inicio, duracion):
+    """`Anotaciones.txt` guarda puntos del registro, que son enteros: una
+    fracción no es un lugar de la señal. Se aceptaba."""
+    with pytest.raises(InvalidAnnotationError):
+        anotaciones.add(Annotation("Arousal", inicio, duracion))
+

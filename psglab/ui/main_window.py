@@ -3,18 +3,17 @@
 Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
     +---------------------------------------------------------------+
-    | [abrir] Scoring | Escala de tiempo | Amplitud | Ver | Paneles  |
-    |   Montaje | Filtrar | Analizar | Herramientas | Configuración  |
-    |   Ayuda                                                        |
+    | [Abrir] Archivo | Escala de tiempo | Amplitud | Ver | Montaje  |
+    |   Filtrar | Analizar | Herramientas | Ayuda                     |
     +----------+-----------------------------------------+----------+
     | Canales  |                                         | Espectro |
     |  (dock)  |   Visualizador de la señal (central)    | Métrica  |
     |          |                                         | ICA...   |
     |          |                                         | (solapas)|
     +----------+-----------------------------------------+----------+
-    |  Übersicht | Scoring | Hipnograma  (docks de abajo, ocultos)   |
+    |  Hipnograma (a la vista) · Contexto y Scoring (ocultos)       |
     +---------------------------------------------------------------+
-    |  Navegación: época ⏮◀▶⏭ | página ≪‹⏯›≫ 1× | amplitud | franja |
+    |  Navegación: ⏮ ◀ ⏯ ▶ ⏭  1×  | franja | amplitud               |
     +---------------------------------------------------------------+
     |  Barra de estado: ventana 42 / 960 - 00:21:00                  |
     +---------------------------------------------------------------+
@@ -27,9 +26,10 @@ paneles de análisis arrancan ocultos y los abre la acción que los calcula.
 que es la única vía: la barra horizontal que lo repetía debajo de la barra de
 menú se quitó por confusa.
 
-**El programa abre sólo con la señal y el selector de canales**, y no
-recuerda la disposición de una apertura a otra (hito 24). Los demás paneles
-se abren desde «Herramientas», que desde el hito 28 lleva también los paneles.
+**El programa abre con la señal, el selector de canales y el hipnograma**
+(el hipnograma, desde el hito 64), y no recuerda la disposición de una
+apertura a otra (hito 24). Los demás paneles se abren desde «Herramientas»,
+que desde el hito 28 lleva también los paneles.
 
 Cubre del pliego: V4_F de "Archivo de salida" (`export()` elige cuál de los tres
 archivos escribir, aunque desde el hito 23 la ventana sólo ofrece el scoring),

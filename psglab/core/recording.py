@@ -82,9 +82,16 @@ class Channel:
     original_sampling_rate: float | None = None
 
 
-@dataclass
+@dataclass(eq=False)
 class Recording:
     """Un registro polisomnográfico completo.
+
+    **Dos registros son el mismo sólo si son el mismo objeto** (hito 71). La
+    igualdad de fábrica de un `dataclass` compara campo por campo, y con la
+    señal adentro eso elevaba `ValueError` —numpy no dice si dos matrices son
+    «iguales»—: `a == b` o `a in lista` rompían. El programa ya los compara por
+    identidad: un filtro o una derivación devuelven otro registro, aunque los
+    números coincidan.
 
     Attributes:
         file_path: archivo del que se cargó el registro.

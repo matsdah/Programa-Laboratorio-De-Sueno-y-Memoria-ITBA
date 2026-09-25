@@ -38,7 +38,6 @@ from psglab.config import (
 from psglab.core.annotations import es_color_de_clase
 from psglab.core.nomenclature import Nomenclature
 from psglab.tools.magnifier import RADIO_INICIAL_SEGUNDOS, ZOOM_INICIAL
-from psglab.ui.fonts import UI_FONT_FAMILY
 from psglab.ui.theme import (
     DEFAULT_SCHEME_NAME,
     ColorScheme,

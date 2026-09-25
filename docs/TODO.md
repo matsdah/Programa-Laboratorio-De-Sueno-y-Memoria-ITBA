@@ -86,8 +86,9 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 67](#hito-67-la-integridad-de-los-datos)** cerró tres huecos que estropeaban datos sin avisar, y el
 **[hito 68](#hito-68-los-errores-inesperados)** hizo visibles los errores que no lo eran, y el
 **[hito 69](#hito-69-los-formatos-de-scoring)** hizo que el programa relea sin preguntar lo que exporta, y el
-**[hito 70](#hito-70-la-unidad-de-cada-canal)** mostró cada canal en su unidad.
-Son **setenta y un hitos**, del 0 al 70, que son las filas de la tabla de
+**[hito 70](#hito-70-la-unidad-de-cada-canal)** mostró cada canal en su unidad, y el
+**[hito 71](#hito-71-lo-desactualizado-y-lo-menor)** corrigió los textos que el hito 64 dejó viejos y lo menor.
+Son **setenta y dos hitos**, del 0 al 71, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -236,6 +237,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [68. Los errores inesperados](#hito-68-los-errores-inesperados) | — | 0 | ✅ cerrado |
 | [69. Los formatos de scoring](#hito-69-los-formatos-de-scoring) | — | 0 | ✅ cerrado |
 | [70. La unidad de cada canal](#hito-70-la-unidad-de-cada-canal) | — | 0 | ✅ cerrado |
+| [71. Lo desactualizado y lo menor](#hito-71-lo-desactualizado-y-lo-menor) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -374,7 +376,7 @@ exactamente lo que consumen `scoring.py` y `annotations.py` del hito 2. Y
     S3 y S4 caen los dos en N3 y que volver no puede distinguirlos.
 - [x] **`psglab/core/recording.py`** · ~~7 stubs~~ · soporte de V1_F/V2_F/V3_F
       "Importación" y V4_F "Visualización"
-  - Test: `tests/test_recording.py`, **53 tests en verde**, sobre la fixture
+  - Test: `tests/test_recording.py`, **54 tests en verde**, sobre la fixture
     `synthetic_signal` de `conftest.py`.
   - **`__post_init__` rechaza un registro incoherente consigo mismo**: matriz
     que no es 2-D, canales que no coinciden con las filas, frecuencia no
@@ -420,7 +422,7 @@ de negocio entera funciona sin abrir una ventana.
   - `stages()` devuelve una copia: prestarle la lista interna al histograma lo
     dejaría corromper el scoring sin pasar por `set_stage`.
 - [x] **`psglab/core/annotations.py`** · ~~11 stubs~~ · V1_F "Anotación de la señal"
-  - Test: `tests/test_annotations.py`, **60 tests en verde**.
+  - Test: `tests/test_annotations.py`, **62 tests en verde**.
   - Las anotaciones se guardan en muestras, no en segundos.
   - **La lista interna se mantiene ordenada por muestra de inicio.** No es una
     optimización: es lo que hace que el índice de `remove_at()` signifique lo
@@ -505,7 +507,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader`, `read_recording` y `load_all_readers` corren al
     importar. **No convertirlos en stubs.**
-  - Test: `tests/test_readers.py`, **88 tests en verde**, que cubre este módulo
+  - Test: `tests/test_readers.py`, **89 tests en verde**, que cubre este módulo
     y los dos de abajo. El autodescubrimiento y el despacho se testean con un
     lector de mentira, sin ningún archivo real.
 - [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
@@ -1914,7 +1916,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
       un menú «&Análisis» se reescribió para verificar cada acción, que es lo
       que protegía.
-  - Test: `tests/test_menus.py`, **44 tests en verde**.
+  - Test: `tests/test_menus.py`, **46 tests en verde**.
 - [x] **Fase 3 — Paneles acoplables.** La señal es el widget central y los otros
       diez paneles se mueven, se apilan o se cierran; la disposición se guarda
       al cerrar. Los seis paneles de análisis conservaron el nombre de su
@@ -2038,7 +2040,7 @@ reorganiza lo que ya andaba.
       repetía la solapa Colores de esa misma ventana.
 - [x] **La barra de menú deja de ser la nativa**, para que en macOS no
       desaparezcan el botón de abrir ni «Configuración», que no tiene submenú.
-  - Test: `tests/test_menus.py`, **44 tests en verde**.
+  - Test: `tests/test_menus.py`, **46 tests en verde**.
   - Test: `tests/test_icons.py`, **33 tests en verde**.
 
 ### El scoring en cuatro formatos
@@ -2534,7 +2536,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
 - [x] `HistogramTool.label` pasa a «Hipnograma». El módulo, la clase y los IDs
       del pliego siguen diciendo «histograma»: son identificadores y
       trazabilidad.
-  - Test: `tests/test_menus.py`, **44 tests en verde**, con que
+  - Test: `tests/test_menus.py`, **46 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
   - Test: `tests/test_entrega.py`, **367 tests en verde**: tildar
@@ -2728,7 +2730,7 @@ todas con la recomendación que se le hizo.
     fallan con la ventana anterior.
   - Test: `tests/test_preferences.py`, **86 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **49 tests en verde**.
-  - Test: `tests/test_menus.py`, **44 tests en verde**.
+  - Test: `tests/test_menus.py`, **46 tests en verde**.
   - Test: `tests/test_psd_panel.py`, **27 tests en verde**; y dos por panel en
     `tests/test_metric_panel.py` (**18 tests en verde**),
     `tests/test_connectivity_panel.py` (**16 tests en verde**) y
@@ -2847,7 +2849,7 @@ le hizo, y mantuvo afuera las operaciones largas.
       del hito 30 tienen camino desde la ventana.
   - Test: `tests/test_entrega.py`, **367 tests en verde**, con un registro que
     tiene un canal en cero.
-  - Test: `tests/test_recording.py`, **53 tests en verde**, y
+  - Test: `tests/test_recording.py`, **54 tests en verde**, y
     `tests/test_contratos.py`, **1043 tests en verde**.
   - Test: `tests/test_magnifier.py`, **30 tests en verde**;
     `tests/test_preferences.py`, **86 tests en verde**;
@@ -2900,7 +2902,7 @@ ya advertía.
       no se ejercitaba en ninguna de las seis combinaciones. Es lo que deja
       testear los tres ítems que siguen: el escritor ya reproduce los dos
       primeros.
-  - Test: `tests/test_readers.py`, **88 tests en verde**. Este ítem sumó
+  - Test: `tests/test_readers.py`, **89 tests en verde**. Este ítem sumó
     once que no dependen de `data/`, y el arreglo de la escala, dieciocho más.
 - [x] **La escala dependía de cómo se escribiera la unidad.** `is_electrical()`
       no distingue mayúsculas y MNE sí: sólo convierte `uV`, `µV` y `mV`
@@ -2945,7 +2947,7 @@ ya advertía.
         `readers/base.py` que puede usar cualquier lector, y la ventana lo
         muestra después de abrir con su propio cartel, que no es el de error:
         «trae 4 h 10 min de los 8 h 00 min que declara su cabecera».
-  - Test: `tests/test_readers.py`, **88 tests en verde**, con el truncado, el
+  - Test: `tests/test_readers.py`, **89 tests en verde**, con el truncado, el
     entero y el de -1 registros.
   - Test: `tests/test_entrega.py`, **367 tests en verde**, abriéndolos por la
     ventana.
@@ -3044,7 +3046,7 @@ ya advertía.
       - Medido en esta máquina, con procesos limpios: la primera apertura pasó
         de **5058 ms a 256 ms**, y la segunda queda en 53. El hilo tarda 21,6 s
         en total —3,3 los lectores y 14,4 `antropy`—, en segundo plano.
-  - Test: `tests/test_readers.py`, **88 tests en verde**, con lo que queda
+  - Test: `tests/test_readers.py`, **89 tests en verde**, con lo que queda
     importado, el lector que no adelanta nada y que precalentar no lea ningún
     archivo.
   - Test: `tests/test_entrega.py`, **367 tests en verde**, con el orden de los
@@ -3079,7 +3081,7 @@ ya advertía.
     Ahora se pregunta de nuevo.
   - Test: `tests/test_scoring_reader.py`, **38 tests en verde**;
     `tests/test_session.py`, **158 tests en verde**;
-    `tests/test_readers.py`, **88 tests en verde**;
+    `tests/test_readers.py`, **89 tests en verde**;
     `tests/test_entrega.py`, **367 tests en verde**. Doce fallan sin la
     corrección.
 - [x] **Lo que dicen los documentos y el código no.** Se corrigieron en el
@@ -3163,9 +3165,9 @@ ya advertía.
       - El cartel nombra hasta cinco canales con sus cuentas y resume el resto,
         y dice qué implica: que filtrar las esparce, que la referencia promedio
         las pasa a todos los canales y que la PSD de esa época sale sin valor.
-  - Test: `tests/test_recording.py`, **53 tests en verde**, con el NaN, el
+  - Test: `tests/test_recording.py`, **54 tests en verde**, con el NaN, el
     infinito y el orden de los canales.
-  - Test: `tests/test_readers.py`, **88 tests en verde**. `escribir_brainvision()`
+  - Test: `tests/test_readers.py`, **89 tests en verde**. `escribir_brainvision()`
     aprendió a escribir muestras sin valor, y para eso el archivo en
     `IEEE_FLOAT_32`: es el único de los dos formatos que puede traerlas.
   - Test: `tests/test_entrega.py`, **367 tests en verde**, con el cartel por la
@@ -3402,7 +3404,7 @@ se ve en todas.
   - Test: `tests/test_theme.py`, **89 tests en verde**; `tests/test_grid.py`,
     **19 tests en verde**; `tests/test_settings_dialog.py`, **48 tests en
     verde**; `tests/test_preferences.py`, **86 tests en verde**;
-    `tests/test_menus.py`, **44 tests en verde**, con las dos entradas nuevas y
+    `tests/test_menus.py`, **46 tests en verde**, con las dos entradas nuevas y
     su exclusividad. Entre los cinco se borraron treinta y seis tests de lo que
     dejó de existir.
 
@@ -3442,7 +3444,7 @@ pintaron lo que había, y lo que había en las dos barras no era lo del diseño.
         canales y de qué hora a qué hora. No estaba en ningún lado, y con dos
         registros parecidos —la misma noche filtrada y sin filtrar— no había
         forma de saber cuál se miraba.
-  - Test: `tests/test_menus.py`, **44 tests en verde**.
+  - Test: `tests/test_menus.py`, **46 tests en verde**.
 - [x] **La barra de navegación.**
       - Los botones pasaron de 26 a 34 px y dejaron de ser planos: con 26 el
         icono quedaba en 14 y la fila entera se leía como una regleta de
@@ -3672,7 +3674,7 @@ misma escala**, con el respiratorio barriendo seis carriles.
       - La tinta de la pestaña la elige `theme.ink_over()` midiendo contra el
         relleno, que es la misma función que decide la del botón de la fase
         marcada y la del icono de reproducir.
-  - Test: `tests/test_menus.py`, **44 tests en verde**.
+  - Test: `tests/test_menus.py`, **46 tests en verde**.
 - [x] **El canalón dice sólo la escala.** Llevaba también la clase, y con un
       registro de verdad —«Resp oro-nasal», clase «Respiratorio»— la línea
       salía cortada con puntos suspensivos, que es peor que no decirla. La
@@ -4652,7 +4654,7 @@ siendo ciertas: es la prosa que este archivo sabe que se desincroniza.
       ventana no atrapa. `True` pasaba como la muestra 1. Ahora pide un entero,
       de Python o de numpy, y las dos filas de `CONTRATOS` que faltaban
       existen.
-  - Test: `tests/test_recording.py`, **53 tests en verde**;
+  - Test: `tests/test_recording.py`, **54 tests en verde**;
     `tests/test_contratos.py`, **1043 tests en verde**.
 - [x] **Una se actualizó sin tacharse**: el camino muerto de `exporters/` del
       hito 20 decía que ninguna acción llegaba a la rama de anotaciones, y el
@@ -4773,7 +4775,7 @@ lo pida», y el usuario lo eligió como siguiente paso.
       fallara a la mitad le costaría al investigador el evento que corregía.
       La nueva va a su lugar por muestra de inicio, que es la promesa de la que
       depende `remove_at()`.
-  - Test: `tests/test_annotations.py`, **60 tests en verde**;
+  - Test: `tests/test_annotations.py`, **62 tests en verde**;
     `tests/test_contratos.py`, **1043 tests en verde**.
 - [x] **Los bordes se arrastran.** Con «Anotar» activo, apretar a menos de
       cinco píxeles de un borde lo arrastra en vez de empezar una selección;
@@ -5606,7 +5608,7 @@ visual**: puntuar una noche costaba más pasos que en esos programas.
   - Test: `tests/test_preferences.py`, **86 tests en verde**;
     `tests/test_settings_dialog.py`, **49 tests en verde**;
     `tests/test_entrega.py`, **367 tests en verde**;
-    `tests/test_menus.py`, **44 tests en verde**;
+    `tests/test_menus.py`, **46 tests en verde**;
     `tests/test_docks.py`, **39 tests en verde**;
     `tests/test_signal_view.py`, **97 tests en verde**;
     `tests/test_overview_panel.py`, **27 tests en verde**.
@@ -5985,6 +5987,51 @@ versiones rotas fallan: sin centrar al abrir, o centrando todas las clases;
 (`MIN_SCALE_UV`), así que una temperatura que varía una décima se ve como una
 línea casi recta. Bajarla para lo que no es eléctrico es una decisión sobre
 `config.py`, y no se tomó acá.
+
+## Hito 71: Lo desactualizado y lo menor
+
+**Cerrado el 25 de septiembre de 2026.** Lo que quedaba chico de la auditoría
+del 25 de septiembre —ver el [hito 66](#hito-66-los-carteles-en-macos)—,
+junto con los textos que el hito 64 dejó diciendo lo contrario de lo que hace
+el programa.
+
+**No tiene stubs que contar.**
+
+### Lo que se hizo
+
+- [x] **Los textos que dejó viejos el hito 64.** El docstring de
+      `ui/main_window.py` y `ui/README.md` dibujaban una barra de menú con
+      «Scoring», «Paneles» y «Configuración», que ya no existen, y sin
+      «Archivo»; decían que el programa abre sólo con la señal y los canales,
+      y que la barra empieza «con un botón y no con “Archivo”». El hito 64
+      agregó su frase a la tabla del README y no releyó los párrafos de arriba.
+      - **Los dos diagramas se comparan ahora contra los menús de verdad**, en
+        `tests/test_menus.py`: la prosa no la mira ningún chequeo, pero el
+        dibujo de la barra se puede leer. Se lo vio fallar con los dos textos
+        viejos antes de darlo por bueno.
+- [x] **Un `.VHDR` en mayúsculas se informaba como archivo dañado.**
+      `can_read()` lo acepta, como todos los lectores, pero MNE exige «.vhdr»
+      literal; el investigador buscaba el problema en los datos. Ahora el
+      cartel dice que la extensión va en minúsculas y cómo renombrarla.
+- [x] **Una anotación en fracciones de muestra se rechaza.** Se aceptaba
+      10,5: `Anotaciones.txt` guarda puntos del registro, que son enteros.
+- [x] **Dos `Recording` se comparan por identidad.** La igualdad de fábrica
+      del `dataclass` comparaba la señal, y `a == b` o `a in lista` elevaban
+      `ValueError`. El programa ya los comparaba por identidad.
+- [x] **Ocho imports sin usar**, cinco en `ui/settings_dialog.py`.
+  - Test: `tests/test_menus.py`, **46 tests en verde**;
+    `tests/test_readers.py`, **89 tests en verde**;
+    `tests/test_annotations.py`, **62 tests en verde**;
+    `tests/test_recording.py`, **54 tests en verde**.
+
+Cada test nuevo se probó contra el programa sin su cambio, y todos fallan: el
+diagrama con los dos textos viejos, el `.VHDR` otra vez como dañado, las
+fracciones de muestra aceptadas y la igualdad comparando la señal.
+
+**De la auditoría queda**, anotado en el hito 66: los marcadores del `.vmrk` y
+las anotaciones de un EDF+ que nadie lee; el espectro y la conectividad sin
+mirar la frecuencia de origen de cada canal; la memoria a 1000 Hz, que es una
+pregunta para el laboratorio; y `MainWindow`, con 160 métodos.
 
 ---
 
