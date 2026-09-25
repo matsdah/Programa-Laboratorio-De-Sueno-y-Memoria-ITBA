@@ -148,14 +148,14 @@ class Recording:
         # de numpy, que es justo lo que este método existe para impedir.
         if not isinstance(self.data, np.ndarray):
             raise InvalidRecordingError(
-                f"El registro '{self.file_path.name}' no se pudo interpretar: la señal "
+                f"El registro «{self.file_path.name}» no se pudo interpretar: la señal "
                 "no llegó como una matriz.",
                 details=f"data es {type(self.data).__name__}, se esperaba numpy.ndarray.",
             )
 
         if not isinstance(self.channels, list):
             raise InvalidRecordingError(
-                f"El registro '{self.file_path.name}' no se pudo interpretar: la lista "
+                f"El registro «{self.file_path.name}» no se pudo interpretar: la lista "
                 "de canales no es una lista.",
                 details=f"channels es {type(self.channels).__name__}.",
             )
@@ -163,21 +163,21 @@ class Recording:
         nombres_raros = [c for c in self.channels if not isinstance(getattr(c, "name", None), str)]
         if nombres_raros:
             raise InvalidRecordingError(
-                f"El registro '{self.file_path.name}' tiene canales sin un nombre "
+                f"El registro «{self.file_path.name}» tiene canales sin un nombre "
                 "utilizable, y los canales se piden por nombre en toda la interfaz.",
                 details=f"{len(nombres_raros)} canal(es) con un nombre que no es texto.",
             )
 
         if self.data.ndim != 2:
             raise InvalidRecordingError(
-                f"El registro '{self.file_path.name}' no se pudo interpretar: la señal "
+                f"El registro «{self.file_path.name}» no se pudo interpretar: la señal "
                 "no tiene la forma esperada de canales por muestras.",
                 details=f"data.ndim = {self.data.ndim}, se esperaba 2.",
             )
 
         if len(self.channels) != self.data.shape[0]:
             raise InvalidRecordingError(
-                f"El registro '{self.file_path.name}' declara {len(self.channels)} canales "
+                f"El registro «{self.file_path.name}» declara {len(self.channels)} canales "
                 f"pero la señal trae {self.data.shape[0]}.",
                 details=(
                     f"len(channels) = {len(self.channels)}, "
@@ -187,7 +187,7 @@ class Recording:
 
         if not self.channels:
             raise InvalidRecordingError(
-                f"El registro '{self.file_path.name}' no tiene ningún canal, así que no "
+                f"El registro «{self.file_path.name}» no tiene ningún canal, así que no "
                 "hay nada que mostrar ni que scorear.",
                 details=f"data.shape = {self.data.shape}.",
             )
@@ -198,7 +198,7 @@ class Recording:
         # cero ventanas y un `current_window` apuntando a una que no existe.
         if self.data.shape[1] == 0:
             raise InvalidRecordingError(
-                f"El registro '{self.file_path.name}' no tiene ninguna muestra: declara "
+                f"El registro «{self.file_path.name}» no tiene ninguna muestra: declara "
                 "canales pero no trae señal.",
                 details=f"data.shape = {self.data.shape}.",
             )
@@ -210,7 +210,7 @@ class Recording:
         # arbitrario que en pantalla sigue pareciendo una señal.
         if not np.issubdtype(self.data.dtype, np.floating):
             raise InvalidRecordingError(
-                f"La señal del registro '{self.file_path.name}' no está en microvoltios: "
+                f"La señal del registro «{self.file_path.name}» no está en microvoltios: "
                 "llegó con valores enteros, que son las cuentas crudas del equipo.",
                 details=f"data.dtype = {self.data.dtype}, se esperaba punto flotante.",
             )
@@ -224,14 +224,14 @@ class Recording:
             self.sampling_rate,
             error=InvalidRecordingError,
             message=(
-                f"El registro '{self.file_path.name}' declara una frecuencia de muestreo "
+                f"El registro «{self.file_path.name}» declara una frecuencia de muestreo "
                 "que no es válida, así que no se puede ubicar ninguna ventana en el tiempo."
             ),
             details="Se esperaba un número finito y positivo.",
         )
         if self.sampling_rate <= 0:
             raise InvalidRecordingError(
-                f"El registro '{self.file_path.name}' declara una frecuencia de muestreo "
+                f"El registro «{self.file_path.name}» declara una frecuencia de muestreo "
                 "que no es válida, así que no se puede ubicar ninguna ventana en el tiempo.",
                 details=f"sampling_rate = {self.sampling_rate}, se esperaba un número positivo.",
             )
@@ -246,16 +246,16 @@ class Recording:
                 canal.original_sampling_rate,
                 error=InvalidRecordingError,
                 message=(
-                    f"El registro '{self.file_path.name}' declara para el canal "
-                    f"'{canal.name}' una frecuencia original que no es válida."
+                    f"El registro «{self.file_path.name}» declara para el canal "
+                    f"«{canal.name}» una frecuencia original que no es válida."
                 ),
                 details="Se esperaba un número finito y positivo, o ninguno.",
                 minimum=0,
             )
             if canal.original_sampling_rate <= 0:
                 raise InvalidRecordingError(
-                    f"El registro '{self.file_path.name}' declara para el canal "
-                    f"'{canal.name}' una frecuencia original que no es válida.",
+                    f"El registro «{self.file_path.name}» declara para el canal "
+                    f"«{canal.name}» una frecuencia original que no es válida.",
                     details=(
                         f"original_sampling_rate = {canal.original_sampling_rate}, "
                         "se esperaba un número positivo."
@@ -265,7 +265,7 @@ class Recording:
         desubicados = [c.name for i, c in enumerate(self.channels) if c.index != i]
         if desubicados:
             raise InvalidRecordingError(
-                f"El registro '{self.file_path.name}' tiene canales cuya posición declarada "
+                f"El registro «{self.file_path.name}» tiene canales cuya posición declarada "
                 "no coincide con la fila que ocupan en la señal.",
                 details=f"Canales desubicados: {', '.join(desubicados)}.",
             )
@@ -274,7 +274,7 @@ class Recording:
         repetidos = sorted({n for n in nombres if nombres.count(n) > 1})
         if repetidos:
             raise DuplicateChannelError(
-                f"El registro '{self.file_path.name}' tiene más de un canal con el mismo "
+                f"El registro «{self.file_path.name}» tiene más de un canal con el mismo "
                 "nombre, así que no se puede saber a cuál se refiere cada pedido.",
                 details=f"Nombres repetidos: {', '.join(repetidos)}.",
             )
@@ -319,7 +319,7 @@ class Recording:
             if canal.name == name:
                 return canal
         raise ChannelNotFoundError(
-            f"El registro no tiene ningún canal llamado '{name}'.",
+            f"El registro no tiene ningún canal llamado «{name}».",
             details=f"Canales disponibles: {', '.join(self.channel_names())}.",
         )
 

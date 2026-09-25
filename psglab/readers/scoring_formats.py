@@ -201,7 +201,7 @@ def read_scoring_file(
         lectura = _leer_xml(path)
     else:
         raise UnreadableFileError(
-            f"No se reconoce el formato de scoring de '{path.name}'.",
+            f"No se reconoce el formato de scoring de «{path.name}».",
             details=f"Extensión {formato or '(ninguna)'}; se esperaba .csv, .edf o .xml.",
         )
     return _armar_scoring(lectura, path, n_windows, nomenclature)
@@ -216,7 +216,7 @@ def _armar_scoring(
     """Decide la nomenclatura y vuelca los tramos sobre un scoring nuevo."""
     if not lectura.tramos:
         raise UnreadableFileError(
-            f"'{path.name}' no trae ninguna fase de sueño.",
+            f"«{path.name}» no trae ninguna fase de sueño.",
             details="No se encontró ningún evento ni fila con una fase reconocible.",
         )
 
@@ -252,7 +252,7 @@ def _elegir_nomenclatura(
             return lectura.declarada
         extrano = next(t for t in lectura.tramos if not t.cabe_en(lectura.declarada))
         raise UnreadableFileError(
-            f"'{path.name}' declara la nomenclatura {lectura.declarada.value}, pero "
+            f"«{path.name}» declara la nomenclatura {lectura.declarada.value}, pero "
             f"{extrano.donde} trae {extrano.rotulo()}, que no existe en ella.",
             details="La declaración y el contenido del archivo no coinciden.",
         )
@@ -264,14 +264,14 @@ def _elegir_nomenclatura(
         )
         if imposible is not None:
             raise UnreadableFileError(
-                f"{_mayuscula(imposible.donde)} de '{path.name}' trae "
+                f"{_mayuscula(imposible.donde)} de «{path.name}» trae "
                 f"{imposible.rotulo()}, que no es una fase de ninguna nomenclatura.",
                 details="Nomenclaturas conocidas: "
                 + ", ".join(n.value for n in Nomenclature)
                 + ".",
             )
         raise UnreadableFileError(
-            f"'{path.name}' mezcla fases de Rechtschaffen y Kales con fases de AASM, "
+            f"«{path.name}» mezcla fases de Rechtschaffen y Kales con fases de AASM, "
             "así que no se puede leer con ninguna de las dos.",
             details="Hay rótulos o códigos que sólo existen en una y otros que sólo "
             "existen en la otra.",
@@ -282,7 +282,7 @@ def _elegir_nomenclatura(
     if pedida is not None:
         return pedida
     raise UndeclaredNomenclatureError(
-        f"'{path.name}' no dice con qué nomenclatura se scoreó, y adivinarla "
+        f"«{path.name}» no dice con qué nomenclatura se scoreó, y adivinarla "
         "cargaría toda la noche mal traducida sin que se note: el código 2 es S2 "
         "en Rechtschaffen y Kales y N2 en AASM.",
         details="El archivo no declara la nomenclatura y sus fases existen en las dos.",
@@ -291,7 +291,7 @@ def _elegir_nomenclatura(
 
 def _no_corresponde(path: Path, n_windows: int, hasta: int, donde: str) -> None:
     raise ScoringMismatchError(
-        f"El scoring de '{path.name}' no corresponde a este registro: llega hasta "
+        f"El scoring de «{path.name}» no corresponde a este registro: llega hasta "
         f"la ventana {hasta} y el registro tiene {n_windows}.",
         details=f"Lo que se pasa del final está en {donde}.",
     )
@@ -319,14 +319,14 @@ def _leer_csv(path: Path) -> _Lectura:
         if any(celda.strip() for celda in fila)
     ]
     if not filas:
-        raise UnreadableFileError(f"'{path.name}' está vacío.")
+        raise UnreadableFileError(f"«{path.name}» está vacío.")
 
     _, cabecera = filas[0]
     nombres = [celda.strip().lower() for celda in cabecera]
     col_fase = _columna(nombres, _COLUMNAS_FASE)
     if col_fase is None:
         raise UnreadableFileError(
-            f"'{path.name}' no tiene una columna «fase».",
+            f"«{path.name}» no tiene una columna «fase».",
             details=f"Columnas encontradas: {', '.join(nombres)}.",
         )
     col_ventana = _columna(nombres, _COLUMNAS_VENTANA)
@@ -345,7 +345,7 @@ def _leer_csv(path: Path) -> _Lectura:
             indice = _entero(celdas[col_ventana], path, donde, "un número de ventana") - 1
             if indice < 0:
                 raise UnreadableFileError(
-                    f"La línea {numero} de '{path.name}' nombra la ventana "
+                    f"La línea {numero} de «{path.name}» nombra la ventana "
                     f"{indice + 1}, y las ventanas se cuentan desde 1.",
                 )
         ventanas = range(indice, indice + 1)
@@ -355,7 +355,7 @@ def _leer_csv(path: Path) -> _Lectura:
             valor = celdas[col_arousal] or "0"
             if valor not in ("0", "1"):
                 raise UnreadableFileError(
-                    f"La línea {numero} de '{path.name}' tiene un arousal que no es 0 ni 1.",
+                    f"La línea {numero} de «{path.name}» tiene un arousal que no es 0 ni 1.",
                     details=f"Se leyó {valor!r}.",
                 )
             lectura.arousals.append((ventanas, valor == "1"))
@@ -371,7 +371,7 @@ def _tramo_csv(valor: str, ventanas: range, path: Path, donde: str) -> _Tramo:
         return _Tramo(ventanas, donde, fase=SleepStage(rotulo))
     except ValueError as error:
         raise UnreadableFileError(
-            f"{_mayuscula(donde)} de '{path.name}' tiene una fase que no se reconoce: "
+            f"{_mayuscula(donde)} de «{path.name}» tiene una fase que no se reconoce: "
             f"«{valor}».",
             details="Se esperaba un rótulo (W, S1…S4, REM, MT, N1…N3, R, -) o un código.",
         ) from error
@@ -386,7 +386,7 @@ def _entero(valor: str, path: Path, donde: str, que: str) -> int:
         return int(valor)
     except ValueError as error:
         raise UnreadableFileError(
-            f"{_mayuscula(donde)} de '{path.name}' tiene {que} que no es un número entero.",
+            f"{_mayuscula(donde)} de «{path.name}» tiene {que} que no es un número entero.",
             details=f"Se leyó {valor!r}.",
         ) from error
 
@@ -408,7 +408,7 @@ def _leer_edf(path: Path, start_time: datetime | None) -> _Lectura:
             anotaciones = mne.read_annotations(path)
     except Exception as error:  # noqa: BLE001 - MNE eleva de todo
         raise UnreadableFileError(
-            f"No se pudieron leer las anotaciones de '{path.name}': el archivo está "
+            f"No se pudieron leer las anotaciones de «{path.name}»: el archivo está "
             "dañado o no es un EDF+.",
             details=f"{type(error).__name__}: {error}",
         ) from error
@@ -436,7 +436,7 @@ def _leer_edf(path: Path, start_time: datetime | None) -> _Lectura:
             clave = coincide.group(1).lower()
             if clave not in _ROTULOS_EDF:
                 raise UnreadableFileError(
-                    f"{_mayuscula(donde)} de '{path.name}' nombra una fase que no "
+                    f"{_mayuscula(donde)} de «{path.name}» nombra una fase que no "
                     "se reconoce.",
                     details="Se esperaba Sleep stage W, 1, 2, 3, 4, R, N1, N2, N3 o ?.",
                 )
@@ -506,12 +506,12 @@ def _leer_xml(path: Path) -> _Lectura:
         raiz = ET.parse(path).getroot()
     except (ET.ParseError, OSError) as error:
         raise UnreadableFileError(
-            f"No se pudo leer '{path.name}': el archivo está dañado o no es XML.",
+            f"No se pudo leer «{path.name}»: el archivo está dañado o no es XML.",
             details=f"{type(error).__name__}: {error}",
         ) from error
     if raiz.tag != "PSGAnnotation":
         raise UnreadableFileError(
-            f"'{path.name}' no tiene el formato de scoring del NSRR.",
+            f"«{path.name}» no tiene el formato de scoring del NSRR.",
             details=f"El elemento raíz es <{raiz.tag}> y se esperaba <PSGAnnotation>.",
         )
 
@@ -520,7 +520,7 @@ def _leer_xml(path: Path) -> _Lectura:
     if declarada:
         if declarada not in NOMENCLATURE_NAMES:
             raise UnreadableFileError(
-                f"'{path.name}' declara una nomenclatura que no se conoce: "
+                f"«{path.name}» declara una nomenclatura que no se conoce: "
                 f"«{raiz.findtext('Nomenclature')}».",
             )
         lectura.declarada = NOMENCLATURE_NAMES[declarada]
@@ -552,12 +552,12 @@ def _flotante(valor: str | None, path: Path, donde: str, que: str) -> float:
         numero = float(valor or "")
     except ValueError as error:
         raise UnreadableFileError(
-            f"{_mayuscula(donde)} de '{path.name}' no tiene un {que} válido.",
+            f"{_mayuscula(donde)} de «{path.name}» no tiene un {que} válido.",
             details=f"Se leyó {valor!r}.",
         ) from error
     if not math.isfinite(numero):
         raise UnreadableFileError(
-            f"{_mayuscula(donde)} de '{path.name}' no tiene un {que} válido.",
+            f"{_mayuscula(donde)} de «{path.name}» no tiene un {que} válido.",
             details=f"Se leyó {valor!r}.",
         )
     return numero
@@ -578,7 +578,7 @@ def _tramo_evento(
     sin_scorear = valor is SleepStage.UNSCORED
     if inicio < -WINDOW_SECONDS / 2 and not sin_scorear:
         raise ScoringMismatchError(
-            f"El scoring de '{path.name}' no corresponde a este registro: "
+            f"El scoring de «{path.name}» no corresponde a este registro: "
             f"{donde} empieza {-inicio:g} s antes que la señal.",
             details="Revisá que el archivo de scoring sea el de este registro.",
         )
@@ -594,7 +594,7 @@ def _leer_texto(path: Path) -> str:
         crudo = path.read_bytes()
     except OSError as error:
         raise UnreadableFileError(
-            f"No se pudo abrir el archivo de scoring '{path.name}'.",
+            f"No se pudo abrir el archivo de scoring «{path.name}».",
             details=f"{type(error).__name__}: {error}",
         ) from error
     try:

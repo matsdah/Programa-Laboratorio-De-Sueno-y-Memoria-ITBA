@@ -191,7 +191,7 @@ def main() -> int:
     aplicacion = create_application([sys.argv[0]])
     ventana = create_main_window()
     # Un cartel modal colgaría el banco sin decir nada: se imprime.
-    ventana._show_error = lambda error: print(f"  !! cartel: {error}")  # type: ignore[method-assign]
+    ventana._show_error = lambda error, accion=None: print(f"  !! cartel: {error}")  # type: ignore[method-assign]
     ventana._puede_descartarse_el_trabajo = lambda _que: True  # type: ignore[method-assign]
     ventana.resize(1400, 800)
 

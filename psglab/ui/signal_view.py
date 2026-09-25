@@ -534,8 +534,8 @@ class SignalView(pg.PlotWidget):
         **Dice «Ventana» y no «Época»** (hito 64): era el único lugar del
         programa que la llamaba distinto que la barra de estado, la franja, el
         scoring y el pliego. Y **toma el color de la fase** cuando la ventana
-        está puntuada, el mismo de la franja y el hipnograma: confirma lo que
-        se acaba de puntuar sin leer la letra.
+        está scoreada, el mismo de la franja y el hipnograma: confirma lo que
+        se acaba de scorear sin leer la letra.
         """
         if self._session is None:
             return
@@ -562,7 +562,7 @@ class SignalView(pg.PlotWidget):
         self._pestana.setPos(inicio, self._techo_de_la_pestana())
 
     def _pintar_la_pestana(self, fase: SleepStage) -> None:
-        """El relleno de la pestaña: el color de la fase, o el acento sin puntuar.
+        """El relleno de la pestaña: el color de la fase, o el acento sin scorear.
 
         La tinta la elige `theme.ink_over()` midiendo contra el relleno, que es
         la misma función que decide la del botón de la fase marcada. Un esquema

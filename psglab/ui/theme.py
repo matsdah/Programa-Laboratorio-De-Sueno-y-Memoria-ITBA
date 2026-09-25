@@ -125,9 +125,10 @@ MIN_TEXT_CONTRAST: Final[float] = 4.5
 #: conocer los widgets por nombre.
 READOUT_PROPERTY: Final[str] = "lectura"
 
-#: La propiedad con que un botón pide la tinta de lo que destruye. La usa
-#: «Descartar» en el cartel del trabajo sin exportar: es el único control del
-#: programa que pierde trabajo del investigador.
+#: La propiedad con que un botón pide la tinta de lo que destruye. La usan
+#: «Descartar» en el cartel del trabajo sin exportar y, desde el hito 65,
+#: «Borrar» una anotación: los dos controles del programa que pierden trabajo
+#: del investigador.
 DESTRUCTIVO_PROPERTY: Final[str] = "destructivo"
 
 #: La propiedad dinámica del botón **principal** de un panel o un cartel: el

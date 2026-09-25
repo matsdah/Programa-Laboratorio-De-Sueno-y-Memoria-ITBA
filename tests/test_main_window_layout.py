@@ -207,6 +207,8 @@ PRIVADOS_QUE_LA_SUITE_USA: frozenset[str] = frozenset(
         "_preguntar_por_el_trabajo",
         # El cartel de un archivo que trae menos de lo que declara (hito 33).
         "_mostrar_avisos_de_lectura",
+        # La pregunta antes de lo que no se deshace, también modal (hito 65).
+        "_confirmar",
     }
 )
 

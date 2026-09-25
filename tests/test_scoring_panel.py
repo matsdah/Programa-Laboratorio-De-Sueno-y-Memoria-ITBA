@@ -22,11 +22,11 @@ from psglab.core.nomenclature import (  # noqa: E402
 )
 from psglab.ui.scoring_panel import (  # noqa: E402
     ALTO_DEL_BOTON,
-    PIE_SIN_REGISTRO,
     SIN_SCOREAR,
     ScoringPanel,
     status_text,
 )
+from psglab.ui.panel_header import SIN_REGISTRO  # noqa: E402
 from psglab.ui.shortcuts import key_for_stage  # noqa: E402
 
 
@@ -65,7 +65,7 @@ def test_las_fases_de_aasm_llevan_su_rotulo(fase: SleepStage):
 
 
 def test_antes_de_abrir_un_registro_el_pie_lo_dice(panel: ScoringPanel):
-    assert panel.status() == PIE_SIN_REGISTRO
+    assert panel.status() == SIN_REGISTRO
 
 
 def test_reflejar_la_ventana_actualiza_el_pie(panel: ScoringPanel):

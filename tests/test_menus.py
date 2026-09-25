@@ -546,7 +546,7 @@ def test_un_metodo_sin_menu_no_tiene_ruta(ventana: MainWindow):
 
 
 def test_sin_registro_la_esquina_lo_dice(ventana: MainWindow):
-    assert ventana.recording_summary.text() == "Sin registro"
+    assert ventana.recording_summary.text() == "Sin registro abierto"
 
 
 def test_el_identificador_es_una_lectura(ventana: MainWindow):

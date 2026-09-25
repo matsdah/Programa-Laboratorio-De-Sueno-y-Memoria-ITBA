@@ -794,6 +794,33 @@ def test_las_constantes_del_pliego_no_se_escriben_a_mano():
     assert not problemas, "\n".join(problemas)
 
 
+#: Una comilla simple que abre una cita en un texto: al final de un trozo de
+#: f-string, delante del campo —`f"El registro '{nombre}'"`—, o alrededor de
+#: una palabra —`"Con 'M' latina"`—.
+CITA_CON_COMILLA_SIMPLE = re.compile(r"(?:^|[\s(])'(?:$|[^'\s][^']*'(?=$|[\s.,:;)]))")
+
+
+def test_los_textos_citan_con_comillas_latinas():
+    """Hito 65: **una sola forma de citar**, «así».
+
+    Unos sesenta mensajes citaban con «…» y otros tantos con '…', según la capa:
+    `ui/` y `analysis/` de una forma, `core/` y `readers/` de la otra. Un mismo
+    cartel podía llevar las dos, porque el mensaje sale del lector y el
+    agregado, de la ventana.
+
+    Se miran las cadenas que no son docstrings, igual que el chequeo de las
+    constantes del pliego: un docstring cita código con comillas simples a
+    propósito.
+    """
+    problemas = [
+        f"{ruta_relativa(archivo)}:{linea}: {texto!r}"
+        for archivo in modulos_del_paquete()
+        for linea, texto in literales_visibles(archivo)
+        if CITA_CON_COMILLA_SIMPLE.search(texto)
+    ]
+    assert not problemas, "citas con comilla simple:\n" + "\n".join(problemas)
+
+
 def test_la_marca_de_pendiente_que_citan_los_documentos_existe_en_el_codigo():
     """Tres documentos citaban textualmente una marca que el código no usaba.
 

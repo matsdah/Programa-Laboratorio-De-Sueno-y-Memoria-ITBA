@@ -302,6 +302,6 @@ def read_recording(path: Path) -> Recording:
             return registro
     known_extensions = sorted({ext for cls in _REGISTRY for ext in cls.extensions})
     raise UnsupportedFormatError(
-        f"No se puede abrir '{path.name}': el formato no está soportado.",
+        f"No se puede abrir «{path.name}»: el formato no está soportado.",
         details=f"Extensiones conocidas: {', '.join(known_extensions) or 'ninguna'}",
     )

@@ -34,7 +34,7 @@ Scorear no los necesita: las fases y el arousal tienen su tecla.
 **El hipnograma volvió en el hito 64**, solo, como una tira de
 `ALTO_DEL_HIPNOGRAMA` a todo el ancho de abajo. En los programas de scoring es
 lo único que está siempre a la vista: ubica la noche de un vistazo y muestra
-lo que se va puntuando, que la franja de posición hace a medias porque no
+lo que se va scoreando, que la franja de posición hace a medias porque no
 tiene los niveles de las fases.
 
 Los seis de análisis arrancan ocultos y los abre la acción del menú que los

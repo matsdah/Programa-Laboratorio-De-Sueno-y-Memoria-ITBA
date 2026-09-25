@@ -148,7 +148,7 @@ class Scoring:
             )
         if not is_valid(stage, self._nomenclature):
             raise InvalidStageError(
-                f"La fase '{stage.value}' no pertenece a la nomenclatura "
+                f"La fase «{stage.value}» no pertenece a la nomenclatura "
                 f"{self._nomenclature.value}, así que no se puede asignar.",
                 details=(
                     f"stage = {stage.name}, nomenclatura = {self._nomenclature.name}."
