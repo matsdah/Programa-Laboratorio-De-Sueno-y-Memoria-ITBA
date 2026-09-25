@@ -171,6 +171,12 @@ from psglab.utils.errors import PsgLabError, UndeclaredNomenclatureError
 #: pegado al borde de la ventana ni a la última entrada del menú.
 _MARGEN_DEL_IDENTIFICADOR: int = 18
 
+#: El título de los carteles de error y de aviso. **No dice nada que haya que
+#: leer** (hito 66): macOS no muestra el título de un `QMessageBox` —lo pide la
+#: guía de Apple—, así que lo que el usuario tiene que saber va en el texto. El
+#: hito 65 había puesto qué falló en el título, y en una Mac no se veía.
+_TITULO_DE_LOS_CARTELES: str = "PSGLab"
+
 #: Qué parte de la separación entre dos filas del hipnograma ocupa la barra de
 #: color de una fase. Menos de la mitad a propósito: la barra tiene que leerse
 #: como una marca sobre su fila y no como un bloque que tape la curva.
@@ -1431,11 +1437,16 @@ class MainWindow(QMainWindow):
         **No es `_show_error()`**: el registro se abrió y se puede trabajar con
         él, así que el cartel no dice "No se pudo completar la operación". Está
         aparte para que los tests lo contesten, porque es modal.
+
+        **Que se abrió lo dice el texto y no el título** (hito 66): en macOS el
+        título no se ve, y el aviso de las muestras sin valor no lo dice solo.
         """
+        nombre = self._session.recording.file_path.name if self._session else ""
         cartel = QMessageBox(self)
         cartel.setIcon(QMessageBox.Icon.Warning)
-        cartel.setWindowTitle("El registro se abrió con avisos")
-        cartel.setText("\n\n".join(avisos))
+        cartel.setWindowTitle(_TITULO_DE_LOS_CARTELES)
+        cartel.setText(f"«{nombre}» se abrió, con avisos.")
+        cartel.setInformativeText("\n\n".join(avisos))
         cartel.exec()
 
     def _reiniciar_paneles_de_analisis(self) -> None:
@@ -3888,11 +3899,16 @@ class MainWindow(QMainWindow):
     def _show_error(self, error: PsgLabError, accion: str | None = None) -> None:
         """Un solo lugar para los errores que ve el investigador.
 
-        **El título dice qué no se pudo hacer** (hito 65): «No se pudo abrir
-        «noche.edf»». Era «No se pudo completar la operación» para todos, y
-        después de un cálculo largo nadie recuerda qué había pedido. `accion`
-        va en infinitivo, igual que en `memoria_suficiente()`; sin ella queda
-        el título genérico.
+        **El cartel empieza diciendo qué no se pudo hacer**: «No se pudo abrir
+        «noche.edf».», y debajo el porqué. Era «No se pudo completar la
+        operación» para todos, y después de un cálculo largo nadie recuerda qué
+        había pedido. `accion` va en infinitivo, igual que en
+        `memoria_suficiente()`; sin ella queda la frase genérica.
+
+        **Va en el texto y no en el título** (hito 66). El hito 65 la había
+        puesto en el título, y macOS no muestra el título de un `QMessageBox`:
+        en una Mac el cartel seguía sin decir qué falló. Ver
+        `_TITULO_DE_LOS_CARTELES`.
 
         `psglab/utils/errors.py` promete que todo lo que el programa eleva
         hereda de `PsgLabError` y trae el mensaje en español separado de la
@@ -3901,10 +3917,9 @@ class MainWindow(QMainWindow):
         """
         cartel = QMessageBox(self)
         cartel.setIcon(QMessageBox.Icon.Warning)
-        cartel.setWindowTitle(
-            f"No se pudo {accion}" if accion else "No se pudo completar la operación"
-        )
-        cartel.setText(str(error))
+        cartel.setWindowTitle(_TITULO_DE_LOS_CARTELES)
+        cartel.setText(f"No se pudo {accion or 'completar la operación'}.")
+        cartel.setInformativeText(str(error))
         detalle = getattr(error, "details", None)
         if detalle:
             cartel.setDetailedText(str(detalle))

@@ -72,12 +72,12 @@ def ventana(qt_app, tmp_path, monkeypatch):
     afirmación más de cada test.
     """
     carteles: list[str] = []
-    # Qué no se pudo hacer, en el mismo orden: es el título del cartel.
-    titulos: list[str | None] = []
+    # Qué no se pudo hacer, en el mismo orden: es la primera línea del cartel.
+    acciones: list[str | None] = []
 
     def anotar_el_cartel(_ventana, error, accion=None):
         carteles.append(str(error))
-        titulos.append(accion)
+        acciones.append(accion)
 
     monkeypatch.setattr(MainWindow, "_show_error", anotar_el_cartel)
 
@@ -91,7 +91,7 @@ def ventana(qt_app, tmp_path, monkeypatch):
 
     assert not carteles, f"abrir el registro mostró un error: {carteles}"
     principal.carteles = carteles
-    principal.titulos = titulos
+    principal.acciones = acciones
     return principal
 
 
@@ -1742,8 +1742,8 @@ def test_con_un_solo_eeg_la_ica_avisa(ventana: MainWindow):
     ventana.show_ica_dialog()
     ventana.wait_for_background()
     assert ventana.carteles
-    # El título dice qué no se pudo hacer, también desde otro hilo (hito 65).
-    assert ventana.titulos == ["calcular la ICA"]
+    # El cartel dice qué no se pudo hacer, también desde otro hilo (hito 65).
+    assert ventana.acciones == ["calcular la ICA"]
 
 
 def test_ajustar_no_aplica_nada(ventana_con_dos_eeg: MainWindow):
@@ -5487,6 +5487,10 @@ class EspiaDeCarteles:
 
     Apretar un botón fuera de `exec()` deja igual `clickedButton()`, que es lo
     único que mira el programa.
+
+    **No anota el título, a propósito** (hito 66): macOS no lo muestra, así que
+    un test que lo mirara verificaría algo que en una Mac no se ve. El del
+    hito 65 lo hizo, y falló sólo en el CI de macOS.
     """
 
     def __init__(self, apretar: str | None = None) -> None:
@@ -5497,8 +5501,9 @@ class EspiaDeCarteles:
         botones = {b.text(): b for b in cartel.buttons()}
         self.vistos.append(
             {
-                "titulo": cartel.windowTitle(),
+                "texto": cartel.text(),
                 "informativo": cartel.informativeText(),
+                "detalle": cartel.detailedText(),
                 "botones": sorted(botones),
                 "por_omision": cartel.defaultButton().text() if cartel.defaultButton() else None,
                 "destructivos": sorted(
@@ -5594,34 +5599,60 @@ def test_sin_nada_scoreado_cambiar_de_nomenclatura_no_pregunta(
     assert ventana.session.scoring.nomenclature is Nomenclature.RK
 
 
-def test_el_titulo_del_error_dice_que_no_se_pudo_hacer(ventana: MainWindow, monkeypatch):
+def test_el_cartel_de_error_empieza_por_lo_que_no_se_pudo_hacer(
+    ventana: MainWindow, monkeypatch
+):
     """Era «No se pudo completar la operación» para todos: después de un
-    cálculo largo, nadie recuerda qué había pedido."""
+    cálculo largo, nadie recuerda qué había pedido.
+
+    **En el texto y no en el título** (hito 66): el hito 65 lo puso en el
+    título, y macOS no lo muestra. Debajo va el porqué, y la causa técnica
+    sigue en el desplegable."""
     monkeypatch.setattr(MainWindow, "_show_error", _MOSTRAR_EL_ERROR)
     espia = EspiaDeCarteles()
     monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
 
-    ventana._show_error(PsgLabError("algo"), "abrir «noche.edf»")
+    ventana._show_error(
+        PsgLabError("No se encontró el archivo.", details="No existe C:/noche.edf."),
+        "abrir «noche.edf»",
+    )
     ventana._show_error(PsgLabError("algo"))
 
-    assert [v["titulo"] for v in espia.vistos] == [
-        "No se pudo abrir «noche.edf»",
-        "No se pudo completar la operación",
+    assert [(v["texto"], v["informativo"]) for v in espia.vistos] == [
+        ("No se pudo abrir «noche.edf».", "No se encontró el archivo."),
+        ("No se pudo completar la operación.", "algo"),
     ]
+    assert espia.vistos[0]["detalle"] == "No existe C:/noche.edf."
 
 
-def test_abrir_un_archivo_que_no_esta_lo_nombra_en_el_titulo(
+def test_el_cartel_de_avisos_dice_en_el_texto_que_el_registro_se_abrio(
+    ventana: MainWindow, monkeypatch
+):
+    """Lo decía sólo el título, que macOS no muestra (hito 66). El aviso de
+    las muestras sin valor no dice por sí solo que el registro se abrió."""
+    espia = EspiaDeCarteles()
+    monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
+
+    ventana._mostrar_avisos_de_lectura(["Primer aviso.", "Segundo aviso."])
+
+    (visto,) = espia.vistos
+    nombre = ventana.session.recording.file_path.name
+    assert visto["texto"] == f"«{nombre}» se abrió, con avisos."
+    assert visto["informativo"] == "Primer aviso.\n\nSegundo aviso."
+
+
+def test_abrir_un_archivo_que_no_esta_lo_nombra_en_el_cartel(
     ventana: MainWindow, tmp_path
 ):
     ventana.open_recording(tmp_path / "noche.edf")
 
-    assert ventana.titulos == ["abrir «noche.edf»"]
+    assert ventana.acciones == ["abrir «noche.edf»"]
 
 
-def test_un_analisis_que_falla_dice_cual_en_el_titulo(ventana: MainWindow):
+def test_un_analisis_que_falla_dice_cual_en_el_cartel(ventana: MainWindow):
     def falla(_registro):
         raise PsgLabError("no")
 
     ventana._aplicar_analisis("Se derivó", falla, accion="derivar «C3-EOG-izq»")
 
-    assert ventana.titulos == ["derivar «C3-EOG-izq»"]
+    assert ventana.acciones == ["derivar «C3-EOG-izq»"]
