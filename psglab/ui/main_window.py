@@ -2927,6 +2927,30 @@ class MainWindow(QMainWindow):
             return f"<br>{huecos} de {total} ventanas sin valor: son demasiado cortas para medir."
         return ""
 
+    def _sin_contenido_en(self, canales: list[str], banda: tuple[float, float]) -> str:
+        """La nota de los canales que no tienen nada en una banda (hito 72).
+
+        Un canal grabado más lento que el registro llega a la frecuencia de
+        éste, pero no tiene nada por encima de la mitad de la suya: medirle la
+        conectividad en alfa es medir interpolación. `""` si no hay ninguno.
+        """
+        if self._session is None:
+            return ""
+        desde, _ = banda
+        lentos = [
+            canal
+            for canal in canales
+            if self._session.recording.content_limit_hz(canal) <= desde
+        ]
+        if not lentos:
+            return ""
+        uno = len(lentos) == 1
+        return (
+            f"<br>{self._nombrar(lentos)} {'se grabó' if uno else 'se grabaron'} "
+            f"más lento que el registro y no {'tiene' if uno else 'tienen'} nada en "
+            "esa banda: su conectividad ahí no dice nada."
+        )
+
     @staticmethod
     def _nombrar(canales: list[str]) -> str:
         """«C3», «C4» y «O1», como se nombran los canales en el resto del programa."""
@@ -3014,6 +3038,16 @@ class MainWindow(QMainWindow):
                 f"{'queda' if len(sin_medir) == 1 else 'quedan'} fuera de lo que este "
                 f"registro puede medir, que llega hasta {tope:g} Hz: su potencia sale "
                 "en cero."
+            )
+        # **Y un canal grabado más lento** (hito 72): el archivo lo trae a la
+        # frecuencia del registro, pero por encima de la mitad de la suya lo
+        # que se ve es interpolación, y la potencia de esas bandas no es suya.
+        limite = self._session.recording.content_limit_hz(canal)
+        if limite < self._session.recording.sampling_rate / 2:
+            descripcion += (
+                f"<br>«{canal}» se grabó a {f'{2 * limite:g}'.replace('.', ',')} Hz: "
+                f"por encima de {f'{limite:g}'.replace('.', ',')} Hz, lo que se ve "
+                "es interpolación y no señal."
             )
         self.psd_panel.set_caption(descripcion)
         self.psd_dialog.show()
@@ -3116,6 +3150,7 @@ class MainWindow(QMainWindow):
                 f"<br>{'Plano' if len(planos) == 1 else 'Planos'} en esta ventana: "
                 f"{self._nombrar(planos)}. Su conectividad cuenta 0 y baja el promedio."
             )
+        descripcion += self._sin_contenido_en(canales, bandas[banda])
         self.connectivity_panel.set_caption(descripcion)
         self.connectivity_dialog.show()
         self.connectivity_dialog.raise_()
@@ -3198,6 +3233,9 @@ class MainWindow(QMainWindow):
                 f"<br>Con tramos planos: {self._nombrar(list(planos))}. Ahí su "
                 "conectividad cuenta 0 y baja el promedio."
             )
+        bandas = self._preferencias.bands()
+        if banda in bandas:
+            nota += self._sin_contenido_en(canales, bandas[banda])
         self.metric_panel.set_caption(
             f"{etiqueta} a lo largo de la noche<br>{promediados}{nota}"
         )
