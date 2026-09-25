@@ -82,7 +82,9 @@ def edf_con(
     datos = bloque.encode("utf-8")
     muestras = (len(datos) + 1) // 2
     ruta = tmp_path / nombre
-    ruta.write_bytes(_cabecera_edf(inicio, muestras) + datos.ljust(2 * muestras, b"\x00"))
+    # Sin nomenclatura después del equipo: así escriben los otros programas, y
+    # así escribía éste hasta el hito 69.
+    ruta.write_bytes(_cabecera_edf(inicio, muestras, "") + datos.ljust(2 * muestras, b"\x00"))
     return ruta
 
 
@@ -125,10 +127,11 @@ def test_lo_que_se_exporta_se_vuelve_a_leer_igual(tmp_path, extension, nomenclat
     assert fases_y_arousals(leido) == fases_y_arousals(original)
 
 
-@pytest.mark.parametrize("extension", ["csv", "xml"])
+@pytest.mark.parametrize("extension", ["csv", "edf", "xml"])
 def test_la_vuelta_no_pregunta_aunque_no_haya_fases_exclusivas(tmp_path, extension):
     """Un scoring de R&K sin S4 ni MT usa sólo códigos que AASM también tiene.
-    El CSV lo resuelve con los rótulos y el XML con su declaración."""
+    El CSV lo resuelve con los rótulos, el XML con su declaración, y el EDF
+    con la suya en la cabecera desde el hito 69."""
     original = Scoring(3, Nomenclature.RK)
     original.set_stage(0, SleepStage.S2)
     original.set_stage(1, SleepStage.REM)
@@ -139,18 +142,30 @@ def test_la_vuelta_no_pregunta_aunque_no_haya_fases_exclusivas(tmp_path, extensi
     assert read_scoring(ruta, 3).nomenclature is Nomenclature.RK
 
 
-def test_un_edf_de_rk_sin_fases_exclusivas_si_pregunta(tmp_path):
-    """Es el costo aceptado del EDF+, que no tiene dónde declarar la
-    nomenclatura: «Sleep stage 2» se usa en las dos. AASM no pregunta nunca,
-    porque escribe «Sleep stage N2»."""
+def test_un_edf_de_rk_sin_fases_exclusivas_no_pregunta(tmp_path):
+    """**Preguntaba hasta el hito 69**, y se lo daba por el costo del EDF+,
+    que no tendría dónde declarar la nomenclatura: «Sleep stage 2» se usa en
+    las dos. Sí tiene: el campo de la grabación admite subcampos después del
+    equipo, y ahí va."""
     original = Scoring(3, Nomenclature.RK)
     original.set_stage(0, SleepStage.S2)
     ruta = tmp_path / "Scoring.edf"
     export_scoring_as(original, ruta)
 
+    leido = read_scoring(ruta, 3)
+
+    assert leido.nomenclature is Nomenclature.RK
+    assert leido.get(0).stage is SleepStage.S2
+    assert ruta.read_bytes()[88:168].split()[-2:] == [b"PSGLab", b"RK"]
+
+
+def test_un_edf_de_otro_programa_con_sleep_stage_2_sigue_preguntando(tmp_path):
+    """El costo sigue para lo que no escribió este programa: lo que venga
+    después del equipo en un archivo ajeno puede ser cualquier cosa."""
+    ruta = edf_con(tmp_path, [(0, 30, "Sleep stage 2")])
+
     with pytest.raises(UndeclaredNomenclatureError):
-        read_scoring(ruta, 3)
-    assert read_scoring(ruta, 3, Nomenclature.RK).get(0).stage is SleepStage.S2
+        read_scoring(ruta, 1)
 
 
 def test_un_scoring_vacio_tambien_hace_el_viaje(tmp_path):
@@ -178,10 +193,10 @@ def test_el_csv_lleva_una_fila_por_ventana_con_su_rotulo(tmp_path):
     export_scoring_as(scoring, ruta)
 
     assert ruta.read_text(encoding="utf-8").splitlines() == [
-        "ventana,inicio_s,fase,arousal",
-        "1,0,-,0",
-        "2,30,N2,1",
-        "3,60,-,0",
+        "ventana,inicio_s,fase,arousal,nomenclatura",
+        "1,0,-,0,AASM",
+        "2,30,N2,1,AASM",
+        "3,60,-,0,AASM",
     ]
 
 
@@ -304,15 +319,27 @@ def test_la_extension_se_reconoce_sin_importar_mayusculas(tmp_path):
     assert read_scoring(ruta, 1).get(0).stage is SleepStage.N1
 
 
-def test_un_archivo_con_solo_vigilia_y_sin_scorear_pregunta(tmp_path):
-    """W y «sin scorear» existen en las dos: el archivo no alcanza para saber
-    con cuál se va a seguir scoreando."""
+@pytest.mark.parametrize("extension", ["csv", "edf"])
+@pytest.mark.parametrize("nomenclatura", list(Nomenclature))
+def test_un_scoring_con_solo_vigilia_vuelve_sin_preguntar(tmp_path, extension, nomenclatura):
+    """W y «sin scorear» existen en las dos, así que los rótulos no alcanzan
+    para saber con cuál se va a seguir scoreando. **Preguntaba hasta el hito
+    69**; ahora el archivo lo declara."""
+    original = Scoring(2, nomenclatura)
+    original.set_stage(0, SleepStage.WAKE)
+    ruta = tmp_path / f"Scoring.{extension}"
+    export_scoring_as(original, ruta)
+
+    assert read_scoring(ruta, 2).nomenclature is nomenclatura
+
+
+def test_un_csv_escrito_a_mano_con_solo_vigilia_sigue_preguntando(tmp_path):
+    """Sin la columna, el archivo no alcanza: es el caso de antes."""
     ruta = tmp_path / "Scoring.csv"
-    export_scoring_as(Scoring(2, Nomenclature.AASM), ruta)
+    ruta.write_text("ventana,fase\n1,W\n2,W\n", encoding="utf-8")
 
     with pytest.raises(UndeclaredNomenclatureError):
         read_scoring(ruta, 2)
-    assert read_scoring(ruta, 2, Nomenclature.AASM).nomenclature is Nomenclature.AASM
 
 
 # -- El CSV de otro programa ---------------------------------------------------------
@@ -714,3 +741,83 @@ def test_la_nomenclatura_se_puede_declarar_con_el_nombre_corto_o_el_largo():
 def test_la_pregunta_es_un_error_de_lectura():
     """Quien atrapaba `UnreadableFileError` lo sigue atrapando."""
     assert issubclass(UndeclaredNomenclatureError, UnreadableFileError)
+
+
+# -- El CSV declara su nomenclatura y no repite ventanas (hito 69) ------------
+
+
+def csv_con(tmp_path: Path, texto: str) -> Path:
+    """Un CSV escrito a mano, como lo deja una planilla."""
+    ruta = tmp_path / "Scoring.csv"
+    ruta.write_text(texto, encoding="utf-8")
+    return ruta
+
+
+def test_un_csv_con_una_ventana_repetida_se_rechaza(tmp_path):
+    """**Ganaba la última fila en silencio**, así que el scoring que se veía
+    dependía del orden del archivo. El `.txt` lo rechaza desde el hito 33, con
+    las mismas palabras."""
+    ruta = csv_con(tmp_path, "ventana,fase,arousal\n1,W,0\n2,N2,0\n2,N3,1\n3,R,0\n")
+
+    with pytest.raises(UnreadableFileError) as error:
+        read_scoring(ruta, 3)
+
+    assert "nombra dos veces la ventana 2" in str(error.value)
+    assert "Líneas 3 y 4" in error.value.details
+
+
+def test_la_columna_de_nomenclatura_decide_sin_preguntar(tmp_path):
+    """Con códigos, que son los que existen en las dos, el archivo no alcanzaba."""
+    ruta = csv_con(tmp_path, "ventana,fase,nomenclatura\n1,2,RK\n2,0,RK\n")
+
+    leido = read_scoring(ruta, 2)
+
+    assert leido.nomenclature is Nomenclature.RK
+    assert leido.get(0).stage is SleepStage.S2
+
+
+def test_la_columna_acepta_el_nombre_largo(tmp_path):
+    ruta = csv_con(tmp_path, "ventana,fase,nomenclatura\n1,2,Rechtschaffen y Kales\n")
+
+    assert read_scoring(ruta, 1).nomenclature is Nomenclature.RK
+
+
+def test_una_nomenclatura_desconocida_en_la_columna_avisa(tmp_path):
+    ruta = csv_con(tmp_path, "ventana,fase,nomenclatura\n1,W,Kales\n")
+
+    with pytest.raises(UnreadableFileError) as error:
+        read_scoring(ruta, 1)
+
+    assert "«Kales»" in str(error.value)
+
+
+def test_un_csv_que_declara_dos_nomenclaturas_se_rechaza(tmp_path):
+    """No se puede leer con ninguna sin mentir sobre la otra."""
+    ruta = csv_con(tmp_path, "ventana,fase,nomenclatura\n1,W,AASM\n2,W,RK\n")
+
+    with pytest.raises(UnreadableFileError) as error:
+        read_scoring(ruta, 2)
+
+    assert "declara dos nomenclaturas" in str(error.value)
+
+
+def test_una_declaracion_que_contradice_los_rotulos_se_rechaza(tmp_path):
+    """La misma regla que el XML: declarar AASM y traer S2 es un archivo roto."""
+    ruta = csv_con(tmp_path, "ventana,fase,nomenclatura\n1,S2,AASM\n")
+
+    with pytest.raises(UnreadableFileError) as error:
+        read_scoring(ruta, 1)
+
+    assert "declara la nomenclatura AASM" in str(error.value)
+
+
+def test_lo_que_sigue_al_equipo_de_otro_programa_no_se_cree(tmp_path):
+    """Sólo se lee la nomenclatura si el equipo es este programa: en un
+    archivo ajeno, un subcampo que diga «AASM» puede querer decir otra cosa."""
+    ruta = edf_con(tmp_path, [(0, 30, "Sleep stage 2")])
+    contenido = bytearray(ruta.read_bytes())
+    contenido[88:168] = b"Startdate X X X OtroEquipo AASM".ljust(80)
+    ruta.write_bytes(bytes(contenido))
+
+    with pytest.raises(UndeclaredNomenclatureError):
+        read_scoring(ruta, 1)

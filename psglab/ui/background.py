@@ -25,6 +25,11 @@ hilo bloqueado; no acortaba la espera ni la hacía menos parecida a un cuelgue.
   de la interfaz**, igual que antes de que esto existiera. Atraparlo y
   mostrarlo como un cartel convertiría un bug en un mensaje para el
   investigador, y hacerlo desaparecer en el hilo sería peor todavía.
+- **Pero quien espera se entera siempre de que terminó** (hito 68): `stopped`
+  sale con cualquier final, también con el error inesperado, y antes de que
+  se vuelva a elevar. Sin eso la ventana no se enteraba: la barra de espera
+  seguía girando, el mensaje decía que se estaba calculando y los menús
+  largos quedaban apagados hasta cerrar el programa.
 
 Cubre del pliego: ningún ID. Es infraestructura de la interfaz; lo que se
 calcula vive en `analysis/`.
@@ -70,6 +75,10 @@ class BackgroundTask(QObject):
 
     #: El trabajo elevó un error de los que ve el investigador.
     failed = Signal(object)  # PsgLabError
+
+    #: El trabajo terminó, de la forma que sea. Sale **después** de `finished`
+    #: o de `failed`, y **antes** de volver a elevar un error inesperado.
+    stopped = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Crea la tarea sin nada corriendo."""
@@ -130,12 +139,15 @@ class BackgroundTask(QObject):
         hilo.deleteLater()
 
         error = hilo.error
-        if error is None:
-            self.finished.emit(hilo.resultado)
-            return
-        if isinstance(error, PsgLabError):
-            self.failed.emit(error)
-            return
-        # Ver el docstring del módulo: un error inesperado rompe igual que
-        # antes de que esto existiera, y en el hilo donde se puede depurar.
-        raise error
+        try:
+            if error is None:
+                self.finished.emit(hilo.resultado)
+                return
+            if isinstance(error, PsgLabError):
+                self.failed.emit(error)
+                return
+            # Ver el docstring del módulo: un error inesperado rompe igual que
+            # antes de que esto existiera, y en el hilo donde se puede depurar.
+            raise error
+        finally:
+            self.stopped.emit()

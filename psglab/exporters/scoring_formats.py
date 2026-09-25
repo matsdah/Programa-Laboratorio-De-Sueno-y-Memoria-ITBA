@@ -65,7 +65,18 @@ SCORING_FORMATS: Final[dict[str, str]] = {
 
 #: Cabecera del CSV. `readers/scoring_formats.py` busca las columnas por estos
 #: nombres, así que cambiarlos es cambiar el formato.
-CSV_COLUMNS: Final[tuple[str, ...]] = ("ventana", "inicio_s", "fase", "arousal")
+#:
+#: **La nomenclatura va en una columna** (hito 69). Los rótulos casi siempre la
+#: dicen —S2 y N2 no se repiten—, pero un scoring con sólo vigilia, o todavía
+#: sin nada, no: el programa no podía releer lo que había escrito sin
+#: preguntar. Al final, para que quien lea el archivo por nombre de columna
+#: —una planilla, un script del laboratorio— no note la diferencia.
+CSV_COLUMNS: Final[tuple[str, ...]] = ("ventana", "inicio_s", "fase", "arousal", "nomenclatura")
+
+#: El equipo que el EDF+ declara en su cabecera. Es lo que le dice al lector que
+#: el archivo lo escribió este programa, y que el campo que sigue es la
+#: nomenclatura; ver `_cabecera_edf()`.
+EDF_EQUIPMENT: Final[str] = "PSGLab"
 
 #: Rótulo de cada fase en el EDF+. R&K sigue la convención de la Sleep-EDF, que
 #: es el material de prueba del laboratorio. AASM usa el prefijo N, que es lo
@@ -168,6 +179,7 @@ def export_scoring_csv(scoring: Scoring, path: Path) -> None:
                     _numero(inicio),
                     stage_label(epoca.stage),
                     1 if epoca.arousal else 0,
+                    scoring.nomenclature.name,
                 )
             )
 
@@ -182,6 +194,10 @@ def export_scoring_edf(
     La estructura es la de un hipnograma de la Sleep-EDF: un único canal
     «EDF Annotations» y un único registro de datos de duración cero, que el
     estándar permite justamente para los archivos que sólo llevan anotaciones.
+
+    **La nomenclatura va en la cabecera** (hito 69): los rótulos de R&K son los
+    de la Sleep-EDF, y «Sleep stage 2» no dice si es S2 o N2. Un scoring de R&K
+    sin S4 ni MT no se podía releer sin preguntar.
     """
     anotaciones = _tramos_edf(scoring) + _arousals_edf(scoring)
     bloque = "+0\x14\x14\x00" + "".join(
@@ -194,7 +210,7 @@ def export_scoring_edf(
     muestras = (len(datos) + 1) // 2
     datos = datos.ljust(2 * muestras, b"\x00")
 
-    path.write_bytes(_cabecera_edf(start_time, muestras) + datos)
+    path.write_bytes(_cabecera_edf(start_time, muestras, scoring.nomenclature.name) + datos)
 
 
 def export_scoring_xml(scoring: Scoring, path: Path) -> None:
@@ -270,8 +286,13 @@ def _numero(valor: float) -> str:
     return f"{valor:.6f}".rstrip("0").rstrip(".")
 
 
-def _cabecera_edf(start_time: datetime | None, muestras: int) -> bytes:
+def _cabecera_edf(start_time: datetime | None, muestras: int, nomenclatura: str) -> bytes:
     """Los 512 bytes de cabecera: la general y la del canal de anotaciones.
+
+    **El campo de la grabación termina en `PSGLab` y la nomenclatura**, como
+    `Startdate 02-JAN-2020 X X PSGLab AASM`. EDF+ lo arma con subcampos
+    separados por espacios —fecha, código del estudio, técnico, equipo— y
+    admite otros después del equipo; los demás programas los ignoran.
 
     **Sin fecha conocida se escribe `Startdate X`**, que es como el estándar
     dice "no se sabe", y el lector no intenta alinear nada contra esa fecha.
@@ -282,12 +303,12 @@ def _cabecera_edf(start_time: datetime | None, muestras: int) -> bytes:
     escribir `yy` literal y dejar el año verdadero en `Startdate`.
     """
     if start_time is None:
-        identificacion = "Startdate X X X PSGLab"
+        identificacion = f"Startdate X X X {EDF_EQUIPMENT} {nomenclatura}"
         fecha, hora = "01.01.85", "00.00.00"
     else:
         identificacion = (
             f"Startdate {start_time.day:02d}-{_MESES[start_time.month - 1]}-"
-            f"{start_time.year:04d} X X PSGLab"
+            f"{start_time.year:04d} X X {EDF_EQUIPMENT} {nomenclatura}"
         )
         anio = f"{start_time.year % 100:02d}" if 1985 <= start_time.year <= 2084 else "yy"
         fecha = f"{start_time.day:02d}.{start_time.month:02d}.{anio}"

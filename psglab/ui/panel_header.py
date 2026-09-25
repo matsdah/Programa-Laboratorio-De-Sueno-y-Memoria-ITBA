@@ -70,6 +70,12 @@ ROTULO_PROPERTY: Final[str] = "rotulo"
 #: consulta y no se busca.
 SECUNDARIO_PROPERTY: Final[str] = "secundario"
 
+#: Lo que dice todo lo que muestra el registro antes de que haya uno abierto:
+#: la esquina de la barra de menú, la barra de estado, la de navegación, el pie
+#: del scoring y el contexto. **Un solo texto** (hito 65): eran dos, «Sin
+#: registro» y «Sin registro abierto», para el mismo estado.
+SIN_REGISTRO: Final[str] = "Sin registro abierto"
+
 #: El lado del icono del panel vacío, en píxeles.
 LADO_DEL_ICONO: Final[int] = 26
 

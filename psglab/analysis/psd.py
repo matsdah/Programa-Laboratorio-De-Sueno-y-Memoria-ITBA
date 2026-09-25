@@ -87,7 +87,7 @@ def _exigir_registro(recording: Recording) -> None:
     """Rechaza como `PsgLabError` lo que no sea un `Recording`."""
     if not isinstance(recording, Recording):
         raise InvalidRecordingError(
-            "No se puede calcular la PSD de eso: no es un registro abierto.",
+            "No se puede calcular el espectro de eso: no es un registro abierto.",
             details=f"recording es {type(recording).__name__}, se esperaba Recording.",
         )
 
@@ -187,7 +187,7 @@ def compute_psd(
     _exigir_registro(recording)
     if method not in METHODS:
         raise UnknownPsdMethodError(
-            f"No se conoce el método «{method}» para calcular la PSD.",
+            f"No se conoce el método «{method}» para calcular el espectro.",
             details=f"métodos disponibles: {', '.join(METHODS)}.",
         )
 
@@ -197,7 +197,7 @@ def compute_psd(
 
     if datos.shape[1] < por_segmento:
         raise InvalidRecordingError(
-            "El tramo es más corto que el segmento con el que se estima la PSD, "
+            "El tramo es más corto que el segmento con el que se estima el espectro, "
             "así que no alcanza para medir.",
             details=(
                 f"{datos.shape[1]} muestras contra {por_segmento} que necesita un "
@@ -243,7 +243,7 @@ def describe_method(method: str) -> str:
     """
     if method not in METHODS:
         raise UnknownPsdMethodError(
-            f"No se conoce el método «{method}» para calcular la PSD.",
+            f"No se conoce el método «{method}» para calcular el espectro.",
             details=f"métodos disponibles: {', '.join(METHODS)}.",
         )
     if method == "welch":

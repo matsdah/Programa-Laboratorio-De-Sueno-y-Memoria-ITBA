@@ -435,8 +435,8 @@ def test_el_color_de_los_iconos_pide_un_esquema():
 
 @pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=lambda e: e.name)
 def test_los_dos_esquemas_traen_la_tinta_de_lo_que_destruye(esquema):
-    """La usa «Descartar», que es el único control del programa que pierde
-    trabajo del investigador."""
+    """La usan «Descartar» y «Borrar» una anotación, los dos controles del
+    programa que pierden trabajo del investigador."""
     assert esquema.danger is not None
     assert f'QPushButton[{theme.DESTRUCTIVO_PROPERTY}="true"]' in theme.stylesheet(esquema)
 
@@ -553,3 +553,107 @@ def test_el_boton_principal_apagado_no_parece_encendido():
     """Sin la regla de apagado, el botón de la ICA sin componentes seguía
     relleno del acento, invitando a apretar algo que no hace nada."""
     assert ':disabled' in theme.stylesheet(theme.SERENO).split(theme.PRIMARIO_PROPERTY, 2)[2]
+
+
+# -- Accesibilidad: bordes y foco (hito 62) ---------------------------------
+
+
+def _regla(hoja: str, selector: str) -> str:
+    return hoja.split(selector + " {")[1].split("}")[0]
+
+
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=list(theme.SCHEMES))
+def test_el_borde_de_un_campo_es_el_de_los_controles(esquema):
+    """**WCAG 1.4.11**: en un campo de texto el borde es lo único que dice
+    dónde se escribe. Compartía color con la grilla, a 1,42 contra el fondo;
+    la medida de contraste no alcanza si la hoja de estilo sigue usando el
+    color de la grilla."""
+    hoja = theme.stylesheet(esquema)
+
+    assert esquema.control_border in _regla(hoja, "QPushButton, QComboBox, QLineEdit, QAbstractSpinBox")
+    assert esquema.control_border in _regla(
+        hoja, "QTreeWidget, QTableWidget, QListWidget, QTextEdit, QPlainTextEdit"
+    )
+
+
+@pytest.mark.parametrize("esquema", list(theme.SCHEMES.values()), ids=list(theme.SCHEMES))
+def test_el_borde_de_los_controles_llega_a_tres_a_uno(esquema):
+    ventana = esquema.chrome or esquema.background
+    for fondo in (esquema.background, ventana):
+        assert theme.contrast_ratio(esquema.control_border, fondo) >= theme.MIN_GRAPHIC_CONTRAST
+
+
+def test_un_selector_decimal_tambien_muestra_el_foco():
+    """Una regla para `QSpinBox` no alcanza a `QDoubleSpinBox`: son hermanos,
+    no padre e hijo. El aumento de la lupa se quedaba sin anillo."""
+    assert "QAbstractSpinBox:focus" in theme.stylesheet(theme.SERENO)
+
+
+def test_un_grafico_con_foco_lleva_el_anillo():
+    """La señal y el hipnograma toman el foco del teclado, y Espacio reproduce
+    sólo con el foco en la señal: sin marco no se veía dónde estaba."""
+    hoja = theme.stylesheet(theme.SERENO)
+
+    assert theme.SERENO.accent in _regla(hoja, "PlotWidget:focus")
+    assert "transparent" in _regla(hoja, "PlotWidget")
+
+
+# -- El anillo de foco en lo que la hoja tapaba (hito 63) ---------------------
+
+
+def _pixeles_de_acento(widget, acento) -> int:
+    """Cuántos píxeles del color de acento tiene lo que se dibuja."""
+    from PySide6.QtGui import QColor
+
+    objetivo = QColor(acento)
+    imagen = widget.grab().toImage()
+    return sum(
+        1
+        for x in range(imagen.width())
+        for y in range(imagen.height())
+        if abs(imagen.pixelColor(x, y).red() - objetivo.red())
+        + abs(imagen.pixelColor(x, y).green() - objetivo.green())
+        + abs(imagen.pixelColor(x, y).blue() - objetivo.blue())
+        < 30
+    )
+
+
+@pytest.mark.parametrize("clase", ["QCheckBox", "QListWidget", "QTreeWidget", "QTableWidget", "QTabBar"])
+def test_con_el_foco_se_ve_el_anillo(qt_app, clase):
+    """**La hoja de estilo tapaba el indicador nativo**: medido, estos cinco no
+    cambiaban ni un píxel al recibir el foco. Se mira lo que se dibuja, no la
+    hoja: una regla que Qt no aplica a ese control pasaría una prueba de
+    texto."""
+    from PySide6 import QtWidgets
+
+    # **La hoja va en esta ventana y no en la aplicación.** En la aplicación,
+    # Qt re-estiliza cada widget vivo de los tests anteriores: cada uno de
+    # estos tardaba 115 s en la suite entera y medio segundo solo.
+    ventana = QtWidgets.QWidget()
+    ventana.setStyleSheet(theme.stylesheet(theme.SERENO))
+    try:
+        capa = QtWidgets.QVBoxLayout(ventana)
+        otro = QtWidgets.QLineEdit()
+        control = getattr(QtWidgets, clase)()
+        if clase == "QCheckBox":
+            control.setText("Arousal")
+        elif clase == "QTabBar":
+            control.addTab("Espectro")
+            control.addTab("Métrica")
+        capa.addWidget(otro)
+        capa.addWidget(control)
+        ventana.resize(300, 300)
+        ventana.show()
+        ventana.activateWindow()
+
+        otro.setFocus()
+        qt_app.processEvents()
+        sin_foco = _pixeles_de_acento(control, theme.SERENO.accent)
+        control.setFocus()
+        qt_app.processEvents()
+
+        assert control.hasFocus()
+        assert sin_foco == 0
+        assert _pixeles_de_acento(control, theme.SERENO.accent) > 0
+    finally:
+        ventana.close()

@@ -181,7 +181,7 @@ class AnnotationSet:
             )
         if annotation.label not in self._colors:
             raise UnknownAnnotationLabelError(
-                f"La clase de evento '{annotation.label}' no está registrada, así que "
+                f"La clase de evento «{annotation.label}» no está registrada, así que "
                 "no se puede anotar con ella.",
                 details=f"Clases disponibles: {', '.join(self.labels())}.",
             )
@@ -321,7 +321,7 @@ class AnnotationSet:
         """
         if not isinstance(label, str) or label not in self._colors:
             raise UnknownAnnotationLabelError(
-                f"La clase de evento '{label}' no está registrada.",
+                f"La clase de evento «{label}» no está registrada.",
                 details=f"Clases disponibles: {', '.join(self.labels())}.",
             )
         return self._colors[label]

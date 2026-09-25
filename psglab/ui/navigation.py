@@ -45,6 +45,7 @@ from PySide6.QtWidgets import (
 
 from psglab.ui import theme
 from psglab.ui.icons import icon
+from psglab.ui.panel_header import SIN_REGISTRO
 from psglab.ui.playback import DEFAULT_SPEED, PLAYBACK_SPEEDS, speed_text
 
 #: Alto de la franja de posición, en píxeles. Alcanza para verla, para poder
@@ -268,7 +269,7 @@ class NavigationBar(QWidget):
 
         self.strip = PositionStrip()
         #: Lo que dice el centro de la fila de abajo: la época y su horario.
-        self._posicion = QLabel("Sin registro")
+        self._posicion = QLabel(SIN_REGISTRO)
         self._posicion.setAlignment(Qt.AlignmentFlag.AlignCenter)
         #: El horario de la época actual, o None si el registro no lo informa.
         #: **Era un rótulo propio hasta el hito 36** y ahora es un dato: va en
@@ -432,7 +433,7 @@ class NavigationBar(QWidget):
         barra.
         """
         if self._n_windows <= 0:
-            self._posicion.setText("Sin registro")
+            self._posicion.setText(SIN_REGISTRO)
             return
         texto = f"Ventana {self._window_index + 1} de {self._n_windows}"
         hora = self._hora_de_la_epoca

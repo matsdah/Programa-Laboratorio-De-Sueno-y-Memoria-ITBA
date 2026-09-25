@@ -13,9 +13,17 @@ V1_F de "Navegación" (flechas Izquierda/Derecha) y V1_F/V2_F de "Scoring".
 
 from typing import Final
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QMainWindow, QWidget
+from PySide6.QtCore import QEvent, QObject, Qt
+from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QAbstractSlider,
+    QAbstractSpinBox,
+    QApplication,
+    QComboBox,
+    QMainWindow,
+    QWidget,
+)
 
 from psglab.core.nomenclature import (
     Nomenclature,
@@ -69,6 +77,13 @@ FIXED_SHORTCUTS: Final[dict[str, str]] = {
     # o al scoring sin mouse obligaba a atravesar todos los controles con Tab.
     "F6": "Pasar al panel siguiente",
     "Shift+F6": "Volver al panel anterior",
+    # Hito 62, WCAG 2.1.1: llegar a cualquier ventana y anotar sin mouse.
+    "Home": "Primera ventana",
+    "End": "Última ventana",
+    "Ctrl+G": "Ir a una ventana…",
+    "E": "Anotar la ventana actual",
+    "Shift+F10": "Corregir la anotación de esta ventana (con el foco en la señal)",
+    "Menu": "Corregir la anotación de esta ventana (con el foco en la señal)",
 }
 
 #: Qué método de la ventana principal ejecuta cada atajo fijo. Está separado de
@@ -78,6 +93,33 @@ FIXED_SHORTCUTS: Final[dict[str, str]] = {
 #: Marca con la que este módulo firma los `QShortcut` que crea, para poder
 #: reconocerlos y desinstalarlos al reinstalar. Ver `_quitar_atajos_anteriores`.
 _NOMBRE_DE_ATAJO: Final[str] = "psglab-shortcut"
+
+#: El nombre del filtro que les devuelve las teclas a los controles; ver
+#: `_TeclasDelControl`. Con él se lo encuentra para no instalarlo dos veces.
+_NOMBRE_DEL_FILTRO: Final[str] = "psglab-teclas-del-control"
+
+#: Las teclas con las que uno se mueve **adentro** de una lista, una tabla, un
+#: desplegable o un campo numérico. Ver `_TeclasDelControl`.
+_TECLAS_QUE_MUEVEN: Final[frozenset[Qt.Key]] = frozenset(
+    {
+        Qt.Key.Key_Up,
+        Qt.Key.Key_Down,
+        Qt.Key.Key_Left,
+        Qt.Key.Key_Right,
+        Qt.Key.Key_Home,
+        Qt.Key.Key_End,
+        Qt.Key.Key_PageUp,
+        Qt.Key.Key_PageDown,
+    }
+)
+
+#: Los modificadores que convierten una tecla en un atajo de verdad. Mayúsculas
+#: no está: con ella se escribe.
+_MODIFICADORES_DE_ATAJO: Final[Qt.KeyboardModifier] = (
+    Qt.KeyboardModifier.ControlModifier
+    | Qt.KeyboardModifier.AltModifier
+    | Qt.KeyboardModifier.MetaModifier
+)
 
 ACTIONS: Final[dict[str, str]] = {
     "Right": "go_to_next_window",
@@ -96,6 +138,10 @@ ACTIONS: Final[dict[str, str]] = {
     "Ctrl+0": "show_whole_recording",
     "F6": "focus_next_pane",
     "Shift+F6": "focus_previous_pane",
+    "Home": "go_to_first_window",
+    "End": "go_to_last_window",
+    "Ctrl+G": "ask_window",
+    "E": "annotate_current_window",
 }
 
 #: Los atajos que sólo andan **con el foco en la señal**, y el método que
@@ -104,6 +150,10 @@ ACTIONS: Final[dict[str, str]] = {
 #: a la ventana cuando el foco está en otro panel.
 SIGNAL_ACTIONS: Final[dict[str, str]] = {
     "Space": "toggle_playback",
+    # Las dos teclas con que Windows y Linux abren el menú contextual. Sólo en
+    # la señal, porque es sobre la señal donde está la anotación.
+    "Shift+F10": "annotation_menu_for_current_window",
+    "Menu": "annotation_menu_for_current_window",
 }
 
 #: Cómo se le escribe cada tecla al usuario. Las flechas se dibujan, y
@@ -115,6 +165,9 @@ _NOMBRES_DE_TECLA: Final[dict[str, str]] = {
     "Down": "↓",
     "Shift": "Mayús",
     "Space": "Espacio",
+    "Home": "Inicio",
+    "End": "Fin",
+    "Menu": "Menú",
 }
 
 
@@ -188,6 +241,8 @@ def install_shortcuts(window: QMainWindow, session: Session | None) -> None:
     más la necesita.
     """
     _quitar_atajos_anteriores(window)
+    # Las teclas que usa el control con el foco no son atajos (hito 67).
+    _instalar_el_filtro()
 
     for tecla, metodo in ACTIONS.items():
         _conectar(window, tecla, metodo)
@@ -223,6 +278,127 @@ def key_for_stage(stage: SleepStage) -> str:
 def _fases_por_tecla(nomenclature: Nomenclature) -> dict[str, SleepStage]:
     """La inversa de `stage_shortcuts()`: qué fase asigna cada tecla."""
     return {key_for_stage(fase): fase for fase in stages_of(nomenclature)}
+
+
+class _TeclasDelControl(QObject):
+    """Le deja al control que tiene el foco las teclas que usa (hito 67).
+
+    **Los atajos de una sola tecla le ganaban a cualquier control.** Cuelgan
+    de la ventana entera, y Qt resuelve un atajo antes de entregarle la tecla
+    al widget, salvo que éste la reclame al recibir el `ShortcutOverride`. Un
+    campo de texto la reclama; una lista, una tabla o un desplegable no. Con el
+    foco en la tabla de impedancias, «2» scoreaba la ventana —y con el paso a
+    la siguiente del hito 64, «25» scoreaba dos— mientras el usuario creía
+    estar escribiendo un valor; y ↓ cambiaba la amplitud en vez de bajar de
+    fila, así que la tabla no se podía recorrer con el teclado.
+
+    La regla es la de cualquier programa de escritorio:
+
+    - **Las teclas que mueven** son del control si es una lista, una tabla, un
+      desplegable, un campo numérico o un deslizador: sin ellas no se lo puede
+      usar con el teclado.
+    - **Las que escriben** son del control sólo si carga datos: una tabla que
+      se edita tipeando, un campo numérico, un desplegable editable. En la
+      lista de canales «2» sigue scoreando, que es lo que espera quien tildó un
+      canal y sigue trabajando.
+    - **La señal no cambia**: no es ninguno de esos controles, y sus atajos
+      —las flechas de la época, las fases— siguen donde estaban.
+
+    **Mira sólo al widget que tiene el foco**, que es al que le llega el
+    `ShortcutOverride`, y se muda con él. Puede ser el editor de una celda
+    recién abierto, por eso se sigue el foco y no una lista fija de widgets.
+
+    **Es uno solo para toda la aplicación, y no mira todos sus eventos.** La
+    primera versión estaba instalado en la aplicación, uno por ventana: las de
+    los tests no se destruyen, y cada evento del programa pasaba por un filtro
+    por cada ventana armada —25 ventanas pasaron de 3,2 s a 21 s, las
+    siguientes 25 a 50, y la suite no terminaba—. Con uno solo en la
+    aplicación seguía costando: cada evento cruzaba a Python, y armar una
+    ventana tardaba un 60 % más. Siguiendo el foco ve sólo los de un widget.
+    """
+
+    def __init__(self, parent: QObject) -> None:
+        """Arranca sin mirar a nadie: el foco todavía no está en ningún lado."""
+        super().__init__(parent)
+        self._mirado: QWidget | None = None
+
+    def seguir_el_foco(self, _anterior: QWidget | None, actual: QWidget | None) -> None:
+        """Deja de mirar al que tenía el foco y mira al que lo tiene ahora."""
+        if self._mirado is not None:
+            try:
+                self._mirado.removeEventFilter(self)
+            except RuntimeError:
+                # Ya no existe: Qt se llevó el filtro con él.
+                pass
+        self._mirado = None
+        if actual is not None and _control_de(actual) is not None:
+            actual.installEventFilter(self)
+            self._mirado = actual
+
+    def eventFilter(self, objeto: QObject, evento: QEvent) -> bool:
+        """Reclama la tecla para el control cuando es suya."""
+        if (
+            evento.type() == QEvent.Type.ShortcutOverride
+            and isinstance(evento, QKeyEvent)
+            and isinstance(objeto, QWidget)
+            and _es_del_control(objeto, evento)
+        ):
+            evento.accept()
+        return False
+
+
+def _control_de(widget: QWidget) -> QWidget | None:
+    """El control al que pertenece el widget que tiene el foco, si es uno.
+
+    Se sube por los padres porque el foco puede estar en una pieza interna: el
+    editor de una celda cuelga de la tabla, y el texto de un campo numérico, de
+    ese campo.
+    """
+    actual: QWidget | None = widget
+    while actual is not None:
+        if isinstance(actual, (QAbstractItemView, QComboBox, QAbstractSpinBox, QAbstractSlider)):
+            return actual
+        actual = actual.parentWidget()
+    return None
+
+
+def _es_del_control(widget: QWidget, evento: QKeyEvent) -> bool:
+    """Si la tecla es del control que tiene el foco y no de un atajo."""
+    if evento.modifiers() & _MODIFICADORES_DE_ATAJO:
+        return False
+    control = _control_de(widget)
+    if control is None:
+        return False
+    if evento.key() in _TECLAS_QUE_MUEVEN:
+        return True
+    texto = evento.text()
+    if not texto or not texto.isprintable():
+        return False
+    if isinstance(control, QAbstractSpinBox):
+        return True
+    if isinstance(control, QComboBox):
+        return control.isEditable()
+    if isinstance(control, QAbstractItemView):
+        return bool(control.editTriggers() & QAbstractItemView.EditTrigger.AnyKeyPressed)
+    return False
+
+
+def _instalar_el_filtro() -> None:
+    """Instala `_TeclasDelControl` una sola vez en toda la aplicación.
+
+    Cuelga de la aplicación y se reconoce por su nombre: `install_shortcuts()`
+    se llama al construir cada ventana, al abrir un registro y al cambiar de
+    nomenclatura.
+    """
+    aplicacion = QApplication.instance()
+    if not isinstance(aplicacion, QApplication):
+        return
+    if aplicacion.findChild(QObject, _NOMBRE_DEL_FILTRO) is not None:
+        return
+    filtro = _TeclasDelControl(aplicacion)
+    filtro.setObjectName(_NOMBRE_DEL_FILTRO)
+    aplicacion.focusChanged.connect(filtro.seguir_el_foco)
+    filtro.seguir_el_foco(None, aplicacion.focusWidget())
 
 
 def _quitar_atajos_anteriores(window: QMainWindow) -> None:
@@ -293,11 +469,13 @@ HELP_GROUPS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     (
         "Navegación",
         (
-            "Right", "Left", "Shift+Right", "Shift+Left", "Ctrl+Right", "Ctrl+Left",
+            "Right", "Left", "Home", "End", "Ctrl+G",
+            "Shift+Right", "Shift+Left", "Ctrl+Right", "Ctrl+Left",
             "Ctrl++", "Ctrl+-", "Ctrl+0", "Space",
         ),
     ),
     ("Scoring", ("A",)),
+    ("Anotación", ("E", "Shift+F10", "Menu")),
     ("Visualización", ("Up", "Down", "F6", "Shift+F6")),
     ("Archivo", ("Ctrl+O", "Ctrl+S")),
 )

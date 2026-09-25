@@ -453,14 +453,16 @@ def test_con_muchas_ventanas_mide_sobre_una_muestra(mezclado: Recording, monkeyp
 
     ica = fit_ica(mezclado)
     medidas: list[int] = []
-    original = modulo.to_raw
+    original = modulo._varianza_de_una_vez
 
-    def contando(recording):
-        medidas.append(recording.n_samples)
-        return original(recording)
+    # Desde el hito 61 la muestra no pasa por un `Raw`: se cuenta la que llega
+    # a la cuenta.
+    def contando(ica, muestra):
+        medidas.append(muestra.shape[1])
+        return original(ica, muestra)
 
     monkeypatch.setattr(modulo, "VARIANCE_SAMPLE_WINDOWS", 1)
-    monkeypatch.setattr(modulo, "to_raw", contando)
+    monkeypatch.setattr(modulo, "_varianza_de_una_vez", contando)
 
     varianzas = explained_variance(ica, mezclado)
 
@@ -638,3 +640,203 @@ def test_ajustar_ya_no_cuesta_varias_copias_de_la_senal(tope_bajo):
         tracemalloc.stop()
 
     assert pico < datos.nbytes
+
+
+# -- Quitar componentes por tramos (hito 59) ---------------------------------
+
+
+@pytest.fixture
+def tramos_chicos(monkeypatch) -> int:
+    """Tramos de 1000 muestras: la fixture de 60 s se parte en dieciséis, y el
+    último queda más corto que los demás."""
+    import psglab.analysis.ica as modulo
+
+    monkeypatch.setattr(modulo, "_MUESTRAS_POR_TRAMO", 1000)
+    return 1000
+
+
+def test_por_tramos_da_lo_mismo_que_de_una_vez(mezclado: Recording, tramos_chicos):
+    """**Quitar un componente es una cuenta muestra por muestra** con las
+    matrices del ajuste: partirla en tramos no puede cambiar un número. La
+    referencia es lo que hacía `apply_ica()` hasta el hito 59, la señal entera
+    en un solo `Raw`."""
+    from psglab.analysis.mne_bridge import from_raw, to_raw
+
+    ica = fit_ica(mezclado)
+    frontal = componente_frontal(ica)
+    raw = to_raw(mezclado)
+    ica.apply(raw, exclude=[frontal], verbose="ERROR")
+
+    limpio = apply_ica(mezclado, ica, [frontal])
+
+    assert np.allclose(limpio.data, from_raw(raw, mezclado).data, rtol=0, atol=1e-9)
+
+
+def test_los_canales_que_no_son_eeg_ni_pasan_por_mne(mezclado: Recording, tramos_chicos):
+    """Idénticos bit a bit, no parecidos: salen del original y no hacen el
+    viaje µV → V → µV, que deja error de punto flotante."""
+    n = mezclado.n_samples
+    temperatura = 36.5 + 0.1 * np.sin(np.arange(n) / 100.0)
+    con_temperatura = Recording(
+        file_path=mezclado.file_path,
+        channels=[*mezclado.channels, Channel("Temp", ChannelKind.OTHER, "DegC", 4)],
+        data=np.vstack([mezclado.data, temperatura]),
+        sampling_rate=FS,
+    )
+    ica = fit_ica(con_temperatura)
+
+    limpio = apply_ica(con_temperatura, ica, [0])
+
+    assert np.array_equal(limpio.data[4], temperatura)
+
+
+def test_quitar_no_cuesta_varias_copias_de_la_senal(monkeypatch):
+    """**Es el número que midió el hito 57**: cuatro copias con la que ya
+    estaba. Por tramos son la salida y un tramo.
+
+    El tramo se achica para que sea, como en una noche real, una fracción
+    chica del registro: con el de fábrica, los diez minutos de este test son
+    tres tramos y cada uno pesa casi la mitad.
+    """
+    import tracemalloc
+
+    import psglab.analysis.ica as modulo
+
+    monkeypatch.setattr(modulo, "_MUESTRAS_POR_TRAMO", 4096)
+    n = int(FS * 600)
+    t = np.arange(n) / FS
+    fuentes = np.vstack([30.0 * np.sin(2 * np.pi * 10 * t), 150.0 * np.sin(2 * np.pi * 0.3 * t)])
+    datos = PESOS @ fuentes + np.random.default_rng(1).normal(0.0, 1.0, (4, n))
+    largo = Recording(
+        file_path=Path("largo.edf"),
+        channels=[
+            Channel(nombre, ChannelKind.EEG, MICROVOLT, posicion)
+            for posicion, nombre in enumerate(["Fp1", "Fp2", "O1", "O2"])
+        ],
+        data=datos,
+        sampling_rate=FS,
+    )
+    ica = fit_ica(largo)
+
+    tracemalloc.start()
+    try:
+        apply_ica(largo, ica, [0])
+        _, pico = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert pico < 1.5 * datos.nbytes
+
+
+# -- La varianza, sin reconstruir una vez por componente (hito 61) -----------
+
+
+def _mezcla_de(canales: int, segundos: float, desplazamiento: float = 0.0) -> Recording:
+    """Fuentes laplacianas mezcladas al azar: sin la forma sencilla de la
+    fixture, con más canales y, si se pide, un nivel de continua."""
+    generador = np.random.default_rng(7)
+    n = int(FS * segundos)
+    fuentes = generador.laplace(size=(canales, n))
+    datos = 20.0 * generador.normal(size=(canales, canales)) @ fuentes + desplazamiento
+    return Recording(
+        file_path=Path("mezcla.edf"),
+        channels=[Channel(f"E{i}", ChannelKind.EEG, MICROVOLT, i) for i in range(canales)],
+        data=datos,
+        sampling_rate=FS,
+    )
+
+
+def _de_mne(ica, recording: Recording) -> list[float]:
+    """La definición: la cuenta de MNE, una reconstrucción por componente."""
+    from psglab.analysis.mne_bridge import to_raw
+
+    raw = to_raw(recording)
+    return [
+        float(ica.get_explained_variance_ratio(raw, components=[i], ch_type="eeg")["eeg"])
+        for i in range(int(ica.n_components_))
+    ]
+
+
+@pytest.mark.parametrize(
+    ("canales", "componentes", "desplazamiento"),
+    [(8, None, 0.0), (8, 3, 0.0), (12, None, 50.0)],
+    ids=["todos", "menos-componentes-que-canales", "con-continua"],
+)
+def test_da_lo_mismo_que_la_cuenta_de_mne(canales, componentes, desplazamiento):
+    """**La definición sigue siendo la de MNE**: sólo cambia la cuenta. Con
+    menos componentes que canales, la parte de la señal que la ICA dejó afuera
+    tiene que seguir contando como no explicada; con continua, la media que
+    MNE resta y vuelve a sumar tiene que dar lo mismo."""
+    registro = _mezcla_de(canales, 60.0, desplazamiento)
+    ica = fit_ica(registro, n_components=componentes)
+
+    assert explained_variance(ica, registro) == pytest.approx(
+        _de_mne(ica, registro), abs=1e-9
+    )
+
+
+def test_no_reconstruye_una_vez_por_componente(mezclado: Recording, monkeypatch):
+    """**Era el paso más lento del menú**: 24 s sobre una hora de 32 canales,
+    una reconstrucción por componente. Ahora ninguna."""
+    ica = fit_ica(mezclado)
+
+    def reconstruir(*_args, **_kwargs):
+        raise AssertionError("reconstruyó la señal")
+
+    monkeypatch.setattr(type(ica), "get_explained_variance_ratio", reconstruir)
+
+    assert len(explained_variance(ica, mezclado)) == ica.n_components_
+
+
+def test_lo_que_no_tiene_la_forma_habitual_se_mide_con_mne(mezclado: Recording, monkeypatch):
+    """Una descomposición con matriz de ruido o proyectores no es la que deja
+    `fit_ica()`, y la cuenta de una vez no la contempla: se mide con MNE, que
+    es la definición."""
+    import psglab.analysis.ica as modulo
+
+    ica = fit_ica(mezclado)
+    monkeypatch.setattr(modulo, "_se_puede_de_una_vez", lambda _ica: False)
+
+    assert explained_variance(ica, mezclado) == pytest.approx(_de_mne(ica, mezclado), abs=1e-9)
+
+
+def test_medir_la_varianza_no_cuesta_varias_copias_de_la_muestra():
+    """Sobre la muestra de cuarenta épocas, MNE reconstruía una copia por
+    componente: 6,1 veces la muestra, medido. Ahora son la muestra y sus
+    fuentes, 2,2.
+
+    Se mide contra el tamaño de la muestra y no del registro: la muestra es lo
+    que se procesa. La señal se arma antes de empezar a medir.
+    """
+    import tracemalloc
+
+    registro = _mezcla_de(16, 40 * WINDOW_SECONDS)
+    ica = fit_ica(registro)
+    explained_variance(ica, registro)
+
+    tracemalloc.start()
+    try:
+        explained_variance(ica, registro)
+        _, pico = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert pico < 3 * registro.data.nbytes
+
+
+def test_una_ica_con_matriz_de_ruido_da_lo_mismo_que_mne(mezclado: Recording):
+    """**No es la que arma `fit_ica()`, pero es un objeto de MNE válido**, y la
+    función acepta cualquiera. Con matriz de ruido el blanqueo es una matriz y
+    no una escala por canal, y la cuenta de una vez no lo contempla: tiene que
+    reconocerlo y medir con MNE."""
+    import mne
+    from mne.preprocessing import ICA
+
+    from psglab.analysis.mne_bridge import to_raw
+
+    raw = to_raw(mezclado)
+    ruido = mne.compute_raw_covariance(raw, verbose="ERROR")
+    ica = ICA(n_components=4, noise_cov=ruido, random_state=RANDOM_STATE, verbose="ERROR")
+    ica.fit(raw, verbose="ERROR")
+
+    assert explained_variance(ica, mezclado) == pytest.approx(_de_mne(ica, mezclado), abs=1e-9)

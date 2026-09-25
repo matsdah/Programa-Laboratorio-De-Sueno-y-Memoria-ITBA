@@ -111,7 +111,10 @@ medido en el hito 33.
 NSRR o una planilla con punto y coma. **La nomenclatura no se adivina**: se
 usa la que el archivo declara, o la única compatible con lo que trae; si las
 dos son posibles, eleva `UndeclaredNomenclatureError` y la ventana le
-pregunta al usuario. Los eventos con inicio y duración se pasan a épocas con
+pregunta al usuario. **Lo que escribe este programa la declara siempre**
+(hito 69): el CSV en su columna `nomenclatura` y el EDF+ en la cabecera,
+después del equipo `PSGLab`, que es lo único que hace creerle a ese subcampo.
+Un CSV con una ventana repetida se rechaza, como el `.txt`. Los eventos con inicio y duración se pasan a épocas con
 `core.windows.windows_in_span()`, por el punto medio de cada una.
 
 Ninguno de los dos módulos de scoring es un `Reader`, y `load_all_readers()`

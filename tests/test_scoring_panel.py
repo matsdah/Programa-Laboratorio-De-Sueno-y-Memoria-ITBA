@@ -22,11 +22,11 @@ from psglab.core.nomenclature import (  # noqa: E402
 )
 from psglab.ui.scoring_panel import (  # noqa: E402
     ALTO_DEL_BOTON,
-    PIE_SIN_REGISTRO,
     SIN_SCOREAR,
     ScoringPanel,
     status_text,
 )
+from psglab.ui.panel_header import SIN_REGISTRO  # noqa: E402
 from psglab.ui.shortcuts import key_for_stage  # noqa: E402
 
 
@@ -65,7 +65,7 @@ def test_las_fases_de_aasm_llevan_su_rotulo(fase: SleepStage):
 
 
 def test_antes_de_abrir_un_registro_el_pie_lo_dice(panel: ScoringPanel):
-    assert panel.status() == PIE_SIN_REGISTRO
+    assert panel.status() == SIN_REGISTRO
 
 
 def test_reflejar_la_ventana_actualiza_el_pie(panel: ScoringPanel):
@@ -214,3 +214,19 @@ def test_el_pie_se_contesta_en_texto_pelado(panel: ScoringPanel):
 
     assert panel.status() == status_text(340, SleepStage.UNSCORED, False)
     assert "<" not in panel.status()
+
+
+# -- Accesibilidad (hito 63) --------------------------------------------------
+
+
+def test_el_selector_de_nomenclatura_tiene_nombre(panel: ScoringPanel):
+    """Un lector de pantalla lee el tooltip como descripción: sin nombre se
+    anunciaba como «combo, AASM» sin decir de qué."""
+    assert panel._nomenclaturas.accessibleName() == "Nomenclatura"
+
+
+def test_la_casilla_de_arousal_se_puede_apuntar(panel: ScoringPanel):
+    """Medía 15 px de alto; WCAG 2.5.8 pide 24."""
+    panel.show()
+
+    assert panel._arousal.height() >= 24

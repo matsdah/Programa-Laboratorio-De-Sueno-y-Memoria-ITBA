@@ -142,9 +142,16 @@ from psglab.ui import fonts, preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.docks import build_docks
 from psglab.ui.icons import icon
-from psglab.ui.menus import build_menus, duration_text, menu_path
+from psglab.ui.menus import (
+    build_menus,
+    duration_text,
+    menu_path,
+    rebuild_recent_menu,
+    rebuild_views_menu,
+)
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
+from psglab.ui.panel_header import SIN_REGISTRO
 from psglab.ui.playback import PlaybackClock
 from psglab.ui.connectivity_panel import ConnectivityPanel
 from psglab.ui.ica_panel import IcaPanel
@@ -163,6 +170,12 @@ from psglab.utils.errors import PsgLabError, UndeclaredNomenclatureError
 #: Lo que se le suma al ancho del identificador del registro para que no quede
 #: pegado al borde de la ventana ni a la última entrada del menú.
 _MARGEN_DEL_IDENTIFICADOR: int = 18
+
+#: El título de los carteles de error y de aviso. **No dice nada que haya que
+#: leer** (hito 66): macOS no muestra el título de un `QMessageBox` —lo pide la
+#: guía de Apple—, así que lo que el usuario tiene que saber va en el texto. El
+#: hito 65 había puesto qué falló en el título, y en una Mac no se veía.
+_TITULO_DE_LOS_CARTELES: str = "PSGLab"
 
 #: Qué parte de la separación entre dos filas del hipnograma ocupa la barra de
 #: color de una fase. Menos de la mitad a propósito: la barra tiene que leerse
@@ -416,7 +429,7 @@ class MainWindow(QMainWindow):
         #: mientras dura. Las llena `_build_menus()`.
         self._acciones_largas: tuple[QAction, ...] = ()
 
-        self.statusBar().showMessage("Sin registro abierto")
+        self.statusBar().showMessage(SIN_REGISTRO)
 
     def _build_menus(self) -> None:
         """Arma la barra de menú.
@@ -440,25 +453,45 @@ class MainWindow(QMainWindow):
         self._poner_pistas()
 
     def _poner_pistas(self) -> None:
-        """Les dice a los paneles de resultados desde qué menú se piden.
+        """Les dice a los paneles de resultados qué les falta y desde qué menú
+        se pide.
 
         Se ven con el panel vacío: al mostrarlo desde «Herramientas», o después
         de que un cambio de la señal descartó el resultado. Las rutas salen del
         menú armado con `menu_path()`, así que siguen al menú si se lo renombra.
+
+        **Primero qué falta** (hito 65): decía sólo «Se pide desde…», y un
+        panel vacío que no dice qué muestra obliga a adivinarlo por el menú.
+        La frase vale en los dos casos —nunca se calculó, o se descartó—, y
+        por eso no dice «todavía».
         """
         pistas = (
-            (self.psd_panel, ("show_psd_dialog",)),
-            (self.metric_panel, ("show_complexity_dialog", "show_connectivity_night_dialog")),
-            (self.connectivity_panel, ("show_connectivity_dialog",)),
-            (self.ica_panel, ("show_ica_dialog",)),
+            (self.psd_panel, "No hay ningún espectro calculado.", ("show_psd_dialog",)),
+            (
+                self.metric_panel,
+                "No hay ninguna métrica de la noche calculada.",
+                ("show_complexity_dialog", "show_connectivity_night_dialog"),
+            ),
+            (
+                self.connectivity_panel,
+                "No hay ninguna conectividad medida.",
+                ("show_connectivity_dialog",),
+            ),
+            (
+                self.ica_panel,
+                "La señal no está descompuesta en componentes.",
+                ("show_ica_dialog",),
+            ),
         )
-        for panel, metodos in pistas:
+        for panel, que_falta, metodos in pistas:
             rutas = [ruta for ruta in (menu_path(self, m) for m in metodos) if ruta]
             if rutas:
                 # **Una ruta por renglón.** El título de pyqtgraph no corta
                 # líneas, y las dos de la métrica juntas no entran en el ancho
                 # de la pila de análisis.
-                panel.set_hint("Se pide desde " + "<br>o desde ".join(rutas))
+                panel.set_hint(
+                    f"{que_falta}<br>Se pide desde " + "<br>o desde ".join(rutas)
+                )
 
     def _build_tools_menu(self) -> None:
         """Crea las herramientas y sus entradas en el menú Herramientas.
@@ -728,8 +761,19 @@ class MainWindow(QMainWindow):
         pendiente = herramienta.pending_selection_samples
         if pendiente is None:
             return
-        inicio, duracion = pendiente
+        self._preguntar_clase_y_anotar(herramienta, *pendiente)
 
+    def _preguntar_clase_y_anotar(
+        self, herramienta: AnnotatorTool, inicio: int, duracion: int
+    ) -> None:
+        """Pregunta la clase de un tramo y lo anota.
+
+        Es el final común del arrastre con el mouse y de «Anotar la ventana
+        actual» con el teclado (hito 62): los dos llegan con un tramo en
+        muestras y lo demás es igual.
+        """
+        if self._session is None:
+            return
         clases = self._session.annotations.labels()
         clase, acepto = QInputDialog.getItem(
             self,
@@ -748,7 +792,7 @@ class MainWindow(QMainWindow):
                 herramienta.add_label(clase)
             herramienta.create_annotation(clase, inicio, duracion)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "anotar el evento")
             return
         # El panel de contexto marca los eventos que caen en cada ventana
         # (V3_F), y anotar no mueve de ventana: hay que pedirle que se
@@ -770,6 +814,12 @@ class MainWindow(QMainWindow):
         anotacion = herramienta.annotation_at(segundos)
         if anotacion is None:
             return
+        self._ofrecer_cambios(herramienta, anotacion, donde)
+
+    def _ofrecer_cambios(
+        self, herramienta: AnnotatorTool, anotacion: Annotation, donde: QPoint
+    ) -> None:
+        """El menú de una anotación: cambiarle la clase o borrarla."""
         eleccion = self._elegir_en_un_menu(
             [_CAMBIAR_CLASE, _BORRAR], donde
         )
@@ -777,6 +827,62 @@ class MainWindow(QMainWindow):
             self._cambiar_clase(herramienta, anotacion)
         elif eleccion == _BORRAR:
             self._borrar_anotacion(herramienta, anotacion)
+
+    # -- Anotar con el teclado (hito 62) ------------------------------------
+    #
+    # **Anotar era lo único del pliego que exigía mouse**: arrastrar sobre la
+    # señal para crear, clic derecho para corregir. WCAG 2.1.1 pide que todo
+    # se pueda con el teclado, y la unidad natural del teclado es la época,
+    # que es lo que mueven las flechas.
+
+    def annotate_current_window(self) -> None:
+        """E: anota la ventana actual entera y pregunta su clase.
+
+        **Enciende el modo «Anotar»** si no lo estaba, igual que elegirlo del
+        menú: la herramienta es la que sabe anotar, y dejarla encendida es lo
+        que permite después corregir con Mayús+F10 o con el mouse.
+        """
+        herramienta = self._anotador_encendido()
+        if herramienta is None or self._session is None:
+            return
+        inicio, fin = self._muestras_de_la_ventana_actual()
+        self._preguntar_clase_y_anotar(herramienta, inicio, fin - inicio)
+
+    def annotation_menu_for_current_window(self) -> None:
+        """Mayús+F10 o la tecla Menú, con el foco en la señal: el menú del
+        clic derecho para la anotación de la ventana actual.
+
+        Si hay varias se elige **la más corta**, con la misma regla que el
+        clic derecho: la larga se puede alcanzar desde otra ventana, la corta
+        no. Sin ninguna, la barra de estado lo dice en vez de no hacer nada.
+        """
+        herramienta = self._anotador_encendido()
+        if herramienta is None or self._session is None:
+            return
+        inicio, fin = self._muestras_de_la_ventana_actual()
+        en_la_ventana = self._session.annotations.in_range(inicio, fin)
+        if not en_la_ventana:
+            self.statusBar().showMessage("No hay ninguna anotación en esta ventana", 5000)
+            return
+        anotacion = min(en_la_ventana, key=lambda candidata: candidata.duration_samples)
+        vista = self.signal_view.viewport()
+        self._ofrecer_cambios(herramienta, anotacion, vista.mapToGlobal(vista.rect().center()))
+
+    def _anotador_encendido(self) -> AnnotatorTool | None:
+        """La herramienta de anotar, encendida por el mismo camino que el menú."""
+        herramienta = self._tools.get("annotator")
+        accion = self._tool_actions.get("annotator")
+        if not isinstance(herramienta, AnnotatorTool) or accion is None:
+            return None
+        if not accion.isChecked():
+            accion.setChecked(True)
+        return herramienta
+
+    def _muestras_de_la_ventana_actual(self) -> tuple[int, int]:
+        """Dónde empieza y termina la ventana actual, recortada al registro."""
+        registro = self._session.recording
+        inicio, fin = window_to_samples(self._session.current_window, registro.sampling_rate)
+        return inicio, min(fin, registro.n_samples)
 
     def _elegir_en_un_menu(self, opciones: list[str], donde: QPoint) -> str | None:
         """Muestra un menú contextual y devuelve lo que se eligió, o `None`.
@@ -817,7 +923,7 @@ class MainWindow(QMainWindow):
                 herramienta.add_label(clase)
             herramienta.change_label(anotacion, clase)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "cambiar la clase")
             return
         self._refrescar_contexto()
         self.statusBar().showMessage(
@@ -853,17 +959,18 @@ class MainWindow(QMainWindow):
         del clic derecho, así que un clic de más ya no borra solo; la pregunta
         se conservó igual, porque elegir mal en un menú también es un clic.
         """
-        respuesta = QMessageBox.question(
-            self,
-            "Borrar anotación",
+        if not self._confirmar(
+            "Borrar la anotación",
             f"¿Borrar la anotación «{anotacion.label}»?",
-        )
-        if respuesta != QMessageBox.StandardButton.Yes:
+            "Borrar",
+            informativo="No se puede deshacer.",
+            destructivo=True,
+        ):
             return
         try:
             herramienta.delete_annotation(anotacion)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "borrar la anotación")
             return
         # Igual que al anotar: la Übersicht marca qué ventanas tienen eventos.
         contexto = self._tools.get("overview")
@@ -1142,7 +1249,7 @@ class MainWindow(QMainWindow):
                 sesion.viewport.with_span(self._preferencias.open_view_seconds)
             )
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, f"abrir «{path.name}»")
             return
 
         # **Lo que se perdería con la sesión anterior, antes de soltarla**
@@ -1191,11 +1298,138 @@ class MainWindow(QMainWindow):
         if self._preferencias.open_clock_axis and registro.start_time is not None:
             self.accion_eje_en_hora.setChecked(True)
         self.refresh()
+        self._recordar_reciente(path)
         # **Lo que el lector pudo leer con reservas**, después de dibujar: el
         # registro ya está abierto y el cartel explica lo que se ve (hito 33).
         avisos = registro.metadata.get(IMPORT_WARNINGS_KEY)
         if avisos:
             self._mostrar_avisos_de_lectura([str(aviso) for aviso in avisos])
+
+    def _recordar_reciente(self, path: Path) -> None:
+        """Pone el registro recién abierto al frente de «Abrir reciente»."""
+        try:
+            ruta = str(Path(path).resolve())
+        except OSError:
+            ruta = str(path)
+        self._preferencias = self._preferencias.with_recent_file(ruta)
+        self._guardar_preferencias()
+        rebuild_recent_menu(self)
+
+    def open_recent_file(self, path: str) -> None:
+        """Abre uno de «Abrir reciente».
+
+        **Si ya no está, se lo saca de la lista** y se avisa: una entrada que
+        falla cada vez que se elige no sirve de nada.
+        """
+        if not Path(path).exists():
+            self._preferencias = self._preferencias.without_recent_file(path)
+            self._guardar_preferencias()
+            rebuild_recent_menu(self)
+            self._show_error(
+                PsgLabError(
+                    f"«{Path(path).name}» ya no está donde se abrió la última vez, "
+                    "así que se lo quitó de los recientes.",
+                    details=f"No existe {path}.",
+                ),
+                f"abrir «{Path(path).name}»",
+            )
+            return
+        self.open_recording(Path(path))
+
+    # -- Vistas de canales (hito 64) ------------------------------------------
+
+    def save_channel_view(self) -> None:
+        """Guarda con un nombre los canales que se ven, su orden y su escala.
+
+        Un nombre que ya existe se reemplaza: es «guardar», y volver a guardar
+        la misma vista después de ajustarla es el uso normal.
+        """
+        if self._session is None:
+            return
+        visibles = self._session.visible_channels
+        if not visibles:
+            self._show_error(
+                PsgLabError(
+                    "No hay canales a la vista para guardar.",
+                    details="La sesión no tiene canales visibles.",
+                ),
+                "guardar la vista",
+            )
+            return
+        nombre, acepto = QInputDialog.getText(
+            self, "Guardar la vista de canales", "Nombre de la vista:"
+        )
+        nombre = nombre.strip()
+        if not acepto or not nombre:
+            return
+        canales = tuple((canal, self._session.scale_uv(canal)) for canal in visibles)
+        try:
+            self._preferencias = self._preferencias.with_channel_view(nombre, canales)
+        except PsgLabError as error:
+            self._show_error(error, "guardar la vista")
+            return
+        self._guardar_preferencias()
+        rebuild_views_menu(self)
+        self.statusBar().showMessage(f"Se guardó la vista «{nombre}»", 5000)
+
+    def apply_channel_view(self, name: str) -> None:
+        """Muestra los canales de una vista, en su orden y con su escala.
+
+        **Los que este registro no tiene se saltean**, y se dice cuántos: una
+        vista armada con otro montaje sirve igual para lo que coincide. Si no
+        coincide ninguno, no se toca nada.
+        """
+        if self._session is None:
+            return
+        canales = self._preferencias.channel_view(name)
+        if canales is None:
+            return
+        presentes = set(self._session.recording.channel_names())
+        a_mostrar = [(canal, escala) for canal, escala in canales if canal in presentes]
+        if not a_mostrar:
+            self._show_error(
+                PsgLabError(
+                    f"Ninguno de los canales de la vista «{name}» está en este registro.",
+                    details=f"canales de la vista: {[canal for canal, _ in canales]}",
+                ),
+                f"aplicar la vista «{name}»",
+            )
+            return
+        nombres = [canal for canal, _ in a_mostrar]
+        try:
+            self._session.set_visible_channels(nombres)
+            for canal, escala in a_mostrar:
+                self._session.set_scale_uv(canal, escala)
+        except PsgLabError as error:
+            self._show_error(error, f"aplicar la vista «{name}»")
+            return
+        self.channel_selector.set_visible(nombres)
+        self.signal_view.set_visible_channels(nombres)
+        self._refrescar_contexto()
+        self.refresh()
+        faltan = len(canales) - len(a_mostrar)
+        if faltan == 0:
+            aviso = f"Vista «{name}»"
+        elif faltan == 1:
+            aviso = f"Vista «{name}»: un canal no está en este registro"
+        else:
+            aviso = f"Vista «{name}»: {faltan} canales no están en este registro"
+        self.statusBar().showMessage(aviso, 5000)
+
+    def delete_channel_view(self) -> None:
+        """Pregunta qué vista borrar y la borra."""
+        nombres = [nombre for nombre, _ in self._preferencias.channel_views]
+        if not nombres:
+            return
+        nombre, acepto = QInputDialog.getItem(
+            self, "Borrar una vista", "Vista a borrar:", nombres, 0, False
+        )
+        if not acepto or nombre not in nombres:
+            return
+        self._preferencias = self._preferencias.without_channel_view(nombre)
+        self._guardar_preferencias()
+        rebuild_views_menu(self)
+        self.statusBar().showMessage(f"Se borró la vista «{nombre}»", 5000)
 
     def _mostrar_avisos_de_lectura(self, avisos: list[str]) -> None:
         """Muestra lo que el investigador tiene que saber del archivo que abrió.
@@ -1203,11 +1437,16 @@ class MainWindow(QMainWindow):
         **No es `_show_error()`**: el registro se abrió y se puede trabajar con
         él, así que el cartel no dice "No se pudo completar la operación". Está
         aparte para que los tests lo contesten, porque es modal.
+
+        **Que se abrió lo dice el texto y no el título** (hito 66): en macOS el
+        título no se ve, y el aviso de las muestras sin valor no lo dice solo.
         """
+        nombre = self._session.recording.file_path.name if self._session else ""
         cartel = QMessageBox(self)
         cartel.setIcon(QMessageBox.Icon.Warning)
-        cartel.setWindowTitle("El registro se abrió con avisos")
-        cartel.setText("\n\n".join(avisos))
+        cartel.setWindowTitle(_TITULO_DE_LOS_CARTELES)
+        cartel.setText(f"«{nombre}» se abrió, con avisos.")
+        cartel.setInformativeText("\n\n".join(avisos))
         cartel.exec()
 
     def _reiniciar_paneles_de_analisis(self) -> None:
@@ -1262,7 +1501,8 @@ class MainWindow(QMainWindow):
                 PsgLabError(
                     "Hay que abrir un registro antes de importarle un scoring.",
                     details="No hay ninguna sesión abierta.",
-                )
+                ),
+                "importar el scoring",
             )
             return
         inicio = self._session.recording.start_time
@@ -1292,7 +1532,7 @@ class MainWindow(QMainWindow):
             # completo está en `Session.set_scoring()`.
             self._session.set_scoring(scoring)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "importar el scoring")
             return
 
         self.scoring_panel.set_nomenclature(scoring.nomenclature)
@@ -1344,7 +1584,7 @@ class MainWindow(QMainWindow):
                     details=f"kind = {kind!r}, se esperaba uno de {sorted(DEFAULT_FILENAMES)}.",
                 )
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, f"exportar «{path.name}»")
             return
         except OSError as error:
             # **El disco no es un `PsgLabError`.** Los exportadores validan lo
@@ -1359,7 +1599,8 @@ class MainWindow(QMainWindow):
                     f"No se pudo escribir «{path.name}». Revisá que la carpeta "
                     "exista y que tengas permiso para escribir en ella.",
                     details=f"{type(error).__name__}: {error}",
-                )
+                ),
+                f"exportar «{path.name}»",
             )
             return
         self.statusBar().showMessage(f"Se exportó {path.name}", 5000)
@@ -1473,8 +1714,8 @@ class MainWindow(QMainWindow):
         # **El rol no alcanza para que se vea distinto.** `DestructiveRole` le
         # dice a Qt dónde ubicar el botón y con qué tecla responde, no de qué
         # color pintarlo: en Windows sale idéntico a «Cancelar». La tinta la
-        # pone el esquema por esta propiedad, y es el único control del
-        # programa que la lleva porque es el único que pierde trabajo.
+        # pone el esquema por esta propiedad. La llevan sólo los dos controles
+        # que pierden trabajo: éste y «Borrar» una anotación (`_confirmar()`).
         descartar.setProperty(theme.DESTRUCTIVO_PROPERTY, True)
         cancelar = cartel.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
         cartel.setDefaultButton(exportar)
@@ -1562,7 +1803,7 @@ class MainWindow(QMainWindow):
         try:
             self._session.set_viewport(nueva)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "cambiar la escala de tiempo")
             return False
         # **Una página larga se calcula una vez y después vuelve de la caché.**
         # Sobre el registro de prueba de 22 horas el primer dibujo del registro
@@ -1759,7 +2000,7 @@ class MainWindow(QMainWindow):
         try:
             self._cabezal = self._session.move_playhead(segundos)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "mover la reproducción")
             return False
         if self._session.viewport != pagina:
             self.signal_view.draw_viewport()
@@ -1798,7 +2039,7 @@ class MainWindow(QMainWindow):
         try:
             self.playback.speed = velocidad
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "cambiar la velocidad")
 
     # -- Amplitud (V2_P, V5_F) ----------------------------------------------
     #
@@ -1815,7 +2056,7 @@ class MainWindow(QMainWindow):
         try:
             self._session.fit_to_pane()
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "cambiar la amplitud")
             return
         self.refresh()
 
@@ -1826,7 +2067,7 @@ class MainWindow(QMainWindow):
         try:
             self._session.center_offsets()
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "cambiar la amplitud")
             return
         self.refresh()
 
@@ -1837,7 +2078,7 @@ class MainWindow(QMainWindow):
         try:
             self._session.reset_offsets()
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "cambiar la amplitud")
             return
         self.refresh()
 
@@ -1857,7 +2098,7 @@ class MainWindow(QMainWindow):
                 if nombre in self._session.selected_channels or not self._session.selected_channels:
                     self._session.set_scale_uv(nombre, scale_uv)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "cambiar la amplitud")
             return
         self.refresh()
 
@@ -1928,13 +2169,19 @@ class MainWindow(QMainWindow):
             # En otra variable: Python borra `error` al salir del `except`, y el
             # cartel se arma recién en la vuelta siguiente del ciclo de eventos.
             aviso = error
-            QTimer.singleShot(0, lambda: self._show_error(aviso))
+            QTimer.singleShot(
+                0, lambda: self._show_error(aviso, "leer la configuración guardada")
+            )
             return
         # El esquema ya lo aplicó `create_application()`; lo demás de la
         # ventana de configuración se aplica acá, que es el único lugar donde
         # las preferencias del disco entran a la ventana.
         self._preferencias = guardadas
         self._aplicar_preferencias(guardadas)
+        # Los recientes y las vistas salen de las preferencias: el menú se armó
+        # con las de fábrica, antes de leer el archivo.
+        rebuild_recent_menu(self)
+        rebuild_views_menu(self)
 
     def set_color_scheme(self, scheme: theme.ColorScheme, remember: bool = True) -> None:
         """Cambia el esquema de color de todo el programa y lo deja repintado.
@@ -2001,7 +2248,7 @@ class MainWindow(QMainWindow):
         try:
             preferences.save(self._preferencias)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "guardar la configuración")
 
     @property
     def current_preferences(self) -> preferences.Preferences:
@@ -2025,7 +2272,8 @@ class MainWindow(QMainWindow):
                 PsgLabError(
                     "No se pudo aplicar la configuración.",
                     details=f"Se recibió {type(prefs).__name__} en vez de preferencias.",
-                )
+                ),
+                "aplicar la configuración",
             )
             return
         esquema = prefs.scheme()
@@ -2103,7 +2351,9 @@ class MainWindow(QMainWindow):
             self.settings_dialog = SettingsDialog(self._preferencias, colores, self)
             self.settings_dialog.setModal(True)
             self.settings_dialog.on_change = self.apply_preferences
-            self.settings_dialog.on_error = self._show_error
+            self.settings_dialog.on_error = lambda error: self._show_error(
+                error, "aplicar la configuración"
+            )
         else:
             self.settings_dialog.set_preferences(self._preferencias, colores)
         self.settings_dialog.show()
@@ -2169,7 +2419,7 @@ class MainWindow(QMainWindow):
             try:
                 sesion.annotations.add_label(clase, color)
             except PsgLabError as error:
-                self._show_error(error)
+                self._show_error(error, "aplicar los colores de las clases")
                 return
 
     def _repintar_anotaciones(self) -> None:
@@ -2209,6 +2459,37 @@ class MainWindow(QMainWindow):
         self._session.previous_window()
         self.refresh()
 
+    # **Llegar a cualquier ventana sin mouse** (hito 62). Hasta acá sólo lo
+    # hacían los clics en la franja, el hipnograma y la Übersicht, y con el
+    # teclado la ventana 500 de una noche eran 500 flechas.
+
+    def go_to_first_window(self) -> None:
+        """Inicio: la primera ventana."""
+        if self._session is not None:
+            self._go_to_window(0)
+
+    def go_to_last_window(self) -> None:
+        """Fin: la última ventana."""
+        if self._session is not None:
+            self._go_to_window(self._session.n_windows - 1)
+
+    def ask_window(self) -> None:
+        """Ctrl+G: pregunta a qué ventana ir, contando desde uno como la
+        barra de estado."""
+        if self._session is None:
+            return
+        total = self._session.n_windows
+        numero, acepto = QInputDialog.getInt(
+            self,
+            "Ir a una ventana",
+            f"Ventana (1 a {total}):",
+            self._session.current_window + 1,
+            1,
+            total,
+        )
+        if acepto:
+            self._go_to_window(numero - 1)
+
     def increase_amplitude(self) -> None:
         """Flecha arriba. La cuenta la hace `Session`."""
         self.signal_view.increase_amplitude()
@@ -2234,7 +2515,7 @@ class MainWindow(QMainWindow):
         try:
             self._session.scoring.set_stage(self._session.current_window, stage)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "scorear la ventana")
             return
         self._update_histogram_window(self._session.current_window)
         # **La Übersicht cachea sus ventanas** y las rearma al cambiar de
@@ -2244,6 +2525,16 @@ class MainWindow(QMainWindow):
         contexto = self._tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
+        # **Pasa sola a la ventana siguiente** (hito 64), salvo en la última y
+        # mientras se reproduce: ahí la época la lleva el cursor, y saltar
+        # adelantaría la reproducción una ventana por cada tecla.
+        if (
+            self._preferencias.advance_after_scoring
+            and self._cabezal is None
+            and self._session.current_window < self._session.n_windows - 1
+        ):
+            self.go_to_next_window()
+            return
         self.refresh()
 
     # -- Las esperas largas --------------------------------------------------
@@ -2253,6 +2544,7 @@ class MainWindow(QMainWindow):
         que_hace: str,
         trabajo: "Callable[[], object]",
         al_terminar: "Callable[[object], None]",
+        accion: str | None = None,
     ) -> None:
         """Corre algo largo en otro hilo y dibuja el resultado cuando vuelve.
 
@@ -2274,26 +2566,56 @@ class MainWindow(QMainWindow):
                 hay que resolverlo antes de llamar acá.
             al_terminar: qué hacer con el resultado. Corre en el hilo de la
                 interfaz y sí puede dibujar.
+            accion: qué no se pudo hacer si falla, para la primera línea del
+                cartel; ver `_show_error()`.
         """
         self.statusBar().showMessage(f"{que_hace}…")
         self._barra_de_espera.show()
 
+        # **La señal sobre la que se pidió** (hito 67). «Abrir» sigue
+        # habilitado mientras el otro hilo trabaja, y lo que vuelve después de
+        # abrir otro registro es de la señal anterior: la ICA de la noche A se
+        # mostraba como la de B, y «Aplicar y quitar» la usaba sobre B sin
+        # avisar cuando los dos tenían los mismos canales, que es lo normal
+        # entre dos noches del mismo laboratorio. Se compara por identidad, como
+        # `signal_view` con sus envolventes: un filtro o una derivación también
+        # son otra señal.
+        pedido_sobre = self._session.recording if self._session is not None else None
+
+        def de_otra_senal() -> bool:
+            if self._session is not None and self._session.recording is pedido_sobre:
+                return False
+            self.statusBar().showMessage(
+                "Se descartó un cálculo que era de la señal anterior.", 8000
+            )
+            return True
+
         def listo(resultado: object) -> None:
             self._terminar_la_espera(que_hace)
+            if de_otra_senal():
+                return
             al_terminar(resultado)
 
         def falló(error: object) -> None:
             self._terminar_la_espera(que_hace)
+            # Un error de la señal anterior tampoco se muestra: habla de algo
+            # que ya no está en pantalla.
+            if de_otra_senal():
+                return
             if isinstance(error, PsgLabError):
-                self._show_error(error)
+                self._show_error(error, accion)
 
         self._tarea.finished.connect(listo)
         self._tarea.failed.connect(falló)
+        # **Con cualquier final** (hito 68): un error que no es `PsgLabError`
+        # no pasa por ninguna de las dos de arriba, y sin esto la barra seguía
+        # girando y los menús largos quedaban apagados hasta cerrar el programa.
+        self._tarea.stopped.connect(lambda: self._terminar_la_espera(que_hace))
         try:
             self._tarea.start(trabajo)
         except PsgLabError as error:
             self._terminar_la_espera(que_hace)
-            self._show_error(error)
+            self._show_error(error, accion)
             return
         # **Después de arrancar y no antes.** Lo que decide qué se puede pedir
         # es `BackgroundTask.is_running()`, que con el hilo sin arrancar
@@ -2311,7 +2633,7 @@ class MainWindow(QMainWindow):
         self._barra_de_espera.hide()
         if self.statusBar().currentMessage() == f"{que_hace}…":
             self.statusBar().clearMessage()
-        for señal in (self._tarea.finished, self._tarea.failed):
+        for señal in (self._tarea.finished, self._tarea.failed, self._tarea.stopped):
             try:
                 señal.disconnect()
             except RuntimeError:
@@ -2407,6 +2729,7 @@ class MainWindow(QMainWindow):
         que_hace: str,
         calcular: Callable[[Recording], Recording],
         mostrar: str | None = None,
+        accion: str | None = None,
     ) -> None:
         """Corre un análisis y lleva su resultado a la pantalla.
 
@@ -2425,6 +2748,8 @@ class MainWindow(QMainWindow):
                 esto una derivación se creaba y no se veía. Mostrarlo es una
                 decisión de presentación —el usuario acaba de pedirlo— y por eso
                 vive acá y no en `core/`.
+            accion: qué no se pudo hacer si falla, para la primera línea del
+                cartel; ver `_show_error()`.
         """
         if self._session is None:
             return
@@ -2433,7 +2758,7 @@ class MainWindow(QMainWindow):
                 procesado = calcular(self._session.recording)
             self._session.set_recording(procesado)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, accion)
             return
         if mostrar is not None and mostrar not in self._session.visible_channels:
             self._session.set_visible_channels(
@@ -2531,6 +2856,7 @@ class MainWindow(QMainWindow):
             f"Se agregó la derivación «{canal}-{referencia}»",
             lambda registro: derive(registro, canal, referencia),
             mostrar=f"{canal}-{referencia}",
+            accion=f"derivar «{canal}-{referencia}»",
         )
 
     def rereference_dialog(self) -> None:
@@ -2541,6 +2867,7 @@ class MainWindow(QMainWindow):
         self._aplicar_analisis(
             f"Se re-referenció a «{referencia}»",
             lambda registro: rereference(registro, [referencia]),
+            accion="re-referenciar la señal",
         )
 
     def apply_average_reference(self) -> None:
@@ -2553,6 +2880,7 @@ class MainWindow(QMainWindow):
         self._aplicar_analisis(
             "Se re-referenció al promedio de los canales EEG",
             lambda registro: average_reference(registro),
+            accion="re-referenciar la señal",
         )
 
     # -- El canal plano (hito 32) -------------------------------------------
@@ -2644,7 +2972,7 @@ class MainWindow(QMainWindow):
                 for nombre, extremos in bandas.items()
             }
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "calcular el espectro")
             return
 
         self.psd_panel.set_spectrum(frecuencias, potencias, [canal], bands=bandas)
@@ -2719,7 +3047,7 @@ class MainWindow(QMainWindow):
                     self._session.recording, [canal], measure=medida
                 )
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "calcular la complejidad")
             return
 
         self._preparar_el_eje_de_la_metrica()
@@ -2746,7 +3074,8 @@ class MainWindow(QMainWindow):
                     "La conectividad se mide entre canales, así que hacen falta "
                     "al menos dos visibles.",
                     details=f"canales visibles: {canales}.",
-                )
+                ),
+                "medir la conectividad",
             )
             return
         # **Las mismas bandas que el espectro.** Dos definiciones distintas de
@@ -2770,7 +3099,7 @@ class MainWindow(QMainWindow):
                     window_index=ventana,
                 )
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "medir la conectividad")
             return
 
         self.connectivity_panel.set_matrix(
@@ -2818,7 +3147,8 @@ class MainWindow(QMainWindow):
                     "La conectividad se mide entre canales, así que hacen falta "
                     "al menos dos visibles.",
                     details=f"canales visibles: {canales}.",
-                )
+                ),
+                "medir la conectividad de la noche",
             )
             return
         bandas = self._preferencias.bands()
@@ -2844,6 +3174,7 @@ class MainWindow(QMainWindow):
             lambda promedios: self._mostrar_la_conectividad_de_la_noche(
                 banda, canales, promedios
             ),
+            accion="medir la conectividad de la noche",
         )
 
     def _mostrar_la_conectividad_de_la_noche(
@@ -2909,15 +3240,40 @@ class MainWindow(QMainWindow):
                     "Para quitar un filtro ya aplicado está «Montaje › Volver a "
                     "la señal original».",
                     details=f"filtros por clase: {por_clase}",
-                )
+                ),
+                "filtrar la señal",
             )
             return
+        antes = self._session.recording
         self._aplicar_analisis(
             "Se filtró la señal",
             lambda registro: apply_filters(
                 registro, settings_for_kinds(registro, por_clase)
             ),
+            accion="filtrar la señal",
         )
+        if self._session is None or self._session.recording is antes:
+            return
+        # **Qué canales quedaron sin pasa-altos** (hito 67). `settings_for_kinds()`
+        # no se lo da a un canal grabado más lento que el registro, porque lo
+        # dejaría plano; el panel lo avisa antes, y acá se confirma después: el
+        # EMG del EDF del laboratorio quedaba con el 0,0 % de su señal y la barra
+        # decía sólo «Se filtró la señal».
+        sin_pasa_altos = [
+            nombre
+            for nombre, filtros in settings_for_kinds(antes, por_clase).items()
+            if filtros.highpass_hz is None
+            and por_clase[antes.channel_by_name(nombre).kind].highpass_hz is not None
+        ]
+        if sin_pasa_altos:
+            uno = len(sin_pasa_altos) == 1
+            self.statusBar().showMessage(
+                f"Se filtró la señal, sin pasa-altos en {self._nombrar(sin_pasa_altos)}: "
+                f"{'se grabó' if uno else 'se grabaron'} más lento que el registro, "
+                f"y {'lo' if uno else 'los'} habría dejado "
+                f"{'plano' if uno else 'planos'}.",
+                15000,
+            )
 
     def show_impedance_dialog(self) -> None:
         """Abre el control de impedancia (V1_F de "Impedancia").
@@ -2957,7 +3313,7 @@ class MainWindow(QMainWindow):
         try:
             cargadas = load_impedances_from_file(Path(ruta))
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "importar las impedancias")
             return
         # **Un archivo sin impedancias no es un error de la biblioteca**, que
         # devuelve un diccionario vacío, pero sí una sorpresa: sin este aviso
@@ -2968,7 +3324,8 @@ class MainWindow(QMainWindow):
                     f"«{Path(ruta).name}» no trae ninguna impedancia, así que no se "
                     "cambió nada.",
                     details="El archivo está vacío o sólo tiene comentarios.",
-                )
+                ),
+                "importar las impedancias",
             )
             return
 
@@ -3042,6 +3399,7 @@ class MainWindow(QMainWindow):
             "Descomponiendo la señal en componentes",
             descomponer,
             self._mostrar_la_ica,
+            accion="calcular la ICA",
         )
 
     def _mostrar_la_ica(self, resultado: object) -> None:
@@ -3076,7 +3434,7 @@ class MainWindow(QMainWindow):
         except PsgLabError as error:
             # El panel ya dibujó la topografía y dejó la curva vacía, así que el
             # investigador conserva la mitad del criterio que sí se pudo dar.
-            self._show_error(error)
+            self._show_error(error, "mostrar el componente")
             return
         # **En segundos del registro** (hito 54), que es lo que numera el eje del
         # visualizador: así la curva se lee en la misma hora que la señal.
@@ -3107,7 +3465,9 @@ class MainWindow(QMainWindow):
         # vez que alguien la invocara.
         descomposicion = self._ica
         self._aplicar_analisis(
-            que_hizo, lambda registro: apply_ica(registro, descomposicion, exclude)
+            que_hizo,
+            lambda registro: apply_ica(registro, descomposicion, exclude),
+            accion="quitar los componentes",
         )
         self.ica_dialog.hide()
 
@@ -3123,7 +3483,7 @@ class MainWindow(QMainWindow):
         try:
             self._session.set_recording(self._registro_original)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "volver a la señal original")
             return
         self.signal_view.set_session(self._session)
         self.channel_selector.set_recording(self._registro_original)
@@ -3197,12 +3557,12 @@ class MainWindow(QMainWindow):
             # «noche» escrito a mano, el diálogo pregunta por «noche» y el que
             # se escribe es «noche.txt». Se pregunta de nuevo (hito 33).
             if destino.exists():
-                respuesta = QMessageBox.question(
-                    self,
-                    "Ya existe",
+                if not self._confirmar(
+                    "Reemplazar el archivo",
                     f"«{destino.name}» ya existe. ¿Reemplazarlo?",
-                )
-                if respuesta != QMessageBox.StandardButton.Yes:
+                    "Reemplazar",
+                    informativo="Se pierde lo que tenía.",
+                ):
                     return
         self.export(kind, destino)
 
@@ -3217,7 +3577,7 @@ class MainWindow(QMainWindow):
         try:
             self._session.go_to_window(window_index)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "ir a esa ventana")
             return
         self.refresh()
 
@@ -3235,7 +3595,7 @@ class MainWindow(QMainWindow):
         try:
             self._session.scoring.set_arousal(self._session.current_window, arousal)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "marcar el arousal")
             return
         self.refresh()
 
@@ -3249,14 +3609,13 @@ class MainWindow(QMainWindow):
         if self._session is None:
             return
         if self._session.scoring.scored_windows() > 0:
-            respuesta = QMessageBox.question(
-                self,
+            if not self._confirmar(
                 "Cambiar de nomenclatura",
-                "La conversión entre nomenclaturas pierde información: S3 y S4 "
-                "se funden en N3, y volver atrás no puede distinguirlas.\n\n"
                 "¿Convertir el scoring que ya hiciste?",
-            )
-            if respuesta != QMessageBox.StandardButton.Yes:
+                "Convertir",
+                informativo="La conversión entre nomenclaturas pierde información: "
+                "S3 y S4 se funden en N3, y volver atrás no puede distinguirlas.",
+            ):
                 self.scoring_panel.set_nomenclature(self._session.scoring.nomenclature)
                 return
         self._session.scoring.change_nomenclature(nomenclature)
@@ -3276,7 +3635,7 @@ class MainWindow(QMainWindow):
         try:
             self._session.set_visible_channels(channel_names)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "cambiar los canales visibles")
             return
         self.signal_view.set_visible_channels(channel_names)
         self._refrescar_contexto()
@@ -3288,7 +3647,7 @@ class MainWindow(QMainWindow):
         try:
             self._session.set_selected_channels(channel_names)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "seleccionar los canales")
             return
         self._refrescar_contexto()
 
@@ -3326,7 +3685,7 @@ class MainWindow(QMainWindow):
         traerlas, y un guion en su lugar se lee como un dato.
         """
         if self._session is None:
-            return "Sin registro"
+            return SIN_REGISTRO
         registro = self._session.recording
         partes = [
             registro.file_path.name,
@@ -3530,7 +3889,7 @@ class MainWindow(QMainWindow):
         try:
             herramienta.set_time_axis(use_clock_time)
         except PsgLabError as error:
-            self._show_error(error)
+            self._show_error(error, "cambiar el eje del hipnograma")
             return
         self._redraw_histogram()
         self._preparar_el_eje_de_la_metrica()
@@ -3545,8 +3904,62 @@ class MainWindow(QMainWindow):
         # `ui/shortcuts_dialog.py`.
         ShortcutsDialog(nomenclatura, self).exec()
 
-    def _show_error(self, error: PsgLabError) -> None:
+    def _confirmar(
+        self,
+        titulo: str,
+        pregunta: str,
+        accion: str,
+        *,
+        informativo: str = "",
+        destructivo: bool = False,
+    ) -> bool:
+        """Pregunta antes de algo que no se deshace y dice si se confirmó.
+
+        **Los botones dicen lo que hacen** (hito 65): «Borrar / Cancelar» y no
+        «Sí / No», que obligaba a releer la pregunta para saber cuál era cuál.
+        Es el mismo criterio del cartel del trabajo sin exportar.
+
+        **Cancelar es el botón por omisión** cuando se pierde algo: un Enter
+        apurado no puede borrar. Si no se pierde nada, lo es la acción.
+
+        Está aparte para que los tests puedan contestarlo, igual que
+        `_preguntar_por_el_trabajo()`: el cartel es modal.
+
+        Args:
+            titulo: el título del cartel, que nombra la acción.
+            pregunta: la pregunta, con el nombre de lo que se toca.
+            accion: el texto del botón que confirma, en infinitivo.
+            informativo: la consecuencia, debajo de la pregunta.
+            destructivo: si el botón lleva la tinta de lo que destruye.
+        """
+        cartel = QMessageBox(self)
+        cartel.setIcon(QMessageBox.Icon.Question)
+        cartel.setWindowTitle(titulo)
+        cartel.setText(pregunta)
+        if informativo:
+            cartel.setInformativeText(informativo)
+        confirmar = cartel.addButton(accion, QMessageBox.ButtonRole.AcceptRole)
+        if destructivo:
+            confirmar.setProperty(theme.DESTRUCTIVO_PROPERTY, True)
+        cancelar = cartel.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+        cartel.setDefaultButton(cancelar if destructivo else confirmar)
+        cartel.setEscapeButton(cancelar)
+        cartel.exec()
+        return cartel.clickedButton() is confirmar
+
+    def _show_error(self, error: PsgLabError, accion: str | None = None) -> None:
         """Un solo lugar para los errores que ve el investigador.
+
+        **El cartel empieza diciendo qué no se pudo hacer**: «No se pudo abrir
+        «noche.edf».», y debajo el porqué. Era «No se pudo completar la
+        operación» para todos, y después de un cálculo largo nadie recuerda qué
+        había pedido. `accion` va en infinitivo, igual que en
+        `memoria_suficiente()`; sin ella queda la frase genérica.
+
+        **Va en el texto y no en el título** (hito 66). El hito 65 la había
+        puesto en el título, y macOS no muestra el título de un `QMessageBox`:
+        en una Mac el cartel seguía sin decir qué falló. Ver
+        `_TITULO_DE_LOS_CARTELES`.
 
         `psglab/utils/errors.py` promete que todo lo que el programa eleva
         hereda de `PsgLabError` y trae el mensaje en español separado de la
@@ -3555,8 +3968,9 @@ class MainWindow(QMainWindow):
         """
         cartel = QMessageBox(self)
         cartel.setIcon(QMessageBox.Icon.Warning)
-        cartel.setWindowTitle("No se pudo completar la operación")
-        cartel.setText(str(error))
+        cartel.setWindowTitle(_TITULO_DE_LOS_CARTELES)
+        cartel.setText(f"No se pudo {accion or 'completar la operación'}.")
+        cartel.setInformativeText(str(error))
         detalle = getattr(error, "details", None)
         if detalle:
             cartel.setDetailedText(str(detalle))

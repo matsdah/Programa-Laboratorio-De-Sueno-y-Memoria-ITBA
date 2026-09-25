@@ -190,7 +190,7 @@ class HistogramTool(Tool):
         check_finite(
             x_fraction,
             error=InvalidScaleError,
-            message="No se pudo interpretar el clic en el histograma.",
+            message="No se pudo interpretar el clic en el hipnograma.",
             details="x_fraction tiene que ser un número finito entre 0 y 1.",
         )
         total = len(self._barras)

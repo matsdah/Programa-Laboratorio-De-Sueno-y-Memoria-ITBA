@@ -26,10 +26,16 @@ significar "el contenedor del panel", que es lo que siempre quiso decir.
 
 ## Qué arranca visible
 
-**Sólo la señal y el selector de canales.** Hasta el hito 24 arrancaban
-abiertos también el scoring, el hipnograma y la Übersicht, y entre los tres le
-quitaban a la señal un cuarto de la pantalla; se abren desde «Herramientas». Scorear
-no los necesita: las fases y el arousal tienen su tecla.
+**La señal, el selector de canales y el hipnograma.** Hasta el hito 24
+arrancaban abiertos también el scoring y el contexto, y entre los tres le
+quitaban a la señal un cuarto de la pantalla; se abren desde «Herramientas».
+Scorear no los necesita: las fases y el arousal tienen su tecla.
+
+**El hipnograma volvió en el hito 64**, solo, como una tira de
+`ALTO_DEL_HIPNOGRAMA` a todo el ancho de abajo. En los programas de scoring es
+lo único que está siempre a la vista: ubica la noche de un vistazo y muestra
+lo que se va scoreando, que la franja de posición hace a medias porque no
+tiene los niveles de las fases.
 
 Los seis de análisis arrancan ocultos y los abre la acción del menú que los
 calcula: un panel de conectividad vacío ocupando media pantalla desde el
@@ -150,7 +156,12 @@ def _trabajo(window: "MainWindow") -> None:
         [window.channels_dock], [ANCHO_DE_CANALES], Qt.Orientation.Horizontal
     )
 
-    window.overview_dock = nuevo_dock(window, "Übersicht", window.overview_panel, abajo)
+    # **«Contexto» y no «Übersicht»** (hito 64): era el único rótulo en alemán
+    # de un programa en español, y su propio tooltip ya lo llamaba contexto.
+    # El menú conserva el nombre del pliego entre paréntesis, para que quien lo
+    # busque por ese nombre lo encuentre.
+    window.overview_dock = nuevo_dock(window, "Contexto", window.overview_panel, abajo)
+    window.overview_dock.toggleViewAction().setText("Contexto (Übersicht)")
     window.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, window.overview_dock)
 
     window.scoring_dock = nuevo_dock(window, "Scoring", window.scoring_panel, abajo)
@@ -169,9 +180,11 @@ def _trabajo(window: "MainWindow") -> None:
         window.docks[nombre] = dock
 
     # Se ocultan después de acomodarlos, para que al mostrarlos desde «Herramientas»
-    # vuelvan al borde de abajo y lado a lado.
+    # vuelvan al borde de abajo y lado a lado. **El hipnograma no** (hito 64):
+    # ver «Qué arranca visible».
     for clave in ANCHOS_DE_ABAJO:
-        window.docks[clave].hide()
+        if clave != "histogram":
+            window.docks[clave].hide()
         # **Cada vez que uno aparece se vuelve a repartir el ancho.** Qt no
         # recuerda un reparto pedido mientras estaban ocultos: los mostraba
         # con lo que le sobrara a cada uno, y el hipnograma quedaba el más

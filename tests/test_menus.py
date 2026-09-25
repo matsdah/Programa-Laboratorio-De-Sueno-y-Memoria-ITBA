@@ -74,16 +74,17 @@ def _todas_las_acciones(ventana: MainWindow) -> list:
 # -- La estructura -----------------------------------------------------------
 
 
-def test_estan_las_diez_entradas(ventana: MainWindow):
+def test_estan_las_nueve_entradas(ventana: MainWindow):
     """Eran cinco, con «Análisis» de cajón de sastre: nueve entradas
     heterogéneas en un solo menú obligan a leerlo entero cada vez.
 
-    «Archivo» ya no está —es el botón de la esquina— y «Paneles», que había
-    salido de «Ver» en el hito 23, se fundió con «Herramientas» en el 28."""
+    «Paneles», que había salido de «Ver» en el hito 23, se fundió con
+    «Herramientas» en el 28. **«Archivo» volvió en el hito 64**, con el
+    scoring y la configuración adentro, que eran dos entradas sueltas."""
     titulos = [accion.text() for accion in ventana.menuBar().actions()]
 
     assert titulos == [
-        "&Scoring",
+        "&Archivo",
         "&Escala de tiempo",
         "A&mplitud",
         "&Ver",
@@ -91,7 +92,6 @@ def test_estan_las_diez_entradas(ventana: MainWindow):
         "&Filtrar",
         "&Analizar",
         "&Herramientas",
-        "&Configuración",
         "A&yuda",
     ]
 
@@ -177,12 +177,10 @@ def test_una_linea_separa_abrir_de_los_menus(ventana: MainWindow):
 # -- El botón de abrir -------------------------------------------------------
 
 
-def test_abrir_es_un_boton_con_icono_y_no_un_menu(ventana: MainWindow):
-    """«Archivo» tenía una sola acción: un menú de una entrada son dos clics
-    para lo que un botón hace en uno."""
-    titulos = [accion.text() for accion in ventana.menuBar().actions()]
-
-    assert "&Archivo" not in titulos
+def test_abrir_sigue_siendo_un_boton_con_icono(ventana: MainWindow):
+    """Es el primer control que usa quien abre el programa: un clic y no dos.
+    Desde el hito 64 está también en «Archivo», donde lo busca quien viene de
+    otro programa."""
     assert not ventana.open_button.icon().isNull()
     # **Con la palabra al lado desde el hito 36**: una carpeta sola en la
     # esquina de una barra de menú se lee como decoración, y lo único que decía
@@ -230,24 +228,26 @@ def test_no_existe_salir(ventana: MainWindow):
     assert not [t for t in textos if "Salir" in t]
 
 
-# -- Scoring -----------------------------------------------------------------
+# -- Archivo -----------------------------------------------------------------
 
 
-def test_scoring_importa_y_exporta_en_los_cuatro_formatos(ventana: MainWindow):
-    """Abrir un registro es abrir el dato de entrada; importar y exportar un
-    scoring es manejar el trabajo propio, que es lo que más se hace."""
+def test_archivo_abre_importa_exporta_y_configura(ventana: MainWindow):
+    """Hito 64: donde cualquier programa de escritorio pone estas cosas."""
     textos = [
         a.text().partition("\t")[0]
-        for a in menu_llamado(ventana, "&Scoring").actions()
+        for a in menu_llamado(ventana, "&Archivo").actions()
         if not a.isSeparator()
     ]
 
     assert textos == [
+        "&Abrir registro…",
+        "Abrir &reciente",
         "&Importar scoring…",
-        "Exportar .txt…",
-        "Exportar .csv…",
-        "Exportar .edf…",
-        "Exportar .xml…",
+        "Exportar el scoring como .txt…",
+        "Exportar el scoring como .csv…",
+        "Exportar el scoring como .edf…",
+        "Exportar el scoring como .xml…",
+        "&Configuración…",
     ]
 
 
@@ -255,11 +255,13 @@ def test_las_exportaciones_salen_de_la_tabla_de_formatos(ventana: MainWindow):
     """Un formato nuevo en `SCORING_FORMATS` tiene que aparecer solo."""
     textos = [
         a.text().partition("\t")[0]
-        for a in menu_llamado(ventana, "&Scoring").actions()
+        for a in menu_llamado(ventana, "&Archivo").actions()
         if a.text().startswith("Exportar")
     ]
 
-    assert textos == [f"Exportar .{extension}…" for extension in SCORING_FORMATS]
+    assert textos == [
+        f"Exportar el scoring como .{extension}…" for extension in SCORING_FORMATS
+    ]
 
 
 def test_anotaciones_e_informacion_ya_no_se_ofrecen(ventana: MainWindow):
@@ -282,7 +284,7 @@ def test_cada_exportacion_pide_su_formato(qt_app, monkeypatch):
     )
     ventana = create_main_window()
 
-    for accion in menu_llamado(ventana, "&Scoring").actions():
+    for accion in menu_llamado(ventana, "&Archivo").actions():
         if accion.text().startswith("Exportar"):
             accion.trigger()
 
@@ -373,7 +375,9 @@ def test_ninguna_entrada_de_herramientas_se_repite(ventana: MainWindow):
     assert "Histograma" not in textos
 
 
-@pytest.mark.parametrize("clave, texto", [("overview", "Übersicht"), ("histogram", "Hipnograma")])
+@pytest.mark.parametrize(
+    "clave, texto", [("overview", "Contexto (Übersicht)"), ("histogram", "Hipnograma")]
+)
 def test_una_herramienta_con_panel_esta_como_su_panel(
     ventana: MainWindow, clave: str, texto: str
 ):
@@ -420,10 +424,12 @@ def test_los_esquemas_son_excluyentes(ventana: MainWindow):
         ventana.set_color_scheme(anterior, remember=False)
 
 
-def test_ver_ya_no_tiene_submenus(ventana: MainWindow):
+def test_ver_tiene_un_solo_submenu_el_de_las_vistas(ventana: MainWindow):
+    """Los esquemas y los fondos van sueltos; las vistas de canales (hito 64)
+    son una lista que crece, y por eso van en su submenú."""
     ver = menu_llamado(ventana, "&Ver")
 
-    assert not [a for a in ver.actions() if a.menu() is not None]
+    assert [a.text() for a in ver.actions() if a.menu() is not None] == ["Vistas de &canales"]
 
 
 def test_no_hay_barra_de_herramientas(ventana: MainWindow):
@@ -450,11 +456,13 @@ def test_construir_los_menus_no_necesita_saber_de_la_ventana(ventana: MainWindow
     assert "MainWindow" not in vars(menus)
 
 
-def test_configuracion_abre_su_ventana_sin_desplegar_nada(ventana: MainWindow):
-    """El submenú de esquemas repetía la solapa Colores de esa misma ventana."""
-    accion = next(a for a in ventana.menuBar().actions() if a.text() == "&Configuración")
+def test_configuracion_esta_en_archivo_y_abre_su_ventana(ventana: MainWindow):
+    """Era una entrada suelta de la barra, que abría una ventana sin desplegar
+    nada; desde el hito 64 está en «Archivo», donde se la busca."""
+    accion = next(
+        a for a in menu_llamado(ventana, "&Archivo").actions() if a.text() == "&Configuración…"
+    )
 
-    assert accion.menu() is None
     accion.trigger()
 
     assert ventana.settings_dialog is not None
@@ -500,11 +508,14 @@ def test_las_acciones_sin_atajo_no_muestran_ninguno(ventana: MainWindow):
 
 
 def test_exportar_en_txt_muestra_ctrl_s(ventana: MainWindow):
-    """Ctrl+S llama al mismo método sin argumento, y por eso se anota a mano."""
-    textos = [a.text() for a in menu_llamado(ventana, "&Scoring").actions()]
+    """Ctrl+S llama al mismo método sin argumento, y por eso se anota a mano.
+    Abrir muestra Ctrl+O, que sale de su método."""
+    textos = [a.text() for a in menu_llamado(ventana, "&Archivo").actions()]
 
-    assert "Exportar .txt…\tCtrl+S" in textos
-    assert [t for t in textos if "\t" in t] == ["Exportar .txt…\tCtrl+S"]
+    assert [t for t in textos if "\t" in t] == [
+        "&Abrir registro…\tCtrl+O",
+        "Exportar el scoring como .txt…\tCtrl+S",
+    ]
 
 
 def test_el_atajo_se_muestra_pero_no_se_registra_en_la_accion(ventana: MainWindow):
@@ -535,7 +546,7 @@ def test_un_metodo_sin_menu_no_tiene_ruta(ventana: MainWindow):
 
 
 def test_sin_registro_la_esquina_lo_dice(ventana: MainWindow):
-    assert ventana.recording_summary.text() == "Sin registro"
+    assert ventana.recording_summary.text() == "Sin registro abierto"
 
 
 def test_el_identificador_es_una_lectura(ventana: MainWindow):

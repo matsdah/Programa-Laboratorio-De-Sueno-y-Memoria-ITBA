@@ -8,9 +8,13 @@ Cubre del pliego: ningún ID de funcionalidad. Es infraestructura de arranque;
 sostiene el requisito técnico de "main.py lo más simple posible" (sección 7).
 """
 
+import sys
+import traceback
+from types import TracebackType
+
 import pyqtgraph as pg
 from PySide6.QtCore import QLibraryInfo, QTranslator
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from psglab.readers.base import load_all_readers
 from psglab.tools.registry import load_all_tools
@@ -110,7 +114,11 @@ def install_qt_translations(application: QApplication) -> bool:
     return application.installTranslator(traductor)
 
 
-def create_main_window(saved_preferences: bool = False, warm_up: bool = False) -> MainWindow:
+def create_main_window(
+    saved_preferences: bool = False,
+    warm_up: bool = False,
+    report_unexpected_errors: bool = False,
+) -> MainWindow:
     """Crea la ventana principal con todos sus paneles y herramientas.
 
     No hay que enumerar acá ni las herramientas ni los formatos: cada registro
@@ -131,6 +139,10 @@ def create_main_window(saved_preferences: bool = False, warm_up: bool = False) -
             abrir el primer registro, y la compilación que `antropy` hace al
             importarse. **También lo prende sólo `main.py`**: cada ventana de
             la suite lanzaría un hilo.
+        report_unexpected_errors: si un error que no es `PsgLabError` se le
+            muestra al usuario en un cartel, además de la consola; ver
+            `_avisar_los_errores_inesperados()`. **También lo prende sólo
+            `main.py`**: en la suite, un cartel modal la colgaría.
 
     Returns:
         La ventana principal, todavía sin mostrar.
@@ -145,4 +157,65 @@ def create_main_window(saved_preferences: bool = False, warm_up: bool = False) -
         ventana.apply_saved_preferences()
     if warm_up:
         ventana.warm_up_in_background()
+    if report_unexpected_errors:
+        _avisar_los_errores_inesperados(ventana)
     return ventana
+
+
+def _avisar_los_errores_inesperados(window: MainWindow) -> None:
+    """Muestra en un cartel los errores que no son `PsgLabError` (hito 68).
+
+    **Antes no los veía nadie.** PySide6 le pasa a `sys.excepthook` la
+    excepción que sale de un slot, y de fábrica eso la imprime en la consola:
+    abierto sin consola, el programa seguía como si nada, con lo que se
+    estaba haciendo a medio hacer.
+
+    **No los disfraza de mensaje para el investigador**, que es lo que
+    `ui/background.py` decidió no hacer: el cartel dice que es un defecto del
+    programa y no de sus datos, y trae la traza entera para poder avisarlo.
+    La consola la sigue mostrando igual.
+
+    **Un mismo error se muestra una sola vez.** Uno que salta al pintar se
+    repetiría en cada cuadro, y un cartel por cuadro deja el programa
+    inutilizable. Se reconoce por su clase y por la línea donde saltó.
+    """
+    anterior = sys.excepthook
+    vistos: set[tuple[str, str, int | None]] = set()
+    mostrando = False
+
+    def avisar(
+        tipo: type[BaseException], valor: BaseException, traza: TracebackType | None
+    ) -> None:
+        nonlocal mostrando
+        try:
+            anterior(tipo, valor, traza)
+        except Exception:  # noqa: BLE001 - sin consola, stderr puede no existir
+            pass
+        if issubclass(tipo, KeyboardInterrupt) or mostrando:
+            return
+        cuadros = traceback.extract_tb(traza)
+        donde = (cuadros[-1].filename, cuadros[-1].lineno) if cuadros else ("", None)
+        firma = (tipo.__name__, *donde)
+        if firma in vistos:
+            return
+        vistos.add(firma)
+        mostrando = True
+        try:
+            cartel = QMessageBox(window)
+            cartel.setIcon(QMessageBox.Icon.Critical)
+            cartel.setWindowTitle(QApplication.applicationName() or "PSGLab")
+            cartel.setText("Ocurrió un error del programa.")
+            cartel.setInformativeText(
+                "No es un problema de tus datos: es un defecto del programa, y lo "
+                "que estabas haciendo puede no haberse completado. Conviene "
+                "exportar el scoring y avisar, copiando lo que aparece en "
+                "«Mostrar los detalles…»."
+            )
+            cartel.setDetailedText("".join(traceback.format_exception(tipo, valor, traza)))
+            cartel.exec()
+        except Exception:  # noqa: BLE001 - si el cartel falla, queda la consola
+            pass
+        finally:
+            mostrando = False
+
+    sys.excepthook = avisar

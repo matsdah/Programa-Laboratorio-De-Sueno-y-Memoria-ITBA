@@ -808,7 +808,7 @@ class Session:
         check_finite(
             scale_uv,
             error=InvalidScaleError,
-            message=f"La escala pedida para el canal '{channel_name}' no es un número válido.",
+            message=f"La escala pedida para el canal «{channel_name}» no es un número válido.",
             details="Se esperaba un número finito.",
         )
         self._scales_uv[channel_name] = clamp(scale_uv, minimum_uv, maximum_uv)
@@ -857,7 +857,7 @@ class Session:
             offset_uv,
             error=InvalidScaleError,
             message=(
-                f"El desplazamiento pedido para el canal '{channel_name}' no es "
+                f"El desplazamiento pedido para el canal «{channel_name}» no es "
                 "un número válido."
             ),
             details="Se esperaba un número finito.",

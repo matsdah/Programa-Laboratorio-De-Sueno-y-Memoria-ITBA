@@ -37,6 +37,7 @@ import gc
 import os
 import sys
 import tempfile
+import time
 import tracemalloc
 from collections.abc import Callable
 from pathlib import Path
@@ -83,17 +84,34 @@ class Medidor:
         Las dos cifras se cuentan **desde antes de abrir nada**, así que «queda»
         es todo lo que el programa sostiene en ese momento y no la diferencia
         con el paso anterior.
+
+        **Y cuánto suma el paso**, que es el pico menos lo que ya había antes
+        de empezar (hito 60). El pico solo engañaba: re-referenciar marcaba
+        3,0 copias y sumaba una, la señal nueva que devuelve; las otras dos
+        eran el original y la filtrada del paso anterior, y se propuso un hito
+        para bajar algo que ya estaba en el mínimo.
+
+        Imprime también cuánto tardó (hito 59): bajar la memoria partiendo el
+        trabajo en pedazos puede costar tiempo, y hay que verlo al lado.
+        **Con `tracemalloc` encendido**, que enlentece cada reserva: el número
+        sirve para comparar dos corridas de este banco, no como el tiempo que
+        ve el usuario.
         """
         gc.collect()
+        antes = tracemalloc.get_traced_memory()[0] - self.base
         tracemalloc.reset_peak()
+        arranque = time.perf_counter()
         operacion()
         QApplication.processEvents()
+        segundos = time.perf_counter() - arranque
         pico = tracemalloc.get_traced_memory()[1] - self.base
         gc.collect()
         queda = tracemalloc.get_traced_memory()[0] - self.base
         print(
             f"  {que:<46} pico {pico / self.copia:4.1f} copias ({pico / 1e6:6.0f} MB)"
+            f"   suma {(pico - antes) / self.copia:4.1f}"
             f"   queda {queda / self.copia:4.1f} ({queda / 1e6:6.0f} MB)"
+            f"   {segundos:6.1f} s"
         )
 
     def retenedores(self) -> None:
@@ -173,7 +191,7 @@ def main() -> int:
     aplicacion = create_application([sys.argv[0]])
     ventana = create_main_window()
     # Un cartel modal colgaría el banco sin decir nada: se imprime.
-    ventana._show_error = lambda error: print(f"  !! cartel: {error}")  # type: ignore[method-assign]
+    ventana._show_error = lambda error, accion=None: print(f"  !! cartel: {error}")  # type: ignore[method-assign]
     ventana._puede_descartarse_el_trabajo = lambda _que: True  # type: ignore[method-assign]
     ventana.resize(1400, 800)
 

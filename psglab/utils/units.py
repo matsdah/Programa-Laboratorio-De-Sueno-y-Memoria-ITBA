@@ -102,23 +102,23 @@ def conversion_factor(unit: str) -> float:
     # millón produce un scoring incorrecto que nadie nota mirando la pantalla.
     if unit.strip() in ("MV", "MVOLT", "MVOLTS"):
         raise UnknownUnitError(
-            f"La unidad '{unit}' del archivo es ambigua y no se puede interpretar sin "
+            f"La unidad «{unit}» del archivo es ambigua y no se puede interpretar sin "
             "riesgo de escalar mal la señal.",
             details=(
-                "Con 'M' latina mayúscula el SI indica mega; escrita en minúscula "
+                "Con «M» latina mayúscula el SI indica mega; escrita en minúscula "
                 "sería mili, y con mu griega mayúscula sería micro. Las tres se "
                 "parecen y difieren por factores de mil. Corregir la unidad en el "
-                "archivo: 'mV', 'uV' o 'µV'."
+                "archivo: «mV», «uV» o «µV»."
             ),
         )
 
     normalizada = normalize_unit_name(unit)
     if normalizada not in TO_MICROVOLTS:
         raise UnknownUnitError(
-            f"No se reconoce la unidad '{unit}' del archivo, así que no se puede "
+            f"No se reconoce la unidad «{unit}» del archivo, así que no se puede "
             "convertir la señal a microvoltios.",
             details=(
-                f"Unidad normalizada: '{normalizada}'. "
+                f"Unidad normalizada: «{normalizada}». "
                 f"Unidades conocidas: {', '.join(sorted(TO_MICROVOLTS))}."
             ),
         )

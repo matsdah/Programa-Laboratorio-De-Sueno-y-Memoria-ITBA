@@ -388,6 +388,11 @@ nada hasta que se abra la pull request, así que en el día a día el único con
 es `python -m pytest` local, y conviene correrlo entero: el chequeo de las
 cuentas de tests se saltea si se le pasa un archivo suelto.
 
+**Nada impide mergear con el CI en rojo**: `Add` no tiene protección de rama.
+El PR #82 entró con los dos jobs de macOS fallando, y la suite local, que corre
+en Windows, no podía verlo. Antes de mergear hay que mirar los seis jobs de
+tests, no sólo el de la plataforma propia.
+
 ## Arquitectura
 
 **Cada carpeta tiene su propio `README.md`** con el mapa de sus archivos, las
@@ -514,10 +519,11 @@ panel: es la única vía de navegación con el mouse. Los menús viven en
 lleva también los paneles** desde el hito 28 —ya no hay menú «Paneles»—: arriba
 los modos del mouse, que se siguen armando desde el registro, y abajo los
 paneles, que salen de `window.docks`. Una herramienta que se llama igual que un
-dock —la Übersicht, el hipnograma— aparece una sola vez, como su panel. Desde el
-hito 23 es la única vía para activar una herramienta: **no hay barra de
-herramientas**. Abrir un registro es el botón de la esquina de la barra de menú
-(`window.open_button`), no un menú.
+dock —el contexto, que el pliego llama Übersicht, y el hipnograma— aparece una
+sola vez, como su panel. Desde el hito 23 es la única vía para activar una
+herramienta: **no hay barra de herramientas**. Abrir un registro es el botón de
+la esquina de la barra de menú (`window.open_button`), y desde el hito 64
+también «Archivo», con los recientes, el scoring y la configuración.
 
 Los colores salen de `ui/theme.py` (dos esquemas inmutables, con su contraste
 verificado contra WCAG 2.1) y lo que el usuario elige, de `ui/preferences.py`,
@@ -537,7 +543,12 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   trabaja con los valores de fábrica y no escribe nada; si lo hiciera, correr la
   suite pisaría la configuración de quien la corre, que ya pasó una vez. **La
   disposición de paneles no se guarda** desde el hito 24: el programa abre
-  siempre con la señal y el selector de canales.
+  siempre con la señal, el selector de canales y, desde el hito 64, el
+  hipnograma. Lo que sí se guarda son los registros recientes y las vistas de
+  canales, que también escribe sólo esa ventana. **Lo mismo el cartel de los
+  errores inesperados** (hito 68): `main.py` lo prende con
+  `report_unexpected_errors=True`, y ninguna otra ventana, porque en la suite
+  un cartel modal la colgaría.
 - **Los menús muestran los atajos pero no los registran.** La tecla sale de
   `ui/shortcuts.py` con `key_for()` y va después de un tabulador en el texto.
   Llamar a `setShortcut()` la duplicaría con el `QShortcut` que ya existe, y ante
@@ -552,6 +563,21 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   (hito 53): «Sí / No», «Aceptar / Cancelar». Sin ella salían en inglés, y
   ningún test lo veía porque ninguno miraba el texto de un botón que el
   programa no escribe. La suite la carga igual que el programa.
+- **Nada que haya que leer va en el título de un cartel** (hito 66). macOS no
+  muestra el título de un `QMessageBox` —lo pide la guía de Apple— y
+  `windowTitle()` vuelve vacío también en el CI: lo que el usuario tiene que
+  saber va en el texto. El hito 65 puso qué falló en el título, y en Windows
+  y Linux se veía; lo encontró sólo el job de macOS.
+- **Un atajo de una sola tecla no le gana al control que tiene el foco**
+  (hito 67). Los atajos cuelgan de la ventana entera, y una lista o una tabla
+  no reclaman sus teclas como un campo de texto: con el foco en la tabla de
+  impedancias, «2» scoreaba la ventana. `_TeclasDelControl`, en
+  `ui/shortcuts.py`, les devuelve las que mueven y, si cargan datos, las que
+  escriben. Un control nuevo que se edite tipeando tiene que llevar
+  `AnyKeyPressed` entre sus disparadores de edición, o sus teclas vuelven a
+  ser de los atajos. **Un filtro de eventos no se instala en la aplicación
+  por cada ventana**: las de los tests no se destruyen, y con uno por ventana
+  la suite dejó de terminar. Éste es uno solo y mira sólo al widget con foco.
 - **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
   (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
   que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril

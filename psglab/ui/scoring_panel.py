@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.core.nomenclature import Nomenclature, SleepStage, stage_label, stages_of
+from psglab.ui.panel_header import SIN_REGISTRO
 from psglab.ui.shortcuts import key_for_stage
 
 #: Hasta dónde se achica un botón de fase. Alcanza para «REM», la etiqueta
@@ -54,6 +55,9 @@ ANCHO_MINIMO_DE_BOTON: Final[int] = 40
 #: que se le da un alto propio por eso.
 ALTO_DEL_BOTON: Final[int] = 46
 
+#: El alto mínimo de lo que se aprieta con el mouse, en píxeles (WCAG 2.5.8).
+ALTO_MINIMO_DE_UN_OBJETIVO = 24
+
 #: Hasta dónde se achica el selector de nomenclatura. Alcanza para «AASM».
 ANCHO_MINIMO_DEL_SELECTOR: Final[int] = 72
 
@@ -64,10 +68,6 @@ ABREVIATURAS: Final[dict[Nomenclature, str]] = {
     Nomenclature.RK: "R&K",
     Nomenclature.AASM: "AASM",
 }
-
-#: Lo que dice el pie antes de que haya un registro abierto. Es lo mismo que
-#: dice la barra de navegación en ese momento.
-PIE_SIN_REGISTRO: Final[str] = "Sin registro"
 
 #: Cómo se nombra una ventana a la que todavía nadie le eligió fase. **No es el
 #: «-» con que se guarda**: en un texto suelto, un guion no se lee como nada.
@@ -142,9 +142,16 @@ class ScoringPanel(QWidget):
                 posicion, nomenclatura.value, Qt.ItemDataRole.ToolTipRole
             )
         self._nomenclaturas.currentIndexChanged.connect(self._on_nomenclature)
+        # **Un nombre y no sólo un tooltip** (hito 63): un lector de pantalla
+        # lee el tooltip como descripción, y el selector se anunciaba como
+        # «combo, AASM» sin decir de qué.
+        self._nomenclaturas.setAccessibleName("Nomenclatura")
 
         self._arousal = QCheckBox("Arousal")
         self._arousal.toggled.connect(self._on_arousal)
+        # 24 px de alto como mínimo (WCAG 2.5.8): medía 15, y es lo único del
+        # panel que se aprieta con el mouse sin ser un botón.
+        self._arousal.setMinimumHeight(ALTO_MINIMO_DE_UN_OBJETIVO)
 
         # **El pie parte las palabras** en vez de exigir su ancho entero: con
         # AASM la fila de las fases es la más angosta, y «Ventana 2650 · sin
@@ -156,7 +163,7 @@ class ScoringPanel(QWidget):
         #: marcas, así que `text()` no sirve para contestar `status()`.
         self._texto_del_pie = ""
         # Sin registro tampoco hay nada scoreado; ver `_reflejar_el_pie()`.
-        self._reflejar_el_pie(PIE_SIN_REGISTRO)
+        self._reflejar_el_pie(SIN_REGISTRO)
 
         self._columna = QVBoxLayout(self)
         # Los márgenes de fábrica son 11 px por lado: en un panel que se

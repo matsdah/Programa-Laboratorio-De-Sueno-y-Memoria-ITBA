@@ -53,6 +53,7 @@ from psglab.ui import theme  # noqa: E402
 from psglab.tools.base import BandOverlay  # noqa: E402
 from psglab.ui.docks import ORDEN_DE_ANALISIS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
+from psglab.ui.overview_panel import accessible_summary  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
 
 from conftest import FRECUENCIA_BV, escribir_brainvision, escribir_edf  # noqa: E402
@@ -71,9 +72,14 @@ def ventana(qt_app, tmp_path, monkeypatch):
     afirmación más de cada test.
     """
     carteles: list[str] = []
-    monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
-    )
+    # Qué no se pudo hacer, en el mismo orden: es la primera línea del cartel.
+    acciones: list[str | None] = []
+
+    def anotar_el_cartel(_ventana, error, accion=None):
+        carteles.append(str(error))
+        acciones.append(accion)
+
+    monkeypatch.setattr(MainWindow, "_show_error", anotar_el_cartel)
 
     # **Por `create_main_window()`, que es por donde entra `main.py`.** Armar
     # la `MainWindow` a mano saltea la carga de los dos registros, y entonces
@@ -85,6 +91,7 @@ def ventana(qt_app, tmp_path, monkeypatch):
 
     assert not carteles, f"abrir el registro mostró un error: {carteles}"
     principal.carteles = carteles
+    principal.acciones = acciones
     return principal
 
 
@@ -146,6 +153,9 @@ def test_el_arousal_es_aparte_de_la_fase(ventana: MainWindow):
     sesion = ventana.session
     ventana._go_to_window(0)
     ventana.score_current_window(stages_of(sesion.scoring.nomenclature)[0])
+    # Puntuar pasa a la siguiente desde el hito 64: se vuelve a marcar el
+    # arousal de la misma.
+    ventana._go_to_window(0)
     ventana.toggle_arousal()
 
     epoca = sesion.scoring.get(0)
@@ -701,18 +711,30 @@ def test_las_anotaciones_se_ven_con_cualquier_herramienta(
     assert (10.0, 12.0) in bandas_dibujadas(ventana)
 
 
+@pytest.fixture
+def confirmacion(monkeypatch):
+    """Contesta `_confirmar()` con la respuesta que se fije y anota cada pregunta.
+
+    Como `cartel_del_scoring`: el cartel es modal, y sin nadie que lo cierre
+    colgaría la suite.
+    """
+    estado: dict[str, object] = {"respuesta": True, "preguntas": []}
+
+    def responder(_ventana, titulo, pregunta, accion, **opciones) -> bool:
+        estado["preguntas"].append(
+            {"titulo": titulo, "pregunta": pregunta, "accion": accion, **opciones}
+        )
+        return bool(estado["respuesta"])
+
+    monkeypatch.setattr(MainWindow, "_confirmar", responder)
+    return estado
+
+
 def test_el_clic_derecho_borra_la_anotacion(
-    ventana: MainWindow, monkeypatch, elige_en_el_menu
+    ventana: MainWindow, confirmacion, elige_en_el_menu
 ):
     """Desde el hito 52, eligiendo «Borrar» en el menú del clic derecho."""
     elige_en_el_menu.elegir("Borrar")
-    preguntas: list[str] = []
-
-    def responder(_padre, _titulo, texto, *_args, **_kwargs):
-        preguntas.append(texto)
-        return QMessageBox.StandardButton.Yes
-
-    monkeypatch.setattr(QMessageBox, "question", staticmethod(responder))
     anotar_en(ventana, 10.0, 12.0, "Spindle")
     queda = anotar_en(ventana, 20.0, 22.0)
     ventana._toggle_tool("annotator", True)
@@ -721,20 +743,16 @@ def test_el_clic_derecho_borra_la_anotacion(
 
     assert ventana.session.annotations.all() == [queda]
     assert (10.0, 12.0) not in bandas_dibujadas(ventana)
-    assert "Spindle" in preguntas[0]
+    assert "Spindle" in confirmacion["preguntas"][0]["pregunta"]
     assert not ventana.carteles
 
 
 def test_el_clic_derecho_pregunta_antes_de_borrar(
-    ventana: MainWindow, monkeypatch, elige_en_el_menu
+    ventana: MainWindow, confirmacion, elige_en_el_menu
 ):
     """No hay deshacer: elegir mal en el menú no puede costar un evento."""
     elige_en_el_menu.elegir("Borrar")
-    monkeypatch.setattr(
-        QMessageBox,
-        "question",
-        staticmethod(lambda *_a, **_k: QMessageBox.StandardButton.No),
-    )
+    confirmacion["respuesta"] = False
     anotar_en(ventana, 10.0, 12.0)
     ventana._toggle_tool("annotator", True)
 
@@ -753,7 +771,7 @@ def test_el_clic_derecho_sin_anotar_no_borra(
     def no_deberia_preguntar(*_a, **_k):
         pytest.fail("con la lupa activa, el clic derecho no puede borrar")
 
-    monkeypatch.setattr(QMessageBox, "question", staticmethod(no_deberia_preguntar))
+    monkeypatch.setattr(MainWindow, "_confirmar", no_deberia_preguntar)
     anotar_en(ventana, 10.0, 12.0)
     ventana._toggle_tool("magnifier", True)
 
@@ -896,7 +914,7 @@ def test_el_programa_se_construye_sin_registro(qt_app):
 def test_exportar_sin_registro_no_revienta(qt_app, tmp_path, monkeypatch):
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     ventana = create_main_window()
 
@@ -1189,7 +1207,7 @@ def test_pedir_la_hora_real_sin_hora_de_inicio_avisa(
 
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     principal = create_main_window()
     sin_hora = Recording(
@@ -1218,7 +1236,7 @@ def test_el_panel_de_contexto_arranca_encendido(ventana: MainWindow):
 
 
 @pytest.mark.parametrize(
-    "texto, clave", [("Übersicht", "overview"), ("Hipnograma", "histogram")]
+    "texto, clave", [("Contexto (Übersicht)", "overview"), ("Hipnograma", "histogram")]
 )
 def test_tildar_un_panel_desde_herramientas_lo_muestra_con_contenido(
     ventana: MainWindow, texto: str, clave: str
@@ -1234,6 +1252,10 @@ def test_tildar_un_panel_desde_herramientas_lo_muestra_con_contenido(
             return bool(ventana.overview_panel.rectangles())
         return bool(ventana.histogram_view.getPlotItem().listDataItems())
 
+    # El hipnograma arranca visible desde el hito 64: se lo oculta primero.
+    # Con `hide()` y no con la acción, que sigue la visibilidad del panel
+    # sólo con la ventana en pantalla, y ésta no se muestra.
+    dock.hide()
     assert dock.isHidden()
 
     entrada.trigger()
@@ -1701,7 +1723,7 @@ def ventana_con_dos_eeg(qt_app, tmp_path, monkeypatch):
     """
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     principal = create_main_window()
     vhdr = escribir_brainvision(
@@ -1720,6 +1742,8 @@ def test_con_un_solo_eeg_la_ica_avisa(ventana: MainWindow):
     ventana.show_ica_dialog()
     ventana.wait_for_background()
     assert ventana.carteles
+    # El cartel dice qué no se pudo hacer, también desde otro hilo (hito 65).
+    assert ventana.acciones == ["calcular la ICA"]
 
 
 def test_ajustar_no_aplica_nada(ventana_con_dos_eeg: MainWindow):
@@ -1934,7 +1958,7 @@ def ventana_con_impedancias(qt_app, tmp_path, monkeypatch):
     """
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     principal = create_main_window()
     vhdr = escribir_brainvision(
@@ -2134,7 +2158,7 @@ def ventana_a_100_hz(qt_app, tmp_path, monkeypatch):
     """
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     principal = create_main_window()
     vhdr = escribir_brainvision(
@@ -3243,11 +3267,12 @@ def test_espacio_reproduce_y_pausa(reproduccion: MainWindow):
     assert not ventana.playback.is_playing
 
 
-def test_el_programa_abre_solo_con_la_senal_y_los_canales(ventana: MainWindow):
-    """Hito 24. Con un registro abierto sigue igual: abrir no despliega nada."""
+def test_el_programa_abre_con_la_senal_los_canales_y_el_hipnograma(ventana: MainWindow):
+    """Hito 24, con el hipnograma de vuelta desde el 64. Con un registro
+    abierto sigue igual: abrir no despliega nada más."""
     visibles = [clave for clave, dock in ventana.docks.items() if not dock.isHidden()]
 
-    assert visibles == ["channels"]
+    assert visibles == ["channels", "histogram"]
 
 
 # -- El hipnograma, por el camino del mouse (V4_F) ----------------------------
@@ -3405,7 +3430,9 @@ def test_un_panel_vacio_dice_desde_donde_se_pide(ventana: MainWindow, clave: str
 
     panel = getattr(ventana, f"{clave}_panel")
     ventana.docks[clave].toggleViewAction().trigger()
-    pista = panel.visible_hint()
+    que_falta, _, pista = panel.visible_hint().partition("<br>")
+    # Primero qué falta (hito 65), y después desde dónde se pide.
+    assert que_falta.endswith(".") and "Se pide" not in que_falta
     assert pista.startswith("Se pide desde ")
 
     # Una ruta por renglón: la métrica tiene dos.
@@ -3438,7 +3465,7 @@ def test_filtrar_vacia_los_resultados_de_la_señal_anterior(
 
     assert ventana.psd_panel.channels() == []
     assert ventana.psd_panel.caption() == ""
-    assert ventana.psd_panel.visible_hint().startswith("Se pide desde ")
+    assert ventana.psd_panel.visible_hint().startswith("No hay ningún espectro calculado.")
 
 
 def test_volver_a_la_original_vacia_los_resultados_de_la_procesada(
@@ -3567,7 +3594,7 @@ def ventana_con_un_plano(qt_app, tmp_path, monkeypatch):
     """Dos EEG, el primero en cero: un electrodo desconectado."""
     carteles: list[str] = []
     monkeypatch.setattr(
-        MainWindow, "_show_error", lambda self, error: carteles.append(str(error))
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
     )
     principal = create_main_window()
     vhdr = escribir_brainvision(
@@ -4145,7 +4172,7 @@ def test_un_archivo_de_preferencias_danado_se_avisa_al_arrancar(
     archivo.write_text("{esto no es json", encoding="utf-8")
     monkeypatch.setattr(preferencias_mod, "preferences_path", lambda: archivo)
     carteles: list[str] = []
-    monkeypatch.setattr(MainWindow, "_show_error", lambda _v, error: carteles.append(str(error)))
+    monkeypatch.setattr(MainWindow, "_show_error", lambda _v, error, accion=None: carteles.append(str(error)))
 
     nueva = create_main_window(saved_preferences=True)
     assert carteles == []
@@ -4195,13 +4222,10 @@ def test_la_barra_de_estado_no_se_queda_calculando(ventana: MainWindow, elige_op
     assert "…" not in ventana.statusBar().currentMessage()
 
 
-@pytest.mark.parametrize(
-    ("respuesta", "sobrescribe"),
-    [(QMessageBox.StandardButton.Yes, True), (QMessageBox.StandardButton.No, False)],
-)
+@pytest.mark.parametrize("sobrescribe", [True, False])
 def test_el_nombre_sin_extension_pregunta_antes_de_pisar(
-    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado, monkeypatch,
-    respuesta, sobrescribe: bool,
+    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado, confirmacion,
+    sobrescribe: bool,
 ):
     """La extensión se agrega **después** de que el diálogo confirmó, así que el
     archivo que se iba a pisar no era el que el usuario vio: escribía «noche» y
@@ -4209,12 +4233,14 @@ def test_el_nombre_sin_extension_pregunta_antes_de_pisar(
     ya_estaba = tmp_path / "noche.txt"
     ya_estaba.write_text("lo que habia antes", encoding="utf-8")
     dialogo_de_guardado["respuesta"] = tmp_path / "noche"
-    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: respuesta))
+    confirmacion["respuesta"] = sobrescribe
 
     ventana.export_scoring_dialog("txt")
 
     piso = ya_estaba.read_text(encoding="utf-8") != "lo que habia antes"
     assert piso is sobrescribe
+    assert confirmacion["preguntas"][0]["accion"] == "Reemplazar"
+    assert "noche.txt" in confirmacion["preguntas"][0]["pregunta"]
 
 
 def test_el_espectro_dice_que_una_banda_queda_fuera(
@@ -4248,10 +4274,18 @@ def test_la_barra_de_menu_identifica_el_registro(ventana: MainWindow):
     assert "canales" in resumen
 
 
-def test_sin_registro_la_barra_de_menu_lo_dice(qt_app):
+def test_sin_registro_todo_lo_dice_con_las_mismas_palabras(qt_app):
+    """Hito 65: eran «Sin registro» y «Sin registro abierto» para el mismo
+    estado, según dónde se mirara."""
     vacia = create_main_window()
     try:
-        assert vacia.recording_summary.text() == "Sin registro"
+        assert vacia.recording_summary.text() == "Sin registro abierto"
+        assert vacia.statusBar().currentMessage() == "Sin registro abierto"
+        assert vacia.navigation._posicion.text() == "Sin registro abierto"
+        assert vacia.scoring_panel.status() == "Sin registro abierto"
+        # El contexto lo dice sólo al lector de pantalla, y recién cuando le
+        # llegan ventanas: se pregunta a la función que arma ese texto.
+        assert accessible_summary(()) == "Sin registro abierto"
     finally:
         vacia.close()
 
@@ -4283,8 +4317,7 @@ def test_el_boton_de_descartar_lleva_la_tinta_de_lo_que_destruye(
 ):
     """**El rol no alcanza.** `DestructiveRole` le dice a Qt dónde ubicar el
     botón y con qué tecla responde, no de qué color pintarlo: en Windows sale
-    idéntico a «Cancelar». La tinta la pone el esquema por una propiedad, y es
-    el único control del programa que la lleva."""
+    idéntico a «Cancelar». La tinta la pone el esquema por una propiedad."""
     vistos: dict[str, bool] = {}
 
     def espiar(cartel):
@@ -4315,8 +4348,9 @@ def test_scorear_actualiza_la_fase_que_muestra_la_ubersicht(ventana: MainWindow)
 
     ventana.score_current_window(SleepStage.N2)
 
-    actual = [v for v in contexto.windows() if v.is_current][0]
-    assert actual.stage is SleepStage.N2
+    # Puntuar pasa a la siguiente (hito 64): la recién puntuada es la 0.
+    puntuada = [v for v in contexto.windows() if v.index == 0][0]
+    assert puntuada.stage is SleepStage.N2
 
 
 # -- El camino entre una herramienta que dibuja y la pantalla (hito 45) -------
@@ -4827,20 +4861,6 @@ def test_la_traduccion_de_qt_se_carga(qt_app):
     assert install_qt_translations(qt_app)
 
 
-def test_la_pregunta_antes_de_borrar_dice_si_y_no(ventana: MainWindow):
-    """Es la pregunta de «Borrar» en el menú de una anotación. Decía «Yes /
-    No»."""
-    pregunta = QMessageBox(
-        QMessageBox.Icon.Question,
-        "Borrar anotación",
-        "¿Borrar la anotación?",
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        ventana,
-    )
-
-    assert sorted(_botones(pregunta)) == ["No", "Sí"]
-
-
 def test_el_cartel_de_error_muestra_el_detalle_en_espanol(ventana: MainWindow):
     """Es el cartel de `_show_error()`, con el desplegable de la causa técnica.
     Decía «Show Details... / OK»."""
@@ -5168,3 +5188,853 @@ def test_reproduciendo_la_rueda_acerca_hacia_el_cursor(reproduccion: MainWindow)
 
     assert ventana.session.viewport.span_seconds == pytest.approx(30.0)
     assert ventana.session.viewport.center_seconds == pytest.approx(cursor)
+
+
+# -- Accesibilidad: el teclado llega a todo (hito 62) ------------------------
+
+
+def test_inicio_y_fin_van_a_la_primera_y_la_ultima_ventana(ventana: MainWindow):
+    ventana.go_to_last_window()
+    assert ventana.session.current_window == VENTANAS - 1
+
+    ventana.go_to_first_window()
+    assert ventana.session.current_window == 0
+
+
+def test_ctrl_g_pregunta_a_que_ventana_ir(ventana: MainWindow, monkeypatch):
+    """**Cuenta desde uno**, como la barra de estado; adentro es base 0."""
+    pedidos: list[tuple] = []
+
+    def preguntar(_padre, _titulo, _rotulo, valor, minimo, maximo, *_resto):
+        pedidos.append((valor, minimo, maximo))
+        return 4, True
+
+    monkeypatch.setattr(QInputDialog, "getInt", preguntar)
+    ventana.ask_window()
+
+    assert pedidos == [(1, 1, VENTANAS)]
+    assert ventana.session.current_window == 3
+
+
+def test_cancelar_ctrl_g_no_mueve_nada(ventana: MainWindow, monkeypatch):
+    ventana.go_to_next_window()
+    monkeypatch.setattr(QInputDialog, "getInt", lambda *_a, **_k: (5, False))
+
+    ventana.ask_window()
+
+    assert ventana.session.current_window == 1
+
+
+def test_los_atajos_nuevos_estan_colgados_de_la_ventana(ventana: MainWindow):
+    """Que el método exista no alcanza: tiene que haber un atajo que lo
+    llame, o para el teclado sigue sin existir."""
+    from PySide6.QtGui import QKeySequence, QShortcut
+
+    teclas = {atajo.key().toString() for atajo in ventana.findChildren(QShortcut)}
+
+    for tecla in ("Home", "End", "Ctrl+G", "E", "Shift+F10", "Menu"):
+        assert QKeySequence(tecla).toString() in teclas, tecla
+
+
+def test_e_anota_la_ventana_actual(ventana: MainWindow, monkeypatch):
+    """**Anotar era lo único del pliego que exigía mouse.** Con E se anota la
+    ventana entera, con la misma pregunta de clase que al arrastrar."""
+    from psglab.core.windows import window_to_samples
+
+    ventana.go_to_next_window()
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("Apnea", True))
+
+    ventana.annotate_current_window()
+
+    (anotacion,) = ventana.session.annotations.all()
+    inicio, fin = window_to_samples(1, ventana.session.recording.sampling_rate)
+    assert (anotacion.label, anotacion.onset_sample, anotacion.duration_samples) == (
+        "Apnea", inicio, fin - inicio
+    )
+    assert ventana._tool_actions["annotator"].isChecked()
+    assert not ventana.carteles
+
+
+def test_anotar_la_ultima_ventana_no_se_pasa_del_registro(
+    ventana: MainWindow, monkeypatch, tmp_path
+):
+    """Un registro de 145 s tiene la quinta ventana incompleta: anotarla
+    entera se pasaría 5 s del final."""
+    ventana.open_recording(escribir_brainvision(tmp_path / "corto", segundos=145.0))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("Apnea", True))
+    ventana.go_to_last_window()
+
+    ventana.annotate_current_window()
+
+    (anotacion,) = ventana.session.annotations.all()
+    assert anotacion.onset_sample + anotacion.duration_samples <= ventana.session.recording.n_samples
+
+
+def test_mayus_f10_corrige_la_anotacion_de_la_ventana(
+    ventana: MainWindow, monkeypatch, elige_en_el_menu
+):
+    """El menú del clic derecho, sin mouse: cambiar la clase de la anotación
+    de la ventana actual. **Si hay dos, la más corta**, como el clic."""
+    respuestas = iter([("Apnea", True), ("Arousal", True)])
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: next(respuestas))
+    ventana.annotate_current_window()
+    fs = ventana.session.recording.sampling_rate
+    herramienta = ventana._tools["annotator"]
+    herramienta.create_annotation("Apnea", int(5 * fs), int(2 * fs))
+    elige_en_el_menu.elegir(main_window_mod._CAMBIAR_CLASE)
+
+    ventana.annotation_menu_for_current_window()
+
+    assert elige_en_el_menu.menus == [[main_window_mod._CAMBIAR_CLASE, main_window_mod._BORRAR]]
+    clases = sorted((a.duration_samples, a.label) for a in ventana.session.annotations.all())
+    assert clases[0][1] == "Arousal"
+    assert clases[1][1] == "Apnea"
+
+
+def test_mayus_f10_sin_anotacion_lo_dice(ventana: MainWindow, elige_en_el_menu):
+    ventana.annotation_menu_for_current_window()
+
+    assert elige_en_el_menu.menus == []
+    assert "No hay ninguna anotación" in ventana.statusBar().currentMessage()
+
+
+def test_la_senal_con_foco_se_ve(ventana: MainWindow):
+    """El marco de acento aparece con el foco y se va sin él. Se mira el
+    borde de lo que se dibuja, no la hoja de estilo."""
+    ventana.show()
+    ventana.activateWindow()
+    vista = ventana.signal_view
+    acento = theme.current().accent
+
+    def borde() -> str:
+        imagen = vista.grab().toImage()
+        return imagen.pixelColor(0, imagen.height() // 2).name()
+
+    ventana.channel_selector.setFocus()
+    QApplication.processEvents()
+    assert borde() != acento
+
+    vista.setFocus()
+    QApplication.processEvents()
+    assert vista.hasFocus()
+    assert borde() == acento
+
+
+# -- El flujo de scoring (hito 64) --------------------------------------------
+
+
+def test_puntuar_pasa_a_la_siguiente(ventana: MainWindow):
+    """Una tecla por ventana y no dos."""
+    ventana.score_current_window(SleepStage.N2)
+
+    assert ventana.session.scoring.get(0).stage is SleepStage.N2
+    assert ventana.session.current_window == 1
+
+
+def test_en_la_ultima_puntuar_no_se_pasa(ventana: MainWindow):
+    ventana.go_to_last_window()
+
+    ventana.score_current_window(SleepStage.N2)
+
+    assert ventana.session.current_window == VENTANAS - 1
+    assert not ventana.carteles
+
+
+def test_con_el_paso_apagado_se_queda(ventana: MainWindow):
+    ventana._preferencias = ventana._preferencias.with_changes(advance_after_scoring=False)
+
+    ventana.score_current_window(SleepStage.N2)
+
+    assert ventana.session.current_window == 0
+
+
+def test_reproduciendo_puntuar_no_adelanta_la_reproduccion(reproduccion: MainWindow):
+    """La época la lleva el cursor: saltar adelantaría la reproducción una
+    ventana por cada tecla."""
+    ventana = reproduccion
+    ventana.toggle_playback()
+    ventana.playback.advanced.emit(10.0)
+    cursor = ventana.signal_view.playhead()
+
+    ventana.score_current_window(SleepStage.N2)
+
+    assert ventana.signal_view.playhead() == pytest.approx(cursor)
+    assert ventana.session.scoring.get(0).stage is SleepStage.N2
+
+
+def test_la_pestana_toma_el_color_de_la_fase(ventana: MainWindow):
+    """**Confirma lo puntuado sin leer la letra**: el color es el mismo de la
+    franja y el hipnograma. Sin puntuar, el acento."""
+    esquema = theme.current()
+    assert ventana.signal_view.epoch_tab_fill() == esquema.accent
+
+    ventana.score_current_window(SleepStage.N2)
+    ventana._go_to_window(0)
+
+    assert ventana.signal_view._pestana.toPlainText() == "Ventana 1 · N2"
+    assert ventana.signal_view.epoch_tab_fill() == esquema.color_for_stage("N2")
+
+
+def test_la_pestana_cambia_de_color_con_el_esquema(ventana: MainWindow):
+    anterior = theme.current()
+    ventana._preferencias = ventana._preferencias.with_changes(advance_after_scoring=False)
+    ventana.score_current_window(SleepStage.N2)
+    try:
+        ventana.set_color_scheme(theme.NOCTURNO, remember=False)
+
+        assert ventana.signal_view.epoch_tab_fill() == theme.NOCTURNO.color_for_stage("N2")
+    finally:
+        ventana.set_color_scheme(anterior, remember=False)
+
+
+def test_abrir_un_registro_lo_deja_en_recientes(ventana: MainWindow):
+    (ruta,) = ventana.current_preferences.recent_files
+    textos = [a.text() for a in ventana.menu_recientes.actions()]
+
+    assert ruta.endswith("sintetico.vhdr")
+    assert textos == ["&1  sintetico.vhdr"]
+
+
+def test_elegir_un_reciente_lo_abre(ventana: MainWindow, tmp_path):
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 2)
+
+    ventana.open_recent_file(str(otro))
+
+    assert ventana.session.n_windows == 2
+    assert ventana.current_preferences.recent_files[0] == str(otro.resolve())
+
+
+def test_un_reciente_que_ya_no_esta_se_quita_y_se_avisa(ventana: MainWindow, tmp_path):
+    fantasma = str(tmp_path / "ya-no-esta.vhdr")
+    ventana._preferencias = ventana._preferencias.with_recent_file(fantasma)
+
+    ventana.open_recent_file(fantasma)
+
+    assert fantasma not in ventana.current_preferences.recent_files
+    assert "ya no está" in ventana.carteles[0]
+    assert ventana.session.n_windows == VENTANAS
+
+
+def test_guardar_una_vista_guarda_canales_orden_y_escala(ventana: MainWindow, monkeypatch):
+    monkeypatch.setattr(QInputDialog, "getText", lambda *_a, **_k: ("Scoring", True))
+    ventana._set_visible_channels(["EOG-izq", "C3"])
+    ventana.session.set_scale_uv("C3", 40.0)
+
+    ventana.save_channel_view()
+
+    assert ventana.current_preferences.channel_view("Scoring") == (
+        ("EOG-izq", ventana.session.scale_uv("EOG-izq")),
+        ("C3", 40.0),
+    )
+    assert "Scoring" in [a.text() for a in ventana.menu_vistas.actions()]
+
+
+def test_aplicar_una_vista_muestra_sus_canales_con_su_escala(ventana: MainWindow):
+    ventana._preferencias = ventana._preferencias.with_channel_view(
+        "Ocular", (("EOG-izq", 120.0), ("C3", 40.0))
+    )
+
+    ventana.apply_channel_view("Ocular")
+
+    assert ventana.session.visible_channels == ["EOG-izq", "C3"]
+    assert ventana.session.scale_uv("EOG-izq") == pytest.approx(120.0)
+    assert ventana.session.scale_uv("C3") == pytest.approx(40.0)
+    assert ventana.signal_view._visible == ["EOG-izq", "C3"]
+    assert not ventana.carteles
+
+
+def test_una_vista_con_canales_que_no_estan_usa_los_que_hay(ventana: MainWindow):
+    """Una vista armada con otro montaje sirve igual para lo que coincide."""
+    ventana._preferencias = ventana._preferencias.with_channel_view(
+        "Otro montaje", (("F4", 50.0), ("C3", 40.0))
+    )
+
+    ventana.apply_channel_view("Otro montaje")
+
+    assert ventana.session.visible_channels == ["C3"]
+    assert "un canal no está" in ventana.statusBar().currentMessage()
+
+
+def test_una_vista_sin_ningun_canal_del_registro_no_toca_nada(ventana: MainWindow):
+    antes = ventana.session.visible_channels
+    ventana._preferencias = ventana._preferencias.with_channel_view(
+        "Ajena", (("F4", 50.0),)
+    )
+
+    ventana.apply_channel_view("Ajena")
+
+    assert ventana.session.visible_channels == antes
+    assert "Ninguno" in ventana.carteles[0]
+
+
+def test_borrar_una_vista(ventana: MainWindow, monkeypatch):
+    ventana._preferencias = ventana._preferencias.with_channel_view("Vieja", (("C3", 50.0),))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("Vieja", True))
+
+    ventana.delete_channel_view()
+
+    assert ventana.current_preferences.channel_views == ()
+
+
+# -- Los textos de la interfaz (hito 65) -------------------------------------
+
+#: El `_show_error` de verdad: las fixtures lo reemplazan por una lista.
+_MOSTRAR_EL_ERROR = MainWindow._show_error
+
+
+class EspiaDeCarteles:
+    """Reemplaza `QMessageBox.exec`: anota el cartel y aprieta un botón.
+
+    Apretar un botón fuera de `exec()` deja igual `clickedButton()`, que es lo
+    único que mira el programa.
+
+    **No anota el título, a propósito** (hito 66): macOS no lo muestra, así que
+    un test que lo mirara verificaría algo que en una Mac no se ve. El del
+    hito 65 lo hizo, y falló sólo en el CI de macOS.
+    """
+
+    def __init__(self, apretar: str | None = None) -> None:
+        self.apretar = apretar
+        self.vistos: list[dict[str, object]] = []
+
+    def __call__(self, cartel: QMessageBox) -> int:
+        botones = {b.text(): b for b in cartel.buttons()}
+        self.vistos.append(
+            {
+                "texto": cartel.text(),
+                "informativo": cartel.informativeText(),
+                "detalle": cartel.detailedText(),
+                "botones": sorted(botones),
+                "por_omision": cartel.defaultButton().text() if cartel.defaultButton() else None,
+                "destructivos": sorted(
+                    t for t, b in botones.items() if b.property(theme.DESTRUCTIVO_PROPERTY)
+                ),
+            }
+        )
+        if self.apretar is not None:
+            botones[self.apretar].click()
+        return 0
+
+
+def test_confirmar_nombra_la_accion_en_el_boton(ventana: MainWindow, monkeypatch):
+    """«Borrar / Cancelar» y no «Sí / No», que obligaba a releer la pregunta
+    para saber cuál era cuál. **Cancelar va por omisión** cuando se pierde
+    algo: un Enter apurado no puede borrar."""
+    espia = EspiaDeCarteles(apretar="Borrar")
+    monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
+
+    confirmado = ventana._confirmar(
+        "Borrar la anotación", "¿Borrar?", "Borrar",
+        informativo="No se puede deshacer.", destructivo=True,
+    )
+
+    assert confirmado is True
+    (visto,) = espia.vistos
+    assert visto["botones"] == ["Borrar", "Cancelar"]
+    assert visto["por_omision"] == "Cancelar"
+    assert visto["destructivos"] == ["Borrar"]
+    assert visto["informativo"] == "No se puede deshacer."
+
+
+@pytest.mark.parametrize("apretar", ["Cancelar", None], ids=["cancelar", "cerrar"])
+def test_confirmar_sin_apretar_la_accion_no_confirma(
+    ventana: MainWindow, monkeypatch, apretar
+):
+    espia = EspiaDeCarteles(apretar=apretar)
+    monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
+
+    assert ventana._confirmar("Reemplazar el archivo", "¿Reemplazarlo?", "Reemplazar") is False
+
+
+def test_sin_perder_nada_la_accion_va_por_omision(ventana: MainWindow, monkeypatch):
+    espia = EspiaDeCarteles()
+    monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
+
+    ventana._confirmar("Cambiar de nomenclatura", "¿Convertir?", "Convertir")
+
+    assert espia.vistos[0]["por_omision"] == "Convertir"
+    assert espia.vistos[0]["destructivos"] == []
+
+
+def test_borrar_una_anotacion_avisa_que_no_se_deshace(
+    ventana: MainWindow, confirmacion, elige_en_el_menu
+):
+    elige_en_el_menu.elegir("Borrar")
+    anotar_en(ventana, 10.0, 12.0, "Spindle")
+    ventana._toggle_tool("annotator", True)
+
+    clic_derecho(ventana, 11.0)
+
+    (pregunta,) = confirmacion["preguntas"]
+    assert pregunta["accion"] == "Borrar"
+    assert pregunta["destructivo"] is True
+    assert "deshacer" in pregunta["informativo"]
+
+
+@pytest.mark.parametrize("convierte", [True, False])
+def test_cambiar_de_nomenclatura_pregunta_con_convertir(
+    ventana: MainWindow, confirmacion, convierte: bool
+):
+    from psglab.core.nomenclature import Nomenclature
+
+    antes = ventana.session.scoring.nomenclature
+    otra = Nomenclature.RK if antes is Nomenclature.AASM else Nomenclature.AASM
+    ventana.score_current_window(stages_of(antes)[0])
+    confirmacion["respuesta"] = convierte
+
+    ventana.scoring_panel.nomenclature_changed.emit(otra)
+
+    assert confirmacion["preguntas"][0]["accion"] == "Convertir"
+    assert ventana.session.scoring.nomenclature is (otra if convierte else antes)
+
+
+def test_sin_nada_scoreado_cambiar_de_nomenclatura_no_pregunta(
+    ventana: MainWindow, confirmacion
+):
+    from psglab.core.nomenclature import Nomenclature
+
+    ventana.scoring_panel.nomenclature_changed.emit(Nomenclature.RK)
+
+    assert confirmacion["preguntas"] == []
+    assert ventana.session.scoring.nomenclature is Nomenclature.RK
+
+
+def test_el_cartel_de_error_empieza_por_lo_que_no_se_pudo_hacer(
+    ventana: MainWindow, monkeypatch
+):
+    """Era «No se pudo completar la operación» para todos: después de un
+    cálculo largo, nadie recuerda qué había pedido.
+
+    **En el texto y no en el título** (hito 66): el hito 65 lo puso en el
+    título, y macOS no lo muestra. Debajo va el porqué, y la causa técnica
+    sigue en el desplegable."""
+    monkeypatch.setattr(MainWindow, "_show_error", _MOSTRAR_EL_ERROR)
+    espia = EspiaDeCarteles()
+    monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
+
+    ventana._show_error(
+        PsgLabError("No se encontró el archivo.", details="No existe C:/noche.edf."),
+        "abrir «noche.edf»",
+    )
+    ventana._show_error(PsgLabError("algo"))
+
+    assert [(v["texto"], v["informativo"]) for v in espia.vistos] == [
+        ("No se pudo abrir «noche.edf».", "No se encontró el archivo."),
+        ("No se pudo completar la operación.", "algo"),
+    ]
+    assert espia.vistos[0]["detalle"] == "No existe C:/noche.edf."
+
+
+def test_el_cartel_de_avisos_dice_en_el_texto_que_el_registro_se_abrio(
+    ventana: MainWindow, monkeypatch
+):
+    """Lo decía sólo el título, que macOS no muestra (hito 66). El aviso de
+    las muestras sin valor no dice por sí solo que el registro se abrió."""
+    espia = EspiaDeCarteles()
+    monkeypatch.setattr(QMessageBox, "exec", lambda cartel: espia(cartel))
+
+    ventana._mostrar_avisos_de_lectura(["Primer aviso.", "Segundo aviso."])
+
+    (visto,) = espia.vistos
+    nombre = ventana.session.recording.file_path.name
+    assert visto["texto"] == f"«{nombre}» se abrió, con avisos."
+    assert visto["informativo"] == "Primer aviso.\n\nSegundo aviso."
+
+
+def test_abrir_un_archivo_que_no_esta_lo_nombra_en_el_cartel(
+    ventana: MainWindow, tmp_path
+):
+    ventana.open_recording(tmp_path / "noche.edf")
+
+    assert ventana.acciones == ["abrir «noche.edf»"]
+
+
+def test_un_analisis_que_falla_dice_cual_en_el_cartel(ventana: MainWindow):
+    def falla(_registro):
+        raise PsgLabError("no")
+
+    ventana._aplicar_analisis("Se derivó", falla, accion="derivar «C3-EOG-izq»")
+
+    assert ventana.acciones == ["derivar «C3-EOG-izq»"]
+
+
+# -- Las teclas son del control que tiene el foco (hito 67) ------------------
+
+
+@pytest.fixture
+def a_la_vista(ventana: MainWindow):
+    """La ventana mostrada y activa: sin eso no hay foco, y sin foco Qt no
+    decide entre un atajo y el control. Se oculta y no se cierra al terminar:
+    cerrar preguntaría por el scoring sin exportar, que es modal."""
+    ventana.resize(1400, 900)
+    ventana.show()
+    ventana.activateWindow()
+    QApplication.processEvents()
+    yield ventana
+    ventana.hide()
+
+
+def teclear(*teclas: Qt.Key) -> None:
+    """Cada tecla a lo que tenga el foco **en ese momento**: la primera que
+    se tipea en una celda abre su editor, y la siguiente ya va ahí."""
+    from PySide6.QtTest import QTest
+
+    for tecla in teclas:
+        QTest.keyClick(QApplication.focusWidget(), tecla)
+        QApplication.processEvents()
+
+
+def test_tipear_en_la_tabla_de_impedancias_escribe_el_valor(a_la_vista: MainWindow):
+    """**Scoreaba la ventana**: «2» la marcaba N2 y el paso a la siguiente del
+    hito 64 hacía que «25» scoreara dos, mientras el usuario creía estar
+    escribiendo la impedancia que la pista del panel le pide."""
+    ventana = a_la_vista
+    ventana.show_impedance_dialog()
+    tabla = ventana.impedance_panel.tabla
+    tabla.setFocus()
+    tabla.setCurrentItem(tabla.topLevelItem(0), 1)
+    QApplication.processEvents()
+
+    teclear(Qt.Key.Key_2, Qt.Key.Key_5, Qt.Key.Key_Return)
+
+    canal = tabla.topLevelItem(0).text(0)
+    assert ventana.impedance_panel.values()[canal] == pytest.approx(25.0)
+    assert ventana.session.scoring.scored_windows() == 0
+    assert ventana.session.current_window == 0
+
+
+def test_tipear_en_la_tabla_de_filtros_escribe_el_corte(a_la_vista: MainWindow):
+    ventana = a_la_vista
+    ventana.show_filter_dialog()
+    tabla = ventana.filter_panel.tabla
+    tabla.setFocus()
+    tabla.setCurrentItem(tabla.topLevelItem(0), 1)
+    QApplication.processEvents()
+
+    teclear(Qt.Key.Key_2, Qt.Key.Key_Return)
+
+    assert tabla.topLevelItem(0).text(1) == "2"
+    assert ventana.session.scoring.scored_windows() == 0
+
+
+def test_las_flechas_recorren_la_tabla_y_no_cambian_la_amplitud(a_la_vista: MainWindow):
+    """↓ agrandaba la escala en vez de bajar de fila: la tabla no se podía
+    recorrer con el teclado."""
+    ventana = a_la_vista
+    ventana.show_impedance_dialog()
+    tabla = ventana.impedance_panel.tabla
+    tabla.setFocus()
+    tabla.setCurrentItem(tabla.topLevelItem(0), 1)
+    QApplication.processEvents()
+    escalas = {c: ventana.session.scale_uv(c) for c in ventana.session.visible_channels}
+
+    teclear(Qt.Key.Key_Down, Qt.Key.Key_Down)
+
+    assert tabla.indexOfTopLevelItem(tabla.currentItem()) == 2
+    assert {c: ventana.session.scale_uv(c) for c in escalas} == escalas
+
+
+def test_en_la_lista_de_canales_las_flechas_son_de_la_lista(a_la_vista: MainWindow):
+    """Pero las teclas que escriben siguen scoreando: la lista no carga datos,
+    y quien tildó un canal sigue trabajando con el teclado."""
+    from PySide6.QtWidgets import QListWidget
+
+    ventana = a_la_vista
+    lista = ventana.channel_selector.findChildren(QListWidget)[0]
+    lista.setFocus()
+    lista.setCurrentRow(0)
+    QApplication.processEvents()
+    escalas = {c: ventana.session.scale_uv(c) for c in ventana.session.visible_channels}
+
+    teclear(Qt.Key.Key_Down)
+
+    assert lista.currentRow() == 1
+    assert {c: ventana.session.scale_uv(c) for c in escalas} == escalas
+    teclear(Qt.Key.Key_2)
+    assert ventana.session.scoring.get(0).stage is SleepStage.N2
+
+
+def test_las_flechas_eligen_la_velocidad_en_su_selector(a_la_vista: MainWindow):
+    ventana = a_la_vista
+    selector = ventana.navigation.speed_selector
+    selector.setFocus()
+    QApplication.processEvents()
+    antes = selector.currentIndex()
+
+    teclear(Qt.Key.Key_Down)
+
+    assert selector.currentIndex() == antes + 1
+
+
+def test_con_el_foco_en_la_senal_los_atajos_siguen_iguales(a_la_vista: MainWindow):
+    """**Lo que no tenía que cambiar**: la señal no es ninguno de los
+    controles que se quedan con sus teclas."""
+    ventana = a_la_vista
+    sesion = ventana.session
+    ventana.signal_view.setFocus()
+    QApplication.processEvents()
+    canal = sesion.visible_channels[0]
+    escala = sesion.scale_uv(canal)
+
+    teclear(Qt.Key.Key_Down, Qt.Key.Key_Right, Qt.Key.Key_2)
+
+    assert sesion.scale_uv(canal) > escala
+    assert sesion.scoring.get(1).stage is SleepStage.N2
+    assert sesion.current_window == 2
+
+
+def test_el_filtro_de_las_teclas_es_uno_solo_en_toda_la_aplicacion(
+    ventana: MainWindow,
+):
+    """Los atajos se reinstalan al armar cada ventana, al abrir un registro y
+    al cambiar de nomenclatura. **Uno por ventana dejó la suite sin
+    terminar**: las de los tests no se destruyen, y cada evento pasaba por
+    todos. A esta altura de la suite ya se armaron cientos de ventanas."""
+    from PySide6.QtCore import QObject
+
+    from psglab.core.nomenclature import Nomenclature
+
+    create_main_window()
+    ventana.scoring_panel.nomenclature_changed.emit(Nomenclature.RK)
+
+    aplicacion = QApplication.instance()
+    assert len(aplicacion.findChildren(QObject, "psglab-teclas-del-control")) == 1
+
+
+# -- Un cálculo de la señal anterior se descarta (hito 67) -------------------
+
+
+def test_la_ica_de_otro_registro_no_se_muestra(
+    ventana_con_dos_eeg: MainWindow, tmp_path
+):
+    """**Se aplicaba sobre el registro nuevo**: «Abrir» sigue habilitado
+    mientras la ICA calcula, y la de la noche A quedaba en el panel como si
+    fuera de la B. Con los mismos canales, «Aplicar y quitar» la usaba sin
+    avisar."""
+    ventana = ventana_con_dos_eeg
+    empezo = threading.Event()
+    seguir = threading.Event()
+    real = main_window_mod.fit_ica
+
+    def lento(registro):
+        empezo.set()
+        seguir.wait(5.0)
+        return real(registro)
+
+    otra = escribir_brainvision(
+        tmp_path / "otra_noche",
+        segundos=WINDOW_SECONDS * 2,
+        canales=[("C3", "µV"), ("C4", "µV"), ("EOG-izq", "µV")],
+    )
+    main_window_mod.fit_ica = lento
+    try:
+        ventana.show_ica_dialog()
+        assert empezo.wait(5.0), "el ajuste no arrancó"
+        ventana.open_recording(otra)
+    finally:
+        seguir.set()
+        ventana.wait_for_background()
+        main_window_mod.fit_ica = real
+
+    assert ventana.session.recording.file_path == otra
+    assert ventana._ica is None
+    assert ventana.ica_panel.component_count() == 0
+    assert "Se descartó" in ventana.statusBar().currentMessage()
+    assert not ventana.carteles
+
+
+def test_el_error_de_un_calculo_de_otro_registro_no_se_muestra(
+    ventana_con_dos_eeg: MainWindow, tmp_path
+):
+    """Habla de una señal que ya no está en pantalla."""
+    ventana = ventana_con_dos_eeg
+    empezo = threading.Event()
+    seguir = threading.Event()
+    real = main_window_mod.fit_ica
+
+    def falla(registro):
+        empezo.set()
+        seguir.wait(5.0)
+        raise PsgLabError("La ICA no convergió.")
+
+    main_window_mod.fit_ica = falla
+    try:
+        ventana.show_ica_dialog()
+        assert empezo.wait(5.0), "el ajuste no arrancó"
+        ventana.open_recording(escribir_brainvision(tmp_path / "otra", segundos=WINDOW_SECONDS))
+    finally:
+        seguir.set()
+        ventana.wait_for_background()
+        main_window_mod.fit_ica = real
+
+    assert not ventana.carteles
+    assert "Se descartó" in ventana.statusBar().currentMessage()
+
+
+# -- Filtrar sin borrar un canal grabado más lento (hito 67) -----------------
+
+
+def test_filtrar_desde_el_panel_no_deja_plano_al_canal_lento(
+    ventana: MainWindow, tmp_path, monkeypatch
+):
+    """**El 0,0 %**: así quedaba el EMG del EDF del laboratorio, grabado a
+    1 Hz, con los sugeridos del panel, y la barra decía sólo «Se filtró la
+    señal». Ahora conserva su señal, y la barra dice por qué."""
+    from psglab.core.recording import Channel, ChannelKind, Recording
+
+    fs = 100.0
+    tiempos = np.arange(int(fs * WINDOW_SECONDS * 2)) / fs
+    lento = Recording(
+        file_path=tmp_path / "lento.edf",
+        channels=[
+            Channel("C3", ChannelKind.EEG, "µV", 0, original_sampling_rate=fs),
+            Channel("EMG", ChannelKind.EMG, "µV", 1, original_sampling_rate=1.0),
+        ],
+        data=np.vstack(
+            [
+                50.0 * np.sin(2 * np.pi * 10.0 * tiempos),
+                20.0 * np.sin(2 * np.pi * 0.1 * tiempos),
+            ]
+        ),
+        sampling_rate=fs,
+    )
+    monkeypatch.setattr(main_window_mod, "read_recording", lambda _ruta: lento)
+    ventana.open_recording(tmp_path / "lento.edf")
+    ventana.show_filter_dialog()
+    assert "«EMG» se grabó a 1 Hz" in ventana.filter_panel.rotulo.text()
+
+    ventana.filter_panel.boton_aplicar.click()
+
+    registro = ventana.session.recording
+    emg = registro.get_segment(0, registro.n_samples, ["EMG"])[0]
+    assert np.std(emg) == pytest.approx(np.std(lento.data[1]), rel=0.05)
+    assert "sin pasa-altos en «EMG»" in ventana.statusBar().currentMessage()
+    assert not ventana.carteles
+
+
+# -- Los errores inesperados (hito 68) ----------------------------------------
+
+
+def test_un_error_inesperado_en_otro_hilo_no_deja_la_ventana_esperando(
+    ventana: MainWindow,
+):
+    """La barra de espera seguía girando, la barra de estado decía que se
+    estaba calculando y los menús largos quedaban apagados hasta cerrar el
+    programa. El error se sigue elevando: es un bug, y no se disfraza."""
+
+    def rompe() -> None:
+        raise ValueError("algo que nadie previó")
+
+    ventana._en_segundo_plano("Probando", rompe, lambda _r: None, accion="probar")
+    with pytest.raises(ValueError):
+        ventana.wait_for_background()
+
+    assert not ventana._barra_de_espera.isVisible()
+    assert ventana.statusBar().currentMessage() != "Probando…"
+    assert ventana.menu_filtrar.menuAction().isEnabled()
+    assert ventana.accion_conectividad_de_la_noche.isEnabled()
+
+
+@pytest.fixture
+def aviso_de_errores(qt_app, monkeypatch):
+    """Una ventana con el aviso de errores inesperados, como la arma `main.py`.
+
+    `sys.excepthook` se reemplaza antes por uno mudo: el aviso lo llama igual
+    —para que la consola siga mostrando la traza— y así la suite no la
+    imprime. `monkeypatch` deja el original al terminar, y con él se va el
+    aviso. Los carteles se anotan en vez de mostrarse: son modales.
+    """
+    import sys
+
+    monkeypatch.setattr(sys, "excepthook", lambda *_a: None)
+    carteles: list[dict[str, str]] = []
+
+    def anotar(cartel: QMessageBox) -> int:
+        carteles.append(
+            {
+                "texto": cartel.text(),
+                "informativo": cartel.informativeText(),
+                "detalle": cartel.detailedText(),
+            }
+        )
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", anotar)
+    create_main_window(report_unexpected_errors=True)
+    return carteles
+
+
+def elevar(error: BaseException) -> None:
+    """Le pasa a `sys.excepthook` un error elevado de verdad, con su traza."""
+    import sys
+
+    try:
+        raise error
+    except BaseException as capturado:  # noqa: BLE001 - es lo que se prueba
+        sys.excepthook(type(capturado), capturado, capturado.__traceback__)
+
+
+def test_un_error_inesperado_se_muestra_como_defecto_del_programa(aviso_de_errores):
+    """**Abierto sin consola no lo veía nadie**, y el programa seguía con lo
+    que se estaba haciendo a medio hacer. El cartel no lo disfraza de mensaje
+    para el investigador: dice que es un defecto, y trae la traza."""
+    elevar(KeyError("canal"))
+
+    (cartel,) = aviso_de_errores
+    assert cartel["texto"] == "Ocurrió un error del programa."
+    assert "No es un problema de tus datos" in cartel["informativo"]
+    assert "KeyError: 'canal'" in cartel["detalle"]
+    assert "Traceback" in cartel["detalle"]
+
+
+def test_el_mismo_error_se_muestra_una_sola_vez(aviso_de_errores):
+    """Uno que salta al pintar se repetiría en cada cuadro."""
+    for _ in range(3):
+        elevar(KeyError("canal"))
+    elevar(ValueError("otro"))
+
+    assert len(aviso_de_errores) == 2
+
+
+def test_un_error_en_un_slot_llega_al_aviso(aviso_de_errores):
+    """El camino de verdad: PySide6 le pasa a `sys.excepthook` lo que sale de
+    un slot, y el bucle de eventos sigue."""
+    from PySide6.QtCore import QTimer
+
+    QTimer.singleShot(0, lambda: {}["falta"])
+    QApplication.processEvents()
+
+    assert len(aviso_de_errores) == 1
+    assert "KeyError" in aviso_de_errores[0]["detalle"]
+
+
+def test_cortar_con_ctrl_c_no_es_un_error_del_programa(aviso_de_errores):
+    elevar(KeyboardInterrupt())
+
+    assert aviso_de_errores == []
+
+
+def test_sin_pedirlo_la_ventana_no_toca_el_manejador(qt_app):
+    """La suite, la captura de pantalla y los bancos arman la ventana sin
+    pedirlo: un cartel modal los colgaría."""
+    import sys
+
+    antes = sys.excepthook
+    create_main_window()
+
+    assert sys.excepthook is antes
+
+
+def test_la_consola_sigue_mostrando_la_traza(qt_app, monkeypatch):
+    """El cartel se suma a la consola, no la reemplaza: quien corre el
+    programa desde una terminal sigue viendo la traza donde la veía."""
+    import sys
+
+    consola: list[type[BaseException]] = []
+    monkeypatch.setattr(sys, "excepthook", lambda tipo, *_a: consola.append(tipo))
+    monkeypatch.setattr(QMessageBox, "exec", lambda _cartel: 0)
+    create_main_window(report_unexpected_errors=True)
+
+    elevar(KeyError("canal"))
+
+    assert consola == [KeyError]

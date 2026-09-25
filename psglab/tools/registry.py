@@ -53,7 +53,7 @@ def register_tool(tool_cls: type[Tool]) -> type[Tool]:
     name = tool_cls.name
     if name in _REGISTRY:
         raise DuplicateToolError(
-            f"Ya existe una herramienta llamada '{name}'.",
+            f"Ya existe una herramienta llamada «{name}».",
             details=f"{_REGISTRY[name].__module__} y {tool_cls.__module__}",
         )
     _REGISTRY[name] = tool_cls
@@ -75,7 +75,7 @@ def get_tool(name: str) -> type[Tool]:
         return _REGISTRY[name]
     except KeyError:
         raise UnknownToolError(
-            f"No existe una herramienta llamada '{name}'.",
+            f"No existe una herramienta llamada «{name}».",
             details=f"Registradas: {', '.join(sorted(_REGISTRY))}",
         ) from None
 

@@ -67,7 +67,7 @@ def _leer_lineas(path: Path) -> list[str]:
         crudo = path.read_bytes()
     except OSError as error:
         raise UnreadableFileError(
-            f"No se pudo abrir el archivo de scoring '{path.name}'.",
+            f"No se pudo abrir el archivo de scoring «{path.name}».",
             details=f"{type(error).__name__}: {error}",
         ) from error
 
@@ -149,7 +149,7 @@ def read_scoring(
     elegida = _nomenclatura_de(lineas) or nomenclature
     if elegida is None:
         raise UndeclaredNomenclatureError(
-            f"No se sabe con qué nomenclatura se escribió '{path.name}', y adivinarla "
+            f"No se sabe con qué nomenclatura se escribió «{path.name}», y adivinarla "
             "cargaría toda la noche mal traducida sin que se note: el código 2 es S2 "
             "en Rechtschaffen y Kales y N2 en AASM.",
             details=(
@@ -168,7 +168,7 @@ def read_scoring(
         esperados = 3 if lleva_numero else 2
         if len(campos) != esperados:
             raise UnreadableFileError(
-                f"La línea {numero_de_linea} de '{path.name}' no tiene el formato "
+                f"La línea {numero_de_linea} de «{path.name}» no tiene el formato "
                 f"esperado de {esperados} campos.",
                 details=f"Se leyó {linea!r}, con {len(campos)} campo(s).",
             )
@@ -177,7 +177,7 @@ def read_scoring(
             numeros = [int(c) for c in campos]
         except ValueError as error:
             raise UnreadableFileError(
-                f"La línea {numero_de_linea} de '{path.name}' tiene un valor que no es "
+                f"La línea {numero_de_linea} de «{path.name}» tiene un valor que no es "
                 "un número entero.",
                 details=f"Se leyó {linea!r}.",
             ) from error
@@ -193,7 +193,7 @@ def read_scoring(
 
         if not 0 <= indice < n_windows:
             raise ScoringMismatchError(
-                f"El scoring de '{path.name}' no corresponde a este registro: nombra la "
+                f"El scoring de «{path.name}» no corresponde a este registro: nombra la "
                 f"ventana {indice + 1} y el registro tiene {n_windows}.",
                 details=f"Línea {numero_de_linea}: {linea!r}.",
             )
@@ -204,7 +204,7 @@ def read_scoring(
         # número de ventana, la posición de la línea es la ventana.
         if indice in vistas:
             raise UnreadableFileError(
-                f"El scoring de '{path.name}' nombra dos veces la ventana "
+                f"El scoring de «{path.name}» nombra dos veces la ventana "
                 f"{indice + 1}, así que no se sabe cuál de las dos vale.",
                 details=f"Línea {numero_de_linea}: {linea!r}; ya estaba en la {vistas[indice]}.",
             )
@@ -215,7 +215,7 @@ def read_scoring(
         # leía sin avisar y el scoring decía algo que el archivo no dice.
         if arousal not in (0, 1):
             raise UnreadableFileError(
-                f"La línea {numero_de_linea} de '{path.name}' marca el arousal con "
+                f"La línea {numero_de_linea} de «{path.name}» marca el arousal con "
                 f"{arousal}, y sólo puede ser 0 o 1.",
                 details=f"Se leyó {linea!r}.",
             )
@@ -226,7 +226,7 @@ def read_scoring(
             raise
         except Exception as error:
             raise UnreadableFileError(
-                f"La línea {numero_de_linea} de '{path.name}' no se pudo interpretar "
+                f"La línea {numero_de_linea} de «{path.name}» no se pudo interpretar "
                 f"con la nomenclatura {elegida.value}.",
                 details=str(error),
             ) from error

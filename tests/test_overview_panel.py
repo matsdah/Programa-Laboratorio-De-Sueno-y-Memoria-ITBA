@@ -19,6 +19,7 @@ pytest.importorskip("pyqtgraph")
 from PySide6.QtCore import QPointF  # noqa: E402
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
+from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from psglab.tools.overview import OverviewTrace, OverviewWindow  # noqa: E402
 from psglab.ui.overview_panel import ANCHO_MINIMO, OverviewPanel  # noqa: E402
@@ -309,3 +310,56 @@ def test_sin_senal_no_se_dibuja_ninguna(panel: OverviewPanel):
     panel.set_windows((OverviewWindow(index=3, is_current=True),), {}, "#ff0000")
 
     assert _pixeles_rojos(panel) == 0
+
+
+# -- Accesibilidad (hito 63) --------------------------------------------------
+
+
+def test_se_alcanza_con_el_teclado(panel: OverviewPanel):
+    assert panel.focusPolicy() & Qt.FocusPolicy.TabFocus
+    assert panel.accessibleName() == "Contexto"
+
+
+def test_un_lector_de_pantalla_lee_lo_que_dicen_las_cajas(panel: OverviewPanel):
+    """**El panel es sólo dibujo**: la descripción dice lo mismo que las
+    cabeceras, con número base 1 y la actual marcada."""
+    from psglab.core.nomenclature import SleepStage
+
+    panel.set_windows(
+        (
+            OverviewWindow(index=0, is_current=False, stage=SleepStage.N1),
+            OverviewWindow(index=1, is_current=True, annotation_labels=("Apnea",)),
+        )
+    )
+
+    assert panel.accessibleDescription() == (
+        "Ventana 1: N1; ventana 2 (actual): sin scorear, Apnea"
+    )
+
+
+def test_con_el_foco_dibuja_el_anillo(panel: OverviewPanel):
+    from PySide6.QtGui import QColor
+    from PySide6.QtWidgets import QLineEdit, QVBoxLayout, QWidget
+
+    from psglab.ui import theme
+
+    ventana = QWidget()
+    capa = QVBoxLayout(ventana)
+    otro = QLineEdit()
+    capa.addWidget(otro)
+    capa.addWidget(panel)
+    panel.set_windows(vecinas(3))
+    ventana.show()
+    ventana.activateWindow()
+    acento = QColor(theme.current().accent).name()
+
+    def esquina() -> str:
+        return panel.grab().toImage().pixelColor(0, panel.height() // 2).name()
+
+    otro.setFocus()
+    QApplication.processEvents()
+    assert esquina() != acento
+
+    panel.setFocus()
+    QApplication.processEvents()
+    assert esquina() == acento
