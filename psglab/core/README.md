@@ -43,7 +43,9 @@ Cuando agregues estado de trabajo nuevo, va acá, no en un widget.
 
 **Cada clase de canal abre con su propia escala vertical**
 (`DEFAULT_SCALE_BY_KIND_UV`, en `config.py`), y las que no tienen una de uso
-corriente —Respiratorio, Otro— se miden sobre la primera época. Una sola escala
+corriente —Respiratorio, Otro— se miden sobre la primera época, **después de
+centrarlas en su media** (hito 70): una temperatura de 37 °C se medía contra
+el cero y se dibujaba pegada al borde de su carril. Una sola escala
 para todos no puede servir: con los 100 µV de un EEG, un canal respiratorio se
 sale de su carril y tapa seis canales.
 

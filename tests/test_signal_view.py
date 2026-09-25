@@ -241,6 +241,35 @@ def test_el_detalle_es_la_escala_del_canal(vista: SignalView, sesion: Session):
     assert "EEG" not in vista.channel_detail("C3")
 
 
+@pytest.mark.parametrize(
+    ("unidad", "escala", "esperado"),
+    [
+        ("DegC", 2.5, "2,5 DegC"),
+        ("DegC", 1.0, "1 DegC"),
+        ("", 985.0, "985"),
+        ("", 1024.6, "1025"),
+    ],
+    ids=["decimas", "entero", "sin-unidad", "sin-notacion-cientifica"],
+)
+def test_el_detalle_lleva_la_unidad_del_canal(qt_app, unidad, escala, esperado):
+    """**Hito 70.** Decía «µV» para todos, y la temperatura del EDF del
+    laboratorio salía como «37 µV». Lo que no es eléctrico queda en la unidad
+    del archivo; sin unidad declarada, el número solo."""
+    tiempos = np.arange(3000) / FRECUENCIA
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("Otro", ChannelKind.OTHER, unidad, 0)],
+        data=np.vstack([np.sin(2 * np.pi * tiempos)]),
+        sampling_rate=FRECUENCIA,
+    )
+    sesion = Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
+    sesion.set_scale_uv("Otro", escala)
+    vista = SignalView()
+    vista.set_session(sesion)
+
+    assert vista.channel_detail("Otro") == esperado
+
+
 def test_sin_registro_no_hay_detalle_que_mostrar(qt_app):
     """La clase la detecta el lector y la escala la fija la sesión: antes de
     abrir un archivo no existe ninguna de las dos."""

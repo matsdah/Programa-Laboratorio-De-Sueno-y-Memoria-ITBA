@@ -185,12 +185,21 @@ class Session:
         el registro entero: son ocho horas de señal y esto corre al construir
         la sesión. Un canal plano o sin datos se deja como está, por el mismo
         motivo que en `fit_to_pane()`.
+
+        **Primero se centra** (hito 70). Una temperatura de 37 °C que varía una
+        décima se medía contra el cero: la escala salía de 37 y la señal se
+        dibujaba pegada al borde de su carril, lejos de su nombre y como una
+        línea sin forma. Centrada en su media, la escala mide lo que el canal
+        varía.
         """
         if self.n_windows == 0:
             return
         for canal in self._recording.channels:
             if canal.kind.value in DEFAULT_SCALE_BY_KIND_UV:
                 continue
+            centro = self._centro(canal.name, 0)
+            if centro is not None:
+                self.set_offset_uv(canal.name, centro)
             apartamiento = self._apartamiento(canal.name, 0)
             if apartamiento is not None:
                 self.set_scale_uv(canal.name, apartamiento)
@@ -890,20 +899,30 @@ class Session:
         """
         ventana = self._current_window if window_index is None else window_index
         self._check_window(ventana)
-        inicio, fin = window_to_samples(ventana, self._recording.sampling_rate)
         for nombre in self._channels_under_amplitude():
-            tramo = self._recording.get_segment(inicio, fin, [nombre])
-            if tramo.size == 0:
-                continue
-            # **Sin los valores que no son números** (hito 33). `np.mean` con un
-            # solo NaN devuelve NaN, y acá se escribía directo en el diccionario,
-            # salteando la guarda de `set_offset_uv()`: el canal se dejaba de
-            # dibujar y no había ningún cartel. Un canal entero sin valores
-            # finitos no tiene dónde apoyarse y se queda como está.
-            finitos = tramo[np.isfinite(tramo)]
-            if finitos.size == 0:
-                continue
-            self.set_offset_uv(nombre, float(np.mean(finitos)))
+            centro = self._centro(nombre, ventana)
+            if centro is not None:
+                self.set_offset_uv(nombre, centro)
+
+    def _centro(self, channel_name: str, window_index: int) -> float | None:
+        """La media de un canal en una ventana, sin las muestras sin valor.
+
+        `None` si la ventana no tiene muestras con valor: ahí no hay nada que
+        centrar. La usan `center_offsets()` y el ajuste de la escala al abrir.
+        """
+        inicio, fin = window_to_samples(window_index, self._recording.sampling_rate)
+        tramo = self._recording.get_segment(inicio, fin, [channel_name])
+        if tramo.size == 0:
+            return None
+        # **Sin los valores que no son números** (hito 33). `np.mean` con un
+        # solo NaN devuelve NaN, y acá se escribía directo en el diccionario,
+        # salteando la guarda de `set_offset_uv()`: el canal se dejaba de
+        # dibujar y no había ningún cartel. Un canal entero sin valores
+        # finitos no tiene dónde apoyarse y se queda como está.
+        finitos = tramo[np.isfinite(tramo)]
+        if finitos.size == 0:
+            return None
+        return float(np.mean(finitos))
 
     def fit_to_pane(self, window_index: int | None = None) -> None:
         """Ajusta la escala de cada canal para que su señal entre en el carril.

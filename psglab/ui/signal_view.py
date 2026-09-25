@@ -64,7 +64,7 @@ from psglab.ui import theme
 from psglab.ui.channel_axis import ChannelAxis, ChannelLane
 from psglab.ui.fonts import font_for
 from psglab.ui.grid import GridBackground
-from psglab.utils.units import format_amplitude
+from psglab.utils.units import MICROVOLT, format_amplitude
 
 #: Separación vertical entre canales, en unidades del gráfico. Cada canal ocupa
 #: su propio carril y la señal se dibuja dentro de él.
@@ -1136,14 +1136,26 @@ class SignalView(pg.PlotWidget):
 
         Sin registro abierto queda vacía, y con un canal que el registro ya no
         tiene, también: el rótulo se queda con el nombre y el dibujo sigue.
+
+        **Con la unidad del canal** (hito 70). Decía «µV» para todos, y una
+        temperatura en DegC salía como «37 µV»: el programa convierte a
+        microvoltios lo eléctrico, pero lo demás queda en la unidad del
+        archivo, que es la que mide su escala. Sin unidad declarada va el
+        número solo, que es lo que se sabe.
         """
         if self._session is None:
             return ""
         try:
             escala = self._session.scale_uv(channel_name)
+            unidad = self._session.recording.channel_by_name(channel_name).unit
         except Exception:  # noqa: BLE001 - un canal que ya no está no rompe el dibujo
             return ""
-        return f"{escala:.0f} µV"
+        if unidad == MICROVOLT:
+            return f"{escala:.0f} µV"
+        # Tres cifras, sin notación científica: un termómetro puede ir por
+        # décimas, y un marcador de eventos, por miles.
+        numero = f"{escala:.0f}" if escala >= 100 else f"{escala:.3g}"
+        return f"{numero.replace('.', ',')} {unidad}".strip()
 
     def update_amplitude_scale(self) -> None:
         """Rearma los rótulos del canalón con la escala vigente.

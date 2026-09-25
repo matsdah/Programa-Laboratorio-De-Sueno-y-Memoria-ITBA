@@ -259,6 +259,41 @@ def test_una_clase_sin_escala_propia_se_mide(sampling_rate):
     assert sesion.scale_uv("Resp oro-nasal") == pytest.approx(800.0, rel=0.01)
 
 
+def test_una_clase_sin_escala_propia_se_centra_antes_de_medirla(sampling_rate):
+    """**Hito 70.** Una temperatura de 37 °C que varía medio grado se medía
+    contra el cero: la escala salía de 37,5 y la señal se dibujaba pegada al
+    borde de su carril, como una línea sin forma."""
+    tiempos = np.arange(int(sampling_rate * WINDOW_SECONDS)) / sampling_rate
+    datos = np.vstack([37.0 + 0.5 * np.sin(2 * np.pi * 0.1 * tiempos)])
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("Temp rectal", ChannelKind.OTHER, "DegC", 0)],
+        data=datos,
+        sampling_rate=sampling_rate,
+    )
+
+    sesion = Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
+
+    assert sesion.offset_uv("Temp rectal") == pytest.approx(37.0, abs=0.05)
+    assert sesion.scale_uv("Temp rectal") < 2.0
+
+
+def test_una_clase_con_escala_propia_no_se_centra(sampling_rate):
+    """Un EEG abre con su escala y sin desplazamiento, como siempre: el
+    centrado es para lo que no tiene una escala de uso corriente."""
+    tiempos = np.arange(int(sampling_rate * WINDOW_SECONDS)) / sampling_rate
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("C3", ChannelKind.EEG, "µV", 0)],
+        data=np.vstack([200.0 + 30.0 * np.sin(2 * np.pi * 10 * tiempos)]),
+        sampling_rate=sampling_rate,
+    )
+
+    sesion = Session(registro, Scoring(1, Nomenclature.AASM), AnnotationSet())
+
+    assert sesion.offset_uv("C3") == 0.0
+
+
 def test_un_canal_plano_sin_escala_propia_se_queda_con_la_de_fabrica(sampling_rate):
     """No hay ninguna escala "correcta" para una línea recta, y dividir por
     cero dejaría el canal invisible."""
