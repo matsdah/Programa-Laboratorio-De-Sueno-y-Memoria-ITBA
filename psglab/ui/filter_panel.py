@@ -27,6 +27,7 @@ from collections.abc import Callable
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -72,6 +73,9 @@ class FilterPanel(QWidget):
         #: La del registro abierto. Es lo que le permite a `default_for()`
         #: descartar los cortes que el registro no admite.
         self._frecuencia: float | None = None
+        #: Los canales que se grabaron más lento que el registro, con su
+        #: frecuencia de origen (hito 67). Ver `_explicar_el_tope()`.
+        self._lentos: dict[str, float] = {}
         #: A quién avisarle cuando el usuario pide aplicar.
         self.on_apply: Callable[[], None] | None = None
 
@@ -79,6 +83,12 @@ class FilterPanel(QWidget):
         self.tabla = QTreeWidget()
         self.tabla.setHeaderLabels(["Canales", *(rotulo for rotulo, _ in CAMPOS)])
         self.tabla.setRootIsDecorated(False)
+        # Tipear un corte empieza a editarlo, y con eso las teclas que escriben
+        # son de la tabla y no de los atajos de fase (hito 67): ver
+        # `ui/shortcuts.py`.
+        self.tabla.setEditTriggers(
+            self.tabla.editTriggers() | QAbstractItemView.EditTrigger.AnyKeyPressed
+        )
         # La clase de canal es la fila, no un dato: se ve y no se edita.
         self.tabla.setItemDelegateForColumn(0, FixedColumnDelegate(self.tabla))
 
@@ -135,6 +145,12 @@ class FilterPanel(QWidget):
         self._clases = vistas
         self._cuantos = cuantos
         self._frecuencia = recording.sampling_rate
+        self._lentos = {
+            canal.name: canal.original_sampling_rate
+            for canal in recording.channels
+            if canal.original_sampling_rate is not None
+            and canal.original_sampling_rate < recording.sampling_rate
+        }
         self._explicar_el_tope()
         self._reflejar_el_encabezado()
         self.restore_defaults()
@@ -174,7 +190,7 @@ class FilterPanel(QWidget):
         """
         if self._frecuencia is None:
             return
-        self.rotulo.setText(
+        texto = (
             "Dejá la celda vacía para desactivar ese filtro. Los valores "
             "sugeridos son los habituales en polisomnografía, no una "
             "imposición.\n"
@@ -182,6 +198,25 @@ class FilterPanel(QWidget):
             f"frecuencia más alta que contiene es {self._frecuencia / 2:g} Hz: "
             "los cortes que no entran vienen vacíos."
         )
+        # **Y los canales que se grabaron más lento** (hito 67): el archivo los
+        # trae a la frecuencia del registro, pero no tienen nada por encima de
+        # la mitad de la suya, y un pasa-altos más alto los dejaría planos.
+        # `settings_for_kinds()` no se lo da; acá se dice antes de aplicar.
+        for frecuencia in sorted(set(self._lentos.values())):
+            nombres = [f"«{n}»" for n, f in self._lentos.items() if f == frecuencia]
+            quienes = (
+                nombres[0]
+                if len(nombres) == 1
+                else ", ".join(nombres[:-1]) + " y " + nombres[-1]
+            )
+            uno = len(nombres) == 1
+            texto += (
+                f"\n{quienes} {'se grabó' if uno else 'se grabaron'} a "
+                f"{self._texto(frecuencia)} Hz: no se {'le' if uno else 'les'} aplica un "
+                f"pasa-altos de {self._texto(frecuencia / 2)} Hz o más, que "
+                f"{'lo dejaría plano' if uno else 'los dejaría planos'}."
+            )
+        self.rotulo.setText(texto)
 
     # -- Lo que se puede afirmar sin mirar ----------------------------------
 

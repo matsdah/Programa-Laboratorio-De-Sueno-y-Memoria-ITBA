@@ -565,6 +565,16 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   `windowTitle()` vuelve vacío también en el CI: lo que el usuario tiene que
   saber va en el texto. El hito 65 puso qué falló en el título, y en Windows
   y Linux se veía; lo encontró sólo el job de macOS.
+- **Un atajo de una sola tecla no le gana al control que tiene el foco**
+  (hito 67). Los atajos cuelgan de la ventana entera, y una lista o una tabla
+  no reclaman sus teclas como un campo de texto: con el foco en la tabla de
+  impedancias, «2» scoreaba la ventana. `_TeclasDelControl`, en
+  `ui/shortcuts.py`, les devuelve las que mueven y, si cargan datos, las que
+  escriben. Un control nuevo que se edite tipeando tiene que llevar
+  `AnyKeyPressed` entre sus disparadores de edición, o sus teclas vuelven a
+  ser de los atajos. **Un filtro de eventos no se instala en la aplicación
+  por cada ventana**: las de los tests no se destruyen, y con uno por ventana
+  la suite dejó de terminar. Éste es uno solo y mira sólo al widget con foco.
 - **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
   (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
   que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril

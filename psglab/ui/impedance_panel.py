@@ -31,6 +31,7 @@ from typing import Final
 
 from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
@@ -114,6 +115,13 @@ class ImpedancePanel(QWidget):
         self.tabla = QTreeWidget()
         self.tabla.setHeaderLabels(COLUMNAS)
         self.tabla.setRootIsDecorated(False)
+        # **Tipear un valor empieza a editarlo** (hito 67), como pide la pista
+        # del panel. Es también lo que le dice a `ui/shortcuts.py` que las
+        # teclas que escriben son de la tabla y no de los atajos de fase: sin
+        # esto, «2» scoreaba la ventana.
+        self.tabla.setEditTriggers(
+            self.tabla.editTriggers() | QAbstractItemView.EditTrigger.AnyKeyPressed
+        )
         self.tabla.setItemDelegateForColumn(0, FixedColumnDelegate(self.tabla))
         # **El estado tampoco se edita**: sale del valor, no se escribe.
         self.tabla.setItemDelegateForColumn(COLUMNA_DEL_ESTADO, ChipDelegate(self.tabla))

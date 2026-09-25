@@ -2566,18 +2566,42 @@ class MainWindow(QMainWindow):
                 hay que resolverlo antes de llamar acá.
             al_terminar: qué hacer con el resultado. Corre en el hilo de la
                 interfaz y sí puede dibujar.
-            accion: qué no se pudo hacer si falla, para el título del cartel;
-                ver `_show_error()`.
+            accion: qué no se pudo hacer si falla, para la primera línea del
+                cartel; ver `_show_error()`.
         """
         self.statusBar().showMessage(f"{que_hace}…")
         self._barra_de_espera.show()
 
+        # **La señal sobre la que se pidió** (hito 67). «Abrir» sigue
+        # habilitado mientras el otro hilo trabaja, y lo que vuelve después de
+        # abrir otro registro es de la señal anterior: la ICA de la noche A se
+        # mostraba como la de B, y «Aplicar y quitar» la usaba sobre B sin
+        # avisar cuando los dos tenían los mismos canales, que es lo normal
+        # entre dos noches del mismo laboratorio. Se compara por identidad, como
+        # `signal_view` con sus envolventes: un filtro o una derivación también
+        # son otra señal.
+        pedido_sobre = self._session.recording if self._session is not None else None
+
+        def de_otra_senal() -> bool:
+            if self._session is not None and self._session.recording is pedido_sobre:
+                return False
+            self.statusBar().showMessage(
+                "Se descartó un cálculo que era de la señal anterior.", 8000
+            )
+            return True
+
         def listo(resultado: object) -> None:
             self._terminar_la_espera(que_hace)
+            if de_otra_senal():
+                return
             al_terminar(resultado)
 
         def falló(error: object) -> None:
             self._terminar_la_espera(que_hace)
+            # Un error de la señal anterior tampoco se muestra: habla de algo
+            # que ya no está en pantalla.
+            if de_otra_senal():
+                return
             if isinstance(error, PsgLabError):
                 self._show_error(error, accion)
 
@@ -2720,8 +2744,8 @@ class MainWindow(QMainWindow):
                 esto una derivación se creaba y no se veía. Mostrarlo es una
                 decisión de presentación —el usuario acaba de pedirlo— y por eso
                 vive acá y no en `core/`.
-            accion: qué no se pudo hacer si falla, para el título del cartel;
-                ver `_show_error()`.
+            accion: qué no se pudo hacer si falla, para la primera línea del
+                cartel; ver `_show_error()`.
         """
         if self._session is None:
             return
@@ -3216,6 +3240,7 @@ class MainWindow(QMainWindow):
                 "filtrar la señal",
             )
             return
+        antes = self._session.recording
         self._aplicar_analisis(
             "Se filtró la señal",
             lambda registro: apply_filters(
@@ -3223,6 +3248,28 @@ class MainWindow(QMainWindow):
             ),
             accion="filtrar la señal",
         )
+        if self._session is None or self._session.recording is antes:
+            return
+        # **Qué canales quedaron sin pasa-altos** (hito 67). `settings_for_kinds()`
+        # no se lo da a un canal grabado más lento que el registro, porque lo
+        # dejaría plano; el panel lo avisa antes, y acá se confirma después: el
+        # EMG del EDF del laboratorio quedaba con el 0,0 % de su señal y la barra
+        # decía sólo «Se filtró la señal».
+        sin_pasa_altos = [
+            nombre
+            for nombre, filtros in settings_for_kinds(antes, por_clase).items()
+            if filtros.highpass_hz is None
+            and por_clase[antes.channel_by_name(nombre).kind].highpass_hz is not None
+        ]
+        if sin_pasa_altos:
+            uno = len(sin_pasa_altos) == 1
+            self.statusBar().showMessage(
+                f"Se filtró la señal, sin pasa-altos en {self._nombrar(sin_pasa_altos)}: "
+                f"{'se grabó' if uno else 'se grabaron'} más lento que el registro, "
+                f"y {'lo' if uno else 'los'} habría dejado "
+                f"{'plano' if uno else 'planos'}.",
+                15000,
+            )
 
     def show_impedance_dialog(self) -> None:
         """Abre el control de impedancia (V1_F de "Impedancia").
