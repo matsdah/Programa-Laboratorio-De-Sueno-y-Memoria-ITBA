@@ -20,7 +20,9 @@ from psglab.app import create_application, create_main_window
 def main() -> int:
     """Arranca la aplicación y devuelve su código de salida al sistema."""
     app = create_application(sys.argv)
-    window = create_main_window(saved_preferences=True, warm_up=True)
+    window = create_main_window(
+        saved_preferences=True, warm_up=True, report_unexpected_errors=True
+    )
     window.show()
     return app.exec()
 

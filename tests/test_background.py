@@ -7,8 +7,9 @@ no hay ningún `sleep` ni ninguna espera con tiempo: todo se sincroniza con
 y por lo mismo —saber que terminó—.
 
 Lo que se verifica es el contrato que la ventana necesita: que el resultado
-vuelva, que un error del programa salga por `failed` y que uno **inesperado**
-se vuelva a elevar en vez de desaparecer en el hilo.
+vuelva, que un error del programa salga por `failed`, que uno **inesperado**
+se vuelva a elevar en vez de desaparecer en el hilo, y que `stopped` avise
+siempre que terminó, también en ese caso (hito 68).
 """
 
 import threading
@@ -161,3 +162,54 @@ def test_esperar_dos_veces_no_entrega_dos_veces(tarea: BackgroundTask):
     tarea.wait()
 
     assert cuantas == ["uno"]
+
+
+# -- Quien espera se entera siempre de que terminó (hito 68) -----------------
+
+
+def test_stopped_sale_despues_del_resultado(tarea: BackgroundTask):
+    """Después y no antes: la ventana dibuja el resultado con `finished` y
+    recién entonces saca la barra de espera."""
+    orden: list[str] = []
+    tarea.finished.connect(lambda _r: orden.append("finished"))
+    tarea.stopped.connect(lambda: orden.append("stopped"))
+
+    tarea.start(lambda: 1)
+    tarea.wait()
+
+    assert orden == ["finished", "stopped"]
+
+
+def test_stopped_sale_despues_de_un_error_del_programa(tarea: BackgroundTask):
+    orden: list[str] = []
+    tarea.failed.connect(lambda _e: orden.append("failed"))
+    tarea.stopped.connect(lambda: orden.append("stopped"))
+
+    def trabajo() -> None:
+        raise PsgLabError("No se pudo medir.")
+
+    tarea.start(trabajo)
+    tarea.wait()
+
+    assert orden == ["failed", "stopped"]
+
+
+def test_stopped_sale_aunque_el_error_inesperado_se_vuelva_a_elevar(
+    tarea: BackgroundTask,
+):
+    """**Sin esto la ventana se quedaba esperando**: el error no pasa por
+    `finished` ni por `failed`, y la barra de espera seguía girando con los
+    menús largos apagados hasta cerrar el programa. El error se sigue
+    elevando igual: un bug no se convierte en un cartel del programa."""
+    avisos: list[str] = []
+    tarea.stopped.connect(lambda: avisos.append("stopped"))
+
+    def trabajo() -> None:
+        raise AttributeError("esto es un bug")
+
+    tarea.start(trabajo)
+
+    with pytest.raises(AttributeError):
+        tarea.wait()
+    assert avisos == ["stopped"]
+    assert not tarea.is_running()

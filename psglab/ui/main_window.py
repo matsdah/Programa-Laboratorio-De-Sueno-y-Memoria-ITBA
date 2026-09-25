@@ -2607,6 +2607,10 @@ class MainWindow(QMainWindow):
 
         self._tarea.finished.connect(listo)
         self._tarea.failed.connect(falló)
+        # **Con cualquier final** (hito 68): un error que no es `PsgLabError`
+        # no pasa por ninguna de las dos de arriba, y sin esto la barra seguía
+        # girando y los menús largos quedaban apagados hasta cerrar el programa.
+        self._tarea.stopped.connect(lambda: self._terminar_la_espera(que_hace))
         try:
             self._tarea.start(trabajo)
         except PsgLabError as error:
@@ -2629,7 +2633,7 @@ class MainWindow(QMainWindow):
         self._barra_de_espera.hide()
         if self.statusBar().currentMessage() == f"{que_hace}…":
             self.statusBar().clearMessage()
-        for señal in (self._tarea.finished, self._tarea.failed):
+        for señal in (self._tarea.finished, self._tarea.failed, self._tarea.stopped):
             try:
                 señal.disconnect()
             except RuntimeError:
