@@ -388,6 +388,11 @@ nada hasta que se abra la pull request, así que en el día a día el único con
 es `python -m pytest` local, y conviene correrlo entero: el chequeo de las
 cuentas de tests se saltea si se le pasa un archivo suelto.
 
+**Nada impide mergear con el CI en rojo**: `Add` no tiene protección de rama.
+El PR #82 entró con los dos jobs de macOS fallando, y la suite local, que corre
+en Windows, no podía verlo. Antes de mergear hay que mirar los seis jobs de
+tests, no sólo el de la plataforma propia.
+
 ## Arquitectura
 
 **Cada carpeta tiene su propio `README.md`** con el mapa de sus archivos, las
@@ -555,6 +560,11 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   (hito 53): «Sí / No», «Aceptar / Cancelar». Sin ella salían en inglés, y
   ningún test lo veía porque ninguno miraba el texto de un botón que el
   programa no escribe. La suite la carga igual que el programa.
+- **Nada que haya que leer va en el título de un cartel** (hito 66). macOS no
+  muestra el título de un `QMessageBox` —lo pide la guía de Apple— y
+  `windowTitle()` vuelve vacío también en el CI: lo que el usuario tiene que
+  saber va en el texto. El hito 65 puso qué falló en el título, y en Windows
+  y Linux se veía; lo encontró sólo el job de macOS.
 - **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
   (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
   que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril
