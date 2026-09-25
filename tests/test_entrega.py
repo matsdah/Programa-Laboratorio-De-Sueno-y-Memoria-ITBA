@@ -6038,3 +6038,114 @@ def test_la_consola_sigue_mostrando_la_traza(qt_app, monkeypatch):
     elevar(KeyError("canal"))
 
     assert consola == [KeyError]
+
+
+# -- La frecuencia de origen en el espectro y la conectividad (hito 72) -------
+
+
+@pytest.fixture
+def ventana_con_un_canal_lento(ventana: MainWindow, tmp_path, monkeypatch) -> MainWindow:
+    """La ventana con dos EEG de 100 Hz y un EMG grabado a 1 Hz, como el EDF
+    del laboratorio. El EMG trae una onda de 0,1 Hz: es lo que puede tener."""
+    from psglab.core.recording import Channel, ChannelKind, Recording
+
+    fs = 100.0
+    tiempos = np.arange(int(fs * WINDOW_SECONDS * 2)) / fs
+    registro = Recording(
+        file_path=tmp_path / "lento.edf",
+        channels=[
+            Channel("C3", ChannelKind.EEG, "µV", 0, original_sampling_rate=fs),
+            Channel("C4", ChannelKind.EEG, "µV", 1, original_sampling_rate=fs),
+            Channel("EMG", ChannelKind.EMG, "µV", 2, original_sampling_rate=1.0),
+        ],
+        data=np.vstack(
+            [
+                50.0 * np.sin(2 * np.pi * 10.0 * tiempos),
+                40.0 * np.sin(2 * np.pi * 10.0 * tiempos + 0.5),
+                20.0 * np.sin(2 * np.pi * 0.1 * tiempos),
+            ]
+        ),
+        sampling_rate=fs,
+    )
+    monkeypatch.setattr(main_window_mod, "read_recording", lambda _ruta: registro)
+    ventana.open_recording(tmp_path / "lento.edf")
+    return ventana
+
+
+def test_el_espectro_de_un_canal_lento_dice_hasta_donde_es_senal(
+    ventana_con_un_canal_lento: MainWindow, monkeypatch
+):
+    """Se dibujaba hasta 50 Hz un canal que no tiene nada por encima de 0,5, y
+    la potencia de las bandas de arriba parecía suya."""
+    ventana = ventana_con_un_canal_lento
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("EMG", True))
+
+    ventana.show_psd_dialog()
+
+    assert "«EMG» se grabó a 1 Hz: por encima de 0,5 Hz" in ventana.psd_panel.caption()
+
+
+def test_el_espectro_de_un_canal_normal_no_lo_menciona(
+    ventana_con_un_canal_lento: MainWindow, monkeypatch
+):
+    ventana = ventana_con_un_canal_lento
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("C3", True))
+
+    ventana.show_psd_dialog()
+
+    assert "se grabó a" not in ventana.psd_panel.caption()
+
+
+def banda_que(ventana: MainWindow, arriba_de: float) -> str:
+    """El nombre de una banda de la configuración que empieza arriba de tanto."""
+    return next(
+        nombre
+        for nombre, (desde, _) in ventana.current_preferences.bands().items()
+        if desde >= arriba_de
+    )
+
+
+def test_la_conectividad_nombra_al_canal_que_no_tiene_nada_en_la_banda(
+    ventana_con_un_canal_lento: MainWindow, monkeypatch
+):
+    """Medir la conectividad del EMG de 1 Hz en alfa es medir interpolación."""
+    ventana = ventana_con_un_canal_lento
+    alta = banda_que(ventana, arriba_de=1.0)
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: (alta, True))
+
+    ventana.show_connectivity_dialog()
+
+    texto = ventana.connectivity_panel.caption()
+    assert "«EMG» se grabó más lento que el registro y no tiene nada" in texto
+    assert "«C3»" not in texto
+
+
+def test_en_una_banda_que_el_canal_lento_alcanza_no_se_dice_nada(
+    ventana_con_un_canal_lento: MainWindow, monkeypatch
+):
+    ventana = ventana_con_un_canal_lento
+    actuales = ventana._preferencias.bands()
+    ventana._preferencias = ventana._preferencias.with_changes(
+        psd_bands=(
+            ("Lenta", 0.05, 0.4),
+            *((nombre, desde, hasta) for nombre, (desde, hasta) in actuales.items()),
+        )
+    )
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("Lenta", True))
+
+    ventana.show_connectivity_dialog()
+
+    assert "se grabó más lento" not in ventana.connectivity_panel.caption()
+
+
+def test_la_conectividad_de_la_noche_tambien_lo_dice(
+    ventana_con_un_canal_lento: MainWindow, monkeypatch
+):
+    ventana = ventana_con_un_canal_lento
+    alta = banda_que(ventana, arriba_de=1.0)
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: (alta, True))
+
+    ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
+
+    assert "«EMG» se grabó más lento" in ventana.metric_panel.caption()

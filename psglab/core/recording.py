@@ -330,6 +330,23 @@ class Recording:
             details=f"Canales disponibles: {', '.join(self.channel_names())}.",
         )
 
+    def content_limit_hz(self, name: str) -> float:
+        """Hasta qué frecuencia tiene contenido de verdad un canal (hito 72).
+
+        Es la mitad de la frecuencia a la que **se grabó**, que puede ser menor
+        que la del registro: un EDF trae canales de 1 Hz junto a otros de
+        100 Hz, y MNE los lleva a todos a la más alta. Por encima de este
+        límite, lo que tiene un canal lento es interpolación. Sin frecuencia de
+        origen declarada, o si es mayor, el límite es el del registro.
+
+        Raises:
+            ChannelNotFoundError: si no existe un canal con ese nombre.
+        """
+        original = self.channel_by_name(name).original_sampling_rate
+        if original is None or original >= self.sampling_rate:
+            return self.sampling_rate / 2
+        return original / 2
+
     def channels_of_kind(self, kind: ChannelKind) -> list[Channel]:
         """Devuelve todos los canales de una clase dada.
 

@@ -130,6 +130,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("Recording(channels=...)", lambda v: Recording(Path("x.edf"), v, np.zeros((1, 10)), 100.0)),
         ("Recording(file_path=...)", lambda v: Recording(v, [Channel("C0", ChannelKind.EEG, "µV", 0)], np.zeros((1, 10)), 100.0)),
         ("channel_by_name", lambda v: registro().channel_by_name(v)),
+        ("content_limit_hz", lambda v: registro().content_limit_hz(v)),
         ("channels_of_kind", lambda v: registro().channels_of_kind(v)),
         ("get_segment(channel_names=...)", lambda v: registro().get_segment(0, 10, [v])),
         ("get_segment(start_sample=...)", lambda v: registro().get_segment(v, 10)),

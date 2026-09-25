@@ -517,3 +517,31 @@ def test_dos_registros_se_comparan_por_identidad(recording):
     assert recording == recording
     assert recording != copia
     assert copia not in [recording]
+
+
+# -- Hasta dónde tiene contenido un canal (hito 72) --------------------------
+
+
+@pytest.mark.parametrize(
+    ("original", "limite"),
+    [(1.0, 0.5), (None, 50.0), (100.0, 50.0), (500.0, 50.0)],
+    ids=["mas-lento", "sin-declarar", "igual", "mas-rapido"],
+)
+def test_el_limite_del_contenido_es_la_mitad_de_la_frecuencia_de_origen(original, limite):
+    """Un EDF trae canales de 1 Hz junto a otros de 100 Hz, y MNE los lleva a
+    todos a la más alta: por encima de la mitad de la suya, un canal lento
+    tiene interpolación. Sin frecuencia de origen, o mayor, vale la del
+    registro."""
+    registro = Recording(
+        file_path=Path("noche.edf"),
+        channels=[Channel("EMG", ChannelKind.EMG, "µV", 0, original_sampling_rate=original)],
+        data=np.zeros((1, 100)),
+        sampling_rate=100.0,
+    )
+
+    assert registro.content_limit_hz("EMG") == pytest.approx(limite)
+
+
+def test_el_limite_de_un_canal_que_no_existe_se_rechaza(recording):
+    with pytest.raises(ChannelNotFoundError):
+        recording.content_limit_hz("no_existe")
