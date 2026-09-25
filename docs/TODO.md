@@ -84,8 +84,9 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 65](#hito-65-los-textos-de-la-interfaz)** unificó lo que el programa dice, y el
 **[hito 66](#hito-66-los-carteles-en-macos)** llevó a su texto lo que macOS no mostraba en el título, y el
 **[hito 67](#hito-67-la-integridad-de-los-datos)** cerró tres huecos que estropeaban datos sin avisar, y el
-**[hito 68](#hito-68-los-errores-inesperados)** hizo visibles los errores que no lo eran.
-Son **sesenta y nueve hitos**, del 0 al 68, que son las filas de la tabla de
+**[hito 68](#hito-68-los-errores-inesperados)** hizo visibles los errores que no lo eran, y el
+**[hito 69](#hito-69-los-formatos-de-scoring)** hizo que el programa relea sin preguntar lo que exporta.
+Son **setenta hitos**, del 0 al 69, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -232,6 +233,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [66. Los carteles en macOS](#hito-66-los-carteles-en-macos) | — | 0 | ✅ cerrado |
 | [67. La integridad de los datos](#hito-67-la-integridad-de-los-datos) | — | 0 | ✅ cerrado |
 | [68. Los errores inesperados](#hito-68-los-errores-inesperados) | — | 0 | ✅ cerrado |
+| [69. Los formatos de scoring](#hito-69-los-formatos-de-scoring) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -2050,7 +2052,7 @@ reorganiza lo que ya andaba.
     real de la Sleep-EDF**: da las 2650 ventanas del registro, reconoce R&K
     por el estadio 4 sin preguntar, y descarta el «Sleep stage ?» del final,
     que se pasa de la señal casi dos horas.
-  - Test: `tests/test_scoring_formats.py`, **65 tests en verde**.
+  - Test: `tests/test_scoring_formats.py`, **78 tests en verde**.
 - [x] **La nomenclatura se pregunta.** Un archivo que no la dice —incluido un
       `.txt` sin cabecera, que antes se rechazaba— eleva
       `UndeclaredNomenclatureError`, y la ventana ofrece las dos con la del
@@ -5899,6 +5901,51 @@ versiones rotas fallan: `stopped` sin salir con el error inesperado o saliendo
 antes del resultado; la ventana sin escucharlo; sin el aviso, o con el aviso
 instalado sin pedirlo; mostrando el mismo error cada vez, o Ctrl+C como
 error; sin la traza en la consola o en el cartel.
+
+## Hito 69: Los formatos de scoring
+
+**Cerrado el 25 de septiembre de 2026.** Dos hallazgos de la auditoría del 25
+de septiembre —ver el [hito 66](#hito-66-los-carteles-en-macos)— sobre los
+formatos para llevar el scoring a otro programa: **el programa no podía releer
+sin preguntar algunos archivos que había escrito él mismo**, y un CSV con una
+ventana repetida se importaba en silencio.
+
+**No tiene stubs que contar.**
+
+### Lo que se hizo
+
+- [x] **El EDF+ declara la nomenclatura en su cabecera.** Los rótulos de R&K
+      son los de la Sleep-EDF, y «Sleep stage 2» no dice si es S2 o N2: un
+      scoring de R&K sin S4 ni MT —cualquiera a medio hacer— no se podía
+      releer sin preguntar. Se lo daba por el costo del formato, que no
+      tendría dónde declararla; sí tiene: el campo de la grabación admite
+      subcampos después del equipo, y ahí va —`Startdate … X X PSGLab RK`—.
+      **Sólo se la cree si el equipo es este programa**: en un archivo ajeno,
+      lo que siga al equipo puede ser cualquier cosa, y ése sigue preguntando.
+- [x] **El CSV la declara en una columna**, `nomenclatura`, al final para que
+      quien lea el archivo por nombre de columna no note la diferencia. Los
+      rótulos casi siempre alcanzaban; un scoring con sólo vigilia, o sin
+      nada todavía, no. Todas las filas tienen que decir la misma, y una que
+      contradiga los rótulos se rechaza, igual que en el XML.
+- [x] **Un CSV con una ventana repetida se rechaza.** Ganaba la última fila en
+      silencio; el `.txt` lo rechaza desde el hito 33, y ahora los dos con
+      las mismas palabras.
+- [x] Con eso, **los cuatro formatos vuelven sin preguntar** para cualquier
+      scoring, en las dos nomenclaturas: se probó la matriz de la auditoría
+      —sólo vigilia, sin nada, R&K sin fases exclusivas, AASM con todas—.
+      El hipnograma de la Sleep-EDF se sigue leyendo igual.
+  - Test: `tests/test_scoring_formats.py`, **78 tests en verde**.
+
+**Cambian dos decisiones, y los tests que las fijaban se reescribieron:** que
+un EDF de R&K sin fases exclusivas pregunte, y que un archivo con sólo vigilia
+pregunte. Las dos siguen valiendo para lo que no escribió este programa: un
+EDF de otro equipo y un CSV escrito a mano sin la columna.
+
+Cada test nuevo se probó contra el programa sin su cambio, y las ocho
+versiones rotas fallan: el CSV sin la columna o el EDF sin la nomenclatura; el
+lector sin mirar la cabecera, o creyéndole a cualquier equipo; la ventana
+repetida aceptada; la columna ignorada; dos nomenclaturas o una desconocida
+aceptadas.
 
 ---
 

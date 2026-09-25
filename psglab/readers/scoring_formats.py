@@ -82,6 +82,13 @@ NOMENCLATURE_NAMES: Final[dict[str, Nomenclature]] = {
 _COLUMNAS_VENTANA: Final[frozenset[str]] = frozenset({"ventana", "epoch", "window"})
 _COLUMNAS_FASE: Final[frozenset[str]] = frozenset({"fase", "stage", "etapa"})
 _COLUMNAS_AROUSAL: Final[frozenset[str]] = frozenset({"arousal"})
+_COLUMNAS_NOMENCLATURA: Final[frozenset[str]] = frozenset({"nomenclatura", "nomenclature"})
+
+#: El equipo con que este programa firma los EDF+ que escribe, seguido de la
+#: nomenclatura (hito 69). Es el `EDF_EQUIPMENT` del exportador: esta capa no
+#: importa de `exporters/`, así que el nombre se repite y el test de ida y
+#: vuelta es el que lo ata.
+_EQUIPO_PROPIO: Final[str] = "PSGLab"
 
 #: El rótulo de una fase en un EDF+: «Sleep stage 2», «Sleep stage N2»…
 _FASE_EDF: Final[re.Pattern[str]] = re.compile(r"^sleep stage\s+(\S+)$", re.IGNORECASE)
@@ -331,8 +338,11 @@ def _leer_csv(path: Path) -> _Lectura:
         )
     col_ventana = _columna(nombres, _COLUMNAS_VENTANA)
     col_arousal = _columna(nombres, _COLUMNAS_AROUSAL)
+    col_nomenclatura = _columna(nombres, _COLUMNAS_NOMENCLATURA)
 
     lectura = _Lectura()
+    # En qué línea apareció cada ventana, para rechazar la que se repite.
+    vistas: dict[int, int] = {}
     for posicion, (numero, fila) in enumerate(filas[1:]):
         donde = f"la línea {numero}"
         celdas = [c.strip() for c in fila]
@@ -348,8 +358,20 @@ def _leer_csv(path: Path) -> _Lectura:
                     f"La línea {numero} de «{path.name}» nombra la ventana "
                     f"{indice + 1}, y las ventanas se cuentan desde 1.",
                 )
+        # **Dos filas para la misma ventana** (hito 69). Ganaba la última en
+        # silencio, así que lo que se veía dependía del orden del archivo; el
+        # `.txt` ya lo rechazaba desde el hito 33, con las mismas palabras.
+        if indice in vistas:
+            raise UnreadableFileError(
+                f"El scoring de «{path.name}» nombra dos veces la ventana "
+                f"{indice + 1}, así que no se sabe cuál de las dos vale.",
+                details=f"Líneas {vistas[indice]} y {numero}.",
+            )
+        vistas[indice] = numero
         ventanas = range(indice, indice + 1)
 
+        if col_nomenclatura is not None and celdas[col_nomenclatura]:
+            _declarar(lectura, celdas[col_nomenclatura], path, donde)
         lectura.tramos.append(_tramo_csv(celdas[col_fase], ventanas, path, donde))
         if col_arousal is not None:
             valor = celdas[col_arousal] or "0"
@@ -375,6 +397,27 @@ def _tramo_csv(valor: str, ventanas: range, path: Path, donde: str) -> _Tramo:
             f"«{valor}».",
             details="Se esperaba un rótulo (W, S1…S4, REM, MT, N1…N3, R, -) o un código.",
         ) from error
+
+
+def _declarar(lectura: _Lectura, valor: str, path: Path, donde: str) -> None:
+    """Toma la nomenclatura que declara una fila del CSV (hito 69).
+
+    Todas las filas tienen que declarar la misma: un archivo que dice dos no
+    se puede leer con ninguna sin mentir sobre la otra.
+    """
+    nomenclatura = NOMENCLATURE_NAMES.get(valor.strip().lower())
+    if nomenclatura is None:
+        raise UnreadableFileError(
+            f"«{path.name}» declara una nomenclatura que no se conoce: «{valor}».",
+            details=f"Está en {donde}.",
+        )
+    if lectura.declarada is not None and lectura.declarada is not nomenclatura:
+        raise UnreadableFileError(
+            f"«{path.name}» declara dos nomenclaturas, {lectura.declarada.value} "
+            f"y {nomenclatura.value}, así que no se puede leer con ninguna.",
+            details=f"La segunda está en {donde}.",
+        )
+    lectura.declarada = nomenclatura
 
 
 def _columna(nombres: list[str], aceptados: frozenset[str]) -> int | None:
@@ -414,7 +457,7 @@ def _leer_edf(path: Path, start_time: datetime | None) -> _Lectura:
         ) from error
 
     desfase = _desfase_edf(path, start_time)
-    lectura = _Lectura()
+    lectura = _Lectura(declarada=_nomenclatura_edf(path))
     for numero, (inicio, duracion, texto) in enumerate(
         zip(anotaciones.onset, anotaciones.duration, anotaciones.description), start=1
     ):
@@ -444,6 +487,24 @@ def _leer_edf(path: Path, start_time: datetime | None) -> _Lectura:
 
         lectura.tramos.append(_tramo_evento(valor, inicio, duracion, path, donde))
     return lectura
+
+
+def _nomenclatura_edf(path: Path) -> Nomenclature | None:
+    """La nomenclatura que declara un EDF+ escrito por este programa (hito 69).
+
+    Va después del equipo en el campo de la grabación: `Startdate 02-JAN-2020
+    X X PSGLab AASM`. **Sólo se la cree si el equipo es este programa**: en un
+    archivo ajeno, lo que siga al equipo puede ser cualquier cosa.
+    """
+    try:
+        with path.open("rb") as archivo:
+            cabecera = archivo.read(168).decode("ascii", errors="replace")
+    except OSError:
+        return None
+    partes = cabecera[88:168].split()
+    if len(partes) < 6 or partes[0] != "Startdate" or partes[4] != _EQUIPO_PROPIO:
+        return None
+    return NOMENCLATURE_NAMES.get(partes[5].lower())
 
 
 def _desfase_edf(path: Path, start_time: datetime | None) -> float:

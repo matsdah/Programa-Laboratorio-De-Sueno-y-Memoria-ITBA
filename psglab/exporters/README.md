@@ -63,8 +63,8 @@ vuelta, y `tests/test_scoring_formats.py` fija la ida y la vuelta.
 
 | Formato | Qué lleva | Cómo dice la nomenclatura |
 |---|---|---|
-| CSV | `ventana,inicio_s,fase,arousal`, una fila por ventana | Con el rótulo de la fase: S2 y N2 no se repiten |
-| EDF+ | Un EDF+C sin señales, una anotación por tramo, con los rótulos de la Sleep-EDF | AASM escribe `Sleep stage N2`; R&K sólo se reconoce si tiene S4 o MT |
+| CSV | `ventana,inicio_s,fase,arousal,nomenclatura`, una fila por ventana | En la columna `nomenclatura` (hito 69); antes sólo con los rótulos, que no alcanzan con sólo vigilia |
+| EDF+ | Un EDF+C sin señales, una anotación por tramo, con los rótulos de la Sleep-EDF | En la cabecera, después del equipo: `Startdate … X X PSGLab RK` (hito 69). Antes, R&K sólo se reconocía si tenía S4 o MT |
 | XML | El `<PSGAnnotation>` del NSRR, un `<ScoredEvent>` por tramo | Un `<Nomenclature>` extra, que los lectores del NSRR ignoran |
 
 **El EDF+ se escribe a mano**: MNE sólo lo exporta con `edfio`, una
