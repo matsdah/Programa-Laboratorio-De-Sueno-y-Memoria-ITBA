@@ -500,3 +500,20 @@ def test_un_infinito_cuenta_igual_que_un_nan():
 def test_los_canales_salen_en_el_orden_del_registro():
     """El aviso los nombra en ese orden, que es el de la pantalla."""
     assert list(registro_con_sin_valor().non_finite_channels()) == ["C3", "C4"]
+
+
+def test_dos_registros_se_comparan_por_identidad(recording):
+    """**Hito 71.** La igualdad de fábrica del `dataclass` comparaba la señal,
+    y numpy no dice si dos matrices son «iguales»: `a == b` y `a in lista`
+    elevaban `ValueError`. Un filtro devuelve otro registro aunque los
+    números coincidan, y el programa los compara por identidad."""
+    copia = Recording(
+        file_path=recording.file_path,
+        channels=list(recording.channels),
+        data=recording.data.copy(),
+        sampling_rate=recording.sampling_rate,
+    )
+
+    assert recording == recording
+    assert recording != copia
+    assert copia not in [recording]

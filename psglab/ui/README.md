@@ -13,17 +13,17 @@ registro de 400 es una regla y va en `core/`.
 
 ```
 +---------------------------------------------------------------+
-| [abrir] Scoring | Escala de tiempo | Amplitud | Ver | Montaje  |
-|   Filtrar | Analizar | Herramientas | Configuración | Ayuda     |
+| [Abrir] Archivo | Escala de tiempo | Amplitud | Ver | Montaje  |
+|   Filtrar | Analizar | Herramientas | Ayuda                     |
 +----------+-----------------------------------------+----------+
 | Canales  |                                         | Espectro |
 |  (dock)  |   Visualizador de la señal (central)    | Métrica  |
 |          |                                         | ICA...   |
 |          |                                         | (solapas)|
 +----------+-----------------------------------------+----------+
-|  Übersicht | Scoring | Hipnograma  (docks de abajo, ocultos)   |
+|  Hipnograma (a la vista) · Contexto y Scoring (ocultos)       |
 +---------------------------------------------------------------+
-|  Navegación: ⏮ ◀ ⏯ ▶ ⏭  1×  | amplitud | franja | posición     |
+|  Navegación: ⏮ ◀ ⏯ ▶ ⏭  1×  | franja | amplitud               |
 +---------------------------------------------------------------+
 |  Barra de estado: ventana 42 / 960 - 00:21:00                  |
 +---------------------------------------------------------------+
@@ -32,16 +32,18 @@ registro de 400 es una regla y va en `core/`.
 **La señal es el widget central y todo lo demás es un `QDockWidget`**: se mueve,
 se apila en solapas, se cierra y se saca a otra pantalla.
 
-**El programa abre siempre con la señal y el panel Canales, y nada más.**
-Los otros nueve arrancan ocultos y se abren desde «Herramientas», que desde
-el hito 28 junta las herramientas y los paneles; «Herramientas ▸ Restaurar la
+**El programa abre siempre con la señal, el panel Canales y el
+hipnograma**, que volvió a la vista en el hito 64. Los otros ocho arrancan
+ocultos y se abren desde «Herramientas», que desde el hito 28 junta las
+herramientas y los paneles; «Herramientas ▸ Restaurar la
 disposición» vuelve a esa vista. Desde el hito 24 la
 disposición no se recuerda de una apertura a otra.
 
-**La barra de menú empieza con un botón y no con «Archivo».** Abrir un
-registro era lo único que le quedaba a ese menú, así que es un icono de
-carpeta en la esquina. «Configuración» tampoco despliega nada: abre su
-ventana. **No hay barra de herramientas**: las herramientas se activan desde
+**La barra de menú empieza con el botón «Abrir» y después «Archivo».** El
+botón es el primer control que usa quien abre el programa: un clic y no dos.
+«Archivo», que se había quitado en el hito 23 porque sólo le quedaba abrir,
+volvió en el hito 64 con los recientes, el scoring y la configuración, donde
+los busca quien viene de otro programa. **No hay barra de herramientas**: las herramientas se activan desde
 su menú, que es la única vía desde el hito 23.
 
 **La navegación no es un dock**, y es la única excepción: es la única vía de

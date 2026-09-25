@@ -255,6 +255,17 @@ class BrainVisionReader(Reader):
                 f"No se encontró el archivo «{path.name}».",
                 details=f"No existe {path}.",
             )
+        # **La extensión en mayúsculas** (hito 71). `can_read()` la acepta,
+        # como todos los lectores, pero MNE exige «.vhdr» literal y rechaza
+        # «.VHDR» con un error que acá se informaba como archivo dañado: el
+        # investigador buscaba el problema en los datos.
+        if path.suffix != ".vhdr":
+            raise UnreadableFileError(
+                f"No se pudo abrir «{path.name}»: la biblioteca que lee BrainVision "
+                "sólo acepta la extensión «.vhdr» en minúsculas. Renombrá la "
+                f"cabecera como «{path.stem}.vhdr» y volvé a abrirla.",
+                details=f"Extensión «{path.suffix}»; MNE exige «.vhdr».",
+            )
         try:
             crudo = mne.io.read_raw_brainvision(path, preload=True, verbose="ERROR")
         except Exception as error:  # noqa: BLE001 - MNE eleva de todo

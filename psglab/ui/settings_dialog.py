@@ -27,29 +27,23 @@ presentación que agregó el refactor de la interfaz.
 """
 
 from collections.abc import Callable
-from dataclasses import replace
-from pathlib import Path
 
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QButtonGroup,
     QCheckBox,
     QColorDialog,
     QDoubleSpinBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QFormLayout,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QPushButton,
-    QRadioButton,
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
