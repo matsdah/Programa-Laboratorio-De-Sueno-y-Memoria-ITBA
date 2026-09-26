@@ -100,7 +100,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_impedance_panel.py` | La tabla editable: que la celda sin valor lo diga, y que un cero escrito a mano sí cuente. |
 | `test_reference.py` | La re-referenciación: el canal de referencia en cero, y la suma de los EEG en cero. |
 | `test_entrega.py` | La comprobación de entrega: abrir, navegar, scorear y exportar **por la ventana**, no por las piezas. |
-| `test_main_window_layout.py` | Cómo se llama lo que la ventana hace: la superficie pública que un refactor no puede renombrar en silencio. |
+| `test_main_window_layout.py` | Cómo se llama lo que la ventana hace: la superficie pública que un refactor no puede renombrar en silencio. Desde el hito 76, también que sus siete pedazos vayan antes que `QMainWindow` y no se pisen. |
 | `test_theme.py` | Los esquemas de color: que un esquema sea inmutable, que la paleta cicle y que lo guardado vuelva igual. |
 | `test_preferences.py` | Lo que el programa recuerda entre sesiones, y que un archivo roto no le impida arrancar. |
 | `test_menus.py` | La barra de menú: que ninguna acción quede sin conectar, que cada cosa esté donde corresponde y que lo que se sacó no vuelva sin que nadie lo decida. |
@@ -258,12 +258,13 @@ hitos 10 a 18 son los de esa mitad.
 > contar y **la prosa no la mira nadie**, que es justo lo que dice el docstring
 > de `test_lo_que_tests_readme_dice_de_la_suite_es_cierto`.
 
-**De `psglab/ui/` se testea lo que no dibuja**, y el dibujo no. **Veinte de sus
-veintidós módulos tienen test propio**: los atajos, la grilla, los **cuatro**
+**De `psglab/ui/` se testea lo que no dibuja**, y el dibujo no. **Todos sus
+módulos menos uno tienen test propio**: los atajos, la grilla, los **cuatro**
 conversores desde píxeles de `signal_view.py`, los paneles, los menús, el
-reloj de la reproducción, los esquemas de color y las preferencias. Los otros
-dos —`main_window.py` y `channel_selector.py`— figuran en `SIN_TEST_PROPIO`, y
-al primero lo recorre `test_entrega.py` por la ventana. Es deliberado y está
+reloj de la reproducción, los esquemas de color y las preferencias. El que no,
+`main_window.py`, figura en `SIN_TEST_PROPIO` y lo recorre `test_entrega.py`
+por la ventana; sus siete pedazos los cubren ése y `test_main_window_layout.py`
+(hito 76). Es deliberado y está
 explicado en [`ui/README.md`](../psglab/ui/README.md#estado).
 
 > Este párrafo decía "diez de sus catorce" y nombraba como exentos a

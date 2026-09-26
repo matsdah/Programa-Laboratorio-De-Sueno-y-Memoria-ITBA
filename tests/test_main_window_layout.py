@@ -25,6 +25,24 @@ pytest.importorskip("pyqtgraph")
 from psglab.app import create_main_window  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from psglab.ui.shortcuts import install_shortcuts  # noqa: E402
+from psglab.ui.window_analysis import AnalysisMixin  # noqa: E402
+from psglab.ui.window_annotation import AnnotationMixin  # noqa: E402
+from psglab.ui.window_files import FilesMixin  # noqa: E402
+from psglab.ui.window_preferences import PreferencesMixin  # noqa: E402
+from psglab.ui.window_scoring import ScoringMixin  # noqa: E402
+from psglab.ui.window_tools import ToolsMixin  # noqa: E402
+from psglab.ui.window_view import ViewMixin  # noqa: E402
+
+#: Los pedazos de `MainWindow`, uno por tema (hito 76).
+MIXINS = (
+    ToolsMixin,
+    AnnotationMixin,
+    FilesMixin,
+    ViewMixin,
+    PreferencesMixin,
+    ScoringMixin,
+    AnalysisMixin,
+)
 
 #: Los widgets y acciones que la ventana cuelga de sí misma. Cada uno lo usa
 #: algún test o el usuario a través de un atajo, así que renombrarlos rompe
@@ -340,3 +358,37 @@ def test_reinstalar_no_duplica_espacio(ventana: MainWindow):
         a for a in ventana.findChildren(QShortcut) if a.key().toString() == "Space"
     ]
     assert len(espacios) == 1
+
+
+# -- Los pedazos de la ventana (hito 76) -------------------------------------
+
+
+def test_los_mixins_van_antes_que_qmainwindow():
+    """**Si uno quedara después, sus métodos que Qt también define perderían
+    sin avisar**: `eventFilter()` dejaría de llevarle el mouse a las
+    herramientas y `closeEvent()` dejaría de preguntar por el trabajo sin
+    exportar. No habría error: Qt tiene los suyos."""
+    orden = MainWindow.__mro__
+    assert all(orden.index(m) < orden.index(QMainWindow) for m in MIXINS)
+    assert MainWindow.eventFilter is ToolsMixin.eventFilter
+    assert MainWindow.closeEvent is FilesMixin.closeEvent
+
+
+def test_ningun_metodo_vive_en_dos_lugares():
+    """Dos pedazos con el mismo nombre no dan error: gana el primero de la
+    herencia, y el otro queda muerto sin que nada lo diga."""
+    duenos: dict[str, list[str]] = {}
+    for clase in (MainWindow, *MIXINS):
+        for nombre, valor in vars(clase).items():
+            if callable(valor) or isinstance(valor, property):
+                if not nombre.startswith("__"):
+                    duenos.setdefault(nombre, []).append(clase.__name__)
+    repetidos = {n: c for n, c in duenos.items() if len(c) > 1}
+
+    assert repetidos == {}
+
+
+def test_los_mixins_no_heredan_de_nada():
+    """Son pedazos de `MainWindow` y no piezas aparte: con una base propia
+    entrarían en la cadena de `super().__init__()` de Qt."""
+    assert all(m.__bases__ == (object,) for m in MIXINS)

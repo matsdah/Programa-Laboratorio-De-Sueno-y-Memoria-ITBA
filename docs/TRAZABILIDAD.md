@@ -72,7 +72,7 @@ commit.
 |----|-----------|---------|
 | V1_F | Dibujar una línea con el mouse | `psglab/tools/occupancy.py` |
 | V2_F | Calcular el porcentaje de ocupación horizontal | `psglab/tools/occupancy.py` |
-| V3_F | Mostrar el porcentaje | `psglab/tools/occupancy.py` (el cálculo), `psglab/ui/main_window.py` (`_update_tool_readout`, que lo muestra) |
+| V3_F | Mostrar el porcentaje | `psglab/tools/occupancy.py` (el cálculo), `psglab/ui/window_tools.py` (`_update_tool_readout`, que lo muestra) |
 | V4_F | Sumar la distancia horizontal de varias líneas | `psglab/tools/occupancy.py` |
 | V5_F | Borrar una línea con clic o al cambiar de ventana | `psglab/tools/occupancy.py` |
 
@@ -81,7 +81,7 @@ commit.
 | ID | Requisito | Archivo |
 |----|-----------|---------|
 | V1_P | Histograma de la noche completa, con lo no anotado en blanco | `psglab/tools/histogram.py` |
-| V2_F | Eje horizontal en hora real o de 1 a VENMAX | `psglab/tools/histogram.py` (la elección), `psglab/core/windows.py` (`window_to_clock_time`), `psglab/ui/main_window.py` (`_marcas_del_histograma`, que dibuja las marcas) |
+| V2_F | Eje horizontal en hora real o de 1 a VENMAX | `psglab/tools/histogram.py` (la elección), `psglab/core/windows.py` (`window_to_clock_time`), `psglab/ui/window_scoring.py` (`_marcas_del_histograma`, que dibuja las marcas) |
 | V3_F | Adaptar el histograma a la nomenclatura elegida | `psglab/tools/histogram.py`, `psglab/core/nomenclature.py` |
 | V4_F | Clic en el histograma para ir a esa ventana | `psglab/tools/histogram.py`, `psglab/core/session.py` |
 
@@ -90,7 +90,7 @@ commit.
 | ID | Requisito | Archivo |
 |----|-----------|---------|
 | V1_F | Círculo de zoom que sigue al mouse | `psglab/tools/magnifier.py` (el gesto), `psglab/ui/signal_view.py` (`_dibujar_lupa`, que amplía) |
-| V2_F | Contador de clics para contar picos | `psglab/tools/magnifier.py` (la cuenta), `psglab/ui/main_window.py` (`_update_tool_readout`, que la muestra) |
+| V2_F | Contador de clics para contar picos | `psglab/tools/magnifier.py` (la cuenta), `psglab/ui/window_tools.py` (`_update_tool_readout`, que la muestra) |
 
 ### Herramienta Übersicht
 
@@ -113,7 +113,7 @@ commit.
 | V1_F | `Scoring.txt`, y el mismo scoring en CSV, EDF+ y XML | `psglab/exporters/scoring_txt.py`, `psglab/exporters/scoring_formats.py` (los otros tres formatos), `psglab/core/nomenclature.py` (`STAGE_CODES`) |
 | V2_F | `Anotaciones.txt` | `psglab/exporters/annotations_txt.py`, `psglab/core/annotations.py` |
 | V3_F | `Informacion.txt` | `psglab/exporters/information_txt.py`, `psglab/exporters/statistics.py` |
-| V4_F | Elegir cuál de los tres exportar | `psglab/ui/main_window.py` (`export()`; desde el hito 23 la ventana sólo ofrece el scoring) |
+| V4_F | Elegir cuál de los tres exportar | `psglab/ui/window_files.py` (`export()`; desde el hito 23 la ventana sólo ofrece el scoring) |
 
 ---
 
@@ -122,13 +122,13 @@ commit.
 | Sección | ID | Requisito | Archivo |
 |---------|----|-----------|---------|
 | Filtración | V1_F | Importar señal cruda y filtrar por tipo de canal | `psglab/analysis/filters.py`, `psglab/ui/filter_panel.py` (una fila por clase de canal) |
-| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir), `psglab/ui/main_window.py` (`_olvidar_ica`, que descarta la descomposición cuando cambia la señal) |
+| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir), `psglab/ui/window_analysis.py` (`_olvidar_ica`, que descarta la descomposición cuando cambia la señal) |
 | Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py`, `psglab/readers/brainvision.py` (las extrae del `.vhdr`), `psglab/ui/impedance_panel.py` (la tabla y el informe) |
 | Rereferenciar | — | Re-referenciar la señal | `psglab/analysis/reference.py` |
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
 | PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py`, `psglab/ui/psd_panel.py` (el dibujo) |
 | Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py`, `psglab/ui/metric_panel.py` (el dibujo) |
-| Scoring automático | — | Sugerir la fase de cada ventana, que alguien confirma después (hito 75) | `psglab/analysis/auto_scoring.py`, `core/scoring.py` (la capa de las sugeridas), `ui/main_window.py` y `ui/menus.py` («Analizar › Fases sugeridas») |
+| Scoring automático | — | Sugerir la fase de cada ventana, que alguien confirma después (hito 75) | `psglab/analysis/auto_scoring.py`, `core/scoring.py` (la capa de las sugeridas), `ui/window_scoring.py` y `ui/menus.py` («Analizar › Fases sugeridas») |
 | Conectividad | — | Conectividad de la señal | `psglab/analysis/connectivity.py`, `psglab/ui/connectivity_panel.py` (la matriz), `psglab/ui/metric_panel.py` (a lo largo de la noche) |
 
 ---
@@ -136,13 +136,16 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos veintiuno se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos veinticinco se rompen hacia todos lados.
 
-Diecinueve de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Veintitrés de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
 `core/viewport.py`, `core/decimation.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
-`ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py` y `ui/shortcuts_dialog.py`. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py`, `ui/shortcuts_dialog.py`,
+y desde el hito 76 `ui/main_window.py`, `ui/window_annotation.py`,
+`ui/window_view.py` y `ui/window_preferences.py`: la ventana se partió en
+pedazos por tema, y los que llevan un ID tienen su fila arriba. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -168,6 +171,10 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/ui/preferences.py` | Lo que el programa recuerda entre sesiones | El esquema con el que arranca |
 | `psglab/ui/settings_dialog.py` | La ventana de configuración | Todo lo que el usuario puede elegir y el programa recuerda |
 | `psglab/ui/shortcuts_dialog.py` | La ayuda de atajos, en una tabla agrupada | Ayuda → Atajos de teclado |
+| `psglab/ui/main_window.py` | Arma la ventana y reúne sus siete pedazos; las esperas largas y los carteles | El programa entero |
+| `psglab/ui/window_annotation.py` | Anotar con el mouse, con el teclado o desde las marcas del archivo | Todo lo que agrega o cambia una anotación |
+| `psglab/ui/window_view.py` | Época, página, reproducción, amplitud, foco y vistas de canales | Cómo se recorre y se mira el registro |
+| `psglab/ui/window_preferences.py` | Aplicar y guardar lo que elige el usuario, y la ventana de configuración | El esquema, la letra y los colores de clase |
 
 ---
 

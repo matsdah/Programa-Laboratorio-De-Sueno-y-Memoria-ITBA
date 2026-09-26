@@ -54,7 +54,14 @@ conoce las flechas del teclado.
 
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
-| `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. `export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos. Antes de cerrar, de abrir otro registro o de importar un scoring encima pregunta por el trabajo sin exportar —Exportar…, Descartar o Cancelar—, scoring y anotaciones, con un diálogo de guardado por cada cosa en juego; la regla de qué cuenta es de `Session`. Después de abrir uno muestra los avisos que dejó el lector, como el de un archivo truncado. La rueda sobre la señal cambia la escala de tiempo, fija bajo el mouse, y con Mayúsculas o deslizando de costado en el panel táctil desplaza la página (hito 56). Scorear pasa a la ventana siguiente, salvo que se lo apague (hito 64). Las confirmaciones dicen la acción en el botón y un cartel de error empieza diciendo qué no se pudo hacer (hito 65), en el texto y no en el título, que macOS no muestra (hito 66). Un cálculo en otro hilo que vuelve cuando ya se abrió otro registro se descarta (hito 67). | V4_F de "Archivo de salida" |
+| `main_window.py` | Arma la ventana y **reúne sus siete pedazos** (hito 76): construye los paneles y los menús, corre lo largo en otro hilo, muestra la época actual y los tres carteles del programa, que dicen qué no se pudo hacer en el texto y no en el título, que macOS no muestra (hitos 65 y 66). Un cálculo en otro hilo que vuelve cuando ya se abrió otro registro se descarta (hito 67). Después de abrir un registro muestra los avisos que dejó el lector, como el de un archivo truncado. | — |
+| `window_tools.py` | `ToolsMixin`: el filtro de eventos que lleva el mouse a las herramientas, la rueda —escala de tiempo fija bajo el mouse, y con Mayúsculas o deslizando de costado desplaza la página (hito 56)—, qué herramientas están encendidas, sus overlays y la lectura de la barra de estado. | V3_F de "Ocupación", V2_F de "Lupa" |
+| `window_annotation.py` | `AnnotationMixin`: terminar un tramo arrastrado y preguntar su clase, el menú de una anotación, anotar con el teclado (hito 62) e importar las marcas del registro (hito 73). | — |
+| `window_files.py` | `FilesMixin`: abrir un registro y los recientes, importar un scoring, exportar —`export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos— y el trabajo sin exportar: antes de cerrar, de abrir otro registro o de importar un scoring encima pregunta —Exportar…, Descartar o Cancelar—, con un diálogo de guardado por cada cosa en juego; la regla de qué cuenta es de `Session`. | V4_F de "Archivo de salida" |
+| `window_view.py` | `ViewMixin`: moverse de ventana, la escala de tiempo y la página, la reproducción, la amplitud, el foco entre paneles y las vistas de canales. | — |
+| `window_preferences.py` | `PreferencesMixin`: aplicar y guardar el esquema, la letra y los colores de clase, la disposición de fábrica y la ventana de configuración. | — |
+| `window_scoring.py` | `ScoringMixin`: scorear —pasa a la ventana siguiente, salvo que se lo apague (hito 64)—, el arousal, la nomenclatura, las fases sugeridas (hito 75) y el hipnograma con su eje, sus colores y la curva de las sugeridas. | V2_F de "Histograma" |
+| `window_analysis.py` | `AnalysisMixin`: los pedidos de la Parte 2 —espectro, complejidad, conectividad, filtros, impedancia, ICA, derivar, re-referenciar—, el aviso de los canales planos (hito 32) y volver a la señal original. | V5_F de "Filtración" |
 | `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** Marca la época con una banda, su número y su fase con una pestaña rellena en el borde, y —reproduciendo— el cursor con una línea: las tres se crean una vez y se mueven. Su eje de abajo, `TimeAxis`, va en hora de la noche. Guarda la envolvente por trozos alineados al registro, así que un paso de la reproducción calcula sólo lo que entra (hito 49). La pestaña de la ventana actual toma el color de su fase y va encima de las bandas de anotación (hito 64). El canalón dice la unidad de cada canal, que no es µV para lo que no es eléctrico (hito 70). | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
 | `channel_selector.py` | Elegir cuántos y cuáles canales se ven. Una fila por canal con su nombre y un chip con su clase, y un pie con un atajo por clase presente. | V3_P, V4_F de "Visualización" |
 | `background.py` | Correr un cálculo largo en otro hilo y devolver el resultado en el de la interfaz. **No hay cancelar**: ni MNE ni numpy interrumpen un cálculo empezado. `stopped` avisa que terminó con cualquier final, también con el error inesperado que se vuelve a elevar: sin eso la ventana quedaba esperando (hito 68). | — (infraestructura) |
@@ -81,14 +88,32 @@ conoce las flechas del teclado.
 | `shortcuts_dialog.py` | La ayuda de atajos, en una tabla agrupada —navegación, scoring, visualización, archivo— con la tecla en su columna (hito 54). Era un cartel de texto plano. | — (ayuda) |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** También dice en qué grupo va cada uno en la ayuda, y qué se hace con el mouse, que la ayuda muestra al lado (hito 56). Desde el hito 62 el teclado llega a todo lo del pliego: Inicio, Fin y Ctrl+G para ir a una ventana, E para anotar la actual, Mayús+F10 o Menú para corregir su anotación. Las teclas que usa el control que tiene el foco —las que mueven en una lista, una tabla o un desplegable; las que escriben en una tabla que se edita— no son atajos (hito 67). | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
 
-## `main_window.py` conecta, no implementa
+## La ventana conecta, no implementa
 
-Es el contenedor que reúne todas las funcionalidades de la Parte 1 **sin
+La ventana es el contenedor que reúne todas las funcionalidades **sin
 implementar ninguna**: cada una vive en su módulo y acá sólo se las cablea entre
 sí. También es donde se enganchan a mano los callbacks de las herramientas, que
 no usan señales de Qt (ver [`tools/README.md`](../tools/README.md)).
 
-Si estás agregando lógica acá, probablemente vaya en otro archivo.
+Si estás agregando lógica a la ventana, probablemente vaya en otro archivo.
+
+**Desde el hito 76 son ocho archivos y una sola clase.** `main_window.py` tenía
+170 métodos en 4300 líneas; ahora arma la ventana y hereda lo que ésta hace de
+siete mixins, uno por tema —`window_tools.py`, `window_annotation.py`,
+`window_files.py`, `window_view.py`, `window_preferences.py`,
+`window_scoring.py` y `window_analysis.py`—. Tres reglas que no se ven leyendo
+uno solo:
+
+- **Es una partición por tema, no un desacople.** Los ocho comparten el estado
+  que arma `MainWindow.__init__`, y un método de un mixin llama a los de
+  cualquier otro. Un método nuevo va al archivo de su tema.
+- **Los mixins van antes que `QMainWindow`** en la herencia, y no heredan de
+  nada. Si uno quedara después, `eventFilter()` y `closeEvent()` perderían sin
+  avisar contra los de Qt. Lo verifica `test_main_window_layout.py`, junto con
+  que ningún método esté en dos pedazos: el segundo quedaría muerto.
+- **Un test que reemplace una función que la ventana importa la reemplaza en el
+  módulo que la usa**: `fit_ica` en `window_analysis`, `read_recording` en
+  `window_files`. Reemplazarla en `main_window` ya no tiene efecto.
 
 ## `shortcuts.py`
 
@@ -373,10 +398,10 @@ herramienta, los mismos tests pasan en verde con el programa roto.
 se puede verificar sin mirar una pantalla, así que todo lo que valga la pena
 verificar debería poder verificarse desde `core/`, `tools/` o `exporters/`.
 
-**Lo que no dibuja sí los lleva, y hoy son casi todos**: veinte de los
-veintidós módulos de la carpeta tienen test propio. Los dos que no —
-`main_window.py` y `channel_selector.py`— figuran en `SIN_TEST_PROPIO`, y al
-primero lo recorre `test_entrega.py` por la ventana. La frase de este párrafo
+**Lo que no dibuja sí los lleva, y hoy son casi todos**: de los treinta y tres
+módulos de la carpeta, sólo `main_window.py` figura en `SIN_TEST_PROPIO`, y lo
+recorre `test_entrega.py` por la ventana; sus siete pedazos los cubren ése y
+`test_main_window_layout.py` (hito 76). La frase de este párrafo
 decía que ninguno llevaba test y se quedó vieja mientras la lista crecía: lo
 encontró la auditoría del 19 de septiembre de 2026.
 

@@ -91,8 +91,9 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 72](#hito-72-la-frecuencia-de-origen)** hizo que el espectro y la conectividad miren a qué frecuencia se grabó cada canal, y el
 **[hito 73](#hito-73-las-marcas-del-registro)** convirtió en anotaciones, a pedido, las marcas que trae el archivo, y el
 **[hito 74](#hito-74-los-cabos-sueltos)** ató los dos cabos que dejaron los hitos 72 y 73, y el
-**[hito 75](#hito-75-las-fases-sugeridas)** reabrió el scoring automático como fases que sugiere un clasificador y alguien confirma.
-Son **setenta y seis hitos**, del 0 al 75, que son las filas de la tabla de
+**[hito 75](#hito-75-las-fases-sugeridas)** reabrió el scoring automático como fases que sugiere un clasificador y alguien confirma, y el
+**[hito 76](#hito-76-la-ventana-en-ocho-archivos)** partió la ventana principal en ocho archivos, uno por tema.
+Son **setenta y siete hitos**, del 0 al 76, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -246,6 +247,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [73. Las marcas del registro](#hito-73-las-marcas-del-registro) | — | 0 | ✅ cerrado |
 | [74. Los cabos sueltos](#hito-74-los-cabos-sueltos) | — | 0 | ✅ cerrado |
 | [75. Las fases sugeridas](#hito-75-las-fases-sugeridas) | — | 0 | ✅ cerrado |
+| [76. La ventana en ocho archivos](#hito-76-la-ventana-en-ocho-archivos) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1911,7 +1913,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       líneas de `test_entrega.py`. Y la primera medición de cuánto tarda
       dibujar: 92 ms con 64 canales a 1000 Hz, cinco veces por debajo del
       umbral de usabilidad. Las tablas están en `docs/ARQUITECTURA.md`.
-  - Test: `tests/test_main_window_layout.py`, **8 tests en verde**.
+  - Test: `tests/test_main_window_layout.py`, **11 tests en verde**.
 - [x] **Fase 1 — Esquemas de color y preferencias.** Cinco esquemas de fábrica
       —Claro, Oscuro, NK, Azul sobre gris y ECG— y un archivo que los recuerda.
       Las curvas no tenían pluma y salían todas del mismo gris; ahora cada
@@ -2148,7 +2150,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
     análisis cambia la señal. No arranca con el registro entero en pantalla.
   - Test: `tests/test_playback.py`, **31 tests en verde**.
   - Test: `tests/test_shortcuts.py`, **35 tests en verde**.
-  - Test: `tests/test_main_window_layout.py`, **8 tests en verde**.
+  - Test: `tests/test_main_window_layout.py`, **11 tests en verde**.
 
 ### Lo que se encontró en el camino
 
@@ -3987,7 +3989,7 @@ arrastrar y el sistema la marcaba como «no responde».
 - [x] **Cerrar la ventana espera al cálculo.** Soltar la sesión con otro hilo
       todavía leyendo el registro lo deja trabajando sobre memoria que ya nadie
       tiene.
-  - Test: `tests/test_main_window_layout.py`, **8 tests en verde**, que es
+  - Test: `tests/test_main_window_layout.py`, **11 tests en verde**, que es
     donde se declara qué es público de la ventana.
 
 ### Cómo se testea algo con hilos sin que el resultado dependa del reloj
@@ -6234,6 +6236,73 @@ instalarlo.
 
 **Queda pendiente**: la conformidad del laboratorio con reabrir la decisión, y
 la pregunta de si graba un EMG a más de 80 Hz, que es lo que más mejoraría R.
+
+## Hito 76: La ventana en ocho archivos
+
+**Cerrado el 26 de septiembre de 2026.** Lo último que dejó la auditoría del
+25 de septiembre: `MainWindow` tenía **170 métodos en 4300 líneas**, y cada
+hito le sumaba los suyos. El usuario eligió partirla. **No cambia nada que se
+vea.**
+
+**No tiene stubs que contar.**
+
+### La decisión
+
+**Mixins por tema, no controladores.** Los 170 métodos comparten el estado
+que arma `__init__`, la suite llama a unos cuarenta privados por su nombre en
+la ventana y reemplaza `_confirmar` y `_show_error` sobre la clase. Pasar a
+objetos con estado propio habría sido reescribir, no mover; los mixins
+permiten mover sin tocar una línea de los métodos. **Es una partición por
+tema, no un desacople**, y los docstrings lo dicen así.
+
+### Lo que se hizo
+
+- [x] **Siete módulos nuevos en `ui/`**, uno por tema, y `main_window.py` de
+      4288 a unas 800 líneas:
+
+      window_tools.py        el mouse, las herramientas y lo que dibujan
+      window_annotation.py   anotar con el mouse, con el teclado o desde el archivo
+      window_files.py        abrir, importar, exportar y el trabajo sin exportar
+      window_view.py         época, página, reproducción, amplitud y foco
+      window_preferences.py  esquema, letra, colores de clase y configuración
+      window_scoring.py      scorear, las fases sugeridas y el hipnograma
+      window_analysis.py     los análisis de la Parte 2 y sus paneles
+
+      En `main_window.py` quedan la construcción, las esperas largas, lo que
+      se muestra de la época actual y los tres carteles, que comparten título.
+- [x] **Movido por un programa y no a mano**: recorre el árbol de sintaxis,
+      lleva cada método con los comentarios pegados arriba y su encabezado de
+      sección, las constantes que sólo usa ese tema y las importaciones que
+      el código movido usa. **Los 170 métodos son idénticos** a los de antes,
+      comparados nodo por nodo, y `pyflakes` no encuentra ningún nombre sin
+      definir ni ninguna importación de más.
+- [x] **Los cinco requisitos que declaraba `main_window.py` se fueron con sus
+      métodos**, y `docs/TRAZABILIDAD.md` los sigue: `export()` a
+      `window_files.py`, `_update_tool_readout()` a `window_tools.py`,
+      `_marcas_del_histograma()` a `window_scoring.py` y `_olvidar_ica()` a
+      `window_analysis.py`.
+- [x] **Tres guardas nuevas**, porque la herencia múltiple falla callada:
+      los mixins van antes que `QMainWindow` —si no, `eventFilter()` y
+      `closeEvent()` perderían contra los de Qt—, ningún método vive en dos
+      pedazos —el segundo quedaría muerto— y ningún mixin hereda de nada.
+  - Test: `tests/test_main_window_layout.py`, **11 tests en verde**.
+- [x] **Los reemplazos de la suite, al módulo donde se busca el nombre**:
+      `fit_ica`, `compute_psd`, `connectivity_by_window`,
+      `component_time_course`, `warm_up` y `warm_up_readers` en
+      `window_analysis`, `read_recording` en `window_files`, `suggest_stages`
+      en `window_scoring`. **Cuatro tests asignaban `fit_ica` a mano** y no
+      con `monkeypatch`: sobre `main_window` no habrían fallado, sólo dejado
+      de reemplazar nada. Los tres últimos de `window_analysis` los importaban
+      con otro nombre y la búsqueda no los vio; los encontró la suite, con un
+      `AttributeError` y no en silencio, porque `monkeypatch.setattr` falla si
+      el nombre no existe.
+  - Test: `tests/test_entrega.py`, **388 tests en verde**;
+    `tests/test_consistencia.py`, **102 tests en verde**.
+
+**Lo que no se hizo.** Los mixins siguen dependiendo del estado de la ventana
+entera, así que un cambio en `__init__` puede romper a cualquiera. Separar
+estado —que el hipnograma, por ejemplo, sea un objeto con sus propios datos—
+sería el paso siguiente, y es de los que cambian nombres que la suite usa.
 
 ---
 

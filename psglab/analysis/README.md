@@ -49,7 +49,8 @@ existiendo y testeadas para los scripts del laboratorio.
 | `complexity.sample_entropy()` | Medida sobre el registro real tarda más de cinco minutos contra menos de cinco segundos las otras tres. `MEDIDAS_RAPIDAS` la deja fuera del barrido. |
 | `psd.band_powers_by_window()` | El hito 19 eligió mostrar la potencia por banda **de la ventana**, en el panel del espectro, y no el barrido de la noche. Queda para un script. Faltaba en esta tabla hasta el hito 33. |
 
-`ui/main_window.py` **no debe importar lo que no llama**: hasta el hito 19
+La ventana —`ui/main_window.py` y sus pedazos `ui/window_*.py`— **no debe
+importar lo que no llama**: hasta el hito 19
 importaba `derive_montage` sin usarla, y eso hacía parecer consumido un camino
 muerto.
 

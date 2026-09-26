@@ -49,7 +49,12 @@ from psglab.core.nomenclature import Nomenclature, SleepStage, stages_of  # noqa
 from psglab.core.scoring import StageSuggestion  # noqa: E402
 from psglab.exporters.scoring_txt import export_scoring  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
-from psglab.ui import main_window as main_window_mod  # noqa: E402
+# Los módulos donde se buscan los nombres que la suite reemplaza (hito 76):
+# reemplazarlos en `main_window` no tendría efecto, porque ahí ya no se usan.
+import psglab.ui.window_analysis as analysis_mod  # noqa: E402
+import psglab.ui.window_annotation as annotation_mod  # noqa: E402
+import psglab.ui.window_files as files_mod  # noqa: E402
+import psglab.ui.window_scoring as scoring_mod  # noqa: E402
 from psglab.ui import preferences as preferencias_mod  # noqa: E402
 from psglab.ui import theme  # noqa: E402
 from psglab.tools.base import BandOverlay  # noqa: E402
@@ -1652,7 +1657,7 @@ def test_la_interfaz_no_ofrece_la_medida_lenta():
     El módulo la acepta igual; la política es de la interfaz.
     """
     from psglab.analysis.complexity import MEASURES
-    from psglab.ui.main_window import MEDIDAS_RAPIDAS
+    from psglab.ui.window_analysis import MEDIDAS_RAPIDAS
 
     assert "sample_entropy" in MEASURES
     assert "sample_entropy" not in MEDIDAS_RAPIDAS
@@ -1802,7 +1807,7 @@ def test_la_curva_se_pide_para_la_ventana_en_la_que_esta_el_usuario(
 
     Lo que sí se puede afirmar es la costura: qué ventana se pide.
     """
-    import psglab.ui.main_window as ventana_principal
+    import psglab.ui.window_analysis as ventana_principal
 
     pedidas: list[int] = []
     real = ventana_principal.component_time_course
@@ -2300,7 +2305,7 @@ def test_abrir_un_registro_avisa_mientras_lee(
     from PySide6.QtWidgets import QApplication
 
     visto: list[tuple[object, str]] = []
-    leer = main_window_mod.read_recording
+    leer = files_mod.read_recording
 
     def mirar(ruta):
         cursor = QApplication.overrideCursor()
@@ -2312,7 +2317,7 @@ def test_abrir_un_registro_avisa_mientras_lee(
         )
         return leer(ruta)
 
-    monkeypatch.setattr(main_window_mod, "read_recording", mirar)
+    monkeypatch.setattr(files_mod, "read_recording", mirar)
     otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS)
 
     ventana.open_recording(otro)
@@ -2407,13 +2412,13 @@ def test_el_espectro_usa_el_metodo_elegido(
     ventana: MainWindow, elige_canal, monkeypatch
 ):
     metodos: list[object] = []
-    original = main_window_mod.compute_psd
+    original = analysis_mod.compute_psd
 
     def espiando(*args: object, **kwargs: object) -> object:
         metodos.append(kwargs.get("method"))
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(main_window_mod, "compute_psd", espiando)
+    monkeypatch.setattr(analysis_mod, "compute_psd", espiando)
     _con(ventana, psd_method="multitaper")
     elige_canal("C3")
 
@@ -2571,9 +2576,9 @@ def test_sin_hora_de_inicio_esa_preferencia_no_muestra_un_cartel(
     error. Mostrarlo en cada apertura, por una preferencia elegida para otros
     archivos, sería castigar al usuario por haberla elegido."""
     _con(ventana, open_clock_axis=True)
-    original = main_window_mod.read_recording
+    original = files_mod.read_recording
     monkeypatch.setattr(
-        main_window_mod,
+        files_mod,
         "read_recording",
         lambda ruta: dataclasses.replace(original(ruta), start_time=None),
     )
@@ -2636,7 +2641,7 @@ def test_sin_los_archivos_queda_la_del_sistema(
     from psglab.ui import fonts
 
     del_sistema = QFont(ventana._fuente_del_sistema)
-    monkeypatch.setattr(main_window_mod.fonts, "available_family", lambda *_: None)
+    monkeypatch.setattr(fonts, "available_family", lambda *_: None)
 
     _con(ventana, font_size=13)
 
@@ -2780,7 +2785,7 @@ def test_cancelar_la_banda_no_mide_nada(ventana: MainWindow, elige_opciones, mon
     arrancarla igual."""
     llamadas: list[object] = []
     monkeypatch.setattr(
-        main_window_mod,
+        analysis_mod,
         "connectivity_by_window",
         lambda *args, **kwargs: llamadas.append(args),
     )
@@ -3526,7 +3531,7 @@ def test_main_py_precalienta_en_segundo_plano(qt_app, monkeypatch):
     de `antropy`. `main.py` las pide al arrancar, en otro hilo."""
     import threading
 
-    from psglab.ui import main_window as modulo
+    import psglab.ui.window_analysis as modulo
 
     hecho: list[str] = []
     monkeypatch.setattr(
@@ -3549,7 +3554,7 @@ def test_main_py_precalienta_en_segundo_plano(qt_app, monkeypatch):
 
 def test_la_suite_no_precalienta(qt_app, monkeypatch):
     """Cada ventana de la suite lanzaría un hilo."""
-    from psglab.ui import main_window as modulo
+    import psglab.ui.window_analysis as modulo
 
     llamadas: list[bool] = []
     monkeypatch.setattr(modulo, "warm_up", lambda: llamadas.append(True))
@@ -4516,14 +4521,14 @@ def test_ajustar_la_ica_apaga_lo_que_cambiaria_la_senal(
     """
     empezo = threading.Event()
     seguir = threading.Event()
-    real = main_window_mod.fit_ica
+    real = analysis_mod.fit_ica
 
     def lento(registro):
         empezo.set()
         seguir.wait(5.0)
         return real(registro)
 
-    main_window_mod.fit_ica = lento
+    analysis_mod.fit_ica = lento
     try:
         ventana_con_dos_eeg.show_ica_dialog()
         assert empezo.wait(5.0), "el ajuste no arrancó"
@@ -4534,7 +4539,7 @@ def test_ajustar_la_ica_apaga_lo_que_cambiaria_la_senal(
     finally:
         seguir.set()
         ventana_con_dos_eeg.wait_for_background()
-        main_window_mod.fit_ica = real
+        analysis_mod.fit_ica = real
 
     assert ventana_con_dos_eeg.menu_montaje.menuAction().isEnabled()
     assert ventana_con_dos_eeg.menu_filtrar.menuAction().isEnabled()
@@ -4547,14 +4552,14 @@ def test_mientras_ajusta_se_puede_scorear(ventana_con_dos_eeg: MainWindow):
     """
     empezo = threading.Event()
     seguir = threading.Event()
-    real = main_window_mod.fit_ica
+    real = analysis_mod.fit_ica
 
     def lento(registro):
         empezo.set()
         seguir.wait(5.0)
         return real(registro)
 
-    main_window_mod.fit_ica = lento
+    analysis_mod.fit_ica = lento
     try:
         ventana_con_dos_eeg.show_ica_dialog()
         assert empezo.wait(5.0), "el ajuste no arrancó"
@@ -4565,7 +4570,7 @@ def test_mientras_ajusta_se_puede_scorear(ventana_con_dos_eeg: MainWindow):
     finally:
         seguir.set()
         ventana_con_dos_eeg.wait_for_background()
-        main_window_mod.fit_ica = real
+        analysis_mod.fit_ica = real
 
     assert not ventana_con_dos_eeg.carteles
     assert ventana_con_dos_eeg.session.scoring.get(0).stage is SleepStage.N2
@@ -5284,11 +5289,11 @@ def test_mayus_f10_corrige_la_anotacion_de_la_ventana(
     fs = ventana.session.recording.sampling_rate
     herramienta = ventana._tools["annotator"]
     herramienta.create_annotation("Apnea", int(5 * fs), int(2 * fs))
-    elige_en_el_menu.elegir(main_window_mod._CAMBIAR_CLASE)
+    elige_en_el_menu.elegir(annotation_mod._CAMBIAR_CLASE)
 
     ventana.annotation_menu_for_current_window()
 
-    assert elige_en_el_menu.menus == [[main_window_mod._CAMBIAR_CLASE, main_window_mod._BORRAR]]
+    assert elige_en_el_menu.menus == [[annotation_mod._CAMBIAR_CLASE, annotation_mod._BORRAR]]
     clases = sorted((a.duration_samples, a.label) for a in ventana.session.annotations.all())
     assert clases[0][1] == "Arousal"
     assert clases[1][1] == "Apnea"
@@ -5817,7 +5822,7 @@ def test_la_ica_de_otro_registro_no_se_muestra(
     ventana = ventana_con_dos_eeg
     empezo = threading.Event()
     seguir = threading.Event()
-    real = main_window_mod.fit_ica
+    real = analysis_mod.fit_ica
 
     def lento(registro):
         empezo.set()
@@ -5829,7 +5834,7 @@ def test_la_ica_de_otro_registro_no_se_muestra(
         segundos=WINDOW_SECONDS * 2,
         canales=[("C3", "µV"), ("C4", "µV"), ("EOG-izq", "µV")],
     )
-    main_window_mod.fit_ica = lento
+    analysis_mod.fit_ica = lento
     try:
         ventana.show_ica_dialog()
         assert empezo.wait(5.0), "el ajuste no arrancó"
@@ -5837,7 +5842,7 @@ def test_la_ica_de_otro_registro_no_se_muestra(
     finally:
         seguir.set()
         ventana.wait_for_background()
-        main_window_mod.fit_ica = real
+        analysis_mod.fit_ica = real
 
     assert ventana.session.recording.file_path == otra
     assert ventana._ica is None
@@ -5853,14 +5858,14 @@ def test_el_error_de_un_calculo_de_otro_registro_no_se_muestra(
     ventana = ventana_con_dos_eeg
     empezo = threading.Event()
     seguir = threading.Event()
-    real = main_window_mod.fit_ica
+    real = analysis_mod.fit_ica
 
     def falla(registro):
         empezo.set()
         seguir.wait(5.0)
         raise PsgLabError("La ICA no convergió.")
 
-    main_window_mod.fit_ica = falla
+    analysis_mod.fit_ica = falla
     try:
         ventana.show_ica_dialog()
         assert empezo.wait(5.0), "el ajuste no arrancó"
@@ -5868,7 +5873,7 @@ def test_el_error_de_un_calculo_de_otro_registro_no_se_muestra(
     finally:
         seguir.set()
         ventana.wait_for_background()
-        main_window_mod.fit_ica = real
+        analysis_mod.fit_ica = real
 
     assert not ventana.carteles
     assert "Se descartó" in ventana.statusBar().currentMessage()
@@ -5901,7 +5906,7 @@ def test_filtrar_desde_el_panel_no_deja_plano_al_canal_lento(
         ),
         sampling_rate=fs,
     )
-    monkeypatch.setattr(main_window_mod, "read_recording", lambda _ruta: lento)
+    monkeypatch.setattr(files_mod, "read_recording", lambda _ruta: lento)
     ventana.open_recording(tmp_path / "lento.edf")
     ventana.show_filter_dialog()
     assert "«EMG» se grabó a 1 Hz" in ventana.filter_panel.rotulo.text()
@@ -6070,7 +6075,7 @@ def ventana_con_un_canal_lento(ventana: MainWindow, tmp_path, monkeypatch) -> Ma
         ),
         sampling_rate=fs,
     )
-    monkeypatch.setattr(main_window_mod, "read_recording", lambda _ruta: registro)
+    monkeypatch.setattr(files_mod, "read_recording", lambda _ruta: registro)
     ventana.open_recording(tmp_path / "lento.edf")
     return ventana
 
@@ -6178,7 +6183,7 @@ def ventana_con_marcas(ventana: MainWindow, tmp_path, monkeypatch) -> MainWindow
             ]
         },
     )
-    monkeypatch.setattr(main_window_mod, "read_recording", lambda _ruta: registro)
+    monkeypatch.setattr(files_mod, "read_recording", lambda _ruta: registro)
     ventana.open_recording(tmp_path / "con_marcas.vhdr")
     return ventana
 
@@ -6270,7 +6275,7 @@ def clasificador(monkeypatch):
             for i in range(VENTANAS)
         ]
 
-    monkeypatch.setattr(main_window_mod, "suggest_stages", sugerir)
+    monkeypatch.setattr(scoring_mod, "suggest_stages", sugerir)
     return llamadas
 
 
