@@ -1917,7 +1917,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       líneas de `test_entrega.py`. Y la primera medición de cuánto tarda
       dibujar: 92 ms con 64 canales a 1000 Hz, cinco veces por debajo del
       umbral de usabilidad. Las tablas están en `docs/ARQUITECTURA.md`.
-  - Test: `tests/test_main_window_layout.py`, **13 tests en verde**.
+  - Test: `tests/test_main_window_layout.py`, **14 tests en verde**.
 - [x] **Fase 1 — Esquemas de color y preferencias.** Cinco esquemas de fábrica
       —Claro, Oscuro, NK, Azul sobre gris y ECG— y un archivo que los recuerda.
       Las curvas no tenían pluma y salían todas del mismo gris; ahora cada
@@ -2154,7 +2154,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
     análisis cambia la señal. No arranca con el registro entero en pantalla.
   - Test: `tests/test_playback.py`, **31 tests en verde**.
   - Test: `tests/test_shortcuts.py`, **35 tests en verde**.
-  - Test: `tests/test_main_window_layout.py`, **13 tests en verde**.
+  - Test: `tests/test_main_window_layout.py`, **14 tests en verde**.
 
 ### Lo que se encontró en el camino
 
@@ -2396,7 +2396,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       con su licencia, la OFL 1.1. `ui/fonts.py` las registra al arrancar; si
       faltan, el programa arranca igual. El control de licencias del CI no las
       ve, porque sólo mira pip: están anotadas en `docs/ARQUITECTURA.md`.
-  - Test: `tests/test_fonts.py`, **22 tests en verde**.
+  - Test: `tests/test_fonts.py`, **25 tests en verde**.
 
 ### Los detalles
 
@@ -3283,7 +3283,7 @@ tecla.
         archivo siempre escribe `font_family`, y `_con_campos_nuevos()` sólo
         saltea lo que no está. El diseño nuevo lo ve quien instala de cero o
         quien lo elige en Configuración → Tipografía.
-  - Test: `tests/test_fonts.py`, **22 tests en verde**, con la familia
+  - Test: `tests/test_fonts.py`, **25 tests en verde**, con la familia
     disponible y con una que no existe.
   - Test: `tests/test_entrega.py`, **389 tests en verde**, con la tipografía
     aplicada y con la que no está. Los cuatro fallan sin la corrección.
@@ -3993,7 +3993,7 @@ arrastrar y el sistema la marcaba como «no responde».
 - [x] **Cerrar la ventana espera al cálculo.** Soltar la sesión con otro hilo
       todavía leyendo el registro lo deja trabajando sobre memoria que ya nadie
       tiene.
-  - Test: `tests/test_main_window_layout.py`, **13 tests en verde**, que es
+  - Test: `tests/test_main_window_layout.py`, **14 tests en verde**, que es
     donde se declara qué es público de la ventana.
 
 ### Cómo se testea algo con hilos sin que el resultado dependa del reloj
@@ -4055,7 +4055,7 @@ propio salto de tamaño.
       - **Un rol que no existe eleva `UnknownTypeRoleError`** y el mensaje los
         enumera, como hace `icons.icon()`: el nombre lo escribe quien dibuja y
         un error de tipeo es la causa habitual.
-  - Test: `tests/test_fonts.py`, **22 tests en verde**.
+  - Test: `tests/test_fonts.py`, **25 tests en verde**.
 - [x] **Los módulos dejaron de inventar su salto.** `channel_axis.py` achicaba
       un punto y `panel_header.py` dos: eran dos respuestas a la misma
       pregunta. Ahora los dos nombran un rol —«cuerpo», «lectura secundaria»,
@@ -4306,7 +4306,7 @@ se dejaron escritas en vez de arreglarse en el momento.
       - El párrafo de `docs/ARQUITECTURA.md` que lista los archivos **pide que
         se lo actualice** al agregar uno, porque el control de licencias del CI
         sólo mira los paquetes de pip.
-  - Test: `tests/test_fonts.py`, **22 tests en verde**, que ya exigía que todo
+  - Test: `tests/test_fonts.py`, **25 tests en verde**, que ya exigía que todo
     lo declarado en `FONT_FILES` exista.
 
 ### Por qué el de Markdown duró tres sesiones
@@ -6293,7 +6293,7 @@ tema, no un desacople**, y los docstrings lo dicen así.
       los mixins van antes que `QMainWindow` —si no, `eventFilter()` y
       `closeEvent()` perderían contra los de Qt—, ningún método vive en dos
       pedazos —el segundo quedaría muerto— y ningún mixin hereda de nada.
-  - Test: `tests/test_main_window_layout.py`, **13 tests en verde**.
+  - Test: `tests/test_main_window_layout.py`, **14 tests en verde**.
 - [x] **Los reemplazos de la suite, al módulo donde se busca el nombre**:
       `fit_ica`, `compute_psd`, `connectivity_by_window`,
       `component_time_course`, `warm_up` y `warm_up_readers` en
@@ -6338,7 +6338,7 @@ proporcional son las letras y los signos, que no cambian mientras se navega.
       `lectura_secundaria` como `secundario`. **El chip pasa a semi-negrita**:
       Sans regular a dos puntos menos que la base, blanca sobre el relleno, se
       afinaba.
-  - Test: `tests/test_fonts.py`, **22 tests en verde**. Dos
+  - Test: `tests/test_fonts.py`, **25 tests en verde**. Dos
     guardas nuevas: los ocho roles dan la misma familia, mirando la `QFont`
     que sale, y **las cifras miden lo mismo**, con la tipografía cargada en Qt.
 - [x] **`ui/theme.py`**: sin el campo `numeric_font` ni la regla que les daba
@@ -6362,58 +6362,98 @@ proporcional son las letras y los signos, que no cambian mientras se navega.
       tipografías; y la ventana sin preferencias guardadas no llama a
       `_aplicar_preferencias()`, que es quien le pone la del programa. Ahora usa
       `create_application()` y le aplica las preferencias de fábrica, sin
-      escribir nada. **El programa de verdad no tenía el problema**: `main.py`
-      pasa por los dos. Las capturas de antes de este hito no sirven para
-      juzgar la tipografía.
+      escribir nada. Las capturas de antes de este hito no sirven para
+      juzgar la tipografía. *(Acá se afirmaba que el programa de verdad no
+      tenía el problema; sí lo tenía, y lo encontró el
+      [hito 78](#hito-78-que-la-suite-vea-la-letra-real).)*
 
 ## Hito 78: Que la suite vea la letra real
 
 **Cerrado el 26 de septiembre de 2026.** El hito 77 destapó que la ventana
 que arman los tests, las capturas y los bancos **no tenía la tipografía del
-programa**. El usuario eligió cerrar eso antes que seguir con funcionalidad.
+programa**. El usuario eligió cerrar eso antes que seguir con funcionalidad,
+y **el CI de Linux y de macOS encontró que el programa de verdad tampoco la
+tenía**, desde el hito 43.
 
 **No tiene stubs que contar.**
 
-### Los dos huecos
+### Lo que se creía y lo que era
 
-1. **La tipografía no se registraba en la suite.** `qt_app` arma un
-   `QApplication` pelado y no pasa por `create_application()`, a propósito:
-   ésa lee el esquema guardado del usuario. Pero tampoco registraba la
-   tipografía, que es lo otro que hace.
-2. **Ninguna ventana aplicaba las preferencias de fábrica.**
-   `MainWindow.__init__` las guardaba en `_preferencias` y sólo
-   `apply_saved_preferences()` —la de `main.py`— las aplicaba. Medido: una
-   ventana armada como en la suite dejaba la aplicación en Segoe UI, y sólo lo
-   que pasaba por `font_for()` —chips, encabezados— salía en Plex.
+La primera versión de este hito arreglaba dos huecos de la suite: no
+registraba la tipografía, y ninguna ventana aplicaba las preferencias de
+fábrica. Pasó en Windows y falló en Linux y en macOS: la ventana recién armada
+salía en DejaVu Sans y en la del sistema. **En Windows pasaba por casualidad**:
+el test partía de una tipografía que no existe, y ahí Qt la sustituye por
+Plex.
 
-**El programa de verdad no tenía el problema**: `main.py` pasa por los dos. Lo
-que lo tenía era todo lo que lo verifica, y Plex Sans es más ancha que Segoe
-UI: un rótulo que entraba en los tests podía salir cortado en el programa.
+Medido después, con una sonda en Windows y en Linux (WSL): **la ventana del
+programa también quedaba en la letra del sistema**, con la aplicación en
+Plex. La barra de menú, la de estado, el pie del scoring, la navegación; sólo
+lo que ponía su tipografía a mano —chips, encabezados, los roles de
+`font_for()`— salía en Plex. **Las capturas lo escondían**: después de armar
+la ventana cambian de esquema, que vuelve a poner la hoja de estilo, y eso
+repule todo con la tipografía de la aplicación.
+
+Son dos comportamientos de Qt, y los dos se midieron igual en Windows y en
+Linux:
+
+1. **El aviso de cambio de tipografía sólo se manda con el ciclo de eventos
+   corriendo.** La ventana se arma y aplica las preferencias antes de
+   `exec()`, así que lo ya construido no se enteraba.
+2. **Lo que está bajo una hoja de estilo no recibe ese aviso**, a propósito,
+   porque ahí manda la hoja: se queda con la tipografía que tenía la
+   aplicación cuando se lo pulió.
 
 ### Lo que se hizo
 
-- [x] **El constructor aplica las de fábrica**, al final, cuando ya existen
-      los paneles que toca. Las guardadas las reemplazan después, como antes.
-      No escribe nada: la ventana todavía no es la del usuario.
+- [x] **La tipografía se pone antes de construir nada.** `MainWindow.__init__`
+      llama a `_poner_la_tipografia()` —separada de
+      `_aplicar_preferencias()`— antes de armar un solo widget: lo que nace
+      con ella la tiene, en todas las plataformas. Medido en la ventana del
+      programa: los 262 widgets sin tipografía propia, en Plex.
+- [x] **Un cambio posterior le llega a lo ya construido.** Al cambiar la
+      tipografía se le manda a la ventana el aviso que Qt no manda antes de
+      `exec()`, y se vuelve a poner la hoja de estilo para que repula lo que
+      está bajo ella. Es lo que pasa al elegir el tamaño en Configuración y
+      al aplicar las preferencias guardadas: los 262 siguen el cambio, y
+      vuelven al tamaño del sistema.
+- [x] **El resto de las preferencias de fábrica**, aplicado al final del
+      constructor, porque toca paneles. No escribe nada: la ventana todavía
+      no es la del usuario.
 - [x] **`qt_app` registra la tipografía**, sin pasar por
-      `create_application()`, por el motivo del esquema guardado.
-- [x] **La herramienta de capturas deja de aplicarlas a mano**: el arreglo del
-      hito 77 pasa a ser del programa. Las 44 capturas salen idénticas píxel a
-      píxel a las de aquel hito, que es la prueba de que la ventana arranca
-      como la dejaba la herramienta.
-- [x] **Tres guardas.** La ventana recién armada deja la tipografía del
-      programa, y lo mira con `QFontInfo` —la que se usa de verdad, no la
-      pedida—; antes de armarla se pone una que no existe, porque la de la
-      aplicación es una para toda la suite y otra ventana podría haberla
-      cambiado. La suite tiene la tipografía registrada. Y armar la ventana no
-      escribe el archivo de preferencias.
-  - Test: `tests/test_main_window_layout.py`, **13 tests en verde**;
+      `create_application()`, que leería el esquema guardado de quien corre
+      la suite.
+- [x] **La herramienta de capturas deja de aplicar las preferencias a mano.**
+      De las 44 capturas, 39 salen idénticas píxel a píxel a las del hito
+      77. Las otras cinco son de Sereno —la ventana y cuatro paneles de
+      análisis— y cambian de maquetación, no de tinta: Sereno es la primera
+      ventana que arma la herramienta, y antes se armaba con la letra del
+      sistema y se la pasaba a Plex después, con medidas ya tomadas con la
+      otra. Nocturno, la segunda, ya nacía en Plex, y no cambió.
+- [x] **Las guardas miran la tipografía pedida, no la usada.** La usada
+      depende de a qué sustituya Qt una familia que no tiene, y eso fue lo
+      que hizo pasar el test en Windows. Ahora:
+      - cada widget de la ventana sin tipografía propia pide la de la
+        aplicación, al arrancar y después de cambiar el tamaño;
+      - un rótulo común la usa de verdad —la barra de menú no, porque en
+        macOS es la nativa—;
+      - la suite la tiene registrada;
+      - armar la ventana no escribe el archivo de preferencias.
+
+      Sacando cualquiera de las tres piezas —la tipografía antes de
+      construir, el aviso, la hoja— **falla en Windows** también.
+  - Test: `tests/test_main_window_layout.py`, **14 tests en verde**;
     `tests/test_entrega.py`, **389 tests en verde**.
+- [x] **El test de las familias registradas pedía la lista exacta** y falló en
+      Linux y en macOS. El archivo semi-negrita declara también un nombre
+      heredado, «IBM Plex Sans SmBld», que según la plataforma Qt informa o
+      no. Ahora pide que todos los nombres sean de la misma familia. Y uno
+      nuevo verifica que la negrita salga del archivo semi-negrita y no la
+      engorde Qt: el estilo que se usa es SemiBold.
+  - Test: `tests/test_fonts.py`, **25 tests en verde**.
 
 **Lo que midió la suite con la letra real: nada se cortó.** Ningún test de
-anchos, alturas ni mínimos cambió de resultado. Sin quitar la llamada del
-constructor ni el registro de `qt_app`, las guardas fallan; con los dos, la
-suite entera pasa.
+anchos, alturas ni mínimos cambió de resultado.
 
 **Queda por mirar a mano**: `python -m tests.medir_reparto`, que mide los
 mínimos de los paneles y hasta acá lo hacía con la letra del sistema. Abre una

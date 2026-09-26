@@ -18,7 +18,8 @@ panel nuevo, este test falla y hay que sumarlo acá. Esa fricción es el punto.
 
 import pytest
 from PySide6.QtGui import QFont, QFontInfo, QShortcut
-from PySide6.QtWidgets import QApplication, QMainWindow
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget
 
 pytest.importorskip("pyqtgraph")
 
@@ -398,22 +399,64 @@ def test_los_mixins_no_heredan_de_nada():
 # -- La tipografía con la que arranca (hito 78) --------------------------------
 
 
-def test_la_ventana_arranca_con_la_tipografia_del_programa(qt_app):
-    """**Hasta el hito 78 sólo la de `main.py` la aplicaba**: toda otra ventana
-    —la de los tests, la de las capturas, la de los bancos— quedaba con la del
-    sistema, y un rótulo que entraba ahí podía salir cortado con Plex Sans.
+def sin_la_tipografia(ventana: MainWindow, tamano: int | None = None) -> list[str]:
+    """Los widgets de la ventana que no piden la tipografía de la aplicación.
 
-    Antes se pone una tipografía que no existe: la de la aplicación es una
-    para toda la suite, y si otra ventana ya la hubiera cambiado este test
-    pasaría aunque la ventana nueva no hiciera nada."""
+    Quedan afuera los que tienen una propia —los roles de `font_for()`—, que es
+    a propósito. **Se mira la pedida y no la usada**: la usada depende de a qué
+    sustituya Qt una familia que no tiene, y en Windows eso daba Plex por
+    casualidad, así que el test pasaba con la ventana entera en la letra del
+    sistema. Lo encontró el CI de Linux y de macOS."""
+    todos = [ventana, *ventana.findChildren(QWidget)]
+    return [
+        f"{type(w).__name__} {w.objectName()!r}: {w.font().family()} {w.font().pointSize()} pt"
+        for w in todos
+        if not w.testAttribute(Qt.WidgetAttribute.WA_SetFont)
+        and (
+            w.font().family() != fonts.UI_FONT_FAMILY
+            or (tamano is not None and w.font().pointSize() != tamano)
+        )
+    ]
+
+
+def test_toda_la_ventana_arranca_con_la_tipografia_del_programa(qt_app):
+    """**Hasta el hito 78 casi ningún widget la tenía**, en el programa de
+    verdad incluido: la aplicación quedaba en Plex y la barra de menú, la de
+    estado y los rótulos, en la del sistema. La tipografía se ponía después de
+    construirlos, y a lo ya construido Qt no se la hace llegar antes de
+    `exec()` ni bajo una hoja de estilo.
+
+    Antes se pone una que no existe: la de la aplicación es una para toda la
+    suite, y si otra ventana ya la hubiera puesto este test pasaría igual."""
     QApplication.setFont(QFont("Una Que No Existe"))
 
     ventana = create_main_window()
 
     assert QApplication.font().family() == fonts.UI_FONT_FAMILY
-    # **La que se usa de verdad**, no la pedida: `QFont.family()` devuelve lo
-    # que se pidió aunque Qt no lo tenga y dibuje con otra.
-    assert QFontInfo(ventana.menuBar().font()).family() == fonts.UI_FONT_FAMILY
+    assert sin_la_tipografia(ventana) == []
+    # Y la que se dibuja de verdad, en un rótulo común: la barra de menú no,
+    # porque en macOS es la nativa y la dibuja el sistema.
+    assert QFontInfo(ventana.navigation._posicion.font()).family() == fonts.UI_FONT_FAMILY
+
+
+def test_cambiar_el_tamano_le_llega_a_toda_la_ventana(qt_app):
+    """Desde Configuración. **Antes de `exec()` Qt no avisa**, que es como
+    corre la suite: con el ciclo corriendo lo haría solo, y este test no
+    distinguiría nada."""
+    ventana = create_main_window()
+    # **Mostrada, como la del programa**: un widget que nunca se pulió todavía
+    # no tomó ninguna tipografía, y lo hará al mostrarse. Sin mapearla en la
+    # pantalla —y la suite corre offscreen igual—.
+    ventana.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+    ventana.show()
+    QApplication.processEvents()
+
+    ventana.apply_preferences(ventana.current_preferences.with_changes(font_size=16))
+
+    try:
+        assert sin_la_tipografia(ventana, 16) == []
+    finally:
+        ventana.apply_preferences(ventana.current_preferences.with_changes(font_size=None))
 
 
 def test_la_suite_tiene_la_tipografia_registrada(qt_app):
@@ -421,4 +464,3 @@ def test_la_suite_tiene_la_tipografia_registrada(qt_app):
     queda con la del sistema sin que nada falle: el hueco que tuvo la suite
     hasta el hito 78."""
     assert fonts.available_family() == fonts.UI_FONT_FAMILY
-

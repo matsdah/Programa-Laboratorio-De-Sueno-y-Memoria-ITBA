@@ -180,6 +180,11 @@ class MainWindow(
         #: La tipografía con la que arrancó el programa, para poder volver a
         #: ella cuando el usuario elige «la del sistema».
         self._fuente_del_sistema = QFont(QApplication.font())
+        # **La tipografía del programa, antes de construir nada** (hito 78):
+        # lo que nace con ella la tiene en todas las plataformas. Ponerla
+        # después, sobre widgets ya hechos, no le llegaba a casi ninguno; ver
+        # `_poner_la_tipografia()`.
+        self._poner_la_tipografia(preferences.Preferences())
         #: La ventana de configuración. Se arma la primera vez que se pide.
         self.settings_dialog: SettingsDialog | None = None
         #: Qué panel tiene el foco en el recorrido con F6, como posición en
@@ -207,11 +212,11 @@ class MainWindow(
         self._es_la_ventana_del_usuario = False
         # **Las de fábrica, aplicadas** (hito 78). Hasta ahí se guardaban en
         # `_preferencias` y nadie las aplicaba: sólo `main.py` pasaba por
-        # `_aplicar_preferencias()`, con las del disco. Toda otra ventana —la
-        # de los tests, la de las capturas, la de los bancos— quedaba con la
-        # tipografía del sistema, y un rótulo que entraba ahí podía salir
-        # cortado con Plex Sans, que es más ancha. No escribe nada: la ventana
-        # todavía no es la del usuario. Va al final porque toca paneles.
+        # `_aplicar_preferencias()`, con las del disco, y toda otra ventana —la
+        # de los tests, la de las capturas, la de los bancos— arrancaba
+        # distinta de la del usuario. La tipografía ya se puso al principio;
+        # esto es el resto, y va al final porque toca paneles. No escribe
+        # nada: la ventana todavía no es la del usuario.
         self._aplicar_preferencias(self._preferencias)
 
     # -- Construcción -------------------------------------------------------

@@ -9,7 +9,7 @@ dependencia.
 from pathlib import Path
 
 import pytest
-from PySide6.QtGui import QFont, QFontMetricsF
+from PySide6.QtGui import QFont, QFontInfo, QFontMetricsF
 
 pytest.importorskip("PySide6")
 
@@ -19,8 +19,27 @@ from psglab.utils.errors import UnknownTypeRoleError  # noqa: E402
 
 def test_registra_una_sola_familia(qt_app):
     """**Una sola desde el hito 77**: Plex Mono se sacó porque dos familias en
-    la misma pantalla se veían desprolijas."""
-    assert fonts.register_bundled_fonts() == [fonts.UI_FONT_FAMILY]
+    la misma pantalla se veían desprolijas.
+
+    **Los nombres pueden ser dos y la familia una.** El archivo semi-negrita
+    declara, además de «IBM Plex Sans», un nombre heredado, «IBM Plex Sans
+    SmBld», y según la plataforma Qt informa uno o los dos: el test pedía la
+    lista exacta y falló en el CI de Linux y de macOS. Lo que importa es que
+    todos sean de la misma familia."""
+    familias = fonts.register_bundled_fonts()
+
+    assert fonts.UI_FONT_FAMILY in familias
+    assert all(familia.startswith(fonts.UI_FONT_FAMILY) for familia in familias)
+
+
+@pytest.mark.parametrize("rol", ["titulo", "rotulo", "chip"])
+def test_la_negrita_es_la_de_verdad(qt_app, rol: str):
+    """**La semi-negrita sale del archivo, no la inventa Qt.** Con el nombre
+    heredado del archivo, Qt podría no encontrarla bajo «IBM Plex Sans» y
+    engordar la regular, que se lee peor. Se mira el estilo que usa de verdad."""
+    fonts.register_bundled_fonts()
+
+    assert QFontInfo(fonts.font_for(rol, base())).styleName() == "SemiBold"
 
 
 def test_registrar_dos_veces_no_las_vuelve_a_cargar(qt_app):
