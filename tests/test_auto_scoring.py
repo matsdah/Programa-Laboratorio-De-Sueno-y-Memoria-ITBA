@@ -272,6 +272,26 @@ def test_un_canal_que_no_existe():
         suggest_stages(registro, "C3")
 
 
+def test_sin_openmp_lo_dice_en_vez_de_una_traza(monkeypatch):
+    """**Lo encontró el CI de macOS**: la rueda de LightGBM no trae OpenMP, y
+    cargarla sin él da un `OSError` de `dlopen`, que no es un `PsgLabError` y
+    salía como el cartel de los errores inesperados."""
+    import builtins
+
+    importar = builtins.__import__
+
+    def sin_openmp(nombre, *args, **kwargs):
+        if nombre == "lightgbm":
+            raise OSError("dlopen(lib_lightgbm.dylib): Library not loaded: @rpath/libomp.dylib")
+        return importar(nombre, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", sin_openmp)
+    registro = registro_corto([Channel("C4", ChannelKind.EEG, "µV", 0)], segundos=600)
+    with pytest.raises(StagingNotPossibleError, match="brew install libomp") as error:
+        suggest_stages(registro, "C4")
+    assert "libomp" in error.value.details
+
+
 def test_sin_yasa_lo_dice_en_vez_de_una_traza(monkeypatch):
     """Los imports son diferidos: sin esto, el `ModuleNotFoundError` le
     llegaría al investigador sin decir que falta un requirements."""

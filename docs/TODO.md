@@ -6201,7 +6201,7 @@ universales, así que Python 3.14 no es un problema.
       remuestrea a 100 Hz antes de armar el `Raw` —a 1000 Hz, pasarle la
       noche entera costaba tres copias de 700 MB— y rechaza menos de cinco
       minutos. Error propio: `StagingNotPossibleError`.
-  - Test: `tests/test_auto_scoring.py`, **19 tests en verde**.
+  - Test: `tests/test_auto_scoring.py`, **20 tests en verde**.
 - [x] **`core/scoring.py`**: `StageSuggestion` y la capa de las sugeridas
       —`set_suggestions()`, `suggestion()`, `pending_suggestions()`,
       `accept_suggestions()`, `clear_suggestions()`—. Se traducen a la
@@ -6225,6 +6225,12 @@ eso no se afirma. Lo que los tests sí cuidan es lo que se rompería callado:
 que el modelo se siga cargando —**está serializado con scikit-learn 0.24** y
 hoy se lee con la 1.9, con una advertencia—, y que la señal llegue en µV, a
 100 Hz y con la clase que corresponde a su papel.
+
+**Lo encontró el CI de macOS**, antes de mergear: la rueda de LightGBM no trae
+OpenMP, y sin él cargar el modelo daba un `OSError` que salía como el cartel de
+los errores inesperados. El CI instala `libomp` en macOS, el README se lo pide
+a quien use una Mac, y si falta, «Sugerir las fases» lo dice con cómo
+instalarlo.
 
 **Queda pendiente**: la conformidad del laboratorio con reabrir la decisión, y
 la pregunta de si graba un EMG a más de 80 Hz, que es lo que más mejoraría R.

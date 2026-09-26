@@ -32,6 +32,13 @@ confianza sí separa: por eso la interfaz ofrece confirmar sólo las seguras.
 - Menos de cinco minutos. Los rasgos del clasificador se promedian sobre siete
   minutos y medio alrededor de cada ventana.
 
+**En macOS, LightGBM necesita OpenMP** (`brew install libomp`) y su rueda no
+lo trae. Sin él, cargar el modelo falla con un `OSError` de `dlopen`, que no es
+un `PsgLabError` y le llegaba al investigador como el cartel de los errores
+inesperados; lo encontró el CI de macOS. Por eso LightGBM se carga junto con
+YASA, antes de calcular nada, y la falta sale con un mensaje que dice cómo
+arreglarla.
+
 **La señal llega a MNE a 100 Hz**, que es a lo que YASA la lleva de todos
 modos. Se remuestrea acá, canal por canal, antes de armar el `Raw`: a 1000 Hz,
 pasarle tres canales de ocho horas enteros costaba tres copias de 700 MB.
@@ -50,7 +57,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, replace
 from fractions import Fraction
-from typing import Final
+from typing import Any, Final
 
 import numpy as np
 
@@ -196,14 +203,7 @@ def suggest_stages(
             "de registro, y éste es más corto.",
             details=f"duración: {minutos:.1f} min.",
         )
-    try:
-        import yasa
-    except ImportError as error:
-        raise StagingNotPossibleError(
-            "Para sugerir las fases falta instalar YASA, que está en "
-            "requirements-analysis.txt.",
-            details=str(error),
-        ) from error
+    yasa = _importar_el_clasificador()
 
     nombres = list(elegidos.values())
     clases = {"eeg": ChannelKind.EEG, "eog": ChannelKind.EOG, "emg": ChannelKind.EMG}
@@ -237,6 +237,26 @@ def suggest_stages(
     ]
     ventanas = count_windows(recording.n_samples, recording.sampling_rate, WINDOW_SECONDS)
     return (sugeridas + [None] * ventanas)[:ventanas]
+
+
+def _importar_el_clasificador() -> Any:
+    """YASA, con LightGBM ya cargado; ver el docstring del módulo."""
+    try:
+        import yasa
+        import lightgbm  # noqa: F401  # Carga la biblioteca nativa acá.
+    except ImportError as error:
+        raise StagingNotPossibleError(
+            "Para sugerir las fases falta instalar YASA, que está en "
+            "requirements-analysis.txt.",
+            details=str(error),
+        ) from error
+    except OSError as error:
+        raise StagingNotPossibleError(
+            "El clasificador de las fases no pudo cargar una biblioteca del "
+            "sistema. En macOS es OpenMP, y se instala con «brew install libomp».",
+            details=str(error),
+        ) from error
+    return yasa
 
 
 def _es_lento(recording: Recording, nombre: str) -> bool:

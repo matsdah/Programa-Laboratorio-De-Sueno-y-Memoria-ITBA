@@ -139,12 +139,20 @@ Para correr los tests, instalá además las herramientas de desarrollo:
 pip install -r requirements-dev.txt
 ```
 
-Y las dos dependencias propias de la Parte 2 (el módulo de análisis), que son
+Y las dependencias propias de la Parte 2 (el módulo de análisis), que son
 pesadas pero **hacen falta para correr la suite**: sin ellas fallan los tests de
-complejidad y conectividad.
+complejidad, conectividad y fases sugeridas.
 
 ```bash
 pip install -r requirements-analysis.txt
+```
+
+**En macOS hace falta además OpenMP**, que el clasificador de las fases
+sugeridas (LightGBM) usa y no trae adentro. Sin él, «Sugerir las fases» avisa
+que falta; el resto del programa anda igual.
+
+```bash
+brew install libomp
 ```
 
 ## Ejecución
