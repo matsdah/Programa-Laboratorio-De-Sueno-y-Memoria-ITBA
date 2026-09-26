@@ -15,7 +15,7 @@ Cubre del pliego: ningún ID; es infraestructura de la interfaz.
 """
 
 import pyqtgraph as pg
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QEvent, QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
@@ -224,8 +224,19 @@ class PreferencesMixin:
         )
         return {clase: conjunto.color_of(clase) for clase in conjunto.labels()}
 
-    def _aplicar_preferencias(self, prefs: preferences.Preferences) -> None:
-        """Lo que se aplica enseguida y no depende de un registro abierto."""
+    def _poner_la_tipografia(self, prefs: preferences.Preferences) -> QFont:
+        """Pone la tipografía de la aplicación y la hace llegar a la ventana.
+
+        **Separada de `_aplicar_preferencias()` desde el hito 78**, porque
+        `MainWindow.__init__` la llama antes de construir nada: lo que se arma
+        con la tipografía ya puesta nace con ella, que es lo único que funciona
+        igual en todas las plataformas. Lo ya construido —cuando cambia desde
+        Configuración, o con las preferencias guardadas— lo actualiza lo de
+        abajo.
+
+        Returns:
+            La tipografía puesta, para los que no la siguen solos.
+        """
         fuente = QFont(self._fuente_del_sistema)
         # **La familia ya no se elige** (hito 43): es la del programa y nada
         # más. Se pide sólo si Qt la tiene, porque un archivo que falta o que
@@ -240,8 +251,33 @@ class PreferencesMixin:
         # cada widget de cada ventana abierta, y la configuración se aplica
         # entera en cada cambio: sin esta guarda, tocar el color de una clase
         # le pediría al programa entero que volviera a maquetarse.
-        if fuente != QApplication.font():
-            QApplication.setFont(fuente)
+        if fuente == QApplication.font():
+            return fuente
+        QApplication.setFont(fuente)
+        # **Y hacerla llegar a lo ya construido** (hito 78). Hasta ahí la
+        # ventana quedaba con la tipografía del sistema —la barra de menú, la
+        # de estado, los rótulos— con la aplicación en Plex, desde el hito 43;
+        # lo encontró el CI de Linux, donde la del sistema no se parece. Son
+        # dos huecos de Qt, medidos en Windows y en Linux:
+        #
+        # - el aviso de cambio de tipografía sólo se manda con el ciclo de
+        #   eventos corriendo, y las preferencias se aplican antes de `exec()`;
+        # - lo que está bajo una hoja de estilo no recibe ese aviso, a
+        #   propósito, porque ahí manda la hoja: hay que volver a ponerla para
+        #   que lo repula.
+        #
+        # Lo que tiene tipografía propia —los roles de `font_for()`— la
+        # conserva. Con el ciclo corriendo, Qt ya manda el aviso y éste sobra
+        # sin hacer daño.
+        QApplication.sendEvent(self, QEvent(QEvent.Type.ApplicationFontChange))
+        hoja = self.styleSheet()
+        self.setStyleSheet("")
+        self.setStyleSheet(hoja)
+        return fuente
+
+    def _aplicar_preferencias(self, prefs: preferences.Preferences) -> None:
+        """Lo que se aplica enseguida y no depende de un registro abierto."""
+        fuente = self._poner_la_tipografia(prefs)
         # Los nombres de canal son ítems de pyqtgraph, que no siguen a la
         # tipografía de la aplicación: hay que avisarles.
         self.signal_view.apply_font(fuente)
