@@ -55,9 +55,9 @@ LA PARTE 2 TAMBIEN ESTA TERMINADA, el modulo de analisis de bioseniales:
 filtrado, ICA, impedancia, re-referenciado, derivaciones, densidad espectral,
 complejidad, conectividad y las fases sugeridas por un clasificador, que
 alguien tiene que confirmar. Todas esas funciones se piden desde los menus
-Montaje, Filtrar y Analizar. Necesita tres dependencias que no se instalan por
-defecto; estan en requirements-analysis.txt y el README explica cuando hacen
-falta.
+Montaje, Filtrar y Analizar, y las fases sugeridas desde Scoring. Necesita tres
+dependencias que no se instalan por defecto; estan en
+requirements-analysis.txt y el README explica cuando hacen falta.
 
 Se trabajo asi a proposito: primero se acuerda la estructura, despues se
 programa. Con eso se evita descubrir a mitad de camino que dos personas

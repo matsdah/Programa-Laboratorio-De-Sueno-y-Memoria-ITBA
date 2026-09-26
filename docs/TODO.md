@@ -1932,7 +1932,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
       un menú «&Análisis» se reescribió para verificar cada acción, que es lo
       que protegía.
-  - Test: `tests/test_menus.py`, **45 tests en verde**.
+  - Test: `tests/test_menus.py`, **53 tests en verde**.
 - [x] **Fase 3 — Paneles acoplables.** La señal es el widget central y los otros
       diez paneles se mueven, se apilan o se cierran; la disposición se guarda
       al cerrar. Los seis paneles de análisis conservaron el nombre de su
@@ -2056,7 +2056,7 @@ reorganiza lo que ya andaba.
       repetía la solapa Colores de esa misma ventana.
 - [x] **La barra de menú deja de ser la nativa**, para que en macOS no
       desaparezcan el botón de abrir ni «Configuración», que no tiene submenú.
-  - Test: `tests/test_menus.py`, **45 tests en verde**.
+  - Test: `tests/test_menus.py`, **53 tests en verde**.
   - Test: `tests/test_icons.py`, **33 tests en verde**.
 
 ### El scoring en cuatro formatos
@@ -2552,7 +2552,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
 - [x] `HistogramTool.label` pasa a «Hipnograma». El módulo, la clase y los IDs
       del pliego siguen diciendo «histograma»: son identificadores y
       trazabilidad.
-  - Test: `tests/test_menus.py`, **45 tests en verde**, con que
+  - Test: `tests/test_menus.py`, **53 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
   - Test: `tests/test_entrega.py`, **399 tests en verde**: tildar
@@ -2746,7 +2746,7 @@ todas con la recomendación que se le hizo.
     fallan con la ventana anterior.
   - Test: `tests/test_preferences.py`, **86 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **49 tests en verde**.
-  - Test: `tests/test_menus.py`, **45 tests en verde**.
+  - Test: `tests/test_menus.py`, **53 tests en verde**.
   - Test: `tests/test_psd_panel.py`, **27 tests en verde**; y dos por panel en
     `tests/test_metric_panel.py` (**18 tests en verde**),
     `tests/test_connectivity_panel.py` (**16 tests en verde**) y
@@ -3420,7 +3420,7 @@ se ve en todas.
   - Test: `tests/test_theme.py`, **89 tests en verde**; `tests/test_grid.py`,
     **19 tests en verde**; `tests/test_settings_dialog.py`, **48 tests en
     verde**; `tests/test_preferences.py`, **86 tests en verde**;
-    `tests/test_menus.py`, **45 tests en verde**, con las dos entradas nuevas y
+    `tests/test_menus.py`, **53 tests en verde**, con las dos entradas nuevas y
     su exclusividad. Entre los cinco se borraron treinta y seis tests de lo que
     dejó de existir.
 
@@ -3460,7 +3460,7 @@ pintaron lo que había, y lo que había en las dos barras no era lo del diseño.
         canales y de qué hora a qué hora. No estaba en ningún lado, y con dos
         registros parecidos —la misma noche filtrada y sin filtrar— no había
         forma de saber cuál se miraba.
-  - Test: `tests/test_menus.py`, **45 tests en verde**.
+  - Test: `tests/test_menus.py`, **53 tests en verde**.
 - [x] **La barra de navegación.**
       - Los botones pasaron de 26 a 34 px y dejaron de ser planos: con 26 el
         icono quedaba en 14 y la fila entera se leía como una regleta de
@@ -3690,7 +3690,7 @@ misma escala**, con el respiratorio barriendo seis carriles.
       - La tinta de la pestaña la elige `theme.ink_over()` midiendo contra el
         relleno, que es la misma función que decide la del botón de la fase
         marcada y la del icono de reproducir.
-  - Test: `tests/test_menus.py`, **45 tests en verde**.
+  - Test: `tests/test_menus.py`, **53 tests en verde**.
 - [x] **El canalón dice sólo la escala.** Llevaba también la clase, y con un
       registro de verdad —«Resp oro-nasal», clase «Respiratorio»— la línea
       salía cortada con puntos suspensivos, que es peor que no decirla. La
@@ -5624,7 +5624,7 @@ visual**: puntuar una noche costaba más pasos que en esos programas.
   - Test: `tests/test_preferences.py`, **86 tests en verde**;
     `tests/test_settings_dialog.py`, **49 tests en verde**;
     `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_menus.py`, **45 tests en verde**;
+    `tests/test_menus.py`, **53 tests en verde**;
     `tests/test_docks.py`, **39 tests en verde**;
     `tests/test_signal_view.py`, **98 tests en verde**;
     `tests/test_overview_panel.py`, **27 tests en verde**.
@@ -6039,7 +6039,7 @@ el programa.
       del `dataclass` comparaba la señal, y `a == b` o `a in lista` elevaban
       `ValueError`. El programa ya los comparaba por identidad.
 - [x] **Ocho imports sin usar**, cinco en `ui/settings_dialog.py`.
-  - Test: `tests/test_menus.py`, **45 tests en verde**;
+  - Test: `tests/test_menus.py`, **53 tests en verde**;
     `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_annotations.py`, **74 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**.
@@ -6122,7 +6122,7 @@ pedido, y eligió lo último.
   - Test: `tests/test_annotations.py`, **74 tests en verde**;
     `tests/test_contratos.py`, **1143 tests en verde**;
     `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_menus.py`, **45 tests en verde**;
+    `tests/test_menus.py`, **53 tests en verde**;
     `tests/test_readers.py`, **94 tests en verde**.
 
 Cada test nuevo se probó contra el programa sin su cambio, y las ocho
@@ -6354,7 +6354,7 @@ proporcional son las letras y los signos, que no cambian mientras se navega.
       dos, y la de leer lleva números.
   - Test: `tests/test_settings_dialog.py`, **49 tests en verde**;
     `tests/test_panel_header.py`, **32 tests en verde**;
-    `tests/test_menus.py`, **45 tests en verde**.
+    `tests/test_menus.py`, **53 tests en verde**.
 - [x] **`IBMPlexMono-Regular.ttf` se borró** de `psglab/resources/fonts/`.
       Quedan los tres archivos de Sans y su licencia.
 - [x] **La herramienta de capturas mostraba la tipografía del sistema**, y
@@ -6607,8 +6607,8 @@ más. **Varias piden una decisión antes**; están marcadas.
     `tests/test_entrega.py`, **399 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
-  0, 5 y N y la carpeta de los diálogos. Van sin entrada de menú hasta la
-  decisión del menú «Scoring».
+  0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
+  con el menú «Scoring», más abajo.
 
 - [ ] **Anotar sin un cartel por evento.** *(Decidido: clase activa.)* Cada tramo
       arrastrado abre un `QInputDialog` modal; marcar cien husos son cien
@@ -6623,10 +6623,25 @@ más. **Varias piden una decisión antes**; están marcadas.
       compacto.)* La tarea principal del programa hoy no se
       ve: se descubre por la ayuda de atajos. Una fila compacta con las fases
       y el arousal, o el panel entero la primera vez.
-- [ ] **Un menú «Scoring».** *(Decidido: sí, y ordenar la barra.)* Las fases, el arousal, ir
+- [x] **Un menú «Scoring».** *(Decidido: sí, y ordenar la barra.)* Las fases, el arousal, ir
       a la próxima sin scorear, deshacer y las fases sugeridas están
       repartidos entre las teclas y «Analizar»; «Escala de tiempo» y
       «Amplitud» ocupan dos lugares de la barra que podrían ir en «Ver».
+      Hecho: la barra queda Archivo, Ver, Scoring, Montaje, Filtrar,
+      Analizar, Herramientas y Ayuda. «Scoring» lleva una entrada por fase
+      de la nomenclatura activa, con su tecla; el arousal; anotar la
+      ventana; la próxima y la anterior sin scorear; ir a una ventana; y
+      «Fases sugeridas», que salió de «Analizar». **Se pone al día al
+      abrirse** —las fases de la nomenclatura, la de la ventana tildada, el
+      arousal tildado— y sin registro apaga sus entradas, porque los
+      métodos no hacen nada sin sesión. «Escala de tiempo», «Amplitud» y
+      «Vistas de canales» abren «Ver». **Deshacer no está**: entra con
+      `core/history.py`, y una entrada que no hace nada es peor que ninguna.
+  - Test: `tests/test_menus.py`, **53 tests en verde**. Cada test nuevo
+    falla sin su cambio: los cuatro bloques de «Scoring», la tecla de cada
+    fase, las sugeridas fuera de «Analizar», las entradas apagadas sin
+    registro, scorear y marcar el arousal desde el menú, lo tildado al
+    abrirse y las fases de Rechtschaffen y Kales.
 - [ ] **El informe de sueño estándar.** *(Decidido: se hace y se confirma con el laboratorio.)*
       `Informacion.txt` tiene la duración por fase y las métricas de
       episodios que pide el pliego, y no trae lo primero que busca un

@@ -28,7 +28,7 @@ from psglab.core.windows import window_to_clock_time
 from psglab.tools.histogram import HistogramTool
 from psglab.tools.overview import OverviewTool
 from psglab.ui import theme
-from psglab.ui.menus import menu_path
+from psglab.ui.menus import menu_path, rebuild_stage_actions
 from psglab.ui.shortcuts import install_shortcuts
 from psglab.utils.errors import PsgLabError
 
@@ -325,6 +325,31 @@ class ScoringMixin:
             self._show_error(error, "marcar el arousal")
             return
         self.refresh()
+
+    def _reflejar_el_scoring_en_el_menu(self) -> None:
+        """Pone «Scoring» al día con la ventana actual, al abrirse (hito 79).
+
+        Las fases de la nomenclatura activa, con la de la ventana tildada, y
+        el arousal tildado si lo tiene. **Se hace al abrir el menú y no en cada
+        cambio**: la nomenclatura cambia por tres caminos —el panel, importar
+        un scoring, abrir un registro— y la ventana actual por muchos más, y un
+        menú cerrado no muestra nada.
+
+        **Sin registro, las entradas quedan apagadas**: los métodos a los que
+        llaman no hacen nada sin sesión, y una entrada que no responde se lee
+        como que el programa no anda. Las fases sugeridas quedan como están,
+        que sin registro explican por qué no se puede.
+        """
+        epoca = None
+        if self._session is not None:
+            rebuild_stage_actions(self, self._session.scoring.nomenclature)
+            epoca = self._session.scoring.get(self._session.current_window)
+        for accion in self.menu_scoring.actions():
+            if accion.menu() is None and not accion.isSeparator():
+                accion.setEnabled(epoca is not None)
+        for fase, accion in self.acciones_de_fase.items():
+            accion.setChecked(epoca is not None and epoca.stage is fase)
+        self.accion_arousal.setChecked(epoca is not None and epoca.arousal)
 
     def _change_nomenclature(self, nomenclature: Nomenclature) -> None:
         """Cambiar de nomenclatura sobre un registro ya scoreado pierde
