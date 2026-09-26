@@ -190,6 +190,9 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "decrease_amplitude",
         "score_current_window",
         "toggle_arousal",
+        # Hito 79: retomar un scoring a medias.
+        "go_to_next_unscored_window",
+        "go_to_previous_unscored_window",
         "set_histogram_time_axis",
         # Montaje.
         "derive_dialog",

@@ -250,6 +250,32 @@ class Scoring:
         """
         return sum(1 for score in self._scores if score.is_scored)
 
+    def next_unscored(self, window_index: int, forward: bool = True) -> int | None:
+        """La próxima ventana sin scorear, contando desde una (hito 79).
+
+        Es como se retoma un scoring a medias. **La de partida no cuenta**:
+        parado en una sin scorear, la tecla lleva a la siguiente. Una ventana
+        con fase sugerida cuenta como sin scorear, porque nadie la eligió. No
+        da la vuelta al llegar a un borde.
+
+        Args:
+            window_index: la ventana desde la que se busca, base 0.
+            forward: hacia el final de la noche, o hacia el principio.
+
+        Returns:
+            La ventana, base 0, o `None` si no queda ninguna en esa dirección.
+
+        Raises:
+            WindowOutOfRangeError: si la ventana de partida no existe.
+        """
+        self._check_window(window_index)
+        indices = (
+            range(window_index + 1, self.n_windows)
+            if forward
+            else range(window_index - 1, -1, -1)
+        )
+        return next((i for i in indices if not self._scores[i].is_scored), None)
+
     def stages(self) -> list[SleepStage]:
         """Lista de fases, una por ventana, en orden.
 

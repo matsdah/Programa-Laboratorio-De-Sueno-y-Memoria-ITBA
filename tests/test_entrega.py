@@ -307,7 +307,35 @@ def dialogo_de_guardado(monkeypatch):
 def test_ctrl_s_sigue_exportando_en_txt(ventana: MainWindow, dialogo_de_guardado):
     ventana.export_scoring_dialog()
 
-    assert dialogo_de_guardado["llamadas"] == [(SCORING_FILENAME, "Texto (*.txt)")]
+    (propuesto, filtro), = dialogo_de_guardado["llamadas"]
+    assert Path(propuesto).name == SCORING_FILENAME
+    assert filtro == "Texto (*.txt)"
+
+
+def test_exportar_propone_la_carpeta_del_registro(ventana: MainWindow, dialogo_de_guardado):
+    """Hito 79: arrancaba en la carpeta desde donde se lanzó el programa, y
+    con el nombre del pliego siempre igual, dos participantes exportados sin
+    mirar quedaban uno encima del otro."""
+    ventana.export_scoring_dialog("csv")
+
+    (propuesto, _), = dialogo_de_guardado["llamadas"]
+    assert Path(propuesto).parent == ventana.session.recording.file_path.parent
+
+
+def test_importar_arranca_en_la_carpeta_del_registro(ventana: MainWindow, monkeypatch):
+    carpetas: list[str] = []
+
+    def responder(_padre, _titulo, carpeta, _filtro, *_a, **_k) -> tuple[str, str]:
+        carpetas.append(carpeta)
+        return "", ""
+
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(responder))
+
+    ventana.open_scoring_dialog()
+    ventana.open_recording_dialog()
+
+    registro = str(ventana.session.recording.file_path.parent)
+    assert carpetas == [registro, registro]
 
 
 @pytest.mark.parametrize("extension", ["csv", "edf", "xml"])
@@ -317,7 +345,7 @@ def test_cada_formato_propone_su_nombre_y_su_filtro(
     ventana.export_scoring_dialog(extension)
 
     (propuesto, filtro), = dialogo_de_guardado["llamadas"]
-    assert propuesto == f"Scoring.{extension}"
+    assert Path(propuesto).name == f"Scoring.{extension}"
     assert filtro.endswith(f"(*.{extension})")
 
 
@@ -3991,7 +4019,7 @@ def test_exportar_desde_el_cartel_guarda_las_anotaciones(
     escrito = (tmp_path / NOMBRES["annotations"]).read_text(encoding="utf-8")
     assert "Spindle" in escrito
     ((propuesto, _),) = dialogo_de_guardado["llamadas"]
-    assert propuesto == NOMBRES["annotations"]
+    assert Path(propuesto).name == NOMBRES["annotations"]
 
 
 def test_con_scoring_y_anotaciones_se_guardan_los_dos(
@@ -4009,7 +4037,7 @@ def test_con_scoring_y_anotaciones_se_guardan_los_dos(
 
     assert ventana.close()
     assert cartel_del_scoring["en_juego"] == [["scoring", "annotations"]]
-    assert [propuesto for propuesto, _ in dialogo_de_guardado["llamadas"]] == [
+    assert [Path(propuesto).name for propuesto, _ in dialogo_de_guardado["llamadas"]] == [
         NOMBRES["scoring"],
         NOMBRES["annotations"],
     ]
@@ -5776,6 +5804,54 @@ def teclear(*teclas: Qt.Key) -> None:
     for tecla in teclas:
         QTest.keyClick(QApplication.focusWidget(), tecla)
         QApplication.processEvents()
+
+
+def test_el_0_y_el_5_scorean_w_y_r(a_la_vista: MainWindow):
+    """Hito 79: son los códigos de `Scoring.txt`, y dejan el scoring entero en
+    el teclado numérico. La letra sigue andando."""
+    from psglab.core.nomenclature import SleepStage
+
+    ventana = a_la_vista
+    ventana.signal_view.setFocus()
+    QApplication.processEvents()
+
+    teclear(Qt.Key.Key_0, Qt.Key.Key_5)
+
+    assert ventana.session.scoring.get(0).stage is SleepStage.WAKE
+    assert ventana.session.scoring.get(1).stage is SleepStage.R
+
+
+def test_la_n_lleva_a_la_proxima_sin_scorear(a_la_vista: MainWindow):
+    """Hito 79: es como se retoma un scoring a medias. Mayús+N vuelve."""
+    from psglab.core.nomenclature import SleepStage
+
+    ventana = a_la_vista
+    for indice in (1, 2):
+        ventana.session.scoring.set_stage(indice, SleepStage.N2)
+    ventana.signal_view.setFocus()
+    QApplication.processEvents()
+
+    teclear(Qt.Key.Key_N)
+    assert ventana.session.current_window == 3
+
+    from PySide6.QtTest import QTest
+
+    QTest.keyClick(QApplication.focusWidget(), Qt.Key.Key_N, Qt.KeyboardModifier.ShiftModifier)
+    QApplication.processEvents()
+    assert ventana.session.current_window == 0
+
+
+def test_sin_ninguna_sin_scorear_la_n_lo_dice(ventana: MainWindow):
+    """Una tecla muda se lee como que no anda."""
+    from psglab.core.nomenclature import SleepStage
+
+    for indice in range(ventana.session.n_windows):
+        ventana.session.scoring.set_stage(indice, SleepStage.N2)
+
+    ventana.go_to_next_unscored_window()
+
+    assert ventana.session.current_window == 0
+    assert "No quedan ventanas sin scorear" in ventana.statusBar().currentMessage()
 
 
 def test_tipear_en_la_tabla_de_impedancias_escribe_el_valor(a_la_vista: MainWindow):

@@ -405,7 +405,7 @@ class FilesMixin:
     def open_recording_dialog(self) -> None:
         """Ctrl+O. El filtro se arma solo desde los lectores registrados."""
         ruta, _ = QFileDialog.getOpenFileName(
-            self, "Abrir registro", "", file_dialog_filter()
+            self, "Abrir registro", self._carpeta_de_trabajo(), file_dialog_filter()
         )
         if ruta:
             self.open_recording(Path(ruta))
@@ -424,7 +424,7 @@ class FilesMixin:
         filtros += [f"{nombre} (*.{ext})" for ext, nombre in SCORING_FORMATS.items()]
         filtros.append("Todos los archivos (*)")
         ruta, _ = QFileDialog.getOpenFileName(
-            self, "Importar scoring", "", ";;".join(filtros)
+            self, "Importar scoring", self._carpeta_de_trabajo(), ";;".join(filtros)
         )
         if ruta:
             self.open_scoring(Path(ruta))
@@ -440,6 +440,28 @@ class FilesMixin:
 
     # -- Ayudantes privados -------------------------------------------------
 
+    def _carpeta_de_trabajo(self) -> str:
+        """Dónde arrancan los diálogos de abrir, importar y exportar (hito 79).
+
+        **La carpeta del registro abierto**, que es donde suelen estar su
+        scoring y donde conviene dejar lo que se exporta. Sin registro, la del
+        último que se abrió. Arrancaban en la carpeta desde donde se lanzó el
+        programa, y como el nombre propuesto es siempre el del pliego
+        —`Scoring.txt`—, dos participantes exportados sin mirar terminaban en
+        la misma carpeta, uno encima del otro.
+
+        Returns:
+            La carpeta, o `""` —la que elija el sistema— si ninguna existe.
+        """
+        candidatas: list[Path] = []
+        if self._session is not None:
+            candidatas.append(self._session.recording.file_path.parent)
+        candidatas += [Path(ruta).parent for ruta in self._preferencias.recent_files[:1]]
+        for carpeta in candidatas:
+            if carpeta.is_dir():
+                return str(carpeta)
+        return ""
+
     def _export_dialog(self, kind: str, fmt: str = "txt") -> None:
         """Pregunta dónde guardar y exporta.
 
@@ -450,6 +472,9 @@ class FilesMixin:
         reemplazar para no convertir «noche.v2» en «noche.csv».
         """
         propuesto = Path(DEFAULT_FILENAMES[kind]).with_suffix(f".{fmt}").name
+        carpeta = self._carpeta_de_trabajo()
+        if carpeta:
+            propuesto = str(Path(carpeta) / propuesto)
         filtro = f"{SCORING_FORMATS.get(fmt, fmt.upper())} (*.{fmt})"
         ruta, _ = QFileDialog.getSaveFileName(self, "Exportar", propuesto, filtro)
         if not ruta:
