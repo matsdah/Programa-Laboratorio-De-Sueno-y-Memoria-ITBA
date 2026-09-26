@@ -214,10 +214,18 @@ sutil de ver: se veían de un vistazo y no había ningún vistazo. Para un icono
 un rótulo chico hay que recortar y agrandar la imagen —un `QImage.copy().scaled()`
 de cuatro líneas alcanza—; a tamaño real, un icono de 34 px no deja juzgar nada.
 
-**La captura arma la aplicación y aplica las preferencias como `main.py`**
-(hito 77): con `create_application()`, que registra la tipografía, y con las
-preferencias de fábrica, que la ponen. Hasta ahí salía con la del sistema, y
-como se parecen nadie lo vio desde el hito 43.
+**La captura arma la aplicación con `create_application()`**, como
+`main.py`, que registra la tipografía (hito 77). Hasta ahí salía con la del
+sistema, y como se parecen nadie lo vio desde el hito 43.
+
+**La tipografía se pone antes de construir la ventana** (hito 78), en
+`_poner_la_tipografia()`, y un cambio posterior se le hace llegar a mano: Qt
+no avisa antes de `exec()`, y lo que está bajo la hoja de estilo no recibe el
+aviso. Hasta ahí el programa de verdad tenía la barra de menú, la de estado y
+los rótulos en la letra del sistema, con la aplicación en Plex; lo encontró el
+CI de Linux. **Un test de tipografía mira la pedida, no la usada**: la usada
+depende de a qué sustituya Qt una familia que no tiene, y en Windows eso daba
+Plex por casualidad.
 
 **Nada de lo que la captura llame puede abrir un cartel modal.** Sobre una
 ventana con `WA_DontShowOnScreen` un modal no se muestra en ninguna parte, así

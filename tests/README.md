@@ -47,7 +47,7 @@ verde por omisión, que es peor que dar rojo.
 
 | Archivo | Qué verifica |
 |---|---|
-| `conftest.py` | Fixtures compartidas: señal sintética y nombres de canal, y los dos escritores de archivos sintéticos —`escribir_brainvision()` y `escribir_edf()`— que hacen correr los lectores en el CI, donde `data/` no existe. |
+| `conftest.py` | Fixtures compartidas: señal sintética y nombres de canal, y los dos escritores de archivos sintéticos —`escribir_brainvision()` y `escribir_edf()`— que hacen correr los lectores en el CI, donde `data/` no existe. `qt_app` arma una sola `QApplication` para la sesión, con la traducción y la tipografía del programa (hito 78), sin leer nada de la máquina de quien corre la suite. |
 | `test_consistencia.py` | **El repositorio, no un componente.** Ver abajo. |
 | `test_errors.py` | Que el mensaje y la causa técnica viajen separados, y que un solo `except` las atrape todas. |
 | `test_validation.py` | Que un NaN no atraviese una guarda numérica. |

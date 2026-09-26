@@ -94,10 +94,17 @@ def qt_app():
 
     Es de alcance de sesión porque Qt no admite más de una `QApplication` por
     proceso, y se reutiliza la que exista para no chocar con nada.
+
+    **Registra la tipografía del programa** (hito 78). No pasa por
+    `create_application()`, que además lee el esquema que el usuario dejó
+    guardado, y con eso la suite dependería de la máquina de quien la corre.
+    Sin registrarla, cada ventana de la suite quedaba con la letra del
+    sistema, y un rótulo que entraba ahí podía salir cortado con Plex Sans.
     """
     from PySide6.QtWidgets import QApplication
 
     from psglab.app import install_qt_translations
+    from psglab.ui import fonts
 
     existente = QApplication.instance()
     if existente is not None:
@@ -107,6 +114,7 @@ def qt_app():
     # verificaría los botones en inglés que el usuario ya no ve.
     aplicacion = QApplication([])
     install_qt_translations(aplicacion)
+    fonts.register_bundled_fonts()
     yield aplicacion
 
 

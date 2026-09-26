@@ -2394,6 +2394,15 @@ def test_aplicar_preferencias_no_escribe_el_archivo_de_quien_corre_los_tests(
     assert escrituras == []
 
 
+def test_armar_la_ventana_tampoco_escribe_el_archivo(escrituras: list[object], qt_app):
+    """**Desde el hito 78 el constructor aplica las preferencias de fábrica**,
+    y aplicar es lo que en la ventana del usuario las guarda. La de los tests no
+    es la del usuario, así que armarla no puede escribir nada."""
+    create_main_window()
+
+    assert escrituras == []
+
+
 def test_elegir_un_esquema_tampoco_escribe_el_archivo(
     ventana: MainWindow, escrituras: list[object]
 ):

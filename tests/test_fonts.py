@@ -9,7 +9,7 @@ dependencia.
 from pathlib import Path
 
 import pytest
-from PySide6.QtGui import QFont, QFontMetricsF
+from PySide6.QtGui import QFont, QFontInfo, QFontMetricsF
 
 pytest.importorskip("PySide6")
 
@@ -32,6 +32,17 @@ def test_registra_una_sola_familia(qt_app):
 
     assert fonts.UI_FONT_FAMILY in familias
     assert all(f.startswith(fonts.UI_FONT_FAMILY) for f in familias), familias
+
+
+@pytest.mark.parametrize("rol", ["titulo", "rotulo", "chip"])
+def test_la_negrita_es_la_de_verdad(qt_app, rol: str):
+    """**La semi-negrita sale del archivo, no la inventa Qt** (hito 78). Es
+    la otra mitad de lo de arriba: con el nombre heredado a la vista, Qt podría
+    no encontrarla bajo «IBM Plex Sans» y engordar la regular, que se lee peor.
+    No pasa —se mira el estilo que usa de verdad—, y este test lo sostiene."""
+    fonts.register_bundled_fonts()
+
+    assert QFontInfo(fonts.font_for(rol, base())).styleName() == "SemiBold"
 
 
 def test_registrar_dos_veces_no_las_vuelve_a_cargar(qt_app):
