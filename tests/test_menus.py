@@ -243,6 +243,7 @@ def test_archivo_abre_importa_exporta_y_configura(ventana: MainWindow):
         "&Abrir registro…",
         "Abrir &reciente",
         "&Importar scoring…",
+        "Importar las &marcas del registro…",
         "Exportar el scoring como .txt…",
         "Exportar el scoring como .csv…",
         "Exportar el scoring como .edf…",

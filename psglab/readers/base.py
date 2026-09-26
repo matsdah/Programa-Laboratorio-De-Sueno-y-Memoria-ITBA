@@ -47,6 +47,15 @@ _REGISTRY_CARGADO: bool = False
 #: porque la ventana no sabe de qué formato vino la señal.
 IMPORT_WARNINGS_KEY: Final[str] = "import_warnings"
 
+#: Clave de `Recording.metadata` con las marcas que trae el archivo: los
+#: marcadores del `.vmrk` de un BrainVision y las anotaciones de un EDF+, como
+#: `(inicio en segundos, duración en segundos, descripción)`. **Una sola clave
+#: para los dos formatos** (hito 73): la ventana las ofrece como anotaciones
+#: con `core.annotations.marks_to_annotations()`, y no sabe de qué formato
+#: vino la señal. Eran `brainvision_markers` y `edf_annotations`, y nada las
+#: leía.
+MARKS_KEY: Final[str] = "marks"
+
 
 class Reader(ABC):
     """Lector de un formato de registro.

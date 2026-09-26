@@ -45,7 +45,7 @@ import numpy as np
 import pytest
 
 from psglab.core import nomenclature as nom
-from psglab.core.annotations import es_color_de_clase
+from psglab.core.annotations import es_color_de_clase, marks_to_annotations
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
@@ -164,6 +164,10 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("add(duration=...)", lambda v: AnnotationSet().add(Annotation("Arousal", 0, v))),
         ("color_of", lambda v: AnnotationSet().color_of(v)),
         ("es_color_de_clase", lambda v: es_color_de_clase(v)),
+        ("marks_to_annotations(marks=...)", lambda v: marks_to_annotations(v, 100.0, 1000)),
+        ("marks_to_annotations(marks=[...])", lambda v: marks_to_annotations([v], 100.0, 1000)),
+        ("marks_to_annotations(sampling_rate=...)", lambda v: marks_to_annotations([], v, 1000)),
+        ("marks_to_annotations(n_samples=...)", lambda v: marks_to_annotations([], 100.0, v)),
         ("remove_at", lambda v: AnnotationSet().remove_at(v)),
         ("replace(old=...)", lambda v: AnnotationSet().replace(v, Annotation("Arousal", 0, 10))),
         ("replace(new=...)", lambda v: _con_una().replace(Annotation("Arousal", 0, 10), v)),

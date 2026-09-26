@@ -37,6 +37,7 @@ from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.readers import base
 from psglab.readers.base import (
     IMPORT_WARNINGS_KEY,
+    MARKS_KEY,
     Reader,
     available_readers,
     file_dialog_filter,
@@ -423,7 +424,7 @@ def test_los_marcadores_del_vmrk_se_conservan(brainvision_real: Recording):
     `Recording.metadata` depende del formato de origen, así que ninguna capa
     debería darlo por presente sin verificarlo: por eso se comprueba la clave.
     """
-    marcadores = brainvision_real.metadata.get("brainvision_markers")
+    marcadores = brainvision_real.metadata.get(MARKS_KEY)
     assert marcadores is not None
     assert len(marcadores) == 13
     inicio, duracion, descripcion = marcadores[0]

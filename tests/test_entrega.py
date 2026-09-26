@@ -6149,3 +6149,80 @@ def test_la_conectividad_de_la_noche_tambien_lo_dice(
     ventana.wait_for_background()
 
     assert "«EMG» se grabó más lento" in ventana.metric_panel.caption()
+
+
+# -- Las marcas del registro, a pedido (hito 73) ------------------------------
+
+
+@pytest.fixture
+def ventana_con_marcas(ventana: MainWindow, tmp_path, monkeypatch) -> MainWindow:
+    """La ventana con un registro que trae tres marcas, como un `.vmrk`: dos
+    estímulos iguales y una respuesta."""
+    from psglab.core.recording import Channel, ChannelKind, Recording
+    from psglab.readers.base import MARKS_KEY
+
+    fs = 100.0
+    registro = Recording(
+        file_path=tmp_path / "con_marcas.vhdr",
+        channels=[Channel("C3", ChannelKind.EEG, "µV", 0)],
+        data=np.zeros((1, int(fs * WINDOW_SECONDS * 2))),
+        sampling_rate=fs,
+        metadata={
+            MARKS_KEY: [
+                (1.0, 0.0, "Stimulus/S  1"),
+                (2.0, 0.0, "Stimulus/S  1"),
+                (3.0, 0.5, "Response/R  1"),
+            ]
+        },
+    )
+    monkeypatch.setattr(main_window_mod, "read_recording", lambda _ruta: registro)
+    ventana.open_recording(tmp_path / "con_marcas.vhdr")
+    return ventana
+
+
+def test_importar_las_marcas_las_agrega_como_anotaciones(ventana_con_marcas, confirmacion):
+    """**Los lectores las guardaban y nada las leía**, aunque el docstring del
+    de BrainVision prometía convertirlas «si el usuario lo pide»."""
+    ventana = ventana_con_marcas
+
+    ventana.import_file_marks()
+
+    (pregunta,) = confirmacion["preguntas"]
+    assert "¿Agregar 3 marcas" in pregunta["pregunta"]
+    assert pregunta["informativo"] == "Stimulus/S  1 (2), Response/R  1 (1)"
+    anotaciones = ventana.session.annotations.all()
+    assert [(a.label, a.onset_sample, a.duration_samples) for a in anotaciones] == [
+        ("Stimulus/S  1", 100, 1),
+        ("Stimulus/S  1", 200, 1),
+        ("Response/R  1", 300, 50),
+    ]
+    assert ventana.session.has_unexported_annotations()
+    assert not ventana.carteles
+
+
+def test_importar_dos_veces_no_las_duplica(ventana_con_marcas, confirmacion):
+    ventana = ventana_con_marcas
+    ventana.import_file_marks()
+
+    ventana.import_file_marks()
+
+    assert len(ventana.session.annotations.all()) == 3
+    assert len(confirmacion["preguntas"]) == 1
+    assert "no trae marcas que no estén ya anotadas" in ventana.statusBar().currentMessage()
+
+
+def test_si_no_se_confirma_no_se_agrega_nada(ventana_con_marcas, confirmacion):
+    """Un registro puede traer cientos de marcas de estímulo: se pregunta."""
+    ventana = ventana_con_marcas
+    confirmacion["respuesta"] = False
+
+    ventana.import_file_marks()
+
+    assert ventana.session.annotations.all() == []
+
+
+def test_un_registro_sin_marcas_lo_dice_sin_preguntar(ventana: MainWindow, confirmacion):
+    ventana.import_file_marks()
+
+    assert confirmacion["preguntas"] == []
+    assert "no trae marcas" in ventana.statusBar().currentMessage()

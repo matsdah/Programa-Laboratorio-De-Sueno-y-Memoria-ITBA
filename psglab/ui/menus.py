@@ -281,6 +281,8 @@ def _archivo(window: "MainWindow") -> None:
     rebuild_recent_menu(window)
     archivo.addSeparator()
     _agregar(archivo, "&Importar scoring…", window.open_scoring_dialog)
+    # Las marcas del `.vmrk` o de un EDF+, como anotaciones (hito 73).
+    _agregar(archivo, "Importar las &marcas del registro…", window.import_file_marks)
     for extension in SCORING_FORMATS:
         accion = archivo.addAction(
             f"Exportar el scoring como .{extension}…",
