@@ -21,22 +21,25 @@ def test_registra_una_sola_familia(qt_app):
     """**Una sola desde el hito 77**: Plex Mono se sacó porque dos familias en
     la misma pantalla se veían desprolijas.
 
-    **Los nombres pueden ser dos y la familia una.** El archivo semi-negrita
-    declara, además de «IBM Plex Sans», un nombre heredado, «IBM Plex Sans
-    SmBld», y según la plataforma Qt informa uno o los dos: el test pedía la
-    lista exacta y falló en el CI de Linux y de macOS. Lo que importa es que
-    todos sean de la misma familia."""
+    **No se compara contra `[UI_FONT_FAMILY]`**, porque en Linux la lista trae
+    un nombre más y es de la misma familia. El archivo de la semi-negrita tiene
+    dos: el tipográfico, «IBM Plex Sans» con estilo SemiBold, y el heredado,
+    «IBM Plex Sans SmBld», para los programas que sólo conocen regular, negrita
+    e itálica. Windows y macOS dan el primero; fontconfig expone los dos, y Qt
+    registra los dos. Lo que el test tiene que rechazar es otra familia, como
+    Plex Mono, y ésa no empieza con el nombre de Sans."""
     familias = fonts.register_bundled_fonts()
 
     assert fonts.UI_FONT_FAMILY in familias
-    assert all(familia.startswith(fonts.UI_FONT_FAMILY) for familia in familias)
+    assert all(f.startswith(fonts.UI_FONT_FAMILY) for f in familias), familias
 
 
 @pytest.mark.parametrize("rol", ["titulo", "rotulo", "chip"])
 def test_la_negrita_es_la_de_verdad(qt_app, rol: str):
-    """**La semi-negrita sale del archivo, no la inventa Qt.** Con el nombre
-    heredado del archivo, Qt podría no encontrarla bajo «IBM Plex Sans» y
-    engordar la regular, que se lee peor. Se mira el estilo que usa de verdad."""
+    """**La semi-negrita sale del archivo, no la inventa Qt** (hito 78). Es
+    la otra mitad de lo de arriba: con el nombre heredado a la vista, Qt podría
+    no encontrarla bajo «IBM Plex Sans» y engordar la regular, que se lee peor.
+    No pasa —se mira el estilo que usa de verdad—, y este test lo sostiene."""
     fonts.register_bundled_fonts()
 
     assert QFontInfo(fonts.font_for(rol, base())).styleName() == "SemiBold"

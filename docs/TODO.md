@@ -6445,11 +6445,12 @@ Linux:
   - Test: `tests/test_main_window_layout.py`, **14 tests en verde**;
     `tests/test_entrega.py`, **389 tests en verde**.
 - [x] **El test de las familias registradas pedía la lista exacta** y falló en
-      Linux y en macOS. El archivo semi-negrita declara también un nombre
-      heredado, «IBM Plex Sans SmBld», que según la plataforma Qt informa o
-      no. Ahora pide que todos los nombres sean de la misma familia. Y uno
-      nuevo verifica que la negrita salga del archivo semi-negrita y no la
-      engorde Qt: el estilo que se usa es SemiBold.
+      Linux. El archivo semi-negrita declara también un nombre heredado,
+      «IBM Plex Sans SmBld», que fontconfig expone además del tipográfico.
+      Lo arregló en paralelo el PR #101 (pide que todos los nombres sean de la
+      misma familia), y este hito se quedó con esa versión. Suma uno nuevo:
+      que la negrita salga del archivo semi-negrita y no la engorde Qt, con el
+      estilo que se usa de verdad, SemiBold.
   - Test: `tests/test_fonts.py`, **25 tests en verde**.
 
 **Lo que midió la suite con la letra real: nada se cortó.** Ningún test de
