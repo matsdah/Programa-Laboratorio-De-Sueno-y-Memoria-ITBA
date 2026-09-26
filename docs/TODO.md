@@ -91,8 +91,10 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 72](#hito-72-la-frecuencia-de-origen)** hizo que el espectro y la conectividad miren a qué frecuencia se grabó cada canal, y el
 **[hito 73](#hito-73-las-marcas-del-registro)** convirtió en anotaciones, a pedido, las marcas que trae el archivo, y el
 **[hito 74](#hito-74-los-cabos-sueltos)** ató los dos cabos que dejaron los hitos 72 y 73, y el
-**[hito 75](#hito-75-las-fases-sugeridas)** reabrió el scoring automático como fases que sugiere un clasificador y alguien confirma.
-Son **setenta y seis hitos**, del 0 al 75, que son las filas de la tabla de
+**[hito 75](#hito-75-las-fases-sugeridas)** reabrió el scoring automático como fases que sugiere un clasificador y alguien confirma, y el
+**[hito 76](#hito-76-la-ventana-en-ocho-archivos)** partió la ventana principal en ocho archivos, uno por tema, y el
+**[hito 77](#hito-77-una-sola-tipografía)** dejó una sola tipografía, IBM Plex Sans.
+Son **setenta y ocho hitos**, del 0 al 77, que son las filas de la tabla de
 progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
@@ -246,6 +248,8 @@ nada**. Un verde por omisión es peor que un rojo.
 | [73. Las marcas del registro](#hito-73-las-marcas-del-registro) | — | 0 | ✅ cerrado |
 | [74. Los cabos sueltos](#hito-74-los-cabos-sueltos) | — | 0 | ✅ cerrado |
 | [75. Las fases sugeridas](#hito-75-las-fases-sugeridas) | — | 0 | ✅ cerrado |
+| [76. La ventana en ocho archivos](#hito-76-la-ventana-en-ocho-archivos) | — | 0 | ✅ cerrado |
+| [77. Una sola tipografía](#hito-77-una-sola-tipografía) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -1911,7 +1915,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       líneas de `test_entrega.py`. Y la primera medición de cuánto tarda
       dibujar: 92 ms con 64 canales a 1000 Hz, cinco veces por debajo del
       umbral de usabilidad. Las tablas están en `docs/ARQUITECTURA.md`.
-  - Test: `tests/test_main_window_layout.py`, **8 tests en verde**.
+  - Test: `tests/test_main_window_layout.py`, **11 tests en verde**.
 - [x] **Fase 1 — Esquemas de color y preferencias.** Cinco esquemas de fábrica
       —Claro, Oscuro, NK, Azul sobre gris y ECG— y un archivo que los recuerda.
       Las curvas no tenían pluma y salían todas del mismo gris; ahora cada
@@ -1924,7 +1928,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
       un menú «&Análisis» se reescribió para verificar cada acción, que es lo
       que protegía.
-  - Test: `tests/test_menus.py`, **46 tests en verde**.
+  - Test: `tests/test_menus.py`, **45 tests en verde**.
 - [x] **Fase 3 — Paneles acoplables.** La señal es el widget central y los otros
       diez paneles se mueven, se apilan o se cierran; la disposición se guarda
       al cerrar. Los seis paneles de análisis conservaron el nombre de su
@@ -2048,7 +2052,7 @@ reorganiza lo que ya andaba.
       repetía la solapa Colores de esa misma ventana.
 - [x] **La barra de menú deja de ser la nativa**, para que en macOS no
       desaparezcan el botón de abrir ni «Configuración», que no tiene submenú.
-  - Test: `tests/test_menus.py`, **46 tests en verde**.
+  - Test: `tests/test_menus.py`, **45 tests en verde**.
   - Test: `tests/test_icons.py`, **33 tests en verde**.
 
 ### El scoring en cuatro formatos
@@ -2148,7 +2152,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
     análisis cambia la señal. No arranca con el registro entero en pantalla.
   - Test: `tests/test_playback.py`, **31 tests en verde**.
   - Test: `tests/test_shortcuts.py`, **35 tests en verde**.
-  - Test: `tests/test_main_window_layout.py`, **8 tests en verde**.
+  - Test: `tests/test_main_window_layout.py`, **11 tests en verde**.
 
 ### Lo que se encontró en el camino
 
@@ -2390,7 +2394,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       con su licencia, la OFL 1.1. `ui/fonts.py` las registra al arrancar; si
       faltan, el programa arranca igual. El control de licencias del CI no las
       ve, porque sólo mira pip: están anotadas en `docs/ARQUITECTURA.md`.
-  - Test: `tests/test_fonts.py`, **19 tests en verde**.
+  - Test: `tests/test_fonts.py`, **22 tests en verde**.
 
 ### Los detalles
 
@@ -2544,7 +2548,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
 - [x] `HistogramTool.label` pasa a «Hipnograma». El módulo, la clase y los IDs
       del pliego siguen diciendo «histograma»: son identificadores y
       trazabilidad.
-  - Test: `tests/test_menus.py`, **46 tests en verde**, con que
+  - Test: `tests/test_menus.py`, **45 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
   - Test: `tests/test_entrega.py`, **388 tests en verde**: tildar
@@ -2738,7 +2742,7 @@ todas con la recomendación que se le hizo.
     fallan con la ventana anterior.
   - Test: `tests/test_preferences.py`, **86 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **49 tests en verde**.
-  - Test: `tests/test_menus.py`, **46 tests en verde**.
+  - Test: `tests/test_menus.py`, **45 tests en verde**.
   - Test: `tests/test_psd_panel.py`, **27 tests en verde**; y dos por panel en
     `tests/test_metric_panel.py` (**18 tests en verde**),
     `tests/test_connectivity_panel.py` (**16 tests en verde**) y
@@ -3277,7 +3281,7 @@ tecla.
         archivo siempre escribe `font_family`, y `_con_campos_nuevos()` sólo
         saltea lo que no está. El diseño nuevo lo ve quien instala de cero o
         quien lo elige en Configuración → Tipografía.
-  - Test: `tests/test_fonts.py`, **19 tests en verde**, con la familia
+  - Test: `tests/test_fonts.py`, **22 tests en verde**, con la familia
     disponible y con una que no existe.
   - Test: `tests/test_entrega.py`, **388 tests en verde**, con la tipografía
     aplicada y con la que no está. Los cuatro fallan sin la corrección.
@@ -3412,7 +3416,7 @@ se ve en todas.
   - Test: `tests/test_theme.py`, **89 tests en verde**; `tests/test_grid.py`,
     **19 tests en verde**; `tests/test_settings_dialog.py`, **48 tests en
     verde**; `tests/test_preferences.py`, **86 tests en verde**;
-    `tests/test_menus.py`, **46 tests en verde**, con las dos entradas nuevas y
+    `tests/test_menus.py`, **45 tests en verde**, con las dos entradas nuevas y
     su exclusividad. Entre los cinco se borraron treinta y seis tests de lo que
     dejó de existir.
 
@@ -3452,7 +3456,7 @@ pintaron lo que había, y lo que había en las dos barras no era lo del diseño.
         canales y de qué hora a qué hora. No estaba en ningún lado, y con dos
         registros parecidos —la misma noche filtrada y sin filtrar— no había
         forma de saber cuál se miraba.
-  - Test: `tests/test_menus.py`, **46 tests en verde**.
+  - Test: `tests/test_menus.py`, **45 tests en verde**.
 - [x] **La barra de navegación.**
       - Los botones pasaron de 26 a 34 px y dejaron de ser planos: con 26 el
         icono quedaba en 14 y la fila entera se leía como una regleta de
@@ -3682,7 +3686,7 @@ misma escala**, con el respiratorio barriendo seis carriles.
       - La tinta de la pestaña la elige `theme.ink_over()` midiendo contra el
         relleno, que es la misma función que decide la del botón de la fase
         marcada y la del icono de reproducir.
-  - Test: `tests/test_menus.py`, **46 tests en verde**.
+  - Test: `tests/test_menus.py`, **45 tests en verde**.
 - [x] **El canalón dice sólo la escala.** Llevaba también la clase, y con un
       registro de verdad —«Resp oro-nasal», clase «Respiratorio»— la línea
       salía cortada con puntos suspensivos, que es peor que no decirla. La
@@ -3738,7 +3742,7 @@ viera distinto sin que ninguno estuviera mal.
         `text-transform`, que la hoja de estilo de Qt no soporta. El espaciado
         entre letras sí se puede pedir, pero por `QFont`. Es la lección del
         hito 36, aplicada antes de tropezarse con ella.
-  - Test: `tests/test_panel_header.py`, **33 tests en verde**.
+  - Test: `tests/test_panel_header.py`, **32 tests en verde**.
 - [x] **`MetricPanel` y `ConnectivityPanel` dejaron de ser `PlotWidget`** y
       pasaron a contenerlo, que es como ya estaba `PsdPanel`. Era la condición
       para que los tres pudieran llevar el encabezado.
@@ -3807,7 +3811,7 @@ que decir y no decía.
       color sale la tinta, que la elige `theme.ink_over()` midiendo contra el
       relleno. Cada uno decide **dónde** va su cápsula, que es lo único que
       cambia entre los tres.
-  - Test: `tests/test_panel_header.py`, **33 tests en verde**.
+  - Test: `tests/test_panel_header.py`, **32 tests en verde**.
 - [x] **La impedancia dice si cada canal pasa el límite**, en una columna
       propia con su chip.
       - **Son dos estados y no tres.** El diseño proponía un semáforo —bueno,
@@ -3902,7 +3906,7 @@ movía el contenido treinta y cuatro píxeles** para arriba y para abajo.
 - [x] **Los seis tienen su test de carrocería**, y no tres: el parámetro del
       test recorre los seis paneles, así que agregar uno sin encabezado hace
       fallar la suite.
-  - Test: `tests/test_panel_header.py`, **33 tests en verde**.
+  - Test: `tests/test_panel_header.py`, **32 tests en verde**.
 
 ### El cuarto error que encontró la captura
 
@@ -3987,7 +3991,7 @@ arrastrar y el sistema la marcaba como «no responde».
 - [x] **Cerrar la ventana espera al cálculo.** Soltar la sesión con otro hilo
       todavía leyendo el registro lo deja trabajando sobre memoria que ya nadie
       tiene.
-  - Test: `tests/test_main_window_layout.py`, **8 tests en verde**, que es
+  - Test: `tests/test_main_window_layout.py`, **11 tests en verde**, que es
     donde se declara qué es público de la ventana.
 
 ### Cómo se testea algo con hilos sin que el resultado dependa del reloj
@@ -4049,14 +4053,14 @@ propio salto de tamaño.
       - **Un rol que no existe eleva `UnknownTypeRoleError`** y el mensaje los
         enumera, como hace `icons.icon()`: el nombre lo escribe quien dibuja y
         un error de tipeo es la causa habitual.
-  - Test: `tests/test_fonts.py`, **19 tests en verde**.
+  - Test: `tests/test_fonts.py`, **22 tests en verde**.
 - [x] **Los módulos dejaron de inventar su salto.** `channel_axis.py` achicaba
       un punto y `panel_header.py` dos: eran dos respuestas a la misma
       pregunta. Ahora los dos nombran un rol —«cuerpo», «lectura secundaria»,
       «rotulo», «chip»— y no un tamaño. Es el mismo reparto que ya tienen los
       colores: el módulo dice **qué cosa** está dibujando.
   - Test: `tests/test_channel_axis.py`, **12 tests en verde**;
-    `tests/test_panel_header.py`, **33 tests en verde**.
+    `tests/test_panel_header.py`, **32 tests en verde**.
 - [x] **La itálica entra, y sólo donde significa algo.** Inclinada quiere decir
       **«esto no lo midió ni lo eligió nadie»**: el «sin medir» de la tabla de
       impedancias y el «sin scorear» del pie del panel de scoring.
@@ -4300,7 +4304,7 @@ se dejaron escritas en vez de arreglarse en el momento.
       - El párrafo de `docs/ARQUITECTURA.md` que lista los archivos **pide que
         se lo actualice** al agregar uno, porque el control de licencias del CI
         sólo mira los paquetes de pip.
-  - Test: `tests/test_fonts.py`, **19 tests en verde**, que ya exigía que todo
+  - Test: `tests/test_fonts.py`, **22 tests en verde**, que ya exigía que todo
     lo declarado en `FONT_FILES` exista.
 
 ### Por qué el de Markdown duró tres sesiones
@@ -4848,7 +4852,7 @@ anotados abajo.
       los cuatro gráficos de análisis con eje numérico —Métrica, Espectro y los
       dos de la ICA—; en el Espectro el prefijo habría ido pegado a «µV²/Hz».
   - Test: `tests/test_metric_panel.py`, **29 tests en verde**;
-    `tests/test_panel_header.py`, **33 tests en verde**.
+    `tests/test_panel_header.py`, **32 tests en verde**.
 - [x] **La banda de una anotación no decía de qué clase era**: sólo tenía
       color, y había que recordar qué color era cada clase. Ahora lleva una
       pestaña con el nombre, como la de la época, una línea más abajo para no
@@ -5616,7 +5620,7 @@ visual**: puntuar una noche costaba más pasos que en esos programas.
   - Test: `tests/test_preferences.py`, **86 tests en verde**;
     `tests/test_settings_dialog.py`, **49 tests en verde**;
     `tests/test_entrega.py`, **388 tests en verde**;
-    `tests/test_menus.py`, **46 tests en verde**;
+    `tests/test_menus.py`, **45 tests en verde**;
     `tests/test_docks.py`, **39 tests en verde**;
     `tests/test_signal_view.py`, **97 tests en verde**;
     `tests/test_overview_panel.py`, **27 tests en verde**.
@@ -5754,6 +5758,10 @@ con el CI en rojo, y la suite local corre en Windows. Activarla es una opción
 del repositorio en GitHub (Settings › Branches), que exige los seis jobs de
 tests antes de mergear; es una decisión del dueño del repositorio y no se tomó
 acá. Mientras tanto, `CLAUDE.md` dice que hay que mirarlos a mano.
+
+**Resuelto el 26 de septiembre**: el ruleset que ya protegía `Master` se
+extendió a `Add`, con pull request obligatoria y los siete jobs del CI. El
+detalle está en `CLAUDE.md`.
 
 ### La auditoría del 25 de septiembre
 
@@ -6027,7 +6035,7 @@ el programa.
       del `dataclass` comparaba la señal, y `a == b` o `a in lista` elevaban
       `ValueError`. El programa ya los comparaba por identidad.
 - [x] **Ocho imports sin usar**, cinco en `ui/settings_dialog.py`.
-  - Test: `tests/test_menus.py`, **46 tests en verde**;
+  - Test: `tests/test_menus.py`, **45 tests en verde**;
     `tests/test_readers.py`, **92 tests en verde**;
     `tests/test_annotations.py`, **74 tests en verde**;
     `tests/test_recording.py`, **59 tests en verde**.
@@ -6110,7 +6118,7 @@ pedido, y eligió lo último.
   - Test: `tests/test_annotations.py`, **74 tests en verde**;
     `tests/test_contratos.py`, **1130 tests en verde**;
     `tests/test_entrega.py`, **388 tests en verde**;
-    `tests/test_menus.py`, **46 tests en verde**;
+    `tests/test_menus.py`, **45 tests en verde**;
     `tests/test_readers.py`, **92 tests en verde**.
 
 Cada test nuevo se probó contra el programa sin su cambio, y las ocho
@@ -6234,6 +6242,127 @@ instalarlo.
 
 **Queda pendiente**: la conformidad del laboratorio con reabrir la decisión, y
 la pregunta de si graba un EMG a más de 80 Hz, que es lo que más mejoraría R.
+
+## Hito 76: La ventana en ocho archivos
+
+**Cerrado el 26 de septiembre de 2026.** Lo último que dejó la auditoría del
+25 de septiembre: `MainWindow` tenía **170 métodos en 4300 líneas**, y cada
+hito le sumaba los suyos. El usuario eligió partirla. **No cambia nada que se
+vea.**
+
+**No tiene stubs que contar.**
+
+### La decisión
+
+**Mixins por tema, no controladores.** Los 170 métodos comparten el estado
+que arma `__init__`, la suite llama a unos cuarenta privados por su nombre en
+la ventana y reemplaza `_confirmar` y `_show_error` sobre la clase. Pasar a
+objetos con estado propio habría sido reescribir, no mover; los mixins
+permiten mover sin tocar una línea de los métodos. **Es una partición por
+tema, no un desacople**, y los docstrings lo dicen así.
+
+### Lo que se hizo
+
+- [x] **Siete módulos nuevos en `ui/`**, uno por tema, y `main_window.py` de
+      4288 a unas 800 líneas:
+
+      window_tools.py        el mouse, las herramientas y lo que dibujan
+      window_annotation.py   anotar con el mouse, con el teclado o desde el archivo
+      window_files.py        abrir, importar, exportar y el trabajo sin exportar
+      window_view.py         época, página, reproducción, amplitud y foco
+      window_preferences.py  esquema, letra, colores de clase y configuración
+      window_scoring.py      scorear, las fases sugeridas y el hipnograma
+      window_analysis.py     los análisis de la Parte 2 y sus paneles
+
+      En `main_window.py` quedan la construcción, las esperas largas, lo que
+      se muestra de la época actual y los tres carteles, que comparten título.
+- [x] **Movido por un programa y no a mano**: recorre el árbol de sintaxis,
+      lleva cada método con los comentarios pegados arriba y su encabezado de
+      sección, las constantes que sólo usa ese tema y las importaciones que
+      el código movido usa. **Los 170 métodos son idénticos** a los de antes,
+      comparados nodo por nodo, y `pyflakes` no encuentra ningún nombre sin
+      definir ni ninguna importación de más.
+- [x] **Los cinco requisitos que declaraba `main_window.py` se fueron con sus
+      métodos**, y `docs/TRAZABILIDAD.md` los sigue: `export()` a
+      `window_files.py`, `_update_tool_readout()` a `window_tools.py`,
+      `_marcas_del_histograma()` a `window_scoring.py` y `_olvidar_ica()` a
+      `window_analysis.py`.
+- [x] **Tres guardas nuevas**, porque la herencia múltiple falla callada:
+      los mixins van antes que `QMainWindow` —si no, `eventFilter()` y
+      `closeEvent()` perderían contra los de Qt—, ningún método vive en dos
+      pedazos —el segundo quedaría muerto— y ningún mixin hereda de nada.
+  - Test: `tests/test_main_window_layout.py`, **11 tests en verde**.
+- [x] **Los reemplazos de la suite, al módulo donde se busca el nombre**:
+      `fit_ica`, `compute_psd`, `connectivity_by_window`,
+      `component_time_course`, `warm_up` y `warm_up_readers` en
+      `window_analysis`, `read_recording` en `window_files`, `suggest_stages`
+      en `window_scoring`. **Cuatro tests asignaban `fit_ica` a mano** y no
+      con `monkeypatch`: sobre `main_window` no habrían fallado, sólo dejado
+      de reemplazar nada. Los tres últimos de `window_analysis` los importaban
+      con otro nombre y la búsqueda no los vio; los encontró la suite, con un
+      `AttributeError` y no en silencio, porque `monkeypatch.setattr` falla si
+      el nombre no existe.
+  - Test: `tests/test_entrega.py`, **388 tests en verde**;
+    `tests/test_consistencia.py`, **102 tests en verde**.
+
+**Lo que no se hizo.** Los mixins siguen dependiendo del estado de la ventana
+entera, así que un cambio en `__init__` puede romper a cualquiera. Separar
+estado —que el hipnograma, por ejemplo, sea un objeto con sus propios datos—
+sería el paso siguiente, y es de los que cambian nombres que la suite usa.
+
+## Hito 77: Una sola tipografía
+
+**Cerrado el 26 de septiembre de 2026.** El usuario pidió que el programa use
+una sola familia, con sus variantes, porque dos en la misma pantalla se veían
+desprolijas. Antes se dibujó la propuesta —el antes y el después, la escala y
+la prueba de las cifras— y el usuario la eligió: **sólo IBM Plex Sans**.
+
+**No tiene stubs que contar.**
+
+### Por qué se podía
+
+Plex Mono se sumó en el hito 34 para que una lectura que cambia —la hora, la
+ventana, los µV— no saltara de ancho mientras se navega. **Las cifras de Plex
+Sans ya tienen ancho fijo**: medido en los tres archivos que el programa trae,
+las diez miden 600 unidades en regular, semi-negrita e itálica. Lo que queda
+proporcional son las letras y los signos, que no cambian mientras se navega.
+
+### Lo que se hizo
+
+- [x] **`ui/fonts.py`**: una familia. Los roles pierden el campo `family`
+      —era por donde se colaría una segunda— y `NUMERIC_FONT_FAMILY`
+      desaparece. Los tres roles de medir quedan con su nombre, porque dicen
+      **qué** se dibuja; hoy `lectura` se ve como `cuerpo` y
+      `lectura_secundaria` como `secundario`. **El chip pasa a semi-negrita**:
+      Sans regular a dos puntos menos que la base, blanca sobre el relleno, se
+      afinaba.
+  - Test: `tests/test_fonts.py`, **22 tests en verde**. Dos
+    guardas nuevas: los ocho roles dan la misma familia, mirando la `QFont`
+    que sale, y **las cifras miden lo mismo**, con la tipografía cargada en Qt.
+- [x] **`ui/theme.py`**: sin el campo `numeric_font` ni la regla que les daba
+      Mono a los rótulos marcados como lectura. La marca —la propiedad
+      `lectura`, en cinco rótulos— se fue con ella, porque sólo servía para
+      eso.
+  - Test: `tests/test_theme.py`, **89 tests en verde**: la hoja de
+    estilo no nombra ninguna familia, en ninguno de los dos esquemas.
+- [x] **La muestra de Configuración → Tipografía** tenía tres voces; la de
+      medir era otra familia y ahora es la misma letra que la de leer. Quedan
+      dos, y la de leer lleva números.
+  - Test: `tests/test_settings_dialog.py`, **49 tests en verde**;
+    `tests/test_panel_header.py`, **32 tests en verde**;
+    `tests/test_menus.py`, **45 tests en verde**.
+- [x] **`IBMPlexMono-Regular.ttf` se borró** de `psglab/resources/fonts/`.
+      Quedan los tres archivos de Sans y su licencia.
+- [x] **La herramienta de capturas mostraba la tipografía del sistema**, y
+      desde el hito 43. Lo encontró la comparación de antes y después: salía
+      idéntica en las dos. Tenía dos huecos: armaba un `QApplication` pelado,
+      sin pasar por `create_application()`, que es quien registra las
+      tipografías; y la ventana sin preferencias guardadas no llama a
+      `_aplicar_preferencias()`, que es quien le pone la del programa. Ahora usa
+      `create_application()` y le aplica las preferencias de fábrica, sin
+      escribir nada. **El programa de verdad no tenía el problema**: `main.py`
+      pasa por los dos. Las capturas de antes de este hito no sirven para
+      juzgar la tipografía.
 
 ---
 

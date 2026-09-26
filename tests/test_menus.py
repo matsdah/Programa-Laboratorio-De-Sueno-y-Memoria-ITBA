@@ -550,12 +550,6 @@ def test_sin_registro_la_esquina_lo_dice(ventana: MainWindow):
     assert ventana.recording_summary.text() == "Sin registro abierto"
 
 
-def test_el_identificador_es_una_lectura(ventana: MainWindow):
-    """El esquema le da la tipografía numérica: es la que hace que la
-    frecuencia y las horas no bailen de ancho al cambiar de registro."""
-    assert ventana.recording_summary.property(theme.READOUT_PROPERTY) is True
-
-
 def test_el_identificador_esta_en_la_esquina_de_la_barra(ventana: MainWindow):
     from PySide6.QtCore import Qt
 

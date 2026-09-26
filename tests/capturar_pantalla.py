@@ -56,11 +56,11 @@ from conftest import escribir_brainvision  # noqa: E402
 # acá sería un segundo formato que mantener.
 os.environ.pop("QT_QPA_PLATFORM", None)
 
-from psglab.app import create_main_window  # noqa: E402
+from psglab.app import create_application, create_main_window  # noqa: E402
 from psglab.core.annotations import Annotation  # noqa: E402
 from psglab.core.nomenclature import Nomenclature, SleepStage, stages_of  # noqa: E402
 from psglab.core.scoring import StageSuggestion  # noqa: E402
-from psglab.ui import theme  # noqa: E402
+from psglab.ui import preferences, theme  # noqa: E402
 
 #: Dónde quedan los PNG. En el temporal del sistema y no en el repositorio:
 #: son para mirar una vez, no para versionar.
@@ -89,6 +89,12 @@ VENTANAS: list[object] = []
 def armar_ventana(esquema: theme.ColorScheme):
     """Una ventana con un registro sintético y media noche scoreada."""
     ventana = create_main_window()
+    # **Las preferencias de fábrica, como las aplica `main.py` al arrancar**
+    # (hito 77). Sin esto la ventana se quedaba con la tipografía del sistema:
+    # la del programa la pone `_aplicar_preferencias()`, que una ventana sin
+    # preferencias guardadas no llama. No escribe nada: la ventana no es la
+    # del usuario. Va antes del esquema, que si no volvería al de fábrica.
+    ventana.apply_preferences(preferences.Preferences())
     ventana.set_color_scheme(esquema, remember=False)
     ventana.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
     ventana.resize(ANCHO, ALTO)
@@ -282,8 +288,16 @@ def capturar(esquema: theme.ColorScheme) -> None:
 
 
 def main() -> None:
-    """Captura las dos barras y la ventana, con los dos esquemas."""
-    QApplication.instance() or QApplication([])
+    """Captura las dos barras y la ventana, con los dos esquemas.
+
+    **La aplicación se arma con `create_application()`**, como en `main.py`.
+    Hasta el hito 77 era un `QApplication` pelado, que no registraba las
+    tipografías del programa: todas las capturas desde el hito 43 salieron con
+    la del sistema y no con IBM Plex, y nadie lo notó porque se parecen. Lo
+    encontró la comparación de antes y después de sacar Plex Mono, que salía
+    idéntica en las dos.
+    """
+    QApplication.instance() or create_application([])
     SALIDA.mkdir(parents=True, exist_ok=True)
     for esquema in theme.SCHEMES.values():
         print(f"== {esquema.name} ==")

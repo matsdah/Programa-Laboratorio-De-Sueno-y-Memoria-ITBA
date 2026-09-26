@@ -54,7 +54,14 @@ conoce las flechas del teclado.
 
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
-| `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. `export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos. Antes de cerrar, de abrir otro registro o de importar un scoring encima pregunta por el trabajo sin exportar —Exportar…, Descartar o Cancelar—, scoring y anotaciones, con un diálogo de guardado por cada cosa en juego; la regla de qué cuenta es de `Session`. Después de abrir uno muestra los avisos que dejó el lector, como el de un archivo truncado. La rueda sobre la señal cambia la escala de tiempo, fija bajo el mouse, y con Mayúsculas o deslizando de costado en el panel táctil desplaza la página (hito 56). Scorear pasa a la ventana siguiente, salvo que se lo apague (hito 64). Las confirmaciones dicen la acción en el botón y un cartel de error empieza diciendo qué no se pudo hacer (hito 65), en el texto y no en el título, que macOS no muestra (hito 66). Un cálculo en otro hilo que vuelve cuando ya se abrió otro registro se descarta (hito 67). | V4_F de "Archivo de salida" |
+| `main_window.py` | Arma la ventana y **reúne sus siete pedazos** (hito 76): construye los paneles y los menús, corre lo largo en otro hilo, muestra la época actual y los tres carteles del programa, que dicen qué no se pudo hacer en el texto y no en el título, que macOS no muestra (hitos 65 y 66). Un cálculo en otro hilo que vuelve cuando ya se abrió otro registro se descarta (hito 67). Después de abrir un registro muestra los avisos que dejó el lector, como el de un archivo truncado. | — |
+| `window_tools.py` | `ToolsMixin`: el filtro de eventos que lleva el mouse a las herramientas, la rueda —escala de tiempo fija bajo el mouse, y con Mayúsculas o deslizando de costado desplaza la página (hito 56)—, qué herramientas están encendidas, sus overlays y la lectura de la barra de estado. | V3_F de "Ocupación", V2_F de "Lupa" |
+| `window_annotation.py` | `AnnotationMixin`: terminar un tramo arrastrado y preguntar su clase, el menú de una anotación, anotar con el teclado (hito 62) e importar las marcas del registro (hito 73). | — |
+| `window_files.py` | `FilesMixin`: abrir un registro y los recientes, importar un scoring, exportar —`export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos— y el trabajo sin exportar: antes de cerrar, de abrir otro registro o de importar un scoring encima pregunta —Exportar…, Descartar o Cancelar—, con un diálogo de guardado por cada cosa en juego; la regla de qué cuenta es de `Session`. | V4_F de "Archivo de salida" |
+| `window_view.py` | `ViewMixin`: moverse de ventana, la escala de tiempo y la página, la reproducción, la amplitud, el foco entre paneles y las vistas de canales. | — |
+| `window_preferences.py` | `PreferencesMixin`: aplicar y guardar el esquema, la letra y los colores de clase, la disposición de fábrica y la ventana de configuración. | — |
+| `window_scoring.py` | `ScoringMixin`: scorear —pasa a la ventana siguiente, salvo que se lo apague (hito 64)—, el arousal, la nomenclatura, las fases sugeridas (hito 75) y el hipnograma con su eje, sus colores y la curva de las sugeridas. | V2_F de "Histograma" |
+| `window_analysis.py` | `AnalysisMixin`: los pedidos de la Parte 2 —espectro, complejidad, conectividad, filtros, impedancia, ICA, derivar, re-referenciar—, el aviso de los canales planos (hito 32) y volver a la señal original. | V5_F de "Filtración" |
 | `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** Marca la época con una banda, su número y su fase con una pestaña rellena en el borde, y —reproduciendo— el cursor con una línea: las tres se crean una vez y se mueven. Su eje de abajo, `TimeAxis`, va en hora de la noche. Guarda la envolvente por trozos alineados al registro, así que un paso de la reproducción calcula sólo lo que entra (hito 49). La pestaña de la ventana actual toma el color de su fase y va encima de las bandas de anotación (hito 64). El canalón dice la unidad de cada canal, que no es µV para lo que no es eléctrico (hito 70). | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
 | `channel_selector.py` | Elegir cuántos y cuáles canales se ven. Una fila por canal con su nombre y un chip con su clase, y un pie con un atajo por clase presente. | V3_P, V4_F de "Visualización" |
 | `background.py` | Correr un cálculo largo en otro hilo y devolver el resultado en el de la interfaz. **No hay cancelar**: ni MNE ni numpy interrumpen un cálculo empezado. `stopped` avisa que terminó con cualquier final, también con el error inesperado que se vuelve a elevar: sin eso la ventana quedaba esperando (hito 68). | — (infraestructura) |
@@ -75,20 +82,38 @@ conoce las flechas del teclado.
 | `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas, arrancan ocultos y al abrirse se llevan `FRACCION_DE_ANALISIS` del ancho: sin eso Qt les daba más lugar que a la señal. **El título de un dock no se cambia**: Qt lo usa como texto de su entrada en «Herramientas». Lo que describe un resultado va en el panel, con `set_caption()`. El hipnograma arranca visible desde el hito 64; el panel de la Übersicht se titula «Contexto». | — |
 | `menus.py` | **La barra de menú**: qué acción vive en qué menú, el botón de abrir un registro —con su palabra al lado desde el hito 36— y, en la otra esquina, qué registro está abierto. No implementa ninguna acción: cada una llama a un método de la ventana. «Herramientas» lleva los modos del mouse y los paneles, sin repetir los que son las dos cosas; «Ver», los tres fondos de grilla y los dos esquemas. Desde el hito 64 abre con «Archivo» —abrir, recientes, scoring, configuración— y «Ver» lleva las vistas de canales. «Archivo» ofrece también importar las marcas del registro como anotaciones (hito 73). «Analizar › Fases sugeridas» pide, confirma y descarta las fases del clasificador (hito 75), y `menu_path()` entra en los submenús para poder nombrarlas. | — |
 | `theme.py` | **Los esquemas de color del programa: Sereno y Nocturno.** Qué color tiene cada cosa que se dibuja, incluida `stage_colors`, la escala que pinta cada fase de sueño. Los dos separan el fondo de la ventana (`chrome`) del de las áreas de dibujo y dan a las lecturas numéricas su propia tipografía. De acá salen también los tokens de forma —radio, alto de control, anillo de foco— que consume la hoja de estilo. **No se editan**: ver `docs/ARQUITECTURA.md`. El borde de los controles tiene su propio color, a 3:1, y los gráficos muestran un marco de acento cuando tienen el foco (hito 62); las casillas, listas, árboles, tablas y pestañas, también (hito 63). | — |
-| `fonts.py` | **Las dos tipografías del programa y la escala de ocho roles.** IBM Plex Sans para lo que se lee y Mono para lo que se mide —la misma superfamilia, en `psglab/resources/fonts/`, bajo la OFL 1.1—. **Ninguna se elige** desde el hito 43; el tamaño sí. `font_for()` arma la fuente de un rol a partir de ese tamaño. Si los archivos faltan, el programa arranca igual: `available_family()` devuelve None y se usa la del sistema, en vez de dejar que Qt sustituya por cualquier otra. | — |
+| `fonts.py` | **La tipografía del programa y la escala de ocho roles.** Una sola familia, IBM Plex Sans, en regular, semi-negrita e itálica —en `psglab/resources/fonts/`, bajo la OFL 1.1—; hasta el hito 77 había además Plex Mono para lo que se mide. **No se elige** desde el hito 43; el tamaño sí. `font_for()` arma la fuente de un rol a partir de ese tamaño. Si los archivos faltan, el programa arranca igual: `available_family()` devuelve None y se usa la del sistema, en vez de dejar que Qt sustituya por cualquier otra. | — |
 | `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. La disposición de paneles ya no es parte de eso. Un campo que trae cualquier cosa vuelve al de fábrica, y `load()` no eleva nada que no sea `PsgLabError`: es lo único que atrapa el arranque. Guarda también el paso a la siguiente al scorear, los registros recientes y las vistas de canales (hito 64). | — |
 | `settings_dialog.py` | **La ventana de configuración**: cuatro solapas, todas con algo real detrás. La de Colores se fue en el hito 35 con la edición de esquemas; elegir entre los dos que hay es el menú «Ver». Aplica en el momento y avisa por callbacks. En «Otras» se elige cuántas ventanas vecinas muestra la Übersicht, la altura de la banda de amplitud y el radio y el aumento de la lupa. La casilla del paso a la siguiente al scorear (hito 64). | V3_F de "Herramienta Übersicht" |
 | `shortcuts_dialog.py` | La ayuda de atajos, en una tabla agrupada —navegación, scoring, visualización, archivo— con la tecla en su columna (hito 54). Era un cartel de texto plano. | — (ayuda) |
 | `shortcuts.py` | **Fuente única de verdad de los atajos de teclado.** También dice en qué grupo va cada uno en la ayuda, y qué se hace con el mouse, que la ayuda muestra al lado (hito 56). Desde el hito 62 el teclado llega a todo lo del pliego: Inicio, Fin y Ctrl+G para ir a una ventana, E para anotar la actual, Mayús+F10 o Menú para corregir su anotación. Las teclas que usa el control que tiene el foco —las que mueven en una lista, una tabla o un desplegable; las que escriben en una tabla que se edita— no son atajos (hito 67). | V2_P, V5_F de "Visualización"; V1_F de "Navegación"; V1_F, V2_F de "Scoring" |
 
-## `main_window.py` conecta, no implementa
+## La ventana conecta, no implementa
 
-Es el contenedor que reúne todas las funcionalidades de la Parte 1 **sin
+La ventana es el contenedor que reúne todas las funcionalidades **sin
 implementar ninguna**: cada una vive en su módulo y acá sólo se las cablea entre
 sí. También es donde se enganchan a mano los callbacks de las herramientas, que
 no usan señales de Qt (ver [`tools/README.md`](../tools/README.md)).
 
-Si estás agregando lógica acá, probablemente vaya en otro archivo.
+Si estás agregando lógica a la ventana, probablemente vaya en otro archivo.
+
+**Desde el hito 76 son ocho archivos y una sola clase.** `main_window.py` tenía
+170 métodos en 4300 líneas; ahora arma la ventana y hereda lo que ésta hace de
+siete mixins, uno por tema —`window_tools.py`, `window_annotation.py`,
+`window_files.py`, `window_view.py`, `window_preferences.py`,
+`window_scoring.py` y `window_analysis.py`—. Tres reglas que no se ven leyendo
+uno solo:
+
+- **Es una partición por tema, no un desacople.** Los ocho comparten el estado
+  que arma `MainWindow.__init__`, y un método de un mixin llama a los de
+  cualquier otro. Un método nuevo va al archivo de su tema.
+- **Los mixins van antes que `QMainWindow`** en la herencia, y no heredan de
+  nada. Si uno quedara después, `eventFilter()` y `closeEvent()` perderían sin
+  avisar contra los de Qt. Lo verifica `test_main_window_layout.py`, junto con
+  que ningún método esté en dos pedazos: el segundo quedaría muerto.
+- **Un test que reemplace una función que la ventana importa la reemplaza en el
+  módulo que la usa**: `fit_ica` en `window_analysis`, `read_recording` en
+  `window_files`. Reemplazarla en `main_window` ya no tiene efecto.
 
 ## `shortcuts.py`
 
@@ -251,15 +276,23 @@ sobre el fondo: como texto habría quedado por debajo de los 4,5 que pide WCAG
 
 ## `fonts.py`
 
-**Una familia y su hermana de ancho fijo, y ninguna se elige.** Hasta el hito
+**Una sola familia, y no se elige.** Hasta el hito
 43 Configuración → Tipografía ofrecía todas las familias instaladas en la
 máquina: el programa empaquetaba dos y no garantizaba ninguna. Es el mismo
 argumento que dejó los colores en dos esquemas —una lista abierta son infinitos
 aspectos posibles y ninguno garantizado— y la misma respuesta. **El tamaño sí
 se elige**, que es lo que hace falta para ver de lejos.
 
+**Hasta el hito 77 eran dos**: Plex Sans para lo que se lee y Plex Mono para lo
+que se mide, para que una lectura que cambia no saltara de ancho. El usuario
+sacó Mono porque dos familias se veían desprolijas, y **no hacía falta**: las
+diez cifras de Plex Sans miden lo mismo en los tres estilos, y
+`test_fonts.py` lo mide con la tipografía cargada. Con Mono se fueron la
+propiedad `lectura` de los rótulos y la regla de la hoja de estilo que les
+cambiaba la familia; `test_theme.py` verifica que la hoja no nombre ninguna.
+
 **La escala está acá y no en cada módulo.** `ROLES` tiene ocho, cada uno con su
-familia, su paso en puntos desde el tamaño elegido, su peso, su inclinación y
+paso en puntos desde el tamaño elegido, su peso, su inclinación y
 su tracking. Antes el canalón achicaba un punto y el chip dos, que eran dos
 respuestas a la misma pregunta. Es el mismo reparto que los colores: el módulo
 dice **qué cosa** está dibujando y no de qué tamaño.
@@ -373,10 +406,10 @@ herramienta, los mismos tests pasan en verde con el programa roto.
 se puede verificar sin mirar una pantalla, así que todo lo que valga la pena
 verificar debería poder verificarse desde `core/`, `tools/` o `exporters/`.
 
-**Lo que no dibuja sí los lleva, y hoy son casi todos**: veinte de los
-veintidós módulos de la carpeta tienen test propio. Los dos que no —
-`main_window.py` y `channel_selector.py`— figuran en `SIN_TEST_PROPIO`, y al
-primero lo recorre `test_entrega.py` por la ventana. La frase de este párrafo
+**Lo que no dibuja sí los lleva, y hoy son casi todos**: de los treinta y tres
+módulos de la carpeta, sólo `main_window.py` figura en `SIN_TEST_PROPIO`, y lo
+recorre `test_entrega.py` por la ventana; sus siete pedazos los cubren ése y
+`test_main_window_layout.py` (hito 76). La frase de este párrafo
 decía que ninguno llevaba test y se quedó vieja mientras la lista crecía: lo
 encontró la auditoría del 19 de septiembre de 2026.
 

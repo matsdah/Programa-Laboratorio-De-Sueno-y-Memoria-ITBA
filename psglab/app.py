@@ -70,9 +70,11 @@ def create_application(argv: list[str]) -> QApplication:
     # este archivo. Ahora salen del esquema elegido por el usuario, que
     # `psglab/ui/theme.py` sabe aplicar.
     theme.set_current(_esquema_guardado())
-    # Las tipografías que el programa trae: quedan para elegir en la
-    # configuración y para el esquema Papel. Registrarlas no cambia nada de lo
-    # que se ve al arrancar, y si faltan el programa arranca igual.
+    # La tipografía que el programa trae, IBM Plex Sans: es la de toda la
+    # interfaz desde el hito 43, y la única desde el 77. **Sin registrarla la
+    # ventana sale con la del sistema**, que es lo que le pasaba a la
+    # herramienta de capturas hasta el hito 77. Si falta, el programa arranca
+    # igual.
     fonts.register_bundled_fonts()
     # **El suavizado de curvas queda apagado a propósito**, que es el valor por
     # omisión de pyqtgraph y conviene dejar dicho por qué. Redibujar decenas de

@@ -118,13 +118,6 @@ ANILLO_DE_FOCO: Final[int] = 2
 #: Contraste mínimo para texto, según WCAG 2.1 (criterio 1.4.3).
 MIN_TEXT_CONTRAST: Final[float] = 4.5
 
-#: La propiedad dinámica de Qt que marca una **lectura**: un rótulo que muestra
-#: un número que cambia —la ventana actual, la hora de la noche, lo que informa
-#: la herramienta activa—. La hoja de estilo la usa para darles a todas la
-#: tipografía numérica del esquema, si tiene una, sin que el esquema tenga que
-#: conocer los widgets por nombre.
-READOUT_PROPERTY: Final[str] = "lectura"
-
 #: La propiedad con que un botón pide la tinta de lo que destruye. La usan
 #: «Descartar» en el cartel del trabajo sin exportar y, desde el hito 65,
 #: «Borrar» una anotación: los dos controles del programa que pierden trabajo
@@ -175,10 +168,6 @@ class ColorScheme:
             paneles y sus títulos—, cuando es distinto del de las áreas de
             dibujo. **Vacío es «el mismo que `background`»**, y la hoja de
             estilo sale igual que si se lo hubiera escrito.
-        numeric_font: la tipografía de las lecturas numéricas (ver
-            `READOUT_PROPERTY`), o vacío para usar la de siempre. Va en el
-            esquema y no aparte porque es parte del aspecto que el nombre del
-            esquema promete, como los colores.
         control_border: el borde de lo que se toca —campos, botones, listas,
             tablas—, o vacío para usar `coarse_grid`. **Existe por WCAG 1.4.11**
             (hito 62): en un campo de texto el borde es lo único que dice dónde
@@ -216,7 +205,6 @@ class ColorScheme:
     overview_current_border: str
     overview_text: str
     chrome: str | None = None
-    numeric_font: str | None = None
     danger: str | None = None
     control_border: str | None = None
     stage_colors: tuple[tuple[str, str], ...] = ()
@@ -267,8 +255,6 @@ class ColorScheme:
 #:   oscuro, así que la señal se despega del resto sin competir con ella.
 #: - Traen `stage_colors`, que es lo que pinta el hipnograma, la franja de
 #:   posición y los botones de fase con la misma escala.
-#: - Las cifras van en IBM Plex Mono, como «Papel»: un número que cambia no
-#:   puede saltar de ancho mientras se navega.
 #:
 #: **La paleta de canales se reusa tal cual.** Está verificada contra WCAG y
 #: cambiarla cambiaría lo que el investigador ve en el dato, que no es lo que
@@ -290,7 +276,6 @@ SERENO: Final[ColorScheme] = ColorScheme(
     overview_current_border="#1e6f68",
     overview_text="#5b6169",
     chrome="#edebe4",
-    numeric_font="IBM Plex Mono",
     danger="#9e3b22",
     control_border="#838688",
     stage_colors=_FASES_CLARAS,
@@ -316,7 +301,6 @@ NOCTURNO: Final[ColorScheme] = ColorScheme(
     overview_current_border="#58b7af",
     overview_text="#99a1ab",
     chrome="#14171b",
-    numeric_font="IBM Plex Mono",
     danger="#e07a5f",
     control_border="#5e6670",
     stage_colors=_FASES_OSCURAS,
@@ -481,11 +465,6 @@ def stylesheet(scheme: ColorScheme) -> str:
     # que dibuja la tilde: una regla para ese estado obligaría a traer una
     # imagen propia de la tilde.
     casilla = scheme.overview_text
-    lecturas = (
-        f'QLabel[{READOUT_PROPERTY}="true"] {{ font-family: "{scheme.numeric_font}"; }}'
-        if scheme.numeric_font is not None
-        else ""
-    )
     fases = _reglas_de_las_fases(scheme)
     # **La tinta de lo que destruye.** Un esquema puede no traerla, y entonces
     # el botón se ve como cualquier otro, que es como se veía antes de que
@@ -621,7 +600,6 @@ def stylesheet(scheme: ColorScheme) -> str:
             background-color: {fondo}; color: {texto};
             border: 1px solid {borde};
         }}
-        {lecturas}
     """
 
 

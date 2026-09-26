@@ -143,13 +143,28 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_entrega.py": (
         "psglab/app.py",
         "psglab/ui/main_window.py",
+        # Los pedazos de la ventana cuyos nombres reemplaza (hito 76).
+        "psglab/ui/window_analysis.py",
+        "psglab/ui/window_annotation.py",
+        "psglab/ui/window_files.py",
+        "psglab/ui/window_scoring.py",
     ),
     # Cubre el mismo módulo que `test_entrega.py` y no se superpone con él:
     # aquél verifica que la ventana **haga** lo que el pliego pide, y éste
     # **cómo se llama** lo que hace. Son dos archivos porque el segundo tiene
     # que fallar cuando alguien renombra un panel, que es lo que el refactor de
     # la interfaz vuelve probable.
-    "test_main_window_layout.py": ("psglab/ui/main_window.py",),
+    "test_main_window_layout.py": (
+        "psglab/ui/main_window.py",
+        # Y los siete pedazos: que vayan antes de Qt y no se pisen (hito 76).
+        "psglab/ui/window_analysis.py",
+        "psglab/ui/window_annotation.py",
+        "psglab/ui/window_files.py",
+        "psglab/ui/window_preferences.py",
+        "psglab/ui/window_scoring.py",
+        "psglab/ui/window_tools.py",
+        "psglab/ui/window_view.py",
+    ),
     "test_theme.py": ("psglab/ui/theme.py",),
     "test_preferences.py": ("psglab/ui/preferences.py",),
     "test_menus.py": ("psglab/ui/menus.py",),

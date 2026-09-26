@@ -214,6 +214,11 @@ sutil de ver: se veían de un vistazo y no había ningún vistazo. Para un icono
 un rótulo chico hay que recortar y agrandar la imagen —un `QImage.copy().scaled()`
 de cuatro líneas alcanza—; a tamaño real, un icono de 34 px no deja juzgar nada.
 
+**La captura arma la aplicación y aplica las preferencias como `main.py`**
+(hito 77): con `create_application()`, que registra la tipografía, y con las
+preferencias de fábrica, que la ponen. Hasta ahí salía con la del sistema, y
+como se parecen nadie lo vio desde el hito 43.
+
 **Nada de lo que la captura llame puede abrir un cartel modal.** Sobre una
 ventana con `WA_DontShowOnScreen` un modal no se muestra en ninguna parte, así
 que nadie lo puede contestar y el proceso queda colgado sin consumir CPU y sin
@@ -389,10 +394,18 @@ nada hasta que se abra la pull request, así que en el día a día el único con
 es `python -m pytest` local, y conviene correrlo entero: el chequeo de las
 cuentas de tests se saltea si se le pasa un archivo suelto.
 
-**Nada impide mergear con el CI en rojo**: `Add` no tiene protección de rama.
-El PR #82 entró con los dos jobs de macOS fallando, y la suite local, que corre
-en Windows, no podía verlo. Antes de mergear hay que mirar los seis jobs de
-tests, no sólo el de la plataforma propia.
+**`Add` y `Master` exigen el CI en verde para mergear**, desde el 26 de
+septiembre. Es un ruleset del repositorio en GitHub —no vive en ningún archivo—
+que pide pull request y los siete jobs, y prohíbe el force push y el borrado.
+Hasta entonces sólo cubría `Master`, y el PR #82 entró en `Add` con los dos
+jobs de macOS fallando sin que la suite local, que corre en Windows, pudiera
+verlo. El rol Admin puede saltearlo, pero sólo desde una pull request y
+marcándolo a mano: nunca con un push directo.
+
+Dependabot actualiza **sólo las acciones del workflow**, una vez por mes y
+contra `Add` (`.github/dependabot.yml`); los `requirements*.txt` no, por el
+motivo que da ese archivo. CodeQL corre con la configuración por defecto de
+GitHub, que tampoco agrega ningún archivo al repositorio.
 
 ## Arquitectura
 
@@ -579,6 +592,15 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   ser de los atajos. **Un filtro de eventos no se instala en la aplicación
   por cada ventana**: las de los tests no se destruyen, y con uno por ventana
   la suite dejó de terminar. Éste es uno solo y mira sólo al widget con foco.
+- **La ventana son ocho archivos y una sola clase** (hito 76).
+  `main_window.py` la arma y hereda lo que hace de siete mixins por tema
+  —`ui/window_tools.py`, `window_annotation.py`, `window_files.py`,
+  `window_view.py`, `window_preferences.py`, `window_scoring.py` y
+  `window_analysis.py`—. Un método nuevo va al del tema. **Un test que
+  reemplace una función que la ventana importa la reemplaza en el módulo que
+  la usa**: `fit_ica` en `window_analysis`, no en `main_window`, donde ya no
+  tendría efecto. Los mixins van antes que `QMainWindow` en la herencia, o
+  `eventFilter()` y `closeEvent()` perderían callados contra los de Qt.
 - **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
   (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
   que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril
@@ -597,9 +619,13 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   ninguno garantizado: el control de contraste sólo alcanzaba a los de fábrica.
   Agregar un esquema es sumarlo a `SCHEMES` —el control de contraste lo enrola
   solo—; agregar una perilla de color es volver atrás una decisión tomada.
-- **La tipografía tampoco, y por el mismo argumento** (hito 43). Son dos
-  familias emparentadas —IBM Plex Sans para lo que se lee, Mono para lo que se
-  mide—, se empaquetan con el programa y no se eligen; **el tamaño sí**, que es
+- **La tipografía tampoco, y por el mismo argumento** (hito 43). Es **una
+  sola familia**, IBM Plex Sans en regular, semi-negrita e itálica: hasta el
+  hito 77 las lecturas iban en Plex Mono, y el usuario la sacó. No hacía falta:
+  las cifras de Sans ya tienen ancho fijo, y `test_fonts.py` lo mide. **No
+  agregar una segunda familia**, ni por un rol ni por una regla de
+  `font-family` en la hoja de estilo, que `test_theme.py` rechaza. Se empaqueta
+  con el programa y no se elige; **el tamaño sí**, que es
   lo que hace falta para ver de lejos. Los tamaños no se escriben en el módulo
   que dibuja: se nombra un rol de `ui/fonts.py` y `font_for()` lo arma desde el
   tamaño elegido. Antes el canalón achicaba un punto y el chip dos, que eran
