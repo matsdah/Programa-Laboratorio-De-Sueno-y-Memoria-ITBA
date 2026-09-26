@@ -523,7 +523,7 @@ dependen de `ui/`, así que desde acá se puede trabajar en paralelo.
   - El resto del módulo ya está implementado a propósito: `can_read`,
     `register_reader`, `read_recording` y `load_all_readers` corren al
     importar. **No convertirlos en stubs.**
-  - Test: `tests/test_readers.py`, **92 tests en verde**, que cubre este módulo
+  - Test: `tests/test_readers.py`, **94 tests en verde**, que cubre este módulo
     y los dos de abajo. El autodescubrimiento y el despacho se testean con un
     lector de mentira, sin ningún archivo real.
 - [x] **`psglab/readers/edf.py`** · ~~1 stub~~ · V2_F "Importación"
@@ -2918,7 +2918,7 @@ ya advertía.
       no se ejercitaba en ninguna de las seis combinaciones. Es lo que deja
       testear los tres ítems que siguen: el escritor ya reproduce los dos
       primeros.
-  - Test: `tests/test_readers.py`, **92 tests en verde**. Este ítem sumó
+  - Test: `tests/test_readers.py`, **94 tests en verde**. Este ítem sumó
     once que no dependen de `data/`, y el arreglo de la escala, dieciocho más.
 - [x] **La escala dependía de cómo se escribiera la unidad.** `is_electrical()`
       no distingue mayúsculas y MNE sí: sólo convierte `uV`, `µV` y `mV`
@@ -2963,7 +2963,7 @@ ya advertía.
         `readers/base.py` que puede usar cualquier lector, y la ventana lo
         muestra después de abrir con su propio cartel, que no es el de error:
         «trae 4 h 10 min de los 8 h 00 min que declara su cabecera».
-  - Test: `tests/test_readers.py`, **92 tests en verde**, con el truncado, el
+  - Test: `tests/test_readers.py`, **94 tests en verde**, con el truncado, el
     entero y el de -1 registros.
   - Test: `tests/test_entrega.py`, **391 tests en verde**, abriéndolos por la
     ventana.
@@ -3062,7 +3062,7 @@ ya advertía.
       - Medido en esta máquina, con procesos limpios: la primera apertura pasó
         de **5058 ms a 256 ms**, y la segunda queda en 53. El hilo tarda 21,6 s
         en total —3,3 los lectores y 14,4 `antropy`—, en segundo plano.
-  - Test: `tests/test_readers.py`, **92 tests en verde**, con lo que queda
+  - Test: `tests/test_readers.py`, **94 tests en verde**, con lo que queda
     importado, el lector que no adelanta nada y que precalentar no lea ningún
     archivo.
   - Test: `tests/test_entrega.py`, **391 tests en verde**, con el orden de los
@@ -3097,7 +3097,7 @@ ya advertía.
     Ahora se pregunta de nuevo.
   - Test: `tests/test_scoring_reader.py`, **38 tests en verde**;
     `tests/test_session.py`, **158 tests en verde**;
-    `tests/test_readers.py`, **92 tests en verde**;
+    `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_entrega.py`, **391 tests en verde**. Doce fallan sin la
     corrección.
 - [x] **Lo que dicen los documentos y el código no.** Se corrigieron en el
@@ -3183,7 +3183,7 @@ ya advertía.
         las pasa a todos los canales y que la PSD de esa época sale sin valor.
   - Test: `tests/test_recording.py`, **59 tests en verde**, con el NaN, el
     infinito y el orden de los canales.
-  - Test: `tests/test_readers.py`, **92 tests en verde**. `escribir_brainvision()`
+  - Test: `tests/test_readers.py`, **94 tests en verde**. `escribir_brainvision()`
     aprendió a escribir muestras sin valor, y para eso el archivo en
     `IEEE_FLOAT_32`: es el único de los dos formatos que puede traerlas.
   - Test: `tests/test_entrega.py`, **391 tests en verde**, con el cartel por la
@@ -6040,7 +6040,7 @@ el programa.
       `ValueError`. El programa ya los comparaba por identidad.
 - [x] **Ocho imports sin usar**, cinco en `ui/settings_dialog.py`.
   - Test: `tests/test_menus.py`, **45 tests en verde**;
-    `tests/test_readers.py`, **92 tests en verde**;
+    `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_annotations.py`, **74 tests en verde**;
     `tests/test_recording.py`, **59 tests en verde**.
 
@@ -6123,7 +6123,7 @@ pedido, y eligió lo último.
     `tests/test_contratos.py`, **1130 tests en verde**;
     `tests/test_entrega.py`, **391 tests en verde**;
     `tests/test_menus.py`, **45 tests en verde**;
-    `tests/test_readers.py`, **92 tests en verde**.
+    `tests/test_readers.py`, **94 tests en verde**.
 
 Cada test nuevo se probó contra el programa sin su cambio, y las ocho
 versiones rotas fallan: sin ancho para una marca instantánea, sin saltear lo
@@ -6158,7 +6158,7 @@ los dos cierran un hueco en lo que se verifica.
       `escribir_edf()` anotaciones en su canal de EDF+, con el parámetro
       `eventos`. Y un test recorre el camino entero sin reemplazar nada: el
       lector de verdad las guarda y la ventana las importa.
-  - Test: `tests/test_readers.py`, **92 tests en verde**;
+  - Test: `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_entrega.py`, **391 tests en verde**.
 
 Cada cambio se probó roto, sin los registros de `data/`, como corre el CI, y
@@ -6527,7 +6527,7 @@ código de hoy** antes de arreglar nada.
       queda en 0,0 carriles en la curva y en 2,25 en la lupa, fuera del
       cristal. **Pasa siempre con los canales respiratorios y los de clase
       Otro**, que se centran solos al abrir el registro (hito 70).
-- [ ] **Quedarse sin memoria al abrir se informa como archivo dañado.** Los
+- [x] **Quedarse sin memoria al abrir se informa como archivo dañado.** Los
       lectores de EDF y BrainVision atrapan `Exception` alrededor de MNE, y
       `MemoryError` lo es: el cartel manda a buscar el problema en el archivo.
       Por inspección. Arreglo: `memoria_suficiente("abrir el registro")`
