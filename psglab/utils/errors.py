@@ -286,6 +286,16 @@ class UnknownConnectivityMethodError(PsgLabError):
     """
 
 
+class StagingNotPossibleError(PsgLabError):
+    """No se pueden sugerir las fases de este registro (hito 75).
+
+    El clasificador necesita un EEG grabado a más de 80 Hz y al menos cinco
+    minutos de señal. Correrlo igual sobre un canal de 1 Hz sobremuestreado
+    daría una fase por ventana, prolija y sin ningún fundamento, que es la
+    clase de resultado que el programa prefiere no dar.
+    """
+
+
 # -- Quedarse sin memoria ---------------------------------------------------
 
 

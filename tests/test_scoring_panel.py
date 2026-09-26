@@ -20,11 +20,13 @@ from psglab.core.nomenclature import (  # noqa: E402
     SleepStage,
     stage_label,
 )
+from psglab.core.scoring import StageSuggestion  # noqa: E402
 from psglab.ui.scoring_panel import (  # noqa: E402
     ALTO_DEL_BOTON,
     SIN_SCOREAR,
     ScoringPanel,
     status_text,
+    suggestion_text,
 )
 from psglab.ui.panel_header import SIN_REGISTRO  # noqa: E402
 from psglab.ui.shortcuts import key_for_stage  # noqa: E402
@@ -214,6 +216,41 @@ def test_el_pie_se_contesta_en_texto_pelado(panel: ScoringPanel):
 
     assert panel.status() == status_text(340, SleepStage.UNSCORED, False)
     assert "<" not in panel.status()
+
+
+# -- La fase sugerida (hito 75) -----------------------------------------------
+
+
+def test_el_pie_dice_la_sugerida_despues_de_la_ausencia():
+    """Primero lo que es, después lo que alguien cree que podría ser."""
+    sugerida = StageSuggestion(SleepStage.N2, 0.874)
+
+    assert status_text(4, SleepStage.UNSCORED, True, sugerida) == (
+        "Ventana 5 · sin scorear · sugerida N2, 87 % · arousal"
+    )
+    assert suggestion_text(sugerida) == "sugerida N2, 87 %"
+
+
+def test_sobre_una_ventana_scoreada_la_sugerida_no_aparece():
+    assert status_text(4, SleepStage.N1, False, StageSuggestion(SleepStage.N2, 0.9)) == (
+        "Ventana 5 · N1"
+    )
+
+
+def test_el_pie_inclina_la_sugerida_y_no_el_arousal(panel: ScoringPanel):
+    """Tampoco la eligió nadie. El arousal sí, así que queda derecho."""
+    panel.set_current(SleepStage.UNSCORED, True, 4, StageSuggestion(SleepStage.R, 0.6))
+
+    assert "<i>sugerida R, 60&nbsp;%</i>" in panel._pie.text()
+    assert "<i>arousal" not in panel._pie.text()
+    assert panel.status() == "Ventana 5 · sin scorear · sugerida R, 60 % · arousal"
+
+
+def test_la_sugerida_no_marca_ningun_boton(panel: ScoringPanel):
+    """Marcarlo diría que la fase está elegida."""
+    panel.set_current(SleepStage.UNSCORED, False, 4, StageSuggestion(SleepStage.N2, 0.9))
+
+    assert not any(boton.isChecked() for boton in panel._botones.values())
 
 
 # -- Accesibilidad (hito 63) --------------------------------------------------

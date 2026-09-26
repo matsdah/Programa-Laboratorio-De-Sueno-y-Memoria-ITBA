@@ -111,11 +111,12 @@ python -m venv .venv
 pip install -r requirements.txt -r requirements-dev.txt
 ```
 
-Hay un tercer archivo, `requirements-analysis.txt`, con las dos dependencias
-exclusivas de la Parte 2 (`mne-connectivity` y `antropy`), que arrastran numba,
-llvmlite, xarray, pandas y scikit-learn. **Hay que instalarlo**: desde el hito
-10 hay tests que las importan, así que sin él `test_complexity.py`,
-`test_connectivity.py` y parte de `test_entrega.py` fallan.
+Hay un tercer archivo, `requirements-analysis.txt`, con las tres dependencias
+exclusivas de la Parte 2 (`mne-connectivity`, `antropy` y, desde el hito 75,
+`yasa`), que arrastran numba, llvmlite, xarray, pandas, scikit-learn y
+lightgbm. **Hay que instalarlo**: desde el hito 10 hay tests que las importan,
+así que sin él `test_complexity.py`, `test_connectivity.py`,
+`test_auto_scoring.py` y parte de `test_entrega.py` fallan.
 
 ```bash
 pip install -r requirements-analysis.txt

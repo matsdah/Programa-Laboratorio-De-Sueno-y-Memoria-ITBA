@@ -128,6 +128,7 @@ commit.
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
 | PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py`, `psglab/ui/psd_panel.py` (el dibujo) |
 | Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py`, `psglab/ui/metric_panel.py` (el dibujo) |
+| Scoring automático | — | Sugerir la fase de cada ventana, que alguien confirma después (hito 75) | `psglab/analysis/auto_scoring.py`, `core/scoring.py` (la capa de las sugeridas), `ui/main_window.py` y `ui/menus.py` («Analizar › Fases sugeridas») |
 | Conectividad | — | Conectividad de la señal | `psglab/analysis/connectivity.py`, `psglab/ui/connectivity_panel.py` (la matriz), `psglab/ui/metric_panel.py` (a lo largo de la noche) |
 
 ---
@@ -194,11 +195,13 @@ archivo; cuando se retomen, entran como módulos nuevos en `psglab/analysis/`.
 
 - Detección de potencial evocado
 - Acoplamiento de husos de sueño
-- **Scoring automático.** Aparece entre las motivaciones del pliego ("Scoring
-  automatico imposible") pero no figura en ninguna funcionalidad numerada.
-  Confirmado con el cliente el 4 de septiembre de 2026: **queda fuera del
-  alcance.** Se anota acá para que nadie vuelva a preguntarse si se omitió por
-  error.
+
+El **scoring automático** estuvo en esta lista hasta el 25 de septiembre de
+2026. Aparece entre las motivaciones del pliego ("Scoring automatico
+imposible") pero no en ninguna funcionalidad numerada, y el 4 de septiembre se
+lo dejó fuera del alcance con el cliente. El usuario lo reabrió en el
+[hito 75](TODO.md#hito-75-las-fases-sugeridas), **como sugerencias que alguien
+confirma**, y tiene fila arriba sin ID.
 
 ---
 

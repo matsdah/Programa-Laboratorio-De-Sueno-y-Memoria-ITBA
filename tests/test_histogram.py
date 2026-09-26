@@ -19,7 +19,7 @@ import pytest
 from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
-from psglab.core.scoring import Scoring
+from psglab.core.scoring import Scoring, StageSuggestion
 from psglab.core.session import Session
 from psglab.tools.histogram import HistogramTool
 from psglab.utils.errors import InvalidScaleError, PsgLabError
@@ -310,3 +310,45 @@ def test_los_tramos_cubren_lo_mismo_que_las_barras(
         for posicion, fase in enumerate(histograma.bars())
         if fase is not SleepStage.UNSCORED
     }
+
+
+# -- Las fases sugeridas (hito 75) -------------------------------------------
+
+
+def test_las_sugeridas_son_solo_las_de_ventanas_sin_scorear(sesion: Session):
+    """La ventana 0 está scoreada: lo elegido a mano gana y no se dibuja nada
+    debajo."""
+    sesion.scoring.set_suggestions([StageSuggestion(SleepStage.N3, 0.9)] * VENTANAS)
+    histograma = HistogramTool()
+    histograma.activate(sesion)
+
+    assert histograma.suggested_bars()[0] is SleepStage.UNSCORED
+    assert histograma.suggested_bars()[2] is SleepStage.N3
+    assert len(histograma.suggested_bars()) == VENTANAS
+
+
+def test_scorear_una_ventana_la_saca_de_las_sugeridas(sesion: Session):
+    sesion.scoring.set_suggestions([StageSuggestion(SleepStage.N3, 0.9)] * VENTANAS)
+    histograma = HistogramTool()
+    histograma.activate(sesion)
+
+    sesion.scoring.set_stage(2, SleepStage.N1)
+    histograma.update_window(2)
+    assert histograma.suggested_bars()[2] is SleepStage.UNSCORED
+
+    sesion.scoring.set_stage(2, SleepStage.UNSCORED)
+    histograma.update_window(2)
+    assert histograma.suggested_bars()[2] is SleepStage.N3
+
+
+def test_sin_sugeridas_no_hay_ninguna(histograma: HistogramTool):
+    assert set(histograma.suggested_bars()) == {SleepStage.UNSCORED}
+
+
+def test_al_desactivarse_se_vacian(sesion: Session):
+    sesion.scoring.set_suggestions([StageSuggestion(SleepStage.N3, 0.9)] * VENTANAS)
+    histograma = HistogramTool()
+    histograma.activate(sesion)
+    histograma.deactivate()
+
+    assert histograma.suggested_bars() == ()

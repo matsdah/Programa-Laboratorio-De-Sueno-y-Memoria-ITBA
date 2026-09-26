@@ -6,7 +6,7 @@ import pytest
 
 from conftest import VENTANAS_SINTETICAS
 from psglab.core.nomenclature import Nomenclature, SleepStage
-from psglab.core.scoring import Scoring
+from psglab.core.scoring import Scoring, StageSuggestion
 from psglab.utils.errors import InvalidStageError, WindowOutOfRangeError
 
 @pytest.fixture
@@ -256,3 +256,135 @@ def test_el_arousal_solo_no_cuenta_como_scoreada(scoring):
     scoring.set_arousal(0, True)
 
     assert scoring.get(0).is_scored is False
+
+
+# -- Fases sugeridas (hito 75) ----------------------------------------------
+
+
+def _sugerencias(scoring: Scoring, **por_ventana: StageSuggestion) -> list:
+    """Una lista del largo del scoring, con sugerencias sólo donde se piden."""
+    lista: list = [None] * scoring.n_windows
+    for clave, sugerida in por_ventana.items():
+        lista[int(clave.removeprefix("v"))] = sugerida
+    return lista
+
+
+def test_una_sugerencia_no_es_scoring(scoring):
+    """**Vive en otra capa**: `stage` sigue queriendo decir «la eligió una
+    persona», y por eso ni los exportadores ni las estadísticas la ven."""
+    scoring.set_suggestions(_sugerencias(scoring, v3=StageSuggestion(SleepStage.N2, 0.9)))
+
+    assert scoring.get(3).stage is SleepStage.UNSCORED
+    assert scoring.scored_windows() == 0
+    assert scoring.suggestion(3) == StageSuggestion(SleepStage.N2, 0.9)
+    assert scoring.pending_suggestions() == 1
+
+
+def test_una_sugerencia_nunca_pisa_una_fase_puesta_a_mano(scoring):
+    scoring.set_stage(3, SleepStage.WAKE)
+    scoring.set_suggestions(_sugerencias(scoring, v3=StageSuggestion(SleepStage.N3, 1.0)))
+
+    assert scoring.get(3).stage is SleepStage.WAKE
+    # Ni se muestra: lo que eligió una persona gana.
+    assert scoring.suggestion(3) is None
+    assert scoring.pending_suggestions() == 0
+    assert scoring.accept_suggestions() == 0
+    assert scoring.get(3).stage is SleepStage.WAKE
+
+
+def test_borrar_la_fase_devuelve_la_sugerencia(scoring):
+    scoring.set_suggestions(_sugerencias(scoring, v3=StageSuggestion(SleepStage.N2, 0.9)))
+    scoring.set_stage(3, SleepStage.N1)
+    scoring.set_stage(3, SleepStage.UNSCORED)
+
+    assert scoring.suggestion(3) == StageSuggestion(SleepStage.N2, 0.9)
+
+
+def test_confirmar_respeta_la_confianza_minima(scoring):
+    scoring.set_suggestions(
+        _sugerencias(
+            scoring,
+            v1=StageSuggestion(SleepStage.N2, 0.95),
+            v2=StageSuggestion(SleepStage.N3, 0.8),
+            v4=StageSuggestion(SleepStage.N1, 0.5),
+        )
+    )
+
+    assert scoring.accept_suggestions(0.8) == 2
+
+    assert scoring.get(1).stage is SleepStage.N2
+    # El umbral es inclusivo: «al menos 80 %».
+    assert scoring.get(2).stage is SleepStage.N3
+    assert scoring.get(4).stage is SleepStage.UNSCORED
+    assert scoring.suggestion(4) == StageSuggestion(SleepStage.N1, 0.5)
+    assert scoring.accept_suggestions() == 1
+    assert scoring.get(4).stage is SleepStage.N1
+
+
+def test_las_sugerencias_se_traducen_a_la_nomenclatura_activa():
+    """El clasificador sugiere en AASM; sobre R&K una N3 pasa a S3, como en
+    `change_nomenclature()`."""
+    scoring = Scoring(2, Nomenclature.RK)
+    scoring.set_suggestions([StageSuggestion(SleepStage.N3, 0.9), StageSuggestion(SleepStage.R, 0.7)])
+
+    assert scoring.suggestion(0).stage is SleepStage.S3
+    assert scoring.suggestion(1).stage is SleepStage.REM
+    assert scoring.accept_suggestions() == 2
+    assert scoring.stages() == [SleepStage.S3, SleepStage.REM]
+
+
+def test_cambiar_de_nomenclatura_traduce_tambien_las_sugeridas(scoring):
+    """Sin esto, confirmar después asignaría una fase ajena a la nomenclatura y
+    `set_stage()` la rechazaría a mitad de camino."""
+    scoring.set_suggestions(_sugerencias(scoring, v0=StageSuggestion(SleepStage.N2, 0.9)))
+    scoring.change_nomenclature(Nomenclature.RK)
+
+    assert scoring.suggestion(0).stage is SleepStage.S2
+    assert scoring.accept_suggestions() == 1
+
+
+def test_descartar_las_sugerencias_no_toca_lo_scoreado(scoring):
+    scoring.set_stage(0, SleepStage.N2)
+    scoring.set_suggestions(_sugerencias(scoring, v1=StageSuggestion(SleepStage.N2, 0.9)))
+    scoring.clear_suggestions()
+
+    assert scoring.pending_suggestions() == 0
+    assert scoring.get(0).stage is SleepStage.N2
+
+
+def test_una_lista_corrida_se_rechaza_entera(scoring):
+    """Una sugerencia por ventana, ni una más ni una menos: corrida en una,
+    la noche entera quedaría desfasada sin que nada lo diga."""
+    with pytest.raises(WindowOutOfRangeError):
+        scoring.set_suggestions([None] * (scoring.n_windows - 1))
+
+
+@pytest.mark.parametrize(
+    "mala",
+    [
+        StageSuggestion(SleepStage.UNSCORED, 0.9),
+        StageSuggestion("N2", 0.9),  # type: ignore[arg-type]
+        StageSuggestion(SleepStage.N2, float("nan")),
+        StageSuggestion(SleepStage.N2, 1.5),
+        StageSuggestion(SleepStage.N2, True),  # type: ignore[arg-type]
+        "N2",
+    ],
+)
+def test_una_sugerencia_mala_no_deja_nada_a_medias(scoring, mala):
+    """**Se valida todo antes de guardar**: una confianza NaN guardada no
+    pasaría nunca ningún umbral, y nada diría por qué."""
+    scoring.set_suggestions(_sugerencias(scoring, v0=StageSuggestion(SleepStage.N2, 0.9)))
+    lista = _sugerencias(scoring, v1=StageSuggestion(SleepStage.N1, 0.9))
+    lista[2] = mala
+
+    with pytest.raises(InvalidStageError):
+        scoring.set_suggestions(lista)
+
+    assert scoring.suggestion(0) == StageSuggestion(SleepStage.N2, 0.9)
+    assert scoring.suggestion(1) is None
+
+
+@pytest.mark.parametrize("umbral", [-0.1, 1.01, "0.8", True, None])
+def test_la_confianza_minima_es_una_probabilidad(scoring, umbral):
+    with pytest.raises(InvalidStageError):
+        scoring.accept_suggestions(umbral)

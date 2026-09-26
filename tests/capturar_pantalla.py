@@ -58,7 +58,8 @@ os.environ.pop("QT_QPA_PLATFORM", None)
 
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.annotations import Annotation  # noqa: E402
-from psglab.core.nomenclature import Nomenclature, stages_of  # noqa: E402
+from psglab.core.nomenclature import Nomenclature, SleepStage, stages_of  # noqa: E402
+from psglab.core.scoring import StageSuggestion  # noqa: E402
 from psglab.ui import theme  # noqa: E402
 
 #: Dónde quedan los PNG. En el temporal del sistema y no en el repositorio:
@@ -99,6 +100,16 @@ def armar_ventana(esquema: theme.ColorScheme):
     fases = list(stages_of(Nomenclature.AASM))
     for posicion in range(ventana.session.n_windows // 2):
         ventana.session.scoring.set_stage(posicion, fases[posicion % len(fases)])
+    # **Y la otra mitad, sugerida** (hito 75): la curva punteada del
+    # hipnograma y el color apagado de la franja. Se ponen directo en el
+    # scoring y no por el menú, que abre un cartel modal.
+    ventana.session.scoring.set_suggestions(
+        [None] * (ventana.session.n_windows // 2)
+        + [
+            StageSuggestion(fases[posicion % len(fases)], 0.6 + 0.1 * (posicion % 4))
+            for posicion in range(ventana.session.n_windows - ventana.session.n_windows // 2)
+        ]
+    )
     ventana._reload_histogram()
     # **Y la pestaña de la señal**, que dice la fase de la ventana actual con
     # su color (hito 64): las fases se pusieron sin pasar por la ventana, y
@@ -259,6 +270,15 @@ def capturar(esquema: theme.ColorScheme) -> None:
         destino = SALIDA / f"{archivo}.png"
         widget.grab().save(str(destino))
         print(f"  {destino}")
+    # El pie de una ventana con fase sugerida (hito 75). **Después** de las
+    # demás: cambia lo que dice el panel, y la ventana entera ya se capturó.
+    ultima = ventana.session.n_windows - 1
+    ventana.scoring_panel.set_current(
+        SleepStage.UNSCORED, False, ultima, ventana.session.scoring.suggestion(ultima)
+    )
+    destino = SALIDA / f"{nombre}-scoring-sugerida.png"
+    ventana.scoring_panel.grab().save(str(destino))
+    print(f"  {destino}")
 
 
 def main() -> None:
