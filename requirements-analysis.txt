@@ -6,7 +6,7 @@
 #
 # **No son opcionales para correr la suite.** Se separaron cuando ningún test
 # las importaba, pero desde el hito 10 test_complexity.py, test_connectivity.py
-# y parte de test_entrega.py sí lo hacen, y sin estas dos fallan. El CI las
+# y parte de test_entrega.py sí lo hacen, y sin ellas fallan. El CI las
 # instala en los dos jobs.
 #
 # `mne` y `scipy` NO están acá: la Parte 1 también los necesita (mne lee
@@ -19,6 +19,10 @@
 
 mne-connectivity>=0.6   # BSD-3  - conectividad de la señal
 antropy>=0.1.6          # BSD-3  - complejidad (entropías, dimensión fractal)
+# Las fases sugeridas (hito 75). Trae su clasificador adentro, sin descargar
+# nada, y suma lightgbm (MIT), lspopt (MIT) y seaborn (BSD-3); el resto de lo
+# que pide ya estaba. Medido: no mueve el techo de numpy de abajo.
+yasa>=0.7               # BSD-3  - clasificador de fases de sueño
 
 # El techo de numpy no es un capricho ni lo pide la Parte 1: lo impone esta
 # capa. `antropy` necesita `numba`, que a su vez fija `numpy<2.6` y depende de
@@ -32,6 +36,5 @@ antropy>=0.1.6          # BSD-3  - complejidad (entropías, dimensión fractal)
 # este problema.
 numpy<2.6
 
-# Nota: `yasa` (BSD-3) es el candidato natural para husos, ondas lentas y
-# acoplamiento huso-onda lenta cuando se retomen esas funcionalidades
-# futuras. Hoy están fuera del alcance, así que no se instala.
+# Nota: `yasa` es también el candidato natural para husos, ondas lentas y
+# acoplamiento huso-onda lenta cuando se retomen esas funcionalidades futuras.

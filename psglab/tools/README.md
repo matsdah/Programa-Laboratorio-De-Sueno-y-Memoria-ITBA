@@ -20,7 +20,7 @@ del pliego (sección 7). El otro punto de extensión es
 | `magnifier.py` | Lupa: zoom circular y contador de picos. | `ViewerTool` | V1_F, V2_F de "Herramienta Lupa" |
 | `annotator.py` | Anotación de eventos sobre la señal, y su corrección: arrastrar un borde, cambiar la clase (hito 52). | `ViewerTool` | V1_F de "Anotación de la señal" |
 | `overview.py` | Übersicht, que la ventana llama «Contexto» desde el hito 64: la ventana actual en su contexto. Cada ventana publica su señal reducida, del canal seleccionado o el primero visible (hito 51). | `Tool` | V1_F–V3_F de "Herramienta Übersicht" |
-| `histogram.py` | Hipnograma de la noche completa. `runs()` agrupa las ventanas en tramos seguidos de la misma fase, que es lo que el panel pinta de color desde el hito 34. | `Tool` | V1_P–V4_F de "Histograma" |
+| `histogram.py` | Hipnograma de la noche completa. `runs()` agrupa las ventanas en tramos seguidos de la misma fase, que es lo que el panel pinta de color desde el hito 34. `suggested_bars()` da la fase sugerida de cada ventana sin scorear (hito 75). | `Tool` | V1_P–V4_F de "Histograma" |
 
 ## Dos contratos, no uno
 

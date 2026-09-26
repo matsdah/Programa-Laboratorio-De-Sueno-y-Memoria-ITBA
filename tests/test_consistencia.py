@@ -130,6 +130,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_ica.py": ("psglab/analysis/ica.py",),
     "test_ica_panel.py": ("psglab/ui/ica_panel.py",),
     "test_complexity.py": ("psglab/analysis/complexity.py",),
+    "test_auto_scoring.py": ("psglab/analysis/auto_scoring.py",),
     "test_connectivity.py": ("psglab/analysis/connectivity.py",),
     "test_metric_panel.py": ("psglab/ui/metric_panel.py",),
     "test_connectivity_panel.py": ("psglab/ui/connectivity_panel.py",),

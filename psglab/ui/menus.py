@@ -144,16 +144,28 @@ def menu_path(window: "MainWindow", method_name: str) -> str | None:
     a mano**: renombrar una entrada no puede dejar a un panel mandando al
     usuario a buscar algo que ya no existe.
 
+    **Entra en los submenús** desde el hito 75, que agregó «Analizar › Fases
+    sugeridas»: «Analizar › Fases sugeridas › Confirmar las seguras».
+
     Returns:
         La ruta, o None si ninguna acción de la barra ejecuta ese método.
     """
+
+    def buscar(menu: "QMenu") -> list[str] | None:
+        for accion in menu.actions():
+            if accion.data() == method_name:
+                return [_legible(accion.text())]
+            submenu = accion.menu()
+            if submenu is not None and (resto := buscar(submenu)) is not None:
+                return [_legible(submenu.title()), *resto]
+        return None
+
     for de_la_barra in window.menuBar().actions():
         menu = de_la_barra.menu()
         if menu is None:
             continue
-        for accion in menu.actions():
-            if accion.data() == method_name:
-                return f"{_legible(menu.title())} › {_legible(accion.text())}"
+        if (ruta := buscar(menu)) is not None:
+            return " › ".join([_legible(menu.title()), *ruta])
     return None
 
 
@@ -562,6 +574,16 @@ def _analizar(window: "MainWindow") -> None:
     window.accion_conectividad_de_la_noche = _agregar(
         analizar, "Conectividad de la &noche…", window.show_connectivity_night_dialog
     )
+    # **Sugerir mide; confirmar es aparte** (hito 75). Lo que propone el
+    # clasificador no toca el scoring hasta que alguien lo confirme, y por eso
+    # vive acá y no junto al scoring de «Archivo».
+    analizar.addSeparator()
+    sugeridas = analizar.addMenu("&Fases sugeridas")
+    _agregar(sugeridas, "&Sugerir las fases…", window.request_stage_suggestions)
+    _agregar(sugeridas, "Confirmar las &seguras…", window.accept_safe_suggestions)
+    _agregar(sugeridas, "Confirmar &todas…", window.accept_all_suggestions)
+    sugeridas.addSeparator()
+    _agregar(sugeridas, "&Descartar las sugeridas", window.discard_suggestions)
 
 
 def _ayuda(window: "MainWindow") -> None:

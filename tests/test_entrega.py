@@ -45,7 +45,9 @@ from psglab.analysis.ica import apply_ica  # noqa: E402
 from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.annotations import Annotation  # noqa: E402
-from psglab.core.nomenclature import SleepStage, stages_of  # noqa: E402
+from psglab.core.nomenclature import Nomenclature, SleepStage, stages_of  # noqa: E402
+from psglab.core.scoring import StageSuggestion  # noqa: E402
+from psglab.exporters.scoring_txt import export_scoring  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
 from psglab.ui import main_window as main_window_mod  # noqa: E402
 from psglab.ui import preferences as preferencias_mod  # noqa: E402
@@ -53,6 +55,7 @@ from psglab.ui import theme  # noqa: E402
 from psglab.tools.base import BandOverlay  # noqa: E402
 from psglab.ui.docks import ORDEN_DE_ANALISIS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
+from psglab.ui.menus import menu_path  # noqa: E402
 from psglab.ui.overview_panel import accessible_summary  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
 
@@ -6245,3 +6248,161 @@ def test_las_marcas_de_un_brainvision_de_verdad_llegan_a_la_ventana(
 
     assert [a.label for a in ventana.session.annotations.all()] == ["Stimulus/S  1"] * 2
     assert "Stimulus/S  1 (2)" in confirmacion["preguntas"][0]["informativo"]
+
+
+# -- Las fases sugeridas (hito 75) -------------------------------------------
+#
+# El clasificador de verdad corre en `test_auto_scoring.py`; acá se reemplaza
+# por uno que devuelve algo conocido, porque lo que se verifica es el camino
+# desde el menú y no qué fase sale.
+
+
+@pytest.fixture
+def clasificador(monkeypatch):
+    """Reemplaza al clasificador: N2 segura en las ventanas pares, N3 dudosa en
+    las impares. Anota con qué canales lo llamaron."""
+    llamadas: list[tuple] = []
+
+    def sugerir(registro, eeg, eog=None, emg=None):
+        llamadas.append((eeg, eog, emg))
+        return [
+            StageSuggestion(SleepStage.N2, 0.9) if i % 2 == 0 else StageSuggestion(SleepStage.N3, 0.5)
+            for i in range(VENTANAS)
+        ]
+
+    monkeypatch.setattr(main_window_mod, "suggest_stages", sugerir)
+    return llamadas
+
+
+def sugerir(ventana: MainWindow) -> None:
+    ventana.request_stage_suggestions()
+    ventana.wait_for_background()
+    QApplication.processEvents()
+
+
+def test_sugerir_no_scorea_nada(ventana: MainWindow, clasificador, confirmacion):
+    """**Sugiere, no scorea**: no hay ninguna fase elegida, ni trabajo sin
+    exportar, y el pie dice las dos cosas."""
+    sugerir(ventana)
+
+    scoring = ventana.session.scoring
+    assert scoring.scored_windows() == 0
+    assert scoring.pending_suggestions() == VENTANAS
+    assert not ventana.session.has_unexported_scoring()
+    assert ventana.scoring_panel.status() == "Ventana 1 · sin scorear · sugerida N2, 90 %"
+    assert "Se sugirió la fase de 5 ventanas; 3 con" in ventana.statusBar().currentMessage()
+    assert not ventana.carteles
+
+
+def test_pregunta_antes_y_dice_con_que_canales(ventana: MainWindow, clasificador, confirmacion):
+    confirmacion["respuesta"] = False
+    ventana.session.scoring.set_stage(0, SleepStage.WAKE)
+
+    ventana.request_stage_suggestions()
+    # **Esperar antes de mirar**: si se calculara sin preguntar, el cálculo
+    # corre en otro hilo y todavía no llamó al clasificador.
+    ventana.wait_for_background()
+
+    pregunta = confirmacion["preguntas"][0]
+    # Sólo cuenta las que faltan: lo scoreado no se sugiere.
+    assert "4 ventanas sin scorear" in pregunta["pregunta"]
+    assert "«C3»" in pregunta["informativo"]
+    assert "Analizar › Fases sugeridas › Confirmar las seguras" in pregunta["informativo"]
+    assert clasificador == []
+
+
+def test_lo_scoreado_a_mano_no_se_pisa(ventana: MainWindow, clasificador, confirmacion):
+    ventana.session.scoring.set_stage(0, SleepStage.WAKE)
+    sugerir(ventana)
+    ventana.accept_all_suggestions()
+
+    assert ventana.session.scoring.get(0).stage is SleepStage.WAKE
+    assert ventana.session.scoring.get(1).stage is SleepStage.N3
+
+
+def test_confirmar_las_seguras_las_vuelve_scoring(ventana: MainWindow, clasificador, confirmacion):
+    """Desde ahí son scoring como cualquier otro: trabajo sin exportar."""
+    sugerir(ventana)
+    ventana.accept_safe_suggestions()
+
+    scoring = ventana.session.scoring
+    assert [scoring.get(i).stage for i in range(VENTANAS)] == [
+        SleepStage.N2, SleepStage.UNSCORED, SleepStage.N2, SleepStage.UNSCORED, SleepStage.N2
+    ]
+    assert "al menos 80 %" in confirmacion["preguntas"][-1]["pregunta"]
+    assert ventana.session.has_unexported_scoring()
+    assert "Se confirmaron 3 fases" in ventana.statusBar().currentMessage()
+
+
+def test_sin_confirmar_no_se_confirma_nada(ventana: MainWindow, clasificador, confirmacion):
+    sugerir(ventana)
+    confirmacion["respuesta"] = False
+    ventana.accept_all_suggestions()
+
+    assert ventana.session.scoring.scored_windows() == 0
+
+
+def test_las_sugeridas_no_se_exportan(ventana: MainWindow, clasificador, confirmacion, tmp_path):
+    """El archivo sale igual que el de un scoring sin tocar."""
+    sin_tocar = tmp_path / "sin_tocar.txt"
+    export_scoring(ventana.session.scoring, sin_tocar)
+    sugerir(ventana)
+    con_sugeridas = tmp_path / "con_sugeridas.txt"
+    export_scoring(ventana.session.scoring, con_sugeridas)
+
+    assert con_sugeridas.read_text(encoding="utf-8") == sin_tocar.read_text(encoding="utf-8")
+
+
+def test_el_hipnograma_y_la_franja_las_muestran_aparte(
+    ventana: MainWindow, clasificador, confirmacion
+):
+    """Una curva punteada en el hipnograma y el color de la fase, apagado, en
+    la franja: se ven, pero no como lo scoreado."""
+    sugerir(ventana)
+
+    curvas = ventana.histogram_view.getPlotItem().listDataItems()
+    assert any(
+        curva.opts["pen"].style() == Qt.PenStyle.DashLine
+        for curva in curvas
+        if hasattr(curva.opts.get("pen"), "style")
+    )
+    colores = ventana.navigation.strip._colores
+    assert all(color is not None and len(color) == 9 for color in colores)
+
+
+def test_descartar_las_saca(ventana: MainWindow, clasificador, confirmacion):
+    sugerir(ventana)
+    ventana.discard_suggestions()
+
+    assert ventana.session.scoring.pending_suggestions() == 0
+    assert ventana.scoring_panel.status() == "Ventana 1 · sin scorear"
+    assert ventana.navigation.strip._colores == (None,) * VENTANAS
+
+
+def test_scorear_la_ventana_saca_su_sugerida_del_pie(
+    ventana: MainWindow, clasificador, confirmacion
+):
+    ventana._preferencias = ventana._preferencias.with_changes(advance_after_scoring=False)
+    sugerir(ventana)
+    ventana.score_current_window(SleepStage.N1)
+
+    assert ventana.scoring_panel.status() == "Ventana 1 · N1"
+
+
+def test_en_rk_se_sugiere_en_rk(ventana: MainWindow, clasificador, confirmacion):
+    ventana.session.scoring.change_nomenclature(Nomenclature.RK)
+    sugerir(ventana)
+    ventana.accept_all_suggestions()
+
+    assert ventana.session.scoring.get(1).stage is SleepStage.S3
+
+
+def test_un_registro_corto_lo_dice_en_un_cartel(ventana: MainWindow, confirmacion):
+    """**Con el clasificador de verdad**: el registro de la ventana de prueba
+    dura dos minutos y medio, y el rechazo tiene que llegar como cartel desde
+    el otro hilo, no como traza."""
+    sugerir(ventana)
+
+    assert ventana.acciones == ["sugerir las fases"]
+    assert "5 minutos" in ventana.carteles[0]
+    assert ventana.session.scoring.pending_suggestions() == 0

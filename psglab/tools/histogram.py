@@ -20,6 +20,7 @@ Cubre del pliego: V1_P, V2_F, V3_F, V4_F de "Histograma".
 from collections.abc import Callable
 
 from psglab.core.nomenclature import SleepStage
+from psglab.core.scoring import StageSuggestion
 from psglab.core.session import Session
 from psglab.tools.base import Tool
 from psglab.tools.registry import register_tool
@@ -53,6 +54,9 @@ class HistogramTool(Tool):
         self._session: Session | None = None
         #: Una fase por ventana, en orden. Es lo que el panel dibuja.
         self._barras: tuple[SleepStage, ...] = ()
+        #: La fase sugerida de cada ventana sin scorear, `UNSCORED` donde no
+        #: hay (hito 75). Mismo largo que `_barras`.
+        self._sugeridas: tuple[SleepStage, ...] = ()
         self._ventana_actual: int = 0
         self._eje_en_hora: bool = False
 
@@ -66,6 +70,7 @@ class HistogramTool(Tool):
         """Oculta el histograma."""
         self._session = None
         self._barras = ()
+        self._sugeridas = ()
         self.notify_changed()
 
     def bars(self) -> tuple[SleepStage, ...]:
@@ -80,6 +85,15 @@ class HistogramTool(Tool):
         pasado por las anteriores.
         """
         return self._barras
+
+    def suggested_bars(self) -> tuple[SleepStage, ...]:
+        """La fase sugerida de cada ventana todavía sin scorear (hito 75).
+
+        Mismo largo que `bars()`, con `UNSCORED` donde no hay sugerencia **o
+        donde alguien ya scoreó**: lo elegido a mano gana, y el panel no tiene
+        por qué dibujar lo que el clasificador pensaba debajo.
+        """
+        return self._sugeridas
 
     def runs(self) -> tuple[tuple[int, int, SleepStage], ...]:
         """Los tramos seguidos de la misma fase: (primera ventana, cuántas, fase).
@@ -123,8 +137,13 @@ class HistogramTool(Tool):
         """
         if self._session is None:
             self._barras = ()
+            self._sugeridas = ()
         else:
-            self._barras = tuple(self._session.scoring.stages())
+            scoring = self._session.scoring
+            self._barras = tuple(scoring.stages())
+            self._sugeridas = tuple(
+                _fase_sugerida(scoring.suggestion(indice)) for indice in range(scoring.n_windows)
+            )
         self.notify_changed()
 
     def update_window(self, window_index: int) -> None:
@@ -141,6 +160,13 @@ class HistogramTool(Tool):
             return
         fases[window_index] = self._session.scoring.get(window_index).stage
         self._barras = tuple(fases)
+        # Scorear una ventana la saca de las sugeridas, y borrarla la devuelve.
+        if window_index < len(self._sugeridas):
+            sugeridas = list(self._sugeridas)
+            sugeridas[window_index] = _fase_sugerida(
+                self._session.scoring.suggestion(window_index)
+            )
+            self._sugeridas = tuple(sugeridas)
         self.notify_changed()
 
     def set_time_axis(self, use_clock_time: bool) -> None:
@@ -205,3 +231,7 @@ class HistogramTool(Tool):
         """Marca en el histograma la ventana que se está viendo."""
         self._ventana_actual = window_index
         self.notify_changed()
+
+
+def _fase_sugerida(sugerida: StageSuggestion | None) -> SleepStage:
+    return SleepStage.UNSCORED if sugerida is None else sugerida.stage

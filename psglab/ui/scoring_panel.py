@@ -26,6 +26,7 @@ y un botón marcado no siempre comunica.
 Cubre del pliego: V1_F, V2_F, V3_F de "Scoring de la señal".
 """
 
+import re
 from html import escape
 from typing import Final
 
@@ -42,6 +43,7 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.core.nomenclature import Nomenclature, SleepStage, stage_label, stages_of
+from psglab.core.scoring import StageSuggestion
 from psglab.ui.panel_header import SIN_REGISTRO
 from psglab.ui.shortcuts import key_for_stage
 
@@ -74,8 +76,22 @@ ABREVIATURAS: Final[dict[Nomenclature, str]] = {
 #: Es también lo único del pie que va inclinado; ver `_reflejar_el_pie()`.
 SIN_SCOREAR: Final[str] = "sin scorear"
 
+#: Cómo empieza la fase que propone el clasificador (hito 75). También va
+#: inclinada: tampoco la eligió nadie.
+SUGERIDA: Final[str] = "sugerida"
 
-def status_text(window_index: int, stage: SleepStage, arousal: bool) -> str:
+
+def suggestion_text(suggestion: StageSuggestion) -> str:
+    """Una fase sugerida como se lee en el pie: «sugerida N2, 87 %»."""
+    return f"{SUGERIDA} {stage_label(suggestion.stage)}, {round(suggestion.confidence * 100)} %"
+
+
+def status_text(
+    window_index: int,
+    stage: SleepStage,
+    arousal: bool,
+    suggestion: StageSuggestion | None = None,
+) -> str:
     """El pie del panel: la ventana, su fase y el arousal si lo hay.
 
     La ventana va en base 1, como en la barra de estado y en los archivos de
@@ -86,9 +102,14 @@ def status_text(window_index: int, stage: SleepStage, arousal: bool) -> str:
         window_index: la ventana actual, en base 0.
         stage: su fase, `SleepStage.UNSCORED` si todavía no se scoreó.
         arousal: si la ventana tiene arousal marcado.
+        suggestion: la fase que propone el clasificador (hito 75). Sólo se
+            muestra sobre una ventana sin scorear, y **después** de decirlo:
+            primero lo que es, después lo que alguien cree que podría ser.
     """
     fase = SIN_SCOREAR if stage is SleepStage.UNSCORED else stage_label(stage)
     texto = f"Ventana {window_index + 1} · {fase}"
+    if stage is SleepStage.UNSCORED and suggestion is not None:
+        texto = f"{texto} · {suggestion_text(suggestion)}"
     return f"{texto} · arousal" if arousal else texto
 
 
@@ -222,11 +243,12 @@ class ScoringPanel(QWidget):
             texto: el pie ya armado, en texto pelado.
         """
         self._texto_del_pie = texto
-        self._pie.setText(
-            escape(texto).replace(
-                escape(SIN_SCOREAR), f"<i>{escape(SIN_SCOREAR)}</i>"
-            )
-        )
+        marcado = escape(texto).replace(escape(SIN_SCOREAR), f"<i>{escape(SIN_SCOREAR)}</i>")
+        # La sugerida también, hasta el próximo separador (hito 75). El pie
+        # parte las palabras, y sin el espacio duro el «%» quedaba solo en el
+        # renglón de abajo: lo mostró la captura.
+        marcado = re.sub(rf"({SUGERIDA} [^·]*?)(?= ·|$)", r"<i>\1</i>", marcado)
+        self._pie.setText(marcado.replace(" %", "&nbsp;%"))
 
     def status(self) -> str:
         """Lo que dice el pie ahora, en texto pelado.
@@ -287,7 +309,13 @@ class ScoringPanel(QWidget):
         self._reflejando = False
         self._nomenclaturas.setToolTip(f"Nomenclatura: {nomenclature.value}")
 
-    def set_current(self, stage: SleepStage, arousal: bool, window_index: int) -> None:
+    def set_current(
+        self,
+        stage: SleepStage,
+        arousal: bool,
+        window_index: int,
+        suggestion: StageSuggestion | None = None,
+    ) -> None:
         """Refleja el scoring de la ventana actual en los botones y en el pie.
 
         Se llama al navegar, para que el usuario vea de inmediato en qué fase
@@ -301,6 +329,8 @@ class ScoringPanel(QWidget):
             stage: la fase de la ventana actual.
             arousal: si tiene arousal marcado.
             window_index: cuál es, en base 0; el pie la muestra en base 1.
+            suggestion: la fase sugerida, si hay; ver `status_text()`. **No
+                marca ningún botón**: marcarlo diría que está elegida.
         """
         self._reflejando = True
         try:
@@ -311,4 +341,4 @@ class ScoringPanel(QWidget):
             self._arousal.setChecked(arousal)
         finally:
             self._reflejando = False
-        self._reflejar_el_pie(status_text(window_index, stage, arousal))
+        self._reflejar_el_pie(status_text(window_index, stage, arousal, suggestion))
