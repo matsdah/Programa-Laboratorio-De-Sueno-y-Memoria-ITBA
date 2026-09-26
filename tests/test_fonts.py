@@ -19,8 +19,19 @@ from psglab.utils.errors import UnknownTypeRoleError  # noqa: E402
 
 def test_registra_una_sola_familia(qt_app):
     """**Una sola desde el hito 77**: Plex Mono se sacó porque dos familias en
-    la misma pantalla se veían desprolijas."""
-    assert fonts.register_bundled_fonts() == [fonts.UI_FONT_FAMILY]
+    la misma pantalla se veían desprolijas.
+
+    **No se compara contra `[UI_FONT_FAMILY]`**, porque en Linux la lista trae
+    un nombre más y es de la misma familia. El archivo de la semi-negrita tiene
+    dos: el tipográfico, «IBM Plex Sans» con estilo SemiBold, y el heredado,
+    «IBM Plex Sans SmBld», para los programas que sólo conocen regular, negrita
+    e itálica. Windows y macOS dan el primero; fontconfig expone los dos, y Qt
+    registra los dos. Lo que el test tiene que rechazar es otra familia, como
+    Plex Mono, y ésa no empieza con el nombre de Sans."""
+    familias = fonts.register_bundled_fonts()
+
+    assert fonts.UI_FONT_FAMILY in familias
+    assert all(f.startswith(fonts.UI_FONT_FAMILY) for f in familias), familias
 
 
 def test_registrar_dos_veces_no_las_vuelve_a_cargar(qt_app):
