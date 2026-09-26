@@ -926,3 +926,39 @@ def test_un_vhdr_en_mayusculas_no_se_informa_como_danado(brainvision_sintetico: 
 
     assert "dañado" not in str(error.value)
     assert f"«{brainvision_sintetico.stem}.vhdr»" in str(error.value)
+
+
+# -- Las marcas que trae el archivo, en el CI (hito 74) -----------------------
+
+
+def test_el_brainvision_guarda_los_marcadores_del_vmrk(tmp_path):
+    """Hasta el hito 74 lo verificaba sólo el registro de `data/`, que el CI
+    no tiene. El `New Segment` no es un evento, y MNE ya lo deja afuera."""
+    vhdr = escribir_brainvision(
+        tmp_path / "bv", segundos=3, eventos=[("Stimulus", "S  1", 101), ("Response", "R  2", 201)]
+    )
+
+    marcas = read_recording(vhdr).metadata[MARKS_KEY]
+
+    assert [(round(inicio * FRECUENCIA_BV), texto) for inicio, _, texto in marcas] == [
+        (100, "Stimulus/S  1"),
+        (200, "Response/R  2"),
+    ]
+
+
+def test_el_edf_guarda_sus_anotaciones(tmp_path):
+    edf = escribir_edf(
+        tmp_path / "edf",
+        segundos=3,
+        canales=[("EEG C3-A2", "uV", FRECUENCIA_EDF), (ANOTACIONES_EDF, "", 60.0)],
+        eventos=[(0.5, 0.0, "Arousal"), (1.25, 1.0, "Apnea")],
+    )
+
+    marcas = read_recording(edf).metadata[MARKS_KEY]
+
+    assert marcas == [(0.5, 0.0, "Arousal"), (1.25, 1.0, "Apnea")]
+
+
+def test_un_registro_sin_marcas_no_trae_la_clave(brainvision_sintetico: Path):
+    """La ventana la pide con `get()`: un archivo sin eventos no la tiene."""
+    assert MARKS_KEY not in read_recording(brainvision_sintetico).metadata
