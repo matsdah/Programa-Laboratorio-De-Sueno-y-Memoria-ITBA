@@ -269,9 +269,6 @@ class MainWindow(
         #: que habla de la época: son dos datos distintos.
         self.page_readout = QLabel("")
         self.statusBar().addPermanentWidget(self.page_readout)
-        # Las dos son lecturas: el esquema puede darles una tipografía numérica.
-        for lectura in (self.tool_readout, self.page_readout):
-            lectura.setProperty(theme.READOUT_PROPERTY, True)
 
         #: Que algo largo está corriendo. **Indeterminada a propósito**: ni la
         #: conectividad de la noche ni la ICA informan cuánto llevan hechas, así
@@ -699,9 +696,11 @@ class MainWindow(
         `QMenuBar` le da a su widget de esquina el ancho que ese widget pide, y
         una vez: sin esto se queda con el de «Sin registro» y el identificador
         sale cortado. **El mínimo se calcula con las métricas de la fuente que
-        el rótulo tiene puesta** y no con `sizeHint()`, que se resuelve antes
-        de que la hoja de estilo le dé la tipografía numérica y devuelve un
-        ancho de otra tipografía.
+        el rótulo tiene puesta** y no con `sizeHint()`, que se resolvía antes
+        de que la hoja de estilo le diera la tipografía numérica y devolvía un
+        ancho de otra tipografía. Desde el hito 77 hay una sola, pero la
+        medida sigue siendo la del rótulo: es la única que no depende de
+        cuándo se aplicó la hoja.
 
         Se vio en una captura de la barra; desde el código no se nota.
         """

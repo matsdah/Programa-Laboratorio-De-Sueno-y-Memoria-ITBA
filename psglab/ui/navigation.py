@@ -281,9 +281,6 @@ class NavigationBar(QWidget):
         self._hora_inicial = QLabel("")
         self._hora_final = QLabel("")
         self._hora_final.setAlignment(Qt.AlignmentFlag.AlignRight)
-        # Son lecturas: el esquema puede darles una tipografía numérica.
-        for lectura in (self._posicion, self._hora_inicial, self._hora_final):
-            lectura.setProperty(theme.READOUT_PROPERTY, True)
 
         self._primera.clicked.connect(lambda: self._pedir(0))
         self._anterior.clicked.connect(lambda: self._pedir(self._window_index - 1))

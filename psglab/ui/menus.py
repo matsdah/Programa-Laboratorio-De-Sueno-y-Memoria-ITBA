@@ -259,11 +259,10 @@ def _identificador(window: "MainWindow") -> None:
     Con dos registros parecidos —la misma noche filtrada y sin filtrar— no
     había forma de saber cuál se estaba mirando.
 
-    Es una lectura: el esquema le da la tipografía numérica, que es la que
-    hace que la frecuencia y las horas no bailen.
+    Va en la misma tipografía que el resto (hito 77): las cifras de Plex Sans
+    tienen ancho fijo, así que la frecuencia y las horas no bailan.
     """
     etiqueta = QLabel(SIN_REGISTRO)
-    etiqueta.setProperty(theme.READOUT_PROPERTY, True)
     etiqueta.setAccessibleName("Registro abierto")
     etiqueta.setContentsMargins(0, 0, 10, 0)
     window.menuBar().setCornerWidget(etiqueta, Qt.Corner.TopRightCorner)

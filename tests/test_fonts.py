@@ -1,27 +1,26 @@
 """Tests de las tipografías que el programa trae consigo.
 
-Lo que importa es que estén, que la licencia viaje con ellas, que el esquema que
-las nombra nombre una que existe, y que **si faltan el programa arranque
-igual**: una tipografía es una preferencia visual, no una dependencia.
+Lo que importa es que estén, que la licencia viaje con ellas, que sean **una
+sola familia** con cifras de ancho fijo (hito 77), y que **si faltan el
+programa arranque igual**: una tipografía es una preferencia visual, no una
+dependencia.
 """
 
 from pathlib import Path
 
 import pytest
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QFontMetricsF
 
 pytest.importorskip("PySide6")
 
 import psglab.ui.fonts as fonts  # noqa: E402
-from psglab.ui import theme  # noqa: E402
 from psglab.utils.errors import UnknownTypeRoleError  # noqa: E402
 
 
-def test_registra_las_dos_familias(qt_app):
-    familias = fonts.register_bundled_fonts()
-
-    assert "IBM Plex Sans" in familias
-    assert "IBM Plex Mono" in familias
+def test_registra_una_sola_familia(qt_app):
+    """**Una sola desde el hito 77**: Plex Mono se sacó porque dos familias en
+    la misma pantalla se veían desprolijas."""
+    assert fonts.register_bundled_fonts() == [fonts.UI_FONT_FAMILY]
 
 
 def test_registrar_dos_veces_no_las_vuelve_a_cargar(qt_app):
@@ -33,14 +32,6 @@ def test_registrar_dos_veces_no_las_vuelve_a_cargar(qt_app):
 
     assert segunda == primera
     assert fonts._registradas == cargados
-
-
-@pytest.mark.parametrize("nombre", list(theme.SCHEMES))
-def test_la_tipografia_numerica_es_una_que_el_programa_trae(qt_app, nombre: str):
-    """Si un esquema nombrara una que no está, Qt usaría otra sin avisar."""
-    esquema = theme.SCHEMES[nombre]
-
-    assert esquema.numeric_font in fonts.register_bundled_fonts()
 
 
 def test_la_de_la_interfaz_tambien(qt_app):
@@ -95,12 +86,30 @@ def base(puntos: int = 13) -> QFont:
     return fuente
 
 
-def test_los_ocho_roles_usan_dos_familias(qt_app):
-    """**Es la promesa del módulo.** Una tercera familia la rompe, y un rol
-    nuevo es justo donde se colaría sin que nadie lo note."""
-    familias = {rol.family for rol in fonts.ROLES.values()}
+def test_los_ocho_roles_usan_la_misma_familia(qt_app):
+    """**Es la promesa del módulo.** Se mira la `QFont` que sale y no la tabla:
+    una segunda familia se colaría por `font_for()` aunque la tabla no la
+    nombre."""
+    fonts.register_bundled_fonts()
 
-    assert familias == {fonts.UI_FONT_FAMILY, fonts.NUMERIC_FONT_FAMILY}
+    familias = {fonts.font_for(rol, base()).family() for rol in fonts.ROLES}
+
+    assert familias == {fonts.UI_FONT_FAMILY}
+
+
+@pytest.mark.parametrize("rol", ["lectura", "chip", "ausente", "titulo"])
+def test_las_cifras_tienen_ancho_fijo(qt_app, rol: str):
+    """**Es lo que hizo sobrar a Plex Mono** (hito 77): una lectura que cambia
+    —la hora, la ventana, los µV— no puede saltar de ancho mientras se navega.
+    Se mide con la tipografía cargada en Qt, en los tres estilos que el
+    programa trae: regular, semi-negrita e itálica. Si una versión nueva de
+    los archivos trajera cifras proporcionales, esto lo dice."""
+    fonts.register_bundled_fonts()
+    metricas = QFontMetricsF(fonts.font_for(rol, base(24)))
+
+    anchos = {round(metricas.horizontalAdvance(cifra), 3) for cifra in "0123456789"}
+
+    assert len(anchos) == 1
 
 
 def test_los_pasos_se_cuentan_desde_el_tamano_base(qt_app):
@@ -116,6 +125,13 @@ def test_los_pasos_se_cuentan_desde_el_tamano_base(qt_app):
 def test_un_paso_no_achica_hasta_lo_ilegible(qt_app):
     """Con el tamaño base en su mínimo, un paso de −2 llegaría ahí."""
     assert fonts.font_for("chip", base(6)).pointSize() >= fonts.MIN_POINT_SIZE
+
+
+def test_el_chip_va_en_semi_negrita(qt_app):
+    """Era Plex Mono, que a dos puntos menos que la base se sostenía por su
+    trazo parejo; Plex Sans regular a ese tamaño, blanca sobre el relleno del
+    chip, se afina (hito 77)."""
+    assert fonts.font_for("chip", base()).bold()
 
 
 def test_el_rol_ausente_va_en_italica(qt_app):

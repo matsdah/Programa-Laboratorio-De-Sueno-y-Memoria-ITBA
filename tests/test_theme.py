@@ -78,8 +78,8 @@ def test_el_de_fabrica_es_sereno():
 
 
 #: Los campos en los que `None` quiere decir algo: sin línea de base, la ventana
-#: del mismo color que el fondo, las lecturas con la tipografía de siempre.
-CAMPOS_OPCIONALES = {"baseline", "chrome", "numeric_font", "danger", "stage_colors"}
+#: del mismo color que el fondo.
+CAMPOS_OPCIONALES = {"baseline", "chrome", "danger", "stage_colors"}
 
 
 def test_ningun_esquema_deja_campos_sin_definir():
@@ -271,11 +271,12 @@ def test_sin_fondo_de_ventana_propio_la_hoja_es_la_misma():
     assert theme.stylesheet(sin_chrome) == theme.stylesheet(con_chrome)
 
 
-def test_las_lecturas_toman_la_tipografia_del_esquema():
-    hoja = theme.stylesheet(theme.SERENO)
-
-    assert f'QLabel[{theme.READOUT_PROPERTY}="true"]' in hoja
-    assert theme.SERENO.numeric_font in hoja
+@pytest.mark.parametrize("nombre", list(theme.SCHEMES))
+def test_la_hoja_no_nombra_ninguna_familia(nombre: str):
+    """**La tipografía es una sola y la pone `fonts.py`** (hito 77). Hasta ahí
+    la hoja le daba Plex Mono a las lecturas: una regla de `font-family` acá
+    es por donde volvería a entrar una segunda familia."""
+    assert "font-family" not in theme.stylesheet(theme.SCHEMES[nombre])
 
 
 def test_la_hoja_lleva_una_regla_por_fase(esquema_con_fases: theme.ColorScheme):
@@ -337,12 +338,6 @@ def test_el_foco_del_teclado_se_ve():
     hoja = theme.stylesheet(theme.SERENO)
 
     assert f"border: {theme.ANILLO_DE_FOCO}px solid {theme.SERENO.accent}" in hoja
-
-
-def test_sin_tipografia_numerica_no_hay_regla_para_las_lecturas():
-    sin_mono = dataclasses.replace(theme.NOCTURNO, numeric_font=None)
-
-    assert theme.READOUT_PROPERTY not in theme.stylesheet(sin_mono)
 
 
 def test_un_fondo_de_ventana_poco_legible_se_detecta():

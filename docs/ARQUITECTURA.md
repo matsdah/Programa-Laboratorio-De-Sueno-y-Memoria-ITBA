@@ -210,7 +210,15 @@ contra los tamaños que publica su API.
 **Desde el hito 34 son las que se ven al arrancar**: Sans en la interfaz, por
 el valor de fábrica de `font_family`, y Mono en las lecturas numéricas, por los
 dos esquemas nuevos. Hasta entonces sólo las usaba quien elegía el esquema
-Papel o las pedía en Tipografía. Lo que no cambió es qué pasa si faltan: el
+Papel o las pedía en Tipografía.
+
+**Desde el hito 77 es una sola familia**: Plex Mono se sacó —el archivo
+también— porque dos familias en la misma pantalla se veían desprolijas. Estaba
+para que una lectura que cambia no saltara de ancho, y Plex Sans ya lo
+garantiza: sus diez cifras miden 600 unidades en los tres estilos que el
+programa trae. Los chips, que eran Mono a dos puntos menos que la base, pasaron
+a Sans semi-negrita: la regular a ese tamaño, blanca sobre su relleno, se
+afinaba. Quedan tres archivos, los tres de Sans. Lo que no cambió es qué pasa si faltan: el
 programa arranca igual, con la del sistema, y `fonts.available_family()` es lo
 que impide que Qt sustituya por cualquier otra sin avisar.
 
