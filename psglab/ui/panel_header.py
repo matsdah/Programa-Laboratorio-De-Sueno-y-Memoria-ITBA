@@ -100,11 +100,9 @@ class PanelHeader(QWidget):
         self._rotulo.setFont(font_for("rotulo", self._rotulo.font()))
 
         self._descripcion = QLabel("")
-        self._descripcion.setProperty(theme.READOUT_PROPERTY, True)
         self._descripcion.setAccessibleName("Qué se está mirando")
 
         self._detalle = QLabel("")
-        self._detalle.setProperty(theme.READOUT_PROPERTY, True)
         self._detalle.setProperty(SECUNDARIO_PROPERTY, True)
         self._detalle.setAccessibleName("Cómo se calculó")
 

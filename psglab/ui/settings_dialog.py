@@ -619,8 +619,8 @@ class SettingsDialog(QDialog):
         formulario = QFormLayout(solapa)
 
         # **No hay lista de familias** desde el hito 43. La tipografía es la del
-        # programa —IBM Plex Sans, y su hermana de ancho fijo para las
-        # lecturas— por el mismo argumento que dejó los colores en dos
+        # programa —IBM Plex Sans, la única desde el hito 77— por el mismo
+        # argumento que dejó los colores en dos
         # esquemas: una lista abierta son infinitos aspectos posibles y ninguno
         # garantizado. El tamaño sí se elige, que es lo que hace falta para ver
         # de lejos.
@@ -636,14 +636,14 @@ class SettingsDialog(QDialog):
         )
         formulario.addRow("Tamaño:", self.font_size)
 
-        # **La muestra lleva las tres voces**, no una: la de leer, la de medir y
-        # la de lo que nadie midió. Con una sola, cambiar el tamaño no decía
-        # nada de la escala.
-        self.font_preview = QLabel("Ventana 12 de 960")
-        self.numeric_preview = QLabel("01:50:00 · 100 µV")
+        # **La muestra lleva las dos voces**, no una: la de leer y la de lo que
+        # nadie midió. Con una sola, cambiar el tamaño no decía nada de la
+        # escala. Eran tres hasta el hito 77: la de medir era otra familia, y
+        # ahora es la misma letra que la de leer. La muestra de leer lleva
+        # números por eso.
+        self.font_preview = QLabel("Ventana 12 de 960 · 01:50:00 · 100 µV")
         self.absent_preview = QLabel("sin medir")
         formulario.addRow("Muestra:", self.font_preview)
-        formulario.addRow("", self.numeric_preview)
         formulario.addRow("", self.absent_preview)
         return solapa
 
@@ -656,12 +656,11 @@ class SettingsDialog(QDialog):
         self._cambiar(self._prefs.with_changes(font_size=self.font_size.value()))
 
     def _mostrar_muestra(self) -> None:
-        """Las tres voces de la escala, al tamaño que se está eligiendo."""
+        """Las dos voces de la escala, al tamaño que se está eligiendo."""
         base = QFont()
         base.setPointSize(self.font_size.value())
         for etiqueta, rol in (
             (self.font_preview, "cuerpo"),
-            (self.numeric_preview, "lectura"),
             (self.absent_preview, "ausente"),
         ):
             etiqueta.setFont(fonts.font_for(rol, base))

@@ -214,6 +214,11 @@ sutil de ver: se veían de un vistazo y no había ningún vistazo. Para un icono
 un rótulo chico hay que recortar y agrandar la imagen —un `QImage.copy().scaled()`
 de cuatro líneas alcanza—; a tamaño real, un icono de 34 px no deja juzgar nada.
 
+**La captura arma la aplicación y aplica las preferencias como `main.py`**
+(hito 77): con `create_application()`, que registra la tipografía, y con las
+preferencias de fábrica, que la ponen. Hasta ahí salía con la del sistema, y
+como se parecen nadie lo vio desde el hito 43.
+
 **Nada de lo que la captura llame puede abrir un cartel modal.** Sobre una
 ventana con `WA_DontShowOnScreen` un modal no se muestra en ninguna parte, así
 que nadie lo puede contestar y el proceso queda colgado sin consumir CPU y sin
@@ -606,9 +611,13 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   ninguno garantizado: el control de contraste sólo alcanzaba a los de fábrica.
   Agregar un esquema es sumarlo a `SCHEMES` —el control de contraste lo enrola
   solo—; agregar una perilla de color es volver atrás una decisión tomada.
-- **La tipografía tampoco, y por el mismo argumento** (hito 43). Son dos
-  familias emparentadas —IBM Plex Sans para lo que se lee, Mono para lo que se
-  mide—, se empaquetan con el programa y no se eligen; **el tamaño sí**, que es
+- **La tipografía tampoco, y por el mismo argumento** (hito 43). Es **una
+  sola familia**, IBM Plex Sans en regular, semi-negrita e itálica: hasta el
+  hito 77 las lecturas iban en Plex Mono, y el usuario la sacó. No hacía falta:
+  las cifras de Sans ya tienen ancho fijo, y `test_fonts.py` lo mide. **No
+  agregar una segunda familia**, ni por un rol ni por una regla de
+  `font-family` en la hoja de estilo, que `test_theme.py` rechaza. Se empaqueta
+  con el programa y no se elige; **el tamaño sí**, que es
   lo que hace falta para ver de lejos. Los tamaños no se escriben en el módulo
   que dibuja: se nombra un rol de `ui/fonts.py` y `font_for()` lo arma desde el
   tamaño elegido. Antes el canalón achicaba un punto y el chip dos, que eran

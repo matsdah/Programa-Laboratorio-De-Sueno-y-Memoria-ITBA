@@ -1,8 +1,18 @@
-"""Las tipografías que el programa trae consigo.
+"""La tipografía que el programa trae consigo.
 
-Son dos familias de IBM Plex y **ninguna se elige**: **Sans** para todo lo que
-se lee y **Mono** para todo lo que se mide. Son la misma superfamilia, dibujadas
-juntas, así que una lectura numérica al lado de su etiqueta no cambia de voz.
+Es **una sola familia, IBM Plex Sans**, en regular, semi-negrita e itálica, y
+**no se elige**. Hasta el hito 77 había una segunda, Plex Mono, para lo que se
+mide: la hora, la ventana, los µV. El usuario la sacó porque dos familias en la
+misma pantalla se veían desprolijas.
+
+## Por qué alcanza con Sans para los números
+
+Mono estaba para que una lectura que cambia no saltara de ancho mientras se
+navega. **Las cifras de Plex Sans ya tienen ancho fijo**: medido en los tres
+archivos que el programa trae, las diez miden 600 unidades, así que «13:08:11»
+ocupa lo mismo que «13:08:48». Lo que sigue siendo proporcional son las
+letras y los signos, que no cambian mientras se navega. `test_fonts.py` mide
+los archivos, para que un cambio de versión que rompa eso no pase callado.
 
 ## Por qué no hay lista de familias
 
@@ -68,13 +78,8 @@ FONTS_DIR: Final[Path] = Path(__file__).resolve().parent.parent / "resources" / 
 #: sistema, que es degradar a lo conocido.
 UI_FONT_FAMILY: Final[str] = "IBM Plex Sans"
 
-#: La familia de todo lo que se mide: la hora, la ventana, los microvoltios.
-#: **Es la hermana de ancho fijo de la otra**, no una familia distinta.
-NUMERIC_FONT_FAMILY: Final[str] = "IBM Plex Mono"
-
-#: Los archivos que se registran. La negrita de Sans está porque los rótulos de
-#: la interfaz la usan; la itálica, porque el rol `ausente` la pide; de Mono
-#: alcanza la regular, que es la de las lecturas.
+#: Los archivos que se registran. La negrita está porque los rótulos y los
+#: chips la usan; la itálica, porque el rol `ausente` la pide.
 #:
 #: **La itálica se empaquetó en el hito 46.** Hasta entonces el rol `ausente`
 #: la pedía igual y Qt la **sintetizaba**, deformando la regular: se distinguía
@@ -86,7 +91,6 @@ FONT_FILES: Final[tuple[str, ...]] = (
     "IBMPlexSans-Regular.ttf",
     "IBMPlexSans-SemiBold.ttf",
     "IBMPlexSans-Italic.ttf",
-    "IBMPlexMono-Regular.ttf",
 )
 
 #: Qué familias dejó cada archivo ya registrado. Qt no deduplica: registrar dos
@@ -149,9 +153,11 @@ def available_family(family: str = UI_FONT_FAMILY) -> str | None:
 class TypeRole:
     """Qué tipografía le toca a una clase de texto.
 
+    **No lleva familia** desde el hito 77: hay una sola, `UI_FONT_FAMILY`, y
+    un rol sólo decide tamaño y estilo. Un campo de familia sería el lugar por
+    donde volvería a colarse una segunda.
+
     Attributes:
-        family: `UI_FONT_FAMILY` o `NUMERIC_FONT_FAMILY`. **Son las dos
-            únicas**: cualquier otra rompe la promesa del módulo.
         step: cuántos puntos se aparta del tamaño base que eligió el usuario.
             Negativo achica.
         bold: si va en semi-negrita.
@@ -161,7 +167,6 @@ class TypeRole:
             rótulo de panel, que va en mayúsculas y sin aire se apelmaza.
     """
 
-    family: str
     step: int = 0
     bold: bool = False
     italic: bool = False
@@ -172,18 +177,25 @@ class TypeRole:
 #: base chico con un paso de −2 llegaría ahí.
 MIN_POINT_SIZE: Final[int] = 6
 
-#: Los ocho roles. **Tres tamaños y tres estilos**, sobre dos familias.
+#: Los ocho roles. **Tres tamaños y tres estilos**, sobre una sola familia.
+#:
+#: Los de medir se quedan aunque hoy coincidan con los de leer —`lectura` es
+#: `cuerpo`, `lectura_secundaria` es `secundario`—: dicen **qué** se dibuja, y
+#: quien dibuja no tiene por qué saber que hoy se ven igual.
 ROLES: Final[dict[str, TypeRole]] = {
     # Lo que se lee.
-    "titulo": TypeRole(UI_FONT_FAMILY, step=2, bold=True),
-    "cuerpo": TypeRole(UI_FONT_FAMILY),
-    "secundario": TypeRole(UI_FONT_FAMILY, step=-1),
-    "ausente": TypeRole(UI_FONT_FAMILY, step=-1, italic=True),
-    "rotulo": TypeRole(UI_FONT_FAMILY, step=-2, bold=True, tracking=1.4),
+    "titulo": TypeRole(step=2, bold=True),
+    "cuerpo": TypeRole(),
+    "secundario": TypeRole(step=-1),
+    "ausente": TypeRole(step=-1, italic=True),
+    "rotulo": TypeRole(step=-2, bold=True, tracking=1.4),
     # Lo que se mide.
-    "lectura": TypeRole(NUMERIC_FONT_FAMILY),
-    "lectura_secundaria": TypeRole(NUMERIC_FONT_FAMILY, step=-1),
-    "chip": TypeRole(NUMERIC_FONT_FAMILY, step=-2),
+    "lectura": TypeRole(),
+    "lectura_secundaria": TypeRole(step=-1),
+    # **En semi-negrita desde el hito 77**: era Mono, que a dos puntos menos
+    # que la base se sostenía por su trazo parejo; Sans regular a ese tamaño,
+    # blanca sobre el relleno del chip, se afina.
+    "chip": TypeRole(step=-2, bold=True),
 }
 
 
@@ -213,7 +225,7 @@ def font_for(role: str, base: QFont) -> QFont:
         )
     definicion = ROLES[role]
     fuente = QFont(base)
-    familia = available_family(definicion.family)
+    familia = available_family(UI_FONT_FAMILY)
     if familia is not None:
         fuente.setFamily(familia)
     # Un tamaño en píxeles —que Qt usa cuando `pointSize()` da −1— no se puede

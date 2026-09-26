@@ -68,13 +68,6 @@ def test_el_encabezado_tiene_alto_fijo(encabezado: PanelHeader):
     assert encabezado.height() == ALTO_DEL_ENCABEZADO
 
 
-def test_los_dos_textos_son_lecturas(encabezado: PanelHeader):
-    """Llevan números —la ventana, la frecuencia, el segmento— y el esquema les
-    da la tipografía de ancho fijo por esta propiedad."""
-    assert encabezado._descripcion.property(theme.READOUT_PROPERTY)
-    assert encabezado._detalle.property(theme.READOUT_PROPERTY)
-
-
 # -- El cartel de vacío -------------------------------------------------------
 
 

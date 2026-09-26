@@ -431,7 +431,8 @@ def test_la_muestra_lleva_las_tres_voces(dialogo: SettingsDialog):
     dialogo.system_font.setChecked(False)
     dialogo.font_size.setValue(14)
 
-    assert dialogo.numeric_preview.font().family() == fonts.NUMERIC_FONT_FAMILY
+    assert dialogo.font_preview.font().family() == fonts.UI_FONT_FAMILY
+    assert dialogo.absent_preview.font().family() == fonts.UI_FONT_FAMILY
     assert dialogo.absent_preview.font().italic()
     assert not dialogo.font_preview.font().italic()
 
