@@ -1,0 +1,21 @@
+body:
+  - type: textarea
+    id: tema
+    attributes:
+      label: Tema
+      description: De qué querés hablar.
+    validations:
+      required: true
+  - type: textarea
+    id: contexto
+    attributes:
+      label: Contexto
+      description: Lo que haga falta saber para entrar en la conversación. Enlaces a issues, PR o secciones de la documentación.
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |
+        Si es una pregunta sobre cómo usar el programa, la categoría **Q&A**
+        pide los datos que suelen hacer falta para contestarla. Si es una
+        propuesta, está **Ideas**.

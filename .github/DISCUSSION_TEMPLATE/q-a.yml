@@ -1,0 +1,75 @@
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por preguntar. Cuanto más concreto sea el caso, más rápido se
+        puede contestar: qué hacías, qué esperabas y qué pasó en cambio.
+
+        **No adjuntes registros de participantes** (EDF, BrainVision ni los
+        archivos de salida). Si el problema depende de un registro, describí
+        sus características —canales, frecuencia de muestreo, duración— en vez
+        de subirlo.
+  - type: textarea
+    id: objetivo
+    attributes:
+      label: Qué intentabas hacer
+      description: El paso en el que estabas, desde la ventana o desde un script.
+      placeholder: Abrir un BrainVision de 32 canales y scorear las primeras ventanas…
+    validations:
+      required: true
+  - type: textarea
+    id: resultado
+    attributes:
+      label: Qué pasó
+      description: >-
+        Si apareció un cartel, copiá su texto completo, incluido el detalle
+        técnico si lo muestra. Si hubo una traza de Python en la consola, pegala
+        entera.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: formato
+    attributes:
+      label: Formato del registro
+      options:
+        - EDF
+        - BrainVision
+        - No había un registro abierto
+        - Otro
+    validations:
+      required: false
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema operativo
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - WSL
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Versión de Python
+      placeholder: "3.11.9"
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Rama o commit
+      description: La salida de `git rev-parse --short HEAD`, o el nombre de la rama.
+      placeholder: "Add, 2c18a55"
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacidad
+    attributes:
+      label: Privacidad
+      options:
+        - label: No adjunté registros de participantes ni datos que permitan identificarlos.
+          required: true

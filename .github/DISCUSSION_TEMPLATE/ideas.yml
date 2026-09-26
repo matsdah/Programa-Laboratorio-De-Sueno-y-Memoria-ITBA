@@ -1,0 +1,52 @@
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Una idea se discute mejor desde el problema que desde la solución:
+        contá primero qué te falta o qué te cuesta, y después cómo lo resolverías.
+
+        Si la idea toca un requisito del pliego, citá su ID tal como figura en
+        `docs/TRAZABILIDAD.md`. Algunas decisiones ya están cerradas (por
+        ejemplo, PySide6 en lugar de PyQt, µV como unidad, esquemas de color
+        fijos); sus motivos están en `docs/ARQUITECTURA.md`.
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema
+      description: Qué no se puede hacer hoy, o qué cuesta más de lo que debería.
+      placeholder: Al scorear una noche entera tengo que…
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Propuesta
+      description: Cómo lo resolverías. Una captura o un boceto ayudan.
+    validations:
+      required: true
+  - type: dropdown
+    id: parte
+    attributes:
+      label: Parte del pliego
+      options:
+        - Parte 1 (visualización y scoring)
+        - Parte 2 (análisis)
+        - Ninguna / infraestructura
+    validations:
+      required: false
+  - type: input
+    id: requisito
+    attributes:
+      label: Requisito relacionado
+      description: El ID del pliego, si lo hay.
+      placeholder: V1_F
+    validations:
+      required: false
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas consideradas
+      description: Otras formas de resolverlo y por qué te parecen peores.
+    validations:
+      required: false
