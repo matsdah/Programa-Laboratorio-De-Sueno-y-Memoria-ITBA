@@ -1203,6 +1203,24 @@ def test_la_lupa_amplia_el_canal_que_le_pidieron(vista: SignalView):
     assert not np.allclose(y_del_segundo, y_del_primero)
 
 
+def test_la_lupa_resta_el_desplazamiento_del_canal(vista: SignalView, sesion: Session):
+    """Hito 79: la lupa no restaba el desplazamiento vertical y la curva
+    ampliada salía corrida, fuera del cristal. Pasaba siempre con los canales
+    respiratorios, que se centran solos al abrir el registro.
+
+    Sin aumento, la curva de la lupa tiene que caer exactamente sobre la de la
+    señal."""
+    sesion.set_offset_uv("C3", 40.0)
+    vista.refresh()
+    x_lupa, y_lupa = lupa(vista, zoom=1.0, canal="C3")
+
+    x_senal, y_senal = vista._curves["C3"].getData()
+    de_la_senal = dict(zip(np.round(x_senal, 6), y_senal))
+    comunes = [(y, de_la_senal[x]) for x, y in zip(np.round(x_lupa, 6), y_lupa) if x in de_la_senal]
+    assert len(comunes) > 10
+    assert np.allclose([y for y, _ in comunes], [s for _, s in comunes])
+
+
 # -- El rótulo de la banda de anotación (hito 53) ---------------------------
 
 

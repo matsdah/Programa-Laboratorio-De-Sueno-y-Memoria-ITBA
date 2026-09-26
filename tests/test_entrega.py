@@ -4322,6 +4322,49 @@ def test_la_amplitud_de_cada_canal_se_lee_en_su_carril(ventana: MainWindow):
     assert all(detalle == "200 µV" for detalle in detalles)
 
 
+def test_la_escala_personalizada_sin_canales_visibles_no_rompe(
+    ventana: MainWindow, monkeypatch
+):
+    """Hito 79: preguntaba la escala del primer canal visible, y sin ninguno
+    elevaba `IndexError`, que salía como el cartel de los errores del
+    programa. Arranca en la de fábrica."""
+    from psglab.config import DEFAULT_SCALE_UV
+
+    pedida: list[float] = []
+
+    def responder(*args: object) -> tuple[float, bool]:
+        pedida.append(float(args[3]))
+        return 50.0, True
+
+    monkeypatch.setattr(QInputDialog, "getDouble", staticmethod(responder))
+    ventana._set_visible_channels([])
+
+    ventana.ask_amplitude_scale()
+
+    assert pedida == [DEFAULT_SCALE_UV]
+
+
+def test_la_escala_personalizada_arranca_en_la_del_canal_seleccionado(
+    ventana: MainWindow, monkeypatch
+):
+    """Es a ése al que se le va a aplicar: la del primero visible no dice
+    nada si el seleccionado es otro."""
+    segundo = ventana.session.visible_channels[1]
+    ventana.session.set_scale_uv(segundo, 321.0)
+    ventana._set_selected_channels([segundo])
+    pedida: list[float] = []
+
+    def responder(*args: object) -> tuple[float, bool]:
+        pedida.append(float(args[3]))
+        return 0.0, False
+
+    monkeypatch.setattr(QInputDialog, "getDouble", staticmethod(responder))
+
+    ventana.ask_amplitude_scale()
+
+    assert pedida == [321.0]
+
+
 def test_los_extremos_del_registro_llegan_a_la_franja(ventana: MainWindow):
     inicio = ventana.session.recording.start_time
 
@@ -4411,6 +4454,40 @@ def test_la_banda_va_sobre_el_canal_seleccionado(ventana: MainWindow):
 
     bandas = [o for o in ventana._overlays_dibujados if isinstance(o, BandOverlay)]
     assert [b.channel_name for b in bandas] == [segundo]
+
+
+def test_seleccionar_otro_canal_redibuja_la_banda(ventana: MainWindow):
+    """Hito 79: la banda se apoya sobre el seleccionado, y cambiar la selección
+    no la redibujaba: quedaba en el carril viejo hasta el próximo evento."""
+    segundo = ventana.session.visible_channels[1]
+    ventana._toggle_tool("amplitude_band", True)
+
+    ventana._set_selected_channels([segundo])
+
+    (banda,) = [o for o in ventana._overlays_dibujados if isinstance(o, BandOverlay)]
+    assert banda.channel_name == segundo
+
+
+@pytest.mark.parametrize("modo", [None, "magnifier"])
+def test_la_banda_sigue_al_mouse_sobre_el_canal_de_abajo(ventana: MainWindow, modo: str | None):
+    """Hito 79: **la banda no se podía mover.** No es exclusiva, así que nunca
+    se quedaba con el mouse, y el filtro de eventos sólo se lo daba a la que sí:
+    el centro quedaba en 0 µV del primer canal, por más que el mouse pasara por
+    encima de la señal, que es lo que pide el pliego. Con la lupa encendida,
+    igual: el movimiento es de las dos."""
+    segundo = ventana.session.visible_channels[1]
+    ventana._toggle_tool("amplitude_band", True)
+    if modo is not None:
+        ventana._toggle_tool(modo, True)
+
+    QApplication.instance().sendEvent(
+        ventana.signal_view.viewport(),
+        evento_de_mouse(ventana, QEvent.Type.MouseMove, 300.0, canal=segundo, uv=30.0),
+    )
+
+    (banda,) = [o for o in ventana._overlays_dibujados if isinstance(o, BandOverlay)]
+    assert banda.channel_name == segundo
+    assert banda.y_center_uv == pytest.approx(30.0, abs=3.0)
 
 
 def test_la_banda_no_se_tilda_sola_al_abrir(ventana: MainWindow):

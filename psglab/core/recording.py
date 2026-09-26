@@ -21,7 +21,7 @@ from psglab.utils.errors import (
     DuplicateChannelError,
     InvalidRecordingError,
 )
-from psglab.utils.validation import check_finite, check_index
+from psglab.utils.validation import check_finite
 
 
 class ChannelKind(Enum):
@@ -509,17 +509,10 @@ class Recording:
 
         Raises:
             ChannelNotFoundError, InvalidRecordingError: los de `get_segment()`,
-                que valida el tramo y los canales. Los extremos se comprueban
-                antes de pedírselo: `get_segment()` compara sin mirar el tipo, y
-                un `None` saldría como `TypeError`.
+                que valida el tramo y los canales —el tipo de los extremos
+                incluido— con la misma regla para los dos métodos: un entero
+                de numpy sirve y un `None` no (hito 79).
         """
-        for nombre, valor in (("start_sample", start_sample), ("stop_sample", stop_sample)):
-            check_index(
-                valor,
-                error=InvalidRecordingError,
-                message="Se pidió un tramo de señal que no existe en el registro.",
-                details=f"{nombre} tiene que ser un número entero de muestras.",
-            )
         tramo = self.get_segment(start_sample, stop_sample, channel_names)
         nombres = self.channel_names() if channel_names is None else list(channel_names)
         return [

@@ -8,7 +8,7 @@ Nace para resolver las limitaciones de los programas actuales: formatos de impor
 limitados, scoring sólo manual, imposibilidad de anotar la señal, ausencia de métricas,
 compatibilidad únicamente con Windows y precios excesivos.
 
-> **Estado: la Parte 1 está terminada.** `python main.py` abre el programa:
+> **Estado: las dos Partes están terminadas.** `python main.py` abre el programa:
 > importa registros en EDF y BrainVision, muestra la señal en ventanas de
 > 30 segundos, se navega y se scorea con el teclado, se anotan eventos, están
 > las seis herramientas —lupa, banda de amplitud, ocupación, Übersicht,
@@ -17,11 +17,13 @@ compatibilidad únicamente con Windows y precios excesivos.
 >
 > El **módulo de análisis de bioseñales** (`psglab/analysis/`), que es la
 > Parte 2, también está terminado: filtrado, ICA, impedancia, re-referenciado,
-> derivaciones, PSD, complejidad y conectividad. Necesita dos dependencias
-> aparte, en `requirements-analysis.txt`.
+> derivaciones, PSD, complejidad, conectividad y las fases sugeridas por un
+> clasificador. Necesita tres dependencias aparte, en
+> `requirements-analysis.txt`.
 >
-> **[`docs/TODO.md`](docs/TODO.md)** lleva los setenta y nueve hitos —del 0 al 78— con
-> lo que se decidió en cada uno, y es el único lugar que lleva la cuenta.
+> **[`docs/TODO.md`](docs/TODO.md)** lleva los ochenta hitos —del 0 al 79— con
+> lo que se decidió en cada uno, y es el único lugar que lleva la cuenta. El
+> último, abierto, es el plan que dejó la auditoría del 26 de septiembre.
 
 ---
 
@@ -181,8 +183,9 @@ que la gobiernan y cómo extenderla.
 | [`tests/`](tests/README.md) | Un test por componente. | [→](tests/README.md) |
 
 **Regla de dependencias:** apuntan en una sola dirección —
-`readers → core`, `tools → core`, `ui → core + tools`, `exporters → core`,
-`analysis → core`. **`core/` nunca importa nada de `ui/`.** Gracias a eso el modelo, el
+`readers → core`, `tools → core`, `exporters → core`, `analysis → core`, y
+`ui` importa de todas las demás, porque es la capa de arriba: abre archivos,
+exporta y pide análisis. **`core/` nunca importa nada de `ui/`.** Gracias a eso el modelo, el
 scoring y los exportadores se pueden testear sin abrir una ventana.
 
 Para saber qué archivo implementa cada requisito del pliego, mirá

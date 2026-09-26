@@ -14,8 +14,13 @@ core   ←  modelo y reglas de negocio
   ├── tools       herramientas del visualizador
   ├── exporters   archivos de salida
   ├── analysis    Parte 2: procesamiento y métricas
-  └── ui          interfaz gráfica (además depende de tools)
+  └── ui          interfaz gráfica (importa de todas las de arriba)
 ```
+
+`ui/` es la capa de arriba: abre archivos con `readers/`, exporta con
+`exporters/`, pide análisis a `analysis/` y usa las herramientas de `tools/`.
+Que dependa de todas no rompe ninguna regla; lo que importa es que **ninguna
+flecha apunte hacia `ui/`**.
 
 **`core/` no importa nada de `ui/`.** Es la restricción que sostiene todo lo
 demás: gracias a ella el modelo, el scoring, las estadísticas y los
