@@ -60,7 +60,7 @@ from psglab.app import create_application, create_main_window  # noqa: E402
 from psglab.core.annotations import Annotation  # noqa: E402
 from psglab.core.nomenclature import Nomenclature, SleepStage, stages_of  # noqa: E402
 from psglab.core.scoring import StageSuggestion  # noqa: E402
-from psglab.ui import preferences, theme  # noqa: E402
+from psglab.ui import theme  # noqa: E402
 
 #: Dónde quedan los PNG. En el temporal del sistema y no en el repositorio:
 #: son para mirar una vez, no para versionar.
@@ -89,12 +89,6 @@ VENTANAS: list[object] = []
 def armar_ventana(esquema: theme.ColorScheme):
     """Una ventana con un registro sintético y media noche scoreada."""
     ventana = create_main_window()
-    # **Las preferencias de fábrica, como las aplica `main.py` al arrancar**
-    # (hito 77). Sin esto la ventana se quedaba con la tipografía del sistema:
-    # la del programa la pone `_aplicar_preferencias()`, que una ventana sin
-    # preferencias guardadas no llama. No escribe nada: la ventana no es la
-    # del usuario. Va antes del esquema, que si no volvería al de fábrica.
-    ventana.apply_preferences(preferences.Preferences())
     ventana.set_color_scheme(esquema, remember=False)
     ventana.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
     ventana.resize(ANCHO, ALTO)

@@ -214,10 +214,12 @@ sutil de ver: se veían de un vistazo y no había ningún vistazo. Para un icono
 un rótulo chico hay que recortar y agrandar la imagen —un `QImage.copy().scaled()`
 de cuatro líneas alcanza—; a tamaño real, un icono de 34 px no deja juzgar nada.
 
-**La captura arma la aplicación y aplica las preferencias como `main.py`**
-(hito 77): con `create_application()`, que registra la tipografía, y con las
-preferencias de fábrica, que la ponen. Hasta ahí salía con la del sistema, y
-como se parecen nadie lo vio desde el hito 43.
+**La captura arma la aplicación con `create_application()`**, como
+`main.py`, que registra la tipografía (hito 77). Hasta ahí salía con la del
+sistema, y como se parecen nadie lo vio desde el hito 43. **Toda ventana
+arranca con las preferencias de fábrica aplicadas** desde el hito 78, y la
+suite registra la tipografía en `qt_app`: los tests, las capturas y los bancos
+miden con la letra que ve el usuario.
 
 **Nada de lo que la captura llame puede abrir un cartel modal.** Sobre una
 ventana con `WA_DontShowOnScreen` un modal no se muestra en ninguna parte, así

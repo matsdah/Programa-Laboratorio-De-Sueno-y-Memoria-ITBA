@@ -17,12 +17,13 @@ panel nuevo, este test falla y hay que sumarlo acá. Esa fricción es el punto.
 """
 
 import pytest
-from PySide6.QtGui import QShortcut
-from PySide6.QtWidgets import QMainWindow
+from PySide6.QtGui import QFont, QFontInfo, QShortcut
+from PySide6.QtWidgets import QApplication, QMainWindow
 
 pytest.importorskip("pyqtgraph")
 
 from psglab.app import create_main_window  # noqa: E402
+from psglab.ui import fonts  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from psglab.ui.shortcuts import install_shortcuts  # noqa: E402
 from psglab.ui.window_analysis import AnalysisMixin  # noqa: E402
@@ -392,3 +393,32 @@ def test_los_mixins_no_heredan_de_nada():
     """Son pedazos de `MainWindow` y no piezas aparte: con una base propia
     entrarían en la cadena de `super().__init__()` de Qt."""
     assert all(m.__bases__ == (object,) for m in MIXINS)
+
+
+# -- La tipografía con la que arranca (hito 78) --------------------------------
+
+
+def test_la_ventana_arranca_con_la_tipografia_del_programa(qt_app):
+    """**Hasta el hito 78 sólo la de `main.py` la aplicaba**: toda otra ventana
+    —la de los tests, la de las capturas, la de los bancos— quedaba con la del
+    sistema, y un rótulo que entraba ahí podía salir cortado con Plex Sans.
+
+    Antes se pone una tipografía que no existe: la de la aplicación es una
+    para toda la suite, y si otra ventana ya la hubiera cambiado este test
+    pasaría aunque la ventana nueva no hiciera nada."""
+    QApplication.setFont(QFont("Una Que No Existe"))
+
+    ventana = create_main_window()
+
+    assert QApplication.font().family() == fonts.UI_FONT_FAMILY
+    # **La que se usa de verdad**, no la pedida: `QFont.family()` devuelve lo
+    # que se pidió aunque Qt no lo tenga y dibuje con otra.
+    assert QFontInfo(ventana.menuBar().font()).family() == fonts.UI_FONT_FAMILY
+
+
+def test_la_suite_tiene_la_tipografia_registrada(qt_app):
+    """Sin registrarla, `available_family()` devuelve None y la ventana se
+    queda con la del sistema sin que nada falle: el hueco que tuvo la suite
+    hasta el hito 78."""
+    assert fonts.available_family() == fonts.UI_FONT_FAMILY
+

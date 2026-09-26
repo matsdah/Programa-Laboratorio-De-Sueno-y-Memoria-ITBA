@@ -205,6 +205,14 @@ class MainWindow(
         #: que sólo llama `main.py`: así la suite de tests no escribe en el
         #: archivo de quien la corre.
         self._es_la_ventana_del_usuario = False
+        # **Las de fábrica, aplicadas** (hito 78). Hasta ahí se guardaban en
+        # `_preferencias` y nadie las aplicaba: sólo `main.py` pasaba por
+        # `_aplicar_preferencias()`, con las del disco. Toda otra ventana —la
+        # de los tests, la de las capturas, la de los bancos— quedaba con la
+        # tipografía del sistema, y un rótulo que entraba ahí podía salir
+        # cortado con Plex Sans, que es más ancha. No escribe nada: la ventana
+        # todavía no es la del usuario. Va al final porque toca paneles.
+        self._aplicar_preferencias(self._preferencias)
 
     # -- Construcción -------------------------------------------------------
 
