@@ -579,6 +579,15 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   ser de los atajos. **Un filtro de eventos no se instala en la aplicación
   por cada ventana**: las de los tests no se destruyen, y con uno por ventana
   la suite dejó de terminar. Éste es uno solo y mira sólo al widget con foco.
+- **La ventana son ocho archivos y una sola clase** (hito 76).
+  `main_window.py` la arma y hereda lo que hace de siete mixins por tema
+  —`ui/window_tools.py`, `window_annotation.py`, `window_files.py`,
+  `window_view.py`, `window_preferences.py`, `window_scoring.py` y
+  `window_analysis.py`—. Un método nuevo va al del tema. **Un test que
+  reemplace una función que la ventana importa la reemplaza en el módulo que
+  la usa**: `fit_ica` en `window_analysis`, no en `main_window`, donde ya no
+  tendría efecto. Los mixins van antes que `QMainWindow` en la herencia, o
+  `eventFilter()` y `closeEvent()` perderían callados contra los de Qt.
 - **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
   (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
   que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril
