@@ -388,3 +388,50 @@ def test_una_sugerencia_mala_no_deja_nada_a_medias(scoring, mala):
 def test_la_confianza_minima_es_una_probabilidad(scoring, umbral):
     with pytest.raises(InvalidStageError):
         scoring.accept_suggestions(umbral)
+
+
+# -- La próxima ventana sin scorear (hito 79) ---------------------------------
+#
+# Es como se retoma un scoring a medias: hasta acá había que buscarla en la
+# franja de posición.
+
+
+def _scoreadas(n: int, *indices: int) -> Scoring:
+    scoring = Scoring(n, Nomenclature.AASM)
+    for indice in indices:
+        scoring.set_stage(indice, SleepStage.N2)
+    return scoring
+
+
+def test_la_proxima_sin_scorear_saltea_las_scoreadas():
+    assert _scoreadas(6, 1, 2, 3).next_unscored(0) == 4
+
+
+def test_la_anterior_sin_scorear_va_hacia_atras():
+    assert _scoreadas(6, 1, 2, 3).next_unscored(4, forward=False) == 0
+
+
+def test_la_ventana_de_partida_no_cuenta():
+    """Apretar la tecla parado en una sin scorear tiene que llevar a otra: si
+    no, la tecla no haría nada justamente cuando más se la usa."""
+    assert _scoreadas(6).next_unscored(2) == 3
+
+
+def test_sin_ninguna_sin_scorear_devuelve_none():
+    """No da la vuelta: llegar al final de la noche y aparecer en el principio
+    se lee como que quedó algo sin scorear arriba."""
+    assert _scoreadas(3, 0, 1, 2).next_unscored(0) is None
+    assert _scoreadas(3, 1, 2).next_unscored(0) is None
+
+
+def test_una_sugerida_sigue_contando_como_sin_scorear():
+    """La eligió un clasificador y no una persona: hasta confirmarla, falta."""
+    scoring = _scoreadas(5, 0, 2, 3, 4)
+    scoring.set_suggestions(_sugerencias(scoring, v1=StageSuggestion(SleepStage.N2, 0.99)))
+    assert scoring.next_unscored(0) == 1
+
+
+@pytest.mark.parametrize("indice", [-1, 3, 1.0, None])
+def test_la_proxima_sin_scorear_rechaza_una_ventana_que_no_existe(indice):
+    with pytest.raises(WindowOutOfRangeError):
+        _scoreadas(3).next_unscored(indice)

@@ -151,6 +151,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("set_suggestions(suggestions=[...])", lambda v: Scoring(1, Nomenclature.AASM).set_suggestions([v])),
         ("suggestion", lambda v: Scoring(3, Nomenclature.AASM).suggestion(v)),
         ("accept_suggestions", lambda v: Scoring(3, Nomenclature.AASM).accept_suggestions(v)),
+        ("next_unscored", lambda v: Scoring(3, Nomenclature.AASM).next_unscored(v)),
     ],
     "psglab/core/nomenclature.py": [
         ("check_nomenclature", lambda v: nom.check_nomenclature(v)),

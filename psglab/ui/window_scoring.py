@@ -99,6 +99,34 @@ class ScoringMixin:
             return
         self.refresh()
 
+    def go_to_next_unscored_window(self) -> None:
+        """N: la próxima ventana sin scorear (hito 79)."""
+        self._ir_a_la_sin_scorear(adelante=True)
+
+    def go_to_previous_unscored_window(self) -> None:
+        """Mayús+N: la ventana anterior sin scorear (hito 79)."""
+        self._ir_a_la_sin_scorear(adelante=False)
+
+    def _ir_a_la_sin_scorear(self, adelante: bool) -> None:
+        """Salta a la próxima sin scorear en esa dirección, o dice que no hay.
+
+        La regla es de `Scoring.next_unscored()`. Sin ninguna, **la barra de
+        estado lo dice** en vez de no hacer nada: una tecla muda se lee como
+        que no anda.
+        """
+        if self._session is None:
+            return
+        destino = self._session.scoring.next_unscored(
+            self._session.current_window, forward=adelante
+        )
+        if destino is None:
+            hacia = "adelante" if adelante else "atrás"
+            self.statusBar().showMessage(
+                f"No quedan ventanas sin scorear hacia {hacia}.", 5000
+            )
+            return
+        self._go_to_window(destino)
+
     def _elegir_nomenclatura(self, path: Path) -> Nomenclature | None:
         """Pregunta con qué nomenclatura se scoreó un archivo que no lo dice.
 
