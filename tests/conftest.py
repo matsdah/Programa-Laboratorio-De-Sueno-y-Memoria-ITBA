@@ -149,6 +149,7 @@ def escribir_brainvision(
     codepage: str | None = "UTF-8",
     coordenadas: bool = False,
     sin_valor: dict[str, range] | None = None,
+    eventos: list[tuple[str, str, int]] | None = None,
 ) -> pathlib.Path:
     """Escribe un BrainVision completo y devuelve la ruta de su `.vhdr`.
 
@@ -197,6 +198,12 @@ def escribir_brainvision(
       un NaN no le entra ni por un archivo dañado. Las cuentas son las mismas y
       la cabecera no cambia más que en esa línea, así que un test que pida
       muestras sin valor sigue leyendo los mismos µV en el resto de la señal.
+
+    **`eventos` lo agregó el hito 74**: `[("Stimulus", "S  1", 101)]` escribe
+    marcadores en el `.vmrk` —tipo, descripción y muestra, contada desde 1
+    como la cuenta el formato—, además del `New Segment` de siempre. Sin eso,
+    que el lector guardara las marcas sólo lo verificaba el registro de
+    `data/`, que el CI no tiene.
     """
     carpeta.mkdir(parents=True, exist_ok=True)
     # Los tres por omisión cubren una clase de señal cada uno, que es lo que
@@ -276,6 +283,10 @@ def escribir_brainvision(
         "",
         "[Marker Infos]",
         "Mk1=New Segment,,1,1,0,20260907130000000000",
+        *(
+            f"Mk{numero}={tipo},{descripcion},{muestra},1,0"
+            for numero, (tipo, descripcion, muestra) in enumerate(eventos or [], start=2)
+        ),
     ]
     (carpeta / "sintetico.vmrk").write_text(
         "\n".join(marcadores) + "\n", encoding="utf-8"
@@ -359,6 +370,7 @@ def escribir_edf(
     segundos: int,
     canales: list[tuple[str, str, float]] | None = None,
     inicio: datetime = datetime(2026, 9, 7, 23, 0, 0),
+    eventos: list[tuple[float, float, str]] | None = None,
 ) -> pathlib.Path:
     """Escribe un EDF sintético y devuelve su ruta.
 
@@ -386,6 +398,10 @@ def escribir_edf(
             anotaciones de tiempo de EDF+, vacías, y el archivo pasa a ser
             EDF+. MNE lo excluye, así que corre las posiciones de los demás.
         inicio: la fecha y hora de la cabecera.
+        eventos: `(inicio en segundos, duración, texto)` de anotaciones de
+            EDF+, que van en el canal `ANOTACIONES_EDF` junto a la de tiempo
+            del registro de datos donde empiezan (hito 74). Sin ese canal no
+            hay dónde escribirlas.
 
     El coseno tiene una décima de la frecuencia del canal, así que su primera
     muestra es exactamente el pico: los tests afirman el pico sin la tolerancia
@@ -454,10 +470,17 @@ def escribir_edf(
             # Una anotación de tiempo por registro, "+<segundo>" y dos
             # separadores, rellenada con ceros hasta el largo del canal.
             largo = 2 * int(frecuencia)
-            tal = b"".join(
-                f"+{registro}\x14\x14\x00".encode("ascii").ljust(largo, b"\x00")
-                for registro in range(segundos)
-            )
+            bloques = []
+            for registro in range(segundos):
+                bloque = f"+{registro}\x14\x14\x00" + "".join(
+                    f"+{desde:g}\x15{dura:g}\x14{texto}\x14\x00"
+                    for desde, dura, texto in (eventos or [])
+                    if registro <= desde < registro + 1
+                )
+                crudo = bloque.encode("utf-8")
+                assert len(crudo) <= largo, "el canal de anotaciones es chico para esos eventos"
+                bloques.append(crudo.ljust(largo, b"\x00"))
+            tal = b"".join(bloques)
             digitales.append(np.frombuffer(tal, dtype="<i2").reshape(segundos, -1))
             continue
         bajo, alto = float(minimo), float(maximo)

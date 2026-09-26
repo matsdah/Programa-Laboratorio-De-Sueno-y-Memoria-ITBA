@@ -6226,3 +6226,22 @@ def test_un_registro_sin_marcas_lo_dice_sin_preguntar(ventana: MainWindow, confi
 
     assert confirmacion["preguntas"] == []
     assert "no trae marcas" in ventana.statusBar().currentMessage()
+
+
+def test_las_marcas_de_un_brainvision_de_verdad_llegan_a_la_ventana(
+    ventana: MainWindow, tmp_path, confirmacion
+):
+    """**El camino entero, sin reemplazar nada** (hito 74): el lector de
+    verdad las guarda y la ventana las importa. Los tests del hito 73
+    armaban el registro a mano."""
+    vhdr = escribir_brainvision(
+        tmp_path / "con_marcas",
+        segundos=WINDOW_SECONDS,
+        eventos=[("Stimulus", "S  1", 1001), ("Stimulus", "S  1", 2001)],
+    )
+    ventana.open_recording(vhdr)
+
+    ventana.import_file_marks()
+
+    assert [a.label for a in ventana.session.annotations.all()] == ["Stimulus/S  1"] * 2
+    assert "Stimulus/S  1 (2)" in confirmacion["preguntas"][0]["informativo"]

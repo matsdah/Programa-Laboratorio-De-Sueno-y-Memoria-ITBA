@@ -57,7 +57,7 @@ from typing import Any, Final
 import numpy as np
 
 from psglab.analysis.mne_bridge import _registro_parcial, from_raw, to_raw
-from psglab.core.recording import Channel, ChannelKind, Recording
+from psglab.core.recording import ChannelKind, Recording
 from psglab.utils.errors import (
     InvalidFilterError,
     InvalidRecordingError,
@@ -169,17 +169,19 @@ def _frecuencia_de_muestreo(valor: object) -> float:
     return numero
 
 
-def _original_mas_lenta(channel: Channel, sampling_rate: float) -> float | None:
+def _original_mas_lenta(recording: Recording, name: str) -> float | None:
     """La frecuencia a la que se grabó el canal, si es menor que la del registro.
 
     Es la que dice hasta dónde tiene contenido de verdad: por encima de su
     mitad, lo que trae es interpolación. `None` si el archivo no la informa o
     si el canal se grabó a la frecuencia del registro, que es lo común.
+
+    **La regla es `Recording.content_limit_hz()`** (hito 74), la misma que usan
+    el espectro y la conectividad desde el hito 72. Hasta entonces este módulo
+    tenía su propia cuenta, igual pero aparte.
     """
-    original = channel.original_sampling_rate
-    if original is None or not original < sampling_rate:
-        return None
-    return float(original)
+    limite = recording.content_limit_hz(name)
+    return 2 * limite if limite < recording.sampling_rate / 2 else None
 
 
 def _hz(valor: float) -> str:
@@ -265,7 +267,7 @@ def apply_filters(
             )
         validate(filtros, recording.sampling_rate)
         canal = recording.channel_by_name(nombre)
-        original = _original_mas_lenta(canal, recording.sampling_rate)
+        original = _original_mas_lenta(recording, nombre)
         if original is not None and _borra_el_canal(filtros, original):
             raise InvalidFilterError(
                 f"El pasa-altos de {_hz(filtros.highpass_hz)} Hz no se puede aplicar a "
@@ -417,7 +419,7 @@ def settings_for_kinds(
         if canal.kind not in by_kind:
             continue
         filtros = by_kind[canal.kind]
-        if _borra_el_canal(filtros, _original_mas_lenta(canal, recording.sampling_rate)):
+        if _borra_el_canal(filtros, _original_mas_lenta(recording, canal.name)):
             filtros = replace(filtros, highpass_hz=None)
         por_canal[canal.name] = filtros
     return por_canal
