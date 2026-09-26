@@ -21,6 +21,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDockWidget, QInputDialog, QWidget
 
 from psglab.config import (
+    DEFAULT_SCALE_UV,
     MAX_SCALE_UV,
     MIN_SCALE_UV,
     MIN_VIEW_SECONDS,
@@ -445,8 +446,9 @@ class ViewMixin:
     def set_amplitude_scale(self, scale_uv: float) -> None:
         """Le da la misma escala a todos los canales bajo amplitud.
 
-        **El menú habla de µV por carril y no de "amplitud"**, que es el número
-        que `Session` guarda. Decir "amplitud 100" y escribir `scale_uv = 100`
+        El alcance lo decide `Session.set_amplitude_scale()`, el mismo que el
+        de las flechas. **El menú habla de µV por carril y no de "amplitud"**,
+        que es el número que `Session` guarda. Decir "amplitud 100" y escribir `scale_uv = 100`
         haría lo contrario de lo que el usuario espera la mitad de las veces:
         subir `scale_uv` **achica** la onda, porque es cuántos µV representa la
         altura del carril.
@@ -454,19 +456,23 @@ class ViewMixin:
         if self._session is None:
             return
         try:
-            for nombre in self._session.visible_channels:
-                if nombre in self._session.selected_channels or not self._session.selected_channels:
-                    self._session.set_scale_uv(nombre, scale_uv)
+            self._session.set_amplitude_scale(scale_uv)
         except PsgLabError as error:
             self._show_error(error, "cambiar la amplitud")
             return
         self.refresh()
 
     def ask_amplitude_scale(self) -> None:
-        """Pregunta la escala y la aplica. Es «Amplitud ▸ Personalizado…»."""
+        """Pregunta la escala y la aplica. Es «Amplitud ▸ Personalizado…».
+
+        Arranca en la escala del canal al que se le va a aplicar —el primero
+        seleccionado, o el primero visible— y en la de fábrica si no hay
+        ninguno a la vista (hito 79: sin canales elevaba `IndexError`).
+        """
         if self._session is None:
             return
-        actual = self._session.scale_uv(self._session.visible_channels[0])
+        elegidos = self._session.selected_channels or self._session.visible_channels
+        actual = self._session.scale_uv(elegidos[0]) if elegidos else DEFAULT_SCALE_UV
         valor, aceptado = QInputDialog.getDouble(
             self,
             "Amplitud",
@@ -630,6 +636,8 @@ class ViewMixin:
             self._show_error(error, "seleccionar los canales")
             return
         self._refrescar_contexto()
+        # La banda de amplitud se apoya sobre el seleccionado (hito 79).
+        self._redibujar_overlays()
 
 
 def _primero_que_toma_foco(widget: QWidget | None) -> QWidget | None:

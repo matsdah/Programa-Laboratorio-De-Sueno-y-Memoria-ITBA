@@ -47,7 +47,14 @@ corriente —Respiratorio, Otro— se miden sobre la primera época, **después 
 centrarlas en su media** (hito 70): una temperatura de 37 °C se medía contra
 el cero y se dibujaba pegada al borde de su carril. Una sola escala
 para todos no puede servir: con los 100 µV de un EEG, un canal respiratorio se
-sale de su carril y tapa seis canales.
+sale de su carril y tapa seis canales. **Un canal que agrega un análisis sigue la misma
+regla** (hito 79): un EOG derivado abre con la escala del EOG, y uno sin escala
+propia se centra y se mide sobre la época actual.
+
+**Todas las vías que cambian la escala comparten el alcance**: las flechas,
+«Ajustar al panel» y `set_amplitude_scale()` —«µV por carril»— llegan a los
+canales seleccionados, o a todos los visibles si no hay ninguno. Lo resuelve
+`_channels_under_amplitude()`, y el menú no lo repite (hito 79).
 
 **Se sustituye adentro, no se arma otra.** `set_scoring()` existe porque
 importar un scoring (V3_F) no es abrir otro registro: el usuario sigue parado

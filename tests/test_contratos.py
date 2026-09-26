@@ -229,6 +229,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("set_selected_channels", lambda v: sesion().set_selected_channels([v])),
         ("increase_amplitude(factor=...)", lambda v: sesion().increase_amplitude(v)),
         ("decrease_amplitude(factor=...)", lambda v: sesion().decrease_amplitude(v)),
+        ("set_amplitude_scale", lambda v: sesion().set_amplitude_scale(v)),
         ("set_active_tool", lambda v: sesion().set_active_tool(v)),
         ("add_window_listener", lambda v: sesion().add_window_listener(v)),
         ("set_viewport", lambda v: sesion().set_viewport(v)),
@@ -480,6 +481,9 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     ("normalize_unit_name con None", None, lambda v: units.normalize_unit_name(v)),
     # El factor cero dividía por cero al subir la amplitud.
     ("increase_amplitude con factor cero", 0, lambda v: sesion().increase_amplitude(v)),
+    # Hito 79. «µV por carril» escribe la escala de varios canales de una vez:
+    # un NaN los dejaría a todos sin dibujar.
+    ("set_amplitude_scale con NaN", float("nan"), lambda v: sesion().set_amplitude_scale(v)),
     # Una etiqueta que no es texto se usaba como clave de un diccionario.
     ("add_label con None", None, lambda v: AnnotationSet().add_label(v)),
     # Guardar algo que no es una anotación reventaba al pedirle `.label`.

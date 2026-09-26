@@ -10,6 +10,7 @@ Y son la prueba de que la capa de negocio se puede testear sin abrir una
 ventana, que es el motivo por el que `Session` vive en `core/` y no en `ui/`.
 """
 
+from dataclasses import replace
 from pathlib import Path
 
 import math
@@ -358,6 +359,27 @@ def test_con_seleccion_la_amplitud_llega_sólo_a_los_seleccionados(session):
     session.increase_amplitude()
     assert session.scale_uv("C4") < DEFAULT_SCALE_UV
     assert session.scale_uv("C3") == pytest.approx(DEFAULT_SCALE_UV)
+
+
+def test_una_escala_fija_llega_a_los_mismos_canales_que_las_flechas(session):
+    """Hito 79: «µV por carril» tenía su propia cuenta de a qué canales
+    llegaba, y salteaba los seleccionados que estaban ocultos. Ahora es la
+    misma regla que las flechas."""
+    session.set_visible_channels(["C3"])
+    session.set_selected_channels(["C4"])
+
+    session.set_amplitude_scale(20.0)
+
+    assert session.scale_uv("C4") == pytest.approx(20.0)
+    assert session.scale_uv("C3") == pytest.approx(DEFAULT_SCALE_UV)
+
+
+def test_una_escala_fija_sin_seleccion_llega_a_todos_los_visibles(session):
+    session.set_visible_channels(["C3", "C4"])
+
+    session.set_amplitude_scale(20.0)
+
+    assert session.scale_uv("C3") == session.scale_uv("C4") == pytest.approx(20.0)
 
 
 def test_la_escala_no_baja_del_tope_inferior(session):
@@ -754,6 +776,45 @@ def test_un_canal_derivado_aparece_con_la_escala_de_fabrica(session, recording):
     session.set_recording(procesado(recording, agregando="derivado"))
 
     assert session.scale_uv("derivado") == DEFAULT_SCALE_UV
+
+
+def _con_un_canal_mas(base: Recording, canal: Channel, fila: np.ndarray) -> Recording:
+    """El mismo registro con un canal agregado al final, como deja una
+    derivación."""
+    return Recording(
+        file_path=base.file_path,
+        channels=[*base.channels, replace(canal, index=base.n_channels)],
+        data=np.vstack([base.data, fila]),
+        sampling_rate=base.sampling_rate,
+    )
+
+
+def test_un_canal_nuevo_abre_con_la_escala_de_su_clase(session, recording):
+    """Hito 79: un EOG derivado abría con los 100 µV de fábrica y no con los
+    250 de su clase, que es con lo que abre cualquier EOG al abrir el
+    registro."""
+    nuevo = _con_un_canal_mas(
+        recording, Channel("LOC-ROC", ChannelKind.EOG, "µV", 0), recording.data[2]
+    )
+
+    session.set_recording(nuevo)
+
+    assert session.scale_uv("LOC-ROC") == DEFAULT_SCALE_BY_KIND_UV["EOG"]
+
+
+def test_un_canal_nuevo_sin_escala_propia_se_centra_y_se_mide(session, recording):
+    """Lo mismo que al abrir el registro: lo que no tiene una escala de uso
+    corriente se centra en su media y se mide, o barre media pantalla."""
+    tiempos = np.arange(recording.n_samples) / recording.sampling_rate
+    fila = 37.0 + 0.5 * np.sin(2 * np.pi * 0.1 * tiempos)
+    nuevo = _con_un_canal_mas(
+        recording, Channel("Temp", ChannelKind.OTHER, "DegC", 0), fila
+    )
+
+    session.set_recording(nuevo)
+
+    assert session.offset_uv("Temp") == pytest.approx(37.0, abs=0.05)
+    assert session.scale_uv("Temp") < 2.0
 
 
 def test_los_canales_visibles_que_sobreviven_se_conservan(session, recording):

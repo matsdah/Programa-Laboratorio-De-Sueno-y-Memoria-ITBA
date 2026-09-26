@@ -27,7 +27,7 @@ from psglab.config import (
 )
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature
-from psglab.core.recording import Recording
+from psglab.core.recording import Channel, Recording
 from psglab.core.scoring import EpochScore, Scoring
 from psglab.core.viewport import Viewport
 from psglab.core.windows import (
@@ -135,19 +135,10 @@ class Session:
             message="La escala vertical inicial no es un número válido.",
             details="Se esperaba un número finito.",
         )
-        inicial = clamp(default_scale_uv, MIN_SCALE_UV, MAX_SCALE_UV)
-        # **Cada clase arranca con la suya**, y `default_scale_uv` es el piso
-        # de las que no tienen una propia. Con una sola escala para todos, un
-        # canal respiratorio a 100 µV se sale de su carril y barre media
-        # pantalla; ver `DEFAULT_SCALE_BY_KIND_UV`. Las que quedan en el piso
-        # se miden después, en `_ajustar_las_clases_sin_escala()`.
+        #: La escala de las clases que no tienen una propia, antes de medirlas.
+        self._escala_de_fabrica = clamp(default_scale_uv, MIN_SCALE_UV, MAX_SCALE_UV)
         self._scales_uv: dict[str, float] = {
-            canal.name: clamp(
-                DEFAULT_SCALE_BY_KIND_UV.get(canal.kind.value, inicial),
-                MIN_SCALE_UV,
-                MAX_SCALE_UV,
-            )
-            for canal in recording.channels
+            canal.name: self._escala_inicial(canal) for canal in recording.channels
         }
         #: Cuántos µV se le restan a cada canal antes de dibujarlo. Arranca en
         #: cero para todos, que es el comportamiento que el programa tenía
@@ -168,9 +159,26 @@ class Session:
         #: A quién avisarle cuando cambia la página visible. Ver
         #: `add_view_listener()`.
         self._view_listeners: list[Callable[[Viewport], None]] = []
-        self._ajustar_las_clases_sin_escala()
+        self._ajustar_las_clases_sin_escala(recording.channel_names(), 0)
 
-    def _ajustar_las_clases_sin_escala(self) -> None:
+    def _escala_inicial(self, canal: Channel) -> float:
+        """Con qué escala arranca un canal: la de su clase.
+
+        **Cada clase arranca con la suya**, y la escala de fábrica es el piso
+        de las que no tienen una propia. Con una sola escala para todos, un
+        canal respiratorio a 100 µV se sale de su carril y barre media
+        pantalla; ver `DEFAULT_SCALE_BY_KIND_UV`. Las que quedan en el piso se
+        miden después, en `_ajustar_las_clases_sin_escala()`.
+        """
+        return clamp(
+            DEFAULT_SCALE_BY_KIND_UV.get(canal.kind.value, self._escala_de_fabrica),
+            MIN_SCALE_UV,
+            MAX_SCALE_UV,
+        )
+
+    def _ajustar_las_clases_sin_escala(
+        self, channel_names: list[str], window_index: int
+    ) -> None:
         """Les mide la escala a los canales cuya clase no tiene una propia.
 
         Respiratorio y Otro no aparecen en `DEFAULT_SCALE_BY_KIND_UV` y no es
@@ -181,10 +189,15 @@ class Session:
         pantalla tapando seis canales**, que es exactamente lo que se veía al
         abrir un registro de verdad.
 
-        Se miden sobre la primera época, que es la que se va a ver, y no sobre
-        el registro entero: son ocho horas de señal y esto corre al construir
-        la sesión. Un canal plano o sin datos se deja como está, por el mismo
-        motivo que en `fit_to_pane()`.
+        Se miden sobre la época que se va a ver —la primera al abrir, la actual
+        cuando un análisis agrega un canal— y no sobre el registro entero: son
+        ocho horas de señal. Un canal plano o sin datos se deja como está, por
+        el mismo motivo que en `fit_to_pane()`.
+
+        Args:
+            channel_names: los canales a ajustar; los de clase con escala
+                propia se saltean.
+            window_index: la época sobre la que se mide.
 
         **Primero se centra** (hito 70). Una temperatura de 37 °C que varía una
         décima se medía contra el cero: la escala salía de 37 y la señal se
@@ -194,13 +207,14 @@ class Session:
         """
         if self.n_windows == 0:
             return
-        for canal in self._recording.channels:
+        for nombre in channel_names:
+            canal = self._recording.channel_by_name(nombre)
             if canal.kind.value in DEFAULT_SCALE_BY_KIND_UV:
                 continue
-            centro = self._centro(canal.name, 0)
+            centro = self._centro(canal.name, window_index)
             if centro is not None:
                 self.set_offset_uv(canal.name, centro)
-            apartamiento = self._apartamiento(canal.name, 0)
+            apartamiento = self._apartamiento(canal.name, window_index)
             if apartamiento is not None:
                 self.set_scale_uv(canal.name, apartamiento)
 
@@ -396,7 +410,10 @@ class Session:
           descarta en silencio, que es lo mismo que hace `set_visible_channels`
           con una selección que ya no aplica.
         - Las **escalas** se conservan por nombre de canal, y los canales nuevos
-          arrancan con la de fábrica. Un derivado hereda la amplitud de nadie.
+          arrancan con la de su clase, igual que al abrir el registro: un
+          derivado no hereda la amplitud de nadie, pero un EOG derivado es un
+          EOG. Los de clase sin escala propia se centran y se miden sobre la
+          época actual.
 
         Raises:
             InvalidRecordingError: si no es un `Recording`.
@@ -431,9 +448,10 @@ class Session:
         self._selected_channels = [
             n for n in self._selected_channels if n in nombres
         ]
-        inicial = clamp(DEFAULT_SCALE_UV, MIN_SCALE_UV, MAX_SCALE_UV)
+        nuevos = [nombre for nombre in nombres if nombre not in self._scales_uv]
         self._scales_uv = {
-            nombre: self._scales_uv.get(nombre, inicial) for nombre in nombres
+            canal.name: self._scales_uv.get(canal.name) or self._escala_inicial(canal)
+            for canal in recording.channels
         }
         # Los desplazamientos se conservan **por nombre**, igual que las
         # escalas: un canal que sobrevive a un filtrado sigue apoyado donde el
@@ -442,6 +460,7 @@ class Session:
             nombre: self._offsets_uv.get(nombre, 0.0) for nombre in nombres
         }
         self._recording = recording
+        self._ajustar_las_clases_sin_escala(nuevos, self._current_window)
         # **La página se re-recorta y se avisa.** Filtrar o derivar puede
         # cambiar la duración por debajo de una época sin que `n_windows`
         # cambie, y una página que se pasa del final dibujaría un tramo que no
@@ -789,6 +808,26 @@ class Session:
         self._check_amplitude_factor(factor)
         for nombre in self._channels_under_amplitude():
             self.set_scale_uv(nombre, self._scales_uv[nombre] * factor)
+
+    def set_amplitude_scale(self, scale_uv: float) -> None:
+        """Les da la misma escala a los canales bajo amplitud («µV por carril»).
+
+        El alcance es el de las flechas: los seleccionados, o todos los
+        visibles si no hay ninguno. Vive acá y no en el menú para que las dos
+        vías no puedan discrepar, que es lo que pasaba hasta el hito 79.
+
+        Raises:
+            InvalidScaleError: si la escala no es un número finito. Se comprueba
+                antes de tocar ningún canal.
+        """
+        check_finite(
+            scale_uv,
+            error=InvalidScaleError,
+            message="La escala pedida no es un número válido.",
+            details="Se esperaba un número finito de microvoltios por carril.",
+        )
+        for nombre in self._channels_under_amplitude():
+            self.set_scale_uv(nombre, scale_uv)
 
     def set_scale_uv(
         self,
