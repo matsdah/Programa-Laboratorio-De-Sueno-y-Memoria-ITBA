@@ -54,7 +54,7 @@ import mne
 import numpy as np
 
 from psglab.core.recording import Channel, Recording
-from psglab.readers.base import IMPORT_WARNINGS_KEY, Reader, register_reader
+from psglab.readers.base import IMPORT_WARNINGS_KEY, MARKS_KEY, Reader, register_reader
 from psglab.readers.channel_types import detect_channel_kind
 from psglab.utils.errors import UnknownUnitError, UnreadableFileError
 from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
@@ -318,7 +318,7 @@ class EdfReader(Reader):
 
         metadatos: dict[str, object] = {}
         if len(crudo.annotations):
-            metadatos["edf_annotations"] = [
+            metadatos[MARKS_KEY] = [
                 (float(a["onset"]), float(a["duration"]), str(a["description"]))
                 for a in crudo.annotations
             ]

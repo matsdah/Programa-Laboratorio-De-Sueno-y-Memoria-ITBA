@@ -45,12 +45,13 @@ import numpy as np
 import pytest
 
 from psglab.core import nomenclature as nom
-from psglab.core.annotations import es_color_de_clase
+from psglab.core.annotations import es_color_de_clase, marks_to_annotations
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
-from psglab.core.scoring import Scoring
+from psglab.core.scoring import Scoring, StageSuggestion
 from psglab.analysis import (
+    auto_scoring,
     complexity,
     connectivity,
     derivation,
@@ -130,6 +131,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("Recording(channels=...)", lambda v: Recording(Path("x.edf"), v, np.zeros((1, 10)), 100.0)),
         ("Recording(file_path=...)", lambda v: Recording(v, [Channel("C0", ChannelKind.EEG, "µV", 0)], np.zeros((1, 10)), 100.0)),
         ("channel_by_name", lambda v: registro().channel_by_name(v)),
+        ("content_limit_hz", lambda v: registro().content_limit_hz(v)),
         ("channels_of_kind", lambda v: registro().channels_of_kind(v)),
         ("get_segment(channel_names=...)", lambda v: registro().get_segment(0, 10, [v])),
         ("get_segment(start_sample=...)", lambda v: registro().get_segment(v, 10)),
@@ -145,6 +147,10 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("set_arousal(arousal=...)", lambda v: Scoring(3, Nomenclature.AASM).set_arousal(0, v)),
         ("get", lambda v: Scoring(3, Nomenclature.AASM).get(v)),
         ("change_nomenclature", lambda v: Scoring(3, Nomenclature.AASM).change_nomenclature(v)),
+        ("set_suggestions", lambda v: Scoring(3, Nomenclature.AASM).set_suggestions(v)),
+        ("set_suggestions(suggestions=[...])", lambda v: Scoring(1, Nomenclature.AASM).set_suggestions([v])),
+        ("suggestion", lambda v: Scoring(3, Nomenclature.AASM).suggestion(v)),
+        ("accept_suggestions", lambda v: Scoring(3, Nomenclature.AASM).accept_suggestions(v)),
     ],
     "psglab/core/nomenclature.py": [
         ("check_nomenclature", lambda v: nom.check_nomenclature(v)),
@@ -163,6 +169,10 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("add(duration=...)", lambda v: AnnotationSet().add(Annotation("Arousal", 0, v))),
         ("color_of", lambda v: AnnotationSet().color_of(v)),
         ("es_color_de_clase", lambda v: es_color_de_clase(v)),
+        ("marks_to_annotations(marks=...)", lambda v: marks_to_annotations(v, 100.0, 1000)),
+        ("marks_to_annotations(marks=[...])", lambda v: marks_to_annotations([v], 100.0, 1000)),
+        ("marks_to_annotations(sampling_rate=...)", lambda v: marks_to_annotations([], v, 1000)),
+        ("marks_to_annotations(n_samples=...)", lambda v: marks_to_annotations([], 100.0, v)),
         ("remove_at", lambda v: AnnotationSet().remove_at(v)),
         ("replace(old=...)", lambda v: AnnotationSet().replace(v, Annotation("Arousal", 0, 10))),
         ("replace(new=...)", lambda v: _con_una().replace(Annotation("Arousal", 0, 10), v)),
@@ -253,6 +263,13 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("impedance_report(impedances=...)", lambda v: impedance.impedance_report(v)),
         ("impedance_report(limit_kohm=...)", lambda v: impedance.impedance_report({"C0": 4.0}, v)),
         ("impedance_report(channels=...)", lambda v: impedance.impedance_report({"C0": 4.0}, 5.0, v)),
+    ],
+    "psglab/analysis/auto_scoring.py": [
+        ("default_channels", lambda v: auto_scoring.default_channels(v)),
+        ("suggest_stages(recording=...)", lambda v: auto_scoring.suggest_stages(v, "C0")),
+        ("suggest_stages(eeg=...)", lambda v: auto_scoring.suggest_stages(registro(), v)),
+        ("suggest_stages(eog=...)", lambda v: auto_scoring.suggest_stages(registro(), "C0", v)),
+        ("suggest_stages(emg=...)", lambda v: auto_scoring.suggest_stages(registro(), "C0", None, v)),
     ],
     "psglab/analysis/ica.py": [
         ("fit_ica(recording=...)", lambda v: ica.fit_ica(v)),
@@ -352,6 +369,14 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Hito 75. Una confianza que no es una probabilidad no pasaría nunca un
+    # umbral, y la sugerida quedaría sin confirmarse sin que nada dijera por qué.
+    ("set_suggestions con una confianza NaN", float("nan"),
+     lambda v: Scoring(1, Nomenclature.AASM).set_suggestions([StageSuggestion(SleepStage.N2, v)])),
+    ("set_suggestions con una confianza mayor que 1", 1.5,
+     lambda v: Scoring(1, Nomenclature.AASM).set_suggestions([StageSuggestion(SleepStage.N2, v)])),
+    ("accept_suggestions con un umbral mayor que 1", 1.5,
+     lambda v: Scoring(1, Nomenclature.AASM).accept_suggestions(v)),
     # Hito 48. **Aceptaban los seis valores hostiles**, y la auditoría de los
     # tests las encontró por eso: sus filas en CONTRATOS eran indistinguibles de
     # un test vacío. La del color además llegaba hasta un bug: el visualizador

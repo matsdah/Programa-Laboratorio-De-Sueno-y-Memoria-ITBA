@@ -44,7 +44,7 @@ import mne
 import numpy as np
 
 from psglab.core.recording import Channel, Recording
-from psglab.readers.base import Reader, register_reader
+from psglab.readers.base import MARKS_KEY, Reader, register_reader
 from psglab.readers.channel_types import detect_channel_kind
 from psglab.utils.errors import UnknownUnitError, UnreadableFileError
 from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
@@ -255,6 +255,17 @@ class BrainVisionReader(Reader):
                 f"No se encontró el archivo «{path.name}».",
                 details=f"No existe {path}.",
             )
+        # **La extensión en mayúsculas** (hito 71). `can_read()` la acepta,
+        # como todos los lectores, pero MNE exige «.vhdr» literal y rechaza
+        # «.VHDR» con un error que acá se informaba como archivo dañado: el
+        # investigador buscaba el problema en los datos.
+        if path.suffix != ".vhdr":
+            raise UnreadableFileError(
+                f"No se pudo abrir «{path.name}»: la biblioteca que lee BrainVision "
+                "sólo acepta la extensión «.vhdr» en minúsculas. Renombrá la "
+                f"cabecera como «{path.stem}.vhdr» y volvé a abrirla.",
+                details=f"Extensión «{path.suffix}»; MNE exige «.vhdr».",
+            )
         try:
             crudo = mne.io.read_raw_brainvision(path, preload=True, verbose="ERROR")
         except Exception as error:  # noqa: BLE001 - MNE eleva de todo
@@ -326,7 +337,7 @@ class BrainVisionReader(Reader):
 
         metadatos: dict[str, object] = {}
         if len(crudo.annotations):
-            metadatos["brainvision_markers"] = [
+            metadatos[MARKS_KEY] = [
                 (float(a["onset"]), float(a["duration"]), str(a["description"]))
                 for a in crudo.annotations
             ]

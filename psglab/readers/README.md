@@ -120,6 +120,11 @@ Un CSV con una ventana repetida se rechaza, como el `.txt`. Los eventos con inic
 Ninguno de los dos módulos de scoring es un `Reader`, y `load_all_readers()`
 los saltea.
 
+**Las marcas que trae el archivo** —los marcadores del `.vmrk`, las
+anotaciones de un EDF+— se guardan en `metadata[MARKS_KEY]`, una sola clave
+para los dos formatos, como `(inicio en segundos, duración, descripción)`. La
+ventana las ofrece como anotaciones a pedido (hito 73).
+
 ## `channel_types.py`
 
 Resuelve V4_F: aceptar **cualquier canal, sin límite de tipo**, y saber de qué

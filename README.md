@@ -20,7 +20,7 @@ compatibilidad únicamente con Windows y precios excesivos.
 > derivaciones, PSD, complejidad y conectividad. Necesita dos dependencias
 > aparte, en `requirements-analysis.txt`.
 >
-> **[`docs/TODO.md`](docs/TODO.md)** lleva los setenta hitos —del 0 al 69— con
+> **[`docs/TODO.md`](docs/TODO.md)** lleva los setenta y seis hitos —del 0 al 75— con
 > lo que se decidió en cada uno, y es el único lugar que lleva la cuenta.
 
 ---
@@ -139,12 +139,20 @@ Para correr los tests, instalá además las herramientas de desarrollo:
 pip install -r requirements-dev.txt
 ```
 
-Y las dos dependencias propias de la Parte 2 (el módulo de análisis), que son
+Y las dependencias propias de la Parte 2 (el módulo de análisis), que son
 pesadas pero **hacen falta para correr la suite**: sin ellas fallan los tests de
-complejidad y conectividad.
+complejidad, conectividad y fases sugeridas.
 
 ```bash
 pip install -r requirements-analysis.txt
+```
+
+**En macOS hace falta además OpenMP**, que el clasificador de las fases
+sugeridas (LightGBM) usa y no trae adentro. Sin él, «Sugerir las fases» avisa
+que falta; el resto del programa anda igual.
+
+```bash
+brew install libomp
 ```
 
 ## Ejecución

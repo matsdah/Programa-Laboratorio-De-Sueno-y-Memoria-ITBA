@@ -3,18 +3,17 @@
 Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
     +---------------------------------------------------------------+
-    | [abrir] Scoring | Escala de tiempo | Amplitud | Ver | Paneles  |
-    |   Montaje | Filtrar | Analizar | Herramientas | Configuración  |
-    |   Ayuda                                                        |
+    | [Abrir] Archivo | Escala de tiempo | Amplitud | Ver | Montaje  |
+    |   Filtrar | Analizar | Herramientas | Ayuda                     |
     +----------+-----------------------------------------+----------+
     | Canales  |                                         | Espectro |
     |  (dock)  |   Visualizador de la señal (central)    | Métrica  |
     |          |                                         | ICA...   |
     |          |                                         | (solapas)|
     +----------+-----------------------------------------+----------+
-    |  Übersicht | Scoring | Hipnograma  (docks de abajo, ocultos)   |
+    |  Hipnograma (a la vista) · Contexto y Scoring (ocultos)       |
     +---------------------------------------------------------------+
-    |  Navegación: época ⏮◀▶⏭ | página ≪‹⏯›≫ 1× | amplitud | franja |
+    |  Navegación: ⏮ ◀ ⏯ ▶ ⏭  1×  | franja | amplitud               |
     +---------------------------------------------------------------+
     |  Barra de estado: ventana 42 / 960 - 00:21:00                  |
     +---------------------------------------------------------------+
@@ -27,9 +26,10 @@ paneles de análisis arrancan ocultos y los abre la acción que los calcula.
 que es la única vía: la barra horizontal que lo repetía debajo de la barra de
 menú se quitó por confusa.
 
-**El programa abre sólo con la señal y el selector de canales**, y no
-recuerda la disposición de una apertura a otra (hito 24). Los demás paneles
-se abren desde «Herramientas», que desde el hito 28 lleva también los paneles.
+**El programa abre con la señal, el selector de canales y el hipnograma**
+(el hipnograma, desde el hito 64), y no recuerda la disposición de una
+apertura a otra (hito 24). Los demás paneles se abren desde «Herramientas»,
+que desde el hito 28 lleva también los paneles.
 
 Cubre del pliego: V4_F de "Archivo de salida" (`export()` elige cuál de los tres
 archivos escribir, aunque desde el hito 23 la ventana sólo ofrece el scoring),
@@ -79,7 +79,7 @@ from psglab.config import (
     VIEW_PAN_FRACTION,
     VIEW_ZOOM_FACTOR,
 )
-from psglab.core.annotations import Annotation, AnnotationSet
+from psglab.core.annotations import Annotation, AnnotationSet, marks_to_annotations
 from psglab.core.nomenclature import (
     Nomenclature,
     SleepStage,
@@ -89,6 +89,7 @@ from psglab.core.nomenclature import (
 from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
+from psglab.analysis.auto_scoring import default_channels, suggest_stages
 from psglab.analysis.derivation import derive
 from psglab.analysis.complexity import MEASURES, complexity_by_window, warm_up
 from psglab.analysis.connectivity import (
@@ -125,6 +126,7 @@ from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_formats import SCORING_FORMATS, export_scoring_as
 from psglab.readers.base import (
     IMPORT_WARNINGS_KEY,
+    MARKS_KEY,
     file_dialog_filter,
     read_recording,
     warm_up_readers,
@@ -181,6 +183,16 @@ _TITULO_DE_LOS_CARTELES: str = "PSGLab"
 #: color de una fase. Menos de la mitad a propósito: la barra tiene que leerse
 #: como una marca sobre su fila y no como un bloque que tape la curva.
 _GROSOR_DE_LA_FASE: float = 0.34
+
+#: Desde qué confianza una fase sugerida es «segura» (hito 75). **Medido**:
+#: contra un experto, sobre la noche SC4001 de la Sleep-EDF, las sugeridas con
+#: al menos 80 % acertaron el 93 % y eran algo más de la mitad; el resto
+#: acertó bastante menos. Ver `analysis/auto_scoring.py`.
+_CONFIANZA_SEGURA: float = 0.8
+
+#: Opacidad, en hexadecimal, con que la franja de posición pinta una ventana
+#: con fase sugerida: el color de la fase, apagado (hito 75).
+_OPACIDAD_DE_LA_SUGERIDA: str = "55"
 
 #: Medidas de complejidad que la interfaz ofrece para recorrer la noche.
 #:
@@ -1768,7 +1780,9 @@ class MainWindow(QMainWindow):
         self.navigation.set_span(*self._horas_del_registro())
         self._escribir_el_identificador()
         epoca = sesion.scoring.get(ventana)
-        self.scoring_panel.set_current(epoca.stage, epoca.arousal, ventana)
+        self.scoring_panel.set_current(
+            epoca.stage, epoca.arousal, ventana, sesion.scoring.suggestion(ventana)
+        )
         self._redraw_histogram()
         # La época actual, también sobre la curva de la métrica (hito 54).
         self.metric_panel.set_current_window(ventana)
@@ -2927,6 +2941,30 @@ class MainWindow(QMainWindow):
             return f"<br>{huecos} de {total} ventanas sin valor: son demasiado cortas para medir."
         return ""
 
+    def _sin_contenido_en(self, canales: list[str], banda: tuple[float, float]) -> str:
+        """La nota de los canales que no tienen nada en una banda (hito 72).
+
+        Un canal grabado más lento que el registro llega a la frecuencia de
+        éste, pero no tiene nada por encima de la mitad de la suya: medirle la
+        conectividad en alfa es medir interpolación. `""` si no hay ninguno.
+        """
+        if self._session is None:
+            return ""
+        desde, _ = banda
+        lentos = [
+            canal
+            for canal in canales
+            if self._session.recording.content_limit_hz(canal) <= desde
+        ]
+        if not lentos:
+            return ""
+        uno = len(lentos) == 1
+        return (
+            f"<br>{self._nombrar(lentos)} {'se grabó' if uno else 'se grabaron'} "
+            f"más lento que el registro y no {'tiene' if uno else 'tienen'} nada en "
+            "esa banda: su conectividad ahí no dice nada."
+        )
+
     @staticmethod
     def _nombrar(canales: list[str]) -> str:
         """«C3», «C4» y «O1», como se nombran los canales en el resto del programa."""
@@ -3014,6 +3052,16 @@ class MainWindow(QMainWindow):
                 f"{'queda' if len(sin_medir) == 1 else 'quedan'} fuera de lo que este "
                 f"registro puede medir, que llega hasta {tope:g} Hz: su potencia sale "
                 "en cero."
+            )
+        # **Y un canal grabado más lento** (hito 72): el archivo lo trae a la
+        # frecuencia del registro, pero por encima de la mitad de la suya lo
+        # que se ve es interpolación, y la potencia de esas bandas no es suya.
+        limite = self._session.recording.content_limit_hz(canal)
+        if limite < self._session.recording.sampling_rate / 2:
+            descripcion += (
+                f"<br>«{canal}» se grabó a {f'{2 * limite:g}'.replace('.', ',')} Hz: "
+                f"por encima de {f'{limite:g}'.replace('.', ',')} Hz, lo que se ve "
+                "es interpolación y no señal."
             )
         self.psd_panel.set_caption(descripcion)
         self.psd_dialog.show()
@@ -3116,6 +3164,7 @@ class MainWindow(QMainWindow):
                 f"<br>{'Plano' if len(planos) == 1 else 'Planos'} en esta ventana: "
                 f"{self._nombrar(planos)}. Su conectividad cuenta 0 y baja el promedio."
             )
+        descripcion += self._sin_contenido_en(canales, bandas[banda])
         self.connectivity_panel.set_caption(descripcion)
         self.connectivity_dialog.show()
         self.connectivity_dialog.raise_()
@@ -3198,6 +3247,9 @@ class MainWindow(QMainWindow):
                 f"<br>Con tramos planos: {self._nombrar(list(planos))}. Ahí su "
                 "conectividad cuenta 0 y baja el promedio."
             )
+        bandas = self._preferencias.bands()
+        if banda in bandas:
+            nota += self._sin_contenido_en(canales, bandas[banda])
         self.metric_panel.set_caption(
             f"{etiqueta} a lo largo de la noche<br>{promediados}{nota}"
         )
@@ -3505,6 +3557,224 @@ class MainWindow(QMainWindow):
         if ruta:
             self.open_recording(Path(ruta))
 
+    def import_file_marks(self) -> None:
+        """Agrega como anotaciones las marcas que trae el archivo (hito 73).
+
+        Un BrainVision trae los marcadores de su `.vmrk` y un EDF+ sus
+        anotaciones. **Los lectores los guardaban y nada los leía**, aunque el
+        docstring del de BrainVision prometía convertirlos en anotaciones «si
+        el usuario lo pide»: es lo que hace esto.
+
+        **Sólo a pedido, y preguntando antes** cuántas son de cada clase. Un
+        registro puede traer cientos de marcas de estímulo, y al abrir no se
+        sabe si interesan. Las que ya están —misma clase, mismo tramo— no se
+        repiten, así que importar dos veces no duplica nada.
+        """
+        if self._session is None:
+            return
+        registro = self._session.recording
+        marcas = registro.metadata.get(MARKS_KEY)
+        try:
+            nuevas = marks_to_annotations(
+                list(marcas) if isinstance(marcas, list) else [],
+                registro.sampling_rate,
+                registro.n_samples,
+            )
+        except PsgLabError as error:
+            self._show_error(error, "importar las marcas del registro")
+            return
+        conjunto = self._session.annotations
+        ya_estan = set(conjunto.all())
+        nuevas = [a for a in dict.fromkeys(nuevas) if a not in ya_estan]
+        if not nuevas:
+            self.statusBar().showMessage(
+                f"«{registro.file_path.name}» no trae marcas que no estén ya anotadas.",
+                8000,
+            )
+            return
+        cuentas = Counter(anotacion.label for anotacion in nuevas)
+        detalle = ", ".join(f"{clase} ({cuantas})" for clase, cuantas in cuentas.most_common())
+        if not self._confirmar(
+            "Importar las marcas del registro",
+            f"¿Agregar {len(nuevas)} {'marca' if len(nuevas) == 1 else 'marcas'} "
+            f"de «{registro.file_path.name}» como anotaciones?",
+            "Importar",
+            informativo=detalle,
+        ):
+            return
+        try:
+            for anotacion in nuevas:
+                conjunto.add_label(anotacion.label)
+                conjunto.add(anotacion)
+        except PsgLabError as error:
+            self._show_error(error, "importar las marcas del registro")
+            return
+        self._redibujar_overlays()
+        self.refresh()
+        self.statusBar().showMessage(
+            f"Se {'agregó' if len(nuevas) == 1 else 'agregaron'} {len(nuevas)} "
+            f"{'anotación' if len(nuevas) == 1 else 'anotaciones'} desde las marcas del registro.",
+            8000,
+        )
+
+    def request_stage_suggestions(self) -> None:
+        """Pide al clasificador la fase de las ventanas sin scorear (hito 75).
+
+        **Sugiere, no scorea**: lo que vuelve se guarda en la capa de las
+        sugeridas de `Scoring`, que no se exporta ni pisa lo elegido a mano.
+        Se confirma después, con las entradas de al lado.
+
+        Pregunta antes porque tarda —entre siete y veinte segundos sobre las
+        22 horas de la Sleep-EDF, según cuán ocupada esté la máquina— y dice
+        con qué canales: un EMG que no se usa por lento explica por qué R sale
+        peor. Corre en otro hilo, como la ICA: no cambia la señal.
+        """
+        if self._session is None:
+            return
+        registro = self._session.recording
+        scoring = self._session.scoring
+        sin_scorear = scoring.n_windows - scoring.scored_windows()
+        if sin_scorear == 0:
+            self.statusBar().showMessage(
+                "Todas las ventanas ya están scoreadas: no queda nada que sugerir.", 8000
+            )
+            return
+        try:
+            canales = default_channels(registro)
+        except PsgLabError as error:
+            self._show_error(error, "sugerir las fases")
+            return
+        usados = ", ".join(f"«{c}»" for c in (canales.eeg, canales.eog, canales.emg) if c)
+        # La ruta sale del menú armado, como en los paneles vacíos: renombrar
+        # la entrada no puede dejar al cartel mandando a buscar algo que no está.
+        confirmar = menu_path(self, "accept_safe_suggestions")
+        detalle = (
+            f"Las propone el clasificador de YASA a partir de {usados}. Quedan como "
+            "sugerencias: no se exportan ni cambian lo que ya está scoreado. Se "
+            "confirman scoreando cada ventana"
+            + (f" o desde «{confirmar}»." if confirmar else ".")
+        )
+        if canales.too_slow:
+            lentos = ", ".join(f"«{c}»" for c in canales.too_slow)
+            varios = len(canales.too_slow) > 1
+            detalle += (
+                f" No se {'usan' if varios else 'usa'} {lentos}: "
+                f"{'se grabaron' if varios else 'se grabó'} a 80 Hz o menos."
+            )
+        if not self._confirmar(
+            "Sugerir las fases",
+            f"¿Sugerir la fase de {sin_scorear} "
+            f"{'ventana' if sin_scorear == 1 else 'ventanas'} sin scorear?",
+            "Sugerir",
+            informativo=detalle,
+        ):
+            return
+
+        def calcular() -> object:
+            return suggest_stages(registro, canales.eeg, canales.eog, canales.emg)
+
+        self._en_segundo_plano(
+            "Calculando las fases sugeridas",
+            calcular,
+            self._guardar_las_sugeridas,
+            accion="sugerir las fases",
+        )
+
+    def _guardar_las_sugeridas(self, resultado: object) -> None:
+        """Guarda lo que devolvió el clasificador y lo dibuja."""
+        if self._session is None or not isinstance(resultado, list):
+            return
+        scoring = self._session.scoring
+        try:
+            scoring.set_suggestions(resultado)
+        except PsgLabError as error:
+            self._show_error(error, "sugerir las fases")
+            return
+        self._reload_histogram()
+        self.refresh()
+        seguras = self._sugeridas_con(_CONFIANZA_SEGURA)
+        self.statusBar().showMessage(
+            f"Se sugirió la fase de {scoring.pending_suggestions()} ventanas; "
+            f"{seguras} con una confianza de al menos {round(_CONFIANZA_SEGURA * 100)} %.",
+            8000,
+        )
+
+    def _sugeridas_con(self, minima: float) -> int:
+        """Cuántas sugeridas pendientes tienen al menos esa confianza."""
+        if self._session is None:
+            return 0
+        scoring = self._session.scoring
+        return sum(
+            1
+            for indice in range(scoring.n_windows)
+            if (sugerida := scoring.suggestion(indice)) is not None
+            and sugerida.confidence >= minima
+        )
+
+    def accept_safe_suggestions(self) -> None:
+        """Confirma las fases sugeridas con al menos 80 % de confianza."""
+        self._confirmar_las_sugeridas(_CONFIANZA_SEGURA)
+
+    def accept_all_suggestions(self) -> None:
+        """Confirma todas las fases sugeridas."""
+        self._confirmar_las_sugeridas(0.0)
+
+    def _confirmar_las_sugeridas(self, minima: float) -> None:
+        """Pasa a scoring las sugeridas con al menos esa confianza.
+
+        **Pregunta antes**, porque desde ahí son scoring como cualquier otro:
+        se exportan, y deshacerlas es volver a scorear ventana por ventana.
+        """
+        if self._session is None:
+            return
+        cuantas = self._sugeridas_con(minima)
+        if cuantas == 0:
+            self.statusBar().showMessage("No hay fases sugeridas para confirmar.", 8000)
+            return
+        umbral = (
+            f" con una confianza de al menos {round(minima * 100)} %" if minima > 0 else ""
+        )
+        if not self._confirmar(
+            "Confirmar las fases sugeridas",
+            f"¿Confirmar {cuantas} "
+            f"{'fase sugerida' if cuantas == 1 else 'fases sugeridas'}{umbral}?",
+            "Confirmar",
+            informativo=(
+                "Pasan a ser scoring como cualquier otro: se exportan y se pueden "
+                "cambiar ventana por ventana. Las ventanas ya scoreadas no se tocan."
+            ),
+        ):
+            return
+        try:
+            confirmadas = self._session.scoring.accept_suggestions(minima)
+        except PsgLabError as error:
+            self._show_error(error, "confirmar las fases sugeridas")
+            return
+        self._reload_histogram()
+        contexto = self._tools.get("overview")
+        if isinstance(contexto, OverviewTool):
+            contexto.refresh()
+        self.refresh()
+        self.statusBar().showMessage(
+            f"Se {'confirmó' if confirmadas == 1 else 'confirmaron'} {confirmadas} "
+            f"{'fase' if confirmadas == 1 else 'fases'}.",
+            8000,
+        )
+
+    def discard_suggestions(self) -> None:
+        """Descarta las fases sugeridas. **Sin preguntar**: no se pierde nada
+        que no se pueda volver a pedir, y lo scoreado no se toca."""
+        if self._session is None:
+            return
+        scoring = self._session.scoring
+        if scoring.pending_suggestions() == 0:
+            self.statusBar().showMessage("No hay fases sugeridas para descartar.", 8000)
+            return
+        scoring.clear_suggestions()
+        self._reload_histogram()
+        self.refresh()
+        self.statusBar().showMessage("Se descartaron las fases sugeridas.", 8000)
+
     def open_scoring_dialog(self) -> None:
         """El scoring entra por su **propia** opción, decidido en el hito 4.
 
@@ -3763,11 +4033,20 @@ class MainWindow(QMainWindow):
             connect="finite",
         )
         self._pintar_las_fases(herramienta, altura)
+        self._dibujar_las_sugeridas(herramienta, altura)
         # La franja de posición se pinta con lo mismo: una fase tiene que verse
-        # igual en los dos lugares, y las dos salen de `bars()`.
+        # igual en los dos lugares, y las dos salen de `bars()`. Las sugeridas
+        # van con el color de su fase, apagado (hito 75).
+        esquema = theme.current()
+        sugeridas = herramienta.suggested_bars() or (SleepStage.UNSCORED,) * len(barras)
         self.navigation.set_scoring(
-            [esquema.color_for_stage(fase.value) for fase in barras]
-            if (esquema := theme.current()).stage_colors
+            [
+                esquema.color_for_stage(fase.value)
+                if fase is not SleepStage.UNSCORED
+                else _apagado(esquema.color_for_stage(sugerida.value))
+                for fase, sugerida in zip(barras, sugeridas)
+            ]
+            if esquema.stage_colors
             else []
         )
         item.setYRange(0, len(orden) + 0.5, padding=0)
@@ -3814,6 +4093,27 @@ class MainWindow(QMainWindow):
                 pen=None,
                 brushes=[color for _, _, color, _ in dibujables],
             )
+        )
+
+    def _dibujar_las_sugeridas(
+        self, herramienta: HistogramTool, altura: dict[SleepStage, float]
+    ) -> None:
+        """Las fases sugeridas, como una curva punteada aparte (hito 75).
+
+        **Punteada y en la tinta del texto, sin el color de las fases**: tiene
+        que leerse de un vistazo que eso no lo scoreó nadie. Sólo aparece sobre
+        las ventanas sin scorear, así que nunca se superpone con la curva de lo
+        elegido a mano.
+        """
+        sugeridas = herramienta.suggested_bars()
+        if not any(fase is not SleepStage.UNSCORED for fase in sugeridas):
+            return
+        self.histogram_view.getPlotItem().plot(
+            range(len(sugeridas)),
+            [altura.get(fase, float("nan")) for fase in sugeridas],
+            stepMode="right",
+            connect="finite",
+            pen=pg.mkPen(theme.current().foreground, width=1, style=Qt.PenStyle.DashLine),
         )
 
     def _preparar_el_eje_de_la_metrica(self) -> None:
@@ -3975,3 +4275,14 @@ class MainWindow(QMainWindow):
         if detalle:
             cartel.setDetailedText(str(detalle))
         cartel.exec()
+
+
+def _apagado(color: str | None) -> str | None:
+    """Un color `#rrggbb` con la opacidad de las sugeridas, como `#aarrggbb`.
+
+    Es la forma que entiende `QColor`. Otro formato vuelve `None` y la ventana
+    queda sin pintar, que es mejor que un color inventado.
+    """
+    if color is None or len(color) != 7 or not color.startswith("#"):
+        return None
+    return f"#{_OPACIDAD_DE_LA_SUGERIDA}{color[1:]}"

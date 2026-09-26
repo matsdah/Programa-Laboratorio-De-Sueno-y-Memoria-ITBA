@@ -103,6 +103,14 @@ jobs:
       # Si la instalación se vuelve un problema en algún Python de la matriz,
       # la salida es un job aparte en una sola combinación, **no** volver a
       # dejar esos dos módulos sin tests.
+      # LightGBM, el clasificador de las fases sugeridas (hito 75), necesita
+      # OpenMP y en macOS su rueda no lo trae: sin esto `test_auto_scoring.py`
+      # falla al cargar el modelo. Es lo mismo que el README le pide instalar
+      # a quien use el programa en una Mac.
+      - name: OpenMP para LightGBM (sólo macOS)
+        if: runner.os == 'macOS'
+        run: brew install libomp
+
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip

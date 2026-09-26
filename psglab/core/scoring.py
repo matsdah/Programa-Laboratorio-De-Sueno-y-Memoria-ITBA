@@ -6,9 +6,17 @@ el tamaño total de la noche desde el arranque y muestre en blanco lo no
 anotado (V1_P del histograma), y que el usuario pueda scorear una parte
 alejada del registro sin haber pasado por las anteriores.
 
+**Las fases sugeridas viven al lado y no adentro** (hito 75). Un clasificador
+puede proponer la fase de cada ventana, y esa propuesta se guarda en una capa
+aparte: `EpochScore.stage` sigue queriendo decir «la eligió una persona». Así
+los exportadores, las estadísticas y el trabajo sin exportar no tienen que
+distinguir nada —leen `stage`, que una sugerencia nunca toca— y una sugerencia
+no puede pisar una fase puesta a mano porque no escribe donde vive ésa.
+
 Cubre del pliego: V1_F, V2_F, V3_F de "Scoring de la señal".
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
 from psglab.core.nomenclature import (
@@ -45,6 +53,24 @@ class EpochScore:
     def is_scored(self) -> bool:
         """Indica si la ventana ya fue scoreada por el usuario."""
         return self.stage is not SleepStage.UNSCORED
+
+
+@dataclass(frozen=True)
+class StageSuggestion:
+    """La fase que propone un clasificador para una ventana (hito 75).
+
+    **No es scoring**: nadie la eligió. Se confirma con
+    `Scoring.accept_suggestions()` o scoreando la ventana a mano.
+
+    Attributes:
+        stage: la fase propuesta. Nunca `UNSCORED`: no sugerir nada se dice
+            con `None` en la lista de `Scoring.set_suggestions()`.
+        confidence: la probabilidad que el clasificador le da a esa fase, de
+            0 a 1.
+    """
+
+    stage: SleepStage
+    confidence: float
 
 
 class Scoring:
@@ -84,6 +110,7 @@ class Scoring:
             )
         self._scores: list[EpochScore] = [EpochScore() for _ in range(n_windows)]
         self._nomenclature = nomenclature
+        self._suggestions: list[StageSuggestion | None] = [None] * n_windows
 
     @property
     def n_windows(self) -> int:
@@ -207,6 +234,12 @@ class Scoring:
         self._scores = [
             replace(score, stage=convert(score.stage, target)) for score in self._scores
         ]
+        # Las sugeridas también: una N3 sugerida sobre R&K tiene que ser S3, o
+        # confirmarla después asignaría una fase ajena a la nomenclatura.
+        self._suggestions = [
+            None if sugerida is None else replace(sugerida, stage=convert(sugerida.stage, target))
+            for sugerida in self._suggestions
+        ]
         self._nomenclature = target
 
     def scored_windows(self) -> int:
@@ -227,3 +260,147 @@ class Scoring:
         histograma corrompiera el scoring sin pasar por `set_stage()`.
         """
         return [score.stage for score in self._scores]
+
+    # -- Fases sugeridas (hito 75) -------------------------------------------
+
+    def set_suggestions(self, suggestions: Sequence[StageSuggestion | None]) -> None:
+        """Guarda las fases que propone un clasificador, una por ventana.
+
+        **Reemplaza las anteriores enteras**, y no toca ninguna fase elegida a
+        mano: las sugerencias viven en otra capa (ver el docstring del módulo).
+
+        **Se traducen a la nomenclatura activa**, en vez de rechazarse como hace
+        `set_stage()`. El clasificador propone en AASM porque así fue entrenado,
+        y no es un error de quien llama que el usuario esté scoreando en R&K;
+        la traducción es la misma de `change_nomenclature()`, con la misma
+        pérdida: N3 pasa a S3.
+
+        **Se valida todo antes de guardar nada**, así que una lista con un solo
+        elemento malo deja las sugerencias como estaban.
+
+        Args:
+            suggestions: una entrada por ventana, `None` donde no hay
+                propuesta. Tiene que tener exactamente `n_windows` entradas: una
+                lista corrida en una ventana sugiere toda la noche desfasada,
+                y eso es plausible y equivocado.
+
+        Raises:
+            WindowOutOfRangeError: si la lista no tiene una entrada por ventana.
+            InvalidStageError: si alguna entrada no es una sugerencia válida.
+        """
+        if isinstance(suggestions, (str, bytes)) or not isinstance(suggestions, Sequence):
+            raise InvalidStageError(
+                "Las fases sugeridas llegaron en un formato que no se puede leer.",
+                details=f"suggestions es {type(suggestions).__name__}, se esperaba una lista.",
+            )
+        if len(suggestions) != self.n_windows:
+            raise WindowOutOfRangeError(
+                f"Se sugirieron fases para {len(suggestions)} ventanas y el registro "
+                f"tiene {self.n_windows}.",
+                details="set_suggestions() espera una entrada por ventana.",
+            )
+        traducidas: list[StageSuggestion | None] = []
+        for posicion, sugerida in enumerate(suggestions):
+            if sugerida is None:
+                traducidas.append(None)
+                continue
+            _check_suggestion(sugerida, posicion)
+            traducidas.append(
+                replace(sugerida, stage=convert(sugerida.stage, self._nomenclature))
+            )
+        self._suggestions = traducidas
+
+    def suggestion(self, window_index: int) -> StageSuggestion | None:
+        """La fase sugerida para una ventana **que todavía nadie scoreó**.
+
+        Sobre una ventana scoreada devuelve `None` aunque haya una guardada: lo
+        que eligió una persona gana, y mostrar al lado lo que el clasificador
+        pensaba sólo invita a dudar de una decisión ya tomada. Si la fase se
+        borra, la sugerencia vuelve a aparecer.
+
+        Raises:
+            WindowOutOfRangeError: si el índice cae fuera del registro.
+        """
+        self._check_window(window_index)
+        if self._scores[window_index].is_scored:
+            return None
+        return self._suggestions[window_index]
+
+    def pending_suggestions(self) -> int:
+        """Cuántas ventanas sin scorear tienen una fase sugerida."""
+        return sum(
+            1
+            for score, sugerida in zip(self._scores, self._suggestions)
+            if sugerida is not None and not score.is_scored
+        )
+
+    def accept_suggestions(self, min_confidence: float = 0.0) -> int:
+        """Confirma las sugerencias pendientes con al menos esa confianza.
+
+        Confirmar es escribirlas como fase, por `set_stage()`, así que desde
+        ahí son scoring como cualquier otro: se exportan y cuentan como trabajo
+        sin exportar. **Sólo sobre ventanas sin scorear**: una fase puesta a
+        mano no se pisa nunca.
+
+        Args:
+            min_confidence: de 0 a 1. Con 0 se confirman todas.
+
+        Returns:
+            Cuántas ventanas se confirmaron.
+
+        Raises:
+            InvalidStageError: si `min_confidence` no es un número entre 0 y 1.
+        """
+        if (
+            isinstance(min_confidence, bool)
+            or not isinstance(min_confidence, (int, float))
+            or not 0.0 <= min_confidence <= 1.0
+        ):
+            raise InvalidStageError(
+                "La confianza mínima para confirmar las fases sugeridas tiene que "
+                "estar entre 0 y 100 %.",
+                details=f"min_confidence = {min_confidence!r}.",
+            )
+        confirmadas = 0
+        for indice, sugerida in enumerate(self._suggestions):
+            if sugerida is None or self._scores[indice].is_scored:
+                continue
+            if sugerida.confidence >= min_confidence:
+                self.set_stage(indice, sugerida.stage)
+                confirmadas += 1
+        return confirmadas
+
+    def clear_suggestions(self) -> None:
+        """Descarta todas las fases sugeridas. Las elegidas a mano quedan."""
+        self._suggestions = [None] * self.n_windows
+
+
+def _check_suggestion(sugerida: object, posicion: int) -> None:
+    """Rechaza lo que no sea una sugerencia que se pueda confirmar después.
+
+    Se revisa al guardar y no al confirmar: una confianza `NaN` guardada haría
+    que ninguna comparación contra el umbral fuera cierta, y la sugerencia no
+    se confirmaría nunca sin que nada dijera por qué. **El rango la rechaza
+    sin guarda propia**: `0 <= nan <= 1` es falso, igual que con un infinito.
+    """
+    donde = f"ventana {posicion + 1}"
+    if not isinstance(sugerida, StageSuggestion):
+        raise InvalidStageError(
+            "Una de las fases sugeridas no se puede leer.",
+            details=f"{donde}: es {type(sugerida).__name__}, se esperaba StageSuggestion.",
+        )
+    if not isinstance(sugerida.stage, SleepStage) or sugerida.stage is SleepStage.UNSCORED:
+        raise InvalidStageError(
+            "Una de las fases sugeridas no es una fase de sueño.",
+            details=f"{donde}: stage = {sugerida.stage!r}.",
+        )
+    confianza = sugerida.confidence
+    if (
+        isinstance(confianza, bool)
+        or not isinstance(confianza, (int, float))
+        or not 0.0 <= confianza <= 1.0
+    ):
+        raise InvalidStageError(
+            "Una de las fases sugeridas trae una confianza que no es una probabilidad.",
+            details=f"{donde}: confidence = {confianza!r}, se esperaba un número entre 0 y 1.",
+        )

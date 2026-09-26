@@ -13,6 +13,8 @@ de salida" y la vista de eventos de la herramienta Übersicht.
 """
 
 import bisect
+import math
+import operator
 import re
 from dataclasses import dataclass
 from typing import Final
@@ -202,6 +204,20 @@ class AnnotationSet:
             details="Se esperaba una duración finita de 1 muestra o más.",
             minimum=1,
         )
+        # **En muestras enteras** (hito 71). Se aceptaba 10,5: `Anotaciones.txt`
+        # guarda puntos del registro, que son enteros, y una fracción no es un
+        # lugar de la señal.
+        for campo, valor in (
+            ("onset_sample", annotation.onset_sample),
+            ("duration_samples", annotation.duration_samples),
+        ):
+            try:
+                operator.index(valor)
+            except TypeError:
+                raise InvalidAnnotationError(
+                    "Una anotación se guarda en muestras enteras del registro.",
+                    details=f"{campo} = {valor!r}.",
+                ) from None
 
     def _insertar(self, annotation: Annotation) -> None:
         """Inserta una anotación ya validada en su lugar por muestra de inicio."""
@@ -374,3 +390,80 @@ class AnnotationSet:
         for anotacion in self._annotations:
             cuentas[anotacion.label] = cuentas.get(anotacion.label, 0) + 1
         return cuentas
+
+
+def marks_to_annotations(
+    marks: list[tuple[float, float, str]],
+    sampling_rate: float,
+    n_samples: int,
+) -> list[Annotation]:
+    """Las marcas que trae el archivo del registro, como anotaciones (hito 73).
+
+    Un BrainVision trae los marcadores de su `.vmrk` y un EDF+ sus anotaciones:
+    los lectores los guardan en segundos, con su descripción. Acá pasan a la
+    unidad de las anotaciones, que son muestras del registro.
+
+    - **Una marca sin duración ocupa una muestra**: un marcador de estímulo es
+      un instante, y una anotación sin ancho no se podría dibujar.
+    - **Una marca fuera del registro se saltea**: la del final de un archivo
+      truncado, o la de antes del comienzo, no tienen dónde ir.
+    - **La clase es la descripción**, sin los espacios de los bordes. Una sin
+      descripción se saltea: no habría con qué nombrarla.
+
+    Args:
+        marks: `(inicio en segundos, duración en segundos, descripción)`.
+        sampling_rate: la frecuencia del registro.
+        n_samples: cuántas muestras tiene el registro.
+
+    Raises:
+        InvalidAnnotationError: si las marcas no tienen esa forma, o si la
+            frecuencia o la cantidad de muestras no sirven.
+    """
+    check_finite(
+        sampling_rate,
+        error=InvalidAnnotationError,
+        message="No se pudieron leer las marcas del registro.",
+        details="sampling_rate tiene que ser un número finito y positivo.",
+    )
+    if sampling_rate <= 0:
+        raise InvalidAnnotationError(
+            "No se pudieron leer las marcas del registro.",
+            details=f"sampling_rate = {sampling_rate}, se esperaba un número positivo.",
+        )
+    check_index(
+        n_samples,
+        error=InvalidAnnotationError,
+        message="No se pudieron leer las marcas del registro.",
+        details="n_samples tiene que ser una cantidad entera de muestras.",
+    )
+    if not isinstance(marks, (list, tuple)):
+        raise InvalidAnnotationError(
+            "No se pudieron leer las marcas del registro.",
+            details=f"marks es {type(marks).__name__}, se esperaba una lista.",
+        )
+
+    anotaciones: list[Annotation] = []
+    for marca in marks:
+        if (
+            not isinstance(marca, (list, tuple))
+            or len(marca) != 3
+            or not isinstance(marca[2], str)
+            or any(
+                isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+                for v in marca[:2]
+            )
+        ):
+            raise InvalidAnnotationError(
+                "No se pudieron leer las marcas del registro.",
+                details=f"Se esperaba (inicio, duración, descripción) y se leyó {marca!r}.",
+            )
+        inicio_s, duracion_s, descripcion = marca
+        clase = descripcion.strip()
+        inicio = round(inicio_s * sampling_rate)
+        if not clase or not 0 <= inicio < n_samples:
+            continue
+        duracion = max(1, round(duracion_s * sampling_rate))
+        anotaciones.append(
+            Annotation(clase, inicio, min(duracion, n_samples - inicio))
+        )
+    return anotaciones

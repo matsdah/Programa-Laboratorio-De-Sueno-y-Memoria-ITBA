@@ -14,6 +14,7 @@ from psglab.core.annotations import (
     Annotation,
     AnnotationSet,
     es_color_de_clase,
+    marks_to_annotations,
 )
 from psglab.utils.errors import InvalidAnnotationError, UnknownAnnotationLabelError
 
@@ -416,3 +417,66 @@ def test_reemplazar_una_que_no_esta_avisa(anotaciones):
         anotaciones.replace(evento(100), evento(200))
 
     assert anotaciones.all() == []
+
+
+# -- En muestras enteras (hito 71) ------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("inicio", "duracion"), [(10.5, 100), (10, 3.2)], ids=["inicio", "duracion"]
+)
+def test_una_anotacion_en_fracciones_de_muestra_se_rechaza(anotaciones, inicio, duracion):
+    """`Anotaciones.txt` guarda puntos del registro, que son enteros: una
+    fracción no es un lugar de la señal. Se aceptaba."""
+    with pytest.raises(InvalidAnnotationError):
+        anotaciones.add(Annotation("Arousal", inicio, duracion))
+
+
+
+# -- Las marcas del archivo como anotaciones (hito 73) ------------------------
+
+
+def test_una_marca_pasa_de_segundos_a_muestras():
+    (anotacion,) = marks_to_annotations([(1.5, 0.25, "Stimulus/S  1")], 100.0, 1000)
+
+    assert anotacion == Annotation("Stimulus/S  1", 150, 25)
+
+
+def test_una_marca_sin_duracion_ocupa_una_muestra():
+    """Un marcador de estímulo es un instante, y una anotación sin ancho no
+    se podría dibujar."""
+    (anotacion,) = marks_to_annotations([(0.5, 0.0, "Estímulo")], 100.0, 1000)
+
+    assert anotacion.duration_samples == 1
+
+
+@pytest.mark.parametrize("inicio", [-1.0, 10.0, 25.0], ids=["antes", "en-el-final", "despues"])
+def test_una_marca_fuera_del_registro_se_saltea(inicio):
+    """La de un archivo truncado no tiene dónde ir."""
+    assert marks_to_annotations([(inicio, 1.0, "Marca")], 100.0, 1000) == []
+
+
+def test_una_marca_que_se_pasa_del_final_se_recorta():
+    (anotacion,) = marks_to_annotations([(9.5, 5.0, "Larga")], 100.0, 1000)
+
+    assert anotacion.end_sample == 1000
+
+
+def test_una_marca_sin_descripcion_se_saltea():
+    assert marks_to_annotations([(1.0, 1.0, "   ")], 100.0, 1000) == []
+
+
+def test_la_clase_va_sin_los_espacios_de_los_bordes():
+    (anotacion,) = marks_to_annotations([(1.0, 1.0, "  Arousal ")], 100.0, 1000)
+
+    assert anotacion.label == "Arousal"
+
+
+@pytest.mark.parametrize(
+    "marca",
+    [(1.0, 1.0), ("uno", 1.0, "M"), (1.0, float("nan"), "M"), (1.0, 1.0, 3)],
+    ids=["dos-campos", "inicio-texto", "duracion-nan", "descripcion-numero"],
+)
+def test_una_marca_mal_formada_se_rechaza(marca):
+    with pytest.raises(InvalidAnnotationError):
+        marks_to_annotations([marca], 100.0, 1000)

@@ -20,11 +20,11 @@ ubicó mal.
 
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
-| `recording.py` | El registro cargado en memoria: `Recording`, `Channel`, `ChannelKind`. `flat_channels()` dice qué canales no varían en un tramo, para que los análisis lo expliquen, y `non_finite_channels()`, cuántas muestras sin valor tiene cada uno, para avisarlo al importar. | Soporte de V1_F–V3_F de "Importación", V4_F de "Visualización" |
+| `recording.py` | El registro cargado en memoria: `Recording`, `Channel`, `ChannelKind`. `flat_channels()` dice qué canales no varían en un tramo, para que los análisis lo expliquen, y `non_finite_channels()`, cuántas muestras sin valor tiene cada uno, para avisarlo al importar. `content_limit_hz()` dice hasta qué frecuencia tiene contenido de verdad un canal grabado más lento que el registro (hito 72). | Soporte de V1_F–V3_F de "Importación", V4_F de "Visualización" |
 | `session.py` | Estado de trabajo del usuario. **Es el objeto central.** | V1_F de "Navegación"; V2_P, V3_P, V5_F de "Visualización"; V4_F del histograma |
-| `scoring.py` | Fase y arousal de cada ventana: `Scoring`, `EpochScore`. | V1_F, V2_F, V3_F de "Scoring" |
+| `scoring.py` | Fase y arousal de cada ventana: `Scoring`, `EpochScore`. Desde el hito 75, también las fases que sugiere un clasificador (`StageSuggestion`), **en una capa aparte**: `stage` sigue queriendo decir «la eligió una persona», así que ni los exportadores ni las estadísticas las ven, y una sugerida nunca pisa una fase puesta a mano. | V1_F, V2_F, V3_F de "Scoring" |
 | `nomenclature.py` | Rechtschaffen y Kales frente a AASM: `Nomenclature`, `SleepStage`, conversión entre ambas. `check_nomenclature()` es pública desde el hito 48 porque `Scoring` la necesita para no guardar una nomenclatura inventada. | V1_F, V3_F de "Scoring"; V3_F del histograma |
-| `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. Una anotación es inmutable; corregirla es reemplazarla con `replace()`, que valida la nueva antes de sacar la vieja (hito 52). | V1_F de "Anotación de la señal" |
+| `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. Una anotación es inmutable; corregirla es reemplazarla con `replace()`, que valida la nueva antes de sacar la vieja (hito 52). `marks_to_annotations()` convierte las marcas que trae el archivo en anotaciones, en muestras (hito 73). | V1_F de "Anotación de la señal" |
 | `windows.py` | Conversión entre ventanas, muestras y hora de la noche. | V1_P de "Visualización", V1_F de "Navegación", V2_F del histograma |
 | `viewport.py` | **La página visible**, separada de la época de scoring. Inmutable: cambiarla es construir otra. `zoomed_at()` cambia la escala dejando quieto un instante, que es lo que hace la rueda (hito 56). | — |
 | `decimation.py` | **La envolvente mínimo/máximo** que hace dibujable el registro entero sin perder un solo pico. Las cubetas se cuentan desde el comienzo del registro y no desde el borde de la página (hito 49), para que el visualizador pueda guardarlas y calcular sólo las que entran. | — |
@@ -43,7 +43,9 @@ Cuando agregues estado de trabajo nuevo, va acá, no en un widget.
 
 **Cada clase de canal abre con su propia escala vertical**
 (`DEFAULT_SCALE_BY_KIND_UV`, en `config.py`), y las que no tienen una de uso
-corriente —Respiratorio, Otro— se miden sobre la primera época. Una sola escala
+corriente —Respiratorio, Otro— se miden sobre la primera época, **después de
+centrarlas en su media** (hito 70): una temperatura de 37 °C se medía contra
+el cero y se dibujaba pegada al borde de su carril. Una sola escala
 para todos no puede servir: con los 100 µV de un EEG, un canal respiratorio se
 sale de su carril y tapa seis canales.
 

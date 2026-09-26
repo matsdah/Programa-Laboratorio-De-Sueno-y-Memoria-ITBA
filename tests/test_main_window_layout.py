@@ -153,6 +153,13 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "ask_window",
         # Hito 64: recientes y vistas de canales.
         "open_recent_file",
+        # Las marcas del archivo como anotaciones (hito 73).
+        "import_file_marks",
+        # Las fases sugeridas, «Analizar › Fases sugeridas» (hito 75).
+        "request_stage_suggestions",
+        "accept_safe_suggestions",
+        "accept_all_suggestions",
+        "discard_suggestions",
         "save_channel_view",
         "apply_channel_view",
         "delete_channel_view",

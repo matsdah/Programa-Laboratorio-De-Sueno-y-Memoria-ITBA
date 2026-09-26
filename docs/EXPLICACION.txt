@@ -62,7 +62,7 @@ programa. Con eso se evita descubrir a mitad de camino que dos personas
 escribieron lo mismo en dos lugares distintos.
 
 Como se llego hasta aca esta en docs/TODO.md, que es el unico documento que
-lleva la cuenta. El trabajo esta agrupado en setenta hitos, del 0 al 69:
+lleva la cuenta. El trabajo esta agrupado en setenta y seis hitos, del 0 al 75:
 cada hito solo usa cosas que ya estan terminadas en los hitos anteriores.
 
 
@@ -205,7 +205,9 @@ En resumen se decidio:
     nomenclatura se scoreo, por ejemplo "# AASM". Se anota tambien en
     Informacion.txt.
   - Una ventana todavia sin scorear se escribe con el codigo -1.
-  - El scoring automatico queda fuera del alcance.
+  - El scoring automatico quedaba fuera del alcance. El usuario lo reabrio
+    el 25 de septiembre (hito 75) como fases sugeridas, que alguien tiene
+    que confirmar antes de que cuenten como scoring.
   - El titular del copyright es el Laboratorio de Sueno y Memoria del ITBA.
 
 Una advertencia practica: ANOTACIONES.TXT NO SE ENTIENDE SOLO. Guarda las

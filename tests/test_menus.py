@@ -243,6 +243,7 @@ def test_archivo_abre_importa_exporta_y_configura(ventana: MainWindow):
         "&Abrir registro…",
         "Abrir &reciente",
         "&Importar scoring…",
+        "Importar las &marcas del registro…",
         "Exportar el scoring como .txt…",
         "Exportar el scoring como .csv…",
         "Exportar el scoring como .edf…",
@@ -561,3 +562,40 @@ def test_el_identificador_esta_en_la_esquina_de_la_barra(ventana: MainWindow):
     esquina = ventana.menuBar().cornerWidget(Qt.Corner.TopRightCorner)
 
     assert esquina is ventana.recording_summary
+
+
+# -- Los diagramas de la ventana dicen la verdad (hito 71) --------------------
+
+
+def menus_del_diagrama(texto: str) -> list[str]:
+    """Los menús que dibuja un diagrama de la ventana, en orden.
+
+    Son los renglones entre el primer borde y el primero que parte la ventana
+    en columnas: `| [Abrir] Archivo | Escala de tiempo | … |`.
+    """
+    renglones = texto.splitlines()
+    primero = next(i for i, r in enumerate(renglones) if r.strip().startswith("+---"))
+    ultimo = next(
+        i for i, r in enumerate(renglones) if i > primero and r.strip().startswith("+---")
+    )
+    celdas = " | ".join(r.strip().strip("|") for r in renglones[primero + 1 : ultimo])
+    nombres = [c.strip() for c in celdas.split("|")]
+    return [n.removeprefix("[Abrir]").strip() for n in nombres if n.strip()]
+
+
+@pytest.mark.parametrize("donde", ["ui/README.md", "ui/main_window.py"])
+def test_el_diagrama_de_la_ventana_dibuja_sus_menus_de_verdad(ventana: MainWindow, donde):
+    """**El hito 64 volvió a poner «Archivo» y los dos diagramas siguieron
+    dibujando «Scoring», «Paneles» y «Configuración»**, que ya no existían. La
+    prosa no la mira ningún chequeo; el diagrama se puede comparar."""
+    import pathlib
+
+    import psglab
+
+    ruta = pathlib.Path(psglab.__file__).parent / donde
+    texto = ruta.read_text(encoding="utf-8")
+    if donde.endswith(".md"):
+        texto = texto.split("## Distribución de la ventana", 1)[1]
+    reales = [a.text().replace("&", "") for a in ventana.menuBar().actions()]
+
+    assert menus_del_diagrama(texto) == reales

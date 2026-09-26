@@ -82,9 +82,16 @@ class Channel:
     original_sampling_rate: float | None = None
 
 
-@dataclass
+@dataclass(eq=False)
 class Recording:
     """Un registro polisomnográfico completo.
+
+    **Dos registros son el mismo sólo si son el mismo objeto** (hito 71). La
+    igualdad de fábrica de un `dataclass` compara campo por campo, y con la
+    señal adentro eso elevaba `ValueError` —numpy no dice si dos matrices son
+    «iguales»—: `a == b` o `a in lista` rompían. El programa ya los compara por
+    identidad: un filtro o una derivación devuelven otro registro, aunque los
+    números coincidan.
 
     Attributes:
         file_path: archivo del que se cargó el registro.
@@ -322,6 +329,23 @@ class Recording:
             f"El registro no tiene ningún canal llamado «{name}».",
             details=f"Canales disponibles: {', '.join(self.channel_names())}.",
         )
+
+    def content_limit_hz(self, name: str) -> float:
+        """Hasta qué frecuencia tiene contenido de verdad un canal (hito 72).
+
+        Es la mitad de la frecuencia a la que **se grabó**, que puede ser menor
+        que la del registro: un EDF trae canales de 1 Hz junto a otros de
+        100 Hz, y MNE los lleva a todos a la más alta. Por encima de este
+        límite, lo que tiene un canal lento es interpolación. Sin frecuencia de
+        origen declarada, o si es mayor, el límite es el del registro.
+
+        Raises:
+            ChannelNotFoundError: si no existe un canal con ese nombre.
+        """
+        original = self.channel_by_name(name).original_sampling_rate
+        if original is None or original >= self.sampling_rate:
+            return self.sampling_rate / 2
+        return original / 2
 
     def channels_of_kind(self, kind: ChannelKind) -> list[Channel]:
         """Devuelve todos los canales de una clase dada.

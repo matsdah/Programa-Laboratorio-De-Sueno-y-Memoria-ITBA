@@ -13,17 +13,17 @@ registro de 400 es una regla y va en `core/`.
 
 ```
 +---------------------------------------------------------------+
-| [abrir] Scoring | Escala de tiempo | Amplitud | Ver | Montaje  |
-|   Filtrar | Analizar | Herramientas | Configuración | Ayuda     |
+| [Abrir] Archivo | Escala de tiempo | Amplitud | Ver | Montaje  |
+|   Filtrar | Analizar | Herramientas | Ayuda                     |
 +----------+-----------------------------------------+----------+
 | Canales  |                                         | Espectro |
 |  (dock)  |   Visualizador de la señal (central)    | Métrica  |
 |          |                                         | ICA...   |
 |          |                                         | (solapas)|
 +----------+-----------------------------------------+----------+
-|  Übersicht | Scoring | Hipnograma  (docks de abajo, ocultos)   |
+|  Hipnograma (a la vista) · Contexto y Scoring (ocultos)       |
 +---------------------------------------------------------------+
-|  Navegación: ⏮ ◀ ⏯ ▶ ⏭  1×  | amplitud | franja | posición     |
+|  Navegación: ⏮ ◀ ⏯ ▶ ⏭  1×  | franja | amplitud               |
 +---------------------------------------------------------------+
 |  Barra de estado: ventana 42 / 960 - 00:21:00                  |
 +---------------------------------------------------------------+
@@ -32,16 +32,18 @@ registro de 400 es una regla y va en `core/`.
 **La señal es el widget central y todo lo demás es un `QDockWidget`**: se mueve,
 se apila en solapas, se cierra y se saca a otra pantalla.
 
-**El programa abre siempre con la señal y el panel Canales, y nada más.**
-Los otros nueve arrancan ocultos y se abren desde «Herramientas», que desde
-el hito 28 junta las herramientas y los paneles; «Herramientas ▸ Restaurar la
+**El programa abre siempre con la señal, el panel Canales y el
+hipnograma**, que volvió a la vista en el hito 64. Los otros ocho arrancan
+ocultos y se abren desde «Herramientas», que desde el hito 28 junta las
+herramientas y los paneles; «Herramientas ▸ Restaurar la
 disposición» vuelve a esa vista. Desde el hito 24 la
 disposición no se recuerda de una apertura a otra.
 
-**La barra de menú empieza con un botón y no con «Archivo».** Abrir un
-registro era lo único que le quedaba a ese menú, así que es un icono de
-carpeta en la esquina. «Configuración» tampoco despliega nada: abre su
-ventana. **No hay barra de herramientas**: las herramientas se activan desde
+**La barra de menú empieza con el botón «Abrir» y después «Archivo».** El
+botón es el primer control que usa quien abre el programa: un clic y no dos.
+«Archivo», que se había quitado en el hito 23 porque sólo le quedaba abrir,
+volvió en el hito 64 con los recientes, el scoring y la configuración, donde
+los busca quien viene de otro programa. **No hay barra de herramientas**: las herramientas se activan desde
 su menú, que es la única vía desde el hito 23.
 
 **La navegación no es un dock**, y es la única excepción: es la única vía de
@@ -53,7 +55,7 @@ conoce las flechas del teclado.
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
 | `main_window.py` | Arma el layout y **conecta las piezas**; no implementa ninguna funcionalidad. `export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos. Antes de cerrar, de abrir otro registro o de importar un scoring encima pregunta por el trabajo sin exportar —Exportar…, Descartar o Cancelar—, scoring y anotaciones, con un diálogo de guardado por cada cosa en juego; la regla de qué cuenta es de `Session`. Después de abrir uno muestra los avisos que dejó el lector, como el de un archivo truncado. La rueda sobre la señal cambia la escala de tiempo, fija bajo el mouse, y con Mayúsculas o deslizando de costado en el panel táctil desplaza la página (hito 56). Scorear pasa a la ventana siguiente, salvo que se lo apague (hito 64). Las confirmaciones dicen la acción en el botón y un cartel de error empieza diciendo qué no se pudo hacer (hito 65), en el texto y no en el título, que macOS no muestra (hito 66). Un cálculo en otro hilo que vuelve cuando ya se abrió otro registro se descarta (hito 67). | V4_F de "Archivo de salida" |
-| `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** Marca la época con una banda, su número y su fase con una pestaña rellena en el borde, y —reproduciendo— el cursor con una línea: las tres se crean una vez y se mueven. Su eje de abajo, `TimeAxis`, va en hora de la noche. Guarda la envolvente por trozos alineados al registro, así que un paso de la reproducción calcula sólo lo que entra (hito 49). La pestaña de la ventana actual toma el color de su fase y va encima de las bandas de anotación (hito 64). | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
+| `signal_view.py` | El visualizador de ondas. **El corazón de la interfaz.** Marca la época con una banda, su número y su fase con una pestaña rellena en el borde, y —reproduciendo— el cursor con una línea: las tres se crean una vez y se mueven. Su eje de abajo, `TimeAxis`, va en hora de la noche. Guarda la envolvente por trozos alineados al registro, así que un paso de la reproducción calcula sólo lo que entra (hito 49). La pestaña de la ventana actual toma el color de su fase y va encima de las bandas de anotación (hito 64). El canalón dice la unidad de cada canal, que no es µV para lo que no es eléctrico (hito 70). | V1_P, V2_P, V4_F, V5_F de "Visualización"; V1_F de "Anotación de la señal" |
 | `channel_selector.py` | Elegir cuántos y cuáles canales se ven. Una fila por canal con su nombre y un chip con su clase, y un pie con un atajo por clase presente. | V3_P, V4_F de "Visualización" |
 | `background.py` | Correr un cálculo largo en otro hilo y devolver el resultado en el de la interfaz. **No hay cancelar**: ni MNE ni numpy interrumpen un cálculo empezado. `stopped` avisa que terminó con cualquier final, también con el error inesperado que se vuelve a elevar: sin eso la ventana quedaba esperando (hito 68). | — (infraestructura) |
 | `panel_header.py` | El encabezado de 34 px y el cartel de panel vacío que comparten los seis paneles de análisis. El rótulo va escrito en mayúsculas, no con `text-transform`, que Qt no soporta. Guarda también `SIN_REGISTRO`, lo único que dice la ventana sin un registro abierto (hito 65). | — (presentación compartida) |
@@ -68,10 +70,10 @@ conoce las flechas del teclado.
 | `overview_panel.py` | Dibuja el panel de contexto que publica `OverviewTool`: las ventanas vecinas, con la actual marcada; cada una con un encabezado —número, fase y eventos con su nombre— y su señal en miniatura, con la escala del visualizador. Un clic en una caja lleva a esa ventana (hito 51). El ancho que se pide es el preferido; se deja angostar hasta 120 px. Se alcanza con el teclado, dibuja el anillo de foco y le dice a un lector de pantalla lo que muestran las cajas (hito 63). | V1_F, V2_F, V3_F de "Übersicht" |
 | `navigation.py` | La barra inferior: ocho controles —primera, anterior, reproducir/pausar, siguiente, última, velocidad, menos y más amplitud— y una franja que muestra dónde cae la ventana en la noche, **con qué fase está scoreada cada época** (hito 34, cacheado en un `QPixmap` que `apply_scheme()` tira al cambiar de esquema), y deja saltar con un clic. Desde el hito 36 la franja lleva a los costados las horas del registro y debajo la época con su hora. **La amplitud no se lee acá** y **reproducir se ve como los otros seis** desde el hito 44. Los botones de página se sacaron en el hito 27; sus atajos siguen. | V1_F de "Navegación" |
 | `playback.py` | El reloj de la reproducción: mide el tiempo real y avisa cuánto avanzar el cursor. No conoce la sesión ni mueve nada; la regla del cursor es de `Session.move_playhead()`. | V1_F de "Navegación" |
-| `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. Las fases van en su propia fila, debajo del selector, para que el mínimo del panel sea el de la fila más ancha y no la suma; abajo, un pie con la ventana y su fase, que se sigue viendo si el panel sale a otra pantalla. **Cada botón muestra su tecla y declara su fase** (hito 34): el color lo pone la hoja de estilo, así que el panel no conoce ninguno. El selector de nomenclatura tiene nombre accesible y la casilla de arousal mide 24 px de alto (hito 63). | V1_F, V2_F, V3_F de "Scoring" |
+| `scoring_panel.py` | Elegir la fase de la ventana y marcar arousal. Las fases van en su propia fila, debajo del selector, para que el mínimo del panel sea el de la fila más ancha y no la suma; abajo, un pie con la ventana y su fase, que se sigue viendo si el panel sale a otra pantalla. **Cada botón muestra su tecla y declara su fase** (hito 34): el color lo pone la hoja de estilo, así que el panel no conoce ninguno. El selector de nomenclatura tiene nombre accesible y la casilla de arousal mide 24 px de alto (hito 63). Sobre una ventana sin scorear, el pie dice la fase sugerida y su confianza, en itálica, sin marcar ningún botón (hito 75). | V1_F, V2_F, V3_F de "Scoring" |
 | `icons.py` | Los iconos de la barra de navegación y el de abrir un registro, dibujados con `QPainterPath`. **No hay ningún archivo de icono en el repositorio**, y es una decisión de licencia. | — |
 | `docks.py` | **Dónde va cada panel** alrededor de la señal, que es el widget central. Los seis de análisis se apilan en solapas, arrancan ocultos y al abrirse se llevan `FRACCION_DE_ANALISIS` del ancho: sin eso Qt les daba más lugar que a la señal. **El título de un dock no se cambia**: Qt lo usa como texto de su entrada en «Herramientas». Lo que describe un resultado va en el panel, con `set_caption()`. El hipnograma arranca visible desde el hito 64; el panel de la Übersicht se titula «Contexto». | — |
-| `menus.py` | **La barra de menú**: qué acción vive en qué menú, el botón de abrir un registro —con su palabra al lado desde el hito 36— y, en la otra esquina, qué registro está abierto. No implementa ninguna acción: cada una llama a un método de la ventana. «Herramientas» lleva los modos del mouse y los paneles, sin repetir los que son las dos cosas; «Ver», los tres fondos de grilla y los dos esquemas. Desde el hito 64 abre con «Archivo» —abrir, recientes, scoring, configuración— y «Ver» lleva las vistas de canales. | — |
+| `menus.py` | **La barra de menú**: qué acción vive en qué menú, el botón de abrir un registro —con su palabra al lado desde el hito 36— y, en la otra esquina, qué registro está abierto. No implementa ninguna acción: cada una llama a un método de la ventana. «Herramientas» lleva los modos del mouse y los paneles, sin repetir los que son las dos cosas; «Ver», los tres fondos de grilla y los dos esquemas. Desde el hito 64 abre con «Archivo» —abrir, recientes, scoring, configuración— y «Ver» lleva las vistas de canales. «Archivo» ofrece también importar las marcas del registro como anotaciones (hito 73). «Analizar › Fases sugeridas» pide, confirma y descarta las fases del clasificador (hito 75), y `menu_path()` entra en los submenús para poder nombrarlas. | — |
 | `theme.py` | **Los esquemas de color del programa: Sereno y Nocturno.** Qué color tiene cada cosa que se dibuja, incluida `stage_colors`, la escala que pinta cada fase de sueño. Los dos separan el fondo de la ventana (`chrome`) del de las áreas de dibujo y dan a las lecturas numéricas su propia tipografía. De acá salen también los tokens de forma —radio, alto de control, anillo de foco— que consume la hoja de estilo. **No se editan**: ver `docs/ARQUITECTURA.md`. El borde de los controles tiene su propio color, a 3:1, y los gráficos muestran un marco de acento cuando tienen el foco (hito 62); las casillas, listas, árboles, tablas y pestañas, también (hito 63). | — |
 | `fonts.py` | **Las dos tipografías del programa y la escala de ocho roles.** IBM Plex Sans para lo que se lee y Mono para lo que se mide —la misma superfamilia, en `psglab/resources/fonts/`, bajo la OFL 1.1—. **Ninguna se elige** desde el hito 43; el tamaño sí. `font_for()` arma la fuente de un rol a partir de ese tamaño. Si los archivos faltan, el programa arranca igual: `available_family()` devuelve None y se usa la del sistema, en vez de dejar que Qt sustituya por cualquier otra. | — |
 | `preferences.py` | Lo que el programa recuerda entre una sesión y la siguiente, en un JSON del perfil del usuario. La disposición de paneles ya no es parte de eso. Un campo que trae cualquier cosa vuelve al de fábrica, y `load()` no eleva nada que no sea `PsgLabError`: es lo único que atrapa el arranque. Guarda también el paso a la siguiente al scorear, los registros recientes y las vistas de canales (hito 64). | — |

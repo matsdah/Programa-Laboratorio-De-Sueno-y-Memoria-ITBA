@@ -37,6 +37,7 @@ from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.readers import base
 from psglab.readers.base import (
     IMPORT_WARNINGS_KEY,
+    MARKS_KEY,
     Reader,
     available_readers,
     file_dialog_filter,
@@ -423,7 +424,7 @@ def test_los_marcadores_del_vmrk_se_conservan(brainvision_real: Recording):
     `Recording.metadata` depende del formato de origen, así que ninguna capa
     debería darlo por presente sin verificarlo: por eso se comprueba la clave.
     """
-    marcadores = brainvision_real.metadata.get("brainvision_markers")
+    marcadores = brainvision_real.metadata.get(MARKS_KEY)
     assert marcadores is not None
     assert len(marcadores) == 13
     inicio, duracion, descripcion = marcadores[0]
@@ -911,3 +912,53 @@ def test_revisar_la_señal_no_la_copia(registro_aislado, tmp_path: Path):
     registro = read_recording(tmp_path / "noche.mentira")
 
     assert registro.data is LectorQueMarca.matriz
+
+
+def test_un_vhdr_en_mayusculas_no_se_informa_como_danado(brainvision_sintetico: Path):
+    """**Hito 71.** `can_read()` lo acepta y MNE lo rechaza; el cartel decía
+    que el archivo estaba dañado, y el investigador buscaba el problema en
+    los datos. Ahora dice qué hacer."""
+    mayusculas = brainvision_sintetico.with_name(brainvision_sintetico.stem + ".VHDR")
+    mayusculas.write_bytes(brainvision_sintetico.read_bytes())
+
+    with pytest.raises(UnreadableFileError) as error:
+        read_recording(mayusculas)
+
+    assert "dañado" not in str(error.value)
+    assert f"«{brainvision_sintetico.stem}.vhdr»" in str(error.value)
+
+
+# -- Las marcas que trae el archivo, en el CI (hito 74) -----------------------
+
+
+def test_el_brainvision_guarda_los_marcadores_del_vmrk(tmp_path):
+    """Hasta el hito 74 lo verificaba sólo el registro de `data/`, que el CI
+    no tiene. El `New Segment` no es un evento, y MNE ya lo deja afuera."""
+    vhdr = escribir_brainvision(
+        tmp_path / "bv", segundos=3, eventos=[("Stimulus", "S  1", 101), ("Response", "R  2", 201)]
+    )
+
+    marcas = read_recording(vhdr).metadata[MARKS_KEY]
+
+    assert [(round(inicio * FRECUENCIA_BV), texto) for inicio, _, texto in marcas] == [
+        (100, "Stimulus/S  1"),
+        (200, "Response/R  2"),
+    ]
+
+
+def test_el_edf_guarda_sus_anotaciones(tmp_path):
+    edf = escribir_edf(
+        tmp_path / "edf",
+        segundos=3,
+        canales=[("EEG C3-A2", "uV", FRECUENCIA_EDF), (ANOTACIONES_EDF, "", 60.0)],
+        eventos=[(0.5, 0.0, "Arousal"), (1.25, 1.0, "Apnea")],
+    )
+
+    marcas = read_recording(edf).metadata[MARKS_KEY]
+
+    assert marcas == [(0.5, 0.0, "Arousal"), (1.25, 1.0, "Apnea")]
+
+
+def test_un_registro_sin_marcas_no_trae_la_clave(brainvision_sintetico: Path):
+    """La ventana la pide con `get()`: un archivo sin eventos no la tiene."""
+    assert MARKS_KEY not in read_recording(brainvision_sintetico).metadata

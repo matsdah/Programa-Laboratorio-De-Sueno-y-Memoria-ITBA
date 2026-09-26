@@ -25,6 +25,7 @@ desde un script del laboratorio sin abrir el programa.
 | `psd.py` | Densidad espectral de potencia y potencia por banda, absoluta o relativa. `describe_method()` dice con qué se estimó —segmento, ventana y solape de Welch— armado con las mismas constantes que usa el cálculo. | V1_F de "PSD" |
 | `complexity.py` | Entropía de muestra y de permutación, Lempel-Ziv, dimensión fractal de Higuchi. `warm_up()` adelanta la compilación de `antropy`, que la interfaz lanza en otro hilo al arrancar. | "Complejidad" |
 | `connectivity.py` | Conectividad entre canales, por ventana o promediada. Rechaza la banda que no contiene ninguna frecuencia medible —por encima de Nyquist, o más angosta que la resolución— en vez de dejar escapar el `ValueError` de mne-connectivity. | "Conectividad de la señal" |
+| `auto_scoring.py` | Las fases sugeridas (hito 75): `default_channels()` elige un EEG —central si hay—, un EOG y un EMG entre los grabados a más de 80 Hz, y `suggest_stages()` le pide al clasificador de YASA una fase AASM por ventana, con su confianza. Sugiere, no scorea: lo que devuelve va a la capa de sugeridas de `Scoring`. | — (el «scoring automático» de las motivaciones del pliego) |
 | `mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw` en las dos direcciones, y la escala volts ↔ µV. `_registro_parcial()` arma el pedazo que se le pasa a MNE cuando no va la señal entera (hitos 58 y 59). | — (infraestructura) |
 
 Varias funciones vienen en dos sabores: una sobre una ventana concreta
@@ -103,11 +104,12 @@ evocado** y **acoplamiento de husos de sueño**. Cuando se retomen, entran como
 módulos nuevos en este paquete.
 
 `yasa` (BSD-3) es el candidato natural para husos, ondas lentas y acoplamiento
-huso-onda lenta. Hoy no se instala, justamente porque está fuera del alcance.
+huso-onda lenta, y **ya se instala** desde el hito 75: es el clasificador de
+`auto_scoring.py`. El scoring automático estaba en esta lista hasta entonces.
 
 ## Estado
 
-**Terminada.** Pendientes **0 stubs**: los **nueve** módulos están implementados
+**Terminada.** Pendientes **0 stubs**: los **diez** módulos están implementados
 y con test propio. El [TODO](../../docs/TODO.md) lleva las dos Partes desde el
 hito 10 —antes cubría sólo la Parte 1, y esta carpeta quedaba afuera— y los
 hitos **10 a 19** la tocan: del 10 al 16 la construyeron, el 17 la cerró, el 18
