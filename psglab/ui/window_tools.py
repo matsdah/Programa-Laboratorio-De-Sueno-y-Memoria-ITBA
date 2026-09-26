@@ -86,10 +86,19 @@ class ToolsMixin:
             return self._girar_la_rueda(evento)
 
         herramienta = self._mouse_tool
-        if herramienta is None or evento.type() not in (
+        if evento.type() not in (
             QEvent.Type.MouseButtonPress,
             QEvent.Type.MouseMove,
             QEvent.Type.MouseButtonRelease,
+        ):
+            return False
+        # **El movimiento es de todas las que dibujan; los clics, de una sola**
+        # (hito 79). La banda de amplitud no es exclusiva —no compite por el
+        # clic— y por eso nunca era `_mouse_tool`: sin recibir el movimiento
+        # quedaba fija en el cero del primer canal.
+        siguen_al_mouse = [t for t in self._drawing_tools if t is not herramienta]
+        if herramienta is None and not (
+            siguen_al_mouse and evento.type() == QEvent.Type.MouseMove
         ):
             return False
 
@@ -121,10 +130,13 @@ class ToolsMixin:
             herramienta.set_edge_tolerance(segundos_por_pixel * _PIXELES_DEL_BORDE)
 
         if evento.type() == QEvent.Type.MouseMove:
-            herramienta.on_mouse_move(segundos, y, canal)
+            for otra in siguen_al_mouse:
+                otra.on_mouse_move(segundos, y, canal)
+            if herramienta is not None:
+                herramienta.on_mouse_move(segundos, y, canal)
             if isinstance(herramienta, AnnotatorTool):
                 self._cursor_del_anotador(herramienta, segundos, evento)
-        else:
+        elif herramienta is not None:
             boton = _BOTONES.get(evento.button(), "left")
             if evento.type() == QEvent.Type.MouseButtonPress:
                 herramienta.on_mouse_press(segundos, y, boton, canal)

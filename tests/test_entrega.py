@@ -4413,6 +4413,28 @@ def test_la_banda_va_sobre_el_canal_seleccionado(ventana: MainWindow):
     assert [b.channel_name for b in bandas] == [segundo]
 
 
+@pytest.mark.parametrize("modo", [None, "magnifier"])
+def test_la_banda_sigue_al_mouse_sobre_el_canal_de_abajo(ventana: MainWindow, modo: str | None):
+    """Hito 79: **la banda no se podía mover.** No es exclusiva, así que nunca
+    se quedaba con el mouse, y el filtro de eventos sólo se lo daba a la que sí:
+    el centro quedaba en 0 µV del primer canal, por más que el mouse pasara por
+    encima de la señal, que es lo que pide el pliego. Con la lupa encendida,
+    igual: el movimiento es de las dos."""
+    segundo = ventana.session.visible_channels[1]
+    ventana._toggle_tool("amplitude_band", True)
+    if modo is not None:
+        ventana._toggle_tool(modo, True)
+
+    QApplication.instance().sendEvent(
+        ventana.signal_view.viewport(),
+        evento_de_mouse(ventana, QEvent.Type.MouseMove, 300.0, canal=segundo, uv=30.0),
+    )
+
+    (banda,) = [o for o in ventana._overlays_dibujados if isinstance(o, BandOverlay)]
+    assert banda.channel_name == segundo
+    assert banda.y_center_uv == pytest.approx(30.0, abs=3.0)
+
+
 def test_la_banda_no_se_tilda_sola_al_abrir(ventana: MainWindow):
     """**Arrancaba tildada y sin dibujar nada**, porque `_activate_panel_tools()`
     usaba `not exclusive` como si dijera «es un panel». Por eso destildarla y

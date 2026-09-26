@@ -333,7 +333,9 @@ exclusiva que recibe los eventos del viewport— y `_drawing_tools` —todas las
 hasta el hito 45, asignado sólo en la rama exclusiva, y por eso la banda de
 amplitud nunca se dibujó: declara `exclusive = False` con razón, porque no
 compite por el clic, y eso la dejaba afuera del dibujo también. Tildarla no
-hacía nada.
+hacía nada. **El movimiento del mouse le llega a todas las de
+`_drawing_tools`** y los clics sólo a `_mouse_tool` (hito 79): sin eso, la
+banda se dibujaba pero no se movía.
 
 **`exclusive` tampoco significa «es un panel».** `_activate_panel_tools()` lo
 leía así y tildaba la banda sola al abrir cada registro. El discriminador es
