@@ -94,9 +94,10 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 75](#hito-75-las-fases-sugeridas)** reabrió el scoring automático como fases que sugiere un clasificador y alguien confirma, y el
 **[hito 76](#hito-76-la-ventana-en-ocho-archivos)** partió la ventana principal en ocho archivos, uno por tema, y el
 **[hito 77](#hito-77-una-sola-tipografía)** dejó una sola tipografía, IBM Plex Sans, y el
-**[hito 78](#hito-78-que-la-suite-vea-la-letra-real)** hizo que los tests, las capturas y los bancos la vean.
-Son **setenta y nueve hitos**, del 0 al 78, que son las filas de la tabla de
-progreso; **no queda ninguno abierto**, y lo que sigue pendiente de cada uno
+**[hito 78](#hito-78-que-la-suite-vea-la-letra-real)** hizo que los tests, las capturas y los bancos la vean, y el
+**[hito 79](#hito-79-la-auditoría-del-26-de-septiembre)**, abierto, ordena lo que encontró la auditoría del 26 de septiembre.
+Son **ochenta hitos**, del 0 al 79, que son las filas de la tabla de
+progreso; **el 79 es el único abierto**, y lo que sigue pendiente de cada uno
 está anotado dentro del hito al que le toca.
 
 **Del 34 al 48 se hicieron con el 33 abierto**, y lo cerró el 49. Decía acá
@@ -252,6 +253,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [76. La ventana en ocho archivos](#hito-76-la-ventana-en-ocho-archivos) | — | 0 | ✅ cerrado |
 | [77. Una sola tipografía](#hito-77-una-sola-tipografía) | — | 0 | ✅ cerrado |
 | [78. Que la suite vea la letra real](#hito-78-que-la-suite-vea-la-letra-real) | — | 0 | ✅ cerrado |
+| [79. La auditoría del 26 de septiembre](#hito-79-la-auditoría-del-26-de-septiembre) | — | 0 | ⬜ abierto |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
@@ -6459,6 +6461,320 @@ anchos, alturas ni mínimos cambió de resultado.
 **Queda por mirar a mano**: `python -m tests.medir_reparto`, que mide los
 mínimos de los paneles y hasta acá lo hacía con la letra del sistema. Abre una
 ventana de verdad en la pantalla, así que lo corre quien esté frente a ella.
+
+## Hito 79: La auditoría del 26 de septiembre
+
+**Abierto el 26 de septiembre de 2026.** El usuario pidió una auditoría del
+proyecto entero: las herramientas, los errores posibles, el diseño, el reparto
+de los paneles visto por quien scorea, los flujos habituales de un programa de
+scoring de sueño, la legibilidad del código para quien no programa y las clases
+que crecieron de más. Como las tres anteriores, **no tiene archivo propio**: lo
+que encontró está acá, en el orden en que conviene atacarlo.
+
+**No tiene stubs que contar.**
+
+### Cómo se hizo
+
+- **Se leyó el paquete**: los 83 archivos de Python de `psglab/` —unas
+  29 000 líneas—,
+  los README de cada carpeta, `ARQUITECTURA.md`, `EXPLICACION.txt`, el
+  workflow del CI y la estructura de la suite.
+- **La suite completa, antes de tocar nada**: 4105 tests pasados, ninguno
+  salteado, 6 advertencias, en 2 min 40 s (Windows 11, Python 3.12.10).
+- **Cada error se reprodujo** con un script contra el código de verdad —la
+  ventana armada fuera de pantalla, sin tocar el archivo de preferencias— y no
+  sólo leyendo. Los que dicen «por inspección» no se corrieron.
+- **Un barrido estático**: `pyflakes` no encuentra nada salvo las cuatro
+  importaciones que son el trabajo (`warm_up` y compañía), y un script listó
+  los nombres públicos que ningún otro archivo del paquete usa.
+- **La herramienta de capturas**, para mirar el reparto de los paneles.
+
+### Lo que salió bien, y hay que cuidar
+
+Las capas respetan la dirección de las dependencias; ningún error del modelo
+llega como traza; la validación de entradas es pareja en `core/`, `readers/` y
+`analysis/`; los lectores y los formatos de scoring rechazan lo ambiguo en vez
+de adivinarlo; y la red de `test_consistencia.py` encontró sola casi todo lo
+que las auditorías anteriores buscaban a mano. **Nada de lo de abajo es una
+crítica a esa base**: es lo que quedó entre sus mallas.
+
+### Tanda 1: los errores confirmados
+
+Van primero porque no piden ninguna decisión, son chicos y cada uno tiene un
+síntoma que se puede afirmar en un test. **Cada test tiene que fallar con el
+código de hoy** antes de arreglar nada.
+
+- [ ] **La banda de amplitud no se puede mover.** Es no exclusiva, así que
+      nunca es `_mouse_tool`, y `ToolsMixin.eventFilter()` sólo le reparte el
+      mouse a ésa: `AmplitudeBandTool.on_mouse_move()` no lo llama nadie.
+      Reproducido con la ventana armada: después de mover el mouse sobre tres
+      carriles, el centro de la banda sigue en 0,0 µV. El pliego pide que el
+      usuario **pase la banda por encima de la señal**. La red del hito 30 no
+      lo ve porque la llamada es genérica (`herramienta.on_mouse_move`).
+      - Arreglo propuesto: el movimiento se le reparte a todas las
+        `_drawing_tools`, y los clics sólo a `_mouse_tool`; la banda se dibuja
+        sobre el canal que está bajo el mouse. Ver «Lo que decide el usuario».
+- [ ] **La ocupación pierde el canal de sus líneas al desplazar la página.**
+      `OccupancyTool._reanclar()` arma las líneas nuevas sin `channel_name`.
+      Reproducido: una línea trazada sobre C4 queda con canal `None` después
+      de un desplazamiento, se dibuja sobre el primer carril y un clic encima
+      ya no la borra. Es el hueco que el hito 46 cerró al trazar y no al
+      reanclar.
+- [ ] **La lupa ignora el desplazamiento vertical del canal.**
+      `SignalView._a_carril_desde_datos()` no resta el offset y
+      `_a_carril()` sí. Reproducido: una señal de 500 µV con offset de 500
+      queda en 0,0 carriles en la curva y en 2,25 en la lupa, fuera del
+      cristal. **Pasa siempre con los canales respiratorios y los de clase
+      Otro**, que se centran solos al abrir el registro (hito 70).
+- [ ] **Quedarse sin memoria al abrir se informa como archivo dañado.** Los
+      lectores de EDF y BrainVision atrapan `Exception` alrededor de MNE, y
+      `MemoryError` lo es: el cartel manda a buscar el problema en el archivo.
+      Por inspección. Arreglo: `memoria_suficiente("abrir el registro")`
+      antes del `except` genérico.
+- [ ] **«Amplitud › Personalizado…» sin canales visibles eleva `IndexError`**
+      (`ViewMixin.ask_amplitude_scale()`, `visible_channels[0]`), que sale
+      como el cartel de los errores inesperados. Por inspección.
+- [ ] **Un canal derivado abre con 100 µV aunque sea un EOG o un ECG.**
+      `Session.set_recording()` les da `DEFAULT_SCALE_UV` a los canales nuevos
+      en vez de la escala de su clase (`DEFAULT_SCALE_BY_KIND_UV`), y no mide
+      los respiratorios. Por inspección.
+- [ ] **El alcance de «µV por carril» está escrito dos veces.**
+      `ViewMixin.set_amplitude_scale()` reimplementa
+      `Session._channels_under_amplitude()` —el comentario de al lado dice que
+      no— y discrepa: saltea los seleccionados que están ocultos. Llevarlo a
+      un método de `Session`.
+- [ ] **Cambiar la selección de canales no redibuja la banda**, que se
+      apoya sobre el seleccionado: queda en el carril viejo hasta el próximo
+      evento. Por inspección.
+- [ ] **`Recording.flat_channels()` rechaza un entero de numpy** que
+      `get_segment()` acepta. Hoy no explota porque `window_to_samples()`
+      devuelve enteros de Python.
+
+### Tanda 2: el flujo de scoring
+
+Lo que un programa de scoring suele tener y éste no, o tiene con un paso de
+más. **Varias piden una decisión antes**; están marcadas.
+
+- [ ] **Deshacer y rehacer** (Ctrl+Z, Ctrl+Y) para el scoring y las
+      anotaciones. Con el paso solo a la ventana siguiente del hito 64, una
+      tecla de más scorea la ventana que viene y hoy no hay vuelta atrás: hay
+      que volver con la flecha y rescorear. `ui/shortcuts.py` lo declara «un
+      subsistema completo» y «no pedido». Propuesta: `core/history.py`, sin
+      Qt, con una pila acotada de cambios sobre `Scoring` y `AnnotationSet`.
+- [ ] **Recuperar el trabajo después de un cierre inesperado.** *(Decide el
+      usuario: revisa la decisión del hito 33.)* El programa no autoguarda
+      para no elegir por el usuario dónde ni en qué formato, y eso se
+      conserva: la propuesta es un archivo de recuperación en el perfil, que
+      no se exporta ni aparece en ninguna carpeta, y que al reabrir el mismo
+      registro ofrece volver a donde estaba. Scorear una noche lleva horas, y
+      hoy un corte de luz se las lleva.
+- [ ] **Los diálogos de abrir, importar y exportar arrancan en la carpeta
+      del registro**, y recuerdan la última. Hoy arrancan en el directorio
+      desde donde se lanzó el programa, y el nombre propuesto es siempre
+      `Scoring.txt`: dos participantes exportados a la misma carpeta se pisan.
+- [ ] **Ir a la próxima ventana sin scorear**, y a la anterior: es como se
+      retoma un scoring a medias. Hoy hay que buscarla en la franja.
+- [ ] **0 y 5 como teclas de W y R**, además de las letras. Son los códigos
+      de `Scoring.txt`, que el laboratorio ya usa, y dejan el scoring entero
+      en el teclado numérico.
+- [ ] **Anotar sin un cartel por evento.** *(Decide el usuario.)* Cada tramo
+      arrastrado abre un `QInputDialog` modal; marcar cien husos son cien
+      carteles. Propuesta: una «clase activa» que usa el arrastre, elegida en
+      una lista o con una tecla, y el cartel sólo con Mayúsculas.
+- [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
+      pedido encadena carteles modales para elegir canal, medida o banda
+      —derivar son dos seguidos— y el panel se abre después. Los paneles ya
+      son docks: pueden llevar su selector y un botón «Calcular», con el
+      canal seleccionado por omisión.
+- [ ] **El panel de Scoring a la vista al abrir.** *(Decide el usuario:
+      revisa los hitos 24 y 64.)* La tarea principal del programa hoy no se
+      ve: se descubre por la ayuda de atajos. Una fila compacta con las fases
+      y el arousal, o el panel entero la primera vez.
+- [ ] **Un menú «Scoring».** *(Decide el usuario.)* Las fases, el arousal, ir
+      a la próxima sin scorear, deshacer y las fases sugeridas están
+      repartidos entre las teclas y «Analizar»; «Escala de tiempo» y
+      «Amplitud» ocupan dos lugares de la barra que podrían ir en «Ver».
+- [ ] **El informe de sueño estándar.** *(Decide el cliente.)*
+      `Informacion.txt` tiene la duración por fase y las métricas de
+      episodios que pide el pliego, y no trae lo primero que busca un
+      laboratorio: tiempo en cama, tiempo total de sueño, eficiencia,
+      latencia de sueño y de REM, vigilia después del inicio, porcentaje de
+      cada fase sobre el sueño, cantidad e índice de arousals. Se calcula con
+      lo que ya hay en `exporters/statistics.py`.
+- [ ] **La lupa del tamaño de la página.** El radio es de un segundo por el
+      aumento: con una página de una hora la lente no se ve, y con una de un
+      segundo tapa todo. Llevarlo a una fracción de la página.
+- [ ] **El montaje AASM de un clic** (F4-M1, C4-M1, O2-M1 y los EOG):
+      `derive_montage()` existe desde la Parte 2 y la ventana sólo deriva de
+      a un par.
+- [ ] **Más rótulos de canal reconocidos.** `readers/channel_types.py` deja
+      en «Otro» nombres comunes de polisomnografía —ABD, THO, Chest, Therm,
+      Nasal, Pres, PTAF, Effort, Pleth, Pulse, Pos, Leg, LAT, RAT, M1, M2—, y
+      con eso pierden la escala de su clase y el atajo del selector. Y `loc`
+      y `roc` se buscan sin límite de palabra: «Clock» sale EOG.
+- [ ] **El arousal existe dos veces sin relación**: la marca de la ventana
+      (tecla A) y la clase de anotación «Arousal». *(Decide el usuario si
+      anotar un arousal marca su ventana.)*
+
+### Tanda 3: partir las clases grandes
+
+**Va antes que buena parte de la tanda 2**, aunque se ve menos: cada
+funcionalidad nueva le suma métodos a `MainWindow`, y es más barato mudarlos
+una vez que agregarlos al lugar que después hay que partir.
+
+- [ ] **`MainWindow` pasa de siete mixins a controladores con estado
+      propio.** El hito 76 la partió por tema, y lo dice: «es una partición,
+      no un desacople»; los ocho archivos comparten el estado de
+      `__init__` y siguen siendo una clase de 170 métodos. En este orden, uno
+      por hito, cada uno con sus tests migrados en el mismo cambio:
+      1. `ui/tool_controller.py`: las herramientas, quién tiene el mouse,
+         quién dibuja, el filtro de eventos y los overlays. Es el que toca
+         la tanda 1.
+      2. `ui/playback_controller.py`: el cursor, el reloj y cómo mueven la
+         página.
+      3. `ui/analysis_controller.py`: la ICA, la señal original y la tarea en
+         segundo plano.
+      4. `ui/work_guard.py`: el trabajo sin exportar, los diálogos de
+         exportar y la recuperación de la tanda 2.
+
+      `MainWindow` queda armando las piezas y los carteles.
+- [ ] **`Session` delega la presentación de los canales** en
+      `core/channel_display.py`: visibles, seleccionados, escala y
+      desplazamiento de cada uno, ajustar al panel y centrar. Son la mitad de
+      sus 1100 líneas y la mitad que toca la tanda 1. `Session` conserva sus
+      métodos públicos, que delegan.
+- [ ] **`SignalView` (1344 líneas) separa lo que dibujan las herramientas**
+      —banda, bandas de anotación, segmentos, lente— en
+      `ui/overlay_items.py`, y la caché de la envolvente en su propia clase.
+- [ ] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
+      tienen el mismo `_factor_a_microvoltios()`, el mismo armado de canales
+      y la misma lectura de marcas: a un módulo común de `readers/`.
+- [ ] **Una sola guarda de registro en `analysis/`**: `_exigir_registro()`
+      está escrita siete veces, en siete módulos.
+- [ ] **Una sola forma de escribir un número para el usuario.**
+      `.replace(".", ",")` aparece 22 veces y hay tres `_numero()`: un
+      `utils/formato.py` con el número con coma, los Hz y las duraciones.
+- [ ] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
+      tema**, siguiendo a los controladores.
+- [ ] **Los docks se llaman `*_dock`.** Siguen llamándose `psd_dialog` y
+      compañía para no tocar ocho tests; quien lee el código busca un
+      diálogo que no existe.
+
+### Tanda 4: que el código lo lea alguien que no programa
+
+**Medido**: de las 24 800 líneas no vacías de `psglab/`, el 34 % son
+docstrings y el 10 % comentarios, y el código nombra algún hito 382 veces.
+Gran parte de esa prosa **cuenta la historia del cambio** —«hasta el hito 33
+esto…», «lo encontró la auditoría…»— en vez de decir qué hace el código hoy.
+Para quien llega sin contexto, triplica lo que hay que leer para entender una
+función, y la historia ya está en este archivo y en git.
+
+- [ ] **La regla**: un docstring dice qué hace y por qué, en presente. La
+      historia va al hito y al commit. Se aplica al tocar cada módulo, no en
+      una sola pasada; **`core/` primero**, que es lo que se lee para
+      entender el modelo.
+- [ ] **Un trinquete en `test_consistencia.py`**: la cantidad de menciones a
+      hitos dentro de `psglab/` no puede crecer. Sin él, la regla de arriba
+      depende de acordarse.
+- [ ] **«Dónde cambiar qué», en `EXPLICACION.txt`**: la duración de la
+      época, los colores, las teclas, los filtros sugeridos, los nombres de
+      los archivos de salida. Es la pregunta de quien abre el código sin
+      programar.
+- [ ] **El código muerto que la red no ve.** La red del hito 30 mira
+      `analysis/`, `tools/` y los paneles, no `core/`, `readers/` ni
+      `utils/`, y ahí sobrevivieron: en `core/windows.py`,
+      `seconds_to_window_fraction()`, `window_fraction_to_seconds()`,
+      `seconds_to_sample()` y `sample_to_seconds()`, las conversiones de antes
+      del refactor que sólo usan los tests; en `core/viewport.py`, `at_start`,
+      `at_end` y `replaced()`; `AnnotationSet.count_by_label()`, cuyo
+      docstring dice que lo usa `Informacion.txt` y no lo usa;
+      `detect_all()` e `is_eeg_position()`; `MixedSamplingRateError`, que no
+      se eleva nunca; `PlaybackClock.toggle()`; y
+      `OverviewTool._draw_window()`, que su propio docstring dice conservar
+      por la trazabilidad. Extender la red y borrar o declarar cada uno.
+- [ ] **Los docstrings que dicen lo contrario de lo que hace el código**:
+      `core/windows.py` y `tools/annotator.py` todavía hablan de segundos
+      desde el comienzo de la ventana; `ui/signal_view.py` dibuja «la ventana
+      de 30 segundos actual» y su eje sin hora se rotula «Segundos de la
+      ventana»; `ui/menus.py` dice que «Archivo» dejó de ser un menú;
+      `ui/main_window.py` nombra un menú «Paneles» y deja un comentario del
+      hito 62 sin código debajo; un comentario de
+      `ui/window_preferences.py` perdió el nombre que citaba en la mudanza
+      del hito 76; `config.MAX_GRID_LINES` habla de una `InfiniteLine` por
+      línea; y el comentario de arriba de `ci.yml` dice que corre contra las
+      ramas de trabajo.
+- [ ] **Este archivo en dos.** *(Decide el usuario.)* Son 6500 líneas, y la
+      introducción encadena ochenta hitos en un solo párrafo. Lo cerrado
+      podría ir a un historial y el TODO quedar con lo abierto y las reglas.
+      Cerrar un hito pide hoy seis ediciones; la cuenta de hitos escrita en
+      cuatro documentos es la que más se desincroniza, y podría quedar sólo
+      acá. Toca `test_consistencia.py`, que lee este archivo.
+
+### Tanda 5: rendimiento y robustez
+
+- [ ] **Abrir un registro y filtrar, fuera del hilo de la interfaz**, con
+      `BackgroundTask`, como ya van la ICA y la conectividad de la noche. Hoy
+      congelan la ventana: abrir, 4,3 s en el registro de prueba.
+- [ ] **Los overlays no se rehacen enteros en cada movimiento del mouse.**
+      Con la lupa o el anotador activos, `set_overlays()` saca y vuelve a
+      crear cada banda de anotación de la página y su rótulo en cada evento;
+      con una página larga y cientos de marcas importadas son cientos de
+      ítems por movimiento. Medir con el banco antes de tocar.
+- [ ] **El hipnograma no se rearma en cada flecha.** `_reflejar_epoca()`
+      llama a `_redraw_histogram()`, que limpia y vuelve a crear la curva,
+      las barras y las marcas, aunque `HistogramTool.update_window()` exista
+      para no hacerlo.
+- [ ] **`AnnotationSet` con búsqueda binaria**: `_insertar()` rearma la
+      lista de comienzos en cada anotación y `in_range()` recorre todas en
+      cada repintado.
+- [ ] **Los archivos de salida se escriben enteros o no se escriben**: a un
+      temporal y después renombrado, como ya hace `preferences.save()`. Un
+      corte a mitad de camino hoy deja el archivo truncado.
+- [ ] **El XML de scoring, sin expansión de entidades.** Abrir un XML hecho
+      a propósito puede agotar la memoria. Riesgo bajo: hace falta abrir un
+      archivo malicioso.
+- [ ] **Medir el reparto con los paneles de análisis abiertos.** En la
+      captura de 1800 px la señal quedaba con alrededor de un tercio del
+      ancho y el panel de contexto con la mitad del alto. Puede ser propio de
+      la herramienta de capturas: lo decide `python -m tests.medir_reparto`,
+      que abre una ventana en la pantalla y lo corre quien esté frente a ella.
+
+### Lo que decide el usuario, o el cliente
+
+Están marcadas arriba, y se juntan acá para contestarlas de una vez:
+
+1. **La banda de amplitud**: ¿sigue al mouse sobre el canal que está debajo,
+   o sobre el seleccionado como hoy?
+2. **Recuperación después de un cierre inesperado**: ¿se agrega el archivo
+   de recuperación en el perfil?
+3. **El panel de Scoring al abrir**: ¿a la vista, compacto, u oculto como
+   hoy?
+4. **Anotar sin cartel**: ¿clase activa, o un cartel por evento como hoy?
+5. **Un menú «Scoring»**, y «Escala de tiempo» y «Amplitud» dentro de «Ver».
+6. **El arousal**: ¿anotar uno marca su ventana?
+7. **El informe de sueño estándar** en `Informacion.txt`: es del cliente.
+8. **Los filtros sugeridos**: `DEFAULT_FILTERS` usa 0,3–15 Hz para el EOG,
+   0,5–70 Hz para el ECG y 0,05–5 Hz para lo respiratorio, y las
+   recomendaciones de la AASM dicen 0,3–35 Hz, 0,3–70 Hz y 0,1–15 Hz para el
+   flujo. Confirmar con el laboratorio cuáles usa.
+9. **Este archivo en dos**, y sacar la cuenta de hitos de los otros tres
+   documentos.
+
+### Lo que ya se corrigió en esta auditoría
+
+- [x] **La documentación que decía algo falso**, sin tocar código:
+      `README.md` hablaba de dos dependencias de la Parte 2 —son tres desde
+      que entró YASA—, titulaba «la Parte 1 está terminada» y decía que `ui/`
+      sólo depende de `core/` y `tools/`; `psglab/README.md` repetía lo
+      último en su diagrama; `ARQUITECTURA.md` ubicaba un clic «en el
+      segundo 12 de la ventana actual», no tenía a YASA ni a sus tres
+      dependencias en la tabla de licencias y hablaba de Papel como un
+      esquema vigente; `EXPLICACION.txt` decía que el programa abre sólo con
+      la señal y los canales, sin el hipnograma, y también contaba dos
+      dependencias.
+- [x] **La cuenta de hitos**, a ochenta en los cuatro documentos que la
+      declaran, y el numeral «ochenta» en el diccionario de
+      `tests/test_consistencia.py`, que llegaba hasta setenta y nueve.
 
 ---
 

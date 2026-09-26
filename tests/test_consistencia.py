@@ -63,7 +63,7 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "sesenta y nueve": 69, "setenta": 70, "setenta y uno": 71, "setenta y un": 71,
     "setenta y dos": 72, "setenta y tres": 73, "setenta y cuatro": 74,
     "setenta y cinco": 75, "setenta y seis": 76, "setenta y siete": 77,
-    "setenta y ocho": 78, "setenta y nueve": 79,
+    "setenta y ocho": 78, "setenta y nueve": 79, "ochenta": 80,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
