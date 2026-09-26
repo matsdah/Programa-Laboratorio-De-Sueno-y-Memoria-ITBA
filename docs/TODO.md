@@ -6581,8 +6581,8 @@ más. **Varias piden una decisión antes**; están marcadas.
       que volver con la flecha y rescorear. `ui/shortcuts.py` lo declara «un
       subsistema completo» y «no pedido». Propuesta: `core/history.py`, sin
       Qt, con una pila acotada de cambios sobre `Scoring` y `AnnotationSet`.
-- [ ] **Recuperar el trabajo después de un cierre inesperado.** *(Decide el
-      usuario: revisa la decisión del hito 33.)* El programa no autoguarda
+- [ ] **Recuperar el trabajo después de un cierre inesperado.** *(Decidido: sí;
+      ver «Lo que decidió el usuario».)* El programa no autoguarda
       para no elegir por el usuario dónde ni en qué formato, y eso se
       conserva: la propuesta es un archivo de recuperación en el perfil, que
       no se exporta ni aparece en ninguna carpeta, y que al reabrir el mismo
@@ -6610,7 +6610,7 @@ más. **Varias piden una decisión antes**; están marcadas.
   0, 5 y N y la carpeta de los diálogos. Van sin entrada de menú hasta la
   decisión del menú «Scoring».
 
-- [ ] **Anotar sin un cartel por evento.** *(Decide el usuario.)* Cada tramo
+- [ ] **Anotar sin un cartel por evento.** *(Decidido: clase activa.)* Cada tramo
       arrastrado abre un `QInputDialog` modal; marcar cien husos son cien
       carteles. Propuesta: una «clase activa» que usa el arrastre, elegida en
       una lista o con una tecla, y el cartel sólo con Mayúsculas.
@@ -6619,15 +6619,15 @@ más. **Varias piden una decisión antes**; están marcadas.
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
       son docks: pueden llevar su selector y un botón «Calcular», con el
       canal seleccionado por omisión.
-- [ ] **El panel de Scoring a la vista al abrir.** *(Decide el usuario:
-      revisa los hitos 24 y 64.)* La tarea principal del programa hoy no se
+- [ ] **El panel de Scoring a la vista al abrir.** *(Decidido: visible y
+      compacto.)* La tarea principal del programa hoy no se
       ve: se descubre por la ayuda de atajos. Una fila compacta con las fases
       y el arousal, o el panel entero la primera vez.
-- [ ] **Un menú «Scoring».** *(Decide el usuario.)* Las fases, el arousal, ir
+- [ ] **Un menú «Scoring».** *(Decidido: sí, y ordenar la barra.)* Las fases, el arousal, ir
       a la próxima sin scorear, deshacer y las fases sugeridas están
       repartidos entre las teclas y «Analizar»; «Escala de tiempo» y
       «Amplitud» ocupan dos lugares de la barra que podrían ir en «Ver».
-- [ ] **El informe de sueño estándar.** *(Decide el cliente.)*
+- [ ] **El informe de sueño estándar.** *(Decidido: se hace y se confirma con el laboratorio.)*
       `Informacion.txt` tiene la duración por fase y las métricas de
       episodios que pide el pliego, y no trae lo primero que busca un
       laboratorio: tiempo en cama, tiempo total de sueño, eficiencia,
@@ -6646,8 +6646,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       con eso pierden la escala de su clase y el atajo del selector. Y `loc`
       y `roc` se buscan sin límite de palabra: «Clock» sale EOG.
 - [ ] **El arousal existe dos veces sin relación**: la marca de la ventana
-      (tecla A) y la clase de anotación «Arousal». *(Decide el usuario si
-      anotar un arousal marca su ventana.)*
+      (tecla A) y la clase de anotación «Arousal». *(Decidido: la marca.)*
 
 ### Tanda 3: partir las clases grandes
 
@@ -6736,7 +6735,7 @@ función, y la historia ya está en este archivo y en git.
       del hito 76; `config.MAX_GRID_LINES` habla de una `InfiniteLine` por
       línea; y el comentario de arriba de `ci.yml` dice que corre contra las
       ramas de trabajo.
-- [ ] **Este archivo en dos.** *(Decide el usuario.)* Son 6500 líneas, y la
+- [ ] **Este archivo en dos.** *(Decidido: sí.)* Son 6500 líneas, y la
       introducción encadena ochenta hitos en un solo párrafo. Lo cerrado
       podría ir a un historial y el TODO quedar con lo abierto y las reglas.
       Cerrar un hito pide hoy seis ediciones; la cuenta de hitos escrita en
@@ -6772,27 +6771,40 @@ función, y la historia ya está en este archivo y en git.
       la herramienta de capturas: lo decide `python -m tests.medir_reparto`,
       que abre una ventana en la pantalla y lo corre quien esté frente a ella.
 
-### Lo que decide el usuario, o el cliente
+### Lo que decidió el usuario
 
-Están marcadas arriba, y se juntan acá para contestarlas de una vez:
+**Contestadas el 26 de septiembre de 2026.** Revisan tres decisiones de hitos
+anteriores —la 2 la del hito 33, la 3 las de los hitos 24 y 64, la 4 la forma
+de anotar del hito 9—, y el motivo es el de la tanda 2: son los pasos de más
+de quien scorea una noche entera.
 
-1. **La banda de amplitud** quedó siguiendo al mouse sobre el canal que está
-   debajo, que es contra el que se mide la `y`. Si se prefiere que se quede
-   sobre el seleccionado, la ventana tiene que medir la `y` contra ése.
-2. **Recuperación después de un cierre inesperado**: ¿se agrega el archivo
-   de recuperación en el perfil?
-3. **El panel de Scoring al abrir**: ¿a la vista, compacto, u oculto como
-   hoy?
-4. **Anotar sin cartel**: ¿clase activa, o un cartel por evento como hoy?
-5. **Un menú «Scoring»**, y «Escala de tiempo» y «Amplitud» dentro de «Ver».
-6. **El arousal**: ¿anotar uno marca su ventana?
-7. **El informe de sueño estándar** en `Informacion.txt`: es del cliente.
-8. **Los filtros sugeridos**: `DEFAULT_FILTERS` usa 0,3–15 Hz para el EOG,
-   0,5–70 Hz para el ECG y 0,05–5 Hz para lo respiratorio, y las
-   recomendaciones de la AASM dicen 0,3–35 Hz, 0,3–70 Hz y 0,1–15 Hz para el
-   flujo. Confirmar con el laboratorio cuáles usa.
-9. **Este archivo en dos**, y sacar la cuenta de hitos de los otros tres
-   documentos.
+1. **La banda de amplitud sigue al mouse** sobre el canal que está debajo,
+   que es contra el que se mide la `y`. Quedó así en la tanda 1.
+2. **Se agrega el archivo de recuperación en el perfil.** No exporta nada ni
+   elige formato: al reabrir el mismo registro después de un cierre
+   inesperado, ofrece volver a donde estaba.
+3. **El panel de Scoring, a la vista y compacto al abrir**: una fila con las
+   fases, sus teclas y el arousal, abajo junto al hipnograma.
+4. **Anotar con una clase activa.** Se elige una vez —en una lista o con una
+   tecla— y cada arrastre la usa sin cartel; con Mayúsculas al soltar,
+   pregunta como hasta ahora.
+5. **Un menú «Scoring»**, con las fases, el arousal, ir a la próxima sin
+   scorear, deshacer y las fases sugeridas, que salen de «Analizar».
+   «Escala de tiempo» y «Amplitud» pasan adentro de «Ver».
+6. **Anotar un arousal marca su ventana.** Borrar la anotación no la
+   desmarca: la marca pudo haberse puesto a mano.
+7. **El informe de sueño estándar se hace** como una sección nueva al final
+   de `Informacion.txt`, sin cambiar lo que ya trae, y **se confirma con el
+   laboratorio antes de mergear**.
+8. **Los filtros sugeridos se preguntan al laboratorio.** `DEFAULT_FILTERS`
+   usa 0,3–15 Hz para el EOG, 0,5–70 Hz para el ECG y 0,05–5 Hz para lo
+   respiratorio, y la AASM recomienda 0,3–35 Hz, 0,3–70 Hz y 0,1–15 Hz para
+   el flujo. Son valores clínicos y los actuales pueden ser del laboratorio:
+   no se tocan hasta tener la respuesta.
+   - [ ] Preguntar al laboratorio qué filtros usa.
+9. **Este archivo se parte en dos**: lo cerrado a `docs/HISTORIAL.md`, y acá
+   lo abierto y las reglas. La cuenta de hitos queda sólo en este archivo, y
+   `tests/test_consistencia.py` se ajusta en el mismo cambio.
 
 ### Lo que ya se corrigió en esta auditoría
 
