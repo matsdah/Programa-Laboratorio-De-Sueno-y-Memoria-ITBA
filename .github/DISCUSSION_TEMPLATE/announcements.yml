@@ -1,0 +1,31 @@
+body:
+  - type: input
+    id: hito
+    attributes:
+      label: Hito o versión
+      placeholder: "Hito 76: la ventana en ocho archivos"
+    validations:
+      required: true
+  - type: textarea
+    id: cambios
+    attributes:
+      label: Qué cambió
+      description: Lo que nota quien usa el programa, antes que el detalle interno.
+    validations:
+      required: true
+  - type: textarea
+    id: al-actualizar
+    attributes:
+      label: Qué hay que hacer al actualizar
+      description: Dependencias nuevas, preferencias que se reinician, archivos que cambian de formato. Si no hay nada, decilo.
+      placeholder: |
+        pip install -r requirements-analysis.txt
+    validations:
+      required: true
+  - type: textarea
+    id: enlaces
+    attributes:
+      label: Enlaces
+      description: El PR, la sección del hito en docs/TODO.md y lo que haga falta para seguir el detalle.
+    validations:
+      required: false
