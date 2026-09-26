@@ -490,6 +490,23 @@ def test_desplazar_la_vista_reancla_las_lineas(
     assert herramienta_larga.lines()[0].x1 != 0.0
 
 
+def test_reanclar_una_linea_le_conserva_el_canal(
+    herramienta_larga: OccupancyTool, sesion_larga: Session
+):
+    """Hito 79: al reanclar se perdía el canal, y la línea pasaba a dibujarse
+    sobre el primer carril. Además un clic encima ya no la borraba, porque el
+    borrado mira sólo las líneas del carril donde se hizo clic."""
+    arrastrar(herramienta_larga, 0.0, 15.0, y=0.0, canal="C4")
+
+    nueva = sesion_larga.viewport.panned(7.5)
+    sesion_larga.set_viewport(nueva)
+    herramienta_larga.on_view_changed(nueva)
+
+    assert herramienta_larga.lines()[0].channel_name == "C4"
+    herramienta_larga.on_mouse_press(10.0, 0.0, "left", "C4")
+    assert herramienta_larga.lines() == []
+
+
 def test_una_linea_que_queda_fuera_de_la_pagina_se_descarta(
     herramienta_larga: OccupancyTool, sesion_larga: Session
 ):

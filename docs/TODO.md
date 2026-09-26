@@ -730,7 +730,7 @@ la regla vive en `core/`.
     documenta para las ventanas.
 - [x] **`psglab/ui/signal_view.py`** · ~~13 stubs~~ · V1_P, V2_P, V4_F, V5_F
       "Visualización" (+ el dibujo de V3_P), V1_F "Anotación de la señal"
-  - Test: `tests/test_signal_view.py`, **97 tests en verde**. **El dibujo no se
+  - Test: `tests/test_signal_view.py`, **98 tests en verde**. **El dibujo no se
     testea**; sí los tres conversores, que es de donde salen las unidades con
     las que trabajan todas las herramientas.
   - Los píxeles de los bordes se le **preguntan al `ViewBox`** en vez de
@@ -824,7 +824,7 @@ sistema de coordenadas de `ViewerTool` (segundos y µV) no es el de `Tool`
     herramienta sirva apenas se abre un registro.
 - [x] **`psglab/tools/occupancy.py`** · ~~13 stubs~~ · V1_F–V5_F "Ocupación" ·
       `ViewerTool`
-  - Test: `tests/test_occupancy.py`, **51 tests en verde**, sin `pytestmark`.
+  - Test: `tests/test_occupancy.py`, **52 tests en verde**, sin `pytestmark`.
     Los 7 que ya estaban escritos —los ejemplos numéricos literales del
     pliego— pasaron **sin tocarlos**. **Con esto la suite queda sin ningún
     salteado.**
@@ -2258,7 +2258,7 @@ puntos, relleno y decimación propia, y nada de eso se usa acá.
       después sólo se le pide el rango, que además casi siempre es el mismo.
       Con eso el repintado por cuadro pasó de 2,00 a 1,00, medido con el
       filtro de eventos.
-  - Test: `tests/test_signal_view.py`, **97 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **98 tests en verde**.
 - [x] **Las curvas son `PlotCurveItem` y no `PlotDataItem`.** Medido
       intercalando las dos clases en el mismo proceso, que es la única forma
       de comparar en una máquina que varía: 28 ms contra 19 con el registro
@@ -2476,7 +2476,7 @@ lo mínimo.
       página, y **mientras se ve el cursor `show_window()` no mueve la
       página**: con la de 30 s centrada, la época no entra entera, y scorear o
       cambiar la amplitud la sacaban del medio hasta el paso siguiente.
-  - Test: `tests/test_signal_view.py`, **97 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **98 tests en verde**.
 - [x] **La ventana**: la reproducción arranca en el centro de la época actual
       —con la página de 30 s no salta—, cada paso lleva el cursor y redibuja
       sólo lo que cambió, y se detiene al final del registro y no al de la
@@ -2673,7 +2673,7 @@ llegan a la ventana.
       abajo a la vista, caía en la época 4 en vez de la 3.
   - Test: `tests/test_entrega.py`, **389 tests en verde**, con dos registros
     de verdad. Los cinco fallan sin su corrección.
-  - Test: `tests/test_occupancy.py`, **51 tests en verde**.
+  - Test: `tests/test_occupancy.py`, **52 tests en verde**.
   - Test: `tests/test_annotator.py`, **41 tests en verde**.
   - Test: `tests/test_filters.py`, **62 tests en verde**.
 
@@ -3344,7 +3344,7 @@ tecla.
       resaltado, y la fase sólo se ve en el panel de scoring, que puede estar
       cerrado. Se crea una vez y después sólo se mueve, como la banda y el
       cursor, y el texto se rearma sólo cuando cambió.
-  - Test: `tests/test_signal_view.py`, **97 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **98 tests en verde**.
   - Test: `tests/test_entrega.py`, **389 tests en verde**, con la franja por la
     ventana.
 - [x] **Los atajos de fase ya existían.** `shortcuts.py` los deriva del código
@@ -3573,7 +3573,7 @@ del diseño, y no correr el rótulo al hueco entre carriles.
         `overview_text` sólo se miraba contra `overview_background`—. Sereno da
         6,04 y Nocturno 7,18. Como los demás, lo enrola solo cualquier esquema
         que se agregue.
-  - Test: `tests/test_signal_view.py`, **97 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **98 tests en verde**.
   - Test: `tests/test_theme.py`, **89 tests en verde**.
 
 ### Medido, porque el canalón toca el camino caliente
@@ -3695,7 +3695,7 @@ misma escala**, con el respiratorio barriendo seis carriles.
       registro de verdad —«Resp oro-nasal», clase «Respiratorio»— la línea
       salía cortada con puntos suspensivos, que es peor que no decirla. La
       clase se sigue viendo en el selector, que es donde la pone el diseño.
-  - Test: `tests/test_signal_view.py`, **97 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **98 tests en verde**.
 
 ### Los tres errores que encontró la captura
 
@@ -4211,7 +4211,7 @@ overlay armado a mano, así que **nadie verificaba el camino entre los dos**.
         anotador—, así que se arregló para las tres y no sólo para la que se
         reportó. `ViewerTool` recibe ahora `channel_name` en sus tres métodos de
         mouse, opcional y último, para no romper a quien no lo necesite.
-  - Test: `tests/test_signal_view.py`, **97 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **98 tests en verde**.
 - [x] **La lupa no dibujaba ningún círculo y ampliaba un canal fijo.**
       `_dibujar_lupa()` tenía `canal = self._visible[0]` escrito a mano, y
       `CircleOverlay` no tenía campo de canal, así que no había por dónde pasar
@@ -4299,7 +4299,7 @@ se dejaron escritas en vez de arreglarse en el momento.
         arrastre la haría saltar mientras se dibuja.
       - **La tolerancia del clic pasó a seguir al canal del clic.** Decía «el
         primero visible» con un motivo escrito que el hito 45 volvió falso.
-  - Test: `tests/test_occupancy.py`, **51 tests en verde**.
+  - Test: `tests/test_occupancy.py`, **52 tests en verde**.
 - [x] **`IBMPlexSans-Italic.ttf`, empaquetada.** El rol `ausente` la pedía
       desde el hito 43 y Qt la sintetizaba deformando la regular. La de verdad
       tiene `italicAngle` −11° y sus propios dibujos —la «a» pasa de dos pisos
@@ -4454,7 +4454,7 @@ Conviene decirlo primero, porque es la mayor parte:
 
       Las dos fixtures principales pasaron de uno a dos canales, y hay un test
       por hueco. Se verificó que las cuatro mutaciones mueren.
-  - Test: `tests/test_occupancy.py`, **51 tests en verde**.
+  - Test: `tests/test_occupancy.py`, **52 tests en verde**.
 - [x] **La lupa, lo mismo con los canales.** Su fixture tenía **un solo
       canal**, así que el arreglo del hito 45 —ampliar el canal de abajo del
       cursor— quedó verificado en `test_entrega.py` y `test_signal_view.py`, y
@@ -4597,7 +4597,7 @@ según la corrida, contra los 40 que pide el reloj. Con él cierra el 33.
         lo exige.
       - Los tests nuevos se probaron contra el cálculo viejo: fallan los seis
         que tocan la caché.
-  - Test: `tests/test_signal_view.py`, **97 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **98 tests en verde**.
 
 ### Lo que dio
 
@@ -4865,7 +4865,7 @@ anotados abajo.
       revés —la banda detrás de la señal— y con una página larga la envolvente
       es un bloque lleno que la tapaba. Los bordes de la banda llevan también
       el color de la clase, desde que se agarran para corregirla (hito 52).
-  - Test: `tests/test_signal_view.py`, **97 tests en verde**.
+  - Test: `tests/test_signal_view.py`, **98 tests en verde**.
 - [x] **En Sereno, una casilla sin marcar no se veía.** Con el estilo nativo de
       Windows, un elemento sin marcar de una lista no dibujaba ninguna casilla:
       **un canal oculto del selector no tenía nada que tildar**, y lo mismo las
@@ -4947,7 +4947,7 @@ notan al usar el programa y ninguno pide una decisión de fondo.
       - **`format_amplitude()` escribía con punto decimal**: «37.5 µV» al lado
         del «41,7» del espectro. Lo encontró el test del rótulo; ahora usa
         coma, como todo número que ve el usuario.
-  - Test: `tests/test_signal_view.py`, **97 tests en verde**;
+  - Test: `tests/test_signal_view.py`, **98 tests en verde**;
     `tests/test_units.py`, **47 tests en verde**.
 - [x] **La ICA dice cuánto explica cada componente**, cuántos va a quitar el
       botón, y su curva va en hora.
@@ -5029,8 +5029,8 @@ el [54](#hito-54-lo-que-faltaba-del-prototipo) quedan hechos los nueve.
       fondo del esquema: sin él, el número se perdía sobre una señal densa.
       `SegmentOverlay` gana un `label` que decide la herramienta, que es la que
       sabe qué mide.
-  - Test: `tests/test_occupancy.py`, **51 tests en verde**;
-    `tests/test_signal_view.py`, **97 tests en verde**.
+  - Test: `tests/test_occupancy.py`, **52 tests en verde**;
+    `tests/test_signal_view.py`, **98 tests en verde**.
 
 Cada test nuevo se probó contra el programa sin su cambio —sin la duración,
 sin el botón principal, sin la cantidad, sin las celdas, con el tope de la
@@ -5626,7 +5626,7 @@ visual**: puntuar una noche costaba más pasos que en esos programas.
     `tests/test_entrega.py`, **389 tests en verde**;
     `tests/test_menus.py`, **45 tests en verde**;
     `tests/test_docks.py`, **39 tests en verde**;
-    `tests/test_signal_view.py`, **97 tests en verde**;
+    `tests/test_signal_view.py`, **98 tests en verde**;
     `tests/test_overview_panel.py`, **27 tests en verde**.
 
 **Revierte dos decisiones anteriores, a pedido del usuario**: que el scoring
@@ -5997,7 +5997,7 @@ como si lo fueran.
       - `Session._centro()` es la media que ya usaba `center_offsets()`,
         sacada para que la usen los dos.
   - Test: `tests/test_session.py`, **158 tests en verde**;
-    `tests/test_signal_view.py`, **97 tests en verde**.
+    `tests/test_signal_view.py`, **98 tests en verde**.
 
 Cada test nuevo se probó contra el programa sin su cambio, y las cinco
 versiones rotas fallan: sin centrar al abrir, o centrando todas las clases;
@@ -6514,13 +6514,13 @@ código de hoy** antes de arreglar nada.
       - Arreglo propuesto: el movimiento se le reparte a todas las
         `_drawing_tools`, y los clics sólo a `_mouse_tool`; la banda se dibuja
         sobre el canal que está bajo el mouse. Ver «Lo que decide el usuario».
-- [ ] **La ocupación pierde el canal de sus líneas al desplazar la página.**
+- [x] **La ocupación pierde el canal de sus líneas al desplazar la página.**
       `OccupancyTool._reanclar()` arma las líneas nuevas sin `channel_name`.
       Reproducido: una línea trazada sobre C4 queda con canal `None` después
       de un desplazamiento, se dibuja sobre el primer carril y un clic encima
       ya no la borra. Es el hueco que el hito 46 cerró al trazar y no al
       reanclar.
-- [ ] **La lupa ignora el desplazamiento vertical del canal.**
+- [x] **La lupa ignora el desplazamiento vertical del canal.**
       `SignalView._a_carril_desde_datos()` no resta el offset y
       `_a_carril()` sí. Reproducido: una señal de 500 µV con offset de 500
       queda en 0,0 carriles en la curva y en 2,25 en la lupa, fuera del

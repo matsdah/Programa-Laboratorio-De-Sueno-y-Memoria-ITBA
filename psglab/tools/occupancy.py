@@ -292,6 +292,9 @@ class OccupancyTool(ViewerTool):
         **Las que quedan enteras fuera de la pantalla se descartan**: mantener
         una línea invisible que igual suma al porcentaje sería peor que
         perderla, porque el total dejaría de explicarse con lo que se ve.
+
+        **Cada línea conserva su canal**: sin él se dibuja sobre el primer
+        carril y un clic encima ya no la borra.
         """
         sobrevivientes: list[OccupancyLine] = []
         for linea in self._lineas:
@@ -313,6 +316,7 @@ class OccupancyTool(ViewerTool):
                         x2, actual.start_seconds, actual.span_seconds
                     ),
                     y2=linea.y2,
+                    channel_name=linea.channel_name,
                 )
             )
         self._lineas = sobrevivientes
