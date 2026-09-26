@@ -394,10 +394,18 @@ nada hasta que se abra la pull request, así que en el día a día el único con
 es `python -m pytest` local, y conviene correrlo entero: el chequeo de las
 cuentas de tests se saltea si se le pasa un archivo suelto.
 
-**Nada impide mergear con el CI en rojo**: `Add` no tiene protección de rama.
-El PR #82 entró con los dos jobs de macOS fallando, y la suite local, que corre
-en Windows, no podía verlo. Antes de mergear hay que mirar los seis jobs de
-tests, no sólo el de la plataforma propia.
+**`Add` y `Master` exigen el CI en verde para mergear**, desde el 26 de
+septiembre. Es un ruleset del repositorio en GitHub —no vive en ningún archivo—
+que pide pull request y los siete jobs, y prohíbe el force push y el borrado.
+Hasta entonces sólo cubría `Master`, y el PR #82 entró en `Add` con los dos
+jobs de macOS fallando sin que la suite local, que corre en Windows, pudiera
+verlo. El rol Admin puede saltearlo, pero sólo desde una pull request y
+marcándolo a mano: nunca con un push directo.
+
+Dependabot actualiza **sólo las acciones del workflow**, una vez por mes y
+contra `Add` (`.github/dependabot.yml`); los `requirements*.txt` no, por el
+motivo que da ese archivo. CodeQL corre con la configuración por defecto de
+GitHub, que tampoco agrega ningún archivo al repositorio.
 
 ## Arquitectura
 

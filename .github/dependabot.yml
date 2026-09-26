@@ -1,0 +1,25 @@
+# Actualizaciones automáticas de dependencias.
+#
+# Sólo las acciones del workflow, y a propósito. Los requirements*.txt llevan
+# piso y ningún techo —el motivo está escrito en requirements.txt—, y el CI
+# resuelve la última versión de todo en cada corrida: una PR de Dependabot que
+# suba un piso no cambiaría nada de lo que se instala. Las alertas de seguridad
+# de pip no necesitan entrada acá; se prenden desde la configuración del repo.
+#
+# **Contra `Add`, no contra `Master`**, que es la rama por defecto y adonde
+# Dependabot apuntaría sin esto. Los pull requests del proyecto van a `Add`.
+#
+# Dependabot lee este archivo desde la rama por defecto, así que no hace nada
+# hasta que llegue a `Master`.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: Add
+    schedule:
+      interval: monthly
+    # Una sola PR por mes con todas las acciones, en vez de una por acción.
+    groups:
+      acciones:
+        patterns: ["*"]

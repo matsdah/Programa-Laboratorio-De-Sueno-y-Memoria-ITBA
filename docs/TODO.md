@@ -5759,6 +5759,10 @@ del repositorio en GitHub (Settings › Branches), que exige los seis jobs de
 tests antes de mergear; es una decisión del dueño del repositorio y no se tomó
 acá. Mientras tanto, `CLAUDE.md` dice que hay que mirarlos a mano.
 
+**Resuelto el 26 de septiembre**: el ruleset que ya protegía `Master` se
+extendió a `Add`, con pull request obligatoria y los siete jobs del CI. El
+detalle está en `CLAUDE.md`.
+
 ### La auditoría del 25 de septiembre
 
 Como las anteriores, **no tiene archivo propio**: lo que encontró se reparte
