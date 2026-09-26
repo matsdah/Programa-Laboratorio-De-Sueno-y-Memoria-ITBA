@@ -79,7 +79,7 @@ from psglab.config import (
     VIEW_PAN_FRACTION,
     VIEW_ZOOM_FACTOR,
 )
-from psglab.core.annotations import Annotation, AnnotationSet
+from psglab.core.annotations import Annotation, AnnotationSet, marks_to_annotations
 from psglab.core.nomenclature import (
     Nomenclature,
     SleepStage,
@@ -125,6 +125,7 @@ from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_formats import SCORING_FORMATS, export_scoring_as
 from psglab.readers.base import (
     IMPORT_WARNINGS_KEY,
+    MARKS_KEY,
     file_dialog_filter,
     read_recording,
     warm_up_readers,
@@ -3542,6 +3543,66 @@ class MainWindow(QMainWindow):
         )
         if ruta:
             self.open_recording(Path(ruta))
+
+    def import_file_marks(self) -> None:
+        """Agrega como anotaciones las marcas que trae el archivo (hito 73).
+
+        Un BrainVision trae los marcadores de su `.vmrk` y un EDF+ sus
+        anotaciones. **Los lectores los guardaban y nada los leía**, aunque el
+        docstring del de BrainVision prometía convertirlos en anotaciones «si
+        el usuario lo pide»: es lo que hace esto.
+
+        **Sólo a pedido, y preguntando antes** cuántas son de cada clase. Un
+        registro puede traer cientos de marcas de estímulo, y al abrir no se
+        sabe si interesan. Las que ya están —misma clase, mismo tramo— no se
+        repiten, así que importar dos veces no duplica nada.
+        """
+        if self._session is None:
+            return
+        registro = self._session.recording
+        marcas = registro.metadata.get(MARKS_KEY)
+        try:
+            nuevas = marks_to_annotations(
+                list(marcas) if isinstance(marcas, list) else [],
+                registro.sampling_rate,
+                registro.n_samples,
+            )
+        except PsgLabError as error:
+            self._show_error(error, "importar las marcas del registro")
+            return
+        conjunto = self._session.annotations
+        ya_estan = set(conjunto.all())
+        nuevas = [a for a in dict.fromkeys(nuevas) if a not in ya_estan]
+        if not nuevas:
+            self.statusBar().showMessage(
+                f"«{registro.file_path.name}» no trae marcas que no estén ya anotadas.",
+                8000,
+            )
+            return
+        cuentas = Counter(anotacion.label for anotacion in nuevas)
+        detalle = ", ".join(f"{clase} ({cuantas})" for clase, cuantas in cuentas.most_common())
+        if not self._confirmar(
+            "Importar las marcas del registro",
+            f"¿Agregar {len(nuevas)} {'marca' if len(nuevas) == 1 else 'marcas'} "
+            f"de «{registro.file_path.name}» como anotaciones?",
+            "Importar",
+            informativo=detalle,
+        ):
+            return
+        try:
+            for anotacion in nuevas:
+                conjunto.add_label(anotacion.label)
+                conjunto.add(anotacion)
+        except PsgLabError as error:
+            self._show_error(error, "importar las marcas del registro")
+            return
+        self._redibujar_overlays()
+        self.refresh()
+        self.statusBar().showMessage(
+            f"Se {'agregó' if len(nuevas) == 1 else 'agregaron'} {len(nuevas)} "
+            f"{'anotación' if len(nuevas) == 1 else 'anotaciones'} desde las marcas del registro.",
+            8000,
+        )
 
     def open_scoring_dialog(self) -> None:
         """El scoring entra por su **propia** opción, decidido en el hito 4.

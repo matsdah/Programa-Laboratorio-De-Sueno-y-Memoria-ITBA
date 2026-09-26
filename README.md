@@ -20,7 +20,7 @@ compatibilidad únicamente con Windows y precios excesivos.
 > derivaciones, PSD, complejidad y conectividad. Necesita dos dependencias
 > aparte, en `requirements-analysis.txt`.
 >
-> **[`docs/TODO.md`](docs/TODO.md)** lleva los setenta y tres hitos —del 0 al 72— con
+> **[`docs/TODO.md`](docs/TODO.md)** lleva los setenta y cuatro hitos —del 0 al 73— con
 > lo que se decidió en cada uno, y es el único lugar que lleva la cuenta.
 
 ---

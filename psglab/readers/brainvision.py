@@ -44,7 +44,7 @@ import mne
 import numpy as np
 
 from psglab.core.recording import Channel, Recording
-from psglab.readers.base import Reader, register_reader
+from psglab.readers.base import MARKS_KEY, Reader, register_reader
 from psglab.readers.channel_types import detect_channel_kind
 from psglab.utils.errors import UnknownUnitError, UnreadableFileError
 from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
@@ -337,7 +337,7 @@ class BrainVisionReader(Reader):
 
         metadatos: dict[str, object] = {}
         if len(crudo.annotations):
-            metadatos["brainvision_markers"] = [
+            metadatos[MARKS_KEY] = [
                 (float(a["onset"]), float(a["duration"]), str(a["description"]))
                 for a in crudo.annotations
             ]
