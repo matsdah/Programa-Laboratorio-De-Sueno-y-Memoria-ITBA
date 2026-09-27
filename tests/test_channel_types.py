@@ -136,6 +136,81 @@ def test_los_patrones_por_nombre(nombre: str, esperada: ChannelKind) -> None:
     assert detect_channel_kind(nombre) is esperada
 
 
+@pytest.mark.parametrize(
+    ("nombre", "esperada"),
+    [
+        # El esfuerzo respiratorio.
+        ("ABD", ChannelKind.RESPIRATORY),
+        ("THO", ChannelKind.RESPIRATORY),
+        ("Chest", ChannelKind.RESPIRATORY),
+        ("Effort THO", ChannelKind.RESPIRATORY),
+        # El flujo.
+        ("Therm", ChannelKind.RESPIRATORY),
+        ("Nasal Pres", ChannelKind.RESPIRATORY),
+        ("PTAF", ChannelKind.RESPIRATORY),
+        ("Cannula", ChannelKind.RESPIRATORY),
+        # La oximetría, que va con lo respiratorio como ya iba la SpO2.
+        ("Pleth", ChannelKind.RESPIRATORY),
+        ("Pulse", ChannelKind.RESPIRATORY),
+        # Las piernas.
+        ("Leg L", ChannelKind.EMG),
+        ("LLEG1-RLEG1", ChannelKind.EMG),
+        ("LAT", ChannelKind.EMG),
+        ("RAT", ChannelKind.EMG),
+        # Los ojos con los nombres de la AASM.
+        ("E1-M2", ChannelKind.EOG),
+        ("E2-M1", ChannelKind.EOG),
+        ("HEOG", ChannelKind.EOG),
+        # Los electrodos de referencia.
+        ("M1", ChannelKind.EEG),
+        ("M2", ChannelKind.EEG),
+        ("A1", ChannelKind.EEG),
+        ("A2", ChannelKind.EEG),
+    ],
+)
+def test_los_rotulos_comunes_de_polisomnografia(nombre: str, esperada: ChannelKind) -> None:
+    """Los que caían en OTHER y perdían la escala de su clase y su atajo.
+
+    Son los nombres que escriben los equipos de polisomnografía más comunes, y
+    los que la auditoría del 26 de septiembre encontró sin reconocer.
+    """
+    assert detect_channel_kind(nombre) is esperada
+
+
+@pytest.mark.parametrize("nombre", ["Clock", "Line1", "Cable rojo", "Machine", "Lateral"])
+def test_un_patron_corto_no_se_encuentra_adentro_de_otra_palabra(nombre: str) -> None:
+    """«Clock» salía EOG por el `loc`, «Line1» por el `e1`, «Cable rojo» por el
+    `ojo` y «Machine» EMG por el `chin`. Los patrones cortos se anclan al
+    comienzo de la palabra; «Lateral» cuida que «LAT» exija la palabra entera.
+    """
+    assert detect_channel_kind(nombre) is ChannelKind.OTHER
+
+
+@pytest.mark.parametrize(
+    ("nombre", "esperada"),
+    [("Mentón", ChannelKind.EMG), ("Presión nasal", ChannelKind.RESPIRATORY)],
+)
+def test_los_acentos_no_parten_el_nombre(nombre: str, esperada: ChannelKind) -> None:
+    """Sin sacar los acentos, «Mentón» se partía en «ment» y «n»."""
+    assert detect_channel_kind(nombre) is esperada
+
+
+def test_una_referencia_es_de_la_misma_clase_que_el_eeg() -> None:
+    """Es lo que necesita el montaje: `derive()` le da a «C4-M1» la clase de sus
+    dos canales sólo si coinciden, y con M1 en OTHER la derivación que se
+    scorea salía OTHER, con la escala de otra cosa.
+    """
+    assert detect_channel_kind("M1", "uV") is detect_channel_kind("C4", "uV")
+
+
+def test_la_posicion_del_cuerpo_queda_en_otro() -> None:
+    """A propósito: no es de ninguna clase, y darle una la agruparía con lo que
+    no es. Si alguien la suma a un patrón, este test lo hace explícito.
+    """
+    assert detect_channel_kind("Pos") is ChannelKind.OTHER
+    assert detect_channel_kind("Position") is ChannelKind.OTHER
+
+
 def test_un_nombre_desconocido_es_otro_y_no_un_error() -> None:
     """El pliego pide explícitamente que no haya limitación de tipo.
 

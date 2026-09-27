@@ -625,20 +625,21 @@ def _herramientas(window: "MainWindow") -> None:
 
 
 def _montaje(window: "MainWindow") -> None:
-    """Las tres operaciones que cambian de qué canal viene cada fila.
+    """Las operaciones que cambian de qué canal viene cada fila.
 
     Van juntas y separadas de «Filtrar» porque responden a una pregunta
-    distinta: no cómo se ve la señal sino **de dónde sale**. Las tres sustituyen
-    el registro de la sesión, así que las tres habilitan "volver a la señal
+    distinta: no cómo se ve la señal sino **de dónde sale**. Todas sustituyen
+    el registro de la sesión, así que todas habilitan "volver a la señal
     original", que por eso vive acá y no en «Analizar».
     """
     montaje = window.menuBar().addMenu("&Montaje")
     # **Queda en la ventana** para poder apagarlo entero mientras corre un
-    # cálculo: las tres operaciones sustituyen el registro, y hacerlo debajo de
+    # cálculo: estas operaciones sustituyen el registro, y hacerlo debajo de
     # una ICA que se está ajustando dejaría una descomposición de una señal que
     # ya no está. Ver `AnalysisController.set_long_actions()`.
     window.menu_montaje = montaje
     _agregar(montaje, "&Derivar canales…", window.derive_dialog)
+    _agregar(montaje, "Montaje &AASM", window.apply_aasm_montage)
     _agregar(montaje, "&Re-referenciar…", window.rereference_dialog)
     _agregar(montaje, "Referencia &promedio (EEG)", window.apply_average_reference)
     montaje.addSeparator()

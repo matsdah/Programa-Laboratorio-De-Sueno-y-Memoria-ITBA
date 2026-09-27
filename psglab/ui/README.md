@@ -210,7 +210,7 @@ y los nombres ya resueltos y no vuelve a preguntar nada. Tocar un widget o
 vea.
 
 **Con un cálculo en curso se apagan «Montaje» y «Filtrar» enteros**, más la
-conectividad de la noche. Las cuatro operaciones de esos dos menús sustituyen
+conectividad de la noche. Las operaciones de esos dos menús sustituyen
 el registro, y hacerlo debajo de una ICA que se está ajustando dejaría una
 descomposición de una señal que ya no está —y eso no falla solo: MNE acepta el
 pedido y devuelve una señal reconstruida con una matriz ajena—.

@@ -17,7 +17,7 @@ polisomnografía": los formatos se suman de a uno sin rediseñar nada.
 | `edf.py` | Formato EDF y EDF+. | V2_F de "Importación" |
 | `scoring_reader.py` | Un scoring ya existente, para ver o corregir la fase de cada ventana. Elige el lector por la extensión y lee él mismo el `.txt`. | V3_F de "Importación" |
 | `scoring_formats.py` | Un scoring en CSV, EDF+ o XML del NSRR, escrito por este programa o por otro. | V3_F de "Importación" |
-| `channel_types.py` | Detección automática de la clase de cada canal (EEG, EOG, EMG, otro). | V4_F de "Visualización" |
+| `channel_types.py` | Detección automática de la clase de cada canal (EEG, EOG, EMG, ECG, respiratorio, otro). | V4_F de "Visualización" |
 
 ## Cómo agregar un formato
 
@@ -137,6 +137,13 @@ ventana las ofrece como anotaciones a pedido (hito 73).
 Resuelve V4_F: aceptar **cualquier canal, sin límite de tipo**, y saber de qué
 tipo es. La detección usa el nombre (las posiciones del sistema 10-20 como
 "C3" o "Fz" son EEG; el prefijo "EMG" es EMG) y la unidad declarada.
+
+Reconoce los rótulos habituales de los equipos de polisomnografía: los
+electrodos de referencia (M1, M2, A1, A2) son EEG, para que «C4-M1» derive
+como EEG; las piernas (Leg, LAT, RAT) son EMG; y el esfuerzo, el flujo y la
+oximetría (ABD, THO, Therm, PTAF, Pleth, Pulse…) son respiratorios. La
+posición del cuerpo queda en «Otro» a propósito. **Los patrones cortos se
+buscan al comienzo de una palabra**: en cualquier parte, «Clock» salía EOG.
 
 Es una heurística sobre nombres que escribió una persona, así que va a fallar
 en algún registro.

@@ -46,6 +46,7 @@ from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.annotations import Annotation  # noqa: E402
 from psglab.core.nomenclature import Nomenclature, SleepStage, stages_of  # noqa: E402
+from psglab.core.recording import ChannelKind  # noqa: E402
 from psglab.core.scoring import StageSuggestion  # noqa: E402
 from psglab.exporters.scoring_txt import export_scoring  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
@@ -1439,6 +1440,7 @@ def test_cada_analisis_tiene_camino_desde_la_barra_de_menu(ventana: MainWindow):
             "&Filtros por clase de canal…",
             "Componentes &independientes (ICA)…",
             "&Derivar canales…",
+            "Montaje &AASM",
             "&Re-referenciar…",
             "Referencia &promedio (EEG)",
             "&Espectro de la ventana…",
@@ -1472,6 +1474,90 @@ def test_el_canal_derivado_llega_al_selector(ventana: MainWindow, elige_canal):
     ventana.derive_dialog()
 
     assert f"{canales[0]}-{canales[1]}" in ventana.channel_selector.visible_channels()
+
+
+@pytest.fixture
+def ventana_aasm(qt_app, tmp_path, monkeypatch):
+    """La ventana con un registro de electrodos sueltos, como los graba un
+    equipo antes de derivar: faltan F3, C3 y O1, para ver qué se informa."""
+    carteles: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
+    )
+    principal = create_main_window()
+    vhdr = escribir_brainvision(
+        tmp_path / "aasm",
+        segundos=WINDOW_SECONDS * 2,
+        canales=[
+            ("F4", "µV"), ("C4", "µV"), ("O2", "µV"), ("E1", "µV"),
+            ("E2", "µV"), ("M1", "µV"), ("M2", "µV"),
+        ],
+    )
+    principal.open_recording(vhdr)
+    principal.carteles = carteles
+    return principal
+
+
+def test_el_montaje_aasm_de_un_clic(ventana_aasm: MainWindow):
+    """Las cinco derivaciones que se pueden armar, con su clase, a la vista, y
+    lo que falta dicho en la barra de estado hasta el próximo mensaje."""
+    ventana_aasm.apply_aasm_montage()
+
+    registro = ventana_aasm.session.recording
+    nuevos = ["F4-M1", "C4-M1", "O2-M1", "E1-M2", "E2-M2"]
+    assert registro.channel_names()[-5:] == nuevos
+    assert [registro.channel_by_name(n).kind for n in nuevos] == [ChannelKind.EEG] * 3 + [
+        ChannelKind.EOG
+    ] * 2
+    assert all(n in ventana_aasm.session.visible_channels for n in nuevos)
+    mensaje = ventana_aasm.statusBar().currentMessage()
+    assert "F4-M1" in mensaje
+    assert "F3-M2 (falta F3)" in mensaje
+    assert not ventana_aasm.carteles
+
+
+def test_el_montaje_aasm_da_la_resta(ventana_aasm: MainWindow):
+    ventana_aasm.apply_aasm_montage()
+
+    registro = ventana_aasm.session.recording
+    datos = np.asarray(registro.data)
+    fila = lambda nombre: datos[registro.channel_by_name(nombre).index]  # noqa: E731
+    assert fila("C4-M1") == pytest.approx(fila("C4") - fila("M1"))
+    assert fila("E2-M2") == pytest.approx(fila("E2") - fila("M2"))
+
+
+def test_el_montaje_aasm_dos_veces_no_repite(ventana_aasm: MainWindow):
+    ventana_aasm.apply_aasm_montage()
+    canales = ventana_aasm.session.recording.n_channels
+
+    ventana_aasm.apply_aasm_montage()
+
+    assert ventana_aasm.session.recording.n_channels == canales
+    assert "ya está derivado" in ventana_aasm.statusBar().currentMessage()
+    assert not ventana_aasm.carteles
+
+
+def test_el_montaje_aasm_se_vuelve_atras(ventana_aasm: MainWindow):
+    """Sustituye el registro como derivar, así que «Volver a la señal
+    original» lo deshace."""
+    antes = ventana_aasm.session.recording.channel_names()
+    ventana_aasm.apply_aasm_montage()
+
+    ventana_aasm.restore_original_recording()
+
+    assert ventana_aasm.session.recording.channel_names() == antes
+
+
+def test_sin_electrodos_del_montaje_aasm_avisa(ventana: MainWindow):
+    """El registro de siempre no tiene ninguno: el usuario pidió algo y no
+    pasó nada, así que sale un cartel que dice qué hace falta."""
+    antes = ventana.session.recording.n_channels
+
+    ventana.apply_aasm_montage()
+
+    assert ventana.session.recording.n_channels == antes
+    assert len(ventana.carteles) == 1
+    assert "M1" in ventana.carteles[0]
 
 
 def test_cancelar_el_primer_dialogo_no_deriva(ventana: MainWindow, elige_canal):

@@ -220,6 +220,7 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "set_histogram_time_axis",
         # Montaje.
         "derive_dialog",
+        "apply_aasm_montage",
         "rereference_dialog",
         "apply_average_reference",
         "restore_original_recording",

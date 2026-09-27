@@ -20,7 +20,7 @@ desde un script del laboratorio sin abrir el programa.
 | `filters.py` | Filtrado de la señal cruda. `FilterSettings`, `apply_filters()`, `default_for(kind, sampling_rate)`, `settings_for_kinds()`. Filtra de a tandas de cuatro canales, no la señal entera de una vez (hito 59). A un canal grabado más lento que el registro no le da un pasa-altos de la mitad de su frecuencia de origen o más, que lo dejaría plano (hito 67). | V1_F de "Filtración" |
 | `ica.py` | Componentes independientes: ajustar, ver topografía, curso temporal y cuánta varianza explica cada uno (hito 54), y aplicar excluyendo componentes. Se ajusta sobre una muestra repartida a lo largo de la noche, no sobre la noche entera (hito 58), y los componentes se quitan por tramos de tiempo (hito 59). La varianza de cada componente es la definición de MNE con las fuentes calculadas una sola vez (hito 61). | V5_F de "Filtración" |
 | `reference.py` | Re-referenciación, incluida la referencia promedio. | "Rereferenciar" |
-| `derivation.py` | Canales nuevos calculados a partir de los existentes (`derive`, `derive_montage`). | "Derivar" |
+| `derivation.py` | Canales nuevos calculados a partir de los existentes (`derive`, `derive_montage`), y el montaje AASM que arma «Montaje › Montaje AASM» (`plan_aasm_montage`). | "Derivar" |
 | `impedance.py` | Control de impedancia de los electrodos y canales por encima del límite. | V1_F de "Impedancia" |
 | `psd.py` | Densidad espectral de potencia y potencia por banda, absoluta o relativa. `describe_method()` dice con qué se estimó —segmento, ventana y solape de Welch— armado con las mismas constantes que usa el cálculo. | V1_F de "PSD" |
 | `complexity.py` | Entropía de muestra y de permutación, Lempel-Ziv, dimensión fractal de Higuchi. `warm_up()` adelanta la compilación de `antropy`, que la interfaz lanza en otro hilo al arrancar. | "Complejidad" |
@@ -45,14 +45,15 @@ existiendo y testeadas para los scripts del laboratorio.
 
 | Función | Por qué no está en el menú |
 |---|---|
-| `derivation.derive_montage()` | El menú deriva de a un par con `derive()`, que es el pedido real. Un montaje entero se escribe en un script. Decidido en el hito 19. |
 | `complexity.sample_entropy()` | Medida sobre el registro real tarda más de cinco minutos contra menos de cinco segundos las otras tres. `MEDIDAS_RAPIDAS` la deja fuera del barrido. |
 | `psd.band_powers_by_window()` | El hito 19 eligió mostrar la potencia por banda **de la ventana**, en el panel del espectro, y no el barrido de la noche. Queda para un script. Faltaba en esta tabla hasta el hito 33. |
 
 La ventana —`ui/main_window.py` y sus pedazos `ui/window_*.py`— **no debe
 importar lo que no llama**: hasta el hito 19
 importaba `derive_montage` sin usarla, y eso hacía parecer consumido un camino
-muerto.
+muerto. Desde el hito 79 la llama de verdad, para el montaje AASM; hasta
+entonces estaba en esta tabla, por una decisión del hito 19 que el usuario
+revisó al pedir el montaje de un clic.
 
 ## Dependencias propias de esta capa
 
