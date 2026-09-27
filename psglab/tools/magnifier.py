@@ -8,21 +8,29 @@ escala de 30 segundos son casi indistinguibles.
 La segunda función (V2_F) es un contador de clics: el usuario va marcando los
 picos de la señal y la herramienta lleva la cuenta.
 
+**El radio acompaña a la página.** Se elige para la página de una época, y
+con otra página se estira o se achica en la misma proporción: la lente ocupa
+siempre la misma fracción de la pantalla. Con un radio fijo en segundos, una
+página de una hora dejaba la lente invisible y una de un segundo la volvía
+más grande que la pantalla.
+
 Cubre del pliego: V1_F, V2_F de "Herramienta Lupa".
 """
 
 import weakref
 from collections.abc import Sequence
 
+from psglab.config import WINDOW_SECONDS
 from psglab.core.session import Session
 from psglab.tools.base import CircleOverlay, Overlay, ViewerTool
 from psglab.tools.registry import register_tool
 from psglab.utils.errors import InvalidScaleError
 from psglab.utils.validation import check_finite
 
-#: Tamaño inicial de la lupa, en segundos de señal. Un segundo es el orden
-#: de un huso de sueño, que es justamente lo que la herramienta existe para
-#: mirar de cerca.
+#: Tamaño inicial de la lupa, en segundos de señal **con la página de una
+#: época**. Un segundo es el orden de un huso de sueño, que es justamente lo
+#: que la herramienta existe para mirar de cerca. Con otra página se escala:
+#: ver `radius_for_page()`.
 RADIO_INICIAL_SEGUNDOS: float = 1.0
 
 #: Aumento inicial. Como el radio, se termina de afinar con la ventana
@@ -117,8 +125,17 @@ class MagnifierTool(ViewerTool):
             return
         self.notify_changed()
 
+    def radius_for_page(self, page_seconds: float) -> float:
+        """El radio que corresponde a una página de `page_seconds`.
+
+        El elegido vale para la página de una época y se escala en proporción
+        con la página: con una de cinco minutos es diez veces mayor, y con una
+        de tres segundos, diez veces menor.
+        """
+        return self._radius_seconds * page_seconds / WINDOW_SECONDS
+
     def set_radius_seconds(self, radius_seconds: float) -> None:
-        """Cambia el tamaño del círculo de la lupa.
+        """Cambia el tamaño del círculo de la lupa, para la página de una época.
 
         En segundos y no en píxeles: `tools/base.py` declara que una herramienta
         nunca recibe píxeles, y esta no tiene forma de conocerlos. El
@@ -179,7 +196,7 @@ class MagnifierTool(ViewerTool):
                 tool_name=self.name,
                 x_seconds=self._x_seconds,
                 y_uv=self._y_uv,
-                radius_seconds=self._radius_seconds,
+                radius_seconds=self.radius_for_page(self._session.viewport.span_seconds),
                 zoom=self._zoom,
                 channel_name=self._channel_name,
             ),

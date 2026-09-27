@@ -461,9 +461,17 @@ más. **Varias piden una decisión antes**; están marcadas.
   - Test: `tests/test_exporters.py`, **60 tests en verde**;
     `tests/test_menus.py`, **54 tests en verde**; y en
     `tests/test_entrega.py`, los dos archivos exportados por la ventana.
-- [ ] **La lupa del tamaño de la página.** El radio es de un segundo por el
+- [x] **La lupa del tamaño de la página.** El radio es de un segundo por el
       aumento: con una página de una hora la lente no se ve, y con una de un
       segundo tapa todo. Llevarlo a una fracción de la página.
+      Hecho. **El radio que se elige es el de la página de una época**, y
+      `MagnifierTool.radius_for_page()` lo escala en proporción: con la
+      página de arranque la lente mide lo mismo que antes, y con cualquier
+      otra ocupa la misma fracción de la pantalla. No hizo falta una
+      preferencia nueva —la que había guarda el mismo número, y la ventana
+      de configuración dice ahora que es el de la página de una época—.
+  - Test: `tests/test_magnifier.py`, **36 tests en verde**: el radio con
+    páginas de 1 s a una hora, y el círculo publicado con una de 3 s.
 - [x] **El montaje AASM de un clic** (F4-M1, C4-M1, O2-M1 y los EOG):
       `derive_montage()` existe desde la Parte 2 y la ventana sólo deriva de
       a un par.
@@ -599,9 +607,23 @@ una vez que agregarlos al lugar que después hay que partir.
       desplazamiento de cada uno, ajustar al panel y centrar. Son la mitad de
       sus 1100 líneas y la mitad que toca la tanda 1. `Session` conserva sus
       métodos públicos, que delegan.
-- [ ] **`SignalView` (1344 líneas) separa lo que dibujan las herramientas**
+- [x] **`SignalView` (1344 líneas) separa lo que dibujan las herramientas**
       —banda, bandas de anotación, segmentos, lente— en
       `ui/overlay_items.py`, y la caché de la envolvente en su propia clase.
+      Hecho: quedó en 949 líneas. `OverlayLayer` dibuja los cuatro tipos y le
+      pregunta la geometría al visualizador, que la expone con
+      `lane_center()`, `to_lanes()` —una **posición**, que resta el
+      desplazamiento del canal— y `height_to_lanes()` —una **longitud**, que
+      no lo resta—; `EnvelopeCache` es numpy y un diccionario, sin Qt.
+      **Separarlos encontró un error**: la banda de amplitud convertía su
+      alto como una posición, así que sobre un canal desplazado medía
+      cualquier cosa. Con 500 µV de desplazamiento, la banda de 75 µV medía
+      4,16 carriles en vez de 0,34: doce veces. Los respiratorios se centran
+      solos al abrir un registro, así que le pasaba a cualquiera que midiera
+      sobre uno.
+  - Test: `tests/test_overlay_items.py`, **15 tests en verde**, y
+    `tests/test_envelope_cache.py`, **7 tests en verde**, sin Qt;
+    `tests/test_signal_view.py` sigue con **98 tests en verde**.
 - [ ] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
       tienen el mismo `_factor_a_microvoltios()`, el mismo armado de canales
       y la misma lectura de marcas: a un módulo común de `readers/`.
@@ -679,7 +701,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **109 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **111 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 
@@ -704,11 +726,36 @@ función, y la historia ya está en este archivo y en git.
     error de lectura, dos aperturas a la vez, abrir con un cálculo en curso
     y cerrar mientras lee. Los catorce tests que filtraban por la ventana
     esperan ahora el resultado con `wait_for_background()`, como los de la ICA.
-- [ ] **Los overlays no se rehacen enteros en cada movimiento del mouse.**
+- [x] **Los overlays no se rehacen enteros en cada movimiento del mouse.**
       Con la lupa o el anotador activos, `set_overlays()` saca y vuelve a
       crear cada banda de anotación de la página y su rótulo en cada evento;
       con una página larga y cientos de marcas importadas son cientos de
       ítems por movimiento. Medir con el banco antes de tocar.
+      Hecho en `OverlayLayer`: un overlay que ya está dibujado con la misma
+      página, los mismos canales, la misma escala y desplazamiento de cada
+      uno y el mismo esquema se deja como está. La lente se rehace siempre,
+      porque depende de cuánto mide un píxel. Medido con el banco
+      —`medir_overlays()`, nuevo en `tests/medir_rendimiento.py`—, página de
+      5 min y la lupa moviéndose, en offscreen:
+
+      | Anotaciones en la página | Antes | Después |
+      |---|---|---|
+      | 0 | 5,9 ms | 5,9 ms |
+      | 100 | 221 ms | 35 ms |
+      | 400 | 1026 ms | 122 ms |
+
+  - Test: en `tests/test_overlay_items.py`, qué se reutiliza y qué cambio
+    de geometría obliga a rehacer.
+- [ ] **Una sola pieza para todas las bandas de anotación**, como la
+      grilla. Después del ítem anterior, `set_overlays()` cuesta unos 6 ms
+      por movimiento con 400 anotaciones; **el 94 % de lo que queda es Qt
+      pintando** 400 `LinearRegionItem`, cada uno con sus dos
+      `InfiniteLine`, en cada cuadro. Lo paga también la reproducción, que
+      repinta la escena entera. Es el mismo remedio que la grilla del hito
+      25: un solo objeto que pinte todos los rectángulos de la página. Los
+      bordes que se agarran para corregir un tramo son del anotador, que
+      recibe el clic por coordenadas y no por ítem, así que no dependen de
+      que cada banda sea un objeto. Medirlo con el banco, intercalado.
 - [ ] **El hipnograma no se rearma en cada flecha.** `_reflejar_epoca()`
       llama a `_redraw_histogram()`, que limpia y vuelve a crear la curva,
       las barras y las marcas, aunque `HistogramTool.update_window()` exista

@@ -64,7 +64,7 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Banda de 75 µV adaptada a la escala del usuario | `psglab/tools/amplitude_band.py`, `psglab/ui/signal_view.py` (el dibujo), `psglab/utils/units.py` (µV) |
+| V1_F | Banda de 75 µV adaptada a la escala del usuario | `psglab/tools/amplitude_band.py`, `psglab/ui/overlay_items.py` (el dibujo), `psglab/utils/units.py` (µV) |
 
 ### Herramienta de ocupación de la página
 
@@ -89,7 +89,7 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Círculo de zoom que sigue al mouse | `psglab/tools/magnifier.py` (el gesto), `psglab/ui/signal_view.py` (`_dibujar_lupa`, que amplía) |
+| V1_F | Círculo de zoom que sigue al mouse | `psglab/tools/magnifier.py` (el gesto, y el radio según la página), `psglab/ui/overlay_items.py` (`_dibujar_lupa`, que amplía) |
 | V2_F | Contador de clics para contar picos | `psglab/tools/magnifier.py` (la cuenta), `psglab/ui/tool_controller.py` (`update_readout`, que la muestra) |
 
 ### Herramienta Übersicht
@@ -136,9 +136,9 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos veintinueve se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos treinta se rompen hacia todos lados.
 
-Veintisiete de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Veintiocho de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
 `core/viewport.py`, `core/decimation.py`, `core/recovery.py`, `core/history.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
@@ -146,7 +146,8 @@ fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 y desde el hito 76 `ui/main_window.py`, `ui/window_annotation.py`,
 `ui/window_view.py` y `ui/window_preferences.py`, más `ui/window_files.py`
 desde que exportar pasó a `ui/work_guard.py` en el hito 79, y
-`exporters/atomic.py`, que escribe los archivos de salida enteros o nada: la ventana se
+`exporters/atomic.py`, que escribe los archivos de salida enteros o nada, y
+`ui/envelope_cache.py`, que el visualizador separó en el hito 79: la ventana se
 partió en pedazos por tema, y los que llevan un ID tienen su fila arriba. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
@@ -166,6 +167,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/core/history.py` | Deshacer y rehacer: fotos del trabajo y cómo volver a ellas | Ctrl+Z, Ctrl+Y y «Scoring › Deshacer» |
 | `psglab/exporters/atomic.py` | Escribir un archivo de salida entero o no escribirlo | Los tres archivos de salida y los cuatro formatos del scoring |
 | `psglab/core/decimation.py` | Reducir una señal larga a lo que entra en pantalla sin perder sus picos | Cualquier página más larga que unos segundos |
+| `psglab/ui/envelope_cache.py` | Qué trozos de la envolvente se calculan y cuáles se guardan entre cuadros | La reproducción y cualquier página larga |
 | `psglab/ui/docks.py` | La disposición de los paneles alrededor de la señal | Dónde aparece cada panel |
 | `psglab/ui/icons.py` | Los iconos de la barra, dibujados por el programa | La barra de navegación |
 | `psglab/ui/menus.py` | La barra de menú y qué acción vive en cada uno | Cómo se llega a cada funcionalidad |

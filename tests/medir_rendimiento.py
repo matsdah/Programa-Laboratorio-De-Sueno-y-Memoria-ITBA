@@ -20,6 +20,9 @@ Qué mide:
 - Lo mismo sobre un registro **denso** —32 canales a 1000 Hz—, que es el caso
   que el registro de prueba no cubre: tiene cuarenta y cinco veces más muestras
   por página.
+- **Un movimiento del mouse con la lupa**, sobre una página de 5 min con
+  cientos de anotaciones: cada movimiento vuelve a pedir lo que dibujan las
+  herramientas, y las bandas de anotación van incluidas.
 
 **Se informa la mediana y no el promedio.** Una corrida cualquiera trae algún
 cuadro que tardó el triple porque el sistema operativo hizo otra cosa, y el
@@ -175,6 +178,50 @@ def medir_dibujo(ventana: MainWindow, registro: Recording, titulo: str) -> None:
         fila(nombre, mediana_ms(paso, veces=15 if entera else CUADROS))
 
 
+def medir_overlays(ventana: MainWindow) -> None:
+    """Un movimiento del mouse con la lupa, con muchas anotaciones en la página.
+
+    Pasa por el camino entero —la herramienta avisa, el controlador junta lo
+    que hay que dibujar y el visualizador lo dibuja—, que es el que la lupa y
+    el anotador recorren con cada movimiento.
+    """
+    import tempfile
+
+    from psglab.core.annotations import Annotation
+    from tests.conftest import escribir_brainvision
+
+    print("\n== Un movimiento del mouse con la lupa, página de 5 min ==")
+    with tempfile.TemporaryDirectory() as carpeta:
+        ruta = escribir_brainvision(Path(carpeta), segundos=600.0)
+        ventana.open_recording(ruta)
+    sesion = ventana.session
+    frecuencia = sesion.recording.sampling_rate
+    ventana.set_timescale(300.0)
+    ventana._cambiar_pagina(sesion.viewport.with_start(0.0))
+    canal = sesion.visible_channels[0]
+    ventana.tool_controller.toggle("magnifier", True)
+    lupa = ventana.tool_controller.tools["magnifier"]
+
+    for cuantas in (0, 100, 400):
+        for anotacion in list(sesion.annotations.all()):
+            sesion.annotations.remove(anotacion)
+        for numero in range(cuantas):
+            inicio = int((numero * 290.0 / max(cuantas, 1) + 1.0) * frecuencia)
+            sesion.annotations.add(
+                Annotation("Spindle", onset_sample=inicio, duration_samples=int(frecuencia))
+            )
+        ventana.tool_controller.redraw_overlays()
+        QApplication.processEvents()
+        posicion = [10.0]
+
+        def mover() -> None:
+            posicion[0] = 10.0 + (posicion[0] + 0.7) % 250.0
+            lupa.on_mouse_move(posicion[0], 0.0, canal)
+            QApplication.processEvents()
+
+        fila(f"{cuantas} anotaciones en la página", mediana_ms(mover))
+
+
 def main() -> int:
     """Corre las tres mediciones sobre una ventana de tamaño fijo."""
     aplicacion = create_application(sys.argv)
@@ -187,6 +234,7 @@ def main() -> int:
     medir_apertura(ventana)
     medir_dibujo(ventana, registro_sintetico(7, 100.0, 10), "7 canales a 100 Hz")
     medir_dibujo(ventana, registro_sintetico(32, 1000.0, 10), "32 canales a 1000 Hz")
+    medir_overlays(ventana)
 
     ventana.close()
     del aplicacion

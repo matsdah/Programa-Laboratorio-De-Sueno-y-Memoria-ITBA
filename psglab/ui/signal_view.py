@@ -25,25 +25,24 @@ Cubre del pliego: V1_P, V2_P, V4_F, V5_F de "Visualización de la señal", y la
 mitad de dibujo de V3_P (la elección de qué canales mostrar la resuelve
 `psglab/ui/channel_selector.py`; acá se los dibuja). También V1_F de "Anotación
 de la señal", por `sample_at_pixel()`: es la conversión que traduce el gesto del mouse
-a la posición en muestras que guarda la anotación; y V1_F de "Herramienta Lupa",
-por `_dibujar_lupa()`, que es lo que **amplía** de verdad el tramo bajo el
-cursor: `MagnifierTool` publica el radio y el zoom, y hasta el hito 9 acá se los
-descartaba y se pintaba un círculo de tamaño fijo.
+a la posición en muestras que guarda la anotación.
+
+Lo que dibujan las herramientas encima de la señal vive en
+`psglab/ui/overlay_items.py`, y la envolvente de las páginas largas en
+`psglab/ui/envelope_cache.py`. Las dos le preguntan a esta clase lo único que
+sabe ella: dónde está cada carril y cuántos carriles mide un microvoltio.
 """
 
-from collections import OrderedDict
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Final
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QBrush, QColor, QFont, QPainterPath
-from PySide6.QtWidgets import QGraphicsItem, QGraphicsItemGroup, QGraphicsPathItem
+from PySide6.QtCore import QPointF, Qt
+from PySide6.QtGui import QFont
 
 from psglab.config import WINDOW_SECONDS
-from psglab.core.decimation import bucket_size_for, envelope_by_bucket_size
 from psglab.core.nomenclature import SleepStage, stage_label
 from psglab.core.session import Session
 from psglab.core.windows import (
@@ -53,39 +52,22 @@ from psglab.core.windows import (
     seconds_to_samples,
     seconds_to_view_fraction,
 )
-from psglab.tools.base import (
-    BandOverlay,
-    CircleOverlay,
-    Overlay,
-    SegmentOverlay,
-    SpanOverlay,
-)
+from psglab.tools.base import Overlay
 from psglab.ui import theme
 from psglab.ui.channel_axis import ChannelAxis, ChannelLane
-from psglab.ui.fonts import font_for
+from psglab.ui.envelope_cache import EnvelopeCache
 from psglab.ui.grid import GridBackground
-from psglab.utils.units import MICROVOLT, format_amplitude
+from psglab.ui.overlay_items import Z_DE_LA_BANDA, OverlayLayer
+from psglab.utils.units import MICROVOLT
 
 #: Separación vertical entre canales, en unidades del gráfico. Cada canal ocupa
 #: su propio carril y la señal se dibuja dentro de él.
 _ALTO_DE_CARRIL: float = 1.0
 
-#: Dónde caen en la pila de la escena las dos herramientas que se dibujan
-#: **encima** de la señal. Debajo de las curvas —que van en 0— están la grilla,
-#: en −10, y la banda de la época, en −5. La lente tapa a la banda de amplitud
-#: porque es la que el usuario está mirando en ese momento.
-_Z_DE_LA_BANDA: float = 5.0
-_Z_DE_LA_LENTE: float = 10.0
-
 #: Qué fracción del carril llena una señal que alcanza justo `scale_uv`. Menos
 #: de la mitad para que dos canales vecinos no se pisen cuando los dos están al
 #: máximo de su escala.
 _LLENADO_DEL_CARRIL: float = 0.45
-
-#: Por debajo de cuántas muestras por columna de píxeles se dibuja la señal tal
-#: cual. La envolvente emite dos puntos por columna, así que con menos de dos
-#: muestras por columna no achicaría nada: sólo volvería más gruesa la traza.
-_MUESTRAS_POR_COLUMNA: int = 2
 
 #: Ancho mínimo, en columnas, con el que se calcula la envolvente.
 #:
@@ -94,26 +76,6 @@ _MUESTRAS_POR_COLUMNA: int = 2
 #: pantalla saldría como una raya. Con este piso sale bien aunque se dibuje
 #: antes de tener tamaño, y pedir más cubetas que píxeles no cuesta nada visible.
 _COLUMNAS_MINIMAS: int = 1000
-
-#: Cuántas cubetas se calculan y se guardan juntas: un **trozo**.
-#:
-#: **Es lo que decide el tirón del cuadro que cruza a un trozo nuevo.** La
-#: reproducción avanza en cada cuadro una fracción de página, y cuando el borde
-#: entra en un trozo que no está, se calcula entero, en todos los canales. Con
-#: trozos del ancho de una página ese cuadro costaría lo mismo que antes del
-#: hito 49, sólo que una vez cada cincuenta; con 64 cubetas es la dieciseisava
-#: parte. Medido con 32 canales a 1000 Hz y página de 5 min: un paso de cada
-#: cuatro cruza a un trozo nuevo, y calcularlo cuesta 1,2 ms. Más chico
-#: tampoco conviene: cada trozo es una búsqueda en la caché por canal y por
-#: cuadro.
-_CUBETAS_POR_TROZO: int = 64
-
-#: Cuántos trozos se recuerdan. Una página de mil columnas son dieciséis por
-#: canal, así que alcanza para unas ocho páginas de 32 canales: ir y volver es
-#: instantáneo. Cada trozo son como mucho 130 índices, así que el tope son unos
-#: 4 MB.
-_TROZOS_EN_MEMORIA: int = 4096
-
 
 class TimeAxis(pg.AxisItem):
     """El eje horizontal, en hora de la noche cuando el archivo la informa.
@@ -194,7 +156,8 @@ class SignalView(pg.PlotWidget):
         self._session: Session | None = None
         self._window_index: int = 0
         self._curves: dict[str, pg.PlotCurveItem] = {}
-        self._overlay_items: list[object] = []
+        #: Lo que dibujan las herramientas. Ver `psglab/ui/overlay_items.py`.
+        self.overlay_layer: OverlayLayer = OverlayLayer(self)
         #: La pestaña con el número de época y su fase. Ver `_marcar_la_pestana()`.
         self._pestana: pg.TextItem | None = None
         #: El relleno que tiene hoy la pestaña, para no repintarla si no cambió.
@@ -204,16 +167,9 @@ class SignalView(pg.PlotWidget):
         #: La línea que marca por dónde va la reproducción. Se crea la primera
         #: vez que hace falta y después sólo se mueve. Ver `set_playhead()`.
         self._cursor: pg.InfiniteLine | None = None
-        #: Trozos de envolvente ya calculados, del más viejo al más nuevo. La
-        #: clave es (canal, muestras por cubeta, número de trozo) y el valor,
-        #: los índices **absolutos** de las muestras elegidas. **No** incluye la
-        #: página, que es lo que la hace servir de un cuadro al otro (hito 49),
-        #: ni la escala ni el desplazamiento, que se aplican después: cambiar la
-        #: amplitud no obliga a recalcular nada.
-        self._envolventes: OrderedDict[tuple[str, int, int], np.ndarray] = OrderedDict()
-        #: El registro del que salieron esas envolventes. Ver
-        #: `_olvidar_envolventes_si_cambio()`.
-        self._registro_de_las_envolventes: object | None = None
+        #: La envolvente de las páginas largas, por trozos alineados al
+        #: registro. Ver `psglab/ui/envelope_cache.py`.
+        self.envelope_cache: EnvelopeCache = EnvelopeCache()
         self._visible: list[str] = []
         #: La tipografía de los nombres de canal, o None para la de pyqtgraph.
         self._fuente: QFont | None = None
@@ -332,11 +288,11 @@ class SignalView(pg.PlotWidget):
         # la página empieza antes de él. Sigue siendo una vista.
         bloque = registro.get_segment(0, registro.n_samples)
         columnas = self._columnas()
-        self._olvidar_envolventes_si_cambio(registro)
+        self.envelope_cache.forget_if_changed(registro)
 
         for posicion, nombre in enumerate(self._visible):
             fila = registro.channel_by_name(nombre).index
-            indices, tramo = self._muestras_a_dibujar(
+            indices, tramo = self.envelope_cache.samples_to_draw(
                 nombre, inicio, fin, bloque[fila], columnas
             )
             tiempos = (inicio + indices) / frecuencia
@@ -366,97 +322,6 @@ class SignalView(pg.PlotWidget):
         """
         ancho = int(self.getPlotItem().vb.width())
         return max(ancho, _COLUMNAS_MINIMAS)
-
-    def _muestras_a_dibujar(
-        self,
-        channel_name: str,
-        start_sample: int,
-        stop_sample: int,
-        channel: np.ndarray,
-        columns: int,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Qué muestras de un canal se mandan a la pantalla, y en qué posición.
-
-        Args:
-            channel: el canal **entero**, no la página. Ver `draw_viewport()`.
-
-        Returns:
-            Tupla (posiciones relativas a `start_sample`, valores). Con pocas
-            muestras son todas las de la página; con muchas, la envolvente
-            mínimo/máximo, que conserva cada pico y tiene el tamaño de la
-            pantalla y no el del registro.
-
-        **La envolvente se arma con trozos alineados al registro** (hito 49), y
-        cada trozo se calcula una vez. Al reproducir, la página avanza una
-        fracción de sí misma por cuadro y casi todos sus trozos ya estaban: con
-        32 canales a 1000 Hz y página de 5 min, calcular la envolvente pasó de
-        unos 95 ms por cuadro a 1,2 ms en uno de cada cuatro. Hasta entonces la
-        caché se buscaba por la primera y la última muestra de la página, que al reproducir
-        cambian en cada cuadro: no acertaba nunca.
-
-        **Las cubetas de los bordes se dibujan enteras**, aunque empiecen antes
-        de la página o terminen después. Un extremo que cae afuera queda fuera
-        de la pantalla, que lo recorta; recortarlo acá partiría la cubeta y le
-        cambiaría la forma según dónde esté el borde, que es justamente lo que
-        la grilla fija evita.
-        """
-        if stop_sample - start_sample <= _MUESTRAS_POR_COLUMNA * columns:
-            return np.arange(stop_sample - start_sample), channel[start_sample:stop_sample]
-
-        por_cubeta = bucket_size_for(stop_sample - start_sample, columns)
-        por_trozo = _CUBETAS_POR_TROZO * por_cubeta
-        trozos = range(start_sample // por_trozo, (stop_sample - 1) // por_trozo + 1)
-        indices = np.concatenate(
-            [self._trozo(channel_name, trozo, por_cubeta, channel) for trozo in trozos]
-        )
-
-        # Los trozos de los bordes traen cubetas que no tocan la página.
-        desde = (start_sample // por_cubeta) * por_cubeta
-        hasta = -(-stop_sample // por_cubeta) * por_cubeta
-        primero, ultimo = np.searchsorted(indices, (desde, hasta))
-        indices = indices[primero:ultimo]
-        return indices - start_sample, channel[indices]
-
-    def _trozo(
-        self, channel_name: str, chunk: int, bucket_size: int, channel: np.ndarray
-    ) -> np.ndarray:
-        """Los índices absolutos que la envolvente elige en un trozo, calculados
-        una sola vez."""
-        clave = (channel_name, bucket_size, chunk)
-        guardado = self._envolventes.get(clave)
-        if guardado is not None:
-            self._envolventes.move_to_end(clave)
-            return guardado
-
-        desde = chunk * _CUBETAS_POR_TROZO * bucket_size
-        hasta = min(desde + _CUBETAS_POR_TROZO * bucket_size, len(channel))
-        indices, _ = envelope_by_bucket_size(channel[desde:hasta], bucket_size)
-        calculado = indices + desde
-        self._envolventes[clave] = calculado
-        if len(self._envolventes) > _TROZOS_EN_MEMORIA:
-            self._envolventes.popitem(last=False)
-        return calculado
-
-    def _olvidar_envolventes_si_cambio(self, recording: object) -> None:
-        """Descarta las envolventes si el registro que se dibuja es otro.
-
-        **La caché mentiría sin esto**, y de la peor forma: filtrar la señal
-        devuelve un registro nuevo con los mismos índices de muestra, así que la
-        clave sería la misma y se dibujaría la envolvente de la señal cruda
-        sobre la filtrada, sin ningún aviso.
-
-        Se compara la **identidad** del objeto y no se espera un aviso de la
-        sesión: cualquier camino que cambie el registro —filtrar, derivar,
-        re-referenciar, deshacer, abrir otro archivo— termina en un dibujo, y
-        acá se entera sin que nadie tenga que acordarse de avisarle. Es el
-        olvido que `Session.add_window_listener()` documenta querer impedir.
-
-        Guardar la referencia no alarga la vida del registro viejo más allá del
-        dibujo siguiente, que ocurre inmediatamente después de reemplazarlo.
-        """
-        if recording is not self._registro_de_las_envolventes:
-            self._envolventes.clear()
-            self._registro_de_las_envolventes = recording
 
     def _marcar_epoca(self) -> None:
         """Resalta la época que se va a scorear, sobre la página que se mira.
@@ -554,12 +419,12 @@ class SignalView(pg.PlotWidget):
             # verde se leía como otra fase. Queda debajo de los rótulos de las
             # bandas. Tapa la señal sólo si una curva sube hasta el medio
             # carril de margen de arriba, que es donde vive la pestaña.
-            self._pestana.setZValue(_Z_DE_LA_BANDA + 0.5)
+            self._pestana.setZValue(Z_DE_LA_BANDA + 0.5)
             self.getPlotItem().addItem(self._pestana)
         elif self._pestana.toPlainText() != texto:
             self._pestana.setText(texto)
         self._pintar_la_pestana(fase)
-        self._pestana.setPos(inicio, self._techo_de_la_pestana())
+        self._pestana.setPos(inicio, self.epoch_tab_top())
 
     def _pintar_la_pestana(self, fase: SleepStage) -> None:
         """El relleno de la pestaña: el color de la fase, o el acento sin scorear.
@@ -586,7 +451,7 @@ class SignalView(pg.PlotWidget):
         todavía no hay pestaña. Para verificar en un test qué se pinta."""
         return self._relleno_de_la_pestana if self._pestana is not None else None
 
-    def _techo_de_la_pestana(self) -> float:
+    def epoch_tab_top(self) -> float:
         """La altura a la que se apoya la pestaña: el borde de arriba del eje.
 
         El eje vertical son carriles y no microvoltios —uno por canal, el
@@ -717,343 +582,81 @@ class SignalView(pg.PlotWidget):
     # -- Lo que dibujan las herramientas ------------------------------------
 
     def set_overlays(self, overlays: Sequence[Overlay]) -> None:
-        """Reemplaza todo lo que las herramientas quieren dibujar encima.
+        """Deja dibujado lo que las herramientas quieren mostrar encima.
 
-        Recibe **estado completo, no un delta**: redibujar es reemplazar. Los
-        `Overlay` vienen en segundos y microvoltios, y acá es donde se traducen
-        a píxeles, que es lo único que esta clase sabe hacer y ninguna otra.
-
-        La ventana principal la llama cuando una herramienta avisa por
-        `Tool.notify_changed()`.
+        Recibe **estado completo, no un delta**. Lo dibuja `overlay_layer`, que
+        reutiliza lo que ya estaba con la misma geometría: ver
+        `psglab/ui/overlay_items.py`. La ventana principal la llama cuando una
+        herramienta avisa por `Tool.notify_changed()`.
         """
-        item = self.getPlotItem()
-        for dibujado in self._overlay_items:
-            item.removeItem(dibujado)
-        self._overlay_items.clear()
+        self.overlay_layer.set_overlays(overlays)
 
-        for overlay in overlays:
-            dibujado = self._dibujar_overlay(overlay)
-            if dibujado is None:
-                continue
-            # Una banda de anotación son dos objetos: la región y su rótulo.
-            for pieza in dibujado if isinstance(dibujado, tuple) else (dibujado,):
-                item.addItem(pieza)
-                self._overlay_items.append(pieza)
+    def overlay_signature(self) -> object:
+        """Todo lo que cambia cómo se dibuja un overlay, sin ser el overlay.
 
-    def _dibujar_overlay(self, overlay: Overlay) -> object | tuple[object, ...] | None:
-        """Traduce un `Overlay` a algo que pyqtgraph sepa pintar.
-
-        Devuelve `None` para un tipo que esta versión todavía no dibuja, en vez
-        de elevar: una herramienta nueva no puede voltear el visualizador.
+        La página, los canales visibles con la escala y el desplazamiento de
+        cada uno, y el esquema. Si nada de eso cambió, un overlay ya dibujado se
+        puede dejar como está.
         """
-        if isinstance(overlay, BandOverlay):
-            # La banda va sobre **su** canal, que es el dato que el hito 7
-            # agregó a `BandOverlay`: sin él, 75 µV no tendrían una única
-            # traducción, porque la escala es por canal.
-            centro = self._centro_de_carril(overlay.channel_name)
-            if centro is None:
-                return None
-            media = self._a_carril(overlay.height_uv / 2, overlay.channel_name)
-            base = centro + self._a_carril(overlay.y_center_uv, overlay.channel_name)
-            esquema = theme.current()
-            region = pg.LinearRegionItem(
-                values=(base - media, base + media),
-                orientation="horizontal",
-                movable=False,
-                brush=pg.mkBrush(QColor(esquema.accent).lighter(160).name() + "3c"),
-                pen=pg.mkPen(esquema.accent, width=2),
-            )
-            # **Encima de la señal, y traslúcida.** Con el relleno de fábrica de
-            # pyqtgraph —azul a alpha 50— la banda quedaba invisible sobre un
-            # trazo azul, que es el color del primer canal: se dibujaba y no se
-            # veía. Lo que hay que poder leer son los dos bordes, que son los
-            # que dicen dónde terminan los 75 µV.
-            region.setZValue(_Z_DE_LA_BANDA)
-            return region, self._rotulo_de_la_amplitud(overlay, base + media)
-
-        if isinstance(overlay, SpanOverlay):
-            # Ocupa todo el alto de la ventana, como pide el pliego, para que se
-            # vea sin importar qué canales estén visibles.
-            region = pg.LinearRegionItem(
-                values=(overlay.start_seconds, overlay.end_seconds), movable=False
-            )
-            if overlay.color:
-                region.setBrush(pg.mkBrush(overlay.color + "55"))
-                # Los bordes con el color de la clase y no con el azul de
-                # pyqtgraph: desde el hito 52 se agarran para corregir el tramo.
-                for linea in region.lines:
-                    linea.setPen(pg.mkPen(overlay.color, width=1))
-            if not overlay.label:
-                return region
-            rotulo = self._rotulo_de_la_banda(overlay)
-            # **Encima de su banda**, que por omisión está encima de la señal:
-            # si no, el borde de una banda más angosta que su nombre le cruza
-            # el texto. Se probó al revés —la banda detrás de la señal— y con
-            # una página larga la envolvente es un bloque lleno que la tapaba.
-            rotulo.setZValue(region.zValue() + 1)
-            return region, rotulo
-
-        if isinstance(overlay, SegmentOverlay):
-            # **Sobre el carril de su canal** (hito 46). Iba siempre sobre el
-            # primero visible, así que una línea trazada sobre el tercer canal
-            # se dibujaba sobre el primero, con la ganancia del primero.
-            canal = overlay.channel_name or (
-                self._visible[0] if self._visible else None
-            )
-            centro = self._centro_de_carril(canal) if canal else None
-            if centro is None:
-                return None
-            y1 = centro + self._a_carril(overlay.y1_uv, canal)
-            y2 = centro + self._a_carril(overlay.y2_uv, canal)
-            linea = pg.PlotCurveItem(
-                [overlay.x1_seconds, overlay.x2_seconds],
-                [y1, y2],
-                pen=pg.mkPen(theme.current().foreground, width=2),
-            )
-            if not overlay.label:
-                return linea
-            # **Lo que mide, sobre el medio de la línea** (hito 55). Encima de
-            # la señal, por la regla de siempre: un texto en el gráfico que
-            # queda debajo de la onda no se lee.
-            # Con el fondo del esquema: sin él, el número se perdía sobre una
-            # señal densa, que es donde más se mide.
-            rotulo = pg.TextItem(
-                overlay.label,
-                color=theme.current().foreground,
-                anchor=(0.5, 1.0),
-                fill=pg.mkBrush(theme.current().background),
-            )
-            rotulo.setPos(
-                (overlay.x1_seconds + overlay.x2_seconds) / 2, max(y1, y2)
-            )
-            rotulo.setZValue(_Z_DE_LA_BANDA + 1)
-            return linea, rotulo
-
-        if isinstance(overlay, CircleOverlay):
-            return self._dibujar_lupa(overlay)
-        return None
-
-    def _rotulo_de_la_amplitud(self, overlay: BandOverlay, techo: float) -> pg.TextItem:
-        """Cuántos µV mide la banda y sobre qué canal, en su borde de arriba.
-
-        **La banda no lo decía** (hito 54), y es la duda que despierta: con una
-        escala por canal, 75 µV ocupan distinto en cada carril, y la banda mide
-        contra el seleccionado o, si no hay, el primero visible, sin avisar
-        cuál. El prototipo lo escribía al lado de la banda.
-
-        Va a la derecha de la página, que es donde menos tapa: la banda sigue
-        al mouse y el mouse casi nunca está en el borde. Encima de la banda,
-        por la misma razón que el rótulo de una anotación.
-        """
-        decimales = 0 if float(overlay.height_uv).is_integer() else 1
-        texto = f"{format_amplitude(overlay.height_uv, decimales)} · {overlay.channel_name}"
-        esquema = theme.current()
-        rotulo = pg.TextItem(
-            texto,
-            anchor=(1, 1),
-            color=theme.ink_over(esquema, esquema.accent),
-            fill=pg.mkBrush(esquema.accent),
-        )
-        derecha = self._session.viewport.end_seconds if self._session is not None else 0.0
-        rotulo.setPos(derecha, techo)
-        rotulo.setZValue(_Z_DE_LA_BANDA + 1)
-        return rotulo
-
-    def _rotulo_de_la_banda(self, overlay: SpanOverlay) -> pg.TextItem:
-        """La pestaña con el nombre de la clase, colgada del borde de la banda.
-
-        **Hasta el hito 53 la banda sólo tenía color**, y para saber si era un
-        huso o un arousal había que recordar qué color tenía cada clase. El
-        prototipo la ponía en una pestaña, igual que la de la época, y es la
-        misma pieza: rellena con el color de la clase y con la tinta que elige
-        `theme.ink_over()` contra ese relleno.
-
-        **Va una línea más abajo que la de la época**, para que una anotación
-        que empieza con la época no tape el número. Se recorta contra el borde
-        de la página, como la de la época: con una banda que empieza antes, el
-        rótulo quedaría fuera de la pantalla.
-        """
-        color = overlay.color or theme.current().accent
-        rotulo = pg.TextItem(
-            overlay.label,
-            anchor=(0, -1.15),
-            color=theme.ink_over(theme.current(), color),
-            fill=pg.mkBrush(color),
-        )
-        inicio = overlay.start_seconds
-        if self._session is not None:
-            inicio = max(inicio, self._session.viewport.start_seconds)
-        rotulo.setPos(inicio, self._techo_de_la_pestana())
-        return rotulo
-
-    def _dibujar_lupa(self, overlay: CircleOverlay) -> object | None:
-        """La lupa: una lente circular sobre el tramo bajo el cursor (V1_F).
-
-        **Hasta el hito 9 esto era un `ScatterPlotItem` de 30 píxeles**, que
-        descartaba `radius_seconds` y `zoom`: el círculo seguía al mouse y no
-        ampliaba nada. Del 9 al 45 fue lo contrario, una polilínea estirada sin
-        ningún círculo, pese a que el tipo se llama `CircleOverlay`. Hoy es la
-        lente del prototipo: borde, fondo propio, el tramo ampliado recortado
-        adentro y el instante escrito debajo.
-
-        **El recorte lo hace Qt y no el código.** La elipse es un
-        `QGraphicsPathItem` con `ItemClipsChildrenToShape`, y la curva es su
-        hija: recortar los datos a mano habría dejado la onda cortada en los
-        bordes en vez de la lente.
-
-        **La lente se dibuja redonda aunque los dos ejes no compartan unidad**
-        —`x` son segundos y `y` son carriles—. El radio vertical sale de
-        `viewPixelSize()`, que dice cuánto vale un píxel en cada eje. Se
-        recalcula en cada redibujo, o sea en cada movimiento del mouse; si la
-        ventana se redimensiona con el mouse quieto, la lente queda ovalada
-        hasta el próximo movimiento.
-
-        Se amplía **el canal bajo el cursor**, que viene en el overlay desde el
-        hito 45. Antes era siempre `self._visible[0]`, y ampliar todos los
-        carriles a la vez los superpondría.
-        """
-        if self._session is None or not self._visible:
+        if self._session is None:
             return None
-        canal = overlay.channel_name or self._visible[0]
-        if canal not in self._visible:
-            return None
-        registro = self._session.recording
-        frecuencia = registro.sampling_rate
-        pagina = self._session.viewport
-
-        # El tramo a ampliar, recortado contra los bordes de la **pagina**:
-        # cerca del comienzo o del final hay menos senal de la que pide el
-        # radio. Antes se recortaba contra la ventana de 30 s, que con la
-        # escala libre ya no es lo que se esta mirando.
-        desde = max(pagina.start_seconds, overlay.x_seconds - overlay.radius_seconds)
-        hasta = min(pagina.end_seconds, overlay.x_seconds + overlay.radius_seconds)
-        primera, ultima = seconds_to_samples(
-            desde, hasta, frecuencia, registro.n_samples
-        )
-        if ultima <= primera:
-            return None
-
-        tramo = registro.get_segment(primera, ultima, [canal])[0]
-        tiempos = (primera + np.arange(len(tramo))) / frecuencia
-
-        centro_carril = self._centro_de_carril(canal) or 0.0
-        base = centro_carril + self._a_carril(overlay.y_uv, canal)
-        alturas = centro_carril + self._a_carril_desde_datos(tramo, canal)
-
-        ampliado_x = overlay.x_seconds + (tiempos - overlay.x_seconds) * overlay.zoom
-        ampliado_y = base + (alturas - base) * overlay.zoom
-        return self._lente(overlay, ampliado_x, ampliado_y, base, canal)
-
-    def _lente(
-        self,
-        overlay: CircleOverlay,
-        ampliado_x: np.ndarray,
-        ampliado_y: np.ndarray,
-        base: float,
-        channel_name: str,
-    ) -> object:
-        """El cristal de la lupa, con la curva ampliada adentro."""
-        esquema = theme.current()
-        radio_x = overlay.radius_seconds * overlay.zoom
-        # Cuánto vale un píxel en cada eje, para que el círculo salga redondo.
-        por_pixel = self.getPlotItem().vb.viewPixelSize()
-        proporcion = (por_pixel[1] / por_pixel[0]) if por_pixel[0] else 1.0
-        radio_y = radio_x * proporcion
-
-        camino = QPainterPath()
-        camino.addEllipse(
-            QRectF(
-                overlay.x_seconds - radio_x, base - radio_y, 2 * radio_x, 2 * radio_y
-            )
-        )
-        # **La lente es un grupo de dos piezas**, y no una sola, porque sólo
-        # una recorta: el cristal se lleva la curva adentro y la etiqueta va
-        # afuera. Colgarla del cristal la borraría entera, porque cae debajo
-        # del círculo.
-        grupo = QGraphicsItemGroup()
-        # **Encima de la señal**: el fondo de la lente es opaco justamente para
-        # que la onda de abajo no compita con la ampliada.
-        grupo.setZValue(_Z_DE_LA_LENTE)
-
-        cristal = QGraphicsPathItem(camino)
-        cristal.setBrush(QBrush(QColor(esquema.background)))
-        cristal.setPen(pg.mkPen(esquema.accent, width=2))
-        cristal.setFlag(
-            QGraphicsItem.GraphicsItemFlag.ItemClipsChildrenToShape, True
-        )
-        # **`addToGroup()` y no `setParentItem()`.** Sobre un grupo, lo segundo
-        # deja el ítem sin dueño: el envoltorio de Python es la única
-        # referencia que queda, y al volver de acá se lo lleva el recolector
-        # sin avisar. La etiqueta de la hora desaparecía así, y nada fallaba.
-        grupo.addToGroup(cristal)
-
-        # **Con el color de su canal**, que es el que la identifica en el resto
-        # del programa: la onda ampliada es la misma que la de abajo, y en otra
-        # tinta parecería otra cosa.
-        curva = pg.PlotCurveItem(
-            ampliado_x,
-            ampliado_y,
-            pen=pg.mkPen(
-                esquema.color_for_channel(self._visible.index(channel_name)), width=2
+        return (
+            self._session.viewport,
+            tuple(
+                (nombre, self._session.scale_uv(nombre), self._session.offset_uv(nombre))
+                for nombre in self._visible
             ),
-            antialias=False,
+            theme.current().name,
         )
-        curva.setParentItem(cristal)
 
-        hora = self._hora_del_cursor(overlay.x_seconds)
-        if hora is not None:
-            etiqueta = pg.TextItem(hora, color=esquema.accent, anchor=(0.5, 0.0))
-            if self._fuente is not None:
-                etiqueta.setFont(font_for("lectura_secundaria", self._fuente))
-            etiqueta.setPos(overlay.x_seconds, base - radio_y)
-            grupo.addToGroup(etiqueta)
-        return grupo
+    @property
+    def visible_channels(self) -> list[str]:
+        """Los canales dibujados, de arriba hacia abajo."""
+        return list(self._visible)
 
-    def _hora_del_cursor(self, segundos: float) -> str | None:
-        """El instante bajo la lupa, como lo escribe el eje de tiempo.
+    def channel_font(self) -> QFont | None:
+        """La tipografía de los nombres de canal, o None si es la de pyqtgraph."""
+        return self._fuente
 
-        Con décimas, que es la resolución que la lupa existe para mirar: sin
-        ellas, dos posiciones distintas del cursor dirían lo mismo.
-        """
-        if self._session is None:
-            return None
-        reloj = seconds_to_clock_time(
-            segundos, self._session.recording.start_time
-        )
-        if reloj is None:
-            return f"{segundos:.1f} s".replace(".", ",")
-        return reloj.strftime("%H:%M:%S,") + f"{reloj.microsecond // 100000}"
+    # -- Los carriles ---------------------------------------------------------
+    #
+    # Cada canal ocupa un carril de alto `_ALTO_DE_CARRIL`, el primero en 0 y
+    # los demás hacia abajo. Un microvoltio mide en carriles lo que dice la
+    # escala del canal, y una **posición** se mide además desde su
+    # desplazamiento vertical; una **longitud**, no.
 
-    def _a_carril_desde_datos(
-        self, microvoltios: np.ndarray, channel_name: str
-    ) -> np.ndarray:
-        """`_a_carril()` para un array entero, sin recorrerlo en Python.
-
-        Es la misma cuenta que `draw_viewport()` —desplazamiento incluido—, y
-        por eso la señal ampliada se superpone exactamente con la que ya está
-        dibujada.
-        """
-        if self._session is None:
-            return microvoltios
-        desplazado = microvoltios - self._session.offset_uv(channel_name)
-        return (desplazado / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
-
-    def _centro_de_carril(self, channel_name: str) -> float | None:
+    def lane_center(self, channel_name: str) -> float | None:
         """Dónde está dibujado el eje de un canal, o None si no está visible."""
         if channel_name not in self._visible:
             return None
         return -self._visible.index(channel_name) * _ALTO_DE_CARRIL
 
-    def _a_carril(self, microvoltios: float, channel_name: str | None) -> float:
-        """Pasa una altura en µV a unidades del gráfico, con la escala del canal.
+    def to_lanes(self, microvolts: float, channel_name: str | None) -> float:
+        """Una **posición** en µV, en carriles desde el eje de su canal.
 
-        Es la misma cuenta que usa `show_window()` para la señal, y por eso una
-        banda de 75 µV mide en pantalla exactamente lo que miden 75 µV de la
-        onda: es todo el sentido de la herramienta de amplitud.
+        Es la misma cuenta que dibuja la señal, desplazamiento incluido, y por
+        eso lo que dibujan las herramientas cae exactamente sobre la onda.
         """
         if self._session is None or channel_name is None:
-            return microvoltios
-        desplazado = microvoltios - self._session.offset_uv(channel_name)
+            return microvolts
+        desplazado = microvolts - self._session.offset_uv(channel_name)
+        return (desplazado / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
+
+    def height_to_lanes(self, microvolts: float, channel_name: str | None) -> float:
+        """Una **longitud** en µV, en carriles: sin restar el desplazamiento.
+
+        Es lo que mide en pantalla una altura —la de la banda de amplitud—, y
+        por eso no depende de dónde esté centrado el canal.
+        """
+        if self._session is None or channel_name is None:
+            return microvolts
+        return (microvolts / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
+
+    def array_to_lanes(self, microvolts: np.ndarray, channel_name: str) -> np.ndarray:
+        """`to_lanes()` para un array entero, sin recorrerlo en Python."""
+        if self._session is None:
+            return microvolts
+        desplazado = microvolts - self._session.offset_uv(channel_name)
         return (desplazado / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
 
     # -- Canales (V3_P, V4_F) ----------------------------------------------
@@ -1235,7 +838,7 @@ class SignalView(pg.PlotWidget):
         vale cero— llegaba a las herramientas como −444 µV, medidos contra la
         ganancia de otro canal. Nada fallaba: el número era plausible.
 
-        Invierte la geometría de `_centro_de_carril()`, que apila los carriles
+        Invierte la geometría de `lane_center()`, que apila los carriles
         en `-indice * _ALTO_DE_CARRIL`.
 
         **Se recorta al carril más cercano en vez de contestar None** arriba
@@ -1270,7 +873,7 @@ class SignalView(pg.PlotWidget):
         romperse con la amplitud subida. Hoy es
         `occupancy.TOLERANCIA_DE_CLIC_EN_ESCALAS`, una fracción de `scale_uv`.
 
-        Es la inversa exacta de `_a_carril()`, que es la cuenta con la que se
+        Es la inversa exacta de `to_lanes()`, que es la cuenta con la que se
         dibuja la señal, así que ida y vuelta dan el mismo número.
 
         Args:
@@ -1286,13 +889,13 @@ class SignalView(pg.PlotWidget):
         canal = channel_name or (self._visible[0] if self._visible else None)
         if canal is None:
             return 0.0
-        centro = self._centro_de_carril(canal)
+        centro = self.lane_center(canal)
         if centro is None:
             return 0.0
         return self._a_microvoltios(y_grafico - centro, canal)
 
     def _a_microvoltios(self, carriles: float, channel_name: str | None) -> float:
-        """La inversa de `_a_carril()`. Está al lado suyo a propósito.
+        """La inversa de `to_lanes()`. Está al lado suyo a propósito.
 
         Separarlas garantizaba que alguna de las dos se olvidara del factor de
         llenado el día que cambiara.
