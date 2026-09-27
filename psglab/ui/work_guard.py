@@ -1,12 +1,16 @@
 """El trabajo del investigador: exportarlo y no perderlo.
 
-Dos cosas que van juntas porque la segunda usa a la primera:
+Tres cosas que van juntas porque las dos últimas usan a la primera:
 
 - **Exportar** los tres archivos de salida, con su diálogo de guardado, que
   arranca en la carpeta del registro y propone el nombre del pliego.
 - **El trabajo sin exportar** (hito 33): antes de soltar la sesión —cerrar,
   abrir otro registro, importar un scoring encima— se pregunta si hay scoring
   o anotaciones que no están en ningún archivo, y se ofrece exportarlos.
+- **La copia de recuperación** (hito 79): mientras haya trabajo sin exportar,
+  cada `SEGUNDOS_ENTRE_COPIAS` se deja una copia en el perfil del usuario; al
+  reabrir el mismo registro después de un cierre inesperado, se ofrece volver
+  a ella. Ver «La copia de recuperación», más abajo.
 
 **Es una pieza con estado propio** (hito 79). Hasta ahí era la mitad del mixin
 `window_files.py`, que compartía con los demás el estado de la ventana. La
@@ -18,10 +22,28 @@ señales o por lo que le pasa al construirlo:
 - `failed`: no se pudo exportar. El cartel es de la ventana.
 - `confirm`: la pregunta de sí o no de la ventana, para reemplazar un archivo.
 
+## La copia de recuperación
+
 **El programa no autoguarda**, por decisión del usuario en el hito 33: guardar
-a escondidas obliga a elegir dónde y en qué formato por él. El archivo de
-recuperación que el usuario decidió el 26 de septiembre de 2026 no es un
-autoguardado —no exporta nada ni elige formato— y va a vivir acá.
+a escondidas obliga a elegir dónde y en qué formato por él. La copia que el
+usuario decidió el 26 de septiembre de 2026 no es un autoguardado: no es un
+archivo de salida, no aparece en ninguna carpeta del usuario y no elige ningún
+formato. Qué guarda y cómo se vuelve a ella es de `core/recovery.py`; acá se
+decide cuándo:
+
+- **Se escribe** cada `SEGUNDOS_ENTRE_COPIAS`, sólo si hay trabajo sin
+  exportar y cambió algo desde la anterior. Es lo más que se pierde con un
+  corte de luz.
+- **Se borra** cuando ya no hace falta: al exportar todo, y cada vez que
+  `can_discard()` deja seguir —cerrar normalmente, abrir otro registro,
+  importar un scoring encima—, porque ahí el usuario ya decidió qué hacer con
+  su trabajo. Lo que sobrevive es lo de un cierre que nadie decidió.
+- **Se ofrece** al abrir un registro que tiene una copia, con `offer_recovery()`.
+  Si el usuario la descarta, se borra: no se vuelve a preguntar.
+
+**Sólo la ventana del usuario la escribe** (`enable_recovery()`, que llama
+`apply_saved_preferences()`): la de los tests no escribe en el perfil de quien
+corre la suite, por la misma regla que las preferencias.
 
 Se testea sin `MainWindow`, en `tests/test_work_guard.py`.
 
@@ -30,12 +52,16 @@ tres archivos escribir, aunque desde el hito 23 la ventana sólo ofrece el
 scoring).
 """
 
+import hashlib
+import json
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QStatusBar, QWidget
 
+from psglab.core import recovery
 from psglab.core.session import Session
 from psglab.exporters import DEFAULT_FILENAMES
 from psglab.exporters.annotations_txt import export_annotations
@@ -47,6 +73,14 @@ from psglab.utils.errors import PsgLabError
 #: La pregunta de sí o no de la ventana: título, pregunta, qué dice el botón
 #: que acepta y el texto de abajo. Ver `MainWindow._confirmar()`.
 Confirmar = Callable[[str, str, str, str], bool]
+
+#: Cada cuántos segundos se escribe la copia de recuperación, si cambió algo.
+#: **Es lo más que se pierde con un corte de luz.** Escribirla cuesta unos
+#: milisegundos: son las fases de una noche y sus anotaciones, en texto.
+SEGUNDOS_ENTRE_COPIAS: int = 10
+
+#: La carpeta de las copias, adentro de la del perfil.
+CARPETA_DE_RECUPERACION: str = "recuperacion"
 
 
 class WorkGuard(QObject):
@@ -79,14 +113,25 @@ class WorkGuard(QObject):
         self._confirmar = confirm
         self._ultimo_reciente = last_recent
         self._session: Session | None = None
+        #: Dónde van las copias, o None si esta ventana no las escribe.
+        self._carpeta: Path | None = None
+        #: El texto de la última copia escrita, para no reescribir lo mismo.
+        self._ultima_copia: str | None = None
+        #: Si ya se avisó que la copia no se pudo escribir: una vez alcanza.
+        self._avisado = False
+        self._reloj = QTimer(self)
+        self._reloj.setInterval(SEGUNDOS_ENTRE_COPIAS * 1000)
+        self._reloj.timeout.connect(self.save_recovery)
 
     def attach(self, session: Session) -> None:
         """Toma la sesión de un registro recién abierto.
 
         Hay que preguntar `can_discard()` antes, sobre la anterior: después ya
-        no hay a quién preguntarle.
+        no hay a quién preguntarle. La copia que tuviera el registro nuevo se
+        ofrece aparte, con `offer_recovery()`, cuando la ventana ya lo dibujó.
         """
         self._session = session
+        self._ultima_copia = None
 
     # -- Exportar -----------------------------------------------------------
 
@@ -260,16 +305,20 @@ class WorkGuard(QObject):
                 "importar «Scoring.txt»".
         """
         en_juego = self.unexported()
-        if not en_juego:
-            return True
-        respuesta = self.ask(doing, en_juego)
-        if respuesta == "descartar":
-            return True
-        if respuesta == "exportar":
-            for que in en_juego:
-                self.export_dialog(que)
-            return not self.unexported()
-        return False
+        if en_juego:
+            respuesta = self.ask(doing, en_juego)
+            if respuesta == "exportar":
+                for que in en_juego:
+                    self.export_dialog(que)
+                if self.unexported():
+                    return False
+            elif respuesta != "descartar":
+                return False
+        # **El usuario ya decidió qué hacer con su trabajo**, así que la copia
+        # de recuperación sobra: la que sobrevive es la de un cierre que nadie
+        # decidió.
+        self.discard_recovery()
+        return True
 
     def ask(self, doing: str, at_stake: list[str]) -> str:
         """Muestra el cartel y devuelve "exportar", "descartar" o "cancelar".
@@ -319,3 +368,152 @@ class WorkGuard(QObject):
         if elegido is descartar:
             return "descartar"
         return "cancelar"
+
+    # -- La copia de recuperación (hito 79) ---------------------------------
+
+    def enable_recovery(self, folder: Path) -> None:
+        """Empieza a escribir copias de recuperación en esa carpeta.
+
+        **Sólo para la ventana del usuario.** La llama
+        `apply_saved_preferences()`, que sólo llama `main.py`: la ventana de
+        los tests no escribe en el perfil de quien corre la suite.
+        """
+        self._carpeta = folder
+        self._reloj.start()
+
+    def recovery_path(self) -> Path | None:
+        """El archivo de la copia del registro abierto, o None si no hay.
+
+        Uno por registro, nombrado por un resumen de su ruta: el nombre del
+        archivo solo no alcanza, porque dos noches de dos participantes suelen
+        llamarse igual en carpetas distintas. Que la copia sea de ese registro
+        lo confirma después `recovery.matches()`.
+        """
+        if self._carpeta is None or self._session is None:
+            return None
+        ruta = self._session.recording.file_path
+        try:
+            ruta = ruta.resolve()
+        except OSError:
+            pass
+        resumen = hashlib.sha256(str(ruta).encode("utf-8")).hexdigest()[:16]
+        return self._carpeta / f"{resumen}.json"
+
+    def save_recovery(self) -> None:
+        """Escribe la copia si hay trabajo sin exportar y cambió algo.
+
+        La llama el reloj. **Sin trabajo en juego, la borra**: lo que se
+        exportó ya está a salvo en su archivo.
+
+        **Se escribe entera en un archivo aparte y después se renombra**, que
+        es una operación de un paso: un corte de luz en el medio deja la copia
+        anterior, no una a medias.
+
+        Si el disco falla no se interrumpe el scoring con un cartel cada diez
+        segundos: se avisa una vez en la barra de estado.
+        """
+        ruta = self.recovery_path()
+        if ruta is None or self._session is None:
+            return
+        if not self.unexported():
+            self.discard_recovery()
+            return
+        texto = json.dumps(recovery.snapshot(self._session), ensure_ascii=False)
+        if texto == self._ultima_copia:
+            return
+        try:
+            ruta.parent.mkdir(parents=True, exist_ok=True)
+            provisoria = ruta.with_suffix(".tmp")
+            provisoria.write_text(texto, encoding="utf-8")
+            provisoria.replace(ruta)
+        except OSError:
+            if not self._avisado:
+                self._barra_de_estado.showMessage(
+                    "No se pudo guardar la copia de recuperación en el perfil.", 8000
+                )
+                self._avisado = True
+            return
+        self._ultima_copia = texto
+
+    def discard_recovery(self) -> None:
+        """Borra la copia del registro abierto, si hay."""
+        self._ultima_copia = None
+        ruta = self.recovery_path()
+        if ruta is None:
+            return
+        try:
+            ruta.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    def offer_recovery(self) -> bool:
+        """Si el registro abierto tiene una copia, ofrece volver a ella.
+
+        Se llama al abrir, con el registro ya dibujado y antes de que el
+        usuario haga nada: `recovery.restore()` sólo acepta una sesión sin
+        trabajo. Una copia que no se puede leer, que es de otro registro o que
+        no trae nada se borra sin preguntar.
+
+        Returns:
+            Si se recuperó el trabajo. La ventana tiene que redibujar lo que
+            depende del scoring y las anotaciones.
+        """
+        ruta = self.recovery_path()
+        if ruta is None or self._session is None or not ruta.exists():
+            return False
+        try:
+            copia = json.loads(ruta.read_text(encoding="utf-8"))
+            escrita = datetime.fromtimestamp(ruta.stat().st_mtime)
+            ventanas, anotaciones = recovery.summary(copia)
+        except (OSError, ValueError, PsgLabError):
+            self.discard_recovery()
+            return False
+        if not recovery.matches(copia, self._session.recording) or not (
+            ventanas or anotaciones
+        ):
+            self.discard_recovery()
+            return False
+        if not self.ask_recovery(escrita, ventanas, anotaciones):
+            self.discard_recovery()
+            return False
+        try:
+            recovery.restore(self._session, copia)
+        except PsgLabError as error:
+            self.discard_recovery()
+            self.failed.emit(error, "recuperar el trabajo")
+            return False
+        return True
+
+    def ask_recovery(self, written: datetime, windows: int, annotations: int) -> bool:
+        """Pregunta si se recupera la copia. Devuelve si el usuario aceptó.
+
+        Aparte, como `ask()`, para que los tests lo contesten: es modal.
+
+        **Recuperar es el botón por omisión**: es lo que se quiere casi
+        siempre, y un Enter apurado no puede costar la noche. Descartar la
+        borra, y el texto lo dice.
+        """
+        nombre = self._session.recording.file_path.name if self._session else ""
+        partes = []
+        if windows:
+            scoreadas = "ventana scoreada" if windows == 1 else "ventanas scoreadas"
+            partes.append(f"{windows} {scoreadas}")
+        if annotations:
+            anotadas = "anotación" if annotations == 1 else "anotaciones"
+            partes.append(f"{annotations} {anotadas}")
+        cartel = QMessageBox(self._ventana)
+        cartel.setIcon(QMessageBox.Icon.Question)
+        cartel.setWindowTitle("Recuperar el trabajo")
+        cartel.setText(f"«{nombre}» se cerró la última vez sin exportar su trabajo.")
+        cartel.setInformativeText(
+            f"Hay una copia del {written:%d/%m a las %H:%M} con "
+            f"{' y '.join(partes)}. ¿Recuperarla? Si la descartás, se borra."
+        )
+        recuperar = cartel.addButton("Recuperar", QMessageBox.ButtonRole.AcceptRole)
+        recuperar.setProperty(theme.PRIMARIO_PROPERTY, True)
+        descartar = cartel.addButton("Descartar", QMessageBox.ButtonRole.DestructiveRole)
+        descartar.setProperty(theme.DESTRUCTIVO_PROPERTY, True)
+        cartel.setDefaultButton(recuperar)
+        cartel.setEscapeButton(descartar)
+        cartel.exec()
+        return cartel.clickedButton() is recuperar

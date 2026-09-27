@@ -45,6 +45,7 @@ import numpy as np
 import pytest
 
 from psglab.core import nomenclature as nom
+from psglab.core import recovery
 from psglab.core.annotations import es_color_de_clase, marks_to_annotations
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
@@ -139,6 +140,16 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("flat_channels(channel_names=...)", lambda v: registro().flat_channels(0, 10, [v])),
         ("flat_channels(start_sample=...)", lambda v: registro().flat_channels(v, 10)),
         ("Recording(original_sampling_rate=...)", lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0, v)], np.zeros((1, 10)), 100.0)),
+    ],
+    # Hito 79. La copia se lee de un archivo que pudo quedar cortado, así que
+    # lo que trae es tan hostil como lo que trae un lector con un bug.
+    "psglab/core/recovery.py": [
+        ("snapshot", lambda v: recovery.snapshot(v)),
+        ("matches(data=...)", lambda v: recovery.matches(v, registro())),
+        ("matches(recording=...)", lambda v: recovery.matches({}, v)),
+        ("summary", lambda v: recovery.summary(v)),
+        ("restore(session=...)", lambda v: recovery.restore(v, {})),
+        ("restore(data=...)", lambda v: recovery.restore(sesion(), v)),
     ],
     "psglab/core/scoring.py": [
         ("Scoring(nomenclature=...)", lambda v: Scoring(3, v)),
@@ -371,6 +382,10 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Hito 79. Aceptar una copia vacía pondría la sesión como estaba, que
+    # parece inofensivo, y le diría al usuario que recuperó algo que no estaba.
+    ("restore con una copia vacía", {}, lambda v: recovery.restore(sesion(), v)),
+    ("summary con una copia vacía", {}, lambda v: recovery.summary(v)),
     # Hito 75. Una confianza que no es una probabilidad no pasaría nunca un
     # umbral, y la sugerida quedaría sin confirmarse sin que nada dijera por qué.
     ("set_suggestions con una confianza NaN", float("nan"),

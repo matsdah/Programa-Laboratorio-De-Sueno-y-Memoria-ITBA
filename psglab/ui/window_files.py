@@ -121,6 +121,28 @@ class FilesMixin:
         avisos = registro.metadata.get(IMPORT_WARNINGS_KEY)
         if avisos:
             self._mostrar_avisos_de_lectura([str(aviso) for aviso in avisos])
+        # **La copia de recuperación, al final** (hito 79): con el registro ya
+        # dibujado y los avisos del archivo leídos, antes de que el usuario
+        # haga nada. Si la hay, es porque la última vez se cerró sin decidir.
+        if self.work_guard.offer_recovery():
+            self._al_recuperar_el_trabajo()
+
+    def _al_recuperar_el_trabajo(self) -> None:
+        """Redibuja lo que depende del scoring y las anotaciones recuperados.
+
+        La copia puede traer otra nomenclatura, así que cambian también los
+        botones del panel y las teclas de las fases.
+        """
+        if self._session is None:
+            return
+        self.scoring_panel.set_nomenclature(self._session.scoring.nomenclature)
+        install_shortcuts(self, self._session)
+        self._reload_histogram()
+        self.tool_controller.redraw_overlays()
+        self.refresh()
+        self.statusBar().showMessage(
+            "Se recuperó el trabajo que no se había exportado.", 8000
+        )
 
     def _recordar_reciente(self, path: Path) -> None:
         """Pone el registro recién abierto al frente de «Abrir reciente»."""

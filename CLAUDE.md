@@ -572,7 +572,9 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   disposición de paneles no se guarda** desde el hito 24: el programa abre
   siempre con la señal, el selector de canales y, desde el hito 64, el
   hipnograma. Lo que sí se guarda son los registros recientes y las vistas de
-  canales, que también escribe sólo esa ventana. **Lo mismo el cartel de los
+  canales, que también escribe sólo esa ventana, **y la copia de
+  recuperación** (hito 79), que `apply_saved_preferences()` prende con
+  `work_guard.enable_recovery()`. **Lo mismo el cartel de los
   errores inesperados** (hito 68): `main.py` lo prende con
   `report_unexpected_errors=True`, y ninguna otra ventana, porque en la suite
   un cartel modal la colgaría.

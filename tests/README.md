@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los sesenta y cinco
+camino de búsqueda. Con `pytest` directo la recolección falla en los sesenta y seis
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -115,7 +115,8 @@ verde por omisión, que es peor que dar rojo.
 | `test_scoring_panel.py` | El panel de scoring: el pie con la ventana y su fase, que reflejar la ventana no la vuelva a scorear, y las fases en su propia fila. |
 | `test_fonts.py` | Las tipografías que trae el programa: que estén con su licencia, que la que nombra cada esquema exista y que la de la interfaz esté disponible, y que si faltan el programa arranque igual. |
 | `test_analysis_controller.py` | La señal original, la ICA y el cálculo en otro hilo **sin armar la ventana** (hito 79): que un análisis que falla no cambie nada, que cambiar la señal olvide la ICA, que mientras se calcula se apaguen las acciones largas y que un resultado de otra señal se descarte. |
-| `test_work_guard.py` | Exportar y el trabajo sin exportar **sin armar la ventana** (hito 79): qué cuenta como trabajo en juego, que exportar lo marque sólo si se escribió, qué hace cada respuesta del cartel y dónde arrancan los diálogos. |
+| `test_work_guard.py` | Exportar y el trabajo sin exportar **sin armar la ventana** (hito 79): qué cuenta como trabajo en juego, que exportar lo marque sólo si se escribió, qué hace cada respuesta del cartel y dónde arrancan los diálogos. Y la copia de recuperación: cuándo se escribe, cuándo se borra y cuándo se ofrece. |
+| `test_recovery.py` | Qué guarda la copia de recuperación y cómo se vuelve a ella (hito 79): que vuelva todo después de pasar por texto, que lo recuperado siga sin exportar, que una copia de otro registro no se aplique y que una rota se rechace sin tocar la sesión. |
 | `test_playback_controller.py` | El cursor de la reproducción **sin armar la ventana** (hito 79): de dónde arranca, cuánto avanza cada paso del reloj, que el cambio de época y el final se avisen una vez, y que lo que no se puede salga por señal. |
 | `test_playback.py` | El reloj de la reproducción: que avance a la velocidad pedida aunque dibujar tarde, sin esperar al temporizador. |
 

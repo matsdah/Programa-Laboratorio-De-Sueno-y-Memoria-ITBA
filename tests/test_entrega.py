@@ -6576,3 +6576,39 @@ def test_un_registro_corto_lo_dice_en_un_cartel(ventana: MainWindow, confirmacio
     assert ventana.acciones == ["sugerir las fases"]
     assert "5 minutos" in ventana.carteles[0]
     assert ventana.session.scoring.pending_suggestions() == 0
+
+
+# -- La copia de recuperación (hito 79) -------------------------------------------
+
+
+def test_la_ventana_de_los_tests_no_escribe_copias(qt_app):
+    """Sólo la del usuario, que prende `apply_saved_preferences()`: la suite no
+    escribe en el perfil de quien la corre."""
+    assert create_main_window().work_guard.recovery_path() is None
+
+
+def test_despues_de_un_corte_se_recupera_la_noche(qt_app, tmp_path, monkeypatch):
+    """De punta a punta, por la ventana: se scorea, el programa se corta sin
+    preguntar nada y al reabrir el mismo registro se vuelve a donde estaba."""
+    monkeypatch.setattr(WorkGuard, "ask_recovery", lambda *_a: True)
+    perfil = tmp_path / "perfil"
+    vhdr = escribir_brainvision(tmp_path / "registro", segundos=WINDOW_SECONDS * VENTANAS)
+
+    antes = create_main_window()
+    antes.work_guard.enable_recovery(perfil)
+    antes.open_recording(vhdr)
+    antes.score_current_window(SleepStage.N2)
+    antes.score_current_window(SleepStage.N3)
+    antes.work_guard.save_recovery()
+    # El corte: nadie cierra la ventana ni contesta ningún cartel.
+
+    despues = create_main_window()
+    despues.work_guard.enable_recovery(perfil)
+    despues.open_recording(vhdr)
+
+    scoring = despues.session.scoring
+    assert [scoring.get(i).stage for i in range(2)] == [SleepStage.N2, SleepStage.N3]
+    assert despues.session.current_window == 2
+    assert despues.statusBar().currentMessage() == (
+        "Se recuperó el trabajo que no se había exportado."
+    )

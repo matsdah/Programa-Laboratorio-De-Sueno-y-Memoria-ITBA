@@ -45,6 +45,13 @@ Desde la ventana se exporta el scoring, en .txt, .csv, .edf o .xml; los otros
 dos archivos, Anotaciones.txt e Informacion.txt, salieron del menu a pedido
 del usuario y hoy se piden desde un script. Falta confirmarlo con el cliente.
 
+El programa no guarda nada por su cuenta: lo que no se exporto, al cerrar se
+pregunta. Pero si se corta la luz o el programa se cuelga, nadie contesta esa
+pregunta. Por eso, mientras haya trabajo sin exportar, cada diez segundos deja
+una copia en la carpeta de configuracion del usuario, que no es un archivo de
+salida ni aparece en ninguna carpeta del laboratorio. Al volver a abrir el
+mismo registro, ofrece recuperar esa copia.
+
 El programa abre con la senal, la lista de canales y el hipnograma: los demas
 paneles se abren desde el menu Herramientas, que junta las herramientas y los
 paneles. La barra de abajo mueve la epoca y tiene un boton para reproducir el

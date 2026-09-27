@@ -179,6 +179,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_analysis_controller.py": ("psglab/ui/analysis_controller.py",),
     # El cuarto (hito 79): exportar y el trabajo sin exportar.
     "test_work_guard.py": ("psglab/ui/work_guard.py",),
+    # La copia de recuperación, sin disco (hito 79).
+    "test_recovery.py": ("psglab/core/recovery.py",),
     "test_scoring_panel.py": ("psglab/ui/scoring_panel.py",),
     "test_fonts.py": ("psglab/ui/fonts.py",),
     "test_exporters.py": (
