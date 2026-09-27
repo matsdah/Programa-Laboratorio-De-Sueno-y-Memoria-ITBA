@@ -3,8 +3,9 @@
 Abrir un registro —y los recientes— e importar un scoring, con la pregunta por
 el trabajo sin exportar antes de soltar la sesión y al cerrar. **Exportar y esa
 pregunta son de `work_guard`** desde el hito 79 (`ui/work_guard.py`); acá
-quedan `export()` y `export_scoring_dialog()`, que el menú, Ctrl+S y los
-scripts piden por su nombre, y `closeEvent()`, que es de Qt.
+quedan `export()` y los tres diálogos de exportar —el del scoring, el de
+Anotaciones.txt y el de Informacion.txt—, que el menú, Ctrl+S y los scripts
+piden por su nombre, y `closeEvent()`, que es de Qt.
 
 **Es un pedazo de `MainWindow`** (hito 76), no una pieza aparte: la clase de
 acá no hereda de nada y no se instancia sola. `MainWindow` la hereda junto con
@@ -295,5 +296,15 @@ class FilesMixin:
         extensión. El diálogo es de `work_guard`.
         """
         self.work_guard.export_dialog("scoring", fmt)
+
+    def export_annotations_dialog(self) -> None:
+        """Exporta Anotaciones.txt desde «Archivo» (V4_F). El diálogo es de
+        `work_guard`, como el del scoring."""
+        self.work_guard.export_dialog("annotations")
+
+    def export_information_dialog(self) -> None:
+        """Exporta Informacion.txt desde «Archivo» (V4_F), con el informe de
+        sueño al final."""
+        self.work_guard.export_dialog("information")
 
 

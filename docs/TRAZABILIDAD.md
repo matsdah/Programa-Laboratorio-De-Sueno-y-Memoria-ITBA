@@ -113,7 +113,7 @@ commit.
 | V1_F | `Scoring.txt`, y el mismo scoring en CSV, EDF+ y XML | `psglab/exporters/scoring_txt.py`, `psglab/exporters/scoring_formats.py` (los otros tres formatos), `psglab/core/nomenclature.py` (`STAGE_CODES`) |
 | V2_F | `Anotaciones.txt` | `psglab/exporters/annotations_txt.py`, `psglab/core/annotations.py` |
 | V3_F | `Informacion.txt` | `psglab/exporters/information_txt.py`, `psglab/exporters/statistics.py` |
-| V4_F | Elegir cuál de los tres exportar | `psglab/ui/work_guard.py` (`export()`; desde el hito 23 la ventana sólo ofrece el scoring) |
+| V4_F | Elegir cuál de los tres exportar | `psglab/ui/work_guard.py` (`export()` y su diálogo; desde el hito 79 «Archivo» ofrece los tres) |
 
 ---
 

@@ -255,6 +255,8 @@ def test_archivo_abre_importa_exporta_y_configura(ventana: MainWindow):
         "Exportar el scoring como .csv…",
         "Exportar el scoring como .edf…",
         "Exportar el scoring como .xml…",
+        "Exportar Anotaciones.txt…",
+        "Exportar Informacion.txt…",
         "&Configuración…",
     ]
 
@@ -264,7 +266,7 @@ def test_las_exportaciones_salen_de_la_tabla_de_formatos(ventana: MainWindow):
     textos = [
         a.text().partition("\t")[0]
         for a in menu_llamado(ventana, "&Archivo").actions()
-        if a.text().startswith("Exportar")
+        if a.text().startswith("Exportar el scoring")
     ]
 
     assert textos == [
@@ -272,15 +274,24 @@ def test_las_exportaciones_salen_de_la_tabla_de_formatos(ventana: MainWindow):
     ]
 
 
-def test_anotaciones_e_informacion_ya_no_se_ofrecen(ventana: MainWindow):
-    """**Decisión del 16 de septiembre de 2026**, aunque el pliego los pide:
-    `MainWindow.export()` los sigue escribiendo, pero sólo desde un script. Si
-    vuelven al menú, que sea porque alguien lo decidió."""
-    textos = " ".join(a.text() for a in _todas_las_acciones(ventana))
+def test_anotaciones_e_informacion_se_piden_desde_archivo(qt_app, monkeypatch):
+    """Hito 79: vuelven al menú, que es lo que pide el pliego (V4_F). Habían
+    salido el 16 de septiembre de 2026 por una decisión del usuario, que el
+    mismo usuario revisó. Cada entrada pide su archivo y no otro."""
+    pedidos: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "export_annotations_dialog", lambda self: pedidos.append("annotations")
+    )
+    monkeypatch.setattr(
+        MainWindow, "export_information_dialog", lambda self: pedidos.append("information")
+    )
+    ventana = create_main_window()
 
-    assert "Anotaciones" not in textos
-    assert "Informacion" not in textos
-    assert "Información" not in textos
+    for accion in menu_llamado(ventana, "&Archivo").actions():
+        if accion.text() in ("Exportar Anotaciones.txt…", "Exportar Informacion.txt…"):
+            accion.trigger()
+
+    assert pedidos == ["annotations", "information"]
 
 
 def test_cada_exportacion_pide_su_formato(qt_app, monkeypatch):
@@ -293,7 +304,7 @@ def test_cada_exportacion_pide_su_formato(qt_app, monkeypatch):
     ventana = create_main_window()
 
     for accion in menu_llamado(ventana, "&Archivo").actions():
-        if accion.text().startswith("Exportar"):
+        if accion.text().startswith("Exportar el scoring"):
             accion.trigger()
 
     assert pedidos == list(SCORING_FORMATS)
