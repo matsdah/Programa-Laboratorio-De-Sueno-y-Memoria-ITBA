@@ -296,7 +296,7 @@ código de hoy** antes de arreglar nada.
     `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
-    `tests/test_contratos.py`, **1326 tests en verde**;
+    `tests/test_contratos.py`, **1371 tests en verde**;
     `tests/test_entrega.py`, **437 tests en verde**.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
@@ -370,7 +370,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       van a la próxima y a la anterior sin scorear, con `Scoring.next_unscored()`.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
-    `tests/test_contratos.py`, **1326 tests en verde**;
+    `tests/test_contratos.py`, **1371 tests en verde**;
     `tests/test_entrega.py`, **437 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
@@ -620,7 +620,7 @@ una vez que agregarlos al lugar que después hay que partir.
   - Test: `tests/test_channel_display.py`, **25 tests en verde**, sin
     sesión: que mida sobre el tramo que se le pasa y no sobre otro, el
     alcance de la amplitud, las clases sin escala propia y qué sobrevive a
-    un registro procesado. `tests/test_contratos.py`, **1326 tests en
+    un registro procesado. `tests/test_contratos.py`, **1371 tests en
     verde**, con sus filas y tres rechazos obligatorios.
 - [x] **`SignalView` (1344 líneas) separa lo que dibujan las herramientas**
       —banda, bandas de anotación, segmentos, lente— en
@@ -656,10 +656,30 @@ una vez que agregarlos al lugar que después hay que partir.
       rechaza una copia nueva: contra el código de antes encuentra las nueve.
   - Test: `tests/test_mne_bridge.py`, **34 tests en verde**, con el mensaje
     de cada uno de los dieciocho análisis que reciben primero el registro;
-    `tests/test_consistencia.py`, **113 tests en verde**.
-- [ ] **Una sola forma de escribir un número para el usuario.**
+    `tests/test_consistencia.py`, **116 tests en verde**.
+- [x] **Una sola forma de escribir un número para el usuario.**
       `.replace(".", ",")` aparece 22 veces y hay tres `_numero()`: un
       `utils/formato.py` con el número con coma, los Hz y las duraciones.
+      Hecho, en `utils/formatting.py` —en inglés, como pide `CLAUDE.md` para
+      los nombres de archivo—: `number()` con coma y sin ceros de más,
+      `quantity()` con su unidad, `duration()` —el `duration_text()` de
+      `ui/menus.py`, que bajó para que lo pueda usar cualquier capa— y
+      `parse_number()`, que lee con coma o con punto y no acepta «inf». Un
+      NaN se escribe «—» y no «nan». **Eran veinticinco `replace`**, y dos de
+      los tres `_numero()` no escribían sino que leían lo que tipea el
+      investigador. **Y unos veinte mensajes ni siquiera lo hacían**: «El
+      pasa-altos de 0.3 Hz no se puede aplicar…», «La banda de 0.5 a 4 Hz…»,
+      la frecuencia de muestreo de la barra de estado, y
+      `test_connectivity.py` exigía la resolución con punto. Ahora salen con
+      coma. `Informacion.txt` no cambia ni un carácter.
+      `test_todo_numero_que_ve_el_usuario_sale_de_formatting` rechaza un
+      `{x:g}` o una coma puesta a mano fuera del módulo —contra el código de
+      antes encuentra setenta y siete—, salvo en `details` y en el XML de
+      scoring, que es de máquina y lleva punto. **No ve un número interpolado
+      sin formato**, `f"{x} Hz"`.
+  - Test: `tests/test_formatting.py`, **46 tests en verde**;
+    `tests/test_contratos.py`, **1371 tests en verde**;
+    `tests/test_consistencia.py`, **116 tests en verde**.
 - [ ] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
       tema**, siguiendo a los controladores.
 - [ ] **Los docks se llaman `*_dock`.** Siguen llamándose `psd_dialog` y
@@ -729,7 +749,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **113 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **116 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 

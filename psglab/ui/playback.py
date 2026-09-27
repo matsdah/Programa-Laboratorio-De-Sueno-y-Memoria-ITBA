@@ -37,6 +37,7 @@ from typing import Final
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from psglab.utils.errors import InvalidPlaybackSpeedError
+from psglab.utils.formatting import number
 
 #: Las velocidades que se ofrecen, como múltiplos del tiempo real. 1× es la de
 #: EDFbrowser: una página de 30 s tarda 30 s. Las rápidas son las de revisar
@@ -56,7 +57,7 @@ MAX_STEP_SECONDS: Final[float] = 1.0
 
 def speed_text(speed: float) -> str:
     """Una velocidad como la lee el usuario: «1×», «0,5×»."""
-    return f"{speed:g}×".replace(".", ",")
+    return f"{number(speed)}×"
 
 
 class PlaybackClock(QObject):

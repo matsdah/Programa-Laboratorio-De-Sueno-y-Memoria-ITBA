@@ -48,6 +48,7 @@ from psglab.analysis.impedance import DEFAULT_LIMIT_KOHM
 from psglab.ui import theme
 from psglab.ui.fonts import font_for
 from psglab.ui.panel_header import ROL_DEL_COLOR, ChipDelegate, PanelHeader
+from psglab.utils.formatting import number, quantity
 
 #: Lo que dice una celda sin valor. **No es "0" ni está vacía**: un cero
 #: pasaría por el mejor valor posible y una celda vacía se lee como un olvido
@@ -69,7 +70,7 @@ SUPERA: Final[str] = "supera"
 
 def _kohm(valor: float) -> str:
     """Un límite en kΩ, con la coma decimal del idioma del programa."""
-    return f"{valor:g} kΩ".replace(".", ",")
+    return quantity(valor, "kΩ")
 
 
 class FixedColumnDelegate(QStyledItemDelegate):
@@ -330,7 +331,7 @@ class ImpedancePanel(QWidget):
         """Cómo se escribe un valor en la celda, con la coma del idioma."""
         if valor is None:
             return SIN_MEDIR
-        return f"{valor:g}".replace(".", ",")
+        return number(valor)
 
     def _al_editar(self, *_args: object) -> None:
         """El usuario escribió en una celda."""

@@ -63,6 +63,7 @@ from psglab.utils.errors import (
     InvalidRecordingError,
     memoria_suficiente,
 )
+from psglab.utils.formatting import quantity
 
 
 @dataclass
@@ -175,11 +176,6 @@ def _original_mas_lenta(recording: Recording, name: str) -> float | None:
     return 2 * limite if limite < recording.sampling_rate / 2 else None
 
 
-def _hz(valor: float) -> str:
-    """Una frecuencia como la lee el investigador: 0,5 y no 0.5."""
-    return f"{valor:g}".replace(".", ",")
-
-
 def _borra_el_canal(filtros: FilterSettings, original: float | None) -> bool:
     """Si el pasa-altos queda por encima de lo que el canal contiene."""
     paso_alto = filtros.highpass_hz
@@ -261,9 +257,10 @@ def apply_filters(
         original = _original_mas_lenta(recording, nombre)
         if original is not None and _borra_el_canal(filtros, original):
             raise InvalidFilterError(
-                f"El pasa-altos de {_hz(filtros.highpass_hz)} Hz no se puede aplicar a "
-                f"«{nombre}»: se grabó a {_hz(original)} Hz, así que no tiene nada por "
-                f"encima de {_hz(original / 2)} Hz, y el filtro lo dejaría plano.",
+                f"El pasa-altos de {quantity(filtros.highpass_hz, 'Hz')} no se puede "
+                f"aplicar a «{nombre}»: se grabó a {quantity(original, 'Hz')}, así que no "
+                f"tiene nada por encima de {quantity(original / 2, 'Hz')}, y el filtro lo "
+                "dejaría plano.",
                 details=(
                     f"highpass_hz = {filtros.highpass_hz}, frecuencia original = "
                     f"{original} Hz, frecuencia del registro = "
@@ -508,16 +505,16 @@ def validate(settings: FilterSettings, sampling_rate: float) -> None:
     for valor, rotulo in ((paso_alto, "pasa-altos"), (paso_bajo, "pasa-bajos"), (notch, "notch")):
         if valor is not None and valor >= nyquist:
             raise InvalidFilterError(
-                f"El {rotulo} de {valor:g} Hz no se puede aplicar a este "
-                f"registro: con {frecuencia:g} Hz de muestreo, la frecuencia "
-                f"más alta que contiene la señal es {nyquist:g} Hz.",
+                f"El {rotulo} de {quantity(valor, 'Hz')} no se puede aplicar a este "
+                f"registro: con {quantity(frecuencia, 'Hz')} de muestreo, la frecuencia "
+                f"más alta que contiene la señal es {quantity(nyquist, 'Hz')}.",
                 details=f"{rotulo} = {valor} Hz, Nyquist = {nyquist} Hz.",
             )
 
     if paso_alto is not None and paso_bajo is not None and paso_alto >= paso_bajo:
         raise InvalidFilterError(
-            f"El pasa-altos ({paso_alto:g} Hz) tiene que quedar por debajo del "
-            f"pasa-bajos ({paso_bajo:g} Hz): al revés no queda ninguna banda "
+            f"El pasa-altos ({quantity(paso_alto, 'Hz')}) tiene que quedar por debajo "
+            f"del pasa-bajos ({quantity(paso_bajo, 'Hz')}): al revés no queda ninguna banda "
             "para dejar pasar.",
             details=f"highpass_hz = {paso_alto}, lowpass_hz = {paso_bajo}.",
         )

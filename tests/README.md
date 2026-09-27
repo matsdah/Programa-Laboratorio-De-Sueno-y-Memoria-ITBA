@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los setenta
+camino de búsqueda. Con `pytest` directo la recolección falla en los setenta y uno
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -53,6 +53,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_validation.py` | Que un NaN no atraviese una guarda numérica. |
 | `test_contratos.py` | Que ningún método público escape del `except` de la interfaz. |
 | `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
+| `test_formatting.py` | Cómo se escribe un número para el usuario y cómo se lee el que escribe (hito 79): con coma, sin ceros de más, un NaN que no se escribe «nan», las duraciones y que «inf» no se lea como un corte de filtro. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
 | `test_viewport.py` | La página visible: que se recorte en un solo lugar y que navegar no la mueva si la época ya está dentro. |
 | `test_decimation.py` | La envolvente: que una espiga de una sola muestra sobreviva a reducir ocho horas, que no copie la señal, y que calcularla por trozos alineados al registro dé lo mismo que de una vez. |

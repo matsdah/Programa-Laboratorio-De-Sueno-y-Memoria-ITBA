@@ -36,6 +36,7 @@ from psglab.core.viewport import Viewport
 from psglab.core.windows import seconds_to_view_fraction, view_fraction_to_seconds
 from psglab.tools.base import Overlay, SegmentOverlay, ViewerTool
 from psglab.tools.registry import register_tool
+from psglab.utils.formatting import quantity
 
 #: Cuán cerca de una línea hay que hacer clic para borrarla, **como fracción de
 #: la altura del canal de referencia**.
@@ -523,4 +524,4 @@ def _duracion(seconds: float) -> str:
     ojo contra la grilla. El prototipo lo escribía sobre cada línea. Con coma
     decimal, como todo número que ve el usuario.
     """
-    return f"{seconds:.1f}".replace(".", ",") + " s"
+    return quantity(seconds, "s", 1)

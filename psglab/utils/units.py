@@ -22,6 +22,7 @@ significaría nada.
 from typing import Final
 
 from psglab.utils.errors import InvalidScaleError, UnknownUnitError
+from psglab.utils.formatting import quantity
 from psglab.utils.validation import check_finite
 
 #: Los dos caracteres que se ven como "mu" y que aparecen en las cabeceras.
@@ -171,7 +172,7 @@ def format_amplitude(value_uv: float, decimals: int = 0) -> str:
         )
     # **Con coma decimal** (hito 54), como todo número que ve el usuario: la
     # banda de amplitud escribía «37.5 µV» al lado del «41,7» del espectro.
-    return f"{value_uv:.{decimals}f}".replace(".", ",") + f" {MICROVOLT}"
+    return quantity(value_uv, MICROVOLT, decimals)
 
 
 def normalize_unit_name(unit: str) -> str:

@@ -8,6 +8,7 @@ proyecto**, así que cualquier capa lo puede importar sin generar un ciclo.
 | `units.py` | Conversión de amplitudes a microvoltios. |
 | `errors.py` | Todas las excepciones propias del programa. |
 | `validation.py` | Comprobaciones numéricas que se repiten en todo el modelo. |
+| `formatting.py` | **Cómo se escribe un número para el usuario** (hito 79): `number()` con coma decimal, `quantity()` con su unidad, `duration()` —200 ms, 30 s, 5 min— y `parse_number()`, que lee con coma o con punto. Todo número que ve el usuario sale de acá, y la red de consistencia rechaza un formato de número escrito en un f-string fuera de este módulo. Quedan afuera los `details` de un error y los formatos de máquina, como el XML de scoring. |
 
 ## `units.py` — todo el programa trabaja en µV
 

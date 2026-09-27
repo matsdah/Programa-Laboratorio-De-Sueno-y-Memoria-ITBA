@@ -84,6 +84,8 @@ from psglab.ui.grid import BackgroundStyle
 from psglab.ui.icons import icon
 from psglab.ui.panel_header import SIN_REGISTRO
 from psglab.ui.shortcuts import key_for, key_for_stage, readable_key
+from psglab.utils.formatting import duration, quantity
+from psglab.utils.units import MICROVOLT
 
 if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
     from collections.abc import Callable
@@ -383,28 +385,9 @@ def _escala_de_tiempo(window: "MainWindow", ver: "QMenu") -> None:
     # poco frente a la lista de escalas, y siguen en Ctrl++ y Ctrl+-.
 
 
-def duration_text(seconds: float) -> str:
-    """Una duración escrita como la leería un investigador: 200 ms, 30 s, 5 min, 1 h.
-
-    **Es el único formateador de duraciones de la interfaz.** Hubo dos —uno acá
-    para el menú y otro en la ventana principal para la barra de estado— y no
-    coincidían: la misma página de 0,2 s era "0,2 s por página" en el menú y
-    "Página: 200 ms" abajo. La ventana de configuración iba a ser el tercero.
-
-    El separador decimal es la coma, como en todo el texto que ve el usuario.
-    """
-    if seconds < 1.0:
-        return f"{seconds * 1000:g} ms".replace(".", ",")
-    if seconds < 60.0:
-        return f"{seconds:g} s".replace(".", ",")
-    if seconds < 3600.0:
-        return f"{seconds / 60:g} min".replace(".", ",")
-    return f"{seconds / 3600:g} h".replace(".", ",")
-
-
 def _pagina(segundos: float) -> str:
     """Cómo se lee una duración de página en el menú."""
-    return f"{duration_text(segundos)} por página"
+    return f"{duration(segundos)} por página"
 
 
 def _amplitud(window: "MainWindow", ver: "QMenu") -> None:
@@ -427,7 +410,7 @@ def _amplitud(window: "MainWindow", ver: "QMenu") -> None:
     _agregar(amplitud, "Desplazamiento a &cero", window.reset_amplitude_offsets)
     amplitud.addSeparator()
     for microvoltios in AMPLITUDE_PRESETS_UV:
-        etiqueta = f"{microvoltios:g} µV por carril"
+        etiqueta = f"{quantity(microvoltios, MICROVOLT)} por carril"
         amplitud.addAction(
             etiqueta, lambda _=False, uv=microvoltios: window.set_amplitude_scale(uv)
         )

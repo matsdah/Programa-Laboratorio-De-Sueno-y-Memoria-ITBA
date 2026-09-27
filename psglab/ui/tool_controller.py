@@ -55,6 +55,7 @@ from psglab.tools.registry import available_tools
 from psglab.ui import theme
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.signal_view import SignalView
+from psglab.utils.formatting import number
 
 #: Qué botón del mouse llegó, traducido al vocabulario de `ViewerTool`, que no
 #: conoce Qt.
@@ -464,10 +465,7 @@ class ToolController(QObject):
         if isinstance(herramienta, OccupancyTool):
             lineas = herramienta.lines()
             if lineas:
-                # La coma se aplica **al número y no a la frase**: con un
-                # `replace` sobre el texto entero, cualquier punto que se
-                # agregue después al mensaje se convertiría en coma.
-                total = f"{herramienta.total_percentage():.1f}".replace(".", ",")
+                total = number(herramienta.total_percentage(), 1)
                 cuantas = f"{len(lineas)} línea" + ("s" if len(lineas) != 1 else "")
                 self._readout.setText(f"Ocupación: {cuantas} — {total} % del ancho")
             else:

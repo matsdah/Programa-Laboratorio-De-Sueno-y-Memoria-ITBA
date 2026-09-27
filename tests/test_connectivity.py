@@ -359,7 +359,9 @@ def test_una_banda_mas_angosta_que_la_resolucion_lo_dice():
             window_index=0,
         )
 
-    assert f"{resolucion:g} Hz" in str(error.value)
+    # Con coma (hito 79): hasta ahí decía «0.2 Hz», y este test lo exigía.
+    assert resolucion == 0.2
+    assert "0,2 Hz" in str(error.value)
 
 
 def test_una_banda_que_toca_un_solo_punto_se_mide():

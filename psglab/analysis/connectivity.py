@@ -49,6 +49,7 @@ from psglab.utils.errors import (
     UnknownConnectivityMethodError,
     WindowOutOfRangeError,
 )
+from psglab.utils.formatting import number, quantity
 
 #: Métodos disponibles, del más simple al más robusto frente a volume
 #: conduction.
@@ -143,14 +144,15 @@ def _exigir_frecuencias_en_la_banda(desde: float, hasta: float, sampling_rate: f
     nyquist = sampling_rate / 2
     if desde > nyquist:
         mensaje = (
-            f"La banda de {desde:g} a {hasta:g} Hz está por encima de lo que registra "
-            f"este archivo: a {sampling_rate:g} Hz, la frecuencia más alta que se "
-            f"puede medir es {nyquist:g} Hz."
+            f"La banda de {number(desde)} a {quantity(hasta, 'Hz')} está por encima de "
+            f"lo que registra este archivo: a {quantity(sampling_rate, 'Hz')}, la "
+            f"frecuencia más alta que se puede medir es {quantity(nyquist, 'Hz')}."
         )
     else:
         mensaje = (
-            f"La banda de {desde:g} a {hasta:g} Hz es más angosta que la resolución "
-            f"de la conectividad, de {1 / EPOCH_SECONDS:g} Hz, así que no contiene "
+            f"La banda de {number(desde)} a {quantity(hasta, 'Hz')} es más angosta que "
+            f"la resolución de la conectividad, de {quantity(1 / EPOCH_SECONDS, 'Hz')}, "
+            "así que no contiene "
             "ninguna frecuencia que medir."
         )
     raise InvalidBandError(
