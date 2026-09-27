@@ -1,8 +1,8 @@
 """La ventana y lo que se ve: época, página, reproducción, amplitud y foco.
 
-Moverse de ventana, cambiar la escala de tiempo y desplazar la página,
-reproducir, ajustar la amplitud, pasar el foco de un panel a otro y las vistas
-de canales. Casi todo delega en `Session` y en `SignalView`; lo que queda acá es
+Moverse de ventana, cambiar la escala de tiempo y desplazar la página —también
+con la rueda del mouse—, reproducir, ajustar la amplitud, pasar el foco de un
+panel a otro y las vistas de canales. Casi todo delega en `Session` y en `SignalView`; lo que queda acá es
 elegir qué pedirles y avisar cuando no se puede.
 
 **Es un pedazo de `MainWindow`** (hito 76), no una pieza aparte: la clase de
@@ -17,7 +17,8 @@ Cubre del pliego: ningún ID. La navegación y la amplitud tienen su fila en
 las implementan.
 """
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QObject, Qt
+from PySide6.QtGui import QWheelEvent
 from PySide6.QtWidgets import QDockWidget, QInputDialog, QWidget
 
 from psglab.config import (
@@ -30,6 +31,7 @@ from psglab.config import (
 )
 from psglab.core.windows import epoch_to_seconds
 from psglab.ui.menus import duration_text, rebuild_views_menu
+from psglab.ui.tool_controller import scene_position
 from psglab.utils.errors import PsgLabError
 
 #: Cuántas muestras tiene que abarcar una página, sumando los canales visibles,
@@ -37,6 +39,22 @@ from psglab.utils.errors import PsgLabError
 #: 250 ms sobre la máquina de desarrollo: por debajo la espera no se nota, y
 #: mostrar el cursor por un parpadeo es peor que no mostrarlo.
 _MUESTRAS_PARA_AVISAR = 20_000_000
+
+#: Cuánto mide una muesca de la rueda en `QWheelEvent.angleDelta()`, que viene
+#: en octavos de grado: una muesca son 15°. Un panel táctil manda pedazos más
+#: chicos, y la cuenta de `_girar_la_rueda()` los suma sin redondear.
+_DELTA_POR_MUESCA = 120
+
+#: Qué fracción de la página corre una muesca de desplazamiento (hito 56).
+#: **En fracciones de la página**, por lo mismo que `_desplazar()`: en segundos
+#: fijos, con una página de 200 ms saltaría fuera de lo que se ve y con una de
+#: cuatro horas no se notaría. Un décimo deja seguir un huso con la vista.
+_PAGINA_POR_MUESCA = 0.1
+
+#: Cuántas muescas de la rueda duplican la página (hito 56). Con una sola, cada
+#: muesca sería un «×2» del menú y de 30 s a la noche entera habría diez
+#: saltos que no dejan elegir nada en el medio; con dos, veinte.
+_MUESCAS_POR_DUPLICAR = 2
 
 
 class ViewMixin:
@@ -112,7 +130,7 @@ class ViewMixin:
             return
         self.channel_selector.set_visible(nombres)
         self.signal_view.set_visible_channels(nombres)
-        self._refrescar_contexto()
+        self.tool_controller.refresh_overview()
         self.refresh()
         faltan = len(canales) - len(a_mostrar)
         if faltan == 0:
@@ -277,6 +295,87 @@ class ViewMixin:
             self.page_readout.setText("Página: registro entero")
             return
         self.page_readout.setText(f"Página: {duration_text(pagina.span_seconds)}")
+
+    # -- La rueda del mouse (hito 56) ----------------------------------------
+
+    def eventFilter(self, objeto: QObject, evento: QEvent) -> bool:
+        """La rueda sobre la señal. El resto del mouse es de las herramientas,
+        y lo lleva `ToolController`, que tiene su propio filtro (hito 79)."""
+        if objeto is self.signal_view.viewport() and evento.type() == QEvent.Type.Wheel:
+            return self._girar_la_rueda(evento)
+        return False
+
+    def _girar_la_rueda(self, evento: QWheelEvent) -> bool:
+        """La rueda sobre la señal: escala o desplazamiento (hito 56).
+
+        - **Vertical, cambia la escala**; ver `_escala_con_la_rueda()`.
+        - **Horizontal, desplaza la página**: es lo que manda un panel táctil
+          al deslizar de costado, y una rueda con inclinación.
+        - **Con Mayúsculas, la vertical también desplaza**, que es la
+          convención de casi todo programa con un eje horizontal largo. macOS
+          ya la entrega convertida en horizontal y Windows no, así que se
+          acepta de las dos formas.
+
+        Un panel táctil casi nunca desliza derecho: **manda el eje que más se
+        movió**, y no los dos, o cada gesto de costado cambiaría un poco la
+        escala.
+
+        Returns:
+            Si la rueda se usó. Usada, no sigue a pyqtgraph ni al panel de
+            desplazamiento que haya afuera.
+        """
+        if self._session is None:
+            return False
+        delta = evento.angleDelta()
+        if evento.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            # Hacia atrás —hacia el usuario— es hacia adelante en el
+            # registro, como bajar en un documento.
+            horizontal = delta.x() or delta.y()
+            return self._desplazar_con_la_rueda(horizontal / _DELTA_POR_MUESCA)
+        if abs(delta.x()) > abs(delta.y()):
+            return self._desplazar_con_la_rueda(delta.x() / _DELTA_POR_MUESCA)
+        return self._escala_con_la_rueda(evento, delta.y() / _DELTA_POR_MUESCA)
+
+    def _desplazar_con_la_rueda(self, muescas: float) -> bool:
+        """Corre la página una fracción de sí misma por muesca.
+
+        **Positivo es hacia atrás en el registro**: deslizar hacia la derecha
+        en un panel táctil trae lo que estaba a la izquierda, igual que
+        arrastrar un papel. Pasa por `_desplazar()`, así que reproduciendo
+        mueve el cursor y no sólo la página.
+        """
+        if muescas == 0:
+            return False
+        self._desplazar(-muescas * _PAGINA_POR_MUESCA)
+        return True
+
+    def _escala_con_la_rueda(self, evento: QWheelEvent, muescas: float) -> bool:
+        """Acerca o aleja la página con la rueda.
+
+        **Queda quieto el instante bajo el mouse**, como en un mapa: para mirar
+        de cerca un huso se apunta y se gira, sin tener que centrarlo antes.
+        Hacia adelante acerca y hacia atrás aleja.
+
+        **Reproduciendo, el ancla es el cursor** y no el mouse: la página es
+        suya y el paso siguiente la volvería a centrar, así que anclar en el
+        mouse haría saltar el dibujo de un cuadro al otro.
+        """
+        if self._session is None or muescas == 0:
+            return False
+        factor = VIEW_ZOOM_FACTOR ** (-muescas / _MUESCAS_POR_DUPLICAR)
+        pagina = self._session.viewport
+        if self._cabezal is not None:
+            nueva = pagina.zoomed(factor)
+        else:
+            instante = self.signal_view.seconds_at_pixel(
+                scene_position(self.signal_view, evento).x()
+            )
+            nueva = pagina.zoomed_at(factor, instante)
+        # En los topes —la página mínima, el registro entero— la rueda no
+        # cambia nada, y redibujar lo mismo en cada muesca sería puro costo.
+        if nueva != pagina:
+            self._cambiar_pagina(nueva)
+        return True
 
     # -- Reproducción (hitos 24 y 27) ----------------------------------------
     #
@@ -587,12 +686,12 @@ class ViewMixin:
     def increase_amplitude(self) -> None:
         """Flecha arriba. La cuenta la hace `Session`."""
         self.signal_view.increase_amplitude()
-        self._refrescar_contexto()
+        self.tool_controller.refresh_overview()
 
     def decrease_amplitude(self) -> None:
         """Flecha abajo."""
         self.signal_view.decrease_amplitude()
-        self._refrescar_contexto()
+        self.tool_controller.refresh_overview()
 
     def _go_to_window(self, window_index: int) -> None:
         if self._session is None:
@@ -624,7 +723,7 @@ class ViewMixin:
             self._show_error(error, "cambiar los canales visibles")
             return
         self.signal_view.set_visible_channels(channel_names)
-        self._refrescar_contexto()
+        self.tool_controller.refresh_overview()
 
     def _set_selected_channels(self, channel_names: list[str]) -> None:
         """Sobre qué canales actúan los cambios de amplitud (V5_F)."""
@@ -635,9 +734,9 @@ class ViewMixin:
         except PsgLabError as error:
             self._show_error(error, "seleccionar los canales")
             return
-        self._refrescar_contexto()
+        self.tool_controller.refresh_overview()
         # La banda de amplitud se apoya sobre el seleccionado (hito 79).
-        self._redibujar_overlays()
+        self.tool_controller.redraw_overlays()
 
 
 def _primero_que_toma_foco(widget: QWidget | None) -> QWidget | None:

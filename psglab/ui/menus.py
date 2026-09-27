@@ -45,12 +45,13 @@ sesión y por eso habilitan "volver a la señal original", y las terceras no.
 ## Lo que este módulo no hace
 
 **No implementa ninguna acción.** Cada entrada llama a un método de la ventana
-principal, y ahí es donde vive lo que hace. Si estás por escribir lógica acá,
+principal, o de uno de sus controladores —el contador de la lupa es de
+`tool_controller`, desde el hito 79—, y ahí es donde vive lo que hace. Si estás por escribir lógica acá,
 va en otro archivo.
 
 **Tampoco arma los modos del mouse del menú de herramientas.** Ésos se pueblan
 recorriendo el registro —`available_tools()`— desde
-`main_window._build_tools_menu()`, que es el punto de extensión que pide el
+`ToolController.build_menu()`, que es el punto de extensión que pide el
 pliego: una herramienta nueva aparece sola. Acá se ponen los paneles, que
 salen de `window.docks`, y aquél inserta los modos arriba de todo. **Es la
 única vía para activar una herramienta**: la barra horizontal que repetía ese
@@ -102,8 +103,8 @@ def build_menus(window: "MainWindow") -> None:
     Deja en la ventana los dos `QAction` que el resto del programa necesita
     tocar después —`accion_eje_en_hora` y `accion_señal_original`—, el botón
     de abrir un registro, `open_button`, y el menú de herramientas,
-    `tools_menu`, con los paneles ya puestos: `_build_tools_menu()` le inserta
-    arriba los modos del mouse que salen del registro.
+    `tools_menu`, con los paneles ya puestos: `ToolController.build_menu()`
+    le inserta arriba los modos del mouse que salen del registro.
 
     **La barra de menú no es la nativa del sistema.** En macOS la nativa es la
     de arriba de la pantalla, que no muestra el botón de abrir ni deja una
@@ -576,8 +577,8 @@ def _herramientas(window: "MainWindow") -> None:
     """Los paneles del menú de herramientas, y cómo volver a la disposición.
 
     El menú queda en cuatro bloques. **El primero, los modos del mouse, lo
-    inserta después `_build_tools_menu()`** antes del separador con que arranca
-    éste: salen del registro y acá no se conocen. Si no hubiera ninguno, `QMenu`
+    inserta después `ToolController.build_menu()`** antes del separador con
+    que arranca éste: salen del registro y acá no se conocen. Si no hubiera ninguno, `QMenu`
     no dibuja el separador que quedaría suelto arriba.
 
     **Se arma recorriendo los docks**, no con una lista escrita a mano: un panel
@@ -587,7 +588,7 @@ def _herramientas(window: "MainWindow") -> None:
     `docks.ORDEN_DE_ANALISIS`, que es el del flujo de trabajo.
 
     Una herramienta que tiene panel —la Übersicht, el hipnograma— **está acá
-    una sola vez, como su panel**: ver `main_window._build_tools_menu()`.
+    una sola vez, como su panel**: ver `ToolController.build_menu()`.
     """
     menu = window.menuBar().addMenu("&Herramientas")
     window.tools_menu = menu
@@ -604,7 +605,11 @@ def _herramientas(window: "MainWindow") -> None:
     _agregar(menu, "&Restaurar la disposición", window.restore_default_layout)
     # **Junto a restaurar, y no con los modos del mouse**: no es un modo sino
     # algo que vuelve a su estado inicial, como la disposición (hito 32).
-    _agregar(menu, "Poner en &cero el contador de la lupa", window.reset_magnifier_count)
+    _agregar(
+        menu,
+        "Poner en &cero el contador de la lupa",
+        window.tool_controller.reset_magnifier_count,
+    )
 
 
 def _montaje(window: "MainWindow") -> None:

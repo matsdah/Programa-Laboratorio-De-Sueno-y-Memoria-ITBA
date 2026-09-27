@@ -5699,7 +5699,7 @@ exportar —Exportar… / Descartar / Cancelar— era el modelo. Lo que faltaba 
       frase no dice «todavía», porque vale también cuando un cambio de la
       señal descartó el resultado.
   - Test: `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_consistencia.py`, **102 tests en verde**;
+    `tests/test_consistencia.py`, **103 tests en verde**;
     `tests/test_scoring_panel.py`, **33 tests en verde**.
 
 **Se fue un test**: el que verificaba que la pregunta de borrar decía «Sí / No»
@@ -6307,7 +6307,7 @@ tema, no un desacople**, y los docstrings lo dicen así.
       `AttributeError` y no en silencio, porque `monkeypatch.setattr` falla si
       el nombre no existe.
   - Test: `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_consistencia.py`, **102 tests en verde**.
+    `tests/test_consistencia.py`, **103 tests en verde**.
 
 **Lo que no se hizo.** Los mixins siguen dependiendo del estado de la ventana
 entera, así que un cambio en `__init__` puede romper a cualquiera. Separar
@@ -6677,6 +6677,19 @@ una vez que agregarlos al lugar que después hay que partir.
       1. `ui/tool_controller.py`: las herramientas, quién tiene el mouse,
          quién dibuja, el filtro de eventos y los overlays. Es el que toca
          la tanda 1.
+         **Hecho.** `ToolController` reemplaza al mixin `window_tools.py`,
+         que se borró, y la ventana lo guarda en `tool_controller`. No
+         conoce la ventana: recibe los cuatro widgets que usa y le avisa por
+         señales de Qt lo que es de ella —ir a una ventana desde el
+         hipnograma, redibujarlo, soltar el anotador y su clic derecho, que
+         abren carteles—. La rueda no era de ninguna herramienta y pasó a
+         `window_view.py`, con su propio `eventFilter()`; el cursor ↔ del
+         anotador pasó al controlador. Los tests de la ventana cambiaron
+         `_toggle_tool()`, `_tools` y `_tool_actions` por
+         `tool_controller.toggle()`, `.tools` y `.actions`, y el contador de
+         la lupa dejó de ser un método de la ventana.
+         - Test: `tests/test_tool_controller.py`, **14 tests en verde**, que
+           arma el controlador sin la ventana, que es lo que no se podía.
       2. `ui/playback_controller.py`: el cursor, el reloj y cómo mueven la
          página.
       3. `ui/analysis_controller.py`: la ICA, la señal original y la tarea en

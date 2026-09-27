@@ -158,7 +158,7 @@ def test_volver_a_la_senal_original_arranca_apagada(ventana: MainWindow):
 
 
 def test_el_menu_de_herramientas_queda_listo_para_poblarse(ventana: MainWindow):
-    """Lo llena `_build_tools_menu()` recorriendo el registro: es el punto de
+    """Lo llena `ToolController.build_menu()` recorriendo el registro: es el punto de
     extensión del pliego, y una herramienta nueva tiene que aparecer sola."""
     assert ventana.tools_menu is not None
     assert len(ventana.tools_menu.actions()) > 0
@@ -359,7 +359,7 @@ def test_herramientas_va_en_cuatro_bloques(ventana: MainWindow):
     modos, trabajo, analisis, restaurar = bloques(ventana.tools_menu)
     de_analisis = [clave for clave, _ in ORDEN_DE_ANALISIS]
 
-    assert modos == list(ventana._tool_actions.values())
+    assert modos == list(ventana.tool_controller.actions.values())
     assert trabajo == [
         dock.toggleViewAction()
         for clave, dock in ventana.docks.items()
@@ -394,7 +394,7 @@ def test_una_herramienta_con_panel_esta_como_su_panel(
     (entrada,) = [a for a in ventana.tools_menu.actions() if a.text() == texto]
 
     assert entrada is ventana.docks[clave].toggleViewAction()
-    assert clave not in ventana._tool_actions
+    assert clave not in ventana.tool_controller.actions
 
 
 def test_los_dos_esquemas_estan_en_ver(ventana: MainWindow):

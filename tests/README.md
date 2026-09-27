@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los sesenta y un
+camino de búsqueda. Con `pytest` directo la recolección falla en los sesenta y dos
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -100,9 +100,10 @@ verde por omisión, que es peor que dar rojo.
 | `test_impedance_panel.py` | La tabla editable: que la celda sin valor lo diga, y que un cero escrito a mano sí cuente. |
 | `test_reference.py` | La re-referenciación: el canal de referencia en cero, y la suma de los EEG en cero. |
 | `test_entrega.py` | La comprobación de entrega: abrir, navegar, scorear y exportar **por la ventana**, no por las piezas. |
-| `test_main_window_layout.py` | Cómo se llama lo que la ventana hace: la superficie pública que un refactor no puede renombrar en silencio. Desde el hito 76, también que sus siete pedazos vayan antes que `QMainWindow` y no se pisen. |
+| `test_main_window_layout.py` | Cómo se llama lo que la ventana hace: la superficie pública que un refactor no puede renombrar en silencio. Desde el hito 76, también que sus pedazos vayan antes que `QMainWindow` y no se pisen. |
 | `test_theme.py` | Los esquemas de color: que un esquema sea inmutable, que la paleta cicle y que lo guardado vuelva igual. |
 | `test_preferences.py` | Lo que el programa recuerda entre sesiones, y que un archivo roto no le impida arrancar. |
+| `test_tool_controller.py` | Las herramientas de la ventana **sin armar la ventana** (hito 79): prender y apagar con la exclusividad, quién tiene el mouse y quién dibuja, la lectura de la barra de estado, y que lo que es de la ventana —soltar el anotador, su clic derecho, un clic en el hipnograma— salga por señal. |
 | `test_menus.py` | La barra de menú: que ninguna acción quede sin conectar, que cada cosa esté donde corresponde y que lo que se sacó no vuelva sin que nadie lo decida. |
 | `test_docks.py` | Los paneles acoplables: que cada uno se pueda guardar y restaurar, y que la navegación no se pueda cerrar. |
 | `test_icons.py` | Los iconos que dibuja el programa: que no salgan vacíos y que tomen el color pedido. |
@@ -263,8 +264,8 @@ módulos menos uno tienen test propio**: los atajos, la grilla, los **cuatro**
 conversores desde píxeles de `signal_view.py`, los paneles, los menús, el
 reloj de la reproducción, los esquemas de color y las preferencias. El que no,
 `main_window.py`, figura en `SIN_TEST_PROPIO` y lo recorre `test_entrega.py`
-por la ventana; sus siete pedazos los cubren ése y `test_main_window_layout.py`
-(hito 76). Es deliberado y está
+por la ventana; sus pedazos los cubren ése y `test_main_window_layout.py`
+(hito 76), y `tool_controller.py` tiene el suyo desde el hito 79. Es deliberado y está
 explicado en [`ui/README.md`](../psglab/ui/README.md#estado).
 
 > Este párrafo decía "diez de sus catorce" y nombraba como exentos a
