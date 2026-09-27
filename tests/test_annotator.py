@@ -558,3 +558,49 @@ def test_sin_registro_no_se_corrige_nada():
     with pytest.raises(PsgLabError):
         AnnotatorTool().change_label(Annotation("Arousal", 0, 10), "Spindle")
     assert AnnotatorTool().edge_at(1.0) is None
+
+
+# -- La clase activa (hito 79) ------------------------------------------------------
+
+
+def test_sin_elegir_se_pregunta():
+    assert AnnotatorTool().active_label is None
+
+
+def test_la_clase_activa_se_guarda_sin_espacios_de_mas():
+    herramienta = AnnotatorTool()
+
+    herramienta.set_active_label("  Spindle ")
+
+    assert herramienta.active_label == "Spindle"
+
+
+@pytest.mark.parametrize("mala", ["", "   ", 3, ["Spindle"]])
+def test_una_clase_sin_nombre_se_rechaza(mala):
+    herramienta = AnnotatorTool()
+
+    with pytest.raises(PsgLabError):
+        herramienta.set_active_label(mala)
+
+    assert herramienta.active_label is None
+
+
+def test_la_clase_activa_sobrevive_a_apagar_la_herramienta(sesion):
+    """Es cómo trabaja el usuario, no un dato de la noche."""
+    herramienta = AnnotatorTool()
+    herramienta.activate(sesion)
+    herramienta.set_active_label("Spindle")
+
+    herramienta.deactivate()
+
+    assert herramienta.active_label == "Spindle"
+
+
+def test_elegirla_avisa_para_que_se_vea():
+    herramienta = AnnotatorTool()
+    avisos: list[object] = []
+    herramienta.on_changed = avisos.append
+
+    herramienta.set_active_label("Arousal")
+
+    assert avisos == [herramienta]

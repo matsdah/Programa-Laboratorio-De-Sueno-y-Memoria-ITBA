@@ -18,7 +18,7 @@ del pliego (sección 7). El otro punto de extensión es
 | `amplitude_band.py` | Banda de referencia de 75 µV, adaptada a la escala del usuario. | `ViewerTool` | V1_F de "Herramienta de amplitud" |
 | `occupancy.py` | Líneas dibujadas con el mouse y su porcentaje de ocupación horizontal. Cada línea publica cuánto dura, para escribirlo encima (hito 55). | `ViewerTool` | V1_F–V5_F de "Ocupación de la página" |
 | `magnifier.py` | Lupa: zoom circular y contador de picos. | `ViewerTool` | V1_F, V2_F de "Herramienta Lupa" |
-| `annotator.py` | Anotación de eventos sobre la señal, y su corrección: arrastrar un borde, cambiar la clase (hito 52). | `ViewerTool` | V1_F de "Anotación de la señal" |
+| `annotator.py` | Anotación de eventos sobre la señal, y su corrección: arrastrar un borde, cambiar la clase (hito 52). Desde el hito 79 guarda **la clase activa** (`active_label`), con la que se anota sin preguntar; si se pregunta igual lo decide la ventana, que ve el teclado. | `ViewerTool` | V1_F de "Anotación de la señal" |
 | `overview.py` | Übersicht, que la ventana llama «Contexto» desde el hito 64: la ventana actual en su contexto. Cada ventana publica su señal reducida, del canal seleccionado o el primero visible (hito 51). | `Tool` | V1_F–V3_F de "Herramienta Übersicht" |
 | `histogram.py` | Hipnograma de la noche completa. `runs()` agrupa las ventanas en tramos seguidos de la misma fase, que es lo que el panel pinta de color desde el hito 34. `suggested_bars()` da la fase sugerida de cada ventana sin scorear (hito 75). | `Tool` | V1_P–V4_F de "Histograma" |
 

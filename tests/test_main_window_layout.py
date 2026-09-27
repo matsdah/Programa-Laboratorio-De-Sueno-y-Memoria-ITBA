@@ -209,6 +209,9 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         # Hito 79: retomar un scoring a medias.
         "go_to_next_unscored_window",
         "go_to_previous_unscored_window",
+        # La clase activa al anotar: C y su menú (hito 79).
+        "choose_annotation_class",
+        "set_annotation_class",
         # Deshacer y rehacer, Ctrl+Z y Ctrl+Y (hito 79).
         "undo",
         "redo",

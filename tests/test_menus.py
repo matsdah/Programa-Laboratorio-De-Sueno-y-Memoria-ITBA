@@ -567,7 +567,11 @@ def test_scoring_va_en_cinco_bloques(ventana: MainWindow):
     fases, marcar, ir, deshacer, sugeridas = bloques(menu_llamado(ventana, "&Scoring"))
 
     assert fases == list(ventana.acciones_de_fase.values())
-    assert [a.data() for a in marcar] == ["toggle_arousal", "annotate_current_window"]
+    assert [a.data() for a in marcar] == [
+        "toggle_arousal",
+        "annotate_current_window",
+        "choose_annotation_class",
+    ]
     assert [a.data() for a in ir] == [
         "go_to_next_unscored_window",
         "go_to_previous_unscored_window",

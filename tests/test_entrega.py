@@ -498,6 +498,7 @@ def evento_de_mouse(
     vista: pg.PlotWidget | None = None,
     canal: str | None = None,
     uv: float = 0.0,
+    modificadores: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier,
 ) -> QMouseEvent:
     """Un evento de mouse sobre un gráfico, en `x` de su escena.
 
@@ -537,7 +538,7 @@ def evento_de_mouse(
         QPointF(viewport.mapToGlobal(local.toPoint())),
         boton,
         boton,
-        Qt.KeyboardModifier.NoModifier,
+        modificadores,
     )
 
 
@@ -547,17 +548,25 @@ def arrastrar(
     hasta_x: float,
     canal: str | None = None,
     uv: float = 0.0,
+    mayusculas: bool = False,
 ) -> None:
-    """Presiona, mueve y suelta el botón izquierdo sobre el visualizador."""
+    """Presiona, mueve y suelta el botón izquierdo sobre el visualizador.
+
+    Con `mayusculas`, suelta con Mayúsculas apretada (hito 79).
+    """
     viewport = ventana.signal_view.viewport()
     aplicacion = QApplication.instance()
-    for tipo, x in (
-        (QEvent.Type.MouseButtonPress, desde_x),
-        (QEvent.Type.MouseMove, hasta_x),
-        (QEvent.Type.MouseButtonRelease, hasta_x),
+    al_soltar = (
+        Qt.KeyboardModifier.ShiftModifier if mayusculas else Qt.KeyboardModifier.NoModifier
+    )
+    for tipo, x, modificadores in (
+        (QEvent.Type.MouseButtonPress, desde_x, Qt.KeyboardModifier.NoModifier),
+        (QEvent.Type.MouseMove, hasta_x, Qt.KeyboardModifier.NoModifier),
+        (QEvent.Type.MouseButtonRelease, hasta_x, al_soltar),
     ):
         aplicacion.sendEvent(
-            viewport, evento_de_mouse(ventana, tipo, x, canal=canal, uv=uv)
+            viewport,
+            evento_de_mouse(ventana, tipo, x, canal=canal, uv=uv, modificadores=modificadores),
         )
 
 
@@ -6681,3 +6690,103 @@ def test_lo_recuperado_no_se_deshace(qt_app, tmp_path, monkeypatch):
     despues.undo()
 
     assert despues.session.scoring.get(0).stage is SleepStage.N2
+
+
+# -- Anotar con una clase activa (hito 79) -------------------------------------------
+
+
+def arrastrar_un_tramo(
+    ventana: MainWindow, desde: float = 0.25, hasta: float = 0.35, mayusculas: bool = False
+) -> None:
+    """Un arrastre sobre la página, entre dos fracciones de su ancho."""
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    arrastrar(
+        ventana,
+        caja.left() + caja.width() * desde,
+        caja.left() + caja.width() * hasta,
+        mayusculas=mayusculas,
+    )
+
+
+def test_con_una_clase_activa_el_arrastre_no_pregunta(ventana: MainWindow, monkeypatch):
+    """Marcar cien husos eran cien carteles."""
+    preguntas: list[bool] = []
+    monkeypatch.setattr(
+        QInputDialog,
+        "getItem",
+        staticmethod(lambda *_a, **_k: preguntas.append(True) or ("Otra", True)),
+    )
+    ventana.set_annotation_class("Spindle")
+
+    arrastrar_un_tramo(ventana, 0.25, 0.35)
+    arrastrar_un_tramo(ventana, 0.60, 0.70)
+
+    assert preguntas == []
+    assert [a.label for a in ventana.session.annotations.all()] == ["Spindle", "Spindle"]
+
+
+def test_con_mayusculas_al_soltar_pregunta_igual(ventana: MainWindow, elige_clase):
+    """Para el evento suelto de otra clase, sin cambiar la activa."""
+    ventana.set_annotation_class("Spindle")
+    elige_clase("Arousal")
+
+    arrastrar_un_tramo(ventana, mayusculas=True)
+
+    assert [a.label for a in ventana.session.annotations.all()] == ["Arousal"]
+    assert ventana.tool_controller.tools["annotator"].active_label == "Spindle"
+
+
+def test_elegir_una_clase_enciende_anotar_y_lo_dice(ventana: MainWindow):
+    ventana.set_annotation_class("Spindle")
+
+    assert ventana.tool_controller.actions["annotator"].isChecked()
+    assert "«Spindle»" in ventana.tool_readout.text()
+
+
+def test_la_e_usa_la_clase_activa(ventana: MainWindow, monkeypatch):
+    monkeypatch.setattr(
+        QInputDialog, "getItem", staticmethod(lambda *_a, **_k: pytest.fail("preguntó"))
+    )
+    ventana.set_annotation_class("Arousal")
+
+    ventana.annotate_current_window()
+
+    assert [a.label for a in ventana.session.annotations.all()] == ["Arousal"]
+
+
+def test_la_c_elige_entre_las_clases_del_registro(ventana: MainWindow, elige_en_el_menu):
+    elige_en_el_menu.elegir("Spindle")
+
+    ventana.choose_annotation_class()
+
+    (opciones,) = elige_en_el_menu.menus
+    assert opciones[0] == "Preguntar cada vez"
+    assert opciones[-1] == "Nueva clase…"
+    assert "Spindle" in opciones
+    assert ventana.tool_controller.tools["annotator"].active_label == "Spindle"
+
+
+def test_la_c_puede_volver_a_preguntar(ventana: MainWindow, elige_en_el_menu):
+    ventana.set_annotation_class("Spindle")
+    elige_en_el_menu.elegir("Preguntar cada vez")
+
+    ventana.choose_annotation_class()
+
+    assert ventana.tool_controller.tools["annotator"].active_label is None
+
+
+def test_la_c_crea_una_clase_nueva(ventana: MainWindow, elige_en_el_menu, monkeypatch):
+    """La clase se registra al anotar el primer tramo, como una escrita en el
+    cartel."""
+    elige_en_el_menu.elegir("Nueva clase…")
+    monkeypatch.setattr(
+        QInputDialog, "getText", staticmethod(lambda *_a, **_k: ("  Apnea  ", True))
+    )
+
+    ventana.choose_annotation_class()
+    ventana.annotate_current_window()
+
+    assert ventana.tool_controller.tools["annotator"].active_label == "Apnea"
+    assert "Apnea" in ventana.session.annotations.labels()
+    assert [a.label for a in ventana.session.annotations.all()] == ["Apnea"]
+

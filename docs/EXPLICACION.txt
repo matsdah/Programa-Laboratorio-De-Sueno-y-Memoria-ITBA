@@ -52,6 +52,10 @@ una copia en la carpeta de configuracion del usuario, que no es un archivo de
 salida ni aparece en ninguna carpeta del laboratorio. Al volver a abrir el
 mismo registro, ofrece recuperar esa copia.
 
+Para anotar muchos eventos de la misma clase -husos, arousals- se elige la
+clase una vez con la tecla C, y cada tramo que se arrastra queda anotado con
+ella sin preguntar. Soltando el mouse con Mayusculas apretada, pregunta igual.
+
 Ctrl+Z deshace el ultimo cambio del scoring o de las anotaciones -una fase de
 mas, una anotacion borrada, confirmar todas las fases sugeridas- y Ctrl+Y lo
 rehace. Tambien estan en el menu Scoring. Moverse de ventana, la amplitud o la

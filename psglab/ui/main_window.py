@@ -400,7 +400,7 @@ class MainWindow(
         herramientas.window_requested.connect(lambda ventana: self._go_to_window(ventana))
         herramientas.histogram_changed.connect(lambda: self._redraw_histogram())
         herramientas.annotation_released.connect(
-            lambda anotador: self._al_soltar_el_anotador(anotador)
+            lambda anotador, preguntar: self._al_soltar_el_anotador(anotador, preguntar)
         )
         herramientas.annotation_menu_requested.connect(
             lambda anotador, segundos, donde: self._menu_de_anotacion(

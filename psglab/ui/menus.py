@@ -520,6 +520,7 @@ def _scoring(window: "MainWindow") -> None:
     )
     window.accion_arousal.setCheckable(True)
     _agregar(scoring, "A&notar la ventana actual…", window.annotate_current_window)
+    _agregar(scoring, "Elegir la &clase al anotar…", window.choose_annotation_class)
     scoring.addSeparator()
     _agregar(scoring, "&Próxima ventana sin scorear", window.go_to_next_unscored_window)
     _agregar(
