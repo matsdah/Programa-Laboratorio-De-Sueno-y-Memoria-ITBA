@@ -84,7 +84,7 @@ class FilesMixin:
         # Las herramientas activas siguen guardando la sesión que recibieron
         # en `activate()`: si no se las suelta, la ocupación seguiría midiendo
         # sobre el registro anterior y el histograma dibujaría su scoring.
-        self._deactivate_all_tools()
+        self.tool_controller.deactivate_all()
         # Y por el mismo motivo, la descomposición ICA del registro anterior: es
         # de otra señal y de otros canales.
         self._olvidar_ica()
@@ -100,12 +100,7 @@ class FilesMixin:
         self.accion_señal_original.setEnabled(False)
         # Las herramientas se enteran solas de los cambios de ventana: es la
         # decisión del hito 6, y por eso acá no hay que acordarse de avisarles.
-        for herramienta in self._tools.values():
-            sesion.add_window_listener(herramienta.on_window_changed)
-            sesion.add_view_listener(herramienta.on_view_changed)
-        # **Después de las herramientas**: la ocupación se reancla en su
-        # `on_view_changed()`, y las bandas se comparan contra lo ya reanclado.
-        sesion.add_view_listener(self._al_cambiar_la_pagina)
+        self.tool_controller.attach(sesion)
 
         self._aplicar_colores_de_clase(sesion)
         self.signal_view.set_session(sesion)
@@ -113,7 +108,7 @@ class FilesMixin:
         self.channel_selector.set_recording(registro)
         self.scoring_panel.set_nomenclature(sesion.scoring.nomenclature)
         install_shortcuts(self, sesion)
-        self._activate_panel_tools()
+        self.tool_controller.activate_panel_tools()
         # El eje del histograma en hora real sólo se puede pedir si el archivo
         # informó cuándo empezó: pedirlo igual sería un cartel de error cada
         # vez que se abre un registro sin hora, por una preferencia que el

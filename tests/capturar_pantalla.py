@@ -150,17 +150,17 @@ def encender_las_herramientas(ventana) -> None:
     verdad necesita una ventana mapeada, que es exactamente lo que
     `WA_DontShowOnScreen` impide.
     """
-    ventana._toggle_tool("amplitude_band", True)
-    ventana._toggle_tool("magnifier", True)
+    ventana.tool_controller.toggle("amplitude_band", True)
+    ventana.tool_controller.toggle("magnifier", True)
     # Una línea de ocupación, para ver su duración escrita encima (hito 55).
     from psglab.tools.occupancy import OccupancyLine
 
-    ventana._toggle_tool("occupancy", True)
-    ventana._tools["occupancy"].add_line(OccupancyLine(0.3, -30.0, 0.45, -30.0, ventana.signal_view._visible[0]))
+    ventana.tool_controller.toggle("occupancy", True)
+    ventana.tool_controller.tools["occupancy"].add_line(OccupancyLine(0.3, -30.0, 0.45, -30.0, ventana.signal_view._visible[0]))
     vista = ventana.signal_view
     canal = vista._visible[1] if len(vista._visible) > 1 else vista._visible[0]
     mitad = (vista._session.viewport.start_seconds + vista._session.viewport.end_seconds) / 2
-    ventana._tools["magnifier"].on_mouse_move(mitad, 0.0, canal)
+    ventana.tool_controller.tools["magnifier"].on_mouse_move(mitad, 0.0, canal)
 
 
 def llenar_los_paneles(ventana) -> None:
@@ -216,7 +216,7 @@ def llenar_los_paneles(ventana) -> None:
     # **`refresh()` antes de leer**: la Übersicht cachea sus ventanas y las
     # rearma al cambiar de época. Acá se scorea sin navegar, igual que al
     # anotar, así que sin esto el chip de la fase saldría vacío.
-    contexto = ventana._tools["overview"]
+    contexto = ventana.tool_controller.tools["overview"]
     contexto.refresh()
     ventana.overview_panel.set_windows(contexto.windows(), {})
 

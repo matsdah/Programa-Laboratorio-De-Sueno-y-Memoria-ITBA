@@ -72,7 +72,7 @@ commit.
 |----|-----------|---------|
 | V1_F | Dibujar una línea con el mouse | `psglab/tools/occupancy.py` |
 | V2_F | Calcular el porcentaje de ocupación horizontal | `psglab/tools/occupancy.py` |
-| V3_F | Mostrar el porcentaje | `psglab/tools/occupancy.py` (el cálculo), `psglab/ui/window_tools.py` (`_update_tool_readout`, que lo muestra) |
+| V3_F | Mostrar el porcentaje | `psglab/tools/occupancy.py` (el cálculo), `psglab/ui/tool_controller.py` (`update_readout`, que lo muestra) |
 | V4_F | Sumar la distancia horizontal de varias líneas | `psglab/tools/occupancy.py` |
 | V5_F | Borrar una línea con clic o al cambiar de ventana | `psglab/tools/occupancy.py` |
 
@@ -90,7 +90,7 @@ commit.
 | ID | Requisito | Archivo |
 |----|-----------|---------|
 | V1_F | Círculo de zoom que sigue al mouse | `psglab/tools/magnifier.py` (el gesto), `psglab/ui/signal_view.py` (`_dibujar_lupa`, que amplía) |
-| V2_F | Contador de clics para contar picos | `psglab/tools/magnifier.py` (la cuenta), `psglab/ui/window_tools.py` (`_update_tool_readout`, que la muestra) |
+| V2_F | Contador de clics para contar picos | `psglab/tools/magnifier.py` (la cuenta), `psglab/ui/tool_controller.py` (`update_readout`, que la muestra) |
 
 ### Herramienta Übersicht
 

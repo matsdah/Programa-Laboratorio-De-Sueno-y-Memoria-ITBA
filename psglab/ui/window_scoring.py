@@ -58,7 +58,7 @@ class ScoringMixin:
         Después de importar, el histograma tiene guardadas las barras del
         scoring anterior: `update_window()` sirve para una tecla, no para
         cambiar el archivo debajo."""
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         if isinstance(herramienta, HistogramTool) and self._session is not None:
             herramienta.activate(self._session)
 
@@ -84,7 +84,7 @@ class ScoringMixin:
         # época, no al scorear: sin esto, el chip de la fase recién puesta no
         # aparecía hasta la próxima flecha. Es lo mismo que ya hacía anotar, y
         # por el mismo motivo.
-        contexto = self._tools.get("overview")
+        contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
         # **Pasa sola a la ventana siguiente** (hito 64), salvo en la última y
@@ -284,7 +284,7 @@ class ScoringMixin:
             self._show_error(error, "confirmar las fases sugeridas")
             return
         self._reload_histogram()
-        contexto = self._tools.get("overview")
+        contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
         self.refresh()
@@ -376,7 +376,7 @@ class ScoringMixin:
         self.refresh()
 
     def _update_histogram_window(self, window_index: int) -> None:
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         if isinstance(herramienta, HistogramTool):
             herramienta.update_window(window_index)
 
@@ -400,7 +400,7 @@ class ScoringMixin:
         histograma tiene el tamaño de la noche desde el arranque y hay que poder
         ver qué falta.
         """
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         if not isinstance(herramienta, HistogramTool) or self._session is None:
             return
         barras = herramienta.bars()
@@ -515,7 +515,7 @@ class ScoringMixin:
         """
         if self._session is None:
             return
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         en_hora = (
             isinstance(herramienta, HistogramTool)
             and herramienta.uses_clock_time
@@ -544,7 +544,7 @@ class ScoringMixin:
         Los números de ventana van en **base 1**, que es la regla del proyecto
         para todo lo que se muestra.
         """
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         if self._session is None or cuantas <= 0:
             return []
         en_hora = isinstance(herramienta, HistogramTool) and herramienta.uses_clock_time
@@ -571,7 +571,7 @@ class ScoringMixin:
         a qué hora empezó, y tiene razón: un eje con una hora inventada se lee
         como si fuera cierta. Acá eso se convierte en un cartel.
         """
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         if not isinstance(herramienta, HistogramTool):
             return
         try:

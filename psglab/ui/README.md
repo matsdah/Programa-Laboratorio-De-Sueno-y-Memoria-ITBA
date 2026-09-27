@@ -55,10 +55,10 @@ conoce las flechas del teclado.
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
 | `main_window.py` | Arma la ventana y **reúne sus siete pedazos** (hito 76), y pone la tipografía antes de construir nada y las demás preferencias de fábrica al final (hito 78): construye los paneles y los menús, corre lo largo en otro hilo, muestra la época actual y los tres carteles del programa, que dicen qué no se pudo hacer en el texto y no en el título, que macOS no muestra (hitos 65 y 66). Un cálculo en otro hilo que vuelve cuando ya se abrió otro registro se descarta (hito 67). Después de abrir un registro muestra los avisos que dejó el lector, como el de un archivo truncado. | — |
-| `window_tools.py` | `ToolsMixin`: el filtro de eventos que lleva el mouse a las herramientas, la rueda —escala de tiempo fija bajo el mouse, y con Mayúsculas o deslizando de costado desplaza la página (hito 56)—, qué herramientas están encendidas, sus overlays y la lectura de la barra de estado. | V3_F de "Ocupación", V2_F de "Lupa" |
+| `tool_controller.py` | `ToolController`, el primer controlador con estado propio (hito 79; era el mixin de las herramientas): crea las herramientas y sus entradas del menú, cuál tiene los clics y cuáles dibujan, el filtro de eventos que lleva el mouse a las herramientas, sus overlays, la Übersicht y la lectura de la barra de estado. No conoce la ventana: le avisa por señales de Qt, y se testea sin armarla. | V3_F de "Ocupación", V2_F de "Lupa" |
 | `window_annotation.py` | `AnnotationMixin`: terminar un tramo arrastrado y preguntar su clase, el menú de una anotación, anotar con el teclado (hito 62) e importar las marcas del registro (hito 73). | — |
 | `window_files.py` | `FilesMixin`: abrir un registro y los recientes, importar un scoring, exportar —`export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos— y el trabajo sin exportar: antes de cerrar, de abrir otro registro o de importar un scoring encima pregunta —Exportar…, Descartar o Cancelar—, con un diálogo de guardado por cada cosa en juego; la regla de qué cuenta es de `Session`. Los tres diálogos arrancan en la carpeta del registro abierto, o en la del último que se abrió (hito 79). | V4_F de "Archivo de salida" |
-| `window_view.py` | `ViewMixin`: moverse de ventana, la escala de tiempo y la página, la reproducción, la amplitud, el foco entre paneles y las vistas de canales. | — |
+| `window_view.py` | `ViewMixin`: moverse de ventana, la escala de tiempo y la página, la rueda —escala de tiempo fija bajo el mouse, y con Mayúsculas o deslizando de costado desplaza la página (hito 56)—, la reproducción, la amplitud, el foco entre paneles y las vistas de canales. | — |
 | `window_preferences.py` | `PreferencesMixin`: aplicar y guardar el esquema, la letra y los colores de clase, la disposición de fábrica y la ventana de configuración. | — |
 | `window_scoring.py` | `ScoringMixin`: scorear —pasa a la ventana siguiente, salvo que se lo apague (hito 64)—, el arousal, la nomenclatura, ir a la próxima o a la anterior sin scorear (N y Mayús+N, hito 79), las fases sugeridas (hito 75), poner al día el menú «Scoring» al abrirlo —qué fase y qué arousal tiene la ventana— y el hipnograma con su eje, sus colores y la curva de las sugeridas. | V2_F de "Histograma" |
 | `window_analysis.py` | `AnalysisMixin`: los pedidos de la Parte 2 —espectro, complejidad, conectividad, filtros, impedancia, ICA, derivar, re-referenciar—, el aviso de los canales planos (hito 32) y volver a la señal original. | V5_F de "Filtración" |
@@ -97,19 +97,25 @@ no usan señales de Qt (ver [`tools/README.md`](../tools/README.md)).
 
 Si estás agregando lógica a la ventana, probablemente vaya en otro archivo.
 
-**Desde el hito 76 son ocho archivos y una sola clase.** `main_window.py` tenía
-170 métodos en 4300 líneas; ahora arma la ventana y hereda lo que ésta hace de
-siete mixins, uno por tema —`window_tools.py`, `window_annotation.py`,
+**Desde el hito 76 la ventana son varios archivos y una sola clase.**
+`main_window.py` tenía 170 métodos en 4300 líneas; ahora arma la ventana y
+hereda lo que ésta hace de seis mixins, uno por tema —`window_annotation.py`,
 `window_files.py`, `window_view.py`, `window_preferences.py`,
-`window_scoring.py` y `window_analysis.py`—. Tres reglas que no se ven leyendo
-uno solo:
+`window_scoring.py` y `window_analysis.py`—. Eran siete: el de las
+herramientas pasó a ser un controlador en el hito 79. Cuatro reglas que no se
+ven leyendo uno solo:
 
-- **Es una partición por tema, no un desacople.** Los ocho comparten el estado
-  que arma `MainWindow.__init__`, y un método de un mixin llama a los de
-  cualquier otro. Un método nuevo va al archivo de su tema.
+- **Los mixins son una partición por tema, no un desacople.** Comparten el
+  estado que arma `MainWindow.__init__`, y un método de un mixin llama a los
+  de cualquier otro. Un método nuevo va al archivo de su tema.
+- **Los controladores sí tienen estado propio** (hito 79). El primero es
+  `tool_controller.py`, que la ventana guarda en `tool_controller`: la ventana
+  le pide lo que necesita por su nombre —`tools`, `actions`, `toggle()`,
+  `redraw_overlays()`— y él le avisa con señales. No conoce la ventana, así
+  que lo que haga falta de ella va como señal y no como llamada.
 - **Los mixins van antes que `QMainWindow`** en la herencia, y no heredan de
-  nada. Si uno quedara después, `eventFilter()` y `closeEvent()` perderían sin
-  avisar contra los de Qt. Lo verifica `test_main_window_layout.py`, junto con
+  nada. Si uno quedara después, `eventFilter()` —que en la ventana atiende la
+  rueda— y `closeEvent()` perderían sin avisar contra los de Qt. Lo verifica `test_main_window_layout.py`, junto con
   que ningún método esté en dos pedazos: el segundo quedaría muerto.
 - **Un test que reemplace una función que la ventana importa la reemplaza en el
   módulo que la usa**: `fit_ica` en `window_analysis`, `read_recording` en

@@ -33,22 +33,27 @@ que desde el hito 28 lleva también los paneles.
 
 **Este archivo arma la ventana y nada más** desde el hito 76. Hasta ahí tenía
 170 métodos en 4300 líneas, y cada hito le sumaba los suyos. Ahora lo que la
-ventana **hace** vive en siete módulos de esta carpeta, uno por tema, que
-`MainWindow` hereda como mixins:
+ventana **hace** vive en módulos de esta carpeta, uno por tema. Seis son
+mixins que `MainWindow` hereda:
 
-    window_tools.py        el mouse, las herramientas y lo que dibujan
     window_annotation.py   anotar con el mouse, con el teclado o desde el archivo
     window_files.py        abrir, importar, exportar y el trabajo sin exportar
-    window_view.py         época, página, reproducción, amplitud y foco
+    window_view.py         época, página, rueda, reproducción, amplitud y foco
     window_preferences.py  esquema, letra, colores de clase y configuración
     window_scoring.py      scorear, las fases sugeridas y el hipnograma
     window_analysis.py     los análisis de la Parte 2 y sus paneles
 
 Acá quedan la construcción, las esperas largas, lo que se muestra de la época
-actual y los carteles. **Es una partición por tema, no un desacople**: los
-ocho comparten el estado de `__init__`, y un método de un mixin puede llamar a
-otro de cualquier otro. Lo que se ganó es encontrar las cosas y que un cambio
+actual y los carteles. **Los mixins son una partición por tema, no un
+desacople**: comparten el estado de `__init__`, y un método de uno puede llamar
+a otro de cualquier otro. Lo que se ganó es encontrar las cosas y que un cambio
 toque un archivo de cientos de líneas y no uno de miles.
+
+**El desacople empezó en el hito 79**, con controladores que tienen su estado
+propio y la ventana guarda como atributo. El primero es `tool_controller`
+(`ui/tool_controller.py`), que era el mixin `window_tools.py`: las
+herramientas, quién tiene el mouse y lo que dibujan. La ventana le pide lo que
+necesita por su nombre y él le avisa con señales de Qt; ver su docstring.
 
 **Los métodos siguen siendo de `MainWindow`**: los menús, los atajos y la
 suite los llaman por su nombre en la ventana, y `monkeypatch.setattr(MainWindow,
@@ -58,7 +63,8 @@ donde se lo busca ahora.
 
 Los cinco requisitos que este archivo declaraba cubrir se fueron con los
 métodos que los implementan: `export()` a `window_files.py`,
-`_update_tool_readout()` —que cubría dos— a `window_tools.py`,
+`_update_tool_readout()` —que cubría dos— a `window_tools.py`, y de ahí a
+`ToolController.update_readout()` en el hito 79,
 `_marcas_del_histograma()` a `window_scoring.py` y `_olvidar_ica()` a
 `window_analysis.py`. Cada uno los declara en su docstring.
 
@@ -85,9 +91,6 @@ from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Recording
 from psglab.core.session import Session
 from psglab.core.windows import window_to_clock_time
-from psglab.tools.base import Overlay, Tool, ViewerTool
-from psglab.tools.histogram import HistogramTool
-from psglab.tools.registry import available_tools
 from psglab.ui import preferences, theme
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.docks import build_docks
@@ -108,9 +111,9 @@ from psglab.ui.settings_dialog import SettingsDialog
 from psglab.ui.shortcuts import install_shortcuts
 from psglab.ui.shortcuts_dialog import ShortcutsDialog
 from psglab.ui.signal_view import SignalView
+from psglab.ui.tool_controller import ToolController
 from psglab.utils.errors import PsgLabError
 # Lo que la ventana hace, por tema (hito 76). Ver el docstring del módulo.
-from psglab.ui.window_tools import ToolsMixin
 from psglab.ui.window_annotation import AnnotationMixin
 from psglab.ui.window_files import FilesMixin
 from psglab.ui.window_view import ViewMixin
@@ -134,7 +137,6 @@ ANCHO_DE_LA_BARRA_DE_ESPERA: int = 90
 
 
 class MainWindow(
-    ToolsMixin,
     AnnotationMixin,
     FilesMixin,
     ViewMixin,
@@ -152,24 +154,6 @@ class MainWindow(
         self._session: Session | None = None
         #: El registro tal como se leyó, para poder deshacer los análisis.
         self._registro_original: Recording | None = None
-        self._tools: dict[str, Tool] = {}
-        #: La entrada de menú de cada herramienta, para poder destildarla al
-        #: apagarla.
-        self._tool_actions: dict[str, QAction] = {}
-        #: **Quién se queda con el mouse**, o None. Es la exclusiva activa, y
-        #: es lo único que mira `eventFilter()`.
-        self._mouse_tool: ViewerTool | None = None
-        #: **Quiénes tienen algo que dibujar**, en el orden del registro.
-        #:
-        #: Son dos campos y no uno desde el hito 45. Con uno solo, una
-        #: herramienta que dibuja sin quedarse con el clic —la banda de
-        #: amplitud, que declara `exclusive = False` con razón— no entraba en
-        #: él, así que su `overlays()` no lo llamaba nadie y tildarla no hacía
-        #: nada. Son dos preguntas distintas y ahora tienen dos respuestas.
-        self._drawing_tools: list[ViewerTool] = []
-        #: Lo último que se le pasó a `signal_view.set_overlays()`. Ver
-        #: `_al_cambiar_la_pagina()`.
-        self._overlays_dibujados: tuple[Overlay, ...] = ()
         #: La descomposición ICA ajustada, mientras el panel está abierto.
         self._ica: object | None = None
         #: Las preferencias vigentes. **Arrancan en los valores de fábrica y no
@@ -192,8 +176,20 @@ class MainWindow(
         self._panel_actual = 0
 
         self._build_layout()
+        #: Las herramientas, quién tiene el mouse y lo que dibujan (hito 79).
+        #: Va antes que los menús: «Herramientas» lleva sus modos, y el
+        #: contador de la lupa es suyo.
+        self.tool_controller = ToolController(
+            self.signal_view,
+            self.histogram_view,
+            self.overview_panel,
+            self.tool_readout,
+            frozenset(self.docks),
+            parent=self,
+        )
         self._build_menus()
-        self._build_tools_menu()
+        # Los modos del mouse, arriba de los paneles que ya puso `menus.py`.
+        self.tool_controller.build_menu(self.tools_menu)
         self._connect_signals()
         install_shortcuts(self, None)
         # El esquema ya está elegido —`create_application()` lo leyó de las
@@ -311,7 +307,7 @@ class MainWindow(
         deja en la ventana los dos `QAction` que el resto del programa toca
         —`accion_eje_en_hora` y `accion_señal_original`—, el botón de abrir un
         registro y el menú vacío de herramientas que puebla
-        `_build_tools_menu()`.
+        `ToolController.build_menu()`.
         """
         build_menus(self)
         # **Lo que no se puede pedir con un cálculo en curso.** Los dos menús
@@ -366,70 +362,19 @@ class MainWindow(
                     f"{que_falta}<br>Se pide desde " + "<br>o desde ".join(rutas)
                 )
 
-    def _build_tools_menu(self) -> None:
-        """Crea las herramientas y sus entradas en el menú Herramientas.
-
-        Se arma recorriendo `psglab.tools.registry`, así que una herramienta
-        nueva aparece sola sin tocar este archivo.
-
-        **El menú es la única vía para activarlas.** Hasta el hito 23 las
-        mismas acciones iban también en una barra horizontal debajo del menú,
-        que repetía lo mismo y se confundía con él.
-
-        **Una herramienta que tiene panel no recibe entrada propia** (hito 28):
-        la que cuenta es la del panel, que `menus._herramientas()` ya puso. Son
-        las que se llaman igual que una clave de `self.docks` —hoy la Übersicht
-        y el hipnograma—, y se prenden solas al abrir un registro
-        (`_activate_panel_tools()`), así que lo único que el usuario decide es
-        si el panel se ve. Con las dos entradas, un menú las mostraba tildadas
-        y el otro no, y apagar la herramienta con el panel a la vista lo dejaba
-        vacío.
-
-        Las demás, los modos del mouse, se insertan **arriba del menú**, antes
-        de la primera entrada que dejó `menus._herramientas()`, y en el orden
-        del registro.
-        """
-        primera = self.tools_menu.actions()[0] if self.tools_menu.actions() else None
-        for cls in available_tools():
-            herramienta = cls()
-            self._tools[cls.name] = herramienta
-            if cls.name in self.docks:
-                continue
-
-            accion = QAction(cls.label, self)
-            accion.setCheckable(True)
-            accion.setToolTip(cls.description)
-            # El menú no muestra tooltips; la barra de estado sí muestra esto
-            # mientras el mouse pasa por la entrada.
-            accion.setStatusTip(cls.description)
-            self._tool_actions[cls.name] = accion
-            accion.toggled.connect(
-                lambda activa, n=cls.name: self._toggle_tool(n, activa)
-            )
-            self.tools_menu.insertAction(primera, accion)
-
     def _connect_signals(self) -> None:
         """Conecta las señales de los paneles entre sí.
 
         Es el único lugar donde los paneles se enteran unos de otros: el
         visualizador no conoce al histograma, los dos pasan por acá.
 
-        Acá se cablean también los callbacks de las herramientas, que no son
-        señales de Qt porque `Tool` no hereda de `QObject`:
-
-        - `tool.on_changed`, que dispara
-          `signal_view.set_overlays(tool.overlays())`. Es el camino por el que
-          una herramienta hace aparecer algo en pantalla sin conocer Qt.
-        - `histogram.on_window_requested`, que lleva el clic del hipnograma a
-          `session.go_to_window()`.
-
-        **Los dos se asignan sobre la instancia de la herramienta, nunca sobre
-        su clase**: asignados en la clase quedarían como método ligado y la
-        llamada pasaría un argumento de más.
-
-        Las coordenadas de los eventos de mouse se convierten acá, con
-        `signal_view.seconds_at_pixel()`, antes de avisarle a la herramienta
-        activa: `ViewerTool` recibe segundos, nunca píxeles.
+        Acá se conectan también las señales de `tool_controller`, que es el
+        que habla con las herramientas: pide ir a una ventana desde el
+        hipnograma, avisa que hay que redibujarlo y le pasa a la ventana lo
+        que el anotador deja para preguntar. **Se conectan con una lambda y
+        no con el método ligado**: la suite reemplaza `_go_to_window` y los
+        carteles de la anotación después de armar la ventana, y un método
+        ligado al conectar no se enteraría.
         """
         self.navigation.window_requested.connect(self._go_to_window)
         # Hito 51: un clic en una caja de la Übersicht va a esa ventana, igual
@@ -447,15 +392,22 @@ class MainWindow(
         self.channel_selector.visible_changed.connect(self._set_visible_channels)
         self.channel_selector.selection_changed.connect(self._set_selected_channels)
 
-        for herramienta in self._tools.values():
-            herramienta.on_changed = self._on_tool_changed
-            if isinstance(herramienta, HistogramTool):
-                herramienta.on_window_requested = self._go_to_window
+        herramientas = self.tool_controller
+        herramientas.window_requested.connect(lambda ventana: self._go_to_window(ventana))
+        herramientas.histogram_changed.connect(lambda: self._redraw_histogram())
+        herramientas.annotation_released.connect(
+            lambda anotador: self._al_soltar_el_anotador(anotador)
+        )
+        herramientas.annotation_menu_requested.connect(
+            lambda anotador, segundos, donde: self._menu_de_anotacion(
+                anotador, segundos, donde
+            )
+        )
 
-        # Los eventos de mouse del visualizador se filtran acá para poder
-        # convertirlos de píxeles a segundos antes de dárselos a la herramienta.
+        # **La rueda la atiende la ventana** (`ViewMixin.eventFilter()`): es de
+        # la página y no de una herramienta. El resto del mouse lo filtra
+        # `tool_controller`, que se instaló antes.
         self.signal_view.viewport().installEventFilter(self)
-        self.histogram_view.viewport().installEventFilter(self)
 
     # -- La época en pantalla y los carteles ---------------------------------
     #
@@ -491,7 +443,7 @@ class MainWindow(
             return
         self.signal_view.show_window(self._session.current_window)
         self.channel_selector.set_visible(self._session.visible_channels)
-        self._refrescar_contexto()
+        self.tool_controller.refresh_overview()
         self._reflejar_epoca()
         # Cambiar de época puede mover la página, así que el cartel de la
         # página se recalcula también acá y no sólo al desplazar.
