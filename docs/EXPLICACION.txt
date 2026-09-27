@@ -41,9 +41,11 @@ BrainVision, muestra la senal en ventanas de 30 segundos, se navega y se scorea
 con el teclado, se anotan eventos sobre la senal, funcionan las seis
 herramientas -lupa, banda de amplitud, ocupacion horizontal, Ubersicht,
 histograma de la noche y anotador- y se escriben los tres archivos de salida.
-Desde la ventana se exporta el scoring, en .txt, .csv, .edf o .xml; los otros
-dos archivos, Anotaciones.txt e Informacion.txt, salieron del menu a pedido
-del usuario y hoy se piden desde un script. Falta confirmarlo con el cliente.
+Desde el menu Archivo se exportan los tres: el scoring, en .txt, .csv, .edf o
+.xml, Anotaciones.txt e Informacion.txt. Informacion.txt trae al final el
+informe de sueno estandar -tiempo total de sueno, eficiencia, latencias,
+vigilia despues del inicio, porcentaje de cada fase e indice de arousals-,
+cuyas definiciones tiene que confirmar el laboratorio.
 
 El programa no guarda nada por su cuenta: lo que no se exporto, al cerrar se
 pregunta. Pero si se corta la luz o el programa se cuelga, nadie contesta esa

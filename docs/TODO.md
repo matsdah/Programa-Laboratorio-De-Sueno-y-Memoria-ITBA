@@ -33,10 +33,18 @@ explicada donde se originó; acá está para que no se pierda entre lo cerrado.
       documento: los IDs saltan de V1_F a V5_F. Pueden ser tres requisitos que
       el proyecto nunca registró. Ver la introducción de la
       [Parte 2](HISTORIAL.md#parte-2-módulo-de-análisis-de-bioseñales).
-- [ ] **Anotaciones.txt e Informacion.txt fuera del menú.** Salieron por
+- [x] **Anotaciones.txt e Informacion.txt fuera del menú.** Salieron por
       decisión del usuario el 16 de septiembre de 2026 y se piden desde un
       script; falta confirmarlo con el cliente. Ver el
       [hito 23](HISTORIAL.md#hito-23-ajustes-de-la-barra-de-menú).
+      Ya no hay nada que confirmar: **volvieron a «Archivo» en el hito 79**,
+      que es lo que pide el pliego, por pedido del mismo usuario.
+- [ ] **Las definiciones del informe de sueño**, al final de
+      `Informacion.txt`: tiempo en cama como el registro entero, la vigilia
+      del final fuera de la vigilia después del inicio, los arousals como
+      ventanas marcadas. Están en el docstring de
+      `exporters/statistics.py::sleep_summary()`. Ver la decisión 7 del
+      [hito 79](#hito-79-la-auditoría-del-26-de-septiembre).
 - [ ] **Los filtros sugeridos**, que pueden no ser los que el laboratorio
       usa. Ver la decisión 8 del [hito 79](#hito-79-la-auditoría-del-26-de-septiembre).
 
@@ -289,7 +297,7 @@ código de hoy** antes de arreglar nada.
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
     `tests/test_contratos.py`, **1207 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_entrega.py`, **419 tests en verde**.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
 línea reanclada sin canal, la lupa sin restar el desplazamiento, la banda que
@@ -363,7 +371,7 @@ más. **Varias piden una decisión antes**; están marcadas.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
     `tests/test_contratos.py`, **1207 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_entrega.py`, **419 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
   0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
@@ -384,7 +392,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       ayuda de atajos suma C y, en «Anotación», lo que hace el mouse.
   - Test: `tests/test_annotator.py`, **49 tests en verde**;
     `tests/test_tool_controller.py`, **16 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_entrega.py`, **419 tests en verde**.
 - [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
       pedido encadena carteles modales para elegir canal, medida o banda
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
@@ -429,13 +437,30 @@ más. **Varias piden una decisión antes**; están marcadas.
     fase, las sugeridas fuera de «Analizar», las entradas apagadas sin
     registro, scorear y marcar el arousal desde el menú, lo tildado al
     abrirse y las fases de Rechtschaffen y Kales.
-- [ ] **El informe de sueño estándar.** *(Decidido: se hace y se confirma con el laboratorio.)*
+- [x] **El informe de sueño estándar.** *(Decidido: se hace y se confirma con el laboratorio.)*
       `Informacion.txt` tiene la duración por fase y las métricas de
       episodios que pide el pliego, y no trae lo primero que busca un
       laboratorio: tiempo en cama, tiempo total de sueño, eficiencia,
       latencia de sueño y de REM, vigilia después del inicio, porcentaje de
       cada fase sobre el sueño, cantidad e índice de arousals. Se calcula con
       lo que ya hay en `exporters/statistics.py`.
+      Hecho, **y falta la confirmación del laboratorio**, que está entre las
+      preguntas abiertas del principio. `statistics.sleep_summary()` lo
+      calcula y `Informacion.txt` lo trae en una sección nueva al final,
+      **sin mover nada de lo que ya traía**. Las decisiones, en su
+      docstring: el tiempo en cama es el registro entero, porque no hay
+      marcas de luces; MT no es sueño; las latencias van hasta el comienzo
+      de la ventana; la vigilia después del inicio es la que queda entre la
+      primera y la última ventana de sueño; y los arousals son las ventanas
+      de sueño marcadas, no eventos. Lo que no existe —la latencia de REM de
+      una noche sin REM— se dice con palabras y no con un cero, como el
+      resto del archivo, y las ventanas sin scorear se avisan arriba.
+      **Anotaciones.txt e Informacion.txt volvieron a «Archivo»**, debajo
+      del scoring, porque el pliego los pide y el informe no servía si sólo
+      se podía pedir desde un script.
+  - Test: `tests/test_exporters.py`, **51 tests en verde**;
+    `tests/test_menus.py`, **54 tests en verde**; y en
+    `tests/test_entrega.py`, los dos archivos exportados por la ventana.
 - [ ] **La lupa del tamaño de la página.** El radio es de un segundo por el
       aumento: con una página de una hora la lente no se ve, y con una de un
       segundo tapa todo. Llevarlo a una fracción de la página.
@@ -459,7 +484,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       mano. Anotar y marcar son un solo paso de deshacer.
   - Test: `tests/test_annotations.py`, **82 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_entrega.py`, **419 tests en verde**.
 
 ### Tanda 3: partir las clases grandes
 

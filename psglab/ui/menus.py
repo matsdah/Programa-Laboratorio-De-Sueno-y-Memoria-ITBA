@@ -70,7 +70,12 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QToolButton, QWidget
 
-from psglab.config import AMPLITUDE_PRESETS_UV, VIEW_TIMESCALE_PRESETS
+from psglab.config import (
+    AMPLITUDE_PRESETS_UV,
+    ANNOTATIONS_FILENAME,
+    INFORMATION_FILENAME,
+    VIEW_TIMESCALE_PRESETS,
+)
 from psglab.core.nomenclature import Nomenclature, stage_label, stages_of
 from psglab.exporters.scoring_formats import SCORING_FORMATS
 from psglab.ui import theme
@@ -280,13 +285,12 @@ def _archivo(window: "MainWindow") -> None:
     las busca quien llega de otro programa de scoring. El botón «Abrir» se
     queda: es el primer control que usa quien abre el programa.
 
-    Las exportaciones se arman recorriendo `SCORING_FORMATS`, así que un
-    formato nuevo aparece solo. **Anotaciones.txt e Informacion.txt ya no se
-    ofrecen desde acá**, por decisión del 16 de septiembre de 2026:
-    `MainWindow.export()` los sigue escribiendo, pero del menú no se piden.
-    Anotaciones.txt tiene una salida de emergencia desde el hito 33 —el cartel
-    del trabajo sin exportar ofrece guardarlas antes de perderlas—, que no es
-    lo mismo que poder pedirlas cuando uno quiere.
+    Las exportaciones del scoring se arman recorriendo `SCORING_FORMATS`, así
+    que un formato nuevo aparece solo. **Anotaciones.txt e Informacion.txt
+    volvieron en el hito 79**, debajo del scoring: el pliego los pide (V4_F de
+    «Archivo de salida») y habían salido el 16 de septiembre de 2026 por una
+    decisión del usuario, que el mismo usuario revisó al pedir el informe de
+    sueño en Informacion.txt.
     """
     archivo = window.menuBar().addMenu("&Archivo")
     _agregar(archivo, "&Abrir registro…", window.open_recording_dialog)
@@ -304,6 +308,8 @@ def _archivo(window: "MainWindow") -> None:
         # El `.txt` es lo que exporta Ctrl+S: el mismo método, sin argumento.
         if extension == "txt":
             accion.setData("export_scoring_dialog")
+    _agregar(archivo, f"Exportar {ANNOTATIONS_FILENAME}…", window.export_annotations_dialog)
+    _agregar(archivo, f"Exportar {INFORMATION_FILENAME}…", window.export_information_dialog)
     archivo.addSeparator()
     _agregar(archivo, "&Configuración…", window.show_settings_dialog)
 
