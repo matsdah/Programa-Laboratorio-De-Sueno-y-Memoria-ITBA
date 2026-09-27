@@ -1,8 +1,10 @@
 """La ventana y lo que se ve: época, página, reproducción, amplitud y foco.
 
 Moverse de ventana, cambiar la escala de tiempo y desplazar la página —también
-con la rueda del mouse—, reproducir, ajustar la amplitud, pasar el foco de un
-panel a otro y las vistas de canales. Casi todo delega en `Session` y en `SignalView`; lo que queda acá es
+con la rueda del mouse—, ajustar la amplitud, pasar el foco de un panel a otro
+y las vistas de canales. Reproducir lo hace `playback_controller` (hito 79):
+acá sólo se le pregunta si hay un cursor, porque mientras lo hay la página es
+suya. Casi todo delega en `Session` y en `SignalView`; lo que queda acá es
 elegir qué pedirles y avisar cuando no se puede.
 
 **Es un pedazo de `MainWindow`** (hito 76), no una pieza aparte: la clase de
@@ -29,7 +31,6 @@ from psglab.config import (
     VIEW_PAN_FRACTION,
     VIEW_ZOOM_FACTOR,
 )
-from psglab.core.windows import epoch_to_seconds
 from psglab.ui.menus import duration_text, rebuild_views_menu
 from psglab.ui.tool_controller import scene_position
 from psglab.utils.errors import PsgLabError
@@ -275,8 +276,9 @@ class ViewMixin:
         # página: si se moviera sólo la página, el paso siguiente la devolvería
         # al cursor. Así la vista y el cursor van juntos y la reproducción
         # sigue desde ahí.
-        if self._cabezal is not None:
-            self._llevar_el_cursor(self._cabezal + desplazamiento)
+        cursor = self.playback_controller.playhead
+        if cursor is not None:
+            self.playback_controller.move_to(cursor + desplazamiento)
             return
         self._cambiar_pagina(pagina.panned(desplazamiento))
 
@@ -364,7 +366,7 @@ class ViewMixin:
             return False
         factor = VIEW_ZOOM_FACTOR ** (-muescas / _MUESCAS_POR_DUPLICAR)
         pagina = self._session.viewport
-        if self._cabezal is not None:
+        if self.playback_controller.playhead is not None:
             nueva = pagina.zoomed(factor)
         else:
             instante = self.signal_view.seconds_at_pixel(
@@ -378,128 +380,14 @@ class ViewMixin:
         return True
 
     # -- Reproducción (hitos 24 y 27) ----------------------------------------
-    #
-    # La página avanza sola, como en EDFbrowser. **Desde el hito 27 el recorrido
-    # se cuenta desde el medio del gráfico**: un cursor, `_cabezal`, marca el
-    # instante que se está reproduciendo, la página se centra en él y la época
-    # actual es la suya. Al pausar, el usuario queda parado en la época que
-    # estaba mirando y la scorea ahí.
-    #
-    # Hasta ese hito era al revés, por decisión del hito 24: reproducir sólo
-    # movía la vista, igual que Mayús+→, y la época no se tocaba. El usuario la
-    # revisó el 18 de septiembre de 2026. En pausa todo sigue como antes: las
-    # flechas mueven la página lo mínimo (`Session._seguir_a_la_epoca()`).
 
     def toggle_playback(self) -> None:
         """Reproduce o pausa. Es el botón ⏯ y Espacio con el foco en la señal.
 
-        **Arranca desde el centro de la época actual**, que es la que se está
-        scoreando. Con la página de 30 s ya está centrada, así que no hay
-        salto; después de «Primera ventana» el cursor arranca cerca del borde
-        izquierdo y la página no se mueve hasta que el cursor llega al medio.
-
-        Ya no se niega con la página al final ni con el registro entero en
-        pantalla, como hasta el hito 27: el cursor avanza adentro de la página
-        cuando ésta no se puede mover, así que siempre hay por dónde seguir.
+        Lo hace `playback_controller` (hito 79); este método queda porque los
+        atajos se buscan por nombre en la ventana.
         """
-        if self.playback.is_playing:
-            self.playback.stop()
-            return
-        if self._session is None:
-            return
-        inicio, fin = epoch_to_seconds(
-            self._session.current_window, self._session.recording.sampling_rate
-        )
-        if not self._llevar_el_cursor((inicio + fin) / 2):
-            return
-        self.playback.start()
-
-    def _avanzar_reproduccion(self, segundos: float) -> None:
-        """Un paso de la reproducción: el cursor avanza esos segundos.
-
-        Se detiene al llegar al final **del registro**, no de la página: en el
-        último tramo la página ya no se mueve y el cursor sigue hasta el borde,
-        que es lo que recorre las últimas épocas. También se detiene si el
-        cursor no se pudo ubicar: un error repetido veinticinco veces por
-        segundo sería un cartel tras otro.
-        """
-        if self._session is None:
-            self.playback.stop()
-            return
-        # Un paso sin cursor —el banco de medición los pide sin arrancar la
-        # reproducción— parte del medio de lo que se ve.
-        desde = (
-            self._cabezal
-            if self._cabezal is not None
-            else self._session.viewport.center_seconds
-        )
-        if not self._llevar_el_cursor(desde + segundos):
-            self.playback.stop()
-            return
-        if self._cabezal is not None and (
-            self._cabezal >= self._session.recording.duration_seconds
-        ):
-            self.playback.stop()
-            self.statusBar().showMessage("Fin del registro", 5000)
-
-    def _llevar_el_cursor(self, segundos: float) -> bool:
-        """Pone el cursor en ese instante y deja la pantalla al día.
-
-        La regla —la página centrada en el cursor, la época la del cursor— es
-        de `Session.move_playhead()`. Acá sólo se redibuja lo que cambió: la
-        página si se movió, la línea siempre, y lo que depende de la época si la
-        época cambió, que pasa una vez cada 30 s de registro.
-
-        Returns:
-            Si el cursor se pudo ubicar.
-        """
-        if self._session is None:
-            return False
-        pagina = self._session.viewport
-        epoca = self._session.current_window
-        try:
-            self._cabezal = self._session.move_playhead(segundos)
-        except PsgLabError as error:
-            self._show_error(error, "mover la reproducción")
-            return False
-        if self._session.viewport != pagina:
-            self.signal_view.draw_viewport()
-        self.signal_view.set_playhead(self._cabezal)
-        if self._session.current_window != epoca:
-            self._reflejar_epoca()
-        return True
-
-    def _saltar_con_el_cursor(self, window_index: int) -> None:
-        """Reproduciendo, ir a una época es llevar el cursor a su centro, y la
-        reproducción sigue desde ahí (hito 27).
-
-        Una época que no existe se ignora, como la flecha en los bordes: la
-        piden los botones, la franja y el hipnograma, que ya recortan contra el
-        registro, y llevar el cursor al final por un índice de más detendría la
-        reproducción sin que el usuario lo hubiera pedido.
-        """
-        if self._session is None or not 0 <= window_index < self._session.n_windows:
-            return
-        inicio, fin = epoch_to_seconds(window_index, self._session.recording.sampling_rate)
-        self._llevar_el_cursor((inicio + fin) / 2)
-
-    def _al_cambiar_la_reproduccion(self, reproduciendo: bool) -> None:
-        """El botón muestra reproducir o pausar, y al pausar se va el cursor.
-
-        La banda de la época queda como referencia: es lo que se scorea, y
-        desde el hito 27 es la época que pasaba por el medio al pausar.
-        """
-        self.navigation.set_playing(reproduciendo)
-        if not reproduciendo:
-            self._cabezal = None
-            self.signal_view.set_playhead(None)
-
-    def _cambiar_velocidad(self, velocidad: float) -> None:
-        """Lo que pide el selector de velocidad. Vale también reproduciendo."""
-        try:
-            self.playback.speed = velocidad
-        except PsgLabError as error:
-            self._show_error(error, "cambiar la velocidad")
+        self.playback_controller.toggle()
 
     # -- Amplitud (V2_P, V5_F) ----------------------------------------------
     #
@@ -640,8 +528,8 @@ class ViewMixin:
         """Flecha derecha. Reproduciendo, lleva el cursor a la época siguiente."""
         if self._session is None:
             return
-        if self._cabezal is not None:
-            self._saltar_con_el_cursor(self._session.current_window + 1)
+        if self.playback_controller.playhead is not None:
+            self.playback_controller.jump_to_window(self._session.current_window + 1)
             return
         self._session.next_window()
         self.refresh()
@@ -650,8 +538,8 @@ class ViewMixin:
         """Flecha izquierda. Reproduciendo, lleva el cursor a la época anterior."""
         if self._session is None:
             return
-        if self._cabezal is not None:
-            self._saltar_con_el_cursor(self._session.current_window - 1)
+        if self.playback_controller.playhead is not None:
+            self.playback_controller.jump_to_window(self._session.current_window - 1)
             return
         self._session.previous_window()
         self.refresh()
@@ -698,8 +586,8 @@ class ViewMixin:
             return
         # Reproduciendo, los botones, la franja y el hipnograma llevan el
         # cursor, y la reproducción sigue desde la época pedida (hito 27).
-        if self._cabezal is not None:
-            self._saltar_con_el_cursor(window_index)
+        if self.playback_controller.playhead is not None:
+            self.playback_controller.jump_to_window(window_index)
             return
         try:
             self._session.go_to_window(window_index)

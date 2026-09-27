@@ -8,6 +8,12 @@ todo el alto de la ventana de scoring.
 Resuelve una de las carencias que motivan el proyecto: en los programas
 actuales del laboratorio no se puede anotar la señal.
 
+**Con una clase activa no se pregunta nada** (hito 79, decisión 4 de la
+auditoría): se elige una vez —`set_active_label()`— y cada tramo soltado la
+usa. Marcar cien husos eran cien carteles. La herramienta sólo guarda cuál es;
+decidir si se pregunta igual —con Mayúsculas al soltar— es de la ventana, que
+es la que ve el teclado.
+
 **Una anotación hecha se puede corregir** desde el hito 52: con la herramienta
 activa, arrastrar cerca del borde de una banda mueve ese borde en vez de
 empezar una selección nueva, y `change_label()` le cambia la clase. Las dos
@@ -70,6 +76,10 @@ class AnnotatorTool(ViewerTool):
         #: ventana diga qué pasó. Se olvida al apretar de nuevo.
         self._movida: Annotation | None = None
         self._tolerancia_s: float = _TOLERANCIA_POR_DEFECTO_S
+        #: La clase con que se anota sin preguntar, o None para preguntar cada
+        #: vez. **Sobrevive a apagar la herramienta y a abrir otro registro**:
+        #: es cómo trabaja el usuario, no un dato de la noche.
+        self._clase_activa: str | None = None
 
     def activate(self, session: Session) -> None:
         """Activa el modo de anotación."""
@@ -302,6 +312,29 @@ class AnnotatorTool(ViewerTool):
             )
         fin = max(muestra, anotacion.onset_sample + 1)
         return dataclasses.replace(anotacion, duration_samples=fin - anotacion.onset_sample)
+
+    @property
+    def active_label(self) -> str | None:
+        """La clase con que se anota sin preguntar, o None si se pregunta."""
+        return self._clase_activa
+
+    def set_active_label(self, label: str | None) -> None:
+        """Elige la clase con que se anota cada tramo, o None para preguntar.
+
+        No hace falta que la clase exista todavía en el registro abierto: se
+        registra al anotar el primer tramo, como una que se escribe en el
+        cartel. Así sobrevive a abrir otro registro.
+
+        Raises:
+            InvalidAnnotationError: si no es un nombre escrito.
+        """
+        if label is not None and (not isinstance(label, str) or not label.strip()):
+            raise InvalidAnnotationError(
+                "La clase con que se anota necesita un nombre.",
+                details=f"label = {label!r}.",
+            )
+        self._clase_activa = label.strip() if label is not None else None
+        self.notify_changed()
 
     def add_label(self, label: str, color: str | None = None) -> None:
         """Registra una clase de evento nueva con el nombre que elija el usuario."""

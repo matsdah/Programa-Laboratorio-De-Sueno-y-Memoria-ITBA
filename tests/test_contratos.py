@@ -45,7 +45,9 @@ import numpy as np
 import pytest
 
 from psglab.core import nomenclature as nom
-from psglab.core.annotations import es_color_de_clase, marks_to_annotations
+from psglab.core import recovery
+from psglab.core.history import History
+from psglab.core.annotations import es_color_de_clase, is_arousal, marks_to_annotations
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
@@ -140,6 +142,21 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("flat_channels(start_sample=...)", lambda v: registro().flat_channels(v, 10)),
         ("Recording(original_sampling_rate=...)", lambda v: Recording(Path("x.edf"), [Channel("C0", ChannelKind.EEG, "µV", 0, v)], np.zeros((1, 10)), 100.0)),
     ],
+    # Hito 79. La copia se lee de un archivo que pudo quedar cortado, así que
+    # lo que trae es tan hostil como lo que trae un lector con un bug.
+    # Hito 79. El límite viene de una constante, pero es un argumento público.
+    "psglab/core/history.py": [
+        ("History(session=...)", lambda v: History(v)),
+        ("History(limit=...)", lambda v: History(sesion(), v)),
+    ],
+    "psglab/core/recovery.py": [
+        ("snapshot", lambda v: recovery.snapshot(v)),
+        ("matches(data=...)", lambda v: recovery.matches(v, registro())),
+        ("matches(recording=...)", lambda v: recovery.matches({}, v)),
+        ("summary", lambda v: recovery.summary(v)),
+        ("restore(session=...)", lambda v: recovery.restore(v, {})),
+        ("restore(data=...)", lambda v: recovery.restore(sesion(), v)),
+    ],
     "psglab/core/scoring.py": [
         ("Scoring(nomenclature=...)", lambda v: Scoring(3, v)),
         ("Scoring(n_windows=...)", lambda v: Scoring(v, Nomenclature.AASM)),
@@ -170,6 +187,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("add(duration=...)", lambda v: AnnotationSet().add(Annotation("Arousal", 0, v))),
         ("color_of", lambda v: AnnotationSet().color_of(v)),
         ("es_color_de_clase", lambda v: es_color_de_clase(v)),
+        ("is_arousal", lambda v: is_arousal(v)),
         ("marks_to_annotations(marks=...)", lambda v: marks_to_annotations(v, 100.0, 1000)),
         ("marks_to_annotations(marks=[...])", lambda v: marks_to_annotations([v], 100.0, 1000)),
         ("marks_to_annotations(sampling_rate=...)", lambda v: marks_to_annotations([], v, 1000)),
@@ -214,6 +232,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("replaced", lambda v: pagina().replaced(span_seconds=v)),
     ],
     "psglab/core/session.py": [
+        ("mark_arousal_of", lambda v: sesion().mark_arousal_of(v)),
         ("Session(recording=...)", lambda v: Session(v, Scoring(1, Nomenclature.AASM), AnnotationSet())),
         ("Session(scoring=...)", lambda v: Session(registro(), v, AnnotationSet())),
         ("Session(annotations=...)", lambda v: Session(registro(), Scoring(1, Nomenclature.AASM), v)),
@@ -371,6 +390,15 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Hito 79. Aceptar una copia vacía pondría la sesión como estaba, que
+    # parece inofensivo, y le diría al usuario que recuperó algo que no estaba.
+    ("restore con una copia vacía", {}, lambda v: recovery.restore(sesion(), v)),
+    # Hito 79. Marcar el arousal de algo que no es una anotación dejaría la
+    # ventana sin marcar y sin decir por qué.
+    ("mark_arousal_of con una clase suelta", "Arousal", lambda v: sesion().mark_arousal_of(v)),
+    # Un historial sin pasos no podría deshacer nada y lo diría callado.
+    ("History con un límite de cero", 0, lambda v: History(sesion(), v)),
+    ("summary con una copia vacía", {}, lambda v: recovery.summary(v)),
     # Hito 75. Una confianza que no es una probabilidad no pasaría nunca un
     # umbral, y la sugerida quedaría sin confirmarse sin que nada dijera por qué.
     ("set_suggestions con una confianza NaN", float("nan"),

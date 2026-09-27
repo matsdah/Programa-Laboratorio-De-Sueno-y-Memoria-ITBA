@@ -74,13 +74,15 @@ está terminado cuando además tiene su test corriendo (borrando el `pytestmark`
 si el archivo ya existía), su fila de `docs/TRAZABILIDAD.md` sigue siendo cierta
 y el README de su carpeta también.
 
-**Cerrar un hito son seis ediciones y ninguna es opcional.** `test_consistencia.py`
+**Cerrar un hito son cinco ediciones y ninguna es opcional.** `test_consistencia.py`
 las exige, pero de a una y recién al correr la suite entera, así que conviene
-hacerlas juntas: la sección del hito en `docs/TODO.md`, su fila en la tabla de
-progreso, el párrafo de la introducción que encadena los hitos, la cuenta de
-hitos en los **cuatro** documentos que la declaran, el `README.md` de cada
-carpeta tocada, y las cuentas `**N tests en verde**` de cada archivo de test que
-cambió de tamaño. Esa última se compara contra lo que pytest recolecta de
+hacerlas juntas: **mudar la sección del hito de `docs/TODO.md` a
+[`docs/HISTORIAL.md`](docs/HISTORIAL.md)** con su renglón en el párrafo que
+encadena los hitos, su fila en la tabla de progreso —✅ y el enlace al
+historial—, la cuenta de hitos, que desde el hito 79 vive sólo en el TODO, el
+`README.md` de cada carpeta tocada, y las cuentas `**N tests en verde**` del
+TODO de cada archivo de test que cambió de tamaño; las del historial son las
+del cierre de cada hito y no se tocan. Esa última se compara contra lo que pytest recolecta de
 verdad, así que hay que leerla de
 `python -m pytest tests/test_x.py --collect-only -q` y no contar los `def test_`.
 
@@ -92,12 +94,12 @@ Las auditorías tampoco. Las dos primeras —4 de septiembre, y 7 al cerrarse la
 Parte 1— eran fotos fechadas con archivo propio en `docs/`, y el usuario las
 borró el 19 de septiembre dándolas por resueltas: siguen en el historial, con
 `git log --all -- docs/AUDITORIA.md`. **La tercera, del 8 de septiembre, nunca
-tuvo archivo**: sus hallazgos se repartieron entre los hitos 19, 20 y 21 del
-TODO, que es donde hay que ir a buscarlos. La cuarta, del 19 de septiembre,
-tampoco: lo que encontró está en el hito 33, en el orden en que conviene
-atacarlo. Antes de abrir un hito conviene
-leer sus bloques "Medido en la auditoría", que están citados dentro del TODO en
-el hito al que le tocan. No son bugs abiertos sino decisiones que ese hito tiene
+tuvo archivo**: sus hallazgos se repartieron entre los hitos 19, 20 y 21, que
+hoy están en el historial y es donde hay que ir a buscarlos. La cuarta, del 19
+de septiembre, tampoco: lo que encontró está en el hito 33, en el orden en que
+conviene atacarlo. La quinta, del 26 de septiembre, es el hito 79. Antes de
+abrir un hito conviene leer sus bloques "Medido en la auditoría", que están
+citados dentro del hito al que le tocan. No son bugs abiertos sino decisiones que ese hito tiene
 que tomar: firmas que no pueden ser correctas en `statistics.py`, `Session` sin
 mecanismo de notificación, `BandOverlay` sin canal al que referir sus 75 µV.
 
@@ -296,7 +298,10 @@ rechazar antes de dar por terminado un cambio:
   archivos falla la recolección con `pytest` a secas.
 - Las cuentas de tests de `docs/TODO.md` —`**N tests en verde**`— se comparan
   contra lo que pytest recolecta de verdad, no contra los `def test_` del
-  archivo: hay `parametrize` y los números no coinciden.
+  archivo: hay `parametrize` y los números no coinciden. **Las de
+  `docs/HISTORIAL.md` no**: son las de cuando se cerró cada hito.
+- Cada hito vive en su archivo: los cerrados en el historial y los abiertos en
+  el TODO, con la fila de la tabla apuntando a donde está (hito 79).
 - Un módulo que importe `config` no puede escribir a mano los números del pliego
   en el texto que ve el usuario: "30 s", "3 segundos", "0,5 segundos" y "75 µV"
   salen de la constante. Los docstrings quedan afuera, porque ahí nombrar el
@@ -348,10 +353,10 @@ se buscó así se escapó algo:
   conversiones de `core/windows.py`. **No cuentan `test_contratos.py` ni este
   chequeo**, que no verifican que la función haga lo correcto, ni un docstring.
   Es un piso: que un test la llame no dice que la verifique bien.
-- La cuenta de hitos que declaran los documentos es la de la tabla de progreso
-  del TODO, y con una forma fija: `<numeral> hitos … del 0 al N`. Se exige a
-  `README.md`, `docs/TODO.md`, `docs/EXPLICACION.txt` y `docs/README.md`. **A
-  este archivo no**, y por eso no escribe esa cuenta en ningún lado.
+- La cuenta de hitos es la de la tabla de progreso del TODO, y con una forma
+  fija: `<numeral> hitos … del 0 al N`. **Desde el hito 79 se escribe sólo en
+  `docs/TODO.md`**: la repetían cuatro documentos, y cada hito nuevo obligaba
+  a corregir los cuatro. Este archivo tampoco la escribe.
 - Lo que los documentos dicen del CI coincide con el workflow, **y acá sí entra
   este archivo**. La comprobación es por sección y no por archivo: si el CI
   cambia de ramas, hay que corregirlo en la sección que lo describe, más abajo.
@@ -501,7 +506,7 @@ exportarlos; la conversión se hace al mostrar.
 
 ### La época y la página
 
-Desde el refactor de la interfaz ([hito 22](docs/TODO.md#hito-22-refactor-de-la-interfaz))
+Desde el refactor de la interfaz ([hito 22](docs/HISTORIAL.md#hito-22-refactor-de-la-interfaz))
 hay **dos nociones horizontales**, y confundirlas produce números plausibles y
 equivocados:
 
@@ -533,7 +538,8 @@ hito 24 que el usuario revisó.
 
 El reloj (`ui/playback.py`) mide tiempo real y avisa cuántos segundos hay que
 avanzar. Contar pasos de 40 ms en vez de medirlos reproduciría más lento de lo
-que dice en cuanto un cuadro tarde más, y sin avisar.
+que dice en cuanto un cuadro tarde más, y sin avisar. Quien lo escucha y lleva
+el cursor es `ui/playback_controller.py` (hito 79).
 
 ### La ventana
 
@@ -569,9 +575,11 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   trabaja con los valores de fábrica y no escribe nada; si lo hiciera, correr la
   suite pisaría la configuración de quien la corre, que ya pasó una vez. **La
   disposición de paneles no se guarda** desde el hito 24: el programa abre
-  siempre con la señal, el selector de canales y, desde el hito 64, el
-  hipnograma. Lo que sí se guarda son los registros recientes y las vistas de
-  canales, que también escribe sólo esa ventana. **Lo mismo el cartel de los
+  siempre con la señal, el selector de canales, el hipnograma —desde el hito
+  64— y, a su izquierda, el scoring en una fila —desde el 79—. Lo que sí se guarda son los registros recientes y las vistas de
+  canales, que también escribe sólo esa ventana, **y la copia de
+  recuperación** (hito 79), que `apply_saved_preferences()` prende con
+  `work_guard.enable_recovery()`. **Lo mismo el cartel de los
   errores inesperados** (hito 68): `main.py` lo prende con
   `report_unexpected_errors=True`, y ninguna otra ventana, porque en la suite
   un cartel modal la colgaría.
@@ -609,10 +617,14 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   —`ui/window_annotation.py`, `window_files.py`, `window_view.py`,
   `window_preferences.py`, `window_scoring.py` y `window_analysis.py`—. Un
   método nuevo va al del tema. **Desde el hito 79 hay además controladores
-  con estado propio**, que la ventana guarda como atributo: el primero es
+  con estado propio**, que la ventana guarda como atributo:
   `ui/tool_controller.py` (`window.tool_controller`), con las herramientas,
-  quién tiene el mouse y lo que dibujan. No conoce la ventana y le avisa por
-  señales, así que se testea sin armarla. **Un test que
+  quién tiene el mouse y lo que dibujan; `ui/playback_controller.py`
+  (`window.playback_controller`), con el cursor de la reproducción; y
+  `ui/analysis_controller.py` (`window.analysis_controller`), con la señal
+  original, la ICA ajustada y el cálculo en otro hilo; y `ui/work_guard.py`
+  (`window.work_guard`), que exporta y pregunta antes de perder trabajo. No
+  conocen la ventana y le avisan por señales, así que se testean sin armarla. **Un test que
   reemplace una función que la ventana importa la reemplaza en el módulo que
   la usa**: `fit_ica` en `window_analysis`, no en `main_window`, donde ya no
   tendría efecto. Los mixins van antes que `QMainWindow` en la herencia, o

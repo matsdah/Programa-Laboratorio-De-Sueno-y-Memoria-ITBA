@@ -24,7 +24,9 @@ ubicó mal.
 | `session.py` | Estado de trabajo del usuario. **Es el objeto central.** | V1_F de "Navegación"; V2_P, V3_P, V5_F de "Visualización"; V4_F del histograma |
 | `scoring.py` | Fase y arousal de cada ventana: `Scoring`, `EpochScore`. Desde el hito 75, también las fases que sugiere un clasificador (`StageSuggestion`), **en una capa aparte**: `stage` sigue queriendo decir «la eligió una persona», así que ni los exportadores ni las estadísticas las ven, y una sugerida nunca pisa una fase puesta a mano. `next_unscored()` dice cuál es la próxima ventana sin scorear en cada dirección, contando las sugeridas como sin scorear (hito 79). | V1_F, V2_F, V3_F de "Scoring" |
 | `nomenclature.py` | Rechtschaffen y Kales frente a AASM: `Nomenclature`, `SleepStage`, conversión entre ambas. `check_nomenclature()` es pública desde el hito 48 porque `Scoring` la necesita para no guardar una nomenclatura inventada. | V1_F, V3_F de "Scoring"; V3_F del histograma |
-| `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. Una anotación es inmutable; corregirla es reemplazarla con `replace()`, que valida la nueva antes de sacar la vieja (hito 52). `marks_to_annotations()` convierte las marcas que trae el archivo en anotaciones, en muestras (hito 73). | V1_F de "Anotación de la señal" |
+| `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. `is_arousal()` reconoce la clase «Arousal», que desde el hito 79 marca el arousal de su ventana (`Session.mark_arousal_of()`). Una anotación es inmutable; corregirla es reemplazarla con `replace()`, que valida la nueva antes de sacar la vieja (hito 52). `marks_to_annotations()` convierte las marcas que trae el archivo en anotaciones, en muestras (hito 73). | V1_F de "Anotación de la señal" |
+| `history.py` | **Deshacer y rehacer** (hito 79): `History` guarda fotos del trabajo —nomenclatura, fases, sugeridas y anotaciones— y vuelve a ellas. Fotos y no comandos: alcanza con llamar a `record()` después de cualquier cambio, y si nada cambió no se guarda nada. Son referencias a objetos inmutables, así que doscientos pasos cuestan poco. | — |
+| `recovery.py` | **La copia de recuperación** (hito 79): qué del trabajo se guarda —fases, arousals, anotaciones y la ventana donde estaba el usuario—, cómo se reconoce que una copia es de este registro y cómo se vuelve a ella, todo o nada. Sin disco: cuándo se escribe y dónde es de `ui/work_guard.py`. | — |
 | `windows.py` | Conversión entre ventanas, muestras y hora de la noche. | V1_P de "Visualización", V1_F de "Navegación", V2_F del histograma |
 | `viewport.py` | **La página visible**, separada de la época de scoring. Inmutable: cambiarla es construir otra. `zoomed_at()` cambia la escala dejando quieto un instante, que es lo que hace la rueda (hito 56). | — |
 | `decimation.py` | **La envolvente mínimo/máximo** que hace dibujable el registro entero sin perder un solo pico. Las cubetas se cuentan desde el comienzo del registro y no desde el borde de la página (hito 49), para que el visualizador pueda guardarlas y calcular sólo las que entran. | — |
@@ -133,7 +135,7 @@ Los "puntos" del pliego son muestras del registro, y **la primera es la 0**:
 confirmado con el cliente el 4 de septiembre de 2026, por ser la base del
 programa, de numpy y de MNE. Vive en `config.ANNOTATION_SAMPLE_BASE`, no en el
 código de `windows.py` ni en el de los exportadores, para que revertirla sea
-cambiar una línea. Ver el [hito 0 del TODO](../../docs/TODO.md#hito-0-desbloquear).
+cambiar una línea. Ver el [hito 0 del TODO](../../docs/HISTORIAL.md#hito-0-desbloquear).
 
 ## Estado
 

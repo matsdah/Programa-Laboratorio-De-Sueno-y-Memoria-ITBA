@@ -41,9 +41,8 @@ from psglab.core.session import Session
 #: Los primeros siete corresponden a requisitos del pliego. **Los demás los
 #: agregó el refactor de la interfaz**, y cada uno dice por qué: el
 #: desplazamiento y la escala de tiempo libre, y el recorrido de paneles, que
-#: es de accesibilidad. Lo que sigue sin tecla es lo que no es una tecla: un
-#: "deshacer" es un subsistema completo (historial de cambios del scoring y de
-#: las anotaciones), y no está pedido.
+#: es de accesibilidad. Deshacer era «un subsistema completo, y no está
+#: pedido» hasta el hito 79, que lo agregó con `core/history.py`.
 #:
 #: **Los menús muestran estas teclas pero no las registran**: leen este
 #: diccionario con `key_for()`. Este módulo sigue siendo el único que dice qué
@@ -87,6 +86,11 @@ FIXED_SHORTCUTS: Final[dict[str, str]] = {
     # Hito 79: retomar un scoring a medias sin buscar en la franja.
     "N": "Próxima ventana sin scorear",
     "Shift+N": "Ventana anterior sin scorear",
+    # Hito 79: anotar con una clase activa, sin un cartel por evento.
+    "C": "Elegir la clase con que se anota",
+    # Hito 79: una tecla de más scorea la ventana que viene.
+    "Ctrl+Z": "Deshacer el último cambio del scoring o las anotaciones",
+    "Ctrl+Y": "Rehacer lo deshecho",
 }
 
 #: Qué método de la ventana principal ejecuta cada atajo fijo. Está separado de
@@ -147,6 +151,9 @@ ACTIONS: Final[dict[str, str]] = {
     "E": "annotate_current_window",
     "N": "go_to_next_unscored_window",
     "Shift+N": "go_to_previous_unscored_window",
+    "C": "choose_annotation_class",
+    "Ctrl+Z": "undo",
+    "Ctrl+Y": "redo",
 }
 
 #: Los atajos que sólo andan **con el foco en la señal**, y el método que
@@ -502,8 +509,8 @@ HELP_GROUPS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
             "Ctrl++", "Ctrl+-", "Ctrl+0", "Space",
         ),
     ),
-    ("Scoring", ("A", "N", "Shift+N")),
-    ("Anotación", ("E", "Shift+F10", "Menu")),
+    ("Scoring", ("A", "N", "Shift+N", "Ctrl+Z", "Ctrl+Y")),
+    ("Anotación", ("E", "C", "Shift+F10", "Menu")),
     ("Visualización", ("Up", "Down", "F6", "Shift+F6")),
     ("Archivo", ("Ctrl+O", "Ctrl+S")),
 )
@@ -516,6 +523,11 @@ MOUSE_HELP: Final[dict[str, tuple[tuple[str, str], ...]]] = {
         ("Rueda sobre la señal", "Acercar o alejar, fijo bajo el mouse"),
         ("Mayús+Rueda", "Desplazar la página"),
         ("Deslizar de costado", "Desplazar la página, con el panel táctil"),
+    ),
+    # Hito 79: con una clase activa, el arrastre no pregunta.
+    "Anotación": (
+        ("Arrastrar sobre la señal", "Anotar el tramo, con la clase activa"),
+        ("Mayús al soltar", "Anotar el tramo preguntando la clase"),
     ),
 }
 

@@ -269,6 +269,19 @@ def _sugerencias(scoring: Scoring, **por_ventana: StageSuggestion) -> list:
     return lista
 
 
+def test_la_capa_entera_incluye_las_de_ventanas_scoreadas(scoring):
+    """`suggestion()` esconde la de una ventana scoreada porque es lo que se
+    muestra; `suggestions()` la devuelve porque es lo que se guarda, y es lo que
+    deshacer «Descartar las sugeridas» necesita volver a poner (hito 79)."""
+    sugerida = StageSuggestion(SleepStage.N2, 0.9)
+    scoring.set_suggestions(_sugerencias(scoring, v0=sugerida, v3=sugerida))
+    scoring.set_stage(0, SleepStage.WAKE)
+
+    assert scoring.suggestion(0) is None
+    assert scoring.suggestions()[0] == sugerida
+    assert scoring.suggestions() == tuple(_sugerencias(scoring, v0=sugerida, v3=sugerida))
+
+
 def test_una_sugerencia_no_es_scoring(scoring):
     """**Vive en otra capa**: `stage` sigue queriendo decir «la eligió una
     persona», y por eso ni los exportadores ni las estadísticas la ven."""

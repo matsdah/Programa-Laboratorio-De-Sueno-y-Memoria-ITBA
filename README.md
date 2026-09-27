@@ -21,9 +21,10 @@ compatibilidad únicamente con Windows y precios excesivos.
 > clasificador. Necesita tres dependencias aparte, en
 > `requirements-analysis.txt`.
 >
-> **[`docs/TODO.md`](docs/TODO.md)** lleva los ochenta hitos —del 0 al 79— con
-> lo que se decidió en cada uno, y es el único lugar que lleva la cuenta. El
-> último, abierto, es el plan que dejó la auditoría del 26 de septiembre.
+> **[`docs/TODO.md`](docs/TODO.md)** lleva lo abierto —hoy, el plan que dejó
+> la auditoría del 26 de septiembre—, la tabla de progreso de todos los hitos
+> y la cuenta de cuántos son. Lo que se hizo y se decidió en cada hito cerrado
+> está en [`docs/HISTORIAL.md`](docs/HISTORIAL.md).
 
 ---
 

@@ -11,7 +11,7 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
     |          |                                         | ICA...   |
     |          |                                         | (solapas)|
     +----------+-----------------------------------------+----------+
-    |  Hipnograma (a la vista) · Contexto y Scoring (ocultos)       |
+    |  Scoring e hipnograma (a la vista) · Contexto (oculto)        |
     +---------------------------------------------------------------+
     |  Navegación: ⏮ ◀ ⏯ ▶ ⏭  1×  | franja | amplitud               |
     +---------------------------------------------------------------+
@@ -26,9 +26,9 @@ paneles de análisis arrancan ocultos y los abre la acción que los calcula.
 que es la única vía: la barra horizontal que lo repetía debajo de la barra de
 menú se quitó por confusa.
 
-**El programa abre con la señal, el selector de canales y el hipnograma**
-(el hipnograma, desde el hito 64), y no recuerda la disposición de una
-apertura a otra (hito 24). Los demás paneles se abren desde «Herramientas»,
+**El programa abre con la señal, el selector de canales, el scoring y el
+hipnograma** (el hipnograma desde el hito 64, el scoring compacto desde el
+79), y no recuerda la disposición de una apertura a otra (hito 24). Los demás paneles se abren desde «Herramientas»,
 que desde el hito 28 lleva también los paneles.
 
 **Este archivo arma la ventana y nada más** desde el hito 76. Hasta ahí tenía
@@ -50,10 +50,15 @@ a otro de cualquier otro. Lo que se ganó es encontrar las cosas y que un cambio
 toque un archivo de cientos de líneas y no uno de miles.
 
 **El desacople empezó en el hito 79**, con controladores que tienen su estado
-propio y la ventana guarda como atributo. El primero es `tool_controller`
-(`ui/tool_controller.py`), que era el mixin `window_tools.py`: las
-herramientas, quién tiene el mouse y lo que dibujan. La ventana le pide lo que
-necesita por su nombre y él le avisa con señales de Qt; ver su docstring.
+propio y la ventana guarda como atributo:
+
+    tool_controller        las herramientas, quién tiene el mouse y lo que dibujan
+    playback_controller    el cursor de la reproducción y cómo mueve la página
+    analysis_controller    la señal original, la ICA y el cálculo en otro hilo
+    work_guard             exportar, y preguntar antes de perder trabajo
+
+La ventana les pide lo que necesita por su nombre y ellos le avisan con
+señales de Qt; ver el docstring de cada uno.
 
 **Los métodos siguen siendo de `MainWindow`**: los menús, los atajos y la
 suite los llaman por su nombre en la ventana, y `monkeypatch.setattr(MainWindow,
@@ -66,29 +71,28 @@ métodos que los implementan: `export()` a `window_files.py`,
 `_update_tool_readout()` —que cubría dos— a `window_tools.py`, y de ahí a
 `ToolController.update_readout()` en el hito 79,
 `_marcas_del_histograma()` a `window_scoring.py` y `_olvidar_ica()` a
-`window_analysis.py`. Cada uno los declara en su docstring.
+`window_analysis.py`, y de ahí a `AnalysisController.forget_ica()` en el hito
+79. Cada uno los declara en su docstring.
 
 Cubre del pliego: ningún ID; es infraestructura.
 """
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from datetime import timedelta
 from contextlib import contextmanager
 
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QFont, QFontMetrics
+from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
     QMainWindow,
     QMessageBox,
-    QProgressBar,
     QToolBar,
 )
 
 from psglab.core.nomenclature import Nomenclature
-from psglab.core.recording import Recording
 from psglab.core.session import Session
 from psglab.core.windows import window_to_clock_time
 from psglab.ui import preferences, theme
@@ -98,11 +102,12 @@ from psglab.ui.menus import build_menus, menu_path
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.panel_header import SIN_REGISTRO
-from psglab.ui.playback import PlaybackClock
+from psglab.ui.playback_controller import PlaybackController
 from psglab.ui.connectivity_panel import ConnectivityPanel
 from psglab.ui.ica_panel import IcaPanel
 from psglab.ui.filter_panel import FilterPanel
-from psglab.ui.background import BackgroundTask
+from psglab.ui.analysis_controller import AnalysisController
+from psglab.ui.work_guard import WorkGuard
 from psglab.ui.impedance_panel import ImpedancePanel
 from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
@@ -131,10 +136,6 @@ _MARGEN_DEL_IDENTIFICADOR: int = 18
 #: hito 65 había puesto qué falló en el título, y en una Mac no se veía.
 _TITULO_DE_LOS_CARTELES: str = "PSGLab"
 
-#: Cuánto mide la barra que dice que el programa está trabajando, en píxeles.
-#: Corta: es una señal de vida, no una lectura.
-ANCHO_DE_LA_BARRA_DE_ESPERA: int = 90
-
 
 class MainWindow(
     AnnotationMixin,
@@ -152,10 +153,6 @@ class MainWindow(
         super().__init__()
         self.setWindowTitle("PSGLab — Laboratorio de Sueño y Memoria, ITBA")
         self._session: Session | None = None
-        #: El registro tal como se leyó, para poder deshacer los análisis.
-        self._registro_original: Recording | None = None
-        #: La descomposición ICA ajustada, mientras el panel está abierto.
-        self._ica: object | None = None
         #: Las preferencias vigentes. **Arrancan en los valores de fábrica y no
         #: se leen del disco acá**: sólo `apply_saved_preferences()` las lee, y sólo
         #: la llama `main.py`. Si el constructor las leyera, la suite de tests
@@ -262,12 +259,9 @@ class MainWindow(
         self.navigation_bar.addWidget(self.navigation)
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self.navigation_bar)
 
-        #: El reloj de la reproducción. Sólo dice cuánto avanzar; mover el
-        #: cursor es de `_avanzar_reproduccion()`.
-        self.playback = PlaybackClock(self)
-        #: El instante que se está reproduciendo, en segundos desde el inicio
-        #: del registro, o None en pausa. Ver `_llevar_el_cursor()`.
-        self._cabezal: float | None = None
+        #: La reproducción: el reloj, el cursor y cómo mueven la página y la
+        #: época (hito 79). Ver `ui/playback_controller.py`.
+        self.playback_controller = PlaybackController(self.signal_view, parent=self)
 
         # Lo que la herramienta activa quiere informar: el porcentaje de la
         # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
@@ -279,24 +273,21 @@ class MainWindow(
         self.page_readout = QLabel("")
         self.statusBar().addPermanentWidget(self.page_readout)
 
-        #: Que algo largo está corriendo. **Indeterminada a propósito**: ni la
-        #: conectividad de la noche ni la ICA informan cuánto llevan hechas, así
-        #: que un porcentaje sería inventado. Ver `_en_segundo_plano()`.
-        self._barra_de_espera = QProgressBar()
-        self._barra_de_espera.setRange(0, 0)
-        self._barra_de_espera.setTextVisible(False)
-        self._barra_de_espera.setFixedWidth(ANCHO_DE_LA_BARRA_DE_ESPERA)
-        self._barra_de_espera.setAccessibleName("El programa está trabajando")
-        self._barra_de_espera.hide()
-        self.statusBar().addPermanentWidget(self._barra_de_espera)
-
-        #: El único cálculo largo que puede estar corriendo. Ver
-        #: `psglab/ui/background.py`.
-        self._tarea = BackgroundTask(self)
-
-        #: Las acciones que arrancan un cálculo largo, para poder apagarlas
-        #: mientras dura. Las llena `_build_menus()`.
-        self._acciones_largas: tuple[QAction, ...] = ()
+        #: La señal original, la ICA ajustada y el cálculo que corre en otro
+        #: hilo, con su barra de espera, que va a la derecha de las dos lecturas
+        #: (hito 79). Ver `ui/analysis_controller.py`.
+        self.analysis_controller = AnalysisController(self.statusBar(), parent=self)
+        #: Exportar y no perder el trabajo (hito 79). Ver `ui/work_guard.py`.
+        #: **Las dos funciones van por lambda**: la suite reemplaza
+        #: `_confirmar` y las preferencias después de armar la ventana.
+        self.work_guard = WorkGuard(
+            self,
+            self.statusBar(),
+            lambda titulo, pregunta, boton, informativo: self._confirmar(
+                titulo, pregunta, boton, informativo=informativo
+            ),
+            lambda: next(iter(self._preferencias.recent_files), None),
+        )
 
         self.statusBar().showMessage(SIN_REGISTRO)
 
@@ -314,10 +305,12 @@ class MainWindow(
         # enteros porque las cuatro operaciones que llevan adentro sustituyen
         # el registro —o, en el caso de la ICA, arrancan otro cálculo—, y la
         # acción de conectividad porque es la otra que corre en otro hilo.
-        self._acciones_largas = (
-            self.accion_conectividad_de_la_noche,
-            self.menu_montaje.menuAction(),
-            self.menu_filtrar.menuAction(),
+        self.analysis_controller.set_long_actions(
+            (
+                self.accion_conectividad_de_la_noche,
+                self.menu_montaje.menuAction(),
+                self.menu_filtrar.menuAction(),
+            )
         )
         self._poner_pistas()
 
@@ -383,20 +376,31 @@ class MainWindow(
         self.navigation.amplitude_up_requested.connect(self.increase_amplitude)
         self.navigation.amplitude_down_requested.connect(self.decrease_amplitude)
         self.navigation.playback_toggle_requested.connect(self.toggle_playback)
-        self.navigation.playback_speed_changed.connect(self._cambiar_velocidad)
-        self.playback.advanced.connect(self._avanzar_reproduccion)
-        self.playback.playing_changed.connect(self._al_cambiar_la_reproduccion)
+        reproduccion = self.playback_controller
+        self.navigation.playback_speed_changed.connect(reproduccion.set_speed)
+        reproduccion.clock.playing_changed.connect(self.navigation.set_playing)
+        reproduccion.epoch_changed.connect(lambda: self._reflejar_epoca())
+        reproduccion.reached_end.connect(
+            lambda: self.statusBar().showMessage("Fin del registro", 5000)
+        )
+        reproduccion.failed.connect(lambda error, que: self._show_error(error, que))
         self.scoring_panel.stage_selected.connect(self.score_current_window)
         self.scoring_panel.arousal_toggled.connect(self._set_arousal)
         self.scoring_panel.nomenclature_changed.connect(self._change_nomenclature)
         self.channel_selector.visible_changed.connect(self._set_visible_channels)
         self.channel_selector.selection_changed.connect(self._set_selected_channels)
 
+        analisis = self.analysis_controller
+        analisis.failed.connect(lambda error, que: self._show_error(error, que))
+        self.work_guard.failed.connect(lambda error, que: self._show_error(error, que))
+        analisis.ica_forgotten.connect(lambda: self._al_olvidar_la_ica())
+        analisis.restorable_changed.connect(self.accion_señal_original.setEnabled)
+
         herramientas = self.tool_controller
         herramientas.window_requested.connect(lambda ventana: self._go_to_window(ventana))
         herramientas.histogram_changed.connect(lambda: self._redraw_histogram())
         herramientas.annotation_released.connect(
-            lambda anotador: self._al_soltar_el_anotador(anotador)
+            lambda anotador, preguntar: self._al_soltar_el_anotador(anotador, preguntar)
         )
         herramientas.annotation_menu_requested.connect(
             lambda anotador, segundos, donde: self._menu_de_anotacion(
@@ -437,10 +441,14 @@ class MainWindow(
         """Redibuja todos los paneles a partir del estado de la sesión.
 
         Se llama después de cualquier cambio: navegar, scorear, anotar o
-        cambiar la amplitud.
+        cambiar la amplitud. **Por eso registra el historial de deshacer**
+        (hito 79): es el único lugar por el que pasan todos los cambios del
+        scoring. Si lo que cambió no es trabajo —navegar, la amplitud—, la
+        foto es la misma y no se guarda nada.
         """
         if self._session is None:
             return
+        self.work_guard.record()
         self.signal_view.show_window(self._session.current_window)
         self.channel_selector.set_visible(self._session.visible_channels)
         self.tool_controller.refresh_overview()
@@ -495,129 +503,14 @@ class MainWindow(
 
     # -- Las esperas largas --------------------------------------------------
 
-    def _en_segundo_plano(
-        self,
-        que_hace: str,
-        trabajo: "Callable[[], object]",
-        al_terminar: "Callable[[object], None]",
-        accion: str | None = None,
-    ) -> None:
-        """Corre algo largo en otro hilo y dibuja el resultado cuando vuelve.
-
-        Es la versión que no congela la ventana de `_trabajando()`, y la
-        diferencia que se ve es que **la barra de progreso se mueve**: mientras
-        el cálculo dura, el programa repinta, se puede arrastrar y el sistema
-        no lo marca como «no responde».
-
-        **La barra es indeterminada a propósito.** Ni `connectivity_by_window()`
-        ni la ICA informan cuánto llevan hechas, así que un porcentaje sería
-        inventado. Una barra que se mueve sin decir cuánto falta es honesta;
-        una que dice 62 % sin saberlo, no.
-
-        Args:
-            que_hace: lo que se lee en la barra de estado, sin los puntos
-                suspensivos.
-            trabajo: lo que se calcula. **Corre en otro hilo**, así que no
-                puede tocar widgets ni `Session`: lo que necesite de la sesión
-                hay que resolverlo antes de llamar acá.
-            al_terminar: qué hacer con el resultado. Corre en el hilo de la
-                interfaz y sí puede dibujar.
-            accion: qué no se pudo hacer si falla, para la primera línea del
-                cartel; ver `_show_error()`.
-        """
-        self.statusBar().showMessage(f"{que_hace}…")
-        self._barra_de_espera.show()
-
-        # **La señal sobre la que se pidió** (hito 67). «Abrir» sigue
-        # habilitado mientras el otro hilo trabaja, y lo que vuelve después de
-        # abrir otro registro es de la señal anterior: la ICA de la noche A se
-        # mostraba como la de B, y «Aplicar y quitar» la usaba sobre B sin
-        # avisar cuando los dos tenían los mismos canales, que es lo normal
-        # entre dos noches del mismo laboratorio. Se compara por identidad, como
-        # `signal_view` con sus envolventes: un filtro o una derivación también
-        # son otra señal.
-        pedido_sobre = self._session.recording if self._session is not None else None
-
-        def de_otra_senal() -> bool:
-            if self._session is not None and self._session.recording is pedido_sobre:
-                return False
-            self.statusBar().showMessage(
-                "Se descartó un cálculo que era de la señal anterior.", 8000
-            )
-            return True
-
-        def listo(resultado: object) -> None:
-            self._terminar_la_espera(que_hace)
-            if de_otra_senal():
-                return
-            al_terminar(resultado)
-
-        def falló(error: object) -> None:
-            self._terminar_la_espera(que_hace)
-            # Un error de la señal anterior tampoco se muestra: habla de algo
-            # que ya no está en pantalla.
-            if de_otra_senal():
-                return
-            if isinstance(error, PsgLabError):
-                self._show_error(error, accion)
-
-        self._tarea.finished.connect(listo)
-        self._tarea.failed.connect(falló)
-        # **Con cualquier final** (hito 68): un error que no es `PsgLabError`
-        # no pasa por ninguna de las dos de arriba, y sin esto la barra seguía
-        # girando y los menús largos quedaban apagados hasta cerrar el programa.
-        self._tarea.stopped.connect(lambda: self._terminar_la_espera(que_hace))
-        try:
-            self._tarea.start(trabajo)
-        except PsgLabError as error:
-            self._terminar_la_espera(que_hace)
-            self._show_error(error, accion)
-            return
-        # **Después de arrancar y no antes.** Lo que decide qué se puede pedir
-        # es `BackgroundTask.is_running()`, que con el hilo sin arrancar
-        # todavía dice que no: llamado antes, esto no apagaba nada.
-        self._reflejar_lo_que_se_puede_pedir()
-
-    def _terminar_la_espera(self, que_hace: str) -> None:
-        """Saca la barra y desconecta lo que quedó de este cálculo.
-
-        **Se desconecta y no se deja conectado**: los `connect()` de
-        `_en_segundo_plano()` son closures de *este* pedido, y dejarlos puestos
-        haría que el siguiente cálculo dibujara también el resultado del
-        anterior.
-        """
-        self._barra_de_espera.hide()
-        if self.statusBar().currentMessage() == f"{que_hace}…":
-            self.statusBar().clearMessage()
-        for señal in (self._tarea.finished, self._tarea.failed, self._tarea.stopped):
-            try:
-                señal.disconnect()
-            except RuntimeError:
-                # No había nadie conectado. Qt lo considera un error; acá es
-                # el caso normal de llamar dos veces.
-                pass
-        self._reflejar_lo_que_se_puede_pedir()
-
-    def _reflejar_lo_que_se_puede_pedir(self) -> None:
-        """Apaga lo que no se puede pedir con un cálculo en curso.
-
-        **Dos cálculos a la vez sobre la misma sesión se pisan el resultado**, y
-        cuál gana depende de cuál termine primero. `BackgroundTask` lo rechaza
-        igual, pero un menú que deja pedir algo que va a fallar es peor que uno
-        que lo muestra apagado.
-        """
-        ocupado = self._tarea.is_running()
-        for accion in self._acciones_largas:
-            accion.setEnabled(not ocupado)
-
     def wait_for_background(self) -> None:
         """Se queda hasta que termine el cálculo que esté corriendo.
 
         La llama el cierre de la ventana: soltar la sesión con otro hilo
         todavía leyendo el registro lo deja trabajando sobre memoria que ya
-        nadie tiene.
+        nadie tiene. El cálculo es de `analysis_controller` (hito 79).
         """
-        self._tarea.wait()
+        self.analysis_controller.wait()
 
     @contextmanager
     def _trabajando(self, que_hace: str) -> Iterator[None]:
@@ -752,7 +645,7 @@ class MainWindow(
         apurado no puede borrar. Si no se pierde nada, lo es la acción.
 
         Está aparte para que los tests puedan contestarlo, igual que
-        `_preguntar_por_el_trabajo()`: el cartel es modal.
+        `WorkGuard.ask()`: el cartel es modal.
 
         Args:
             titulo: el título del cartel, que nombra la acción.

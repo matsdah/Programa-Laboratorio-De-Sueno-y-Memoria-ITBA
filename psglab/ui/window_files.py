@@ -1,7 +1,10 @@
-"""La ventana y los archivos: abrir, importar, exportar y no perder trabajo.
+"""La ventana y los archivos: abrir un registro e importar un scoring.
 
-Abrir un registro —y los recientes—, importar un scoring, exportar los tres
-archivos de salida y el cartel del trabajo sin exportar al cerrar (hito 33).
+Abrir un registro —y los recientes— e importar un scoring, con la pregunta por
+el trabajo sin exportar antes de soltar la sesión y al cerrar. **Exportar y esa
+pregunta son de `work_guard`** desde el hito 79 (`ui/work_guard.py`); acá
+quedan `export()` y `export_scoring_dialog()`, que el menú, Ctrl+S y los
+scripts piden por su nombre, y `closeEvent()`, que es de Qt.
 
 **Es un pedazo de `MainWindow`** (hito 76), no una pieza aparte: la clase de
 acá no hereda de nada y no se instancia sola. `MainWindow` la hereda junto con
@@ -10,27 +13,24 @@ de Qt. Todas comparten el estado que arma `MainWindow.__init__`, así que la
 partición es por tema y no por dependencias: el código se leía en un archivo
 de 4300 líneas y 170 métodos, y ahora cada tema tiene el suyo.
 
-Cubre del pliego: V4_F de "Archivo de salida" (`export()` elige cuál de los
-tres archivos escribir, aunque desde el hito 23 la ventana sólo ofrece el
-scoring).
+Elegir cuál de los tres archivos de salida escribir se fue con `export()` a
+`work_guard.py`, y con él el requisito que este módulo cubría.
+
+Cubre del pliego: ningún ID; es infraestructura.
 """
 
 from pathlib import Path
 
 from PySide6.QtGui import QCloseEvent
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog
 
 from psglab.core.annotations import AnnotationSet
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
 from psglab.core.windows import count_windows
-from psglab.exporters import DEFAULT_FILENAMES
-from psglab.exporters.annotations_txt import export_annotations
-from psglab.exporters.information_txt import export_information
-from psglab.exporters.scoring_formats import SCORING_FORMATS, export_scoring_as
+from psglab.exporters.scoring_formats import SCORING_FORMATS
 from psglab.readers.base import IMPORT_WARNINGS_KEY, file_dialog_filter, read_recording
 from psglab.readers.scoring_reader import read_scoring
-from psglab.ui import theme
 from psglab.ui.menus import rebuild_recent_menu
 from psglab.ui.shortcuts import install_shortcuts
 from psglab.utils.errors import PsgLabError, UndeclaredNomenclatureError
@@ -78,26 +78,25 @@ class FilesMixin:
         # **Lo que se perdería con la sesión anterior, antes de soltarla**
         # (hito 33). Va después de leer y no antes: si el archivo nuevo no se
         # puede abrir, la sesión anterior sigue y no hay nada que preguntar.
-        if not self._puede_descartarse_el_trabajo(f"abrir «{path.name}»"):
+        if not self.work_guard.can_discard(f"abrir «{path.name}»"):
             return
 
         # Las herramientas activas siguen guardando la sesión que recibieron
         # en `activate()`: si no se las suelta, la ocupación seguiría midiendo
         # sobre el registro anterior y el histograma dibujaría su scoring.
         self.tool_controller.deactivate_all()
-        # Y por el mismo motivo, la descomposición ICA del registro anterior: es
-        # de otra señal y de otros canales.
-        self._olvidar_ica()
-        # La reproducción avanzaba sobre la página del registro anterior.
-        self.playback.stop()
+        # La reproducción avanzaba sobre la página del registro anterior, y
+        # `attach()` la detiene antes de tomar la sesión nueva.
+        self.playback_controller.attach(sesion)
 
         self._session = sesion
+        self.work_guard.attach(sesion)
         # **El registro tal como se leyó.** Los análisis de la Parte 2 devuelven
         # un registro nuevo, y sin guardar éste un filtro mal elegido obligaría
         # a reabrir el archivo. Es la regla 1 de `analysis/` vista desde la
-        # interfaz: el usuario tiene que poder volver atrás.
-        self._registro_original = registro
-        self.accion_señal_original.setEnabled(False)
+        # interfaz: el usuario tiene que poder volver atrás. Y la ICA del
+        # registro anterior se olvida: es de otra señal y de otros canales.
+        self.analysis_controller.attach(sesion)
         # Las herramientas se enteran solas de los cambios de ventana: es la
         # decisión del hito 6, y por eso acá no hay que acordarse de avisarles.
         self.tool_controller.attach(sesion)
@@ -122,6 +121,28 @@ class FilesMixin:
         avisos = registro.metadata.get(IMPORT_WARNINGS_KEY)
         if avisos:
             self._mostrar_avisos_de_lectura([str(aviso) for aviso in avisos])
+        # **La copia de recuperación, al final** (hito 79): con el registro ya
+        # dibujado y los avisos del archivo leídos, antes de que el usuario
+        # haga nada. Si la hay, es porque la última vez se cerró sin decidir.
+        if self.work_guard.offer_recovery():
+            self._al_recuperar_el_trabajo()
+
+    def _al_recuperar_el_trabajo(self) -> None:
+        """Redibuja lo que depende del scoring y las anotaciones recuperados.
+
+        La copia puede traer otra nomenclatura, así que cambian también los
+        botones del panel y las teclas de las fases.
+        """
+        if self._session is None:
+            return
+        self.scoring_panel.set_nomenclature(self._session.scoring.nomenclature)
+        install_shortcuts(self, self._session)
+        self._reload_histogram()
+        self.tool_controller.redraw_overlays()
+        self.refresh()
+        self.statusBar().showMessage(
+            "Se recuperó el trabajo que no se había exportado.", 8000
+        )
 
     def _recordar_reciente(self, path: Path) -> None:
         """Pone el registro recién abierto al frente de «Abrir reciente»."""
@@ -192,7 +213,7 @@ class FilesMixin:
             # pisa nada. Nada de lo que hace el cartel eleva hacia afuera
             # —`export()` atrapa lo suyo—, así que vive adentro de este `try`
             # sin cambiarle el sentido.
-            if not self._puede_descartarse_el_trabajo(f"importar «{path.name}»"):
+            if not self.work_guard.can_discard(f"importar «{path.name}»"):
                 return
             # **Se sustituye adentro de la sesión, no se arma otra.** Importar
             # un scoring no es abrir otro registro: el usuario sigue parado en
@@ -211,68 +232,15 @@ class FilesMixin:
     def export(self, kind: str, path: Path) -> None:
         """Exporta uno de los tres archivos de salida (V4_F).
 
-        El diálogo de guardado propone el nombre de archivo que fija el pliego,
-        tomándolo de `psglab.exporters.DEFAULT_FILENAMES`.
-
-        **Del menú sólo se pide el scoring**: Anotaciones.txt e
-        Informacion.txt salieron de ahí el 16 de septiembre de 2026, pero este
-        método los sigue escribiendo, y es la vía para pedirlos desde un
-        script. Anotaciones.txt tiene además una puerta más en la ventana
-        desde el cierre del hito 33: el cartel del trabajo sin exportar, que
-        ofrece guardarlas antes de perderlas.
+        Lo hace `work_guard` (hito 79); queda acá porque es la vía para
+        pedirlo desde un script, que es como se piden Anotaciones.txt e
+        Informacion.txt desde que salieron del menú.
 
         Args:
             kind: "scoring", "annotations" o "information".
-            path: el destino. Para el scoring, su extensión elige el formato:
-                `.txt`, `.csv`, `.edf` o `.xml`.
+            path: el destino. Para el scoring, su extensión elige el formato.
         """
-        if self._session is None:
-            return
-        try:
-            if kind == "scoring":
-                export_scoring_as(
-                    self._session.scoring, path, self._session.recording.start_time
-                )
-                # Después de escribir y no antes: si falló, el trabajo sigue sin
-                # estar en ningún archivo y cerrar tiene que seguir preguntando.
-                self._session.mark_scoring_exported()
-            elif kind == "annotations":
-                export_annotations(self._session.annotations, path)
-                # Por el mismo motivo que el scoring: recién cuando se escribió.
-                self._session.mark_annotations_exported()
-            elif kind == "information":
-                export_information(
-                    self._session.recording,
-                    self._session.scoring,
-                    self._session.annotations,
-                    path,
-                )
-            else:
-                raise PsgLabError(
-                    "No se pudo exportar: no se reconoce ese archivo de salida.",
-                    details=f"kind = {kind!r}, se esperaba uno de {sorted(DEFAULT_FILENAMES)}.",
-                )
-        except PsgLabError as error:
-            self._show_error(error, f"exportar «{path.name}»")
-            return
-        except OSError as error:
-            # **El disco no es un `PsgLabError`.** Los exportadores validan lo
-            # suyo y elevan errores del programa, pero la carpeta que eligió el
-            # usuario puede no existir, estar llena o ser de sólo lectura, y eso
-            # sale como `OSError` crudo. Sin esta rama atraviesa el `except` de
-            # arriba y el investigador ve una traza de Python en vez de un
-            # cartel. Lo encontró `tests/test_entrega.py` exportando a una
-            # carpeta inexistente.
-            self._show_error(
-                PsgLabError(
-                    f"No se pudo escribir «{path.name}». Revisá que la carpeta "
-                    "exista y que tengas permiso para escribir en ella.",
-                    details=f"{type(error).__name__}: {error}",
-                ),
-                f"exportar «{path.name}»",
-            )
-            return
-        self.statusBar().showMessage(f"Se exportó {path.name}", 5000)
+        self.work_guard.export(kind, path)
 
     # -- El trabajo sin exportar (hito 33) ---------------------------------
 
@@ -283,124 +251,19 @@ class FilesMixin:
         preguntar nada, con la noche scoreada adentro. Si el usuario cancela,
         la ventana queda abierta como estaba, reproducción incluida.
         """
-        if not self._puede_descartarse_el_trabajo("cerrar el programa"):
+        if not self.work_guard.can_discard("cerrar el programa"):
             event.ignore()
             return
-        self.playback.stop()
+        self.playback_controller.stop()
         # **Antes de soltar la sesión.** Un cálculo largo todavía leyendo el
         # registro se quedaría trabajando sobre memoria que ya nadie tiene.
         self.wait_for_background()
         super().closeEvent(event)
 
-    def _lo_que_se_perderia(self) -> list[str]:
-        """Qué archivos de salida tienen trabajo que no está en ningún lado.
-
-        Devuelve claves de `export()`, en el orden en que se ofrecen: primero
-        el scoring, que es el trabajo principal.
-        """
-        if self._session is None:
-            return []
-        en_juego: list[str] = []
-        if self._session.has_unexported_scoring():
-            en_juego.append("scoring")
-        if self._session.has_unexported_annotations():
-            en_juego.append("annotations")
-        return en_juego
-
-    def _puede_descartarse_el_trabajo(self, al_hacer: str) -> bool:
-        """Si se puede seguir sin perder trabajo que el usuario no exportó.
-
-        **El programa no autoguarda**, por decisión del usuario en el hito 33:
-        guardar a escondidas obliga a elegir dónde y en qué formato por él. Así
-        que cuando algo va a soltar la sesión —cerrar, abrir otro registro,
-        importar un scoring encima— y quedó trabajo fuera de todo archivo, se
-        pregunta con tres salidas:
-
-        - **Exportar…** abre el diálogo de guardado de **cada cosa en juego** y
-          sigue sólo si no quedó nada sin exportar. Cancelar un diálogo, o que
-          escribir falle, deja todo como estaba.
-        - **Descartar** sigue y lo pierde, que es lo que el usuario eligió.
-        - **Cancelar**, o cerrar el cartel, no hace nada.
-
-        **Las anotaciones cuentan desde el cierre del hito 33.** El cartel
-        miraba sólo el scoring, que es lo único que la ventana ofrece exportar
-        desde el menú, así que una sesión con eventos anotados y ninguna fase
-        puesta se cerraba sin preguntar. Que Anotaciones.txt no esté en el menú
-        —decisión del hito 23, sin confirmar con el cliente— no puede
-        significar que se pierda en silencio: el cartel las exporta, con el
-        mismo diálogo que el scoring, porque avisar de una pérdida sin ofrecer
-        cómo evitarla es peor que no avisar.
-
-        Args:
-            al_hacer: lo que se está por hacer, para el texto del cartel:
-                "cerrar el programa", "abrir «noche.edf»",
-                "importar «Scoring.txt»".
-        """
-        en_juego = self._lo_que_se_perderia()
-        if not en_juego:
-            return True
-        respuesta = self._preguntar_por_el_trabajo(al_hacer, en_juego)
-        if respuesta == "descartar":
-            return True
-        if respuesta == "exportar":
-            for que in en_juego:
-                self._export_dialog(que)
-            return not self._lo_que_se_perderia()
-        return False
-
-    def _preguntar_por_el_trabajo(self, al_hacer: str, en_juego: list[str]) -> str:
-        """Muestra el cartel y devuelve "exportar", "descartar" o "cancelar".
-
-        Está aparte de la decisión para que los tests puedan contestarlo: el
-        cartel es modal y, sin nadie que lo cierre, colgaría la suite.
-
-        **Exportar es el botón por omisión y Escape es cancelar**: un Enter
-        apurado no puede costar la noche, y apretar Escape es arrepentirse de
-        cerrar, no de haber scoreado.
-
-        **El texto nombra lo que está en juego**, que no siempre es lo mismo:
-        decir "el scoring" sobre una sesión que sólo tiene anotaciones manda a
-        buscar al lugar equivocado lo que se va a perder.
-        """
-        nombre = self._session.recording.file_path.name if self._session else ""
-        anotaciones = len(self._session.annotations.all()) if self._session else 0
-        que_hay = {
-            ("scoring",): "El scoring",
-            ("annotations",): f"Las {anotaciones} anotaciones",
-            ("scoring", "annotations"): f"El scoring y las {anotaciones} anotaciones",
-        }[tuple(en_juego)]
-        cartel = QMessageBox(self)
-        cartel.setIcon(QMessageBox.Icon.Warning)
-        cartel.setWindowTitle("Trabajo sin exportar")
-        cartel.setText(f"{que_hay} de «{nombre}» no se exportaron.")
-        cartel.setInformativeText(
-            f"Si no los exportás, se pierden al {al_hacer}. ¿Exportarlos antes?"
-        )
-        exportar = cartel.addButton("Exportar…", QMessageBox.ButtonRole.AcceptRole)
-        # Lo que el cartel recomienda, relleno del acento (hito 55).
-        exportar.setProperty(theme.PRIMARIO_PROPERTY, True)
-        descartar = cartel.addButton("Descartar", QMessageBox.ButtonRole.DestructiveRole)
-        # **El rol no alcanza para que se vea distinto.** `DestructiveRole` le
-        # dice a Qt dónde ubicar el botón y con qué tecla responde, no de qué
-        # color pintarlo: en Windows sale idéntico a «Cancelar». La tinta la
-        # pone el esquema por esta propiedad. La llevan sólo los dos controles
-        # que pierden trabajo: éste y «Borrar» una anotación (`_confirmar()`).
-        descartar.setProperty(theme.DESTRUCTIVO_PROPERTY, True)
-        cancelar = cartel.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
-        cartel.setDefaultButton(exportar)
-        cartel.setEscapeButton(cancelar)
-        cartel.exec()
-        elegido = cartel.clickedButton()
-        if elegido is exportar:
-            return "exportar"
-        if elegido is descartar:
-            return "descartar"
-        return "cancelar"
-
     def open_recording_dialog(self) -> None:
         """Ctrl+O. El filtro se arma solo desde los lectores registrados."""
         ruta, _ = QFileDialog.getOpenFileName(
-            self, "Abrir registro", self._carpeta_de_trabajo(), file_dialog_filter()
+            self, "Abrir registro", self.work_guard.working_folder(), file_dialog_filter()
         )
         if ruta:
             self.open_recording(Path(ruta))
@@ -419,7 +282,7 @@ class FilesMixin:
         filtros += [f"{nombre} (*.{ext})" for ext, nombre in SCORING_FORMATS.items()]
         filtros.append("Todos los archivos (*)")
         ruta, _ = QFileDialog.getOpenFileName(
-            self, "Importar scoring", self._carpeta_de_trabajo(), ";;".join(filtros)
+            self, "Importar scoring", self.work_guard.working_folder(), ";;".join(filtros)
         )
         if ruta:
             self.open_scoring(Path(ruta))
@@ -428,65 +291,9 @@ class FilesMixin:
         """Exporta el scoring en el formato pedido.
 
         Ctrl+S la llama sin argumento, así que el atajo exporta en `.txt`, que
-        es el formato del pliego. Las cuatro entradas de «Scoring» pasan su
-        extensión.
+        es el formato del pliego. Las cuatro entradas de «Archivo» pasan su
+        extensión. El diálogo es de `work_guard`.
         """
-        self._export_dialog("scoring", fmt)
+        self.work_guard.export_dialog("scoring", fmt)
 
-    # -- Ayudantes privados -------------------------------------------------
 
-    def _carpeta_de_trabajo(self) -> str:
-        """Dónde arrancan los diálogos de abrir, importar y exportar (hito 79).
-
-        **La carpeta del registro abierto**, que es donde suelen estar su
-        scoring y donde conviene dejar lo que se exporta. Sin registro, la del
-        último que se abrió. Arrancaban en la carpeta desde donde se lanzó el
-        programa, y como el nombre propuesto es siempre el del pliego
-        —`Scoring.txt`—, dos participantes exportados sin mirar terminaban en
-        la misma carpeta, uno encima del otro.
-
-        Returns:
-            La carpeta, o `""` —la que elija el sistema— si ninguna existe.
-        """
-        candidatas: list[Path] = []
-        if self._session is not None:
-            candidatas.append(self._session.recording.file_path.parent)
-        candidatas += [Path(ruta).parent for ruta in self._preferencias.recent_files[:1]]
-        for carpeta in candidatas:
-            if carpeta.is_dir():
-                return str(carpeta)
-        return ""
-
-    def _export_dialog(self, kind: str, fmt: str = "txt") -> None:
-        """Pregunta dónde guardar y exporta.
-
-        Propone el nombre del pliego con la extensión del formato elegido.
-        **Si el usuario escribe un nombre sin esa extensión, se le agrega**: el
-        diálogo de Qt no lo hace en todas las plataformas, y sin ella
-        `export()` no sabría en qué formato escribir. Se agrega en vez de
-        reemplazar para no convertir «noche.v2» en «noche.csv».
-        """
-        propuesto = Path(DEFAULT_FILENAMES[kind]).with_suffix(f".{fmt}").name
-        carpeta = self._carpeta_de_trabajo()
-        if carpeta:
-            propuesto = str(Path(carpeta) / propuesto)
-        filtro = f"{SCORING_FORMATS.get(fmt, fmt.upper())} (*.{fmt})"
-        ruta, _ = QFileDialog.getSaveFileName(self, "Exportar", propuesto, filtro)
-        if not ruta:
-            return
-        destino = Path(ruta)
-        if destino.suffix.lower() != f".{fmt}":
-            destino = destino.with_name(f"{destino.name}.{fmt}")
-            # **La extensión se agrega después de que el diálogo confirmó**, así
-            # que el archivo que se va a pisar no es el que el usuario vio: con
-            # «noche» escrito a mano, el diálogo pregunta por «noche» y el que
-            # se escribe es «noche.txt». Se pregunta de nuevo (hito 33).
-            if destino.exists():
-                if not self._confirmar(
-                    "Reemplazar el archivo",
-                    f"«{destino.name}» ya existe. ¿Reemplazarlo?",
-                    "Reemplazar",
-                    informativo="Se pierde lo que tenía.",
-                ):
-                    return
-        self.export(kind, destino)

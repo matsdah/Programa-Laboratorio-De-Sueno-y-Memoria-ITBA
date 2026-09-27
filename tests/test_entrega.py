@@ -62,6 +62,7 @@ from psglab.ui.docks import ORDEN_DE_ANALISIS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from psglab.ui.menus import menu_path  # noqa: E402
 from psglab.ui.overview_panel import accessible_summary  # noqa: E402
+from psglab.ui.work_guard import WorkGuard  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
 
 from conftest import FRECUENCIA_BV, escribir_brainvision, escribir_edf  # noqa: E402
@@ -497,6 +498,7 @@ def evento_de_mouse(
     vista: pg.PlotWidget | None = None,
     canal: str | None = None,
     uv: float = 0.0,
+    modificadores: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier,
 ) -> QMouseEvent:
     """Un evento de mouse sobre un gráfico, en `x` de su escena.
 
@@ -536,7 +538,7 @@ def evento_de_mouse(
         QPointF(viewport.mapToGlobal(local.toPoint())),
         boton,
         boton,
-        Qt.KeyboardModifier.NoModifier,
+        modificadores,
     )
 
 
@@ -546,17 +548,25 @@ def arrastrar(
     hasta_x: float,
     canal: str | None = None,
     uv: float = 0.0,
+    mayusculas: bool = False,
 ) -> None:
-    """Presiona, mueve y suelta el botón izquierdo sobre el visualizador."""
+    """Presiona, mueve y suelta el botón izquierdo sobre el visualizador.
+
+    Con `mayusculas`, suelta con Mayúsculas apretada (hito 79).
+    """
     viewport = ventana.signal_view.viewport()
     aplicacion = QApplication.instance()
-    for tipo, x in (
-        (QEvent.Type.MouseButtonPress, desde_x),
-        (QEvent.Type.MouseMove, hasta_x),
-        (QEvent.Type.MouseButtonRelease, hasta_x),
+    al_soltar = (
+        Qt.KeyboardModifier.ShiftModifier if mayusculas else Qt.KeyboardModifier.NoModifier
+    )
+    for tipo, x, modificadores in (
+        (QEvent.Type.MouseButtonPress, desde_x, Qt.KeyboardModifier.NoModifier),
+        (QEvent.Type.MouseMove, hasta_x, Qt.KeyboardModifier.NoModifier),
+        (QEvent.Type.MouseButtonRelease, hasta_x, al_soltar),
     ):
         aplicacion.sendEvent(
-            viewport, evento_de_mouse(ventana, tipo, x, canal=canal, uv=uv)
+            viewport,
+            evento_de_mouse(ventana, tipo, x, canal=canal, uv=uv, modificadores=modificadores),
         )
 
 
@@ -1912,7 +1922,7 @@ def test_filtrar_despues_de_ajustar_descarta_la_descomposicion(
     ventana_con_dos_eeg.show_filter_dialog()
     ventana_con_dos_eeg.filter_panel.boton_aplicar.click()
 
-    assert ventana_con_dos_eeg._ica is None
+    assert ventana_con_dos_eeg.analysis_controller.ica is None
     assert ventana_con_dos_eeg.ica_panel.component_count() == 0
     assert not ventana_con_dos_eeg.carteles
 
@@ -1925,11 +1935,11 @@ def test_volver_a_la_señal_original_descarta_la_descomposicion(
     ventana_con_dos_eeg.filter_panel.boton_aplicar.click()
     ventana_con_dos_eeg.show_ica_dialog()
     ventana_con_dos_eeg.wait_for_background()
-    assert ventana_con_dos_eeg._ica is not None
+    assert ventana_con_dos_eeg.analysis_controller.ica is not None
 
     ventana_con_dos_eeg.restore_original_recording()
 
-    assert ventana_con_dos_eeg._ica is None
+    assert ventana_con_dos_eeg.analysis_controller.ica is None
     assert ventana_con_dos_eeg.ica_panel.component_count() == 0
 
 
@@ -1940,7 +1950,7 @@ def test_abrir_otro_registro_descarta_la_descomposicion(
     lo que quedó guardado es de otra señal y de otros canales."""
     ventana_con_dos_eeg.show_ica_dialog()
     ventana_con_dos_eeg.wait_for_background()
-    assert ventana_con_dos_eeg._ica is not None
+    assert ventana_con_dos_eeg.analysis_controller.ica is not None
 
     otro = escribir_brainvision(
         tmp_path / "otro",
@@ -1949,7 +1959,7 @@ def test_abrir_otro_registro_descarta_la_descomposicion(
     )
     ventana_con_dos_eeg.open_recording(otro)
 
-    assert ventana_con_dos_eeg._ica is None
+    assert ventana_con_dos_eeg.analysis_controller.ica is None
     assert ventana_con_dos_eeg.ica_panel.component_count() == 0
     assert not ventana_con_dos_eeg.carteles
 
@@ -1966,7 +1976,7 @@ def test_aplicar_una_ica_de_otros_canales_avisa_en_vez_de_reconstruir(
     """
     ventana_con_dos_eeg.show_ica_dialog()
     ventana_con_dos_eeg.wait_for_background()
-    descomposicion = ventana_con_dos_eeg._ica
+    descomposicion = ventana_con_dos_eeg.analysis_controller.ica
 
     otro = escribir_brainvision(
         tmp_path / "ajeno",
@@ -2872,11 +2882,11 @@ def test_medir_la_noche_muestra_que_esta_trabajando(
     ventana.show()
 
     ventana.show_connectivity_night_dialog()
-    trabajando = ventana._barra_de_espera.isVisible()
+    trabajando = ventana.analysis_controller.wait_bar.isVisible()
     ventana.wait_for_background()
 
     assert trabajando, "la barra tiene que verse mientras dura el cálculo"
-    assert not ventana._barra_de_espera.isVisible()
+    assert not ventana.analysis_controller.wait_bar.isVisible()
     assert "…" not in ventana.statusBar().currentMessage()
 
 
@@ -3000,7 +3010,7 @@ def reproduccion(ventana: MainWindow):
     """La ventana, con la reproducción detenida al terminar pase lo que pase:
     un temporizador vivo seguiría moviendo la página en el test siguiente."""
     yield ventana
-    ventana.playback.stop()
+    ventana.playback_controller.stop()
 
 
 def pagina(ventana: MainWindow) -> float:
@@ -3016,10 +3026,10 @@ def test_reproducir_lleva_la_epoca_que_pasa_por_el_medio(reproduccion: MainWindo
     ventana = reproduccion
 
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(10.0)
-    ventana.playback.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
 
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(0) + 20.0)
     assert ventana.session.viewport.center_seconds == pytest.approx(centro_de(0) + 20.0)
     assert ventana.session.current_window == 1
@@ -3033,7 +3043,7 @@ def test_la_epoca_nueva_llega_a_la_barra_y_al_scoring(reproduccion: MainWindow):
     ventana = reproduccion
 
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(WINDOW_SECONDS)
+    ventana.playback_controller.clock.advanced.emit(WINDOW_SECONDS)
 
     # La lectura lleva también la hora desde el hito 36, cuando el registro la
     # informa: son la misma pregunta en dos unidades.
@@ -3061,12 +3071,12 @@ def test_al_principio_el_cursor_avanza_y_la_pagina_no(reproduccion: MainWindow):
     ventana.set_timescale(2 * WINDOW_SECONDS)
 
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
 
     assert pagina(ventana) == 0.0
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(0) + 10.0)
 
-    ventana.playback.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
 
     assert pagina(ventana) == pytest.approx(centro_de(0) + 20.0 - WINDOW_SECONDS)
     assert ventana.session.current_window == 1
@@ -3081,12 +3091,12 @@ def test_al_final_el_cursor_llega_al_borde_y_se_detiene(reproduccion: MainWindow
 
     ventana.toggle_playback()
     assert ventana.session.viewport.at_end
-    ventana.playback.advanced.emit(10.0)
-    assert ventana.playback.is_playing
+    ventana.playback_controller.clock.advanced.emit(10.0)
+    assert ventana.playback_controller.is_playing
 
-    ventana.playback.advanced.emit(10 * WINDOW_SECONDS)
+    ventana.playback_controller.clock.advanced.emit(10 * WINDOW_SECONDS)
 
-    assert not ventana.playback.is_playing
+    assert not ventana.playback_controller.is_playing
     assert ventana.session.current_window == VENTANAS - 1
     assert ventana.statusBar().currentMessage() == "Fin del registro"
     assert ventana.signal_view.playhead() is None
@@ -3101,9 +3111,9 @@ def test_con_el_registro_entero_en_pantalla_tambien_reproduce(reproduccion: Main
     entera = ventana.session.viewport
 
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(2 * WINDOW_SECONDS)
+    ventana.playback_controller.clock.advanced.emit(2 * WINDOW_SECONDS)
 
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
     assert ventana.session.viewport == entera
     assert ventana.session.current_window == 2
 
@@ -3119,7 +3129,7 @@ def test_arranca_desde_la_epoca_actual_aunque_la_vista_se_haya_ido(
 
     ventana.toggle_playback()
 
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(0))
     assert pagina(ventana) == 0.0
 
@@ -3129,17 +3139,17 @@ def test_sin_registro_reproducir_no_hace_nada(qt_app):
 
     principal.toggle_playback()
 
-    assert not principal.playback.is_playing
+    assert not principal.playback_controller.is_playing
 
 
 def test_apretar_de_nuevo_pausa(reproduccion: MainWindow):
     ventana = reproduccion
     ventana.navigation._reproducir.click()
-    ventana.playback.advanced.emit(5.0)
+    ventana.playback_controller.clock.advanced.emit(5.0)
 
     ventana.navigation._reproducir.click()
 
-    assert not ventana.playback.is_playing
+    assert not ventana.playback_controller.is_playing
     assert pagina(ventana) == pytest.approx(5.0)
     assert ventana.navigation._reproducir.toolTip() == "Reproducir"
 
@@ -3147,7 +3157,7 @@ def test_apretar_de_nuevo_pausa(reproduccion: MainWindow):
 def test_al_pausar_se_va_el_cursor_y_se_queda_la_epoca(reproduccion: MainWindow):
     ventana = reproduccion
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(20.0)
+    ventana.playback_controller.clock.advanced.emit(20.0)
     pagina_al_pausar = ventana.session.viewport
 
     ventana.toggle_playback()
@@ -3172,7 +3182,7 @@ def test_siguiente_y_anterior_reproduciendo_llevan_el_cursor(reproduccion: MainW
     ventana.navigation._anterior.click()
     assert ventana.session.current_window == 1
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(1))
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
     assert not ventana.carteles
 
 
@@ -3186,7 +3196,7 @@ def test_la_ultima_y_la_franja_reproduciendo_llevan_el_cursor(reproduccion: Main
 
     ventana._go_to_window(2)
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(2))
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
 
 
 def test_siguiente_en_la_ultima_reproduciendo_no_hace_nada(reproduccion: MainWindow):
@@ -3199,7 +3209,7 @@ def test_siguiente_en_la_ultima_reproduciendo_no_hace_nada(reproduccion: MainWin
     ventana.go_to_next_window()
 
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(VENTANAS - 1))
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
 
 
 def test_en_pausa_las_flechas_mueven_la_pagina_lo_minimo(ventana: MainWindow):
@@ -3244,7 +3254,7 @@ def test_los_atajos_de_pagina_reproduciendo_mueven_el_cursor(reproduccion: MainW
 
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(0) + WINDOW_SECONDS)
     assert ventana.session.current_window == 1
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
 
 
 def test_scorear_reproduciendo_no_saca_la_pagina_del_cursor(reproduccion: MainWindow):
@@ -3254,7 +3264,7 @@ def test_scorear_reproduciendo_no_saca_la_pagina_del_cursor(reproduccion: MainWi
 
     ventana = reproduccion
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
     centrada = ventana.session.viewport
 
     ventana.score_current_window(SleepStage.N2)
@@ -3272,7 +3282,7 @@ def test_abrir_otro_registro_detiene_la_reproduccion(
     otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 3)
     ventana.open_recording(otro)
 
-    assert not ventana.playback.is_playing
+    assert not ventana.playback_controller.is_playing
     assert pagina(ventana) == 0.0
     assert ventana.signal_view.playhead() is None
 
@@ -3284,7 +3294,7 @@ def test_volver_a_la_senal_original_detiene_la_reproduccion(reproduccion: MainWi
 
     ventana.restore_original_recording()
 
-    assert not ventana.playback.is_playing
+    assert not ventana.playback_controller.is_playing
 
 
 def test_la_velocidad_del_selector_llega_al_reloj(reproduccion: MainWindow):
@@ -3292,7 +3302,7 @@ def test_la_velocidad_del_selector_llega_al_reloj(reproduccion: MainWindow):
 
     selector.setCurrentIndex(selector.findText("30×"))
 
-    assert reproduccion.playback.speed == 30.0
+    assert reproduccion.playback_controller.clock.speed == 30.0
 
 
 def test_espacio_reproduce_y_pausa(reproduccion: MainWindow):
@@ -3306,18 +3316,21 @@ def test_espacio_reproduce_y_pausa(reproduccion: MainWindow):
     ]
 
     espacio.activated.emit()
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
 
     espacio.activated.emit()
-    assert not ventana.playback.is_playing
+    assert not ventana.playback_controller.is_playing
 
 
-def test_el_programa_abre_con_la_senal_los_canales_y_el_hipnograma(ventana: MainWindow):
-    """Hito 24, con el hipnograma de vuelta desde el 64. Con un registro
-    abierto sigue igual: abrir no despliega nada más."""
+def test_el_programa_abre_con_la_senal_los_canales_el_scoring_y_el_hipnograma(
+    ventana: MainWindow,
+):
+    """Hito 24, con el hipnograma de vuelta desde el 64 y el scoring compacto
+    desde el 79. Con un registro abierto sigue igual: abrir no despliega nada
+    más."""
     visibles = [clave for clave, dock in ventana.docks.items() if not dock.isHidden()]
 
-    assert visibles == ["channels", "histogram"]
+    assert visibles == ["channels", "scoring", "histogram"]
 
 
 # -- El hipnograma, por el camino del mouse (V4_F) ----------------------------
@@ -3437,7 +3450,7 @@ def test_aplicar_sin_ningun_filtro_no_toca_la_señal(ventana_con_dos_eeg: MainWi
     ventana.filter_panel.boton_aplicar.click()
 
     assert ventana.session.recording is antes
-    assert ventana._ica is not None
+    assert ventana.analysis_controller.ica is not None
     assert not ventana.accion_señal_original.isEnabled()
     assert len(ventana.carteles) == 1
 
@@ -3723,12 +3736,12 @@ def cartel_del_scoring(monkeypatch):
     """
     estado: dict[str, object] = {"respuesta": "cancelar", "preguntas": [], "en_juego": []}
 
-    def responder(_ventana: MainWindow, al_hacer: str, en_juego: list[str]) -> str:
+    def responder(_guardian: WorkGuard, al_hacer: str, en_juego: list[str]) -> str:
         estado["preguntas"].append(al_hacer)
         estado["en_juego"].append(list(en_juego))
         return str(estado["respuesta"])
 
-    monkeypatch.setattr(MainWindow, "_preguntar_por_el_trabajo", responder)
+    monkeypatch.setattr(WorkGuard, "ask", responder)
     return estado
 
 
@@ -3989,7 +4002,7 @@ def test_el_cartel_nombra_lo_que_esta_en_juego(ventana: MainWindow, monkeypatch)
     textos: list[str] = []
 
     def exec_sin_mostrar(cartel: QMessageBox) -> int:
-        # Sin clic en ningún botón: `_preguntar_por_el_trabajo()` devuelve
+        # Sin clic en ningún botón: `WorkGuard.ask()` devuelve
         # "cancelar", que acá no importa. Lo que se mira es el texto.
         textos.append(cartel.text())
         return 0
@@ -3997,7 +4010,7 @@ def test_el_cartel_nombra_lo_que_esta_en_juego(ventana: MainWindow, monkeypatch)
     monkeypatch.setattr(QMessageBox, "exec", exec_sin_mostrar)
     anotar_algo(ventana, cuantas=2)
     for en_juego in (["scoring"], ["annotations"], ["scoring", "annotations"]):
-        ventana._preguntar_por_el_trabajo("cerrar el programa", en_juego)
+        ventana.work_guard.ask("cerrar el programa", en_juego)
 
     assert textos[0].startswith("El scoring de ")
     assert textos[1].startswith("Las 2 anotaciones de ")
@@ -4097,7 +4110,7 @@ def test_el_cartel_de_verdad_ofrece_las_tres_salidas(ventana: MainWindow, monkey
     ):
         visto["elegir"] = texto
         assert (
-            ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
+            ventana.work_guard.ask("cerrar el programa", ["scoring"])
             == respuesta
         )
 
@@ -4418,7 +4431,7 @@ def test_el_boton_de_descartar_lleva_la_tinta_de_lo_que_destruye(
         return 0
 
     monkeypatch.setattr(QMessageBox, "exec", espiar)
-    ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
+    ventana.work_guard.ask("cerrar el programa", ["scoring"])
 
     assert vistos["Descartar"] is True
     assert vistos["Cancelar"] is False
@@ -4620,7 +4633,7 @@ def test_ajustar_la_ica_no_cambia_la_senal(ventana_con_dos_eeg: MainWindow):
     ventana_con_dos_eeg.wait_for_background()
 
     assert ventana_con_dos_eeg.session.recording is antes
-    assert ventana_con_dos_eeg._ica is not None
+    assert ventana_con_dos_eeg.analysis_controller.ica is not None
 
 
 def test_ajustar_la_ica_apaga_lo_que_cambiaria_la_senal(
@@ -5091,7 +5104,7 @@ def test_exportar_es_el_boton_principal_del_cartel(ventana: MainWindow, monkeypa
         return 0
 
     monkeypatch.setattr(QMessageBox, "exec", espiar)
-    ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
+    ventana.work_guard.ask("cerrar el programa", ["scoring"])
 
     assert vistos == {"Exportar…": True, "Descartar": False, "Cancelar": False}
 
@@ -5279,7 +5292,7 @@ def test_reproduciendo_desplazar_mueve_el_cursor(reproduccion: MainWindow):
     ventana = reproduccion
     ventana.set_timescale(60.0)
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(40.0)
+    ventana.playback_controller.clock.advanced.emit(40.0)
     cursor = ventana.signal_view.playhead()
 
     girar_la_rueda(ventana, 60.0, -1, horizontal=True)
@@ -5303,7 +5316,7 @@ def test_reproduciendo_la_rueda_acerca_hacia_el_cursor(reproduccion: MainWindow)
     ventana = reproduccion
     ventana.set_timescale(60.0)
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(40.0)
+    ventana.playback_controller.clock.advanced.emit(40.0)
     cursor = ventana.signal_view.playhead()
 
     girar_la_rueda(ventana, ventana.session.viewport.start_seconds + 5.0, 2)
@@ -5475,7 +5488,7 @@ def test_reproduciendo_puntuar_no_adelanta_la_reproduccion(reproduccion: MainWin
     ventana por cada tecla."""
     ventana = reproduccion
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
     cursor = ventana.signal_view.playhead()
 
     ventana.score_current_window(SleepStage.N2)
@@ -6007,7 +6020,7 @@ def test_la_ica_de_otro_registro_no_se_muestra(
         analysis_mod.fit_ica = real
 
     assert ventana.session.recording.file_path == otra
-    assert ventana._ica is None
+    assert ventana.analysis_controller.ica is None
     assert ventana.ica_panel.component_count() == 0
     assert "Se descartó" in ventana.statusBar().currentMessage()
     assert not ventana.carteles
@@ -6095,11 +6108,13 @@ def test_un_error_inesperado_en_otro_hilo_no_deja_la_ventana_esperando(
     def rompe() -> None:
         raise ValueError("algo que nadie previó")
 
-    ventana._en_segundo_plano("Probando", rompe, lambda _r: None, accion="probar")
+    ventana.analysis_controller.run_in_background(
+        "Probando", rompe, lambda _r: None, action="probar"
+    )
     with pytest.raises(ValueError):
         ventana.wait_for_background()
 
-    assert not ventana._barra_de_espera.isVisible()
+    assert not ventana.analysis_controller.wait_bar.isVisible()
     assert ventana.statusBar().currentMessage() != "Probando…"
     assert ventana.menu_filtrar.menuAction().isEnabled()
     assert ventana.accion_conectividad_de_la_noche.isEnabled()
@@ -6573,3 +6588,263 @@ def test_un_registro_corto_lo_dice_en_un_cartel(ventana: MainWindow, confirmacio
     assert ventana.acciones == ["sugerir las fases"]
     assert "5 minutos" in ventana.carteles[0]
     assert ventana.session.scoring.pending_suggestions() == 0
+
+
+# -- La copia de recuperación (hito 79) -------------------------------------------
+
+
+def test_la_ventana_de_los_tests_no_escribe_copias(qt_app):
+    """Sólo la del usuario, que prende `apply_saved_preferences()`: la suite no
+    escribe en el perfil de quien la corre."""
+    assert create_main_window().work_guard.recovery_path() is None
+
+
+def test_despues_de_un_corte_se_recupera_la_noche(qt_app, tmp_path, monkeypatch):
+    """De punta a punta, por la ventana: se scorea, el programa se corta sin
+    preguntar nada y al reabrir el mismo registro se vuelve a donde estaba."""
+    monkeypatch.setattr(WorkGuard, "ask_recovery", lambda *_a: True)
+    perfil = tmp_path / "perfil"
+    vhdr = escribir_brainvision(tmp_path / "registro", segundos=WINDOW_SECONDS * VENTANAS)
+
+    antes = create_main_window()
+    antes.work_guard.enable_recovery(perfil)
+    antes.open_recording(vhdr)
+    antes.score_current_window(SleepStage.N2)
+    antes.score_current_window(SleepStage.N3)
+    antes.work_guard.save_recovery()
+    # El corte: nadie cierra la ventana ni contesta ningún cartel.
+
+    despues = create_main_window()
+    despues.work_guard.enable_recovery(perfil)
+    despues.open_recording(vhdr)
+
+    scoring = despues.session.scoring
+    assert [scoring.get(i).stage for i in range(2)] == [SleepStage.N2, SleepStage.N3]
+    assert despues.session.current_window == 2
+    assert despues.statusBar().currentMessage() == (
+        "Se recuperó el trabajo que no se había exportado."
+    )
+
+
+# -- Deshacer y rehacer (hito 79) ---------------------------------------------------
+
+
+def test_ctrl_z_deshace_la_fase_y_vuelve_a_su_ventana(a_la_vista: MainWindow):
+    """Con el paso solo a la siguiente, una tecla de más scorea la ventana que
+    viene: Ctrl+Z la deshace y vuelve a mostrarla. Ctrl+Y la rehace."""
+    from PySide6.QtTest import QTest
+
+    ventana = a_la_vista
+    ventana.signal_view.setFocus()
+    QApplication.processEvents()
+    teclear(Qt.Key.Key_2, Qt.Key.Key_2)
+    assert ventana.session.current_window == 2
+
+    control = Qt.KeyboardModifier.ControlModifier
+    QTest.keyClick(QApplication.focusWidget(), Qt.Key.Key_Z, control)
+    QApplication.processEvents()
+
+    assert ventana.session.scoring.get(1).stage is SleepStage.UNSCORED
+    assert ventana.session.scoring.get(0).stage is SleepStage.N2
+    assert ventana.session.current_window == 1
+
+    QTest.keyClick(QApplication.focusWidget(), Qt.Key.Key_Y, control)
+    QApplication.processEvents()
+
+    assert ventana.session.scoring.get(1).stage is SleepStage.N2
+
+
+def test_deshacer_una_anotacion_la_saca_de_la_senal(ventana: MainWindow, monkeypatch):
+    """Anotar no pasa por `refresh()`: tiene que registrarse igual."""
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("Apnea", True))
+    ventana.annotate_current_window()
+    assert len(ventana.session.annotations.all()) == 1
+    assert bandas_dibujadas(ventana)
+
+    ventana.undo()
+
+    assert ventana.session.annotations.all() == []
+    assert bandas_dibujadas(ventana) == []
+
+
+def test_sin_nada_que_deshacer_la_barra_lo_dice(ventana: MainWindow):
+    ventana.undo()
+
+    assert ventana.statusBar().currentMessage() == "No hay nada que deshacer."
+
+
+def test_lo_recuperado_no_se_deshace(qt_app, tmp_path, monkeypatch):
+    """Deshacerlo sería perder lo que se acaba de recuperar."""
+    monkeypatch.setattr(WorkGuard, "ask_recovery", lambda *_a: True)
+    perfil = tmp_path / "perfil"
+    vhdr = escribir_brainvision(tmp_path / "registro", segundos=WINDOW_SECONDS * VENTANAS)
+    antes = create_main_window()
+    antes.work_guard.enable_recovery(perfil)
+    antes.open_recording(vhdr)
+    antes.score_current_window(SleepStage.N2)
+    antes.work_guard.save_recovery()
+
+    despues = create_main_window()
+    despues.work_guard.enable_recovery(perfil)
+    despues.open_recording(vhdr)
+    despues.undo()
+
+    assert despues.session.scoring.get(0).stage is SleepStage.N2
+
+
+# -- Anotar con una clase activa (hito 79) -------------------------------------------
+
+
+def arrastrar_un_tramo(
+    ventana: MainWindow, desde: float = 0.25, hasta: float = 0.35, mayusculas: bool = False
+) -> None:
+    """Un arrastre sobre la página, entre dos fracciones de su ancho."""
+    caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
+    arrastrar(
+        ventana,
+        caja.left() + caja.width() * desde,
+        caja.left() + caja.width() * hasta,
+        mayusculas=mayusculas,
+    )
+
+
+def test_con_una_clase_activa_el_arrastre_no_pregunta(ventana: MainWindow, monkeypatch):
+    """Marcar cien husos eran cien carteles."""
+    preguntas: list[bool] = []
+    monkeypatch.setattr(
+        QInputDialog,
+        "getItem",
+        staticmethod(lambda *_a, **_k: preguntas.append(True) or ("Otra", True)),
+    )
+    ventana.set_annotation_class("Spindle")
+
+    arrastrar_un_tramo(ventana, 0.25, 0.35)
+    arrastrar_un_tramo(ventana, 0.60, 0.70)
+
+    assert preguntas == []
+    assert [a.label for a in ventana.session.annotations.all()] == ["Spindle", "Spindle"]
+
+
+def test_con_mayusculas_al_soltar_pregunta_igual(ventana: MainWindow, elige_clase):
+    """Para el evento suelto de otra clase, sin cambiar la activa."""
+    ventana.set_annotation_class("Spindle")
+    elige_clase("Arousal")
+
+    arrastrar_un_tramo(ventana, mayusculas=True)
+
+    assert [a.label for a in ventana.session.annotations.all()] == ["Arousal"]
+    assert ventana.tool_controller.tools["annotator"].active_label == "Spindle"
+
+
+def test_elegir_una_clase_enciende_anotar_y_lo_dice(ventana: MainWindow):
+    ventana.set_annotation_class("Spindle")
+
+    assert ventana.tool_controller.actions["annotator"].isChecked()
+    assert "«Spindle»" in ventana.tool_readout.text()
+
+
+def test_la_e_usa_la_clase_activa(ventana: MainWindow, monkeypatch):
+    monkeypatch.setattr(
+        QInputDialog, "getItem", staticmethod(lambda *_a, **_k: pytest.fail("preguntó"))
+    )
+    ventana.set_annotation_class("Arousal")
+
+    ventana.annotate_current_window()
+
+    assert [a.label for a in ventana.session.annotations.all()] == ["Arousal"]
+
+
+def test_la_c_elige_entre_las_clases_del_registro(ventana: MainWindow, elige_en_el_menu):
+    elige_en_el_menu.elegir("Spindle")
+
+    ventana.choose_annotation_class()
+
+    (opciones,) = elige_en_el_menu.menus
+    assert opciones[0] == "Preguntar cada vez"
+    assert opciones[-1] == "Nueva clase…"
+    assert "Spindle" in opciones
+    assert ventana.tool_controller.tools["annotator"].active_label == "Spindle"
+
+
+def test_la_c_puede_volver_a_preguntar(ventana: MainWindow, elige_en_el_menu):
+    ventana.set_annotation_class("Spindle")
+    elige_en_el_menu.elegir("Preguntar cada vez")
+
+    ventana.choose_annotation_class()
+
+    assert ventana.tool_controller.tools["annotator"].active_label is None
+
+
+def test_la_c_crea_una_clase_nueva(ventana: MainWindow, elige_en_el_menu, monkeypatch):
+    """La clase se registra al anotar el primer tramo, como una escrita en el
+    cartel."""
+    elige_en_el_menu.elegir("Nueva clase…")
+    monkeypatch.setattr(
+        QInputDialog, "getText", staticmethod(lambda *_a, **_k: ("  Apnea  ", True))
+    )
+
+    ventana.choose_annotation_class()
+    ventana.annotate_current_window()
+
+    assert ventana.tool_controller.tools["annotator"].active_label == "Apnea"
+    assert "Apnea" in ventana.session.annotations.labels()
+    assert [a.label for a in ventana.session.annotations.all()] == ["Apnea"]
+
+
+# -- Anotar un arousal marca su ventana (hito 79) ---------------------------------
+
+
+def test_anotar_un_arousal_marca_su_ventana(ventana: MainWindow):
+    """El arousal existía dos veces sin relación, y la marca es la que llega
+    a `Scoring.txt`: un arousal anotado con cuidado no llegaba a ningún lado."""
+    ventana.set_annotation_class("Arousal")
+
+    arrastrar_un_tramo(ventana)
+
+    assert ventana.session.scoring.get(0).arousal
+    assert ventana.scoring_panel.status().endswith("· arousal")
+
+
+def test_anotar_otra_clase_no_marca_nada(ventana: MainWindow):
+    ventana.set_annotation_class("Spindle")
+
+    arrastrar_un_tramo(ventana)
+
+    assert not ventana.session.scoring.get(0).arousal
+
+
+def test_cambiar_la_clase_a_arousal_la_marca(ventana: MainWindow, monkeypatch):
+    anotacion = anotar_en(ventana, 40.0, 43.0, clase="Spindle")
+    herramienta = ventana.tool_controller.tools["annotator"]
+    ventana.tool_controller.toggle("annotator", True)
+    monkeypatch.setattr(
+        QInputDialog, "getItem", staticmethod(lambda *_a, **_k: ("Arousal", True))
+    )
+
+    ventana._cambiar_clase(herramienta, anotacion)
+
+    assert ventana.session.scoring.get(1).arousal
+
+
+def test_borrar_el_arousal_no_desmarca_la_ventana(ventana: MainWindow, confirmacion):
+    """La marca pudo haberse puesto a mano antes de anotar."""
+    ventana.set_annotation_class("Arousal")
+    arrastrar_un_tramo(ventana)
+    (anotacion,) = ventana.session.annotations.all()
+    confirmacion["respuesta"] = True
+
+    ventana._borrar_anotacion(ventana.tool_controller.tools["annotator"], anotacion)
+
+    assert ventana.session.annotations.all() == []
+    assert ventana.session.scoring.get(0).arousal
+
+
+def test_deshacer_el_arousal_anotado_saca_las_dos_cosas(ventana: MainWindow):
+    """Anotar y marcar son un solo paso: deshacerlo no deja la marca suelta."""
+    ventana.set_annotation_class("Arousal")
+    arrastrar_un_tramo(ventana)
+
+    ventana.undo()
+
+    assert ventana.session.annotations.all() == []
+    assert not ventana.session.scoring.get(0).arousal

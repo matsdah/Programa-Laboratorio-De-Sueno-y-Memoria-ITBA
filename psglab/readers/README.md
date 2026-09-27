@@ -164,7 +164,7 @@ proyecto.
 reales: ver [`tests/README.md`](../../tests/README.md).
 
 **Los dos formatos ya tienen registro de prueba**, conseguidos al cerrar el
-[hito 0](../../docs/TODO.md#hito-0-desbloquear); el detalle está más abajo, en
+[hito 0](../../docs/HISTORIAL.md#hito-0-desbloquear); el detalle está más abajo, en
 "Estado". Lo que sigue faltando es un registro **real del laboratorio**: el de
 BrainVision dura 7,9 segundos y no alcanza para probar la importación de punta a
 punta.
@@ -172,7 +172,7 @@ punta.
 ## Estado
 
 Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
-[hito 4 del TODO](../../docs/TODO.md#hito-4-importación). Dependían de
+[hito 4 del TODO](../../docs/HISTORIAL.md#hito-4-importación). Dependían de
 `core/recording.py`, terminado en el hito 1.
 
 `can_read()`, `register_reader`, `read_recording()` y `load_all_readers()` ya
@@ -190,7 +190,7 @@ proyecto y se consumen de la misma forma.
 **EDF ya tiene registro de prueba**: la Sleep-EDF Expanded de PhysioNet, abierta
 y con hipnogramas en Rechtschaffen y Kales. Va en `data/`, que el `.gitignore`
 excluye. El enlace y la licencia están en el
-[hito 0](../../docs/TODO.md#hito-0-desbloquear).
+[hito 0](../../docs/HISTORIAL.md#hito-0-desbloquear).
 
 **BrainVision** usa los archivos de prueba de MNE-Python (BSD-3): una tripleta
 `.vhdr` + `.vmrk` + `.eeg` de 32 canales con nombres 10-20. Son **7,9 segundos,

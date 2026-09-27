@@ -28,6 +28,7 @@ from psglab.ui import fonts, preferences, theme
 from psglab.ui.icons import icon
 from psglab.ui.menus import rebuild_recent_menu, rebuild_views_menu
 from psglab.ui.settings_dialog import SettingsDialog
+from psglab.ui.work_guard import CARPETA_DE_RECUPERACION
 from psglab.utils.errors import PsgLabError
 
 
@@ -66,6 +67,10 @@ class PreferencesMixin:
         ventana ya a la vista y no delante de una ventana que todavía no existe.
         """
         self._es_la_ventana_del_usuario = True
+        # **La copia de recuperación, también sólo en la del usuario** (hito
+        # 79), y aunque las preferencias no se puedan leer: la carpeta es la
+        # del perfil, no algo que ellas digan.
+        self.work_guard.enable_recovery(preferences.config_dir() / CARPETA_DE_RECUPERACION)
         try:
             guardadas = preferences.load()
         except PsgLabError as error:

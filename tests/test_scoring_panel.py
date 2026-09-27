@@ -102,15 +102,29 @@ def test_cambiar_de_nomenclatura_no_borra_el_pie(panel: ScoringPanel):
 
 
 def test_las_fases_van_en_su_propia_fila(panel: ScoringPanel):
-    """Separadas del selector y del arousal: es lo que baja el mínimo del panel
-    al de la fila más ancha."""
+    """Separadas del selector y del arousal, que van al lado en el mismo
+    renglón (hito 79): los botones se reparten lo que sobra entre ellos."""
     panel.set_nomenclature(Nomenclature.RK)
 
     en_la_fila = [panel._fila.itemAt(i).widget() for i in range(panel._fila.count())]
+    widgets = [w for w in en_la_fila if w is not None]
 
-    assert en_la_fila == list(panel._botones.values())
-    assert panel._nomenclaturas not in en_la_fila
-    assert panel._arousal not in en_la_fila
+    assert widgets == [*panel._botones.values(), panel._arousal, panel._nomenclaturas]
+
+
+def test_el_arousal_muestra_su_tecla(panel: ScoringPanel):
+    """Como los botones de fase: en una fila no hay segundo renglón, así que
+    va al lado del nombre (hito 79)."""
+    assert panel._arousal.text() == "Arousal (A)"
+    assert panel._arousal.accessibleName() == "Arousal"
+
+
+def test_el_lector_de_pantalla_recibe_el_pie_aunque_no_se_vea(panel: ScoringPanel):
+    """Acoplado el pie no se ve, pero es la fase en texto, que un botón
+    marcado no siempre comunica (hito 79)."""
+    panel.set_current(SleepStage.N2, False, 136)
+
+    assert panel.accessibleDescription() == "Ventana 137 · N2"
 
 
 # -- El botón de fase (hito 34) ----------------------------------------------
@@ -174,10 +188,10 @@ def test_cambiar_de_nomenclatura_no_deja_botones_viejos(panel: ScoringPanel):
     panel.set_nomenclature(Nomenclature.RK)
     panel.set_nomenclature(Nomenclature.AASM)
 
+    # La fila lleva también el arousal y el selector, que no tienen `fase`.
     en_la_fila = [panel._fila.itemAt(i).widget() for i in range(panel._fila.count())]
-    assert [b.property("fase") for b in en_la_fila] == [
-        f.value for f in panel._botones
-    ]
+    fases = [w.property("fase") for w in en_la_fila if w is not None and w.property("fase")]
+    assert fases == [f.value for f in panel._botones]
 
 
 # -- La itálica de lo que nadie eligió ----------------------------------------
@@ -267,3 +281,14 @@ def test_la_casilla_de_arousal_se_puede_apuntar(panel: ScoringPanel):
     panel.show()
 
     assert panel._arousal.height() >= 24
+
+
+def test_ningun_boton_se_achica_mas_que_su_texto(panel: ScoringPanel):
+    """Con la fila en su mínimo, «REM» se cortaba a «!EN»: los 40 px de
+    `ANCHO_MINIMO_DE_BOTON` no alcanzaban con el relleno del estilo (hito 79)."""
+    panel.set_nomenclature(Nomenclature.RK)
+
+    for boton in panel._botones.values():
+        renglones = boton.text().split("\n")
+        texto = max(boton.fontMetrics().horizontalAdvance(r) for r in renglones)
+        assert boton.minimumWidth() > texto, boton.text()

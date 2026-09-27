@@ -43,7 +43,7 @@ commit.
 
 | ID | Requisito | Archivo |
 |----|-----------|---------|
-| V1_F | Avanzar y retroceder con flechas ←→ y con botones | `psglab/ui/navigation.py`, `psglab/ui/playback.py` (la reproducción), `psglab/ui/shortcuts.py`, `psglab/core/session.py`, `psglab/core/windows.py` |
+| V1_F | Avanzar y retroceder con flechas ←→ y con botones | `psglab/ui/navigation.py`, `psglab/ui/playback.py` y `psglab/ui/playback_controller.py` (la reproducción), `psglab/ui/shortcuts.py`, `psglab/core/session.py`, `psglab/core/windows.py` |
 
 ### Diseño de la interfaz de visualización
 
@@ -113,7 +113,7 @@ commit.
 | V1_F | `Scoring.txt`, y el mismo scoring en CSV, EDF+ y XML | `psglab/exporters/scoring_txt.py`, `psglab/exporters/scoring_formats.py` (los otros tres formatos), `psglab/core/nomenclature.py` (`STAGE_CODES`) |
 | V2_F | `Anotaciones.txt` | `psglab/exporters/annotations_txt.py`, `psglab/core/annotations.py` |
 | V3_F | `Informacion.txt` | `psglab/exporters/information_txt.py`, `psglab/exporters/statistics.py` |
-| V4_F | Elegir cuál de los tres exportar | `psglab/ui/window_files.py` (`export()`; desde el hito 23 la ventana sólo ofrece el scoring) |
+| V4_F | Elegir cuál de los tres exportar | `psglab/ui/work_guard.py` (`export()`; desde el hito 23 la ventana sólo ofrece el scoring) |
 
 ---
 
@@ -122,7 +122,7 @@ commit.
 | Sección | ID | Requisito | Archivo |
 |---------|----|-----------|---------|
 | Filtración | V1_F | Importar señal cruda y filtrar por tipo de canal | `psglab/analysis/filters.py`, `psglab/ui/filter_panel.py` (una fila por clase de canal) |
-| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir), `psglab/ui/window_analysis.py` (`_olvidar_ica`, que descarta la descomposición cuando cambia la señal) |
+| Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir), `psglab/ui/window_analysis.py` (ajustarla, mostrarla y aplicarla), `psglab/ui/analysis_controller.py` (`forget_ica`, que descarta la descomposición cuando cambia la señal) |
 | Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py`, `psglab/readers/brainvision.py` (las extrae del `.vhdr`), `psglab/ui/impedance_panel.py` (la tabla y el informe) |
 | Rereferenciar | — | Re-referenciar la señal | `psglab/analysis/reference.py` |
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
@@ -136,16 +136,17 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos veinticinco se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos veintiocho se rompen hacia todos lados.
 
-Veintitrés de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Veintiséis de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
-`core/viewport.py`, `core/decimation.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
+`core/viewport.py`, `core/decimation.py`, `core/recovery.py`, `core/history.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
 `ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py`, `ui/shortcuts_dialog.py`,
 y desde el hito 76 `ui/main_window.py`, `ui/window_annotation.py`,
-`ui/window_view.py` y `ui/window_preferences.py`: la ventana se partió en
-pedazos por tema, y los que llevan un ID tienen su fila arriba. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`ui/window_view.py` y `ui/window_preferences.py`, más `ui/window_files.py`
+desde que exportar pasó a `ui/work_guard.py` en el hito 79: la ventana se
+partió en pedazos por tema, y los que llevan un ID tienen su fila arriba. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -160,6 +161,8 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |
 | `psglab/analysis/mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw`, y la escala volts ↔ µV | Filtrado, ICA y re-referenciado |
 | `psglab/core/viewport.py` | La página visible, separada de la época de scoring | La escala de tiempo y todo lo que se dibuja |
+| `psglab/core/recovery.py` | La copia de recuperación: qué del trabajo se guarda y cómo se vuelve a él | Recuperar una noche después de un cierre inesperado |
+| `psglab/core/history.py` | Deshacer y rehacer: fotos del trabajo y cómo volver a ellas | Ctrl+Z, Ctrl+Y y «Scoring › Deshacer» |
 | `psglab/core/decimation.py` | Reducir una señal larga a lo que entra en pantalla sin perder sus picos | Cualquier página más larga que unos segundos |
 | `psglab/ui/docks.py` | La disposición de los paneles alrededor de la señal | Dónde aparece cada panel |
 | `psglab/ui/icons.py` | Los iconos de la barra, dibujados por el programa | La barra de navegación |
@@ -171,9 +174,10 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/ui/preferences.py` | Lo que el programa recuerda entre sesiones | El esquema con el que arranca |
 | `psglab/ui/settings_dialog.py` | La ventana de configuración | Todo lo que el usuario puede elegir y el programa recuerda |
 | `psglab/ui/shortcuts_dialog.py` | La ayuda de atajos, en una tabla agrupada | Ayuda → Atajos de teclado |
-| `psglab/ui/main_window.py` | Arma la ventana y reúne sus siete pedazos; las esperas largas y los carteles | El programa entero |
+| `psglab/ui/main_window.py` | Arma la ventana y reúne sus seis pedazos y sus cuatro controladores; las esperas en el hilo de la interfaz y los carteles | El programa entero |
 | `psglab/ui/window_annotation.py` | Anotar con el mouse, con el teclado o desde las marcas del archivo | Todo lo que agrega o cambia una anotación |
-| `psglab/ui/window_view.py` | Época, página, reproducción, amplitud, foco y vistas de canales | Cómo se recorre y se mira el registro |
+| `psglab/ui/window_view.py` | Época, página, rueda, amplitud, foco y vistas de canales | Cómo se recorre y se mira el registro |
+| `psglab/ui/window_files.py` | Abrir un registro e importar un scoring, preguntando antes por el trabajo sin exportar | Abrir, importar y cerrar el programa |
 | `psglab/ui/window_preferences.py` | Aplicar y guardar lo que elige el usuario, y la ventana de configuración | El esquema, la letra y los colores de clase |
 
 ---
@@ -207,7 +211,7 @@ El **scoring automático** estuvo en esta lista hasta el 25 de septiembre de
 2026. Aparece entre las motivaciones del pliego ("Scoring automatico
 imposible") pero no en ninguna funcionalidad numerada, y el 4 de septiembre se
 lo dejó fuera del alcance con el cliente. El usuario lo reabrió en el
-[hito 75](TODO.md#hito-75-las-fases-sugeridas), **como sugerencias que alguien
+[hito 75](HISTORIAL.md#hito-75-las-fases-sugeridas), **como sugerencias que alguien
 confirma**, y tiene fila arriba sin ID.
 
 ---
@@ -233,7 +237,7 @@ filtrar por tipo de canal, y V5_F, ICA— no está en duda: si aparecen los tres
 son trabajo adicional y no trabajo a rehacer.
 
 
-La lista vive en **[`TODO.md`](TODO.md#hito-0-desbloquear)**, hito 0, con el
+La lista vive en **[`TODO.md`](HISTORIAL.md#hito-0-desbloquear)**, hito 0, con el
 detalle de qué trabajo frena cada una. Acá no se repite: el estado y las
 preguntas abiertas los posee el TODO, y duplicarlos garantizaba —y de hecho
 produjo— que las copias se desincronizaran.

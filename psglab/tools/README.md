@@ -18,7 +18,7 @@ del pliego (sección 7). El otro punto de extensión es
 | `amplitude_band.py` | Banda de referencia de 75 µV, adaptada a la escala del usuario. | `ViewerTool` | V1_F de "Herramienta de amplitud" |
 | `occupancy.py` | Líneas dibujadas con el mouse y su porcentaje de ocupación horizontal. Cada línea publica cuánto dura, para escribirlo encima (hito 55). | `ViewerTool` | V1_F–V5_F de "Ocupación de la página" |
 | `magnifier.py` | Lupa: zoom circular y contador de picos. | `ViewerTool` | V1_F, V2_F de "Herramienta Lupa" |
-| `annotator.py` | Anotación de eventos sobre la señal, y su corrección: arrastrar un borde, cambiar la clase (hito 52). | `ViewerTool` | V1_F de "Anotación de la señal" |
+| `annotator.py` | Anotación de eventos sobre la señal, y su corrección: arrastrar un borde, cambiar la clase (hito 52). Desde el hito 79 guarda **la clase activa** (`active_label`), con la que se anota sin preguntar; si se pregunta igual lo decide la ventana, que ve el teclado. | `ViewerTool` | V1_F de "Anotación de la señal" |
 | `overview.py` | Übersicht, que la ventana llama «Contexto» desde el hito 64: la ventana actual en su contexto. Cada ventana publica su señal reducida, del canal seleccionado o el primero visible (hito 51). | `Tool` | V1_F–V3_F de "Herramienta Übersicht" |
 | `histogram.py` | Hipnograma de la noche completa. `runs()` agrupa las ventanas en tramos seguidos de la misma fase, que es lo que el panel pinta de color desde el hito 34. `suggested_bars()` da la fase sugerida de cada ventana sin scorear (hito 75). | `Tool` | V1_P–V4_F de "Histograma" |
 
@@ -208,16 +208,16 @@ Si dos líneas se pisan en horizontal, **la zona compartida se cuenta dos
 veces**: se suman los aportes sin descontar, así que el total puede pasar del
 100 % y eso es lo buscado. Confirmado con el cliente el 4 de septiembre de 2026
 y parametrizado en `config.OCCUPANCY_COUNTS_OVERLAP_ONCE` (hoy `False`). Ver el
-[hito 0 del TODO](../../docs/TODO.md#hito-0-desbloquear).
+[hito 0 del TODO](../../docs/HISTORIAL.md#hito-0-desbloquear).
 
 ## Estado
 
 Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
-[hito 7 del TODO](../../docs/TODO.md#hito-7-herramientas). Las seis
+[hito 7 del TODO](../../docs/HISTORIAL.md#hito-7-herramientas). Las seis
 herramientas son independientes entre sí, así que **se pueden repartir**.
 
 `base.py` y `registry.py` ya están implementados y no tienen stubs.
 
 **Ninguna está bloqueada.** `occupancy.py` (V2_F y V4_F) y `annotator.py` lo
-estuvieron hasta que el [hito 0](../../docs/TODO.md#hito-0-desbloquear) fijó el
+estuvieron hasta que el [hito 0](../../docs/HISTORIAL.md#hito-0-desbloquear) fijó el
 conteo de la superposición y el índice de los puntos.

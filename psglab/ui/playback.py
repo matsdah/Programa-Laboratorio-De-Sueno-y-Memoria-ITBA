@@ -2,15 +2,17 @@
 
 Es un reloj y nada más. Cada 40 ms mira cuánto tiempo real pasó, lo multiplica
 por la velocidad elegida y **avisa cuántos segundos de registro corresponde
-avanzar**. Quien escucha —la ventana principal— mueve la página con
-`Viewport.panned()`, que es el mismo camino que Mayús+→.
+avanzar**. Quien escucha es `ui/playback_controller.py`, que corre el cursor
+con `Session.move_playhead()`: la página se centra en él y la época es la
+suya, desde el hito 27. Hasta ese hito la reproducción sólo movía la página,
+como Mayús+→, y este docstring lo siguió diciendo hasta la auditoría del 26 de
+septiembre.
 
 ## Por qué no conoce la sesión
 
 Por lo mismo que `Tool` no conoce Qt: así se testea sin armar un registro. La
 regla de qué pasa al llegar al final, o con el registro entero en pantalla, es
-de la ventana, que es la que tiene la página. Y la época **no se toca**: la
-reproducción sólo mueve la vista, por decisión del usuario del hito 24.
+de `Session.move_playhead()` y del controlador, que tienen la página.
 
 ## Por qué mide el tiempo en vez de contar pasos
 

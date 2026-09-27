@@ -12,8 +12,8 @@ Ver, Scoring, Montaje, Filtrar, Analizar, Herramientas y Ayuda.
 
 **«Scoring» volvió en el hito 79**, y es otro menú que el de antes del hito
 64, que sólo importaba y exportaba: ahora lleva la tarea principal del
-programa —las fases, el arousal, ir a la próxima sin scorear y las fases
-sugeridas—, que estaba repartida entre las teclas, que no se ven, y
+programa —las fases, el arousal, ir a la próxima sin scorear, deshacer y
+las fases sugeridas—, que estaba repartida entre las teclas, que no se ven, y
 «Analizar». Importar y exportar el scoring siguen en «Archivo». En el mismo
 cambio **«Escala de tiempo» y «Amplitud» pasaron adentro de «Ver»**: son cómo
 se ve la señal, y ocupaban dos lugares de la barra.
@@ -520,12 +520,18 @@ def _scoring(window: "MainWindow") -> None:
     )
     window.accion_arousal.setCheckable(True)
     _agregar(scoring, "A&notar la ventana actual…", window.annotate_current_window)
+    _agregar(scoring, "Elegir la &clase al anotar…", window.choose_annotation_class)
     scoring.addSeparator()
     _agregar(scoring, "&Próxima ventana sin scorear", window.go_to_next_unscored_window)
     _agregar(
         scoring, "Ventana an&terior sin scorear", window.go_to_previous_unscored_window
     )
     _agregar(scoring, "&Ir a una ventana…", window.ask_window)
+    scoring.addSeparator()
+    # Hito 79: entraron con `core/history.py`. Antes no había qué ofrecer, y
+    # una entrada que no hace nada es peor que ninguna.
+    window.accion_deshacer = _agregar(scoring, "&Deshacer", window.undo)
+    window.accion_rehacer = _agregar(scoring, "Re&hacer", window.redo)
 
     # **Sugerir mide; confirmar es aparte** (hito 75). Lo que propone el
     # clasificador no toca el scoring hasta que alguien lo confirme. Estaban en
@@ -624,7 +630,7 @@ def _montaje(window: "MainWindow") -> None:
     # **Queda en la ventana** para poder apagarlo entero mientras corre un
     # cálculo: las tres operaciones sustituyen el registro, y hacerlo debajo de
     # una ICA que se está ajustando dejaría una descomposición de una señal que
-    # ya no está. Ver `MainWindow._reflejar_lo_que_se_puede_pedir()`.
+    # ya no está. Ver `AnalysisController.set_long_actions()`.
     window.menu_montaje = montaje
     _agregar(montaje, "&Derivar canales…", window.derive_dialog)
     _agregar(montaje, "&Re-referenciar…", window.rereference_dialog)
@@ -669,7 +675,7 @@ def _analizar(window: "MainWindow") -> None:
     _agregar(analizar, "Conectividad de la &ventana…", window.show_connectivity_dialog)
     # **Queda en la ventana** porque hay que poder apagarla: es la única que
     # arranca un cálculo en otro hilo, y con uno en curso no se puede pedir
-    # otro. Ver `MainWindow._reflejar_lo_que_se_puede_pedir()`.
+    # otro. Ver `AnalysisController.set_long_actions()`.
     window.accion_conectividad_de_la_noche = _agregar(
         analizar, "Conectividad de la &noche…", window.show_connectivity_night_dialog
     )

@@ -73,6 +73,8 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         "menu_scoring",
         "acciones_de_fase",
         "accion_arousal",
+        "accion_deshacer",
+        "accion_rehacer",
         # El menú que se puebla desde el registro de herramientas.
         "tools_menu",
         # Las herramientas, quién tiene el mouse y lo que dibujan (hito 79).
@@ -105,8 +107,15 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         "tool_readout",
         "page_readout",
         "settings_dialog",
-        # El reloj de la reproducción, que los tests hacen avanzar a mano.
-        "playback",
+        # La reproducción (hito 79): su reloj, que los tests hacen avanzar a
+        # mano, y el cursor.
+        "playback_controller",
+        # La señal original, la ICA ajustada y el cálculo en otro hilo, con
+        # su barra de espera (hito 79).
+        "analysis_controller",
+        # Exportar, y preguntar antes de perder trabajo (hito 79). Los tests
+        # contestan su cartel, que es modal, reemplazando `WorkGuard.ask`.
+        "work_guard",
         # Los seis paneles de análisis y sus contenedores. **El panel y el
         # contenedor son atributos distintos a propósito**: los tests muestran
         # el contenedor y preguntan por el contenido del panel. El título del
@@ -200,6 +209,12 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         # Hito 79: retomar un scoring a medias.
         "go_to_next_unscored_window",
         "go_to_previous_unscored_window",
+        # La clase activa al anotar: C y su menú (hito 79).
+        "choose_annotation_class",
+        "set_annotation_class",
+        # Deshacer y rehacer, Ctrl+Z y Ctrl+Y (hito 79).
+        "undo",
+        "redo",
         "set_histogram_time_axis",
         # Montaje.
         "derive_dialog",
@@ -233,10 +248,7 @@ PRIVADOS_QUE_LA_SUITE_USA: frozenset[str] = frozenset(
         "_show_error",
         "_go_to_window",
         "_session",
-        "_ica",
         "_aplicar_analisis",
-        # El cartel del trabajo sin exportar, que es modal (hito 33).
-        "_preguntar_por_el_trabajo",
         # El cartel de un archivo que trae menos de lo que declara (hito 33).
         "_mostrar_avisos_de_lectura",
         # La pregunta antes de lo que no se deshace, también modal (hito 65).

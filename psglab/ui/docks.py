@@ -26,16 +26,21 @@ significar "el contenedor del panel", que es lo que siempre quiso decir.
 
 ## Qué arranca visible
 
-**La señal, el selector de canales y el hipnograma.** Hasta el hito 24
-arrancaban abiertos también el scoring y el contexto, y entre los tres le
-quitaban a la señal un cuarto de la pantalla; se abren desde «Herramientas».
-Scorear no los necesita: las fases y el arousal tienen su tecla.
+**La señal, el selector de canales, el scoring y el hipnograma.** Hasta el
+hito 24 arrancaban abiertos también el contexto y el scoring en tres filas, y
+entre los tres le quitaban a la señal un cuarto de la pantalla. El contexto se
+sigue abriendo desde «Herramientas».
 
-**El hipnograma volvió en el hito 64**, solo, como una tira de
-`ALTO_DEL_HIPNOGRAMA` a todo el ancho de abajo. En los programas de scoring es
-lo único que está siempre a la vista: ubica la noche de un vistazo y muestra
-lo que se va scoreando, que la franja de posición hace a medias porque no
-tiene los niveles de las fases.
+**El hipnograma volvió en el hito 64**, como una tira de
+`ALTO_DEL_HIPNOGRAMA` abajo. En los programas de scoring es lo único que está
+siempre a la vista: ubica la noche de un vistazo y muestra lo que se va
+scoreando, que la franja de posición hace a medias porque no tiene los
+niveles de las fases.
+
+**El scoring volvió en el hito 79**, compacto —una fila— y a la izquierda del
+hipnograma, sin quitarle alto a la señal: la tira de abajo ya estaba. Oculto,
+la tarea principal del programa no se veía; se descubría por la ayuda de
+atajos, y quien no la leía no sabía que las fases tenían tecla.
 
 Los seis de análisis arrancan ocultos y los abre la acción del menú que los
 calcula: un panel de conectividad vacío ocupando media pantalla desde el
@@ -74,6 +79,9 @@ ANCHOS_DE_ABAJO: Final[dict[str, int]] = {
     "scoring": 400,
     "histogram": 900,
 }
+
+#: Los paneles de abajo que arrancan a la vista (hitos 64 y 79).
+VISIBLES_AL_ABRIR: Final[frozenset[str]] = frozenset({"scoring", "histogram"})
 
 #: Los paneles de análisis, en el orden en que se apilan en solapas a la
 #: derecha. El orden es el del flujo de trabajo, no el alfabético: primero el
@@ -142,7 +150,8 @@ def build_docks(window: "MainWindow") -> None:
 
 
 def _trabajo(window: "MainWindow") -> None:
-    """Los cuatro que se usan al scorear. Sólo el de canales arranca visible."""
+    """Los cuatro que se usan al scorear. Arrancan visibles todos menos el
+    contexto; ver «Qué arranca visible»."""
     izquierda = Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
     abajo = Qt.DockWidgetArea.BottomDockWidgetArea | Qt.DockWidgetArea.TopDockWidgetArea
 
@@ -166,6 +175,8 @@ def _trabajo(window: "MainWindow") -> None:
 
     window.scoring_dock = nuevo_dock(window, "Scoring", window.scoring_panel, abajo)
     window.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, window.scoring_dock)
+    # El pie del panel, sólo suelto: acoplado lo dicen las barras de abajo.
+    window.scoring_dock.topLevelChanged.connect(window.scoring_panel.set_detached)
 
     window.histogram_view.setMaximumHeight(ALTO_DEL_HIPNOGRAMA)
     window.histogram_dock = nuevo_dock(window, "Hipnograma", window.histogram_view, abajo)
@@ -180,10 +191,10 @@ def _trabajo(window: "MainWindow") -> None:
         window.docks[nombre] = dock
 
     # Se ocultan después de acomodarlos, para que al mostrarlos desde «Herramientas»
-    # vuelvan al borde de abajo y lado a lado. **El hipnograma no** (hito 64):
-    # ver «Qué arranca visible».
+    # vuelvan al borde de abajo y lado a lado. **El hipnograma y el scoring no**
+    # (hitos 64 y 79): ver «Qué arranca visible».
     for clave in ANCHOS_DE_ABAJO:
-        if clave != "histogram":
+        if clave not in VISIBLES_AL_ABRIR:
             window.docks[clave].hide()
         # **Cada vez que uno aparece se vuelve a repartir el ancho.** Qt no
         # recuerda un reparto pedido mientras estaban ocultos: los mostraba
@@ -206,11 +217,16 @@ def repartir_abajo(window: "MainWindow") -> None:
     1280, 206, 329 y 741, con cualquiera de las dos nomenclaturas. Ahí manda la
     proporción entera, porque ningún panel toca su mínimo.
 
-    **El mínimo del scoring recién aparece debajo de unos 1210 px**: es de
-    312 px con Rechtschaffen y Kales y 224 con AASM, que es lo que mide su fila
-    de fases desde que las fases van en su propia fila (hito 26). Con 1170 px
-    el reparto ya es 186, 312 y 668. Por la misma cuenta, sin medir, el
-    hipnograma sigue siendo el más ancho hasta unos 715 px de ventana.
+    **Desde el hito 79 el scoring es una fila** y arranca a la vista al lado
+    del hipnograma, sin el contexto. Medido con la ventana que abre el
+    programa: con 1400 px, 429 y 965 con AASM y 491 y 903 con Rechtschaffen y
+    Kales; con 1280, 406 y 868, y 505 y 769. Con AASM manda la proporción; con
+    Rechtschaffen y Kales, el mínimo de la fila —siete botones, el arousal y el
+    selector—, y el hipnograma paga la diferencia. Sigue siendo el más ancho.
+
+    Antes del hito 79, con las fases en su propia fila, el mínimo del scoring
+    recién aparecía debajo de unos 1210 px: 312 px con Rechtschaffen y Kales y
+    224 con AASM.
 
     Así se llegó acá: hasta el hito 24 los mínimos del scoring y de la
     Übersicht eran de 690 y 480 px, y el hipnograma recibía unos 230; hasta el

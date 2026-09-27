@@ -45,7 +45,28 @@ Desde la ventana se exporta el scoring, en .txt, .csv, .edf o .xml; los otros
 dos archivos, Anotaciones.txt e Informacion.txt, salieron del menu a pedido
 del usuario y hoy se piden desde un script. Falta confirmarlo con el cliente.
 
-El programa abre con la senal, la lista de canales y el hipnograma: los demas
+El programa no guarda nada por su cuenta: lo que no se exporto, al cerrar se
+pregunta. Pero si se corta la luz o el programa se cuelga, nadie contesta esa
+pregunta. Por eso, mientras haya trabajo sin exportar, cada diez segundos deja
+una copia en la carpeta de configuracion del usuario, que no es un archivo de
+salida ni aparece en ninguna carpeta del laboratorio. Al volver a abrir el
+mismo registro, ofrece recuperar esa copia.
+
+Para anotar muchos eventos de la misma clase -husos, arousals- se elige la
+clase una vez con la tecla C, y cada tramo que se arrastra queda anotado con
+ella sin preguntar. Soltando el mouse con Mayusculas apretada, pregunta igual.
+Anotar un evento de la clase Arousal marca ademas el arousal de la ventana
+donde empieza, que es el que va a Scoring.txt; borrar la anotacion no lo
+desmarca, porque la marca pudo haberse puesto a mano con la tecla A.
+
+Ctrl+Z deshace el ultimo cambio del scoring o de las anotaciones -una fase de
+mas, una anotacion borrada, confirmar todas las fases sugeridas- y Ctrl+Y lo
+rehace. Tambien estan en el menu Scoring. Moverse de ventana, la amplitud o la
+senal no se deshacen asi: no son trabajo del investigador, y filtrar tiene su
+propio "Volver a la senal original".
+
+El programa abre con la senal, la lista de canales, el hipnograma y, al lado,
+el panel de Scoring en una sola fila, con cada fase y su tecla: los demas
 paneles se abren desde el menu Herramientas, que junta las herramientas y los
 paneles. La barra de abajo mueve la epoca y tiene un boton para reproducir el
 registro solo, como EDFbrowser, a la velocidad que se elija: la reproduccion se
@@ -63,12 +84,12 @@ Se trabajo asi a proposito: primero se acuerda la estructura, despues se
 programa. Con eso se evita descubrir a mitad de camino que dos personas
 escribieron lo mismo en dos lugares distintos.
 
-Como se llego hasta aca esta en docs/TODO.md, que es el unico documento que
-lleva la cuenta. El trabajo esta agrupado en ochenta hitos, del 0 al 79:
-cada hito solo usa cosas que ya estan terminadas en los hitos anteriores. El
-ultimo esta abierto: es el plan que dejo la auditoria del 26 de septiembre,
-con los errores que encontro y los cambios que propone, en el orden en que
-conviene hacerlos.
+Que falta esta en docs/TODO.md, que es el unico documento que lleva la
+cuenta, y como se llego hasta aca, en docs/HISTORIAL.md. El trabajo esta
+agrupado en hitos: cada hito solo usa cosas que ya estan terminadas en los
+hitos anteriores. El ultimo esta abierto: es el plan que dejo la auditoria
+del 26 de septiembre, con los errores que encontro y los cambios que
+propone, en el orden en que conviene hacerlos.
 
 
 -------------------------------------------------------------------------------

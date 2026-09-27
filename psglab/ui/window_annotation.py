@@ -19,8 +19,7 @@ infraestructura que las conecta con la ventana.
 
 from collections import Counter
 
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import QInputDialog, QMenu
 
 from psglab.core.annotations import Annotation, marks_to_annotations
@@ -35,28 +34,45 @@ _CAMBIAR_CLASE = "Cambiar clase…"
 
 _BORRAR = "Borrar"
 
+#: Las dos entradas del menú de la tecla C que no son una clase (hito 79).
+_PREGUNTAR_CADA_VEZ = "Preguntar cada vez"
+_NUEVA_CLASE = "Nueva clase…"
+
 
 class AnnotationMixin:
     """Lo de `MainWindow` que anota: con el mouse, con el teclado y desde el archivo.
     """
 
-    def _finish_annotation(self, herramienta: AnnotatorTool) -> None:
-        """Pregunta la clase del evento recién seleccionado y lo anota (V1_F).
+    def _finish_annotation(self, herramienta: AnnotatorTool, preguntar: bool = False) -> None:
+        """Anota el tramo recién seleccionado, con la clase activa o preguntando (V1_F).
+
+        **Con una clase activa no se pregunta** (hito 79): marcar cien husos
+        eran cien carteles. `preguntar` —Mayúsculas al soltar— pide el cartel
+        igual, para el evento suelto de otra clase.
 
         El pliego pide **asignarle o crear una clase**, así que el diálogo es
         editable: la lista ofrece las que ya existen y el usuario puede escribir
-        una nueva, que se registra con su color antes de anotar.
-
-        Cancelar deja el tramo pendiente sin anotar, que es lo que espera quien
-        se arrepiente a mitad del gesto. No se lo borra: volver a soltar el
-        mouse lo reemplaza.
+        una nueva, que se registra con su color antes de anotar. Cancelar deja
+        el tramo pendiente sin anotar, que es lo que espera quien se arrepiente
+        a mitad del gesto. No se lo borra: volver a soltar el mouse lo
+        reemplaza.
         """
         if self._session is None:
             return
         pendiente = herramienta.pending_selection_samples
         if pendiente is None:
             return
-        self._preguntar_clase_y_anotar(herramienta, *pendiente)
+        self._anotar(herramienta, *pendiente, preguntar=preguntar)
+
+    def _anotar(
+        self, herramienta: AnnotatorTool, inicio: int, duracion: int, preguntar: bool
+    ) -> None:
+        """Anota un tramo con la clase activa, o pregunta si no hay o se pidió."""
+        clase = herramienta.active_label
+        if clase is None or preguntar:
+            self._preguntar_clase_y_anotar(herramienta, inicio, duracion)
+            return
+        self._crear_anotacion(herramienta, clase, inicio, duracion)
 
     def _preguntar_clase_y_anotar(
         self, herramienta: AnnotatorTool, inicio: int, duracion: int
@@ -80,21 +96,30 @@ class AnnotationMixin:
         )
         if not acepto or not clase.strip():
             return
-        clase = clase.strip()
+        self._crear_anotacion(herramienta, clase.strip(), inicio, duracion)
 
+    def _crear_anotacion(
+        self, herramienta: AnnotatorTool, clase: str, inicio: int, duracion: int
+    ) -> None:
+        """Anota el tramo con esa clase, registrándola si no existía."""
+        if self._session is None:
+            return
         try:
-            if clase not in clases:
+            if clase not in self._session.annotations.labels():
                 herramienta.add_label(clase)
-            herramienta.create_annotation(clase, inicio, duracion)
+            nueva = herramienta.create_annotation(clase, inicio, duracion)
         except PsgLabError as error:
             self._show_error(error, "anotar el evento")
             return
+        self._marcar_si_es_arousal(nueva)
         # El panel de contexto marca los eventos que caen en cada ventana
         # (V3_F), y anotar no mueve de ventana: hay que pedirle que se
         # rederive o el evento recién creado no aparece hasta la próxima flecha.
         contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
+        # Anotar no pasa por `refresh()`, que es donde se registra el resto.
+        self.work_guard.record()
         self.statusBar().showMessage(f"Se anotó «{clase}»", 5000)
 
     def _menu_de_anotacion(
@@ -131,7 +156,7 @@ class AnnotationMixin:
     # que es lo que mueven las flechas.
 
     def annotate_current_window(self) -> None:
-        """E: anota la ventana actual entera y pregunta su clase.
+        """E: anota la ventana actual entera, con la clase activa o preguntando.
 
         **Enciende el modo «Anotar»** si no lo estaba, igual que elegirlo del
         menú: la herramienta es la que sabe anotar, y dejarla encendida es lo
@@ -141,7 +166,65 @@ class AnnotationMixin:
         if herramienta is None or self._session is None:
             return
         inicio, fin = self._muestras_de_la_ventana_actual()
-        self._preguntar_clase_y_anotar(herramienta, inicio, fin - inicio)
+        self._anotar(herramienta, inicio, fin - inicio, preguntar=False)
+
+    # -- La clase activa (hito 79) ------------------------------------------
+
+    def choose_annotation_class(self) -> None:
+        """C: elige la clase con que se anota, en un menú sobre la señal.
+
+        Las clases del registro, «Preguntar cada vez» para volver al cartel y
+        «Nueva clase…» para escribir una. **Elegir una clase enciende el modo
+        «Anotar»**: es lo que se va a hacer a continuación, y sin él el
+        arrastre movería otra herramienta.
+        """
+        if self._session is None:
+            return
+        herramienta = self.tool_controller.tools.get("annotator")
+        if not isinstance(herramienta, AnnotatorTool):
+            return
+        clases = self._session.annotations.labels()
+        vista = self.signal_view.viewport()
+        eleccion = self._elegir_en_un_menu(
+            [_PREGUNTAR_CADA_VEZ, *clases, _NUEVA_CLASE],
+            vista.mapToGlobal(vista.rect().center()),
+        )
+        if eleccion is None:
+            return
+        if eleccion == _PREGUNTAR_CADA_VEZ:
+            self.set_annotation_class(None)
+            return
+        if eleccion == _NUEVA_CLASE:
+            nombre, acepto = QInputDialog.getText(
+                self, "Nueva clase", "Nombre de la clase de evento:"
+            )
+            if not acepto or not nombre.strip():
+                return
+            eleccion = nombre.strip()
+        self.set_annotation_class(eleccion)
+
+    def set_annotation_class(self, label: str | None) -> None:
+        """Anota con esa clase sin preguntar, o pregunta cada vez con None.
+
+        Una clase enciende el modo «Anotar»; volver a preguntar no lo toca.
+        """
+        herramienta = self.tool_controller.tools.get("annotator")
+        if not isinstance(herramienta, AnnotatorTool):
+            return
+        try:
+            herramienta.set_active_label(label)
+        except PsgLabError as error:
+            self._show_error(error, "elegir la clase")
+            return
+        if label is None:
+            self.statusBar().showMessage("Al anotar se pregunta la clase de cada evento.", 5000)
+            return
+        self._anotador_encendido()
+        self.tool_controller.update_readout()
+        self.statusBar().showMessage(
+            f"Se anota como «{herramienta.active_label}». Mayús al soltar para elegir otra.",
+            5000,
+        )
 
     def annotation_menu_for_current_window(self) -> None:
         """Mayús+F10 o la tecla Menú, con el foco en la señal: el menú del
@@ -216,22 +299,45 @@ class AnnotationMixin:
         try:
             if clase not in clases:
                 herramienta.add_label(clase)
-            herramienta.change_label(anotacion, clase)
+            cambiada = herramienta.change_label(anotacion, clase)
         except PsgLabError as error:
             self._show_error(error, "cambiar la clase")
             return
+        # Pasar a ser un arousal es anotar un arousal.
+        self._marcar_si_es_arousal(cambiada)
         self.tool_controller.refresh_overview()
+        self.work_guard.record()
         self.statusBar().showMessage(
             f"«{anotacion.label}» pasó a ser «{clase}»", 5000
         )
 
-    def _al_soltar_el_anotador(self, herramienta: AnnotatorTool) -> None:
+    def _marcar_si_es_arousal(self, anotacion: Annotation) -> None:
+        """Anotar un arousal marca el arousal de su ventana (hito 79).
+
+        La regla —qué es un arousal, qué ventana— es de
+        `Session.mark_arousal_of()`. Acá se redibuja lo que la marca cambia: el
+        hipnograma, el panel de scoring y la barra de estado.
+        """
+        if self._session is None:
+            return
+        try:
+            ventana = self._session.mark_arousal_of(anotacion)
+        except PsgLabError as error:
+            self._show_error(error, "marcar el arousal")
+            return
+        if ventana is not None:
+            self._update_histogram_window(ventana)
+            self.refresh()
+
+    def _al_soltar_el_anotador(self, herramienta: AnnotatorTool, preguntar: bool) -> None:
         """El anotador soltó el botón: `tool_controller` lo avisa (hito 79).
 
         **Acá se cierra el lazo de V1_F de "Anotación"**: si quedó un tramo
-        pendiente se pregunta su clase, y si se corrió un borde se avisa.
+        pendiente se anota —con la clase activa, o preguntando si no hay o si
+        `preguntar`, que es Mayúsculas al soltar—, y si se corrió un borde se
+        avisa.
         """
-        self._finish_annotation(herramienta)
+        self._finish_annotation(herramienta, preguntar)
         self._avisar_borde_movido(herramienta)
 
     def _avisar_borde_movido(self, herramienta: AnnotatorTool) -> None:
@@ -239,22 +345,29 @@ class AnnotationMixin:
         movida = herramienta.moved_annotation
         if movida is None:
             return
+        # Correr el comienzo puede pasarlo a otra ventana, que queda marcada.
+        # La anterior no se desmarca, por la misma regla que borrar.
+        self._marcar_si_es_arousal(movida)
         self.tool_controller.refresh_overview()
+        # **Al soltar y no mientras se arrastra**: todo el arrastre es un solo
+        # paso de deshacer.
+        self.work_guard.record()
         self.statusBar().showMessage(f"Se corrigió el tramo de «{movida.label}»", 5000)
 
     def _borrar_anotacion(self, herramienta: AnnotatorTool, anotacion: Annotation) -> None:
         """Borra una anotación, confirmándolo antes.
 
-        **Pregunta** porque no hay deshacer, y una anotación es trabajo del
-        investigador. Desde el hito 52 se llega eligiendo «Borrar» en el menú
-        del clic derecho, así que un clic de más ya no borra solo; la pregunta
-        se conservó igual, porque elegir mal en un menú también es un clic.
+        **Pregunta** porque una anotación es trabajo del investigador. Desde
+        el hito 52 se llega eligiendo «Borrar» en el menú del clic derecho, así
+        que un clic de más ya no borra solo; la pregunta se conservó igual,
+        porque elegir mal en un menú también es un clic. Se preguntaba además
+        porque no había deshacer; desde el hito 79 lo hay, y el cartel lo dice.
         """
         if not self._confirmar(
             "Borrar la anotación",
             f"¿Borrar la anotación «{anotacion.label}»?",
             "Borrar",
-            informativo="No se puede deshacer.",
+            informativo="Se puede deshacer con Ctrl+Z.",
             destructivo=True,
         ):
             return
@@ -267,6 +380,7 @@ class AnnotationMixin:
         contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
+        self.work_guard.record()
         self.statusBar().showMessage(f"Se borró «{anotacion.label}»", 5000)
 
     def import_file_marks(self) -> None:
@@ -318,6 +432,8 @@ class AnnotationMixin:
             for anotacion in nuevas:
                 conjunto.add_label(anotacion.label)
                 conjunto.add(anotacion)
+                # Un arousal que trae el archivo también es un arousal anotado.
+                self._session.mark_arousal_of(anotacion)
         except PsgLabError as error:
             self._show_error(error, "importar las marcas del registro")
             return
