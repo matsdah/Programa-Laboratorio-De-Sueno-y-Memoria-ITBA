@@ -14,6 +14,7 @@ from psglab.core.annotations import (
     Annotation,
     AnnotationSet,
     es_color_de_clase,
+    is_arousal,
     marks_to_annotations,
 )
 from psglab.utils.errors import InvalidAnnotationError, UnknownAnnotationLabelError
@@ -480,3 +481,17 @@ def test_la_clase_va_sin_los_espacios_de_los_bordes():
 def test_una_marca_mal_formada_se_rechaza(marca):
     with pytest.raises(InvalidAnnotationError):
         marks_to_annotations([marca], 100.0, 1000)
+
+
+# -- La clase del arousal (hito 79) ----------------------------------------------
+
+
+@pytest.mark.parametrize("clase", ["Arousal", "arousal", "  AROUSAL "])
+def test_la_clase_del_arousal_se_reconoce_como_se_escriba(clase: str):
+    """Escrita a mano en el cartel es la misma clase."""
+    assert is_arousal(clase)
+
+
+@pytest.mark.parametrize("clase", ["Spindle", "Arousal respiratorio", "", None, 3])
+def test_otra_clase_no_es_el_arousal(clase: object):
+    assert not is_arousal(clase)

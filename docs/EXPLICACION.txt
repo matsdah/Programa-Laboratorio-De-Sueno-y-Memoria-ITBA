@@ -55,6 +55,9 @@ mismo registro, ofrece recuperar esa copia.
 Para anotar muchos eventos de la misma clase -husos, arousals- se elige la
 clase una vez con la tecla C, y cada tramo que se arrastra queda anotado con
 ella sin preguntar. Soltando el mouse con Mayusculas apretada, pregunta igual.
+Anotar un evento de la clase Arousal marca ademas el arousal de la ventana
+donde empieza, que es el que va a Scoring.txt; borrar la anotacion no lo
+desmarca, porque la marca pudo haberse puesto a mano con la tecla A.
 
 Ctrl+Z deshace el ultimo cambio del scoring o de las anotaciones -una fase de
 mas, una anotacion borrada, confirmar todas las fases sugeridas- y Ctrl+Y lo

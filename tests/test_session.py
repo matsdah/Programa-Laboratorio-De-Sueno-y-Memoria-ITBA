@@ -1454,3 +1454,52 @@ def test_un_nombre_rechazado_no_cambia_la_activa(session):
         session.set_active_tool(3.5)
 
     assert session.active_tool == "magnifier"
+
+
+# -- Anotar un arousal marca su ventana (hito 79) ---------------------------------
+
+
+def _en_la_ventana(session: Session, ventana: int, segundos: float = 5.0) -> int:
+    """La muestra que cae `segundos` adentro de esa ventana."""
+    inicio, _ = window_to_samples(ventana, session.recording.sampling_rate)
+    return inicio + int(segundos * session.recording.sampling_rate)
+
+
+def test_un_arousal_marca_la_ventana_donde_empieza(session: Session):
+    anotacion = Annotation("Arousal", _en_la_ventana(session, 3), 1000)
+
+    assert session.mark_arousal_of(anotacion) == 3
+
+    assert session.scoring.get(3).arousal
+
+
+def test_uno_que_cruza_el_borde_marca_sólo_la_primera(session: Session):
+    """Es donde la AASM cuenta un arousal que cruza el borde entre épocas."""
+    fs = session.recording.sampling_rate
+    anotacion = Annotation("Arousal", _en_la_ventana(session, 3, 28.0), int(6 * fs))
+
+    session.mark_arousal_of(anotacion)
+
+    assert session.scoring.get(3).arousal
+    assert not session.scoring.get(4).arousal
+
+
+def test_otra_clase_no_marca_nada(session: Session):
+    anotacion = Annotation("Spindle", _en_la_ventana(session, 3), 100)
+
+    assert session.mark_arousal_of(anotacion) is None
+
+    assert not any(session.scoring.get(i).arousal for i in range(session.n_windows))
+
+
+def test_marcar_una_ventana_ya_marcada_no_cambia_nada(session: Session):
+    session.scoring.set_arousal(3, True)
+
+    session.mark_arousal_of(Annotation("Arousal", _en_la_ventana(session, 3), 100))
+
+    assert session.scoring.get(3).arousal
+
+
+def test_un_arousal_fuera_del_registro_se_rechaza(session: Session):
+    with pytest.raises(PsgLabError):
+        session.mark_arousal_of(Annotation("Arousal", session.recording.n_samples, 10))

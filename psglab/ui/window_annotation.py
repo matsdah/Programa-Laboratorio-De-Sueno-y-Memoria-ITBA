@@ -107,10 +107,11 @@ class AnnotationMixin:
         try:
             if clase not in self._session.annotations.labels():
                 herramienta.add_label(clase)
-            herramienta.create_annotation(clase, inicio, duracion)
+            nueva = herramienta.create_annotation(clase, inicio, duracion)
         except PsgLabError as error:
             self._show_error(error, "anotar el evento")
             return
+        self._marcar_si_es_arousal(nueva)
         # El panel de contexto marca los eventos que caen en cada ventana
         # (V3_F), y anotar no mueve de ventana: hay que pedirle que se
         # rederive o el evento recién creado no aparece hasta la próxima flecha.
@@ -298,15 +299,35 @@ class AnnotationMixin:
         try:
             if clase not in clases:
                 herramienta.add_label(clase)
-            herramienta.change_label(anotacion, clase)
+            cambiada = herramienta.change_label(anotacion, clase)
         except PsgLabError as error:
             self._show_error(error, "cambiar la clase")
             return
+        # Pasar a ser un arousal es anotar un arousal.
+        self._marcar_si_es_arousal(cambiada)
         self.tool_controller.refresh_overview()
         self.work_guard.record()
         self.statusBar().showMessage(
             f"«{anotacion.label}» pasó a ser «{clase}»", 5000
         )
+
+    def _marcar_si_es_arousal(self, anotacion: Annotation) -> None:
+        """Anotar un arousal marca el arousal de su ventana (hito 79).
+
+        La regla —qué es un arousal, qué ventana— es de
+        `Session.mark_arousal_of()`. Acá se redibuja lo que la marca cambia: el
+        hipnograma, el panel de scoring y la barra de estado.
+        """
+        if self._session is None:
+            return
+        try:
+            ventana = self._session.mark_arousal_of(anotacion)
+        except PsgLabError as error:
+            self._show_error(error, "marcar el arousal")
+            return
+        if ventana is not None:
+            self._update_histogram_window(ventana)
+            self.refresh()
 
     def _al_soltar_el_anotador(self, herramienta: AnnotatorTool, preguntar: bool) -> None:
         """El anotador soltó el botón: `tool_controller` lo avisa (hito 79).
@@ -324,6 +345,9 @@ class AnnotationMixin:
         movida = herramienta.moved_annotation
         if movida is None:
             return
+        # Correr el comienzo puede pasarlo a otra ventana, que queda marcada.
+        # La anterior no se desmarca, por la misma regla que borrar.
+        self._marcar_si_es_arousal(movida)
         self.tool_controller.refresh_overview()
         # **Al soltar y no mientras se arrastra**: todo el arrastre es un solo
         # paso de deshacer.
@@ -408,6 +432,8 @@ class AnnotationMixin:
             for anotacion in nuevas:
                 conjunto.add_label(anotacion.label)
                 conjunto.add(anotacion)
+                # Un arousal que trae el archivo también es un arousal anotado.
+                self._session.mark_arousal_of(anotacion)
         except PsgLabError as error:
             self._show_error(error, "importar las marcas del registro")
             return

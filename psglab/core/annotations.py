@@ -23,8 +23,12 @@ from psglab.utils.errors import InvalidAnnotationError, UnknownAnnotationLabelEr
 from psglab.utils.validation import check_finite, check_index
 
 #: Clases de evento ofrecidas por defecto. El usuario puede agregar las suyas.
+#: La clase de evento que además es la marca de arousal de su ventana (hito
+#: 79). Ver `is_arousal()`.
+AROUSAL_LABEL: Final[str] = "Arousal"
+
 DEFAULT_LABELS: Final[tuple[str, ...]] = (
-    "Arousal",
+    AROUSAL_LABEL,
     "Complejo K",
     "Spindle",
 )
@@ -63,6 +67,22 @@ PALETTE: Final[tuple[str, ...]] = (
     "#e6c04a",  # amarillo
     "#4ab0a8",  # turquesa
 )
+
+
+def is_arousal(label: object) -> bool:
+    """Si una clase de evento es la del arousal (hito 79).
+
+    **El arousal existía dos veces sin relación**: la marca de la ventana —la
+    tecla A, que es la que exportan `Scoring.txt` y las estadísticas— y la
+    clase de anotación «Arousal». Anotar uno no marcaba nada, así que un
+    arousal anotado con cuidado no llegaba a ningún archivo de salida. Lo que
+    se decidió es que la marca es la que cuenta, y anotar la pone; ver
+    `Session.mark_arousal_of()`.
+
+    Sin distinguir mayúsculas ni espacios de más: «arousal» escrito a mano en
+    el cartel es la misma clase. Lo que no es texto no es la clase.
+    """
+    return isinstance(label, str) and label.strip().casefold() == AROUSAL_LABEL.casefold()
 
 
 @dataclass(frozen=True)
