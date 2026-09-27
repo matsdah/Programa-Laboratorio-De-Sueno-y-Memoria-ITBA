@@ -485,6 +485,9 @@ en `core/`.
 abierto, su scoring y anotaciones, en qué ventana está parado el usuario, qué
 tramo está mirando, qué canales ve y con qué escala y desplazamiento vertical
 cada uno. La interfaz lo consulta para dibujarse y lo modifica ante cada acción.
+Los canales —visibles, seleccionados, escala y desplazamiento— los lleva
+`core/channel_display.py` desde el hito 79, y `Session` le delega: no sabe de
+épocas, así que mide sobre el tramo de muestras que la sesión le pasa.
 
 **Avisa de dos cambios y de nada más**: el de época, por
 `add_window_listener()`, y el de página visible, por `add_view_listener()`. Todo

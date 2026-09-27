@@ -392,7 +392,7 @@ class ViewMixin:
     # -- Amplitud (V2_P, V5_F) ----------------------------------------------
     #
     # Las cinco entran por el menú «Amplitud» y todas comparten el alcance que
-    # ya resolvía `Session._channels_under_amplitude()`: los canales
+    # resuelve `ChannelDisplay._channels_under_amplitude()`: los canales
     # seleccionados, o todos los visibles si no hay ninguno seleccionado. No se
     # reimplementa acá, que es lo que haría que las flechas y el menú pudieran
     # discrepar.
