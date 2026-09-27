@@ -1912,7 +1912,7 @@ def test_filtrar_despues_de_ajustar_descarta_la_descomposicion(
     ventana_con_dos_eeg.show_filter_dialog()
     ventana_con_dos_eeg.filter_panel.boton_aplicar.click()
 
-    assert ventana_con_dos_eeg._ica is None
+    assert ventana_con_dos_eeg.analysis_controller.ica is None
     assert ventana_con_dos_eeg.ica_panel.component_count() == 0
     assert not ventana_con_dos_eeg.carteles
 
@@ -1925,11 +1925,11 @@ def test_volver_a_la_señal_original_descarta_la_descomposicion(
     ventana_con_dos_eeg.filter_panel.boton_aplicar.click()
     ventana_con_dos_eeg.show_ica_dialog()
     ventana_con_dos_eeg.wait_for_background()
-    assert ventana_con_dos_eeg._ica is not None
+    assert ventana_con_dos_eeg.analysis_controller.ica is not None
 
     ventana_con_dos_eeg.restore_original_recording()
 
-    assert ventana_con_dos_eeg._ica is None
+    assert ventana_con_dos_eeg.analysis_controller.ica is None
     assert ventana_con_dos_eeg.ica_panel.component_count() == 0
 
 
@@ -1940,7 +1940,7 @@ def test_abrir_otro_registro_descarta_la_descomposicion(
     lo que quedó guardado es de otra señal y de otros canales."""
     ventana_con_dos_eeg.show_ica_dialog()
     ventana_con_dos_eeg.wait_for_background()
-    assert ventana_con_dos_eeg._ica is not None
+    assert ventana_con_dos_eeg.analysis_controller.ica is not None
 
     otro = escribir_brainvision(
         tmp_path / "otro",
@@ -1949,7 +1949,7 @@ def test_abrir_otro_registro_descarta_la_descomposicion(
     )
     ventana_con_dos_eeg.open_recording(otro)
 
-    assert ventana_con_dos_eeg._ica is None
+    assert ventana_con_dos_eeg.analysis_controller.ica is None
     assert ventana_con_dos_eeg.ica_panel.component_count() == 0
     assert not ventana_con_dos_eeg.carteles
 
@@ -1966,7 +1966,7 @@ def test_aplicar_una_ica_de_otros_canales_avisa_en_vez_de_reconstruir(
     """
     ventana_con_dos_eeg.show_ica_dialog()
     ventana_con_dos_eeg.wait_for_background()
-    descomposicion = ventana_con_dos_eeg._ica
+    descomposicion = ventana_con_dos_eeg.analysis_controller.ica
 
     otro = escribir_brainvision(
         tmp_path / "ajeno",
@@ -2872,11 +2872,11 @@ def test_medir_la_noche_muestra_que_esta_trabajando(
     ventana.show()
 
     ventana.show_connectivity_night_dialog()
-    trabajando = ventana._barra_de_espera.isVisible()
+    trabajando = ventana.analysis_controller.wait_bar.isVisible()
     ventana.wait_for_background()
 
     assert trabajando, "la barra tiene que verse mientras dura el cálculo"
-    assert not ventana._barra_de_espera.isVisible()
+    assert not ventana.analysis_controller.wait_bar.isVisible()
     assert "…" not in ventana.statusBar().currentMessage()
 
 
@@ -3437,7 +3437,7 @@ def test_aplicar_sin_ningun_filtro_no_toca_la_señal(ventana_con_dos_eeg: MainWi
     ventana.filter_panel.boton_aplicar.click()
 
     assert ventana.session.recording is antes
-    assert ventana._ica is not None
+    assert ventana.analysis_controller.ica is not None
     assert not ventana.accion_señal_original.isEnabled()
     assert len(ventana.carteles) == 1
 
@@ -4620,7 +4620,7 @@ def test_ajustar_la_ica_no_cambia_la_senal(ventana_con_dos_eeg: MainWindow):
     ventana_con_dos_eeg.wait_for_background()
 
     assert ventana_con_dos_eeg.session.recording is antes
-    assert ventana_con_dos_eeg._ica is not None
+    assert ventana_con_dos_eeg.analysis_controller.ica is not None
 
 
 def test_ajustar_la_ica_apaga_lo_que_cambiaria_la_senal(
@@ -6007,7 +6007,7 @@ def test_la_ica_de_otro_registro_no_se_muestra(
         analysis_mod.fit_ica = real
 
     assert ventana.session.recording.file_path == otra
-    assert ventana._ica is None
+    assert ventana.analysis_controller.ica is None
     assert ventana.ica_panel.component_count() == 0
     assert "Se descartó" in ventana.statusBar().currentMessage()
     assert not ventana.carteles
@@ -6095,11 +6095,13 @@ def test_un_error_inesperado_en_otro_hilo_no_deja_la_ventana_esperando(
     def rompe() -> None:
         raise ValueError("algo que nadie previó")
 
-    ventana._en_segundo_plano("Probando", rompe, lambda _r: None, accion="probar")
+    ventana.analysis_controller.run_in_background(
+        "Probando", rompe, lambda _r: None, action="probar"
+    )
     with pytest.raises(ValueError):
         ventana.wait_for_background()
 
-    assert not ventana._barra_de_espera.isVisible()
+    assert not ventana.analysis_controller.wait_bar.isVisible()
     assert ventana.statusBar().currentMessage() != "Probando…"
     assert ventana.menu_filtrar.menuAction().isEnabled()
     assert ventana.accion_conectividad_de_la_noche.isEnabled()

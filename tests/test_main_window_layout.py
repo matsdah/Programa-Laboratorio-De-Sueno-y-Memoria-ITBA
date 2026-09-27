@@ -108,6 +108,9 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # La reproducción (hito 79): su reloj, que los tests hacen avanzar a
         # mano, y el cursor.
         "playback_controller",
+        # La señal original, la ICA ajustada y el cálculo en otro hilo, con
+        # su barra de espera (hito 79).
+        "analysis_controller",
         # Los seis paneles de análisis y sus contenedores. **El panel y el
         # contenedor son atributos distintos a propósito**: los tests muestran
         # el contenedor y preguntan por el contenido del panel. El título del
@@ -234,7 +237,6 @@ PRIVADOS_QUE_LA_SUITE_USA: frozenset[str] = frozenset(
         "_show_error",
         "_go_to_window",
         "_session",
-        "_ica",
         "_aplicar_analisis",
         # El cartel del trabajo sin exportar, que es modal (hito 33).
         "_preguntar_por_el_trabajo",

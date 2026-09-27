@@ -85,9 +85,6 @@ class FilesMixin:
         # en `activate()`: si no se las suelta, la ocupación seguiría midiendo
         # sobre el registro anterior y el histograma dibujaría su scoring.
         self.tool_controller.deactivate_all()
-        # Y por el mismo motivo, la descomposición ICA del registro anterior: es
-        # de otra señal y de otros canales.
-        self._olvidar_ica()
         # La reproducción avanzaba sobre la página del registro anterior, y
         # `attach()` la detiene antes de tomar la sesión nueva.
         self.playback_controller.attach(sesion)
@@ -96,9 +93,9 @@ class FilesMixin:
         # **El registro tal como se leyó.** Los análisis de la Parte 2 devuelven
         # un registro nuevo, y sin guardar éste un filtro mal elegido obligaría
         # a reabrir el archivo. Es la regla 1 de `analysis/` vista desde la
-        # interfaz: el usuario tiene que poder volver atrás.
-        self._registro_original = registro
-        self.accion_señal_original.setEnabled(False)
+        # interfaz: el usuario tiene que poder volver atrás. Y la ICA del
+        # registro anterior se olvida: es de otra señal y de otros canales.
+        self.analysis_controller.attach(sesion)
         # Las herramientas se enteran solas de los cambios de ventana: es la
         # decisión del hito 6, y por eso acá no hay que acordarse de avisarles.
         self.tool_controller.attach(sesion)

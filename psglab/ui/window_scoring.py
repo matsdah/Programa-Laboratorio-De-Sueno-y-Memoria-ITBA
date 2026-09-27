@@ -206,11 +206,11 @@ class ScoringMixin:
         def calcular() -> object:
             return suggest_stages(registro, canales.eeg, canales.eog, canales.emg)
 
-        self._en_segundo_plano(
+        self.analysis_controller.run_in_background(
             "Calculando las fases sugeridas",
             calcular,
             self._guardar_las_sugeridas,
-            accion="sugerir las fases",
+            action="sugerir las fases",
         )
 
     def _guardar_las_sugeridas(self, resultado: object) -> None:
