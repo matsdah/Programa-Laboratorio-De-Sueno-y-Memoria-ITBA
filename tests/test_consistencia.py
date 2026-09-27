@@ -1050,8 +1050,9 @@ def test_el_piso_de_numpy_alcanza_para_lo_que_el_codigo_usa():
 #:
 #: Sale del hito 19, que encontró tres funciones sin ningún camino desde la
 #: ventana: `derive_montage()`, `component_time_course()` y `band_power()`. Las
-#: dos últimas se cablearon y la primera quedó como biblioteca, pero nada
-#: impedía que volviera a pasar. **`contar_stubs()` no puede verlo** —no son
+#: dos últimas se cablearon y la primera quedó como biblioteca —hasta el hito
+#: 79, que la llevó a «Montaje › Montaje AASM»—, pero nada impedía que
+#: volviera a pasar. **`contar_stubs()` no puede verlo** —no son
 #: stubs— y la lista de cierre del hito 17 tampoco, porque recorrió los ocho
 #: requisitos de `TRAZABILIDAD.md` y no las funciones públicas.
 SOLO_BIBLIOTECA: dict[str, str] = {
@@ -1075,11 +1076,6 @@ SOLO_BIBLIOTECA: dict[str, str] = {
     "psglab/analysis/complexity.py::higuchi_fractal_dimension": (
         "se despacha por nombre desde complexity_by_window(), que el menú sí "
         "ofrece."
-    ),
-    "psglab/analysis/derivation.py::derive_montage": (
-        "decidido con el cliente en el hito 19: el menú deriva de a un par con "
-        "derive(), que es el pedido real, y un montaje entero se escribe en un "
-        "script."
     ),
     "psglab/analysis/filters.py::validate": (
         "la llama apply_filters() sobre el pedido entero antes de tocar un solo "

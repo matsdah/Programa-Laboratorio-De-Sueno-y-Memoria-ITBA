@@ -15,7 +15,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from psglab.analysis.derivation import derive, derive_montage
+from psglab.analysis.derivation import (
+    AASM_MONTAGE,
+    derive,
+    derive_montage,
+    plan_aasm_montage,
+)
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.utils.errors import (
     ChannelNotFoundError,
@@ -270,3 +275,188 @@ def test_la_derivacion_encadenada_da_el_numero_correcto(
     assert datos[montado.channel_by_name("C3-C4-EOG-izq").index] == pytest.approx(
         c3 - c4 - eog
     )
+
+
+# -- El nombre y la clase de cada derivado del montaje -----------------------
+
+
+def test_el_montaje_puede_nombrar_cada_derivado(registro_sintetico: Recording):
+    montado = derive_montage(
+        registro_sintetico, [("C3", "C4"), ("EOG-izq", "C4")], names=["A", "B"]
+    )
+
+    assert [c.name for c in montado.channels[-2:]] == ["A", "B"]
+
+
+def test_el_montaje_puede_declarar_la_clase(registro_sintetico: Recording):
+    """«E1-M2» es un EOG aunque M2 sea un electrodo de EEG: la regla de
+    `derive()` le daría OTHER, y el montaje sabe más que ella."""
+    montado = derive_montage(
+        registro_sintetico, [("EOG-izq", "C4")], channel_kinds=[ChannelKind.EOG]
+    )
+
+    assert montado.channels[-1].kind is ChannelKind.EOG
+
+
+def test_sin_clase_declarada_vale_la_regla_de_siempre(registro_sintetico: Recording):
+    montado = derive_montage(registro_sintetico, [("EOG-izq", "C4")])
+
+    assert montado.channels[-1].kind is ChannelKind.OTHER
+
+
+@pytest.mark.parametrize(
+    ("names", "channel_kinds"),
+    [
+        (["uno"], None),
+        (["uno", "dos", "tres"], None),
+        (None, [ChannelKind.EEG]),
+        ("uno-dos", None),
+        (None, ["EEG", "EEG"]),
+    ],
+)
+def test_nombres_o_clases_que_no_acompanan_a_los_pares_se_rechazan(
+    registro_sintetico: Recording, names, channel_kinds
+):
+    """Uno por par, ni más ni menos: una lista corta dejaría un derivado sin
+    nombre y una larga hablaría de un par que no está."""
+    with pytest.raises(InvalidRecordingError):
+        derive_montage(
+            registro_sintetico, [("C3", "C4"), ("EOG-izq", "C4")], names=names, channel_kinds=channel_kinds
+        )
+
+
+def test_un_nombre_repetido_dentro_del_montaje_se_rechaza(registro_sintetico: Recording):
+    with pytest.raises(DuplicateChannelError):
+        derive_montage(
+            registro_sintetico, [("C3", "C4"), ("EOG-izq", "C4")], names=["X", "X"]
+        )
+
+
+# -- El montaje de la AASM ---------------------------------------------------
+
+
+def _registro_con(nombres: list[str], clases: list[ChannelKind] | None = None) -> Recording:
+    """Un registro con esos canales; la fila i vale i en todas sus muestras,
+    así que la resta de un derivado se lee directo."""
+    clases = clases or [ChannelKind.EEG] * len(nombres)
+    return Recording(
+        file_path=Path("aasm.edf"),
+        channels=[
+            Channel(nombre, clase, MICROVOLT, i)
+            for i, (nombre, clase) in enumerate(zip(nombres, clases))
+        ],
+        data=np.arange(len(nombres), dtype=float)[:, None] * np.ones((1, 256)),
+        sampling_rate=256.0,
+        start_time=datetime(2026, 9, 8, 23, 0, 0),
+    )
+
+
+def test_el_montaje_aasm_completo():
+    registro = _registro_con(
+        ["F4", "C4", "O2", "F3", "C3", "O1", "E1", "E2", "M1", "M2", "Chin"]
+    )
+
+    plan = plan_aasm_montage(registro)
+
+    assert plan.names == [f"{a}-{r}" for a, r, _ in AASM_MONTAGE]
+    assert plan.channel_kinds == [c for _, _, c in AASM_MONTAGE]
+    assert plan.missing == []
+    assert plan.already_present == []
+
+
+def test_los_eeg_van_contra_la_mastoides_del_otro_lado():
+    """F4, C4 y O2 contra M1; F3, C3 y O1 contra M2; los dos ojos contra M2."""
+    plan = plan_aasm_montage(
+        _registro_con(["F4", "C4", "O2", "F3", "C3", "O1", "E1", "E2", "M1", "M2"])
+    )
+
+    assert dict(zip(plan.names, plan.pairs))["C4-M1"] == ("C4", "M1")
+    assert dict(zip(plan.names, plan.pairs))["C3-M2"] == ("C3", "M2")
+    assert dict(zip(plan.names, plan.pairs))["E1-M2"] == ("E1", "M2")
+    assert dict(zip(plan.names, plan.pairs))["E2-M2"] == ("E2", "M2")
+
+
+def test_el_montaje_aplicado_da_la_resta_y_la_clase():
+    registro = _registro_con(["C4", "E1", "M1", "M2"])
+    plan = plan_aasm_montage(registro)
+
+    montado = derive_montage(registro, plan.pairs, names=plan.names, channel_kinds=plan.channel_kinds)
+
+    c4_m1 = montado.channel_by_name("C4-M1")
+    e1_m2 = montado.channel_by_name("E1-M2")
+    assert np.asarray(montado.data)[c4_m1.index] == pytest.approx(0.0 - 2.0)
+    assert np.asarray(montado.data)[e1_m2.index] == pytest.approx(1.0 - 3.0)
+    assert c4_m1.kind is ChannelKind.EEG
+    assert e1_m2.kind is ChannelKind.EOG
+
+
+def test_los_nombres_con_adornos_de_los_equipos():
+    """«EEG C4-REF» es el C4: los equipos le agregan la clase y la referencia
+    de grabación, y el derivado se llama como lo llama la AASM."""
+    plan = plan_aasm_montage(_registro_con(["EEG C4-REF", "EEG M1-REF"]))
+
+    assert plan.pairs == [("EEG C4-REF", "EEG M1-REF")]
+    assert plan.names == ["C4-M1"]
+
+
+def test_loc_y_roc_son_e1_y_e2():
+    plan = plan_aasm_montage(_registro_con(["LOC", "ROC", "M2"]))
+
+    assert plan.pairs == [("LOC", "M2"), ("ROC", "M2")]
+    assert plan.names == ["E1-M2", "E2-M2"]
+
+
+def test_sin_mastoides_usa_los_lobulos_y_lo_dice_en_el_nombre():
+    """A1 y A2 no son las mastoides: si se usan, el derivado se llama «C4-A1»
+    para que el nombre no diga algo que no se registró."""
+    plan = plan_aasm_montage(_registro_con(["C4", "C3", "A1", "A2"]))
+
+    assert plan.names == ["C4-A1", "C3-A2"]
+
+
+def test_la_mastoides_gana_al_lobulo():
+    plan = plan_aasm_montage(_registro_con(["C4", "A1", "M1"]))
+
+    assert plan.pairs == [("C4", "M1")]
+
+
+def test_lo_que_falta_se_informa_con_el_electrodo():
+    plan = plan_aasm_montage(_registro_con(["C4", "M1", "E1"]))
+
+    assert plan.names == ["C4-M1"]
+    assert "O2-M1 (falta O2)" in plan.missing
+    assert "E1-M2 (falta M2)" in plan.missing
+    assert "O1-M2 (falta O1 y M2)" in plan.missing
+
+
+def test_lo_ya_derivado_no_se_repite():
+    """Un registro que ya trae «C4-M1» —o «LOC-M2», que es «E1-M2»— no la
+    vuelve a derivar: `derive_montage()` la rechazaría como repetida."""
+    plan = plan_aasm_montage(
+        _registro_con(["C4", "M1", "M2", "LOC", "C4-M1", "LOC-M2"])
+    )
+
+    assert plan.pairs == []
+    assert plan.already_present == ["C4-M1", "E1-M2"]
+
+
+def test_un_registro_sin_electrodos_da_un_plan_vacio(registro_sintetico: Recording):
+    """Los nombres del registro sintético no son del montaje: no es un error,
+    es un plan sin nada que derivar."""
+    plan = plan_aasm_montage(registro_sintetico)
+
+    assert plan.pairs == []
+    assert len(plan.missing) == len(AASM_MONTAGE)
+
+
+def test_un_bipolar_no_es_un_electrodo():
+    """«Fpz-Cz» nombra dos electrodos: no sirve de Cz ni de Fpz."""
+    plan = plan_aasm_montage(_registro_con(["F4-C4", "M1"]))
+
+    assert plan.pairs == []
+
+
+@pytest.mark.parametrize("hostil", [None, "registro", 3])
+def test_el_plan_de_algo_que_no_es_un_registro_sale_como_error_del_programa(hostil):
+    with pytest.raises(PsgLabError):
+        plan_aasm_montage(hostil)
