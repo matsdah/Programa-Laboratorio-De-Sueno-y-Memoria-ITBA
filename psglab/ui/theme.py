@@ -109,7 +109,10 @@ _FASES_OSCURAS: Final[tuple[tuple[str, str], ...]] = (
 RADIO_DE_CONTROL: Final[int] = 7
 RADIO_DE_TARJETA: Final[int] = 10
 ALTO_DE_CONTROL: Final[int] = 30
-PADDING_DE_CONTROL: Final[str] = "4px 12px"
+#: El relleno de cada lado de un botón, que **también usa el panel de scoring**
+#: para no dejar que un botón de fase se achique más que su texto (hito 79).
+RELLENO_HORIZONTAL_DE_CONTROL: Final[int] = 12
+PADDING_DE_CONTROL: Final[str] = f"4px {RELLENO_HORIZONTAL_DE_CONTROL}px"
 #: El ancho del anillo con que se ve qué control tiene el foco del teclado. Es
 #: un borde y no un `outline`: Qt no dibuja `outline` en la mayoría de los
 #: widgets, así que un anillo escrito con él se perdería sin avisar.

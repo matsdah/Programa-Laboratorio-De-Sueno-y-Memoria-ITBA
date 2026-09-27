@@ -3313,12 +3313,15 @@ def test_espacio_reproduce_y_pausa(reproduccion: MainWindow):
     assert not ventana.playback_controller.is_playing
 
 
-def test_el_programa_abre_con_la_senal_los_canales_y_el_hipnograma(ventana: MainWindow):
-    """Hito 24, con el hipnograma de vuelta desde el 64. Con un registro
-    abierto sigue igual: abrir no despliega nada más."""
+def test_el_programa_abre_con_la_senal_los_canales_el_scoring_y_el_hipnograma(
+    ventana: MainWindow,
+):
+    """Hito 24, con el hipnograma de vuelta desde el 64 y el scoring compacto
+    desde el 79. Con un registro abierto sigue igual: abrir no despliega nada
+    más."""
     visibles = [clave for clave, dock in ventana.docks.items() if not dock.isHidden()]
 
-    assert visibles == ["channels", "histogram"]
+    assert visibles == ["channels", "scoring", "histogram"]
 
 
 # -- El hipnograma, por el camino del mouse (V4_F) ----------------------------

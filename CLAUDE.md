@@ -570,8 +570,8 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   trabaja con los valores de fábrica y no escribe nada; si lo hiciera, correr la
   suite pisaría la configuración de quien la corre, que ya pasó una vez. **La
   disposición de paneles no se guarda** desde el hito 24: el programa abre
-  siempre con la señal, el selector de canales y, desde el hito 64, el
-  hipnograma. Lo que sí se guarda son los registros recientes y las vistas de
+  siempre con la señal, el selector de canales, el hipnograma —desde el hito
+  64— y, a su izquierda, el scoring en una fila —desde el 79—. Lo que sí se guarda son los registros recientes y las vistas de
   canales, que también escribe sólo esa ventana, **y la copia de
   recuperación** (hito 79), que `apply_saved_preferences()` prende con
   `work_guard.enable_recovery()`. **Lo mismo el cartel de los

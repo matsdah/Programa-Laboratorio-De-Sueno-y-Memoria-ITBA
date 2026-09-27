@@ -1939,7 +1939,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       atributo —un `QDockWidget` responde a `windowTitle()` igual que un
       diálogo— y **los 102 tests de `test_entrega.py` pasaron sin tocar
       ninguno**.
-  - Test: `tests/test_docks.py`, **39 tests en verde**.
+  - Test: `tests/test_docks.py`, **41 tests en verde**.
 - [x] **Fase 4 — La barra inferior.** Primera, anterior, siguiente, última,
       amplitud y una franja que salta a cualquier punto de la noche.
       `navigation.py` salió de `SIN_TEST_PROPIO`. **Con esta fase cerró el MVP
@@ -2138,7 +2138,7 @@ reproducción aparecieron dos errores del hito 22, abajo.
 - [x] **La vista inicial.** `ui/docks.py` oculta tres paneles más al armarlos;
       `apply_saved_layout()` pasó a `apply_saved_preferences()` y ya no
       restaura nada, y la ventana dejó de guardar la disposición al cerrar.
-  - Test: `tests/test_docks.py`, **39 tests en verde**.
+  - Test: `tests/test_docks.py`, **41 tests en verde**.
   - Test: `tests/test_preferences.py`, **86 tests en verde**.
 - [x] **Los botones de página.** ≪ ‹ › ≫ en la barra de abajo, con chevrones
       para que no se confundan con los triángulos de la época.
@@ -2206,7 +2206,7 @@ sobre el registro de `data/`.
 
       Con 1400 px el hipnograma recibe ahora unos 690, el más ancho de los
       tres.
-  - Test: `tests/test_docks.py`, **39 tests en verde**.
+  - Test: `tests/test_docks.py`, **41 tests en verde**.
 
 ---
 
@@ -2359,7 +2359,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
 
       A 1400 y 1280 manda la proporción entera. El mínimo del scoring recién
       aparece por debajo de unos 1210 px.
-  - Test: `tests/test_docks.py`, **39 tests en verde**, con el hipnograma como
+  - Test: `tests/test_docks.py`, **41 tests en verde**, con el hipnograma como
     el más ancho también a 1280.
 
 ### La pila de análisis
@@ -2407,7 +2407,7 @@ métricas de fuente y el plugin offscreen de la suite daría otros.
       dicen las barras de navegación y de estado a propósito: el panel se puede
       sacar a otra pantalla, donde ninguna de las dos se ve.
       `scoring_panel.py` sale de `SIN_TEST_PROPIO`.
-  - Test: `tests/test_scoring_panel.py`, **33 tests en verde**.
+  - Test: `tests/test_scoring_panel.py`, **36 tests en verde**.
 - [x] **El espectro dice con qué se estimó**: «Welch · segmentos de 4 s · Hann
       · solape 50 %». La ventana y el solape de Welch pasan a ser constantes
       explícitas —son los valores por defecto de scipy, así que el espectro no
@@ -3304,7 +3304,7 @@ tecla.
         ancho, así que el reparto con el hipnograma es el mismo. Medido con
         `tests/medir_reparto.py`: el scoring pide 312 px con R&K y 224 con
         AASM, como antes.
-  - Test: `tests/test_scoring_panel.py`, **33 tests en verde**, con la tecla,
+  - Test: `tests/test_scoring_panel.py`, **36 tests en verde**, con la tecla,
     la propiedad de la fase y que cambiar de nomenclatura no deje botones
     viejos, que ahora se pintarían con el color de una fase que ya no existe.
 - [x] **El hipnograma a color**, con la misma escala.
@@ -3684,7 +3684,7 @@ misma escala**, con el respiratorio barriendo seis carriles.
         reflejar el registro, y el pie tiene estado que se puede desincronizar
         sin que nada falle a la vista.
   - Test: `tests/test_channel_selector.py`, **16 tests en verde**.
-  - Test: `tests/test_docks.py`, **39 tests en verde**, con el ancho de apertura.
+  - Test: `tests/test_docks.py`, **41 tests en verde**, con el ancho de apertura.
 - [x] **La pestaña de la época, rellena**, y una línea que separa «Abrir» de los
       menús.
       - La tinta de la pestaña la elige `theme.ink_over()` midiendo contra el
@@ -4082,7 +4082,7 @@ propio salto de tamaño.
         marcas y `status()` contesta el texto pelado, que es lo que el resto
         del programa compara.
   - Test: `tests/test_impedance_panel.py`, **27 tests en verde**;
-    `tests/test_scoring_panel.py`, **33 tests en verde**.
+    `tests/test_scoring_panel.py`, **36 tests en verde**.
 
 ### Lo que este hito deja anotado
 
@@ -4749,7 +4749,7 @@ qué eventos caen en cada una, que es todo lo que el panel hacía.
 - [x] **De paso, el botón de W decía «W» sobre «W»**, y el de R lo mismo: la
       tecla es la inicial de la etiqueta, que ahí es la etiqueta entera. Lo
       vio el usuario en su captura. Ahora se escribe una vez cuando coinciden.
-  - Test: `tests/test_scoring_panel.py`, **33 tests en verde**.
+  - Test: `tests/test_scoring_panel.py`, **36 tests en verde**.
 
 Cada test nuevo de la ventana se probó contra el programa sin su pieza —sin el
 clic, sin refrescar al seleccionar, sin refrescar al cambiar la amplitud, sin
@@ -5543,7 +5543,7 @@ decisiones de por medio.
       anunciaba como «combo, AASM» sin decir de qué.
   - Test: `tests/test_theme.py`, **89 tests en verde**, que mira
     los píxeles del anillo en cada tipo de control y no la hoja de estilo;
-    `tests/test_scoring_panel.py`, **33 tests en verde**;
+    `tests/test_scoring_panel.py`, **36 tests en verde**;
     `tests/test_overview_panel.py`, **27 tests en verde**.
 
 **Un test que cambia la hoja de estilo tiene que cambiarla en su ventana y no
@@ -5625,7 +5625,7 @@ visual**: puntuar una noche costaba más pasos que en esos programas.
     `tests/test_settings_dialog.py`, **49 tests en verde**;
     `tests/test_entrega.py`, **405 tests en verde**;
     `tests/test_menus.py`, **54 tests en verde**;
-    `tests/test_docks.py`, **39 tests en verde**;
+    `tests/test_docks.py`, **41 tests en verde**;
     `tests/test_signal_view.py`, **98 tests en verde**;
     `tests/test_overview_panel.py`, **27 tests en verde**.
 
@@ -5700,7 +5700,7 @@ exportar —Exportar… / Descartar / Cancelar— era el modelo. Lo que faltaba 
       señal descartó el resultado.
   - Test: `tests/test_entrega.py`, **405 tests en verde**;
     `tests/test_consistencia.py`, **108 tests en verde**;
-    `tests/test_scoring_panel.py`, **33 tests en verde**.
+    `tests/test_scoring_panel.py`, **36 tests en verde**.
 
 **Se fue un test**: el que verificaba que la pregunta de borrar decía «Sí / No»
 en castellano. Ningún cartel del programa usa ya esos botones; la traducción
@@ -6228,7 +6228,7 @@ universales, así que Python 3.14 no es un problema.
       ahora en los submenús.
   - Test: `tests/test_entrega.py`, **405 tests en verde**;
     `tests/test_histogram.py`, **37 tests en verde**;
-    `tests/test_scoring_panel.py`, **33 tests en verde**.
+    `tests/test_scoring_panel.py`, **36 tests en verde**.
 
 **Qué no puede afirmar la suite.** Sobre señal sintética, el clasificador
 reconoce la vigilia con alfa y el sueño lento, pero **qué** fase de sueño da
@@ -6650,10 +6650,25 @@ más. **Varias piden una decisión antes**; están marcadas.
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
       son docks: pueden llevar su selector y un botón «Calcular», con el
       canal seleccionado por omisión.
-- [ ] **El panel de Scoring a la vista al abrir.** *(Decidido: visible y
+- [x] **El panel de Scoring a la vista al abrir.** *(Decidido: visible y
       compacto.)* La tarea principal del programa hoy no se
       ve: se descubre por la ayuda de atajos. Una fila compacta con las fases
       y el arousal, o el panel entero la primera vez.
+      Hecho: una sola fila —las fases con su tecla, «Arousal (A)» y el
+      selector de nomenclatura al final—, a la vista al abrir a la izquierda
+      del hipnograma, sin quitarle alto a la señal. El pie con la ventana y
+      su fase sólo se ve con el panel suelto; acoplado lo dicen las barras de
+      abajo, y el lector de pantalla lo recibe como descripción del panel.
+      **La captura encontró tres defectos que la suite daba por buenos**:
+      en un renglón, cada elemento de alto fijo le ponía tope al renglón
+      entero, y los botones de dos renglones salían aplastados a 30 px con la
+      tecla encima de la fase; «REM» se cortaba a «!EN», porque los 40 px de
+      `ANCHO_MINIMO_DE_BOTON` no alcanzaban con el relleno del estilo; y el
+      selector decía «AASN». Ahora los botones crecen al alto del más alto,
+      cada uno se queda con el ancho de su texto —el relleno sale de
+      `theme.RELLENO_HORIZONTAL_DE_CONTROL`— y el selector no se achica.
+  - Test: `tests/test_scoring_panel.py`, **36 tests en verde**;
+    `tests/test_docks.py`, **41 tests en verde**.
 - [x] **Un menú «Scoring».** *(Decidido: sí, y ordenar la barra.)* Las fases, el arousal, ir
       a la próxima sin scorear, deshacer y las fases sugeridas están
       repartidos entre las teclas y «Analizar»; «Escala de tiempo» y
