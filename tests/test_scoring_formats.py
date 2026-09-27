@@ -821,3 +821,38 @@ def test_lo_que_sigue_al_equipo_de_otro_programa_no_se_cree(tmp_path):
 
     with pytest.raises(UndeclaredNomenclatureError):
         read_scoring(ruta, 1)
+
+
+# -- Enteros o nada (hito 79) ------------------------------------------------
+
+
+def test_un_csv_que_se_corta_a_mitad_deja_el_de_antes(tmp_path, monkeypatch):
+    """El CSV se escribe fila por fila: un error en la ventana 3 dejaba un
+    archivo con dos ventanas, que se lee sin error como una noche corta."""
+    destino = tmp_path / "Scoring.csv"
+    destino.write_text("lo de antes\n", encoding="utf-8")
+    scoring = Scoring(5, Nomenclature.AASM)
+    leer = Scoring.get
+
+    def falla_en_la_tercera(self, indice):
+        if indice == 2:
+            raise OSError("disco lleno")
+        return leer(self, indice)
+
+    monkeypatch.setattr(Scoring, "get", falla_en_la_tercera)
+
+    with pytest.raises(OSError):
+        export_scoring_as(scoring, destino)
+
+    assert destino.read_text(encoding="utf-8") == "lo de antes\n"
+    assert list(tmp_path.iterdir()) == [destino]
+
+
+@pytest.mark.parametrize("extension", ["txt", "csv", "edf", "xml"])
+def test_cada_formato_se_escribe_sin_dejar_provisorios(tmp_path, extension):
+    destino = tmp_path / f"Scoring.{extension}"
+
+    export_scoring_as(Scoring(3, Nomenclature.AASM), destino)
+
+    assert list(tmp_path.iterdir()) == [destino]
+    assert destino.stat().st_size > 0
