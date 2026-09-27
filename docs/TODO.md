@@ -621,7 +621,7 @@ una vez que agregarlos al lugar que después hay que partir.
       4,16 carriles en vez de 0,34: doce veces. Los respiratorios se centran
       solos al abrir un registro, así que le pasaba a cualquiera que midiera
       sobre uno.
-  - Test: `tests/test_overlay_items.py`, **15 tests en verde**, y
+  - Test: `tests/test_overlay_items.py`, **23 tests en verde**, y
     `tests/test_envelope_cache.py`, **7 tests en verde**, sin Qt;
     `tests/test_signal_view.py` sigue con **98 tests en verde**.
 - [ ] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
@@ -746,7 +746,7 @@ función, y la historia ya está en este archivo y en git.
 
   - Test: en `tests/test_overlay_items.py`, qué se reutiliza y qué cambio
     de geometría obliga a rehacer.
-- [ ] **Una sola pieza para todas las bandas de anotación**, como la
+- [x] **Una sola pieza para todas las bandas de anotación**, como la
       grilla. Después del ítem anterior, `set_overlays()` cuesta unos 6 ms
       por movimiento con 400 anotaciones; **el 94 % de lo que queda es Qt
       pintando** 400 `LinearRegionItem`, cada uno con sus dos
@@ -756,6 +756,31 @@ función, y la historia ya está en este archivo y en git.
       bordes que se agarran para corregir un tramo son del anotador, que
       recibe el clic por coordenadas y no por ítem, así que no dependen de
       que cada banda sea un objeto. Medirlo con el banco, intercalado.
+      Hecho: `AnnotationBands`, en `ui/overlay_items.py`. **Juntar los
+      objetos no alcanzó**: bajó a unos 80 ms, y el perfil pasó a ser el
+      propio relleno. Rellenar 400 rectángulos traslúcidos de 5 × 700 px
+      cuesta unos 70 ms aunque sea una sola llamada, y opacos 1,5 ms; lo
+      más probable es que Qt mezcle fila por fila. Como todas las filas de
+      una banda son iguales, los rellenos se componen en una tira de un
+      píxel de alto que se estira a todo el alto. Los rótulos siguen siendo
+      un `TextItem` cada uno: eran el 6 % del perfil. Medido intercalado
+      con el banco, página de 5 min y la lupa moviéndose, en offscreen:
+
+      | Anotaciones en la página | Antes | Después |
+      |---|---|---|
+      | 0 | 9,1–9,3 ms | 9,5–9,8 ms |
+      | 100 | 35–39 ms | 14–15 ms |
+      | 400 | 117–130 ms | 26–28 ms |
+
+      **Se ve igual**, comparado píxel a píxel contra las `LinearRegionItem`
+      —también con densidad 2—: 1/255 de redondeo, salvo que ahora los
+      bordes van encima de todos los rellenos, y el de una banda que cae
+      dentro de otra ya no queda teñido. Comparar encontró un error antes de
+      que llegara a la pantalla: con ocho cifras, `QColor` lee `#AARRGGBB` y
+      pyqtgraph `#RRGGBBAA`.
+  - Test: en `tests/test_overlay_items.py`, que cien anotaciones sean una
+    pieza, que se pinten de su color y donde van —a cada lado de los dos
+    bordes— y que lleguen al carril que se agrega sin redibujarlas.
 - [ ] **El hipnograma no se rearma en cada flecha.** `_reflejar_epoca()`
       llama a `_redraw_histogram()`, que limpia y vuelve a crear la curva,
       las barras y las marcas, aunque `HistogramTool.update_window()` exista

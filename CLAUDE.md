@@ -709,7 +709,10 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   —página, canales, escala, desplazamiento y esquema—; rehacerlo todo costaba
   un segundo por movimiento con 400 anotaciones. Lo que cambie cómo se dibuja
   un overlay tiene que entrar en `SignalView.overlay_signature()`, o el dibujo
-  queda viejo. `useOpenGL` se midió y **empeora**. Lo que se proponga en su lugar,
+  queda viejo. La sexta, del mismo hito: **las bandas de anotación son una
+  sola pieza** que compone sus rellenos en una tira de un píxel de alto y la
+  estira. Un relleno traslúcido angosto y alto es caro en Qt aunque sea uno
+  solo: 400 costaban 70 ms por cuadro. `useOpenGL` se midió y **empeora**. Lo que se proponga en su lugar,
   medirlo con el banco, **intercalado** contra el árbol sin el cambio: un
   número suelto no dice nada, porque la misma medición varía al doble de una
   corrida a otra.

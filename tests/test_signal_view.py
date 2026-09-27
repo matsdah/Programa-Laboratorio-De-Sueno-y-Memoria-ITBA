@@ -1249,15 +1249,13 @@ def test_la_banda_dice_de_que_clase_es(vista: SignalView):
 def test_el_rotulo_va_encima_de_su_banda(vista: SignalView):
     """Si no, el borde de una banda más angosta que su nombre le cruza el
     texto, que es lo que mostró la captura."""
-    import pyqtgraph as pg
-
     from psglab.tools.base import SpanOverlay
 
     vista.set_overlays([SpanOverlay("annotator", 4.0, 5.0, "Complejo K", "#4a90e6")])
 
-    (region,) = [i for i in vista.overlay_layer.items if isinstance(i, pg.LinearRegionItem)]
+    bandas = vista.overlay_layer.annotation_bands
     (rotulo,) = _rotulos(vista)
-    assert rotulo.zValue() > region.zValue()
+    assert rotulo.zValue() > bandas.zValue()
 
 
 def test_el_rotulo_de_una_banda_que_empieza_antes_queda_en_la_pagina(
