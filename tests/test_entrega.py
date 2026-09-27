@@ -377,6 +377,42 @@ def test_cancelar_el_guardado_no_escribe_nada(
     assert not ventana.carteles
 
 
+def test_informacion_se_exporta_desde_el_menu_con_el_informe_de_sueno(
+    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado
+):
+    """Hito 79: Informacion.txt vuelve a «Archivo», y trae al final el
+    informe de sueño con lo scoreado de verdad por la ventana."""
+    for fase in (SleepStage.WAKE, SleepStage.N2, SleepStage.N2):
+        ventana.score_current_window(fase)
+    dialogo_de_guardado["respuesta"] = tmp_path / NOMBRES["information"]
+
+    ventana.export_information_dialog()
+
+    (propuesto, _), = dialogo_de_guardado["llamadas"]
+    assert Path(propuesto).name == NOMBRES["information"]
+    texto = (tmp_path / NOMBRES["information"]).read_text(encoding="utf-8")
+    informe = texto.split("INFORME DE SUEÑO", 1)[1]
+    assert "Tiempo total de sueño: 0 h 01 min 00,00 s" in informe
+    assert "Latencia de sueño: 0 h 00 min 30,00 s" in informe
+    assert not ventana.carteles
+
+
+def test_anotaciones_se_exporta_desde_el_menu(
+    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado
+):
+    """Y cuenta como exportado: cerrar ya no pregunta por las anotaciones."""
+    anotar_algo(ventana)
+    dialogo_de_guardado["respuesta"] = tmp_path / NOMBRES["annotations"]
+
+    ventana.export_annotations_dialog()
+
+    (propuesto, _), = dialogo_de_guardado["llamadas"]
+    assert Path(propuesto).name == NOMBRES["annotations"]
+    assert "Spindle" in (tmp_path / NOMBRES["annotations"]).read_text(encoding="utf-8")
+    assert ventana.work_guard.unexported() == []
+    assert not ventana.carteles
+
+
 def test_el_dialogo_de_importar_ofrece_los_cuatro_formatos_juntos(
     ventana: MainWindow, monkeypatch
 ):
