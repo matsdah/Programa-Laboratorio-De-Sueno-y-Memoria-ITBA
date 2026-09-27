@@ -265,6 +265,9 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("derive(name=...)", lambda v: derivation.derive(registro(), "C0", "C1", v)),
         ("derive_montage(recording=...)", lambda v: derivation.derive_montage(v, [])),
         ("derive_montage(pairs=...)", lambda v: derivation.derive_montage(registro(), v)),
+        ("derive_montage(names=...)", lambda v: derivation.derive_montage(registro(), [("C0", "C1")], names=v)),
+        ("derive_montage(channel_kinds=...)", lambda v: derivation.derive_montage(registro(), [("C0", "C1")], channel_kinds=v)),
+        ("plan_aasm_montage", lambda v: derivation.plan_aasm_montage(v)),
     ],
     "psglab/analysis/filters.py": [
         ("apply_filters(recording=...)", lambda v: filters.apply_filters(v, {})),
@@ -390,6 +393,12 @@ CASOS = [
 #: suite lo notara. La consecuencia de cada una está en su comentario; ninguna
 #: falla de forma visible, que es lo que las hace caras.
 RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
+    # Hito 79. Una lista de nombres más corta que los pares dejaría un
+    # derivado sin nombre, o con el de otro par.
+    ("derive_montage con menos nombres que pares", ["uno"],
+     lambda v: derivation.derive_montage(registro(), [("C0", "C1"), ("C1", "C0")], names=v)),
+    ("derive_montage con una clase que no es ChannelKind", ["EEG"],
+     lambda v: derivation.derive_montage(registro(), [("C0", "C1")], channel_kinds=v)),
     # Hito 79. Aceptar una copia vacía pondría la sesión como estaba, que
     # parece inofensivo, y le diría al usuario que recuperó algo que no estaba.
     ("restore con una copia vacía", {}, lambda v: recovery.restore(sesion(), v)),
