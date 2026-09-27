@@ -3,12 +3,17 @@
 Tres archivos de texto, uno por módulo, más las estadísticas que alimentan al
 tercero, y el scoring en los formatos que leen otros programas.
 
-**Desde la ventana sólo se exporta el scoring**, en `.txt`, `.csv`, `.edf` o
-`.xml`. Anotaciones.txt e Informacion.txt salieron del menú el 16 de
-septiembre de 2026 por decisión del usuario, aunque el pliego los pide
-(V2_F, V3_F y V4_F): `MainWindow.export()` los sigue escribiendo y se piden
-desde un script. Está anotado como pendiente de confirmar con el cliente en
-el [hito 23 del TODO](../../docs/HISTORIAL.md#hito-23-ajustes-de-la-barra-de-menú).
+**Los tres se exportan desde «Archivo»**: el scoring en `.txt`, `.csv`,
+`.edf` o `.xml`, y Anotaciones.txt e Informacion.txt. Los dos últimos habían
+salido del menú el 16 de septiembre de 2026 por decisión del usuario
+([hito 23](../../docs/HISTORIAL.md#hito-23-ajustes-de-la-barra-de-menú)) y
+volvieron en el hito 79, cuando Informacion.txt sumó el informe de sueño.
+
+**El informe de sueño estándar** va al final de Informacion.txt, sin mover lo
+que ya traía: tiempo en cama, tiempo total de sueño, eficiencia, latencias,
+vigilia después del inicio, porcentaje de cada fase e índice de arousals. Lo
+calcula `statistics.sleep_summary()`, y **sus definiciones están en su
+docstring para que el laboratorio las confirme**.
 
 **Los formatos son texto plano y fáciles de leer con cualquier herramienta, y
 eso es deliberado:** los archivos de salida son la vía por la que el scoring

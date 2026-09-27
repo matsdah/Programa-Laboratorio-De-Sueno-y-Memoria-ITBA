@@ -33,10 +33,18 @@ explicada donde se originó; acá está para que no se pierda entre lo cerrado.
       documento: los IDs saltan de V1_F a V5_F. Pueden ser tres requisitos que
       el proyecto nunca registró. Ver la introducción de la
       [Parte 2](HISTORIAL.md#parte-2-módulo-de-análisis-de-bioseñales).
-- [ ] **Anotaciones.txt e Informacion.txt fuera del menú.** Salieron por
+- [x] **Anotaciones.txt e Informacion.txt fuera del menú.** Salieron por
       decisión del usuario el 16 de septiembre de 2026 y se piden desde un
       script; falta confirmarlo con el cliente. Ver el
       [hito 23](HISTORIAL.md#hito-23-ajustes-de-la-barra-de-menú).
+      Ya no hay nada que confirmar: **volvieron a «Archivo» en el hito 79**,
+      que es lo que pide el pliego, por pedido del mismo usuario.
+- [ ] **Las definiciones del informe de sueño**, al final de
+      `Informacion.txt`: tiempo en cama como el registro entero, la vigilia
+      del final fuera de la vigilia después del inicio, los arousals como
+      ventanas marcadas. Están en el docstring de
+      `exporters/statistics.py::sleep_summary()`. Ver la decisión 7 del
+      [hito 79](#hito-79-la-auditoría-del-26-de-septiembre).
 - [ ] **Los filtros sugeridos**, que pueden no ser los que el laboratorio
       usa. Ver la decisión 8 del [hito 79](#hito-79-la-auditoría-del-26-de-septiembre).
 
@@ -288,8 +296,8 @@ código de hoy** antes de arreglar nada.
     `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
-    `tests/test_contratos.py`, **1207 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_contratos.py`, **1227 tests en verde**;
+    `tests/test_entrega.py`, **424 tests en verde**.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
 línea reanclada sin canal, la lupa sin restar el desplazamiento, la banda que
@@ -362,8 +370,8 @@ más. **Varias piden una decisión antes**; están marcadas.
       van a la próxima y a la anterior sin scorear, con `Scoring.next_unscored()`.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
-    `tests/test_contratos.py`, **1207 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_contratos.py`, **1227 tests en verde**;
+    `tests/test_entrega.py`, **424 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
   0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
@@ -384,7 +392,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       ayuda de atajos suma C y, en «Anotación», lo que hace el mouse.
   - Test: `tests/test_annotator.py`, **49 tests en verde**;
     `tests/test_tool_controller.py`, **16 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_entrega.py`, **424 tests en verde**.
 - [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
       pedido encadena carteles modales para elegir canal, medida o banda
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
@@ -429,24 +437,74 @@ más. **Varias piden una decisión antes**; están marcadas.
     fase, las sugeridas fuera de «Analizar», las entradas apagadas sin
     registro, scorear y marcar el arousal desde el menú, lo tildado al
     abrirse y las fases de Rechtschaffen y Kales.
-- [ ] **El informe de sueño estándar.** *(Decidido: se hace y se confirma con el laboratorio.)*
+- [x] **El informe de sueño estándar.** *(Decidido: se hace y se confirma con el laboratorio.)*
       `Informacion.txt` tiene la duración por fase y las métricas de
       episodios que pide el pliego, y no trae lo primero que busca un
       laboratorio: tiempo en cama, tiempo total de sueño, eficiencia,
       latencia de sueño y de REM, vigilia después del inicio, porcentaje de
       cada fase sobre el sueño, cantidad e índice de arousals. Se calcula con
       lo que ya hay en `exporters/statistics.py`.
+      Hecho, **y falta la confirmación del laboratorio**, que está entre las
+      preguntas abiertas del principio. `statistics.sleep_summary()` lo
+      calcula y `Informacion.txt` lo trae en una sección nueva al final,
+      **sin mover nada de lo que ya traía**. Las decisiones, en su
+      docstring: el tiempo en cama es el registro entero, porque no hay
+      marcas de luces; MT no es sueño; las latencias van hasta el comienzo
+      de la ventana; la vigilia después del inicio es la que queda entre la
+      primera y la última ventana de sueño; y los arousals son las ventanas
+      de sueño marcadas, no eventos. Lo que no existe —la latencia de REM de
+      una noche sin REM— se dice con palabras y no con un cero, como el
+      resto del archivo, y las ventanas sin scorear se avisan arriba.
+      **Anotaciones.txt e Informacion.txt volvieron a «Archivo»**, debajo
+      del scoring, porque el pliego los pide y el informe no servía si sólo
+      se podía pedir desde un script.
+  - Test: `tests/test_exporters.py`, **60 tests en verde**;
+    `tests/test_menus.py`, **54 tests en verde**; y en
+    `tests/test_entrega.py`, los dos archivos exportados por la ventana.
 - [ ] **La lupa del tamaño de la página.** El radio es de un segundo por el
       aumento: con una página de una hora la lente no se ve, y con una de un
       segundo tapa todo. Llevarlo a una fracción de la página.
-- [ ] **El montaje AASM de un clic** (F4-M1, C4-M1, O2-M1 y los EOG):
+- [x] **El montaje AASM de un clic** (F4-M1, C4-M1, O2-M1 y los EOG):
       `derive_montage()` existe desde la Parte 2 y la ventana sólo deriva de
       a un par.
-- [ ] **Más rótulos de canal reconocidos.** `readers/channel_types.py` deja
+      Hecho: «Montaje › Montaje AASM». **Revisa la decisión del hito 19**, que
+      dejó `derive_montage()` como biblioteca porque nadie había pedido un
+      montaje entero desde el programa; el usuario lo pidió, y sale de
+      `SOLO_BIBLIOTECA`. `plan_aasm_montage()` busca los electrodos con los
+      nombres de los equipos —«EEG C4-REF» es el C4, LOC y ROC son E1 y E2—
+      y arma F4-M1, C4-M1, O2-M1, su respaldo F3-M2, C3-M2 y O1-M2, y E1-M2 y
+      E2-M2. Sin mastoides usa los lóbulos, y el derivado se llama «C4-A1»
+      para no decir algo que no se registró. Lo que el registro ya trae
+      derivado no se repite, y lo que falta se dice en la barra de estado
+      —«O1-M2 (falta O1)»— hasta el próximo mensaje; sin ninguna derivación
+      posible, un cartel. `derive_montage()` recibe ahora el nombre y la
+      clase de cada derivado: «E1-M2» es un EOG aunque M2 sea un electrodo
+      de EEG, y la regla de `derive()` le daba «Otro». Se vuelve atrás con
+      «Volver a la señal original», como derivar.
+  - Test: `tests/test_derivation.py`, **52 tests en verde**; y en
+    `tests/test_entrega.py`, el montaje por la ventana: la resta, la clase,
+    lo que falta, no repetir y volver atrás.
+- [x] **Más rótulos de canal reconocidos.** `readers/channel_types.py` deja
       en «Otro» nombres comunes de polisomnografía —ABD, THO, Chest, Therm,
       Nasal, Pres, PTAF, Effort, Pleth, Pulse, Pos, Leg, LAT, RAT, M1, M2—, y
       con eso pierden la escala de su clase y el atajo del selector. Y `loc`
       y `roc` se buscan sin límite de palabra: «Clock» sale EOG.
+      Hecho. El esfuerzo (ABD, THO, Chest, Effort), el flujo (Therm, Nasal,
+      Pres, PTAF, Cannula) y la oximetría (Pleth, Pulse) son respiratorios
+      —la oximetría no tiene clase propia y va donde ya iba la SpO2—; las
+      piernas (Leg, LAT, RAT) son EMG; y **M1, M2, A1 y A2 son EEG**, que es
+      lo que necesita el montaje: `derive()` le da a «C4-M1» la clase de sus
+      dos canales sólo si coinciden, y con M1 en «Otro» la derivación que se
+      scorea salía «Otro». **Pos queda en «Otro» a propósito**: no es de
+      ninguna clase. El límite de palabra no era sólo de `loc` y `roc`: `e1`
+      hacía EOG a «Line1», `ojo` a «Cable rojo» y `chin` hacía EMG a
+      «Machine». Los patrones cortos se anclan al comienzo de la palabra, y
+      los nombres de clase —`eog`, `emg`, `ecg`— siguen valiendo pegados,
+      como en «HEOG». Y los acentos se sacan antes de partir el nombre:
+      «Mentón» se partía en «ment» y «n» y dejaba de ser EMG.
+  - Test: `tests/test_channel_types.py`, **93 tests en verde**. Veinticinco
+    de los nuevos fallan sin el cambio; los demás cuidan que no se pase de
+    largo: «Lateral» y «Pos» siguen en «Otro».
 - [x] **El arousal existe dos veces sin relación**: la marca de la ventana
       (tecla A) y la clase de anotación «Arousal». *(Decidido: la marca.)*
       Hecho, con la decisión 6: **anotar un arousal marca su ventana**, la de
@@ -459,7 +517,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       mano. Anotar y marcar son un solo paso de deshacer.
   - Test: `tests/test_annotations.py`, **82 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_entrega.py`, **424 tests en verde**.
 
 ### Tanda 3: partir las clases grandes
 

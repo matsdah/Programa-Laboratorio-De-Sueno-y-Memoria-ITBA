@@ -175,6 +175,8 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "open_scoring_dialog",
         "export",
         "export_scoring_dialog",
+        "export_annotations_dialog",
+        "export_information_dialog",
         # Amplitud.
         "fit_amplitude_to_pane",
         "center_amplitude_offsets",
@@ -218,6 +220,7 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "set_histogram_time_axis",
         # Montaje.
         "derive_dialog",
+        "apply_aasm_montage",
         "rereference_dialog",
         "apply_average_reference",
         "restore_original_recording",

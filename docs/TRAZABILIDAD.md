@@ -113,7 +113,7 @@ commit.
 | V1_F | `Scoring.txt`, y el mismo scoring en CSV, EDF+ y XML | `psglab/exporters/scoring_txt.py`, `psglab/exporters/scoring_formats.py` (los otros tres formatos), `psglab/core/nomenclature.py` (`STAGE_CODES`) |
 | V2_F | `Anotaciones.txt` | `psglab/exporters/annotations_txt.py`, `psglab/core/annotations.py` |
 | V3_F | `Informacion.txt` | `psglab/exporters/information_txt.py`, `psglab/exporters/statistics.py` |
-| V4_F | Elegir cuál de los tres exportar | `psglab/ui/work_guard.py` (`export()`; desde el hito 23 la ventana sólo ofrece el scoring) |
+| V4_F | Elegir cuál de los tres exportar | `psglab/ui/work_guard.py` (`export()` y su diálogo; desde el hito 79 «Archivo» ofrece los tres) |
 
 ---
 
@@ -125,7 +125,7 @@ commit.
 | Filtración | V5_F | Análisis de componentes independientes | `psglab/analysis/ica.py`, `psglab/ui/ica_panel.py` (inspeccionar y elegir), `psglab/ui/window_analysis.py` (ajustarla, mostrarla y aplicarla), `psglab/ui/analysis_controller.py` (`forget_ica`, que descarta la descomposición cuando cambia la señal) |
 | Impedancia | V1_F | Límite por canal y alerta al superarlo | `psglab/analysis/impedance.py`, `psglab/readers/brainvision.py` (las extrae del `.vhdr`), `psglab/ui/impedance_panel.py` (la tabla y el informe) |
 | Rereferenciar | — | Re-referenciar la señal | `psglab/analysis/reference.py` |
-| Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
+| Derivar | — | Derivar la señal | `psglab/analysis/derivation.py`, `psglab/ui/window_analysis.py` (de a un par y el montaje AASM, desde «Montaje») |
 | PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py`, `psglab/ui/psd_panel.py` (el dibujo) |
 | Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py`, `psglab/ui/metric_panel.py` (el dibujo) |
 | Scoring automático | — | Sugerir la fase de cada ventana, que alguien confirma después (hito 75) | `psglab/analysis/auto_scoring.py`, `core/scoring.py` (la capa de las sugeridas), `ui/window_scoring.py` y `ui/menus.py` («Scoring › Fases sugeridas», desde el hito 79) |

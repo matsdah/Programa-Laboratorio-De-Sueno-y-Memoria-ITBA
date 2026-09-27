@@ -160,11 +160,9 @@ class WorkGuard(QObject):
     def export(self, kind: str, path: Path) -> bool:
         """Exporta uno de los tres archivos de salida (V4_F).
 
-        **Del menú sólo se pide el scoring**: Anotaciones.txt e
-        Informacion.txt salieron de ahí el 16 de septiembre de 2026, pero este
-        método los sigue escribiendo, y es la vía para pedirlos desde un
-        script. Anotaciones.txt tiene además una puerta más en la ventana
-        desde el cierre del hito 33: el cartel del trabajo sin exportar, que
+        Los tres se piden desde «Archivo»; Anotaciones.txt e Informacion.txt
+        volvieron ahí en el hito 79. Anotaciones.txt tiene además otra
+        puerta desde el hito 33: el cartel del trabajo sin exportar, que
         ofrece guardarlas antes de perderlas.
 
         Args:

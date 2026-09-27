@@ -575,3 +575,170 @@ def test_los_tres_archivos_no_quedan_truncados_si_escribir_falla(
     monkeypatch.undo()
 
     assert destino.read_text(encoding="utf-8") == "lo de antes\n"
+
+
+# -- El informe de sueño estándar (hito 79) ----------------------------------
+
+
+def scoring_con(fases: list[SleepStage], nomenclatura: Nomenclature = Nomenclature.AASM) -> Scoring:
+    scoring = Scoring(len(fases), nomenclatura)
+    for i, fase in enumerate(fases):
+        scoring.set_stage(i, fase)
+    return scoring
+
+
+#: Una noche chica con todo lo que el informe distingue: vigilia al comienzo,
+#: vigilia en el medio, REM y vigilia al final. Diez ventanas, la última de
+#: 10 s: son 280 s de registro.
+NOCHE: list[SleepStage] = [
+    SleepStage.WAKE, SleepStage.WAKE, SleepStage.N1, SleepStage.N2, SleepStage.WAKE,
+    SleepStage.N2, SleepStage.R, SleepStage.N3, SleepStage.WAKE, SleepStage.WAKE,
+]
+
+
+def informe_de(fases: list[SleepStage], nomenclatura: Nomenclature = Nomenclature.AASM):
+    r = registro(n_ventanas_completas=len(fases) - 1)
+    return stats.sleep_summary(scoring_con(fases, nomenclatura), r.n_samples, r.sampling_rate)
+
+
+def test_el_informe_de_sueno_de_una_noche_conocida():
+    """Cada número hecho a mano: sueño en las ventanas 2, 3, 5, 6 y 7."""
+    informe = informe_de(NOCHE)
+
+    assert informe.time_in_bed == pytest.approx(280.0)
+    assert informe.total_sleep_time == pytest.approx(150.0)
+    assert informe.sleep_efficiency == pytest.approx(100 * 150 / 280)
+    assert informe.sleep_latency == pytest.approx(60.0)
+    assert informe.rem_latency == pytest.approx(120.0)
+    assert informe.sleep_period_time == pytest.approx(180.0)
+    assert informe.wake_after_sleep_onset == pytest.approx(30.0)
+    assert informe.unscored_windows == 0
+
+
+def test_la_vigilia_del_final_no_es_vigilia_despues_del_inicio():
+    """Después de la última ventana de sueño el participante ya se despertó:
+    esas dos ventanas de W no cuentan, la del medio sí."""
+    assert informe_de(NOCHE).wake_after_sleep_onset == pytest.approx(30.0)
+
+
+def test_los_porcentajes_son_sobre_el_sueno_y_suman_cien():
+    informe = informe_de(NOCHE)
+
+    assert informe.stage_percent[SleepStage.N2] == pytest.approx(40.0)
+    assert informe.stage_percent[SleepStage.R] == pytest.approx(20.0)
+    assert sum(informe.stage_percent.values()) == pytest.approx(100.0)
+    assert SleepStage.WAKE not in informe.stage_percent
+
+
+def test_la_ultima_ventana_incompleta_aporta_lo_que_dura():
+    """Como `stage_durations_seconds()`: una noche que termina en N2 con una
+    cola de 10 s no suma 30 s de sueño por esa ventana."""
+    informe = informe_de([SleepStage.N2, SleepStage.N2])
+
+    assert informe.total_sleep_time == pytest.approx(40.0)
+
+
+def test_mt_no_es_sueno():
+    """El tiempo de movimiento no se pudo leer: contarlo como sueño inflaría
+    el tiempo total con justamente eso."""
+    informe = informe_de(
+        [SleepStage.S2, SleepStage.MT, SleepStage.S2, SleepStage.WAKE], Nomenclature.RK
+    )
+
+    assert informe.total_sleep_time == pytest.approx(60.0)
+    assert informe.wake_after_sleep_onset == pytest.approx(0.0)
+
+
+def test_el_rem_de_rechtschaffen_y_kales_tambien_da_latencia():
+    informe = informe_de(
+        [SleepStage.WAKE, SleepStage.S2, SleepStage.REM, SleepStage.WAKE], Nomenclature.RK
+    )
+
+    assert informe.rem_latency == pytest.approx(30.0)
+    assert informe.stage_percent[SleepStage.REM] == pytest.approx(50.0)
+
+
+def test_sin_rem_la_latencia_no_existe_y_no_es_cero():
+    """Un cero diría que el REM empezó con el sueño."""
+    informe = informe_de([SleepStage.WAKE, SleepStage.N2, SleepStage.WAKE])
+
+    assert informe.rem_latency is None
+
+
+def test_sin_sueno_las_medidas_del_sueno_no_existen():
+    informe = informe_de([SleepStage.WAKE] * 3)
+
+    assert informe.total_sleep_time == 0.0
+    assert informe.sleep_latency is None
+    assert informe.wake_after_sleep_onset is None
+    assert informe.arousal_index is None
+
+
+def test_los_arousals_se_cuentan_en_las_ventanas_de_sueno():
+    """Un arousal es desde el sueño: la marca en una ventana de vigilia no
+    cuenta. Y es por ventana: la marca de `Scoring` no guarda eventos."""
+    scoring = scoring_con(NOCHE)
+    scoring.set_arousal(0, True)
+    scoring.set_arousal(3, True)
+    scoring.set_arousal(6, True)
+    r = registro(n_ventanas_completas=9)
+
+    informe = stats.sleep_summary(scoring, r.n_samples, r.sampling_rate)
+
+    assert informe.arousals == 2
+    assert informe.arousal_index == pytest.approx(2 / (150 / 3600))
+
+
+def test_lo_sin_scorear_no_es_sueno_ni_vigilia_y_se_cuenta():
+    informe = informe_de([SleepStage.N2, SleepStage.UNSCORED, SleepStage.N2, SleepStage.WAKE])
+
+    assert informe.unscored_windows == 1
+    assert informe.total_sleep_time == pytest.approx(60.0)
+    assert informe.wake_after_sleep_onset == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize("frecuencia", [0.0, -1.0, float("nan")])
+def test_el_informe_de_sueno_rechaza_una_frecuencia_que_no_sirve(frecuencia: float):
+    with pytest.raises(PsgLabError):
+        stats.sleep_summary(scoring_con(NOCHE), 1000, frecuencia)
+
+
+def test_informacion_trae_el_informe_de_sueno_al_final():
+    """Al final y sin tocar lo de antes: los scripts del laboratorio leen las
+    secciones que ya estaban."""
+    r = registro(n_ventanas_completas=9)
+    texto = build_report(r, scoring_con(NOCHE), None)
+
+    antes, _, informe = texto.partition("INFORME DE SUEÑO")
+    assert "ANOTACIONES" in antes
+    assert "ANOTACIONES" not in informe
+    assert "Tiempo total de sueño: 0 h 02 min 30,00 s" in informe
+    assert "Eficiencia de sueño: 53,6 %" in informe
+    assert "Latencia de REM: 0 h 02 min 00,00 s" in informe
+    assert "(el registro entero: no hay marcas de luces apagadas y encendidas)" in informe
+
+
+def test_el_informe_de_sueno_dice_lo_que_no_hay_en_vez_de_ceros():
+    r = registro(n_ventanas_completas=2)
+    informe = build_report(r, scoring_con([SleepStage.WAKE] * 3), None).partition(
+        "INFORME DE SUEÑO"
+    )[2]
+
+    assert "Latencia de sueño: no hay sueño scoreado" in informe
+    assert "Porcentaje de cada fase: no hay sueño scoreado." in informe
+    assert "sobre el tiempo total de sueño" not in informe
+
+
+def test_el_informe_de_sueno_avisa_lo_sin_scorear():
+    r = registro(n_ventanas_completas=2)
+    informe = build_report(
+        r, scoring_con([SleepStage.N2, SleepStage.UNSCORED, SleepStage.UNSCORED]), None
+    ).partition("INFORME DE SUEÑO")[2]
+
+    assert "Atención: 2 ventanas sin scorear" in informe
+
+
+def test_sin_scorear_el_informe_de_sueno_lo_dice():
+    informe = build_report(registro(), None, None).partition("INFORME DE SUEÑO")[2]
+
+    assert "El registro todavía no está scoreado." in informe
