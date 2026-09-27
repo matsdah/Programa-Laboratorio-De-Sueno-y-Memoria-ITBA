@@ -103,6 +103,9 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_shortcuts.py": ("psglab/ui/shortcuts.py",),
     "test_shortcuts_dialog.py": ("psglab/ui/shortcuts_dialog.py",),
     "test_signal_view.py": ("psglab/ui/signal_view.py",),
+    # Los dos pedazos que el visualizador separó en el hito 79.
+    "test_overlay_items.py": ("psglab/ui/overlay_items.py",),
+    "test_envelope_cache.py": ("psglab/ui/envelope_cache.py",),
     "test_grid.py": ("psglab/ui/grid.py",),
     "test_channel_axis.py": ("psglab/ui/channel_axis.py",),
     "test_channel_selector.py": ("psglab/ui/channel_selector.py",),

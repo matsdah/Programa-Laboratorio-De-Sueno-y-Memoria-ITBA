@@ -134,7 +134,9 @@ class Preferences:
             el pliego la pide asimétrica.
         amplitude_band_uv: la altura de la banda de amplitud, en µV. Arranca en
             la del pliego; hay criterios que usan otros umbrales.
-        magnifier_radius_seconds: el radio de la lupa, en segundos de señal.
+        magnifier_radius_seconds: el radio de la lupa, en segundos de señal,
+            con la página de una época. Con otra página la lupa lo escala en
+            proporción; ver `MagnifierTool.radius_for_page()`.
         magnifier_zoom: cuánto amplía la lupa. 1 es sin aumento.
         advance_after_scoring: si scorear una ventana pasa a la siguiente
             (hito 64). **Arranca en sí**, como en los programas de scoring

@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from psglab.config import WINDOW_SECONDS
 from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Channel, ChannelKind, Recording
@@ -250,3 +251,33 @@ def test_apagarla_olvida_el_canal(lupa: MagnifierTool, sesion: Session):
     lupa.activate(sesion)
 
     assert lupa.overlays() == ()
+
+
+# -- El radio acompaña a la página -------------------------------------------
+
+
+def test_el_radio_elegido_vale_para_la_pagina_de_una_epoca(lupa: MagnifierTool):
+    """Con la página de arranque, que es una época, el radio es el elegido."""
+    lupa.set_radius_seconds(2.5)
+    assert lupa.radius_for_page(WINDOW_SECONDS) == pytest.approx(2.5)
+
+
+@pytest.mark.parametrize("pagina", [1.0, 3.0, 300.0, 3600.0])
+def test_con_otra_pagina_el_radio_se_escala_en_proporcion(lupa: MagnifierTool, pagina):
+    """Con un radio fijo en segundos, una página de una hora dejaba la lente
+    invisible y una de un segundo la volvía más grande que la pantalla. En
+    proporción, ocupa siempre la misma fracción de la pantalla."""
+    assert lupa.radius_for_page(pagina) / pagina == pytest.approx(
+        RADIO_INICIAL_SEGUNDOS / WINDOW_SECONDS
+    )
+
+
+def test_el_circulo_se_publica_con_el_radio_de_la_pagina_que_se_mira(
+    lupa: MagnifierTool, sesion: Session
+):
+    sesion.set_viewport(sesion.viewport.with_span(3.0))
+    lupa.on_mouse_move(1.0, 0.0)
+
+    (circulo,) = lupa.overlays()
+
+    assert circulo.radius_seconds == pytest.approx(RADIO_INICIAL_SEGUNDOS * 3.0 / WINDOW_SECONDS)

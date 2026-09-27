@@ -564,7 +564,7 @@ def evento_de_mouse(
     if canal is None:
         y = caja.center().y()
     else:
-        centro = vista._centro_de_carril(canal) + vista._a_carril(uv, canal)
+        centro = vista.lane_center(canal) + vista.to_lanes(uv, canal)
         y = vista.getPlotItem().vb.mapViewToScene(QPointF(0.0, centro)).y()
     local = QPointF(vista.mapFromScene(QPointF(float(x), y)))
     en_ventana = QPointF(viewport.mapTo(viewport.window(), local.toPoint()))
@@ -740,7 +740,7 @@ def bandas_dibujadas(ventana: MainWindow) -> list[tuple[float, float]]:
 
     return [
         tuple(round(v, 3) for v in dibujado.getRegion())
-        for dibujado in ventana.signal_view._overlay_items
+        for dibujado in ventana.signal_view.overlay_layer.items
         if isinstance(dibujado, pg.LinearRegionItem)
     ]
 
@@ -2670,14 +2670,14 @@ def test_cambiar_el_color_de_una_clase_no_borra_lo_que_dibuja_otra_herramienta(
 
     ventana.tool_controller.toggle("occupancy", True)
     ventana.tool_controller.tools["occupancy"].add_line(OccupancyLine(0.2, 0.0, 0.6, 0.0))
-    dibujadas = len(ventana.signal_view._overlay_items)
+    dibujadas = len(ventana.signal_view.overlay_layer.items)
     assert dibujadas > 0
 
     ventana.apply_preferences(
         ventana.current_preferences.with_annotation_color("Spindle", "#ff8800")
     )
 
-    assert len(ventana.signal_view._overlay_items) == dibujadas
+    assert len(ventana.signal_view.overlay_layer.items) == dibujadas
 
 
 def test_con_el_anotador_activo_la_banda_cambia_de_color_enseguida(
@@ -2694,7 +2694,7 @@ def test_con_el_anotador_activo_la_banda_cambia_de_color_enseguida(
 
     colores = [
         item.brush.color().name()
-        for item in ventana.signal_view._overlay_items
+        for item in ventana.signal_view.overlay_layer.items
         if hasattr(item, "brush")
     ]
     assert "#ff8800" in colores
@@ -4615,7 +4615,7 @@ def test_tildar_la_banda_la_dibuja(ventana: MainWindow):
     ventana.tool_controller.toggle("amplitude_band", True)
 
     assert any(isinstance(o, BandOverlay) for o in ventana.tool_controller.drawn_overlays)
-    assert ventana.signal_view._overlay_items
+    assert ventana.signal_view.overlay_layer.items
 
 
 def test_destildar_la_banda_la_saca(ventana: MainWindow):
@@ -4749,7 +4749,7 @@ def test_la_lupa_dibuja_una_lente_y_no_una_linea_suelta(ventana: MainWindow):
         ),
     )
 
-    lente = ventana.signal_view._overlay_items[-1]
+    lente = ventana.signal_view.overlay_layer.items[-1]
     tipos = [type(h).__name__ for h in lente.childItems()]
     assert "QGraphicsPathItem" in tipos, "la lente no tiene cristal"
     assert "TextItem" in tipos, "la lente no dice la hora"

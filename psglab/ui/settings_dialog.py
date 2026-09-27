@@ -557,7 +557,8 @@ class SettingsDialog(QDialog):
         for campo, control, texto, minimo, maximo, paso, decimales, sufijo in (
             ("amplitude_band_uv", self.amplitude_band, "Altura de la banda de amplitud:",
              MIN_AMPLITUDE_BAND_UV, MAX_AMPLITUDE_BAND_UV, 5.0, 0, f" {MICROVOLT}"),
-            ("magnifier_radius_seconds", self.magnifier_radius, "Radio de la lupa:",
+            ("magnifier_radius_seconds", self.magnifier_radius,
+             "Radio de la lupa, con la página de una época:",
              MIN_MAGNIFIER_RADIUS_SECONDS, MAX_MAGNIFIER_RADIUS_SECONDS, 0.1, 1, " s"),
             ("magnifier_zoom", self.magnifier_zoom, "Aumento de la lupa:",
              MIN_MAGNIFIER_ZOOM, MAX_MAGNIFIER_ZOOM, 0.5, 1, " ×"),

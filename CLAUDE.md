@@ -703,7 +703,13 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   y el visualizador las guarda por trozos. Contadas desde el borde de la
   página, cada paso de la reproducción las recalculaba enteras —95 ms con
   32 canales a 1000 Hz y página de 5 min— porque ninguna servía de un cuadro
-  al otro. `useOpenGL` se midió y **empeora**. Lo que se proponga en su lugar,
+  al otro. La quinta es del hito 79: **un overlay que vuelve igual no se
+  rehace**. `ui/overlay_items.py` recibe el estado completo en cada
+  movimiento del mouse y reutiliza lo que ya dibujó con la misma geometría
+  —página, canales, escala, desplazamiento y esquema—; rehacerlo todo costaba
+  un segundo por movimiento con 400 anotaciones. Lo que cambie cómo se dibuja
+  un overlay tiene que entrar en `SignalView.overlay_signature()`, o el dibujo
+  queda viejo. `useOpenGL` se midió y **empeora**. Lo que se proponga en su lugar,
   medirlo con el banco, **intercalado** contra el árbol sin el cambio: un
   número suelto no dice nada, porque la misma medición varía al doble de una
   corrida a otra.
