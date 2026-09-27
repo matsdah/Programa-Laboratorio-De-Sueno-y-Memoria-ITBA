@@ -22,18 +22,10 @@ from __future__ import annotations
 
 import numpy as np
 
+from psglab.analysis.mne_bridge import _exigir_registro
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.utils.errors import InvalidRecordingError, memoria_suficiente
 from psglab.utils.units import is_electrical
-
-
-def _exigir_registro(recording: Recording) -> None:
-    """Rechaza como `PsgLabError` lo que no sea un `Recording`."""
-    if not isinstance(recording, Recording):
-        raise InvalidRecordingError(
-            "No se puede re-referenciar eso: no es un registro abierto.",
-            details=f"recording es {type(recording).__name__}, se esperaba Recording.",
-        )
 
 
 def _restar(recording: Recording, referencia: np.ndarray) -> Recording:
@@ -83,7 +75,7 @@ def rereference(recording: Recording, reference_channels: list[str]) -> Recordin
         InvalidRecordingError: si la lista viene vacía, si algún canal de
             referencia no es eléctrico, o si lo que se pasa no es un registro.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede re-referenciar eso")
     if not isinstance(reference_channels, list) or not reference_channels:
         raise InvalidRecordingError(
             "Hay que decir contra qué canal o canales re-referenciar.",
@@ -139,7 +131,7 @@ def average_reference(recording: Recording, kind_only: bool = True) -> Recording
             `kind_only=True` pasa en un registro sin EEG, y devolver la señal
             sin tocar sería peor: el usuario creería que re-referenció.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede re-referenciar eso")
     if kind_only:
         canales = recording.channels_of_kind(ChannelKind.EEG)
         de_donde = "EEG"

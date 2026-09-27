@@ -40,6 +40,7 @@ from typing import Final
 
 import numpy as np
 
+from psglab.analysis.mne_bridge import _exigir_registro
 from psglab.core.recording import Recording
 from psglab.core.windows import count_windows, window_to_samples
 from psglab.utils.errors import (
@@ -94,15 +95,6 @@ _NOMBRES_DE_MNE: Final[dict[str, str]] = {
 #: sobre ellas: con épocas de 10 s quedarían tres, y el promedio de tres es
 #: ruidoso. Cinco segundos es el punto donde las dos cosas alcanzan.
 EPOCH_SECONDS: Final[float] = 5.0
-
-
-def _exigir_registro(recording: Recording) -> None:
-    """Rechaza como `PsgLabError` lo que no sea un `Recording`."""
-    if not isinstance(recording, Recording):
-        raise InvalidRecordingError(
-            "No se puede medir la conectividad de eso: no es un registro abierto.",
-            details=f"recording es {type(recording).__name__}, se esperaba Recording.",
-        )
 
 
 def _validar_banda(band: tuple[float, float]) -> tuple[float, float]:
@@ -232,7 +224,7 @@ def compute_connectivity(
     """
     from mne_connectivity import spectral_connectivity_epochs
 
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede medir la conectividad de eso")
     # Mismo motivo que en `complexity.py`: `not in` hashea la clave.
     if not isinstance(method, str) or method not in _NOMBRES_DE_MNE:
         raise UnknownConnectivityMethodError(
@@ -332,7 +324,7 @@ def connectivity_by_window(
     Raises:
         Lo mismo que `compute_connectivity()`.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede medir la conectividad de eso")
     # **La banda se comprueba antes de recorrer la noche** (hito 33). Adentro
     # del recorrido la comprobaría `compute_connectivity()` en la primera
     # ventana, pero un registro más corto que una época no llega a pedirla: cada

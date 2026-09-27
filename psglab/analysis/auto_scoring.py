@@ -126,7 +126,7 @@ def default_channels(recording: Recording) -> StagingChannels:
         InvalidRecordingError: si `recording` no es un registro.
         StagingNotPossibleError: si no hay ningún EEG que sirva.
     """
-    _exigir_registro(recording, "recording")
+    _exigir_registro(recording, "No se pueden sugerir fases para eso")
     lentos: list[str] = []
 
     def utiles(clase: ChannelKind) -> list[Channel]:
@@ -181,7 +181,7 @@ def suggest_stages(
             al mismo canal, si el registro dura menos de cinco minutos o si
             YASA no está instalado.
     """
-    _exigir_registro(recording, "recording")
+    _exigir_registro(recording, "No se pueden sugerir fases para eso")
     papeles = {"eeg": eeg, "eog": eog, "emg": emg}
     if not isinstance(eeg, str):
         raise StagingNotPossibleError(

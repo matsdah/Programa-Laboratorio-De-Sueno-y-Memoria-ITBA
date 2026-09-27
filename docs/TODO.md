@@ -642,8 +642,21 @@ una vez que agregarlos al lugar que después hay que partir.
 - [ ] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
       tienen el mismo `_factor_a_microvoltios()`, el mismo armado de canales
       y la misma lectura de marcas: a un módulo común de `readers/`.
-- [ ] **Una sola guarda de registro en `analysis/`**: `_exigir_registro()`
+- [x] **Una sola guarda de registro en `analysis/`**: `_exigir_registro()`
       está escrita siete veces, en siete módulos.
+      Hecho: **eran nueve**, porque `complexity.py` e `impedance.py` la
+      llevaban escrita adentro de la función. Queda una, en
+      `mne_bridge._exigir_registro()`, que ya era la que usaba
+      `auto_scoring.py`: es lo que todo `analysis/` importa, y no carga MNE.
+      **Recibe el comienzo del mensaje**, así que cada análisis le sigue
+      diciendo al investigador qué no pudo hacer —«No se puede filtrar
+      eso», «No se puede calcular el espectro de eso»— y no un rechazo
+      genérico. Las sugerencias de fases, que usaban el genérico del
+      puente, ganaron el suyo. `test_analysis_tiene_una_sola_guarda_de_registro`
+      rechaza una copia nueva: contra el código de antes encuentra las nueve.
+  - Test: `tests/test_mne_bridge.py`, **34 tests en verde**, con el mensaje
+    de cada uno de los dieciocho análisis que reciben primero el registro;
+    `tests/test_consistencia.py`, **113 tests en verde**.
 - [ ] **Una sola forma de escribir un número para el usuario.**
       `.replace(".", ",")` aparece 22 veces y hay tres `_numero()`: un
       `utils/formato.py` con el número con coma, los Hz y las duraciones.
@@ -716,7 +729,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **112 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **113 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 

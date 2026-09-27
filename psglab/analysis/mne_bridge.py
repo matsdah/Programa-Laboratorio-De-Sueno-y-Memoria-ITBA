@@ -59,17 +59,32 @@ _TIPOS_DE_MNE: dict[ChannelKind, str] = {
 }
 
 
-def _exigir_registro(valor: object, nombre: str) -> None:
+def _exigir_registro(
+    valor: object, que: str = "No se puede analizar eso", nombre: str = "recording"
+) -> None:
     """Rechaza como `PsgLabError` lo que no sea un `Recording`.
 
-    Está separado porque lo usan las dos direcciones del puente, y porque el
+    **Es la única guarda de registro de `analysis/`** (hito 79). Estaba escrita
+    nueve veces, una por módulo, y dos de ellas adentro de la función; ahora
+    todas llaman acá, y `test_consistencia.py` rechaza una copia nueva. El
     error que evita es el de siempre: un `AttributeError` crudo atraviesa el
     `except PsgLabError` de la ventana principal y termina como traza en la cara
     del investigador.
+
+    Vive en el puente porque es lo que todo `analysis/` ya importa, y porque
+    importarlo no carga MNE: el puente lo importa adentro de cada función.
+
+    Args:
+        valor: lo que se recibió como registro.
+        que: el comienzo del mensaje, **con lo que se estaba por hacer**. Cada
+            análisis pasa el suyo —«No se puede filtrar eso»,
+            «No se puede calcular el espectro de eso»—, así que el investigador
+            sigue leyendo qué no se pudo hacer y no un rechazo genérico.
+        nombre: cómo se llama el argumento, para `details`.
     """
     if not isinstance(valor, Recording):
         raise InvalidRecordingError(
-            "No se puede analizar eso: no es un registro abierto.",
+            f"{que}: no es un registro abierto.",
             details=f"{nombre} es {type(valor).__name__}, se esperaba Recording.",
         )
 
@@ -142,7 +157,7 @@ def to_raw(recording: Recording) -> Any:
     """
     import mne
 
-    _exigir_registro(recording, "recording")
+    _exigir_registro(recording)
 
     # **Copia explícita.** `Recording.data` puede llegar como vista de sólo
     # lectura —`get_segment()` pone `writeable = False`— y MNE escribe sobre el
@@ -186,7 +201,7 @@ def from_raw(raw: Any, original: Recording) -> Recording:
             función lo adivine: no puede, porque no sabe de qué clase es ni en
             qué unidad viene.
     """
-    _exigir_registro(original, "original")
+    _exigir_registro(original, nombre="original")
     if not hasattr(raw, "ch_names") or not hasattr(raw, "get_data"):
         raise InvalidRecordingError(
             "Lo que devolvió el análisis no es una señal que se pueda leer.",
