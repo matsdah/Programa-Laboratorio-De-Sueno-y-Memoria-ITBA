@@ -69,6 +69,11 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # necesita poder tildar el que aplique, venga del menú o del archivo
         # de preferencias.
         "acciones_de_esquema",
+        # El menú «Scoring» (hito 79): las fases, que se rearman con la
+        # nomenclatura, y el arousal, que se tildan al abrirlo.
+        "menu_scoring",
+        "acciones_de_fase",
+        "accion_arousal",
         # El menú que se puebla desde el registro de herramientas.
         "tools_menu",
         # Los dos submenús que se rearman desde las preferencias (hito 64):
@@ -175,7 +180,7 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "open_recent_file",
         # Las marcas del archivo como anotaciones (hito 73).
         "import_file_marks",
-        # Las fases sugeridas, «Analizar › Fases sugeridas» (hito 75).
+        # Las fases sugeridas, «Scoring › Fases sugeridas» (hitos 75 y 79).
         "request_stage_suggestions",
         "accept_safe_suggestions",
         "accept_all_suggestions",

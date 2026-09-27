@@ -1932,7 +1932,7 @@ vez de borrarlas—, `MIN_VIEW_SECONDS` —10 ms— y `VIEW_TIMESCALE_PRESETS`
       forma de la señal y Analizar sólo mide. El test que miraba que existiera
       un menú «&Análisis» se reescribió para verificar cada acción, que es lo
       que protegía.
-  - Test: `tests/test_menus.py`, **45 tests en verde**.
+  - Test: `tests/test_menus.py`, **53 tests en verde**.
 - [x] **Fase 3 — Paneles acoplables.** La señal es el widget central y los otros
       diez paneles se mueven, se apilan o se cierran; la disposición se guarda
       al cerrar. Los seis paneles de análisis conservaron el nombre de su
@@ -2056,7 +2056,7 @@ reorganiza lo que ya andaba.
       repetía la solapa Colores de esa misma ventana.
 - [x] **La barra de menú deja de ser la nativa**, para que en macOS no
       desaparezcan el botón de abrir ni «Configuración», que no tiene submenú.
-  - Test: `tests/test_menus.py`, **45 tests en verde**.
+  - Test: `tests/test_menus.py`, **53 tests en verde**.
   - Test: `tests/test_icons.py`, **33 tests en verde**.
 
 ### El scoring en cuatro formatos
@@ -2552,7 +2552,7 @@ análisis se queden en su propio bloque, un menú plano con separadores y que
 - [x] `HistogramTool.label` pasa a «Hipnograma». El módulo, la clase y los IDs
       del pliego siguen diciendo «histograma»: son identificadores y
       trazabilidad.
-  - Test: `tests/test_menus.py`, **45 tests en verde**, con que
+  - Test: `tests/test_menus.py`, **53 tests en verde**, con que
     ningún texto se repita y que la Übersicht y el hipnograma sean las acciones
     de sus paneles.
   - Test: `tests/test_entrega.py`, **399 tests en verde**: tildar
@@ -2746,7 +2746,7 @@ todas con la recomendación que se le hizo.
     fallan con la ventana anterior.
   - Test: `tests/test_preferences.py`, **86 tests en verde**.
   - Test: `tests/test_settings_dialog.py`, **49 tests en verde**.
-  - Test: `tests/test_menus.py`, **45 tests en verde**.
+  - Test: `tests/test_menus.py`, **53 tests en verde**.
   - Test: `tests/test_psd_panel.py`, **27 tests en verde**; y dos por panel en
     `tests/test_metric_panel.py` (**18 tests en verde**),
     `tests/test_connectivity_panel.py` (**16 tests en verde**) y
@@ -3420,7 +3420,7 @@ se ve en todas.
   - Test: `tests/test_theme.py`, **89 tests en verde**; `tests/test_grid.py`,
     **19 tests en verde**; `tests/test_settings_dialog.py`, **48 tests en
     verde**; `tests/test_preferences.py`, **86 tests en verde**;
-    `tests/test_menus.py`, **45 tests en verde**, con las dos entradas nuevas y
+    `tests/test_menus.py`, **53 tests en verde**, con las dos entradas nuevas y
     su exclusividad. Entre los cinco se borraron treinta y seis tests de lo que
     dejó de existir.
 
@@ -3460,7 +3460,7 @@ pintaron lo que había, y lo que había en las dos barras no era lo del diseño.
         canales y de qué hora a qué hora. No estaba en ningún lado, y con dos
         registros parecidos —la misma noche filtrada y sin filtrar— no había
         forma de saber cuál se miraba.
-  - Test: `tests/test_menus.py`, **45 tests en verde**.
+  - Test: `tests/test_menus.py`, **53 tests en verde**.
 - [x] **La barra de navegación.**
       - Los botones pasaron de 26 a 34 px y dejaron de ser planos: con 26 el
         icono quedaba en 14 y la fila entera se leía como una regleta de
@@ -3690,7 +3690,7 @@ misma escala**, con el respiratorio barriendo seis carriles.
       - La tinta de la pestaña la elige `theme.ink_over()` midiendo contra el
         relleno, que es la misma función que decide la del botón de la fase
         marcada y la del icono de reproducir.
-  - Test: `tests/test_menus.py`, **45 tests en verde**.
+  - Test: `tests/test_menus.py`, **53 tests en verde**.
 - [x] **El canalón dice sólo la escala.** Llevaba también la clase, y con un
       registro de verdad —«Resp oro-nasal», clase «Respiratorio»— la línea
       salía cortada con puntos suspensivos, que es peor que no decirla. La
@@ -5624,7 +5624,7 @@ visual**: puntuar una noche costaba más pasos que en esos programas.
   - Test: `tests/test_preferences.py`, **86 tests en verde**;
     `tests/test_settings_dialog.py`, **49 tests en verde**;
     `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_menus.py`, **45 tests en verde**;
+    `tests/test_menus.py`, **53 tests en verde**;
     `tests/test_docks.py`, **39 tests en verde**;
     `tests/test_signal_view.py`, **98 tests en verde**;
     `tests/test_overview_panel.py`, **27 tests en verde**.
@@ -6039,7 +6039,7 @@ el programa.
       del `dataclass` comparaba la señal, y `a == b` o `a in lista` elevaban
       `ValueError`. El programa ya los comparaba por identidad.
 - [x] **Ocho imports sin usar**, cinco en `ui/settings_dialog.py`.
-  - Test: `tests/test_menus.py`, **45 tests en verde**;
+  - Test: `tests/test_menus.py`, **53 tests en verde**;
     `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_annotations.py`, **74 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**.
@@ -6122,7 +6122,7 @@ pedido, y eligió lo último.
   - Test: `tests/test_annotations.py`, **74 tests en verde**;
     `tests/test_contratos.py`, **1143 tests en verde**;
     `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_menus.py`, **45 tests en verde**;
+    `tests/test_menus.py`, **53 tests en verde**;
     `tests/test_readers.py`, **94 tests en verde**.
 
 Cada test nuevo se probó contra el programa sin su cambio, y las ocho
@@ -6354,7 +6354,7 @@ proporcional son las letras y los signos, que no cambian mientras se navega.
       dos, y la de leer lleva números.
   - Test: `tests/test_settings_dialog.py`, **49 tests en verde**;
     `tests/test_panel_header.py`, **32 tests en verde**;
-    `tests/test_menus.py`, **45 tests en verde**.
+    `tests/test_menus.py`, **53 tests en verde**.
 - [x] **`IBMPlexMono-Regular.ttf` se borró** de `psglab/resources/fonts/`.
       Quedan los tres archivos de Sans y su licencia.
 - [x] **La herramienta de capturas mostraba la tipografía del sistema**, y
@@ -6581,8 +6581,8 @@ más. **Varias piden una decisión antes**; están marcadas.
       que volver con la flecha y rescorear. `ui/shortcuts.py` lo declara «un
       subsistema completo» y «no pedido». Propuesta: `core/history.py`, sin
       Qt, con una pila acotada de cambios sobre `Scoring` y `AnnotationSet`.
-- [ ] **Recuperar el trabajo después de un cierre inesperado.** *(Decide el
-      usuario: revisa la decisión del hito 33.)* El programa no autoguarda
+- [ ] **Recuperar el trabajo después de un cierre inesperado.** *(Decidido: sí;
+      ver «Lo que decidió el usuario».)* El programa no autoguarda
       para no elegir por el usuario dónde ni en qué formato, y eso se
       conserva: la propuesta es un archivo de recuperación en el perfil, que
       no se exporta ni aparece en ninguna carpeta, y que al reabrir el mismo
@@ -6607,10 +6607,10 @@ más. **Varias piden una decisión antes**; están marcadas.
     `tests/test_entrega.py`, **399 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
-  0, 5 y N y la carpeta de los diálogos. Van sin entrada de menú hasta la
-  decisión del menú «Scoring».
+  0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
+  con el menú «Scoring», más abajo.
 
-- [ ] **Anotar sin un cartel por evento.** *(Decide el usuario.)* Cada tramo
+- [ ] **Anotar sin un cartel por evento.** *(Decidido: clase activa.)* Cada tramo
       arrastrado abre un `QInputDialog` modal; marcar cien husos son cien
       carteles. Propuesta: una «clase activa» que usa el arrastre, elegida en
       una lista o con una tecla, y el cartel sólo con Mayúsculas.
@@ -6619,15 +6619,30 @@ más. **Varias piden una decisión antes**; están marcadas.
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
       son docks: pueden llevar su selector y un botón «Calcular», con el
       canal seleccionado por omisión.
-- [ ] **El panel de Scoring a la vista al abrir.** *(Decide el usuario:
-      revisa los hitos 24 y 64.)* La tarea principal del programa hoy no se
+- [ ] **El panel de Scoring a la vista al abrir.** *(Decidido: visible y
+      compacto.)* La tarea principal del programa hoy no se
       ve: se descubre por la ayuda de atajos. Una fila compacta con las fases
       y el arousal, o el panel entero la primera vez.
-- [ ] **Un menú «Scoring».** *(Decide el usuario.)* Las fases, el arousal, ir
+- [x] **Un menú «Scoring».** *(Decidido: sí, y ordenar la barra.)* Las fases, el arousal, ir
       a la próxima sin scorear, deshacer y las fases sugeridas están
       repartidos entre las teclas y «Analizar»; «Escala de tiempo» y
       «Amplitud» ocupan dos lugares de la barra que podrían ir en «Ver».
-- [ ] **El informe de sueño estándar.** *(Decide el cliente.)*
+      Hecho: la barra queda Archivo, Ver, Scoring, Montaje, Filtrar,
+      Analizar, Herramientas y Ayuda. «Scoring» lleva una entrada por fase
+      de la nomenclatura activa, con su tecla; el arousal; anotar la
+      ventana; la próxima y la anterior sin scorear; ir a una ventana; y
+      «Fases sugeridas», que salió de «Analizar». **Se pone al día al
+      abrirse** —las fases de la nomenclatura, la de la ventana tildada, el
+      arousal tildado— y sin registro apaga sus entradas, porque los
+      métodos no hacen nada sin sesión. «Escala de tiempo», «Amplitud» y
+      «Vistas de canales» abren «Ver». **Deshacer no está**: entra con
+      `core/history.py`, y una entrada que no hace nada es peor que ninguna.
+  - Test: `tests/test_menus.py`, **53 tests en verde**. Cada test nuevo
+    falla sin su cambio: los cuatro bloques de «Scoring», la tecla de cada
+    fase, las sugeridas fuera de «Analizar», las entradas apagadas sin
+    registro, scorear y marcar el arousal desde el menú, lo tildado al
+    abrirse y las fases de Rechtschaffen y Kales.
+- [ ] **El informe de sueño estándar.** *(Decidido: se hace y se confirma con el laboratorio.)*
       `Informacion.txt` tiene la duración por fase y las métricas de
       episodios que pide el pliego, y no trae lo primero que busca un
       laboratorio: tiempo en cama, tiempo total de sueño, eficiencia,
@@ -6646,8 +6661,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       con eso pierden la escala de su clase y el atajo del selector. Y `loc`
       y `roc` se buscan sin límite de palabra: «Clock» sale EOG.
 - [ ] **El arousal existe dos veces sin relación**: la marca de la ventana
-      (tecla A) y la clase de anotación «Arousal». *(Decide el usuario si
-      anotar un arousal marca su ventana.)*
+      (tecla A) y la clase de anotación «Arousal». *(Decidido: la marca.)*
 
 ### Tanda 3: partir las clases grandes
 
@@ -6736,7 +6750,7 @@ función, y la historia ya está en este archivo y en git.
       del hito 76; `config.MAX_GRID_LINES` habla de una `InfiniteLine` por
       línea; y el comentario de arriba de `ci.yml` dice que corre contra las
       ramas de trabajo.
-- [ ] **Este archivo en dos.** *(Decide el usuario.)* Son 6500 líneas, y la
+- [ ] **Este archivo en dos.** *(Decidido: sí.)* Son 6500 líneas, y la
       introducción encadena ochenta hitos en un solo párrafo. Lo cerrado
       podría ir a un historial y el TODO quedar con lo abierto y las reglas.
       Cerrar un hito pide hoy seis ediciones; la cuenta de hitos escrita en
@@ -6772,27 +6786,40 @@ función, y la historia ya está en este archivo y en git.
       la herramienta de capturas: lo decide `python -m tests.medir_reparto`,
       que abre una ventana en la pantalla y lo corre quien esté frente a ella.
 
-### Lo que decide el usuario, o el cliente
+### Lo que decidió el usuario
 
-Están marcadas arriba, y se juntan acá para contestarlas de una vez:
+**Contestadas el 26 de septiembre de 2026.** Revisan tres decisiones de hitos
+anteriores —la 2 la del hito 33, la 3 las de los hitos 24 y 64, la 4 la forma
+de anotar del hito 9—, y el motivo es el de la tanda 2: son los pasos de más
+de quien scorea una noche entera.
 
-1. **La banda de amplitud** quedó siguiendo al mouse sobre el canal que está
-   debajo, que es contra el que se mide la `y`. Si se prefiere que se quede
-   sobre el seleccionado, la ventana tiene que medir la `y` contra ése.
-2. **Recuperación después de un cierre inesperado**: ¿se agrega el archivo
-   de recuperación en el perfil?
-3. **El panel de Scoring al abrir**: ¿a la vista, compacto, u oculto como
-   hoy?
-4. **Anotar sin cartel**: ¿clase activa, o un cartel por evento como hoy?
-5. **Un menú «Scoring»**, y «Escala de tiempo» y «Amplitud» dentro de «Ver».
-6. **El arousal**: ¿anotar uno marca su ventana?
-7. **El informe de sueño estándar** en `Informacion.txt`: es del cliente.
-8. **Los filtros sugeridos**: `DEFAULT_FILTERS` usa 0,3–15 Hz para el EOG,
-   0,5–70 Hz para el ECG y 0,05–5 Hz para lo respiratorio, y las
-   recomendaciones de la AASM dicen 0,3–35 Hz, 0,3–70 Hz y 0,1–15 Hz para el
-   flujo. Confirmar con el laboratorio cuáles usa.
-9. **Este archivo en dos**, y sacar la cuenta de hitos de los otros tres
-   documentos.
+1. **La banda de amplitud sigue al mouse** sobre el canal que está debajo,
+   que es contra el que se mide la `y`. Quedó así en la tanda 1.
+2. **Se agrega el archivo de recuperación en el perfil.** No exporta nada ni
+   elige formato: al reabrir el mismo registro después de un cierre
+   inesperado, ofrece volver a donde estaba.
+3. **El panel de Scoring, a la vista y compacto al abrir**: una fila con las
+   fases, sus teclas y el arousal, abajo junto al hipnograma.
+4. **Anotar con una clase activa.** Se elige una vez —en una lista o con una
+   tecla— y cada arrastre la usa sin cartel; con Mayúsculas al soltar,
+   pregunta como hasta ahora.
+5. **Un menú «Scoring»**, con las fases, el arousal, ir a la próxima sin
+   scorear, deshacer y las fases sugeridas, que salen de «Analizar».
+   «Escala de tiempo» y «Amplitud» pasan adentro de «Ver».
+6. **Anotar un arousal marca su ventana.** Borrar la anotación no la
+   desmarca: la marca pudo haberse puesto a mano.
+7. **El informe de sueño estándar se hace** como una sección nueva al final
+   de `Informacion.txt`, sin cambiar lo que ya trae, y **se confirma con el
+   laboratorio antes de mergear**.
+8. **Los filtros sugeridos se preguntan al laboratorio.** `DEFAULT_FILTERS`
+   usa 0,3–15 Hz para el EOG, 0,5–70 Hz para el ECG y 0,05–5 Hz para lo
+   respiratorio, y la AASM recomienda 0,3–35 Hz, 0,3–70 Hz y 0,1–15 Hz para
+   el flujo. Son valores clínicos y los actuales pueden ser del laboratorio:
+   no se tocan hasta tener la respuesta.
+   - [ ] Preguntar al laboratorio qué filtros usa.
+9. **Este archivo se parte en dos**: lo cerrado a `docs/HISTORIAL.md`, y acá
+   lo abierto y las reglas. La cuenta de hitos queda sólo en este archivo, y
+   `tests/test_consistencia.py` se ajusta en el mismo cambio.
 
 ### Lo que ya se corrigió en esta auditoría
 

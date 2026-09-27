@@ -3,8 +3,8 @@
 Distribución general, pensada para el rol UX/UI del pliego (sección 15):
 
     +---------------------------------------------------------------+
-    | [Abrir] Archivo | Escala de tiempo | Amplitud | Ver | Montaje  |
-    |   Filtrar | Analizar | Herramientas | Ayuda                     |
+    | [Abrir] Archivo | Ver | Scoring | Montaje | Filtrar | Analizar |
+    |   Herramientas | Ayuda                                         |
     +----------+-----------------------------------------+----------+
     | Canales  |                                         | Espectro |
     |  (dock)  |   Visualizador de la señal (central)    | Métrica  |

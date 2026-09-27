@@ -6474,7 +6474,7 @@ def test_pregunta_antes_y_dice_con_que_canales(ventana: MainWindow, clasificador
     # Sólo cuenta las que faltan: lo scoreado no se sugiere.
     assert "4 ventanas sin scorear" in pregunta["pregunta"]
     assert "«C3»" in pregunta["informativo"]
-    assert "Analizar › Fases sugeridas › Confirmar las seguras" in pregunta["informativo"]
+    assert "Scoring › Fases sugeridas › Confirmar las seguras" in pregunta["informativo"]
     assert clasificador == []
 
 
