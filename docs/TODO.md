@@ -459,11 +459,27 @@ más. **Varias piden una decisión antes**; están marcadas.
   - Test: `tests/test_derivation.py`, **52 tests en verde**; y en
     `tests/test_entrega.py`, el montaje por la ventana: la resta, la clase,
     lo que falta, no repetir y volver atrás.
-- [ ] **Más rótulos de canal reconocidos.** `readers/channel_types.py` deja
+- [x] **Más rótulos de canal reconocidos.** `readers/channel_types.py` deja
       en «Otro» nombres comunes de polisomnografía —ABD, THO, Chest, Therm,
       Nasal, Pres, PTAF, Effort, Pleth, Pulse, Pos, Leg, LAT, RAT, M1, M2—, y
       con eso pierden la escala de su clase y el atajo del selector. Y `loc`
       y `roc` se buscan sin límite de palabra: «Clock» sale EOG.
+      Hecho. El esfuerzo (ABD, THO, Chest, Effort), el flujo (Therm, Nasal,
+      Pres, PTAF, Cannula) y la oximetría (Pleth, Pulse) son respiratorios
+      —la oximetría no tiene clase propia y va donde ya iba la SpO2—; las
+      piernas (Leg, LAT, RAT) son EMG; y **M1, M2, A1 y A2 son EEG**, que es
+      lo que necesita el montaje: `derive()` le da a «C4-M1» la clase de sus
+      dos canales sólo si coinciden, y con M1 en «Otro» la derivación que se
+      scorea salía «Otro». **Pos queda en «Otro» a propósito**: no es de
+      ninguna clase. El límite de palabra no era sólo de `loc` y `roc`: `e1`
+      hacía EOG a «Line1», `ojo` a «Cable rojo» y `chin` hacía EMG a
+      «Machine». Los patrones cortos se anclan al comienzo de la palabra, y
+      los nombres de clase —`eog`, `emg`, `ecg`— siguen valiendo pegados,
+      como en «HEOG». Y los acentos se sacan antes de partir el nombre:
+      «Mentón» se partía en «ment» y «n» y dejaba de ser EMG.
+  - Test: `tests/test_channel_types.py`, **93 tests en verde**. Veinticinco
+    de los nuevos fallan sin el cambio; los demás cuidan que no se pase de
+    largo: «Lateral» y «Pos» siguen en «Otro».
 - [x] **El arousal existe dos veces sin relación**: la marca de la ventana
       (tecla A) y la clase de anotación «Arousal». *(Decidido: la marca.)*
       Hecho, con la decisión 6: **anotar un arousal marca su ventana**, la de
