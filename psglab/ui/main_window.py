@@ -96,6 +96,7 @@ from psglab.core.nomenclature import Nomenclature
 from psglab.core.session import Session
 from psglab.core.windows import window_to_clock_time
 from psglab.ui import preferences, theme
+from psglab.ui.background import BackgroundTask
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.docks import build_docks
 from psglab.ui.menus import build_menus, menu_path
@@ -277,6 +278,13 @@ class MainWindow(
         #: hilo, con su barra de espera, que va a la derecha de las dos lecturas
         #: (hito 79). Ver `ui/analysis_controller.py`.
         self.analysis_controller = AnalysisController(self.statusBar(), parent=self)
+        #: La lectura de un registro que abre el usuario, en otro hilo (hito
+        #: 79). Es aparte de la del análisis para que abrir no espere a una
+        #: ICA. Ver `open_recording_in_background()`.
+        self._lectura = BackgroundTask(self)
+        #: Si lo que se está leyendo ya no se tiene que abrir, porque el
+        #: usuario cerró la ventana mientras tanto.
+        self._lectura_descartada = False
         #: Exportar y no perder el trabajo (hito 79). Ver `ui/work_guard.py`.
         #: **Las dos funciones van por lambda**: la suite reemplaza
         #: `_confirmar` y las preferencias después de armar la ventana.
@@ -511,6 +519,8 @@ class MainWindow(
         nadie tiene. El cálculo es de `analysis_controller` (hito 79).
         """
         self.analysis_controller.wait()
+        # Y la lectura de un registro, que tiene su propia tarea (hito 79).
+        self._lectura.wait()
 
     @contextmanager
     def _trabajando(self, que_hace: str) -> Iterator[None]:

@@ -25,6 +25,7 @@ from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QFileDialog
 
 from psglab.core.annotations import AnnotationSet
+from psglab.core.nomenclature import Nomenclature
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
 from psglab.core.windows import count_windows
@@ -43,37 +44,108 @@ class FilesMixin:
     # -- Acciones del usuario -----------------------------------------------
 
     def open_recording(self, path: Path) -> None:
-        """Abre un registro y prepara la sesión de trabajo.
+        """Abre un registro y prepara la sesión de trabajo, sin soltar el hilo.
+
+        Es la vía de los scripts y de los tests, que necesitan la sesión en
+        cuanto vuelve. **El usuario abre por `open_recording_in_background()`**
+        —el diálogo, los recientes—, que lee en otro hilo.
 
         Muestra un error legible si el archivo no se puede leer, en vez de
         dejar caer una excepción: los usuarios no necesariamente tienen
         experiencia informática (pliego, sección 3).
-
-        **Avisa mientras lee.** Una noche entera son varios segundos —4,3 s el
-        registro de prueba, de los cuales 2,6 los tarda MNE— y todo corre en el
-        hilo de la interfaz, así que la ventana queda congelada. Sin cursor de
-        espera ni mensaje, eso se lee como que el programa se colgó justo
-        cuando el usuario hizo lo primero que hace.
         """
         try:
             with self._trabajando(f"Leyendo «{path.name}»"):
-                registro = read_recording(path)
-            ventanas = count_windows(registro.n_samples, registro.sampling_rate)
-            sesion = Session(
-                registro,
-                # La nomenclatura con que arranca un scoring nuevo. Uno
-                # importado trae la suya y ésta no la pisa.
-                Scoring(ventanas, self._preferencias.nomenclature()),
-                AnnotationSet(),
-            )
-            # La página con que se abre. Se fija antes de dibujar para no
-            # dibujar dos veces.
-            sesion.set_viewport(
-                sesion.viewport.with_span(self._preferencias.open_view_seconds)
-            )
+                sesion = self._leer_la_sesion(
+                    path,
+                    self._preferencias.nomenclature(),
+                    self._preferencias.open_view_seconds,
+                )
         except PsgLabError as error:
             self._show_error(error, f"abrir «{path.name}»")
             return
+        self._tomar_la_sesion(sesion, path)
+
+    def open_recording_in_background(self, path: Path) -> None:
+        """Abre un registro leyéndolo en otro hilo (hito 79).
+
+        **Es como abre el usuario.** Una noche entera son varios segundos
+        —4,3 s el registro de prueba, de los cuales 2,6 los tarda MNE—, y en
+        el hilo de la interfaz la ventana quedaba congelada y el sistema la
+        marcaba como «no responde» justo en lo primero que hace el usuario.
+        Mientras lee, la ventana repinta, la barra de espera se mueve y **el
+        registro anterior se puede seguir usando**: la pregunta por el trabajo
+        sin exportar llega después de leer, así que cuenta también lo que se
+        hizo mientras tanto.
+
+        Tiene su propia tarea y no la del análisis: abrir mientras se ajusta
+        una ICA se podía antes y se sigue pudiendo. Lo que no se puede es
+        abrir dos a la vez: el segundo pedido se ignora y se dice.
+        """
+        if self._lectura.is_running():
+            self.statusBar().showMessage(
+                "Todavía se está abriendo el registro anterior; esperá a que termine.", 5000
+            )
+            return
+        nomenclatura = self._preferencias.nomenclature()
+        pagina = self._preferencias.open_view_seconds
+        aviso = f"Leyendo «{path.name}»…"
+
+        def terminar() -> None:
+            if not self.analysis_controller.is_busy:
+                self.analysis_controller.wait_bar.hide()
+            if self.statusBar().currentMessage() == aviso:
+                self.statusBar().clearMessage()
+            for señal in (self._lectura.finished, self._lectura.failed, self._lectura.stopped):
+                try:
+                    señal.disconnect()
+                except RuntimeError:
+                    pass
+
+        def listo(sesion: object) -> None:
+            terminar()
+            if isinstance(sesion, Session) and not self._lectura_descartada:
+                self._tomar_la_sesion(sesion, path)
+
+        def fallo(error: object) -> None:
+            terminar()
+            if isinstance(error, PsgLabError) and not self._lectura_descartada:
+                self._show_error(error, f"abrir «{path.name}»")
+
+        self._lectura_descartada = False
+        self._lectura.finished.connect(listo)
+        self._lectura.failed.connect(fallo)
+        self._lectura.stopped.connect(terminar)
+        self.statusBar().showMessage(aviso)
+        self.analysis_controller.wait_bar.show()
+        self._lectura.start(lambda: self._leer_la_sesion(path, nomenclatura, pagina))
+
+    @staticmethod
+    def _leer_la_sesion(path: Path, nomenclature: Nomenclature, view_seconds: float) -> Session:
+        """Lee el archivo y arma su sesión. **No toca ningún widget**: corre en
+        otro hilo cuando abre el usuario, así que las preferencias le llegan
+        ya leídas.
+
+        Raises:
+            PsgLabError: si el archivo no se puede leer.
+        """
+        registro = read_recording(path)
+        ventanas = count_windows(registro.n_samples, registro.sampling_rate)
+        sesion = Session(
+            registro,
+            # La nomenclatura con que arranca un scoring nuevo. Uno importado
+            # trae la suya y ésta no la pisa.
+            Scoring(ventanas, nomenclature),
+            AnnotationSet(),
+        )
+        # La página con que se abre. Se fija antes de dibujar para no dibujar
+        # dos veces.
+        sesion.set_viewport(sesion.viewport.with_span(view_seconds))
+        return sesion
+
+    def _tomar_la_sesion(self, sesion: Session, path: Path) -> None:
+        """Pone en la ventana la sesión de un registro recién leído."""
+        registro = sesion.recording
 
         # **Lo que se perdería con la sesión anterior, antes de soltarla**
         # (hito 33). Va después de leer y no antes: si el archivo nuevo no se
@@ -173,7 +245,7 @@ class FilesMixin:
                 f"abrir «{Path(path).name}»",
             )
             return
-        self.open_recording(Path(path))
+        self.open_recording_in_background(Path(path))
 
     def open_scoring(self, path: Path) -> None:
         """Importa un scoring existente sobre el registro abierto (V3_F).
@@ -255,6 +327,10 @@ class FilesMixin:
             event.ignore()
             return
         self.playback_controller.stop()
+        # **Un registro que se estaba leyendo ya no se abre** (hito 79): el
+        # usuario decidió cerrar, y tomarlo al terminar la espera volvería a
+        # preguntar por el trabajo y cambiaría la sesión mientras se cierra.
+        self._lectura_descartada = True
         # **Antes de soltar la sesión.** Un cálculo largo todavía leyendo el
         # registro se quedaría trabajando sobre memoria que ya nadie tiene.
         self.wait_for_background()
@@ -266,7 +342,7 @@ class FilesMixin:
             self, "Abrir registro", self.work_guard.working_folder(), file_dialog_filter()
         )
         if ruta:
-            self.open_recording(Path(ruta))
+            self.open_recording_in_background(Path(ruta))
 
     def open_scoring_dialog(self) -> None:
         """El scoring entra por su **propia** opción, decidido en el hito 4.
