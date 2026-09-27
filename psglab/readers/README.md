@@ -16,7 +16,7 @@ polisomnografía": los formatos se suman de a uno sin rediseñar nada.
 | `brainvision.py` | Formato BrainVision (`.vhdr` + `.vmrk` + `.eeg`). | V1_F de "Importación" |
 | `edf.py` | Formato EDF y EDF+. | V2_F de "Importación" |
 | `scoring_reader.py` | Un scoring ya existente, para ver o corregir la fase de cada ventana. Elige el lector por la extensión y lee él mismo el `.txt`. | V3_F de "Importación" |
-| `scoring_formats.py` | Un scoring en CSV, EDF+ o XML del NSRR, escrito por este programa o por otro. | V3_F de "Importación" |
+| `scoring_formats.py` | Un scoring en CSV, EDF+ o XML del NSRR, escrito por este programa o por otro. **Un XML que declara entidades no se abre** (hito 79): una pasada previa con `xml.parsers.expat` las rechaza antes de expandirlas, sin depender de la versión de expat de la máquina. | V3_F de "Importación" |
 | `channel_types.py` | Detección automática de la clase de cada canal (EEG, EOG, EMG, ECG, respiratorio, otro). | V4_F de "Visualización" |
 
 ## Cómo agregar un formato

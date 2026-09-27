@@ -275,6 +275,33 @@ def test_el_scoring_se_exporta_y_se_vuelve_a_importar_en_cada_formato(
     assert not ventana.carteles
 
 
+def test_importar_un_xml_que_declara_entidades_es_un_cartel(
+    ventana: MainWindow, tmp_path: Path
+):
+    """**Un XML hecho a propósito podía agotar la memoria** al expandir sus
+    entidades (hito 79). Por la ventana tiene que ser un cartel que dice por
+    qué, y el scoring que estaba queda como estaba."""
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+    antes = [ventana.session.scoring.get(i) for i in range(VENTANAS)]
+    ruta = tmp_path / "scoring.xml"
+    niveles = "".join(
+        f'<!ENTITY a{n} "{f"&a{n - 1};" * 10}">' for n in range(1, 10)
+    )
+    ruta.write_text(
+        '<?xml version="1.0"?><!DOCTYPE PSGAnnotation [<!ENTITY a0 "jaja">'
+        + niveles
+        + "]><PSGAnnotation><Nomenclature>&a9;</Nomenclature></PSGAnnotation>",
+        encoding="utf-8",
+    )
+
+    ventana.open_scoring(ruta)
+
+    assert ventana.acciones == ["importar el scoring"]
+    assert "declara entidades de XML" in ventana.carteles[0]
+    assert [ventana.session.scoring.get(i) for i in range(VENTANAS)] == antes
+
+
 def test_exportar_con_una_extension_que_no_es_de_ningun_formato_avisa(
     ventana: MainWindow, tmp_path: Path
 ):
