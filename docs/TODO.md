@@ -640,9 +640,21 @@ función, y la historia ya está en este archivo y en git.
 - [ ] **`AnnotationSet` con búsqueda binaria**: `_insertar()` rearma la
       lista de comienzos en cada anotación y `in_range()` recorre todas en
       cada repintado.
-- [ ] **Los archivos de salida se escriben enteros o no se escriben**: a un
+- [x] **Los archivos de salida se escriben enteros o no se escriben**: a un
       temporal y después renombrado, como ya hace `preferences.save()`. Un
       corte a mitad de camino hoy deja el archivo truncado.
+      Hecho en `exporters/atomic.py`, y lo usan los seis escritores: los tres
+      archivos del pliego y el scoring en CSV, EDF+ y XML. El provisorio va
+      **al lado del destino**, en el mismo disco, porque `os.replace()` entre
+      discos no es de un paso; y con **un nombre fijo** y no de `tempfile`,
+      porque `mkstemp()` lo crea en 0600 y el renombrado lo conserva: el
+      archivo exportado quedaba ilegible para el resto del laboratorio. Si
+      algo falla, el provisorio se borra y el error sale igual, así que
+      `WorkGuard.export()` lo sigue mostrando como hasta ahora.
+  - Test: en `tests/test_exporters.py` y `tests/test_scoring_formats.py`, un
+    disco que se llena a mitad de camino en los tres archivos del pliego y
+    un CSV que se corta en la tercera ventana: sin el cambio, los cuatro
+    dejan el destino truncado.
 - [ ] **El XML de scoring, sin expansión de entidades.** Abrir un XML hecho
       a propósito puede agotar la memoria. Riesgo bajo: hace falta abrir un
       archivo malicioso.

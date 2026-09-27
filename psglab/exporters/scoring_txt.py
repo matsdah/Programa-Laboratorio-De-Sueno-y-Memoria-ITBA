@@ -49,6 +49,7 @@ from psglab.config import (
 )
 from psglab.core.nomenclature import Nomenclature, stage_code as codigo_de_fase
 from psglab.core.scoring import Scoring
+from psglab.exporters.atomic import write_text_atomically
 
 
 def export_scoring(
@@ -95,7 +96,7 @@ def export_scoring(
                 separator=separator,
             )
         )
-    path.write_text("\n".join(lineas) + "\n", encoding="utf-8")
+    write_text_atomically(path, "\n".join(lineas) + "\n")
 
 
 def format_header(

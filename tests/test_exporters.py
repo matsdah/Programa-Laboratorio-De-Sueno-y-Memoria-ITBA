@@ -17,6 +17,11 @@ from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 import psglab.exporters.statistics as stats
 from psglab.config import ANNOTATION_SAMPLE_BASE
+from psglab.exporters.atomic import (
+    atomic_destination,
+    provisional_path,
+    write_text_atomically,
+)
 from psglab.exporters.annotations_txt import export_annotations
 from psglab.exporters.information_txt import (
     build_report,
@@ -472,3 +477,101 @@ def test_el_programa_hace_su_trabajo_entero_desde_un_script(tmp_path):
 
     # Y el informe nombra el archivo del que salió todo.
     assert EDF_REAL.name in salida_informacion.read_text(encoding="utf-8")
+
+
+# -- Enteros o nada (hito 79) ------------------------------------------------
+
+
+def test_escribir_de_a_una_vez_deja_el_texto_y_ningun_provisorio(tmp_path):
+    destino = tmp_path / "Scoring.txt"
+
+    write_text_atomically(destino, "hola\n")
+
+    assert destino.read_text(encoding="utf-8") == "hola\n"
+    assert list(tmp_path.iterdir()) == [destino]
+
+
+def test_un_error_a_mitad_de_camino_deja_el_archivo_de_antes(tmp_path):
+    """El caso que motivó esto: la exportación de ayer no se puede perder
+    porque la de hoy se cortó."""
+    destino = tmp_path / "Scoring.txt"
+    destino.write_text("lo de ayer\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError):
+        with atomic_destination(destino) as provisorio:
+            provisorio.write_text("la mitad de", encoding="utf-8")
+            raise RuntimeError("se cortó la luz")
+
+    assert destino.read_text(encoding="utf-8") == "lo de ayer\n"
+    assert list(tmp_path.iterdir()) == [destino]
+
+
+def test_un_error_sin_archivo_previo_no_crea_nada(tmp_path):
+    destino = tmp_path / "Scoring.txt"
+
+    with pytest.raises(RuntimeError):
+        with atomic_destination(destino) as provisorio:
+            provisorio.write_text("la mitad de", encoding="utf-8")
+            raise RuntimeError("disco lleno")
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_un_provisorio_que_quedo_de_un_corte_se_pisa(tmp_path):
+    destino = tmp_path / "Scoring.txt"
+    provisional_path(destino).write_text("basura de un corte", encoding="utf-8")
+
+    write_text_atomically(destino, "entero\n")
+
+    assert destino.read_text(encoding="utf-8") == "entero\n"
+    assert list(tmp_path.iterdir()) == [destino]
+
+
+def test_el_provisorio_va_al_lado_del_destino():
+    """En la misma carpeta y por eso en el mismo disco: `os.replace()` entre
+    discos distintos no es de un paso, y en Windows ni siquiera funciona."""
+    destino = Path("/datos/noche 1/Scoring.txt")
+
+    assert provisional_path(destino).parent == destino.parent
+
+
+def test_el_archivo_exportado_se_crea_con_los_permisos_de_siempre(tmp_path):
+    """`mkstemp()` lo habría dejado en 0600, ilegible para el resto del
+    laboratorio en una carpeta compartida."""
+    comun = tmp_path / "comun.txt"
+    comun.write_text("x", encoding="utf-8")
+    destino = tmp_path / "Scoring.txt"
+
+    write_text_atomically(destino, "x")
+
+    assert destino.stat().st_mode == comun.stat().st_mode
+
+
+@pytest.mark.parametrize("exportar", ["scoring", "annotations", "information"])
+def test_los_tres_archivos_no_quedan_truncados_si_escribir_falla(
+    tmp_path, monkeypatch, exportar
+):
+    """Si el disco se llena a mitad de camino, lo que había queda como estaba.
+
+    El fallo escribe la mitad y después eleva, que es lo que hace un disco
+    lleno: sin escribir en un provisorio, el destino quedaba truncado.
+    """
+    destino = tmp_path / "salida.txt"
+    destino.write_text("lo de antes\n", encoding="utf-8")
+    escribir = Path.write_text
+
+    def falla_a_la_mitad(self, texto, *a, **k):
+        escribir(self, texto[: len(texto) // 2], *a, **k)
+        raise OSError("disco lleno")
+
+    monkeypatch.setattr(Path, "write_text", falla_a_la_mitad)
+    with pytest.raises(OSError):
+        if exportar == "scoring":
+            export_scoring(scoring_de_ejemplo(), destino)
+        elif exportar == "annotations":
+            export_annotations(AnnotationSet(), destino)
+        else:
+            export_information(registro(), None, None, destino)
+    monkeypatch.undo()
+
+    assert destino.read_text(encoding="utf-8") == "lo de antes\n"

@@ -190,6 +190,7 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
         "psglab/exporters/annotations_txt.py",
         "psglab/exporters/statistics.py",
         "psglab/exporters/information_txt.py",
+        "psglab/exporters/atomic.py",
     ),
     # `test_contratos.py` cruza todos los módulos implementados: no cubre uno
     # solo, verifica una promesa transversal —que nada escape del `except` de la

@@ -136,16 +136,17 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos veintiocho se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos veintinueve se rompen hacia todos lados.
 
-Veintiséis de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Veintisiete de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
 `core/viewport.py`, `core/decimation.py`, `core/recovery.py`, `core/history.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
 `ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py`, `ui/shortcuts_dialog.py`,
 y desde el hito 76 `ui/main_window.py`, `ui/window_annotation.py`,
 `ui/window_view.py` y `ui/window_preferences.py`, más `ui/window_files.py`
-desde que exportar pasó a `ui/work_guard.py` en el hito 79: la ventana se
+desde que exportar pasó a `ui/work_guard.py` en el hito 79, y
+`exporters/atomic.py`, que escribe los archivos de salida enteros o nada: la ventana se
 partió en pedazos por tema, y los que llevan un ID tienen su fila arriba. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
@@ -163,6 +164,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/core/viewport.py` | La página visible, separada de la época de scoring | La escala de tiempo y todo lo que se dibuja |
 | `psglab/core/recovery.py` | La copia de recuperación: qué del trabajo se guarda y cómo se vuelve a él | Recuperar una noche después de un cierre inesperado |
 | `psglab/core/history.py` | Deshacer y rehacer: fotos del trabajo y cómo volver a ellas | Ctrl+Z, Ctrl+Y y «Scoring › Deshacer» |
+| `psglab/exporters/atomic.py` | Escribir un archivo de salida entero o no escribirlo | Los tres archivos de salida y los cuatro formatos del scoring |
 | `psglab/core/decimation.py` | Reducir una señal larga a lo que entra en pantalla sin perder sus picos | Cualquier página más larga que unos segundos |
 | `psglab/ui/docks.py` | La disposición de los paneles alrededor de la señal | Dónde aparece cada panel |
 | `psglab/ui/icons.py` | Los iconos de la barra, dibujados por el programa | La barra de navegación |

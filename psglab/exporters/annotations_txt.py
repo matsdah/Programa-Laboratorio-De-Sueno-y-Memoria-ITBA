@@ -30,6 +30,7 @@ from pathlib import Path
 
 from psglab.config import ANNOTATION_SAMPLE_BASE, ANNOTATIONS_SEPARATOR
 from psglab.core.annotations import Annotation, AnnotationSet
+from psglab.exporters.atomic import write_text_atomically
 
 
 def export_annotations(
@@ -57,7 +58,7 @@ def export_annotations(
         format_line(anotacion, separator=separator, sample_base=sample_base)
         for anotacion in annotations.all()
     ]
-    path.write_text("\n".join(lineas) + ("\n" if lineas else ""), encoding="utf-8")
+    write_text_atomically(path, "\n".join(lineas) + ("\n" if lineas else ""))
 
 
 def format_line(

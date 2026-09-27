@@ -40,6 +40,7 @@ from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import SleepStage, stage_label
 from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
+from psglab.exporters.atomic import write_text_atomically
 from psglab.exporters.statistics import (
     annotation_summary,
     episode_metrics,
@@ -67,7 +68,7 @@ def export_information(
         scoring: None si el registro todavía no está scoreado.
         annotations: None si no hay anotaciones.
     """
-    path.write_text(build_report(recording, scoring, annotations), encoding="utf-8")
+    write_text_atomically(path, build_report(recording, scoring, annotations))
 
 
 def build_report(
