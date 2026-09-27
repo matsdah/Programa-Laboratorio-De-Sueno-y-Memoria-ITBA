@@ -30,7 +30,7 @@ import numpy as np
 from PySide6.QtWidgets import QFileDialog, QInputDialog
 
 from psglab.core.recording import Recording
-from psglab.analysis.derivation import derive
+from psglab.analysis.derivation import derive, derive_montage, plan_aasm_montage
 from psglab.analysis.complexity import MEASURES, complexity_by_window, warm_up
 from psglab.analysis.connectivity import (
     METHOD_LABELS,
@@ -56,7 +56,7 @@ from psglab.analysis.psd import band_power, compute_psd, describe_method
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_samples
 from psglab.readers.base import warm_up_readers
-from psglab.utils.errors import PsgLabError
+from psglab.utils.errors import ChannelNotFoundError, PsgLabError
 
 #: Medidas de complejidad que la interfaz ofrece para recorrer la noche.
 #:
@@ -145,8 +145,9 @@ class AnalysisMixin:
         self,
         que_hace: str,
         calcular: Callable[[Recording], Recording],
-        mostrar: str | None = None,
+        mostrar: str | list[str] | None = None,
         accion: str | None = None,
+        duracion_del_mensaje: int = 5000,
     ) -> None:
         """Corre un análisis y lleva su resultado a la pantalla.
 
@@ -165,8 +166,11 @@ class AnalysisMixin:
                 esto una derivación se creaba y no se veía. Mostrarlo es una
                 decisión de presentación —el usuario acaba de pedirlo— y por eso
                 vive acá y no en `core/`.
+                Puede ser una lista: el montaje AASM agrega varios.
             accion: qué no se pudo hacer si falla, para la primera línea del
                 cartel; ver `_show_error()`.
+            duracion_del_mensaje: cuánto queda `que_hace` en la barra de
+                estado, en milisegundos; 0 lo deja hasta el próximo mensaje.
         """
         if self._session is None:
             return
@@ -176,10 +180,10 @@ class AnalysisMixin:
         except PsgLabError as error:
             self._show_error(error, accion)
             return
-        if mostrar is not None and mostrar not in self._session.visible_channels:
-            self._session.set_visible_channels(
-                [*self._session.visible_channels, mostrar]
-            )
+        nuevos = [mostrar] if isinstance(mostrar, str) else list(mostrar or [])
+        nuevos = [c for c in nuevos if c not in self._session.visible_channels]
+        if nuevos:
+            self._session.set_visible_channels([*self._session.visible_channels, *nuevos])
         self.signal_view.set_session(self._session)
         self.channel_selector.set_recording(procesado)
         # La señal cambió: los resultados eran de la anterior —la ICA ya la
@@ -188,7 +192,7 @@ class AnalysisMixin:
         self._olvidar_resultados()
         self.playback_controller.stop()
         self.refresh()
-        self.statusBar().showMessage(que_hace, 5000)
+        self.statusBar().showMessage(que_hace, duracion_del_mensaje)
 
     def _al_olvidar_la_ica(self) -> None:
         """`analysis_controller` descartó la descomposición: su panel se vacía.
@@ -225,6 +229,55 @@ class AnalysisMixin:
             lambda registro: derive(registro, canal, referencia),
             mostrar=f"{canal}-{referencia}",
             accion=f"derivar «{canal}-{referencia}»",
+        )
+
+    def apply_aasm_montage(self) -> None:
+        """Deriva de un clic el montaje recomendado por la AASM.
+
+        Busca los electrodos en el registro (`plan_aasm_montage()`) y deriva
+        los que encuentra, de una sola vez y de manera atómica. Lo que falta
+        no impide lo demás —el respaldo del otro hemisferio existe para eso—,
+        pero **se dice**: la barra de estado nombra lo que no se pudo armar y
+        queda hasta el próximo mensaje, para que se alcance a leer.
+
+        Sin ninguna derivación posible —ni hecha antes— sale como cartel,
+        porque el usuario pidió algo y no pasó nada.
+        """
+        if self._session is None:
+            return
+        try:
+            plan = plan_aasm_montage(self._session.recording)
+        except PsgLabError as error:
+            self._show_error(error, "armar el montaje AASM")
+            return
+        if not plan.pairs:
+            if plan.already_present:
+                mensaje = "El montaje AASM ya está derivado"
+                if plan.missing:
+                    mensaje += f". No se puede: {'; '.join(plan.missing)}"
+                self.statusBar().showMessage(mensaje, 0 if plan.missing else 5000)
+                return
+            self._show_error(
+                ChannelNotFoundError(
+                    "No se encontraron en el registro los electrodos del montaje "
+                    "AASM: hacen falta F4, C4, O2, F3, C3 u O1, E1 o E2, y las "
+                    "mastoides M1 y M2 (o los lóbulos A1 y A2).",
+                    details="No se puede armar: " + "; ".join(plan.missing) + ".",
+                ),
+                "armar el montaje AASM",
+            )
+            return
+        mensaje = f"Se derivó el montaje AASM: {', '.join(plan.names)}"
+        if plan.missing:
+            mensaje += f". No se pudo: {'; '.join(plan.missing)}"
+        self._aplicar_analisis(
+            mensaje,
+            lambda registro: derive_montage(
+                registro, plan.pairs, names=plan.names, channel_kinds=plan.channel_kinds
+            ),
+            mostrar=plan.names,
+            accion="derivar el montaje AASM",
+            duracion_del_mensaje=0 if plan.missing else 5000,
         )
 
     def rereference_dialog(self) -> None:

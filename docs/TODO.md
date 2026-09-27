@@ -288,8 +288,8 @@ código de hoy** antes de arreglar nada.
     `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
-    `tests/test_contratos.py`, **1207 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_contratos.py`, **1227 tests en verde**;
+    `tests/test_entrega.py`, **422 tests en verde**.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
 línea reanclada sin canal, la lupa sin restar el desplazamiento, la banda que
@@ -362,8 +362,8 @@ más. **Varias piden una decisión antes**; están marcadas.
       van a la próxima y a la anterior sin scorear, con `Scoring.next_unscored()`.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
-    `tests/test_contratos.py`, **1207 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_contratos.py`, **1227 tests en verde**;
+    `tests/test_entrega.py`, **422 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
   0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
@@ -384,7 +384,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       ayuda de atajos suma C y, en «Anotación», lo que hace el mouse.
   - Test: `tests/test_annotator.py`, **49 tests en verde**;
     `tests/test_tool_controller.py`, **16 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_entrega.py`, **422 tests en verde**.
 - [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
       pedido encadena carteles modales para elegir canal, medida o banda
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
@@ -439,9 +439,26 @@ más. **Varias piden una decisión antes**; están marcadas.
 - [ ] **La lupa del tamaño de la página.** El radio es de un segundo por el
       aumento: con una página de una hora la lente no se ve, y con una de un
       segundo tapa todo. Llevarlo a una fracción de la página.
-- [ ] **El montaje AASM de un clic** (F4-M1, C4-M1, O2-M1 y los EOG):
+- [x] **El montaje AASM de un clic** (F4-M1, C4-M1, O2-M1 y los EOG):
       `derive_montage()` existe desde la Parte 2 y la ventana sólo deriva de
       a un par.
+      Hecho: «Montaje › Montaje AASM». **Revisa la decisión del hito 19**, que
+      dejó `derive_montage()` como biblioteca porque nadie había pedido un
+      montaje entero desde el programa; el usuario lo pidió, y sale de
+      `SOLO_BIBLIOTECA`. `plan_aasm_montage()` busca los electrodos con los
+      nombres de los equipos —«EEG C4-REF» es el C4, LOC y ROC son E1 y E2—
+      y arma F4-M1, C4-M1, O2-M1, su respaldo F3-M2, C3-M2 y O1-M2, y E1-M2 y
+      E2-M2. Sin mastoides usa los lóbulos, y el derivado se llama «C4-A1»
+      para no decir algo que no se registró. Lo que el registro ya trae
+      derivado no se repite, y lo que falta se dice en la barra de estado
+      —«O1-M2 (falta O1)»— hasta el próximo mensaje; sin ninguna derivación
+      posible, un cartel. `derive_montage()` recibe ahora el nombre y la
+      clase de cada derivado: «E1-M2» es un EOG aunque M2 sea un electrodo
+      de EEG, y la regla de `derive()` le daba «Otro». Se vuelve atrás con
+      «Volver a la señal original», como derivar.
+  - Test: `tests/test_derivation.py`, **52 tests en verde**; y en
+    `tests/test_entrega.py`, el montaje por la ventana: la resta, la clase,
+    lo que falta, no repetir y volver atrás.
 - [x] **Más rótulos de canal reconocidos.** `readers/channel_types.py` deja
       en «Otro» nombres comunes de polisomnografía —ABD, THO, Chest, Therm,
       Nasal, Pres, PTAF, Effort, Pleth, Pulse, Pos, Leg, LAT, RAT, M1, M2—, y
@@ -475,7 +492,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       mano. Anotar y marcar son un solo paso de deshacer.
   - Test: `tests/test_annotations.py`, **82 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
-    `tests/test_entrega.py`, **417 tests en verde**.
+    `tests/test_entrega.py`, **422 tests en verde**.
 
 ### Tanda 3: partir las clases grandes
 
