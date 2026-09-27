@@ -218,7 +218,7 @@ def test_sin_herramienta_un_clic_no_va_a_ningun_lado(con_sesion: ToolController)
 def test_soltar_el_anotador_avisa_a_la_ventana(con_sesion: ToolController):
     """Preguntar la clase es un cartel, y los carteles son de la ventana."""
     soltados: list[object] = []
-    con_sesion.annotation_released.connect(soltados.append)
+    con_sesion.annotation_released.connect(lambda herramienta, _: soltados.append(herramienta))
     con_sesion.toggle("annotator", True)
 
     mandar(
@@ -230,6 +230,39 @@ def test_soltar_el_anotador_avisa_a_la_ventana(con_sesion: ToolController):
 
     assert soltados == [con_sesion.tools["annotator"]]
     assert con_sesion.tools["annotator"].pending_selection_samples is not None
+
+
+def test_soltar_con_mayusculas_pide_preguntar(con_sesion: ToolController):
+    """Hito 79: con una clase activa, Mayúsculas al soltar pide el cartel."""
+    from PySide6.QtCore import QPointF as Punto
+
+    soltados: list[bool] = []
+    con_sesion.annotation_released.connect(lambda _h, preguntar: soltados.append(preguntar))
+    con_sesion.toggle("annotator", True)
+    punto = Punto(400.0, 100.0)
+    suelta = QMouseEvent(
+        QEvent.Type.MouseButtonRelease, punto, punto, Qt.MouseButton.LeftButton,
+        Qt.MouseButton.NoButton, Qt.KeyboardModifier.ShiftModifier,
+    )
+
+    mandar(
+        con_sesion,
+        evento(QEvent.Type.MouseButtonPress, 200, Qt.MouseButton.LeftButton),
+        suelta,
+        evento(QEvent.Type.MouseButtonPress, 200, Qt.MouseButton.LeftButton),
+        evento(QEvent.Type.MouseButtonRelease, 400, Qt.MouseButton.LeftButton),
+    )
+
+    assert soltados == [True, False]
+
+
+def test_la_lectura_dice_con_que_clase_se_anota(con_sesion: ToolController):
+    con_sesion.toggle("annotator", True)
+    assert con_sesion._readout.text() == "Anotar: se pregunta la clase de cada evento"
+
+    con_sesion.tools["annotator"].set_active_label("Spindle")
+
+    assert con_sesion._readout.text().startswith("Anotar como «Spindle»")
 
 
 def test_el_clic_derecho_del_anotador_pide_su_menu(con_sesion: ToolController):

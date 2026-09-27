@@ -85,8 +85,10 @@ class ToolController(QObject):
     #: El hipnograma tiene algo nuevo que mostrar.
     histogram_changed = Signal()
     #: El anotador soltó el botón: puede haber un tramo que espera su clase o
-    #: un borde corrido. Lleva la herramienta.
-    annotation_released = Signal(object)
+    #: un borde corrido. Lleva la herramienta y **si Mayúsculas estaba
+    #: apretada al soltar**, que pide preguntar la clase aunque haya una
+    #: activa (hito 79).
+    annotation_released = Signal(object, bool)
     #: Clic derecho con el anotador: la herramienta, en qué segundo y en qué
     #: punto de la pantalla abrir el menú.
     annotation_menu_requested = Signal(object, float, QPoint)
@@ -474,6 +476,16 @@ class ToolController(QObject):
         if isinstance(herramienta, MagnifierTool):
             self._readout.setText(f"Picos contados: {herramienta.click_count}")
             return
+        if isinstance(herramienta, AnnotatorTool):
+            # **Con qué clase se está anotando** (hito 79): sin cartel, es lo
+            # único que dice qué va a pasar al soltar.
+            clase = herramienta.active_label
+            self._readout.setText(
+                f"Anotar como «{clase}» · Mayús al soltar para elegir otra"
+                if clase is not None
+                else "Anotar: se pregunta la clase de cada evento"
+            )
+            return
         self._readout.setText("")
 
     # -- El mouse -----------------------------------------------------------
@@ -552,7 +564,8 @@ class ToolController(QObject):
             # hasta el hito 9 no lo hacía nadie, así que se podía arrastrar una
             # selección y no pasaba nada.
             if isinstance(herramienta, AnnotatorTool):
-                self.annotation_released.emit(herramienta)
+                mayusculas = bool(evento.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                self.annotation_released.emit(herramienta, mayusculas)
 
     def _cursor_del_anotador(
         self, herramienta: AnnotatorTool, segundos: float, evento: QMouseEvent
