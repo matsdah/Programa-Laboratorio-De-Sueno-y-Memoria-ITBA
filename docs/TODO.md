@@ -523,7 +523,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       cambiar la clase a «Arousal», correr su comienzo e importar las marcas
       del archivo. **Borrar no desmarca**: la marca pudo haberse puesto a
       mano. Anotar y marcar son un solo paso de deshacer.
-  - Test: `tests/test_annotations.py`, **82 tests en verde**;
+  - Test: `tests/test_annotations.py`, **97 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_entrega.py`, **436 tests en verde**.
 
@@ -805,9 +805,34 @@ función, y la historia ya está en este archivo y en git.
     otro registro con otra hora la rehagan: sacar cualquiera de esas cosas
     de la firma lo nota un test. En `tests/test_overlay_items.py`, un
     esquema con el mismo nombre y otros colores.
-- [ ] **`AnnotationSet` con búsqueda binaria**: `_insertar()` rearma la
+- [x] **`AnnotationSet` con búsqueda binaria**: `_insertar()` rearma la
       lista de comienzos en cada anotación y `in_range()` recorre todas en
       cada repintado.
+      Hecho. **Agregar era cuadrático**, no sólo lento: rearmar la lista de
+      comienzos en cada anotación hacía que importar 20 000 marcas tardara
+      cinco segundos, y lo mismo pagan deshacer y la recuperación, que
+      vuelven a agregar todo. `AnnotationSet` guarda ahora la lista de
+      comienzos al lado, en el mismo orden, y la duración más larga, que
+      acota hacia atrás lo que puede solaparse con un tramo; `remove()`
+      busca sólo entre las que empiezan en la misma muestra. Medido con
+      `medir_anotaciones()`, nuevo en el banco, intercalado:
+
+      | Anotaciones | Agregar todas | Las de un tramo de 5 min |
+      |---|---|---|
+      | 1 000 | 8–13 ms → 1,3 ms | 0,04–0,07 ms → 0,003 ms |
+      | 5 000 | 176–200 ms → 10 ms | 0,17 ms → 0,006 ms |
+      | 20 000 | 4,9 s → 100–126 ms | 1,5 ms → 0,05 ms |
+
+      Con la lista de comienzos, la búsqueda binaria podía elevar
+      `TypeError` al pedir borrar una anotación cuyo comienzo no es un
+      número, algo que `list.remove()` no hacía: se atrapa y sale el error
+      de siempre.
+  - Test: en `tests/test_annotations.py`, **la búsqueda contra la cuenta
+    ingenua** en ocho secuencias al azar de agregar, borrar, borrar por
+    posición y reemplazar, con comienzos repetidos y duraciones de una
+    muestra a cinco minutos. Lo único que no ve ningún test es no volver a
+    medir la duración más larga al borrar la más larga, porque no cambia
+    ningún resultado: sólo deja la búsqueda más ancha.
 - [x] **Los archivos de salida se escriben enteros o no se escriben**: a un
       temporal y después renombrado, como ya hace `preferences.save()`. Un
       corte a mitad de camino hoy deja el archivo truncado.

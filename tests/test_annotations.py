@@ -495,3 +495,109 @@ def test_la_clase_del_arousal_se_reconoce_como_se_escriba(clase: str):
 @pytest.mark.parametrize("clase", ["Spindle", "Arousal respiratorio", "", None, 3])
 def test_otra_clase_no_es_el_arousal(clase: object):
     assert not is_arousal(clase)
+
+
+# -- La búsqueda binaria (hito 79) ------------------------------------------------
+#
+# Agregar rearmaba la lista de comienzos entera en cada anotación, e `in_range()`
+# recorría todas. Ahora hay una lista de comienzos al lado y una duración máxima
+# que acota la búsqueda, y **cualquiera de las dos que se desincronice devuelve
+# anotaciones de menos sin avisar**: una banda que no se dibuja. Por eso el
+# test principal no elige casos sino que compara, en secuencias al azar, contra
+# la cuenta ingenua sobre `all()`.
+
+
+def _solapadas_a_mano(conjunto: AnnotationSet, inicio: int, fin: int) -> list[Annotation]:
+    """Lo que tiene que devolver `in_range()`, recorriendo todas."""
+    return [a for a in conjunto.all() if a.onset_sample < fin and a.end_sample > inicio]
+
+
+@pytest.mark.parametrize("semilla", range(8))
+def test_la_busqueda_da_lo_mismo_que_recorrer_todas(semilla: int):
+    """Agregar, borrar, borrar por posición y reemplazar, mezclados, con
+    duraciones muy distintas —la más larga se borra y vuelve—, comienzos
+    repetidos y tramos de todos los tamaños."""
+    import random
+
+    azar = random.Random(semilla)
+    conjunto = AnnotationSet()
+    clases = conjunto.labels()
+
+    def una() -> Annotation:
+        duracion = azar.choice([1, 5, 50, 500, 30_000])
+        return Annotation(azar.choice(clases), azar.randrange(0, 2_000) * 10, duracion)
+
+    for _ in range(600):
+        accion = azar.random()
+        actuales = conjunto.all()
+        if accion < 0.5 or not actuales:
+            conjunto.add(una())
+        elif accion < 0.65:
+            conjunto.remove(azar.choice(actuales))
+        elif accion < 0.8:
+            conjunto.remove_at(azar.randrange(len(actuales)))
+        else:
+            conjunto.replace(azar.choice(actuales), una())
+
+        todas = conjunto.all()
+        assert [a.onset_sample for a in todas] == sorted(a.onset_sample for a in todas)
+        for _ in range(3):
+            inicio = azar.randrange(-1_000, 21_000)
+            fin = inicio + azar.choice([1, 10, 300, 3_000, 40_000])
+            assert conjunto.in_range(inicio, fin) == _solapadas_a_mano(conjunto, inicio, fin)
+
+
+def test_una_anotacion_larga_se_encuentra_lejos_de_su_comienzo(anotaciones):
+    """Lo que acota la búsqueda hacia atrás es la duración más larga: una
+    anotación de una hora tiene que aparecer en un tramo que está casi al final
+    de ella."""
+    larga = evento(0, 360_000)
+    anotaciones.add(larga)
+    for inicio in range(1_000, 100_000, 1_000):
+        anotaciones.add(evento(inicio, 10))
+
+    assert larga in anotaciones.in_range(359_000, 359_500)
+
+
+def test_borrar_la_mas_larga_no_esconde_las_otras(anotaciones):
+    anotaciones.add(evento(0, 360_000))
+    anotaciones.add(evento(5_000, 20_000))
+    anotaciones.remove_at(0)
+
+    assert anotaciones.in_range(24_000, 24_500) == [evento(5_000, 20_000)]
+
+
+def test_con_el_mismo_comienzo_quedan_en_el_orden_en_que_se_agregaron(anotaciones):
+    """`remove_at()` depende del orden, así que empatar en el comienzo no puede
+    reordenar."""
+    primera = evento(1_000, 50, "Arousal")
+    segunda = evento(1_000, 80, "Spindle")
+    tercera = evento(1_000, 20, "Arousal")
+    for anotacion in (primera, segunda, tercera):
+        anotaciones.add(anotacion)
+
+    assert anotaciones.all() == [primera, segunda, tercera]
+
+
+@pytest.mark.parametrize("inicio", ["mil", None, 1_500.5], ids=["texto", "nada", "fraccion"])
+def test_borrar_una_que_no_esta_avisa_aunque_su_comienzo_no_sea_un_numero(
+    anotaciones, inicio
+):
+    """Lo que se pide borrar no pasó por la validación. **Un comienzo que no se
+    compara con un número elevaba `TypeError`** en la búsqueda binaria, que es
+    una traza para el investigador; tiene que ser el error de siempre."""
+    anotaciones.add(evento(1_500))
+
+    with pytest.raises(InvalidAnnotationError):
+        anotaciones.remove(Annotation("Arousal", inicio, 100))
+    assert anotaciones.all() == [evento(1_500)]
+
+
+def test_borrar_una_de_dos_iguales_deja_la_otra(anotaciones):
+    anotaciones.add(evento(2_000))
+    anotaciones.add(evento(2_000))
+
+    anotaciones.remove(evento(2_000))
+
+    assert anotaciones.all() == [evento(2_000)]
+    assert anotaciones.in_range(2_000, 2_001) == [evento(2_000)]
