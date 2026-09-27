@@ -211,7 +211,7 @@ El **scoring automático** estuvo en esta lista hasta el 25 de septiembre de
 2026. Aparece entre las motivaciones del pliego ("Scoring automatico
 imposible") pero no en ninguna funcionalidad numerada, y el 4 de septiembre se
 lo dejó fuera del alcance con el cliente. El usuario lo reabrió en el
-[hito 75](TODO.md#hito-75-las-fases-sugeridas), **como sugerencias que alguien
+[hito 75](HISTORIAL.md#hito-75-las-fases-sugeridas), **como sugerencias que alguien
 confirma**, y tiene fila arriba sin ID.
 
 ---
@@ -237,7 +237,7 @@ filtrar por tipo de canal, y V5_F, ICA— no está en duda: si aparecen los tres
 son trabajo adicional y no trabajo a rehacer.
 
 
-La lista vive en **[`TODO.md`](TODO.md#hito-0-desbloquear)**, hito 0, con el
+La lista vive en **[`TODO.md`](HISTORIAL.md#hito-0-desbloquear)**, hito 0, con el
 detalle de qué trabajo frena cada una. Acá no se repite: el estado y las
 preguntas abiertas los posee el TODO, y duplicarlos garantizaba —y de hecho
 produjo— que las copias se desincronizaran.

@@ -208,16 +208,16 @@ Si dos líneas se pisan en horizontal, **la zona compartida se cuenta dos
 veces**: se suman los aportes sin descontar, así que el total puede pasar del
 100 % y eso es lo buscado. Confirmado con el cliente el 4 de septiembre de 2026
 y parametrizado en `config.OCCUPANCY_COUNTS_OVERLAP_ONCE` (hoy `False`). Ver el
-[hito 0 del TODO](../../docs/TODO.md#hito-0-desbloquear).
+[hito 0 del TODO](../../docs/HISTORIAL.md#hito-0-desbloquear).
 
 ## Estado
 
 Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
-[hito 7 del TODO](../../docs/TODO.md#hito-7-herramientas). Las seis
+[hito 7 del TODO](../../docs/HISTORIAL.md#hito-7-herramientas). Las seis
 herramientas son independientes entre sí, así que **se pueden repartir**.
 
 `base.py` y `registry.py` ya están implementados y no tienen stubs.
 
 **Ninguna está bloqueada.** `occupancy.py` (V2_F y V4_F) y `annotator.py` lo
-estuvieron hasta que el [hito 0](../../docs/TODO.md#hito-0-desbloquear) fijó el
+estuvieron hasta que el [hito 0](../../docs/HISTORIAL.md#hito-0-desbloquear) fijó el
 conteo de la superposición y el índice de los puntos.

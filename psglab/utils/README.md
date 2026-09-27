@@ -100,7 +100,7 @@ hace: `min(max(nan, lo), hi)` devuelve NaN.
 ## Estado
 
 Pendientes **0 stubs**: la carpeta está **terminada**, en el
-[hito 1 del TODO](../../docs/TODO.md#hito-1-cimientos).
+[hito 1 del TODO](../../docs/HISTORIAL.md#hito-1-cimientos).
 
 Los tres módulos tienen su test corriendo: `tests/test_units.py`,
 `tests/test_errors.py` y `tests/test_validation.py`. `PsgLabError.__init__` es

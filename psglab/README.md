@@ -90,7 +90,7 @@ línea, y el valor queda junto al motivo por el que se eligió.
 
 **No hardcodear ninguna de estas variantes** en ningún módulo. El detalle de
 cada decisión está en el
-[hito 0 del TODO](../docs/TODO.md#hito-0-desbloquear).
+[hito 0 del TODO](../docs/HISTORIAL.md#hito-0-desbloquear).
 
 ## Convenciones
 
