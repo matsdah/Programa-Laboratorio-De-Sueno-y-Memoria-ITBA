@@ -1,0 +1,50 @@
+#!/bin/sh
+# Pone a los miembros del equipo como coautores de cada commit.
+#
+# GitHub reconoce a un coautor por la línea `Co-authored-by:` al final del
+# mensaje, y lo vincula a su cuenta por el email noreply
+# `ID+login@users.noreply.github.com`, que existe aunque la persona no tenga
+# su email público.
+#
+# Se activa una vez por clon, desde la raíz del proyecto:
+#
+#     git config core.hooksPath .githooks
+#
+# A quien commitea no se lo agrega como coautor de sí mismo. Se lo reconoce
+# por `user.email`, `user.name` o su login de GitHub; si ninguno coincide con
+# su fila, se declara con `git config coautores.yo <login>`.
+#
+# `addIfDifferent` no repite una línea que el mensaje ya tenga, así que un
+# `--amend` o un commit que ya trae los coautores no los duplica.
+
+MSG_FILE="$1"
+SOURCE="$2"
+
+# El mensaje de un merge o de un squash lo arma git.
+case "$SOURCE" in
+  merge|squash) exit 0 ;;
+esac
+
+# Un miembro por línea: login|nombre|email noreply de GitHub.
+MIEMBROS='matsdah|Mateo Andrioli|72310148+matsdah@users.noreply.github.com
+simonmarabi|Simón Marabi|81104288+simonmarabi@users.noreply.github.com
+DeZ7ro|Franco Pedretti|108698846+DeZ7ro@users.noreply.github.com'
+
+minusculas() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+YO_NOMBRE=$(minusculas "$(git config user.name)")
+YO_EMAIL=$(minusculas "$(git config user.email)")
+YO_LOGIN=$(minusculas "$(git config coautores.yo)")
+
+printf '%s\n' "$MIEMBROS" | while IFS='|' read -r login nombre email; do
+  [ -z "$login" ] && continue
+  case "$(minusculas "$login")" in
+    "$YO_LOGIN"|"$YO_NOMBRE") continue ;;
+  esac
+  [ "$(minusculas "$nombre")" = "$YO_NOMBRE" ] && continue
+  [ "$(minusculas "$email")" = "$YO_EMAIL" ] && continue
+  git interpret-trailers --in-place --if-exists addIfDifferent \
+    --trailer "Co-authored-by: $nombre <$email>" "$MSG_FILE" || exit 1
+done
