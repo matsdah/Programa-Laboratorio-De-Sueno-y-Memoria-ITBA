@@ -39,6 +39,7 @@ from typing import Final
 
 import numpy as np
 
+from psglab.analysis.mne_bridge import _exigir_registro
 from psglab.core.recording import Recording
 from psglab.core.windows import count_windows, window_to_samples
 from psglab.utils.errors import (
@@ -81,15 +82,6 @@ WELCH_WINDOW: Final[str] = "hann"
 #: mitad, que también es lo que scipy usa por omisión; por el mismo motivo que
 #: la ventana, se pide explícito.
 WELCH_OVERLAP: Final[float] = 0.5
-
-
-def _exigir_registro(recording: Recording) -> None:
-    """Rechaza como `PsgLabError` lo que no sea un `Recording`."""
-    if not isinstance(recording, Recording):
-        raise InvalidRecordingError(
-            "No se puede calcular el espectro de eso: no es un registro abierto.",
-            details=f"recording es {type(recording).__name__}, se esperaba Recording.",
-        )
 
 
 def _nombres_de_canal(
@@ -184,7 +176,7 @@ def compute_psd(
         InvalidRecordingError: si no se le pasa un registro, o si el tramo es
             más corto que el segmento de Welch.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede calcular el espectro de eso")
     if method not in METHODS:
         raise UnknownPsdMethodError(
             f"No se conoce el método «{method}» para calcular el espectro.",
@@ -376,7 +368,7 @@ def band_powers_by_window(
         ChannelNotFoundError: si algún canal no existe.
         InvalidBandError: si alguna banda está mal formada.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede calcular el espectro de eso")
     # Sin el `if channels` de antes: `None` sigue siendo "todos" y `[]` pasa a
     # rechazarse, que es lo que hace `compute_psd()` y lo que evita que la misma
     # lista signifique cosas opuestas en las dos.

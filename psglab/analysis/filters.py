@@ -56,7 +56,7 @@ from typing import Any, Final
 
 import numpy as np
 
-from psglab.analysis.mne_bridge import _registro_parcial, from_raw, to_raw
+from psglab.analysis.mne_bridge import _exigir_registro, _registro_parcial, from_raw, to_raw
 from psglab.core.recording import ChannelKind, Recording
 from psglab.utils.errors import (
     InvalidFilterError,
@@ -106,15 +106,6 @@ DEFAULT_FILTERS: Final[dict[ChannelKind, FilterSettings]] = {
     ChannelKind.RESPIRATORY: FilterSettings(highpass_hz=0.05, lowpass_hz=5.0),
     ChannelKind.OTHER: FilterSettings(),
 }
-
-
-def _exigir_registro(recording: Recording) -> None:
-    """Rechaza como `PsgLabError` lo que no sea un `Recording`."""
-    if not isinstance(recording, Recording):
-        raise InvalidRecordingError(
-            "No se puede filtrar eso: no es un registro abierto.",
-            details=f"recording es {type(recording).__name__}, se esperaba Recording.",
-        )
 
 
 def _frecuencia(valor: object, rotulo: str) -> float | None:
@@ -246,7 +237,7 @@ def apply_filters(
     media cruda es un estado del que nadie puede sacar conclusiones, y a simple
     vista no se distingue de una señal entera.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede filtrar eso")
     if not isinstance(settings, dict):
         raise InvalidRecordingError(
             "No se puede filtrar con eso: hacen falta los filtros de cada canal.",
@@ -394,7 +385,7 @@ def settings_for_kinds(
         InvalidFilterError: si alguna clave no es un `ChannelKind` o algún valor
             no es un `FilterSettings`.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede filtrar eso")
     if not isinstance(by_kind, dict):
         raise InvalidRecordingError(
             "No se puede filtrar con eso: hacen falta los filtros de cada clase "

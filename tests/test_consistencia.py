@@ -1148,6 +1148,39 @@ def nombres_que_usa_la_interfaz() -> set[str]:
     return usados
 
 
+def test_analysis_tiene_una_sola_guarda_de_registro():
+    """Nadie en `analysis/` vuelve a escribir `isinstance(x, Recording)` (hito 79).
+
+    La guarda estaba escrita nueve veces —siete como `_exigir_registro()` en
+    cada módulo y dos adentro de la función—, cada una con su mensaje, y
+    corregir una no corregía las otras. Ahora vive en
+    `mne_bridge._exigir_registro()`, que recibe el comienzo del mensaje de cada
+    análisis. Este chequeo rechaza la décima copia.
+    """
+    copias: list[str] = []
+    for archivo in sorted((RAIZ / "psglab" / "analysis").glob("*.py")):
+        arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+        for funcion in ast.walk(arbol):
+            if not isinstance(funcion, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if archivo.name == "mne_bridge.py" and funcion.name == "_exigir_registro":
+                continue
+            if funcion.name == "_exigir_registro":
+                copias.append(f"{archivo.name}: define su propia _exigir_registro()")
+            for nodo in ast.walk(funcion):
+                if (
+                    isinstance(nodo, ast.Call)
+                    and getattr(nodo.func, "id", "") == "isinstance"
+                    and len(nodo.args) == 2
+                    and getattr(nodo.args[1], "id", "") == "Recording"
+                ):
+                    copias.append(f"{archivo.name}:{nodo.lineno} en {funcion.name}()")
+    assert not copias, (
+        "estas guardas de registro repiten la de mne_bridge._exigir_registro(); "
+        "llamarla con el mensaje del análisis:\n" + "\n".join(sorted(set(copias)))
+    )
+
+
 def test_cada_funcion_de_analysis_llega_a_la_ventana():
     """Ninguna función de `analysis/` puede quedar sin camino en silencio.
 

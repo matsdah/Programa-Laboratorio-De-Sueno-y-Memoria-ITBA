@@ -45,6 +45,7 @@ from typing import Any, Final
 import numpy as np
 
 from psglab.analysis.mne_bridge import (
+    _exigir_registro,
     _factor_hacia_mne,
     _registro_parcial,
     from_raw,
@@ -85,15 +86,6 @@ _MUESTRAS_POR_TRAMO: Final[int] = 65_536
 #: ("auto") es bajo para señal ruidosa y deja avisos de no convergencia en
 #: mitad de un análisis; con este tope converge y si no lo hace, no convergió.
 MAX_ITER: Final[int] = 1000
-
-
-def _exigir_registro(recording: Recording) -> None:
-    """Rechaza como `PsgLabError` lo que no sea un `Recording`."""
-    if not isinstance(recording, Recording):
-        raise InvalidRecordingError(
-            "No se puede hacer una ICA de eso: no es un registro abierto.",
-            details=f"recording es {type(recording).__name__}, se esperaba Recording.",
-        )
 
 
 def _canales_eeg(recording: Recording) -> list[str]:
@@ -214,7 +206,7 @@ def fit_ica(recording: Recording, n_components: int | None = None) -> Any:
     """
     from mne.preprocessing import ICA
 
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede hacer una ICA de eso")
     nombres = _canales_eeg(recording)
 
     if n_components is None:
@@ -330,7 +322,7 @@ def explained_variance(ica: Any, recording: Recording) -> list[float]:
         InvalidRecordingError: si no es una ICA ajustada o no hay registro.
     """
     _exigir_ica(ica)
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede hacer una ICA de eso")
 
     total = count_windows(recording.n_samples, recording.sampling_rate)
     cuantas = min(total, VARIANCE_SAMPLE_WINDOWS)
@@ -512,7 +504,7 @@ def component_time_course(
     """
     _exigir_ica(ica)
     numero = _exigir_componente(ica, component)
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede hacer una ICA de eso")
 
     tramo = recording if window_index is None else _recorte_de_ventana(
         recording, window_index
@@ -559,7 +551,7 @@ def apply_ica(recording: Recording, ica: Any, exclude: list[int]) -> Recording:
             `exclude` no existe, si no se le pasa un registro, o si el registro
             no tiene los canales sobre los que se ajustó la descomposición.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede hacer una ICA de eso")
     _exigir_ica(ica)
     if not isinstance(exclude, (list, tuple)):
         raise InvalidRecordingError(

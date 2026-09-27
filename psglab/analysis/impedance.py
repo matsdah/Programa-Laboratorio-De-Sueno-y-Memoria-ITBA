@@ -42,6 +42,7 @@ import math
 from pathlib import Path
 from typing import Final
 
+from psglab.analysis.mne_bridge import _exigir_registro
 from psglab.core.recording import Recording
 from psglab.utils.errors import InvalidRecordingError, UnreadableFileError
 
@@ -83,11 +84,7 @@ def read_impedances(recording: Recording) -> dict[str, float]:
     Raises:
         InvalidRecordingError: si no se le pasa un registro.
     """
-    if not isinstance(recording, Recording):
-        raise InvalidRecordingError(
-            "No se pueden leer impedancias de eso: no es un registro abierto.",
-            details=f"recording es {type(recording).__name__}, se esperaba Recording.",
-        )
+    _exigir_registro(recording, "No se pueden leer impedancias de eso")
 
     guardadas = recording.metadata.get(METADATA_KEY)
     if not isinstance(guardadas, dict):

@@ -57,6 +57,7 @@ from typing import Final
 
 import numpy as np
 
+from psglab.analysis.mne_bridge import _exigir_registro
 from psglab.core.recording import Recording
 from psglab.core.windows import count_windows, window_to_samples
 from psglab.utils.errors import InvalidRecordingError, UnknownMeasureError
@@ -307,11 +308,7 @@ def complexity_by_window(
         InvalidRecordingError: si no se le pasa un registro.
         ChannelNotFoundError: si algún canal no existe.
     """
-    if not isinstance(recording, Recording):
-        raise InvalidRecordingError(
-            "No se puede medir la complejidad de eso: no es un registro abierto.",
-            details=f"recording es {type(recording).__name__}, se esperaba Recording.",
-        )
+    _exigir_registro(recording, "No se puede medir la complejidad de eso")
     # `not in` sobre un diccionario **hashea la clave**, así que con una lista
     # o un diccionario eleva `TypeError: unhashable type` antes de llegar al
     # mensaje. Comprobar el tipo primero es lo que hace que el rechazo salga
