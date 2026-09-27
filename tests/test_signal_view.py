@@ -44,7 +44,9 @@ from psglab.core.windows import seconds_to_sample, seconds_to_samples  # noqa: E
 from psglab.tools.base import CircleOverlay  # noqa: E402
 from psglab.ui.channel_axis import ANCHO_DEL_CANALON  # noqa: E402
 from psglab.ui import grid as modulo_de_la_grilla  # noqa: E402
+from psglab.ui import envelope_cache as modulo_de_la_cache  # noqa: E402
 from psglab.ui import signal_view as modulo_de_la_vista  # noqa: E402
+from psglab.ui.envelope_cache import EnvelopeCache  # noqa: E402
 from psglab.ui.signal_view import SignalView, TimeAxis  # noqa: E402
 
 FRECUENCIA = 100.0
@@ -348,7 +350,7 @@ def test_ida_y_vuelta_da_lo_mismo(vista: SignalView):
     """Es la inversa exacta de la cuenta con la que se dibuja la señal. Si no lo
     fuera, la banda de amplitud no mediría lo que dice medir."""
     for microvoltios in (0.0, 25.0, -40.0, 75.0):
-        carril = vista._a_carril(microvoltios, "C3")
+        carril = vista.to_lanes(microvoltios, "C3")
         assert vista._a_microvoltios(carril, "C3") == pytest.approx(microvoltios)
 
 
@@ -420,7 +422,7 @@ def lupa(
             )
         ]
     )
-    return curva_de_la_lente(widget._overlay_items[0]).getData()
+    return curva_de_la_lente(widget.overlay_layer.items[0]).getData()
 
 
 def test_la_lupa_dibuja_la_señal_y_no_un_punto(vista: SignalView):
@@ -476,7 +478,7 @@ def test_sin_registro_la_lupa_no_dibuja_nada(qt_app):
             )
         ]
     )
-    assert widget._overlay_items == []
+    assert widget.overlay_layer.items == []
 
 
 # -- La envolvente: qué se manda a dibujar con una página larga -------------------
@@ -526,13 +528,13 @@ def _ver_todo(widget: SignalView, sesion: Session) -> None:
 def envolventes_calculadas(monkeypatch) -> list[int]:
     """Cuenta cuántas veces se calcula una envolvente de verdad."""
     llamadas: list[int] = []
-    original = modulo_de_la_vista.envelope_by_bucket_size
+    original = modulo_de_la_cache.envelope_by_bucket_size
 
     def contando(samples: np.ndarray, bucket_size: int) -> tuple[np.ndarray, np.ndarray]:
         llamadas.append(len(samples))
         return original(samples, bucket_size)
 
-    monkeypatch.setattr(modulo_de_la_vista, "envelope_by_bucket_size", contando)
+    monkeypatch.setattr(modulo_de_la_cache, "envelope_by_bucket_size", contando)
     return llamadas
 
 
@@ -558,7 +560,7 @@ def test_la_espiga_se_ve_con_la_noche_entera(
 
     _, alturas = vista_larga._curves["C3"].getData()
 
-    assert alturas.max() == pytest.approx(vista_larga._a_carril(500.0, "C3"))
+    assert alturas.max() == pytest.approx(vista_larga.to_lanes(500.0, "C3"))
 
 
 def test_la_espiga_cae_en_su_segundo(vista_larga: SignalView, sesion_larga: Session):
@@ -628,7 +630,7 @@ def test_con_otra_senal_no_queda_dibujada_la_envolvente_vieja(
     vista_larga.draw_viewport()
 
     _, alturas = vista_larga._curves["C3"].getData()
-    assert alturas.min() == pytest.approx(vista_larga._a_carril(-700.0, "C3"))
+    assert alturas.min() == pytest.approx(vista_larga.to_lanes(-700.0, "C3"))
     assert alturas.max() == pytest.approx(0.0)
 
 
@@ -641,12 +643,12 @@ def test_la_cache_de_envolventes_tiene_tope(
     páginas para llegar; con uno chico alcanza con unas pocas escalas, y lo que
     se verifica es el mismo `popitem`."""
     tope = 40
-    monkeypatch.setattr(modulo_de_la_vista, "_TROZOS_EN_MEMORIA", tope)
+    monkeypatch.setattr(vista_larga, "envelope_cache", EnvelopeCache(capacity=tope))
     for paso in range(10):
         sesion_larga.set_viewport(sesion_larga.viewport.with_span(100.0 + 10 * paso))
         vista_larga.draw_viewport()
 
-    assert len(vista_larga._envolventes) == tope
+    assert len(vista_larga.envelope_cache) == tope
 
 
 # -- La envolvente al reproducir (hito 49) -----------------------------------------
@@ -730,8 +732,8 @@ def test_lo_que_se_dibuja_es_la_envolvente_del_registro(qt_app):
     primera, ultima = seconds_to_samples(
         inicio, inicio + PAGINA_LARGA, FRECUENCIA, sesion.recording.n_samples
     )
-    por_cubeta = modulo_de_la_vista.bucket_size_for(ultima - primera, widget._columnas())
-    esperados, _ = modulo_de_la_vista.envelope_by_bucket_size(canal, por_cubeta)
+    por_cubeta = modulo_de_la_cache.bucket_size_for(ultima - primera, widget._columnas())
+    esperados, _ = modulo_de_la_cache.envelope_by_bucket_size(canal, por_cubeta)
     desde = (primera // por_cubeta) * por_cubeta
     hasta = -(-ultima // por_cubeta) * por_cubeta
     esperados = esperados[(esperados >= desde) & (esperados < hasta)]
@@ -747,7 +749,7 @@ def test_una_espiga_en_el_borde_de_la_pagina_se_sigue_viendo(
     no la cambie por una muestra de afuera."""
     tiempos, alturas = _dibujar_desde(vista_larga, sesion_larga, ESPIGA / FRECUENCIA)
 
-    assert alturas.max() == pytest.approx(vista_larga._a_carril(500.0, "C3"))
+    assert alturas.max() == pytest.approx(vista_larga.to_lanes(500.0, "C3"))
     assert tiempos[int(np.argmax(alturas))] == pytest.approx(ESPIGA / FRECUENCIA)
 
 
@@ -989,7 +991,7 @@ def test_la_pestana_va_encima_de_las_bandas_de_anotacion(vista: SignalView, sesi
     """Hito 64: la pestaña toma el color de la fase, y una banda
     semitransparente encima la teñía —un «W» bajo un spindle verde se leía
     como otra fase—."""
-    from psglab.ui.signal_view import _Z_DE_LA_BANDA
+    from psglab.ui.overlay_items import Z_DE_LA_BANDA as _Z_DE_LA_BANDA
 
     vista.set_session(sesion)
     vista.show_window(0)
@@ -1124,7 +1126,7 @@ def test_la_pestana_va_encima_de_la_grilla(vista: SignalView):
 
 def pixel_del_carril(widget: SignalView, canal: str, uv: float = 0.0) -> float:
     """La coordenada de escena del eje de un canal, opcionalmente corrida."""
-    centro = widget._centro_de_carril(canal) + widget._a_carril(uv, canal)
+    centro = widget.lane_center(canal) + widget.to_lanes(uv, canal)
     return widget.getPlotItem().vb.mapViewToScene(QPointF(0.0, centro)).y()
 
 
@@ -1174,7 +1176,7 @@ def test_la_lente_tiene_cristal_y_hora(vista: SignalView):
     """**Del hito 9 al 45 no hubo ningún círculo**, pese a que el tipo se llama
     `CircleOverlay`: era una polilínea estirada."""
     lupa(vista)
-    tipos = [type(h).__name__ for h in vista._overlay_items[0].childItems()]
+    tipos = [type(h).__name__ for h in vista.overlay_layer.items[0].childItems()]
 
     assert "QGraphicsPathItem" in tipos
     assert "TextItem" in tipos
@@ -1186,7 +1188,7 @@ def test_la_curva_ampliada_va_adentro_del_cristal(vista: SignalView):
     cortada en los bordes en vez de la lente."""
     lupa(vista)
     cristal = [
-        h for h in vista._overlay_items[0].childItems()
+        h for h in vista.overlay_layer.items[0].childItems()
         if type(h).__name__ == "QGraphicsPathItem"
     ][0]
 
@@ -1227,7 +1229,7 @@ def test_la_lupa_resta_el_desplazamiento_del_canal(vista: SignalView, sesion: Se
 def _rotulos(vista: SignalView) -> list:
     import pyqtgraph as pg
 
-    return [i for i in vista._overlay_items if isinstance(i, pg.TextItem)]
+    return [i for i in vista.overlay_layer.items if isinstance(i, pg.TextItem)]
 
 
 def test_la_banda_dice_de_que_clase_es(vista: SignalView):
@@ -1247,15 +1249,13 @@ def test_la_banda_dice_de_que_clase_es(vista: SignalView):
 def test_el_rotulo_va_encima_de_su_banda(vista: SignalView):
     """Si no, el borde de una banda más angosta que su nombre le cruza el
     texto, que es lo que mostró la captura."""
-    import pyqtgraph as pg
-
     from psglab.tools.base import SpanOverlay
 
     vista.set_overlays([SpanOverlay("annotator", 4.0, 5.0, "Complejo K", "#4a90e6")])
 
-    (region,) = [i for i in vista._overlay_items if isinstance(i, pg.LinearRegionItem)]
+    bandas = vista.overlay_layer.annotation_bands
     (rotulo,) = _rotulos(vista)
-    assert rotulo.zValue() > region.zValue()
+    assert rotulo.zValue() > bandas.zValue()
 
 
 def test_el_rotulo_de_una_banda_que_empieza_antes_queda_en_la_pagina(

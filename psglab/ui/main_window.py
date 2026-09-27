@@ -231,6 +231,9 @@ class MainWindow(
         self.histogram_view = pg.PlotWidget()
         self.histogram_view.getPlotItem().setMenuEnabled(False)
         self.histogram_view.getPlotItem().setMouseEnabled(x=False, y=False)
+        #: Todo lo que decide cómo se ve el hipnograma, la última vez que se
+        #: lo dibujó. Ver `ScoringMixin._redraw_histogram()`.
+        self._firma_del_hipnograma: object = None
 
         self.psd_panel = PsdPanel()
         self.metric_panel = MetricPanel()

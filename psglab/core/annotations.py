@@ -127,6 +127,12 @@ class AnnotationSet:
     lo mismo que la posición en `all()`. Si se guardaran por orden de creación y
     `all()` ordenara al salir, los dos índices divergirían y el anotador
     terminaría borrando una banda distinta de la que el usuario señaló.
+
+    **Al lado va la lista de los comienzos**, en el mismo orden, y la duración
+    más larga. Con eso agregar, borrar y buscar un tramo son búsquedas
+    binarias (hito 79). Hasta ahí agregar rearmaba la lista de comienzos
+    entera en cada anotación —importar 20 000 marcas tardaba cinco segundos—
+    y `in_range()` recorría todas en cada repintado.
     """
 
     def __init__(self, labels: tuple[str, ...] = DEFAULT_LABELS) -> None:
@@ -135,6 +141,12 @@ class AnnotationSet:
         Cada clase recibe un color de `PALETTE` según su posición.
         """
         self._annotations: list[Annotation] = []
+        #: La muestra de inicio de cada una, en el mismo orden que
+        #: `_annotations`: es la lista sobre la que se busca.
+        self._inicios: list[int] = []
+        #: La duración más larga, en muestras. Acota hacia atrás lo que puede
+        #: solaparse con un tramo: ver `in_range()`.
+        self._duracion_maxima: int = 0
         self._colors: dict[str, str] = {}
         for label in labels:
             self.add_label(label)
@@ -240,11 +252,30 @@ class AnnotationSet:
                 ) from None
 
     def _insertar(self, annotation: Annotation) -> None:
-        """Inserta una anotación ya validada en su lugar por muestra de inicio."""
-        posicion = bisect.bisect_right(
-            [a.onset_sample for a in self._annotations], annotation.onset_sample
-        )
+        """Inserta una anotación ya validada en su lugar por muestra de inicio.
+
+        **Después de las que empiezan en la misma muestra**, como hacía
+        siempre: dos anotaciones con el mismo comienzo quedan en el orden en
+        que se agregaron.
+        """
+        posicion = bisect.bisect_right(self._inicios, annotation.onset_sample)
         self._annotations.insert(posicion, annotation)
+        self._inicios.insert(posicion, annotation.onset_sample)
+        self._duracion_maxima = max(self._duracion_maxima, annotation.duration_samples)
+
+    def _sacar(self, index: int) -> None:
+        """Saca la anotación de una posición, con su comienzo.
+
+        Si era la más larga, la duración máxima se vuelve a medir: dejarla
+        vieja no daría resultados equivocados, pero `in_range()` revisaría de
+        más para siempre.
+        """
+        sacada = self._annotations.pop(index)
+        del self._inicios[index]
+        if sacada.duration_samples == self._duracion_maxima:
+            self._duracion_maxima = max(
+                (a.duration_samples for a in self._annotations), default=0
+            )
 
     def remove(self, annotation: Annotation) -> None:
         """Elimina una anotación.
@@ -258,13 +289,27 @@ class AnnotationSet:
                 borrado silencioso escondería un bug del anotador, que es el
                 único que llama a esto.
         """
-        try:
-            self._annotations.remove(annotation)
-        except ValueError:
-            raise InvalidAnnotationError(
-                "Se quiso borrar una anotación que no está en el registro.",
-                details=f"{annotation!r}",
-            ) from None
+        # Una igual empieza en la misma muestra: se busca sólo entre las que
+        # empiezan ahí. La primera de ese tramo es la primera de todas.
+        #
+        # **Lo que se pide borrar no pasó por la validación**, así que su
+        # comienzo puede ser cualquier cosa. Uno que no se compara con un
+        # número —un texto— elevaría `TypeError` en la búsqueda; antes
+        # `list.remove()` simplemente no la encontraba, y así tiene que seguir.
+        if isinstance(annotation, Annotation):
+            try:
+                desde = bisect.bisect_left(self._inicios, annotation.onset_sample)
+                hasta = bisect.bisect_right(self._inicios, annotation.onset_sample)
+            except TypeError:
+                desde = hasta = 0
+            for posicion in range(desde, hasta):
+                if self._annotations[posicion] == annotation:
+                    self._sacar(posicion)
+                    return
+        raise InvalidAnnotationError(
+            "Se quiso borrar una anotación que no está en el registro.",
+            details=f"{annotation!r}",
+        )
 
     def remove_at(self, index: int) -> None:
         """Elimina la anotación que ocupa una posición de `all()`.
@@ -289,7 +334,7 @@ class AnnotationSet:
                 "Se quiso borrar una anotación que no existe.",
                 details=f"index = {index}, hay {len(self._annotations)} anotaciones.",
             )
-        del self._annotations[index]
+        self._sacar(index)
 
     def add_label(self, label: str, color: str | None = None) -> None:
         """Registra una clase de evento nueva creada por el usuario (V1_F).
@@ -381,10 +426,15 @@ class AnnotationSet:
                 message="No se pudo buscar anotaciones en ese tramo de señal.",
                 details=f"{nombre} tiene que ser un número finito de muestras.",
             )
+        # Sólo pueden solaparse las que empiezan antes del final del tramo y
+        # después de su comienzo menos la duración más larga: una que empieza
+        # antes termina, como mucho, justo donde el tramo empieza.
+        hasta = bisect.bisect_left(self._inicios, stop_sample)
+        desde = bisect.bisect_right(self._inicios, start_sample - self._duracion_maxima)
         return [
             a
-            for a in self._annotations
-            if a.onset_sample < stop_sample and a.end_sample > start_sample
+            for a in self._annotations[desde:hasta]
+            if a.end_sample > start_sample
         ]
 
     def all(self) -> list["Annotation"]:

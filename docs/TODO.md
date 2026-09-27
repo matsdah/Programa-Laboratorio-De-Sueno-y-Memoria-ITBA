@@ -297,7 +297,7 @@ código de hoy** antes de arreglar nada.
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
     `tests/test_contratos.py`, **1227 tests en verde**;
-    `tests/test_entrega.py`, **431 tests en verde**.
+    `tests/test_entrega.py`, **437 tests en verde**.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
 línea reanclada sin canal, la lupa sin restar el desplazamiento, la banda que
@@ -371,7 +371,7 @@ más. **Varias piden una decisión antes**; están marcadas.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
     `tests/test_contratos.py`, **1227 tests en verde**;
-    `tests/test_entrega.py`, **431 tests en verde**.
+    `tests/test_entrega.py`, **437 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
   0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
@@ -392,7 +392,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       ayuda de atajos suma C y, en «Anotación», lo que hace el mouse.
   - Test: `tests/test_annotator.py`, **49 tests en verde**;
     `tests/test_tool_controller.py`, **16 tests en verde**;
-    `tests/test_entrega.py`, **431 tests en verde**.
+    `tests/test_entrega.py`, **437 tests en verde**.
 - [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
       pedido encadena carteles modales para elegir canal, medida o banda
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
@@ -461,9 +461,17 @@ más. **Varias piden una decisión antes**; están marcadas.
   - Test: `tests/test_exporters.py`, **60 tests en verde**;
     `tests/test_menus.py`, **54 tests en verde**; y en
     `tests/test_entrega.py`, los dos archivos exportados por la ventana.
-- [ ] **La lupa del tamaño de la página.** El radio es de un segundo por el
+- [x] **La lupa del tamaño de la página.** El radio es de un segundo por el
       aumento: con una página de una hora la lente no se ve, y con una de un
       segundo tapa todo. Llevarlo a una fracción de la página.
+      Hecho. **El radio que se elige es el de la página de una época**, y
+      `MagnifierTool.radius_for_page()` lo escala en proporción: con la
+      página de arranque la lente mide lo mismo que antes, y con cualquier
+      otra ocupa la misma fracción de la pantalla. No hizo falta una
+      preferencia nueva —la que había guarda el mismo número, y la ventana
+      de configuración dice ahora que es el de la página de una época—.
+  - Test: `tests/test_magnifier.py`, **36 tests en verde**: el radio con
+    páginas de 1 s a una hora, y el círculo publicado con una de 3 s.
 - [x] **El montaje AASM de un clic** (F4-M1, C4-M1, O2-M1 y los EOG):
       `derive_montage()` existe desde la Parte 2 y la ventana sólo deriva de
       a un par.
@@ -515,9 +523,9 @@ más. **Varias piden una decisión antes**; están marcadas.
       cambiar la clase a «Arousal», correr su comienzo e importar las marcas
       del archivo. **Borrar no desmarca**: la marca pudo haberse puesto a
       mano. Anotar y marcar son un solo paso de deshacer.
-  - Test: `tests/test_annotations.py`, **82 tests en verde**;
+  - Test: `tests/test_annotations.py`, **97 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
-    `tests/test_entrega.py`, **431 tests en verde**.
+    `tests/test_entrega.py`, **437 tests en verde**.
 
 ### Tanda 3: partir las clases grandes
 
@@ -599,9 +607,23 @@ una vez que agregarlos al lugar que después hay que partir.
       desplazamiento de cada uno, ajustar al panel y centrar. Son la mitad de
       sus 1100 líneas y la mitad que toca la tanda 1. `Session` conserva sus
       métodos públicos, que delegan.
-- [ ] **`SignalView` (1344 líneas) separa lo que dibujan las herramientas**
+- [x] **`SignalView` (1344 líneas) separa lo que dibujan las herramientas**
       —banda, bandas de anotación, segmentos, lente— en
       `ui/overlay_items.py`, y la caché de la envolvente en su propia clase.
+      Hecho: quedó en 949 líneas. `OverlayLayer` dibuja los cuatro tipos y le
+      pregunta la geometría al visualizador, que la expone con
+      `lane_center()`, `to_lanes()` —una **posición**, que resta el
+      desplazamiento del canal— y `height_to_lanes()` —una **longitud**, que
+      no lo resta—; `EnvelopeCache` es numpy y un diccionario, sin Qt.
+      **Separarlos encontró un error**: la banda de amplitud convertía su
+      alto como una posición, así que sobre un canal desplazado medía
+      cualquier cosa. Con 500 µV de desplazamiento, la banda de 75 µV medía
+      4,16 carriles en vez de 0,34: doce veces. Los respiratorios se centran
+      solos al abrir un registro, así que le pasaba a cualquiera que midiera
+      sobre uno.
+  - Test: `tests/test_overlay_items.py`, **24 tests en verde**, y
+    `tests/test_envelope_cache.py`, **7 tests en verde**, sin Qt;
+    `tests/test_signal_view.py` sigue con **98 tests en verde**.
 - [ ] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
       tienen el mismo `_factor_a_microvoltios()`, el mismo armado de canales
       y la misma lectura de marcas: a un módulo común de `readers/`.
@@ -679,7 +701,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **109 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **111 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 
@@ -704,18 +726,113 @@ función, y la historia ya está en este archivo y en git.
     error de lectura, dos aperturas a la vez, abrir con un cálculo en curso
     y cerrar mientras lee. Los catorce tests que filtraban por la ventana
     esperan ahora el resultado con `wait_for_background()`, como los de la ICA.
-- [ ] **Los overlays no se rehacen enteros en cada movimiento del mouse.**
+- [x] **Los overlays no se rehacen enteros en cada movimiento del mouse.**
       Con la lupa o el anotador activos, `set_overlays()` saca y vuelve a
       crear cada banda de anotación de la página y su rótulo en cada evento;
       con una página larga y cientos de marcas importadas son cientos de
       ítems por movimiento. Medir con el banco antes de tocar.
-- [ ] **El hipnograma no se rearma en cada flecha.** `_reflejar_epoca()`
+      Hecho en `OverlayLayer`: un overlay que ya está dibujado con la misma
+      página, los mismos canales, la misma escala y desplazamiento de cada
+      uno y el mismo esquema se deja como está. La lente se rehace siempre,
+      porque depende de cuánto mide un píxel. Medido con el banco
+      —`medir_overlays()`, nuevo en `tests/medir_rendimiento.py`—, página de
+      5 min y la lupa moviéndose, en offscreen:
+
+      | Anotaciones en la página | Antes | Después |
+      |---|---|---|
+      | 0 | 5,9 ms | 5,9 ms |
+      | 100 | 221 ms | 35 ms |
+      | 400 | 1026 ms | 122 ms |
+
+  - Test: en `tests/test_overlay_items.py`, qué se reutiliza y qué cambio
+    de geometría obliga a rehacer.
+- [x] **Una sola pieza para todas las bandas de anotación**, como la
+      grilla. Después del ítem anterior, `set_overlays()` cuesta unos 6 ms
+      por movimiento con 400 anotaciones; **el 94 % de lo que queda es Qt
+      pintando** 400 `LinearRegionItem`, cada uno con sus dos
+      `InfiniteLine`, en cada cuadro. Lo paga también la reproducción, que
+      repinta la escena entera. Es el mismo remedio que la grilla del hito
+      25: un solo objeto que pinte todos los rectángulos de la página. Los
+      bordes que se agarran para corregir un tramo son del anotador, que
+      recibe el clic por coordenadas y no por ítem, así que no dependen de
+      que cada banda sea un objeto. Medirlo con el banco, intercalado.
+      Hecho: `AnnotationBands`, en `ui/overlay_items.py`. **Juntar los
+      objetos no alcanzó**: bajó a unos 80 ms, y el perfil pasó a ser el
+      propio relleno. Rellenar 400 rectángulos traslúcidos de 5 × 700 px
+      cuesta unos 70 ms aunque sea una sola llamada, y opacos 1,5 ms; lo
+      más probable es que Qt mezcle fila por fila. Como todas las filas de
+      una banda son iguales, los rellenos se componen en una tira de un
+      píxel de alto que se estira a todo el alto. Los rótulos siguen siendo
+      un `TextItem` cada uno: eran el 6 % del perfil. Medido intercalado
+      con el banco, página de 5 min y la lupa moviéndose, en offscreen:
+
+      | Anotaciones en la página | Antes | Después |
+      |---|---|---|
+      | 0 | 9,1–9,3 ms | 9,5–9,8 ms |
+      | 100 | 35–39 ms | 14–15 ms |
+      | 400 | 117–130 ms | 26–28 ms |
+
+      **Se ve igual**, comparado píxel a píxel contra las `LinearRegionItem`
+      —también con densidad 2—: 1/255 de redondeo, salvo que ahora los
+      bordes van encima de todos los rellenos, y el de una banda que cae
+      dentro de otra ya no queda teñido. Comparar encontró un error antes de
+      que llegara a la pantalla: con ocho cifras, `QColor` lee `#AARRGGBB` y
+      pyqtgraph `#RRGGBBAA`.
+  - Test: en `tests/test_overlay_items.py`, que cien anotaciones sean una
+    pieza, que se pinten de su color y donde van —a cada lado de los dos
+    bordes— y que lleguen al carril que se agrega sin redibujarlas.
+- [x] **El hipnograma no se rearma en cada flecha.** `_reflejar_epoca()`
       llama a `_redraw_histogram()`, que limpia y vuelve a crear la curva,
       las barras y las marcas, aunque `HistogramTool.update_window()` exista
       para no hacerlo.
-- [ ] **`AnnotationSet` con búsqueda binaria**: `_insertar()` rearma la
+      Hecho. **Eran dos por flecha**: además de `_reflejar_epoca()`, la
+      herramienta avisa que se movió la época actual, y el hipnograma no la
+      dibuja. `update_window()` no era la salida —pone al día los datos de
+      la herramienta, no el dibujo—: `_redraw_histogram()` compara ahora una
+      firma de lo que dibuja —las fases y las sugeridas, la nomenclatura, el
+      esquema, el eje en hora y la hora de inicio— y si no cambió no hace
+      nada. Medido intercalado con `medir_flecha()`, nuevo en el banco, sobre
+      una noche de 8 h con la mitad scoreada: **de 26–27 ms a 8 ms** por
+      flecha.
+      De paso, la firma de los overlays del visualizador llevaba el
+      **nombre** del esquema, y uno armado con `dataclasses.replace()` se
+      llama igual y pinta distinto: las dos llevan ahora el esquema entero.
+      Y el banco terminaba con un cartel modal que nadie contestaba —cerraba
+      la ventana con lo que las mediciones anotan sin exportar—, que es
+      probablemente el cuelgue que no se diagnosticó al medir los overlays.
+  - Test: en `tests/test_entrega.py`, que una flecha deje la misma curva y
+    que scorear, cambiar el eje a hora, la nomenclatura sin nada scoreado u
+    otro registro con otra hora la rehagan: sacar cualquiera de esas cosas
+    de la firma lo nota un test. En `tests/test_overlay_items.py`, un
+    esquema con el mismo nombre y otros colores.
+- [x] **`AnnotationSet` con búsqueda binaria**: `_insertar()` rearma la
       lista de comienzos en cada anotación y `in_range()` recorre todas en
       cada repintado.
+      Hecho. **Agregar era cuadrático**, no sólo lento: rearmar la lista de
+      comienzos en cada anotación hacía que importar 20 000 marcas tardara
+      cinco segundos, y lo mismo pagan deshacer y la recuperación, que
+      vuelven a agregar todo. `AnnotationSet` guarda ahora la lista de
+      comienzos al lado, en el mismo orden, y la duración más larga, que
+      acota hacia atrás lo que puede solaparse con un tramo; `remove()`
+      busca sólo entre las que empiezan en la misma muestra. Medido con
+      `medir_anotaciones()`, nuevo en el banco, intercalado:
+
+      | Anotaciones | Agregar todas | Las de un tramo de 5 min |
+      |---|---|---|
+      | 1 000 | 8–13 ms → 1,3 ms | 0,04–0,07 ms → 0,003 ms |
+      | 5 000 | 176–200 ms → 10 ms | 0,17 ms → 0,006 ms |
+      | 20 000 | 4,9 s → 100–126 ms | 1,5 ms → 0,05 ms |
+
+      Con la lista de comienzos, la búsqueda binaria podía elevar
+      `TypeError` al pedir borrar una anotación cuyo comienzo no es un
+      número, algo que `list.remove()` no hacía: se atrapa y sale el error
+      de siempre.
+  - Test: en `tests/test_annotations.py`, **la búsqueda contra la cuenta
+    ingenua** en ocho secuencias al azar de agregar, borrar, borrar por
+    posición y reemplazar, con comienzos repetidos y duraciones de una
+    muestra a cinco minutos. Lo único que no ve ningún test es no volver a
+    medir la duración más larga al borrar la más larga, porque no cambia
+    ningún resultado: sólo deja la búsqueda más ancha.
 - [x] **Los archivos de salida se escriben enteros o no se escriben**: a un
       temporal y después renombrado, como ya hace `preferences.save()`. Un
       corte a mitad de camino hoy deja el archivo truncado.
@@ -731,9 +848,27 @@ función, y la historia ya está en este archivo y en git.
     disco que se llena a mitad de camino en los tres archivos del pliego y
     un CSV que se corta en la tercera ventana: sin el cambio, los cuatro
     dejan el destino truncado.
-- [ ] **El XML de scoring, sin expansión de entidades.** Abrir un XML hecho
+- [x] **El XML de scoring, sin expansión de entidades.** Abrir un XML hecho
       a propósito puede agotar la memoria. Riesgo bajo: hace falta abrir un
       archivo malicioso.
+      Hecho, y no sólo con un test. **La protección que había era la de
+      expat**, que desde la 2.4 corta una expansión desmedida; pero en Linux
+      Python puede usar el expat del sistema, así que eso dependía de la
+      máquina, y un test que pidiera «se rechaza» habría verificado la
+      máquina y no el programa. `_leer_xml()` hace ahora una pasada previa
+      con `xml.parsers.expat` que **rechaza cualquier declaración de
+      entidad**, antes de que se use: un scoring no necesita ninguna, ni el
+      del NSRR ni el que escribe este programa. Cubre también las externas y
+      las de parámetro. Sin dependencia nueva: la versión en C de
+      `ET.XMLParser` no expone su expat, que es donde `defusedxml` cuelga
+      la misma guarda.
+  - Test: en `tests/test_scoring_formats.py`, la risa del millón, una
+    entidad inofensiva sobre un scoring por lo demás válido —la que expat
+    sí deja pasar—, una externa y una de parámetro, afirmando el motivo del
+    rechazo y no sólo el rechazo; y que un `DOCTYPE` sin entidades se siga
+    leyendo. En `tests/test_entrega.py`, que por la ventana sea un cartel y
+    el scoring quede como estaba. Sin la guarda fallan los cinco que
+    rechazan.
 - [ ] **Medir el reparto con los paneles de análisis abiertos.** En la
       captura de 1800 px la señal quedaba con alrededor de un tercio del
       ancho y el panel de contexto con la mitad del alto. Puede ser propio de

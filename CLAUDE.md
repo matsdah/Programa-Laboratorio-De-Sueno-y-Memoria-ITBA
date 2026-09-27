@@ -138,9 +138,21 @@ compartir un mismo `.venv`**: el segundo pisa el `pyvenv.cfg` del primero y lo
 deja inservible sin avisar en el momento. El README explica el síntoma y cómo se
 repara sin reinstalar los paquetes.
 
+**En Linux, PySide6 necesita además librerías del sistema** que un Debian o un
+Ubuntu limpios no traen. Sin ellas no falla la instalación sino la recolección:
+cada test que importa Qt sale con `ImportError: libEGL.so.1`. Son las mismas
+que instala el job de Linux del CI:
+
+```bash
+sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 \
+  libdbus-1-3 libglib2.0-0 libfontconfig1 libfreetype6
+```
+
 Desde PowerShell se activa el entorno con ese script. **Desde la herramienta
 Bash el script de activación no aplica**: conviene llamar al intérprete directo,
-`./.venv/Scripts/python.exe -m pytest`.
+`./.venv/Scripts/python.exe -m pytest` en Windows y `./.venv/bin/python -m
+pytest` en macOS y Linux, que es también lo que corre una sesión de Claude Code
+en la nube.
 
 Esa forma tiene dos ventajas más, que valen también en PowerShell: esquiva la
 Execution Policy —que de fábrica bloquea `Activate.ps1`— y no puede instalar en
@@ -345,7 +357,12 @@ se buscó así se escapó algo:
   en `SIN_CAMINO_A_PROPOSITO` con su motivo, o en `HUECOS_ABIERTOS`, y
   entonces tienen que estar nombrados en `docs/TODO.md`. Es la red que habría
   encontrado `delete_annotation()` y `OverviewTool.set_span()`, que eran
-  métodos y no funciones.
+  métodos y no funciones. **Mira nombres, no llamadas**: cualquier variable o
+  atributo de `psglab/` que se llame igual que un método lo da por usado. Un
+  parámetro `kinds` en `derive_montage()`, y el atributo del mismo nombre que
+  leía la ventana, hicieron fallar la suite con «exime algo que ya tiene
+  camino», porque `FilterPanel.kinds` está exento. La salida es renombrar lo
+  propio, no tocar la exención.
 - **Toda función pública de negocio la llama algún test de comportamiento**,
   desde el hito 48, o figura en `SIN_TEST_DE_COMPORTAMIENTO` con su motivo.
   `COBERTURA_DE_TESTS` es por archivo y no veía nada por función: la primera
@@ -490,6 +507,13 @@ repintarlo por su cuenta.
   diálogo de apertura. El resto del programa sólo llama a `read_recording()` y
   nunca sabe de qué formato vino la señal.
 
+**Un archivo de salida se escribe entero o no se escribe**: los seis
+escritores de `exporters/` pasan por `atomic_destination()` o
+`write_text_atomically()`, de `exporters/atomic.py`, que escriben en un
+provisorio al lado del destino y lo renombran al terminar. Un exportador nuevo
+que escriba directo sobre el destino vuelve a dejar un archivo truncado —y el
+de la exportación anterior perdido— si el disco se llena a mitad de camino.
+
 `psglab/config.py` es el punto único de verdad de las constantes del pliego
 (ventana de 30 s, grilla de 0,5 s y 3 s, banda de 75 µV, nombres de los tres
 archivos de salida). No repetir esos números en ningún otro módulo. Ahí vive
@@ -629,6 +653,13 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   la usa**: `fit_ica` en `window_analysis`, no en `main_window`, donde ya no
   tendría efecto. Los mixins van antes que `QMainWindow` en la herencia, o
   `eventFilter()` y `closeEvent()` perderían callados contra los de Qt.
+- **Abrir y filtrar vuelven antes de terminar.** El diálogo de apertura, los
+  recientes y «Aplicar» del panel de filtros corren en otro hilo; la ICA y la
+  conectividad de la noche también. Un test que los use tiene que llamar a
+  `ventana.wait_for_background()` antes de afirmar nada: sin eso lee la sesión
+  de antes y puede pasar en verde sin haber verificado el resultado.
+  `open_recording()` sigue siendo sincrónico, y es la vía de los scripts y de
+  los tests que necesitan la sesión en cuanto vuelve.
 - **El nombre de un canal no se dibuja dentro del gráfico.** Va en el canalón
   (`ui/channel_axis.py`), que es el eje izquierdo y por eso tiene ancho propio
   que la señal no puede invadir. Eran `pg.TextItem` apoyados en cada carril
@@ -672,7 +703,16 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   y el visualizador las guarda por trozos. Contadas desde el borde de la
   página, cada paso de la reproducción las recalculaba enteras —95 ms con
   32 canales a 1000 Hz y página de 5 min— porque ninguna servía de un cuadro
-  al otro. `useOpenGL` se midió y **empeora**. Lo que se proponga en su lugar,
+  al otro. La quinta es del hito 79: **un overlay que vuelve igual no se
+  rehace**. `ui/overlay_items.py` recibe el estado completo en cada
+  movimiento del mouse y reutiliza lo que ya dibujó con la misma geometría
+  —página, canales, escala, desplazamiento y esquema—; rehacerlo todo costaba
+  un segundo por movimiento con 400 anotaciones. Lo que cambie cómo se dibuja
+  un overlay tiene que entrar en `SignalView.overlay_signature()`, o el dibujo
+  queda viejo. La sexta, del mismo hito: **las bandas de anotación son una
+  sola pieza** que compone sus rellenos en una tira de un píxel de alto y la
+  estira. Un relleno traslúcido angosto y alto es caro en Qt aunque sea uno
+  solo: 400 costaban 70 ms por cuadro. `useOpenGL` se midió y **empeora**. Lo que se proponga en su lugar,
   medirlo con el banco, **intercalado** contra el árbol sin el cambio: un
   número suelto no dice nada, porque la misma medición varía al doble de una
   corrida a otra.

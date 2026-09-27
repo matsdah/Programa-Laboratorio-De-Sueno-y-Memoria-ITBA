@@ -275,6 +275,33 @@ def test_el_scoring_se_exporta_y_se_vuelve_a_importar_en_cada_formato(
     assert not ventana.carteles
 
 
+def test_importar_un_xml_que_declara_entidades_es_un_cartel(
+    ventana: MainWindow, tmp_path: Path
+):
+    """**Un XML hecho a propósito podía agotar la memoria** al expandir sus
+    entidades (hito 79). Por la ventana tiene que ser un cartel que dice por
+    qué, y el scoring que estaba queda como estaba."""
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+    antes = [ventana.session.scoring.get(i) for i in range(VENTANAS)]
+    ruta = tmp_path / "scoring.xml"
+    niveles = "".join(
+        f'<!ENTITY a{n} "{f"&a{n - 1};" * 10}">' for n in range(1, 10)
+    )
+    ruta.write_text(
+        '<?xml version="1.0"?><!DOCTYPE PSGAnnotation [<!ENTITY a0 "jaja">'
+        + niveles
+        + "]><PSGAnnotation><Nomenclature>&a9;</Nomenclature></PSGAnnotation>",
+        encoding="utf-8",
+    )
+
+    ventana.open_scoring(ruta)
+
+    assert ventana.acciones == ["importar el scoring"]
+    assert "declara entidades de XML" in ventana.carteles[0]
+    assert [ventana.session.scoring.get(i) for i in range(VENTANAS)] == antes
+
+
 def test_exportar_con_una_extension_que_no_es_de_ningun_formato_avisa(
     ventana: MainWindow, tmp_path: Path
 ):
@@ -564,7 +591,7 @@ def evento_de_mouse(
     if canal is None:
         y = caja.center().y()
     else:
-        centro = vista._centro_de_carril(canal) + vista._a_carril(uv, canal)
+        centro = vista.lane_center(canal) + vista.to_lanes(uv, canal)
         y = vista.getPlotItem().vb.mapViewToScene(QPointF(0.0, centro)).y()
     local = QPointF(vista.mapFromScene(QPointF(float(x), y)))
     en_ventana = QPointF(viewport.mapTo(viewport.window(), local.toPoint()))
@@ -735,14 +762,15 @@ def test_la_anotacion_empieza_y_termina_bajo_el_mouse(
 
 
 def bandas_dibujadas(ventana: MainWindow) -> list[tuple[float, float]]:
-    """Los tramos de las bandas que el visualizador tiene en pantalla."""
-    import pyqtgraph as pg
+    """Los tramos de las bandas que el visualizador tiene en pantalla.
 
-    return [
-        tuple(round(v, 3) for v in dibujado.getRegion())
-        for dibujado in ventana.signal_view._overlay_items
-        if isinstance(dibujado, pg.LinearRegionItem)
-    ]
+    Son una sola pieza para todas desde que pintarlas por separado era casi
+    todo el cuadro; ver `AnnotationBands` en `psglab/ui/overlay_items.py`.
+    """
+    bandas = ventana.signal_view.overlay_layer.annotation_bands
+    if bandas is None:
+        return []
+    return [(round(inicio, 3), round(fin, 3)) for inicio, fin, _ in bandas.bands]
 
 
 def anotar_en(
@@ -1228,6 +1256,83 @@ def test_scorear_una_ventana_le_da_altura(ventana: MainWindow):
 
     _, alturas = ventana.histogram_view.getPlotItem().listDataItems()[0].getData()
     assert not np.isnan(alturas[2])
+
+
+def test_una_flecha_no_rearma_el_hipnograma(ventana: MainWindow):
+    """**Lo rearmaba dos veces por flecha**, y no muestra la época actual: con
+    una noche de ocho horas a medio scorear era la mitad de lo que costaba una
+    flecha. La curva tiene que ser el mismo objeto antes y después."""
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+    antes = ventana.histogram_view.getPlotItem().listDataItems()[0]
+
+    ventana.go_to_next_window()
+    ventana.go_to_previous_window()
+
+    assert ventana.histogram_view.getPlotItem().listDataItems()[0] is antes
+
+
+def test_scorear_despues_de_una_flecha_rearma_el_hipnograma(ventana: MainWindow):
+    """El otro lado: lo que cambia el dibujo lo tiene que seguir cambiando."""
+    fases = stages_of(ventana.session.scoring.nomenclature)
+    ventana._go_to_window(0)
+    ventana.go_to_next_window()
+
+    ventana.score_current_window(fases[1])
+
+    _, alturas = ventana.histogram_view.getPlotItem().listDataItems()[0].getData()
+    assert not np.isnan(alturas[1])
+
+
+def test_cambiar_el_eje_a_hora_rearma_el_hipnograma(ventana: MainWindow):
+    """El eje de abajo es parte del dibujo, aunque las fases no cambien."""
+    if ventana.session.recording.start_time is None:
+        pytest.skip("el registro de prueba no informa su hora de inicio")
+    en_ventanas = marcas_horizontales(ventana)
+
+    ventana.set_histogram_time_axis(True)
+
+    assert marcas_horizontales(ventana) != en_ventanas
+    assert not ventana.carteles
+
+
+def test_cambiar_de_nomenclatura_sin_nada_scoreado_rearma_el_eje(ventana: MainWindow):
+    """Sin nada scoreado, las fases son las mismas —todas sin scorear— pero el
+    eje de la izquierda nombra las de la otra nomenclatura."""
+    from psglab.core.nomenclature import stage_label
+
+    otra = (
+        Nomenclature.RK
+        if ventana.session.scoring.nomenclature is Nomenclature.AASM
+        else Nomenclature.AASM
+    )
+
+    ventana._change_nomenclature(otra)
+
+    textos = [
+        texto
+        for _, texto in ventana.histogram_view.getPlotItem().getAxis("left")._tickLevels[0]
+    ]
+    assert textos == [stage_label(fase) for fase in stages_of(otra)]
+
+
+def test_otro_registro_con_otra_hora_rearma_el_eje(ventana: MainWindow, tmp_path: Path):
+    """Mismo largo y nada scoreado, así que las fases son las mismas; con el eje
+    en hora, lo que cambia es la hora de cada marca."""
+    ventana.set_histogram_time_axis(True)
+    antes = marcas_horizontales(ventana)
+    vhdr = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * VENTANAS)
+    marcadores = vhdr.with_suffix(".vmrk")
+    marcadores.write_text(
+        marcadores.read_text(encoding="utf-8").replace("20260907130000", "20260907223000"),
+        encoding="utf-8",
+    )
+
+    ventana.open_recording(vhdr)
+
+    assert ventana.session.recording.start_time.hour == 22
+    assert marcas_horizontales(ventana) != antes
+    assert not ventana.carteles
 
 
 def test_el_eje_arranca_numerando_las_ventanas_desde_uno(ventana: MainWindow):
@@ -2670,14 +2775,14 @@ def test_cambiar_el_color_de_una_clase_no_borra_lo_que_dibuja_otra_herramienta(
 
     ventana.tool_controller.toggle("occupancy", True)
     ventana.tool_controller.tools["occupancy"].add_line(OccupancyLine(0.2, 0.0, 0.6, 0.0))
-    dibujadas = len(ventana.signal_view._overlay_items)
+    dibujadas = len(ventana.signal_view.overlay_layer.items)
     assert dibujadas > 0
 
     ventana.apply_preferences(
         ventana.current_preferences.with_annotation_color("Spindle", "#ff8800")
     )
 
-    assert len(ventana.signal_view._overlay_items) == dibujadas
+    assert len(ventana.signal_view.overlay_layer.items) == dibujadas
 
 
 def test_con_el_anotador_activo_la_banda_cambia_de_color_enseguida(
@@ -2692,12 +2797,9 @@ def test_con_el_anotador_activo_la_banda_cambia_de_color_enseguida(
         ventana.current_preferences.with_annotation_color("Spindle", "#ff8800")
     )
 
-    colores = [
-        item.brush.color().name()
-        for item in ventana.signal_view._overlay_items
-        if hasattr(item, "brush")
-    ]
-    assert "#ff8800" in colores
+    bandas = ventana.signal_view.overlay_layer.annotation_bands
+    assert bandas is not None
+    assert "#ff8800" in [color for _, _, color in bandas.bands]
     assert not ventana.carteles
 
 
@@ -4615,7 +4717,7 @@ def test_tildar_la_banda_la_dibuja(ventana: MainWindow):
     ventana.tool_controller.toggle("amplitude_band", True)
 
     assert any(isinstance(o, BandOverlay) for o in ventana.tool_controller.drawn_overlays)
-    assert ventana.signal_view._overlay_items
+    assert ventana.signal_view.overlay_layer.items
 
 
 def test_destildar_la_banda_la_saca(ventana: MainWindow):
@@ -4749,7 +4851,7 @@ def test_la_lupa_dibuja_una_lente_y_no_una_linea_suelta(ventana: MainWindow):
         ),
     )
 
-    lente = ventana.signal_view._overlay_items[-1]
+    lente = ventana.signal_view.overlay_layer.items[-1]
     tipos = [type(h).__name__ for h in lente.childItems()]
     assert "QGraphicsPathItem" in tipos, "la lente no tiene cristal"
     assert "TextItem" in tipos, "la lente no dice la hora"

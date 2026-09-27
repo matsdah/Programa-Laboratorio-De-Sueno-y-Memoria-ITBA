@@ -46,6 +46,7 @@ import math
 import re
 import warnings
 import xml.etree.ElementTree as ET
+import xml.parsers.expat
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -561,8 +562,58 @@ def _inicio_edf(path: Path) -> datetime | None:
 # -- XML del NSRR ----------------------------------------------------------------
 
 
+class _EntidadDeclarada(Exception):
+    """Lo que eleva la pasada previa al encontrar la declaración de una entidad."""
+
+
+def _rechazar_entidades(path: Path) -> None:
+    """Lee el archivo una vez **sin armar nada**, y se niega si declara entidades.
+
+    **Un XML puede declarar entidades que se expanden a otras**, y unas pocas
+    líneas bastan para que expandirlas ocupe gigas: es la «risa del millón»
+    (billion laughs), y abrir un archivo hecho a propósito podía agotar la
+    memoria. Un scoring no necesita ninguna —el del NSRR y el que escribe este
+    programa no declaran una sola—, así que se rechaza cualquier declaración,
+    antes de que se use: en un XML la declaración va siempre primero.
+
+    Las versiones de expat desde la 2.4 ya cortan una expansión desmedida, pero
+    en Linux Python puede usar la del sistema, así que eso depende de la
+    máquina. Esta pasada no. Lee el archivo dos veces, y un scoring pesa unos
+    kilobytes.
+
+    Raises:
+        _EntidadDeclarada: si el archivo declara alguna entidad.
+        xml.parsers.expat.ExpatError: si no es XML bien formado.
+        OSError: si no se puede leer.
+    """
+
+    def rechazar(*_argumentos: object) -> None:
+        raise _EntidadDeclarada
+
+    lector = xml.parsers.expat.ParserCreate()
+    lector.EntityDeclHandler = rechazar
+    with path.open("rb") as archivo:
+        lector.ParseFile(archivo)
+
+
 def _leer_xml(path: Path) -> _Lectura:
     """Los `<ScoredEvent>` de fase y de arousal de un `<PSGAnnotation>`."""
+    try:
+        _rechazar_entidades(path)
+    except _EntidadDeclarada:
+        raise UnreadableFileError(
+            f"«{path.name}» declara entidades de XML, y un scoring no las usa: "
+            "por seguridad no se abre.",
+            details=(
+                "El archivo trae <!ENTITY ...> en su DOCTYPE. Expandirlas puede "
+                "ocupar toda la memoria con unas pocas líneas."
+            ),
+        ) from None
+    except (xml.parsers.expat.ExpatError, OSError) as error:
+        raise UnreadableFileError(
+            f"No se pudo leer «{path.name}»: el archivo está dañado o no es XML.",
+            details=f"{type(error).__name__}: {error}",
+        ) from error
     try:
         raiz = ET.parse(path).getroot()
     except (ET.ParseError, OSError) as error:
