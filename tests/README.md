@@ -81,7 +81,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_channel_selector.py` | El selector de canales: el orden de la lista, el atajo por clase del pie y que su estado siga a las casillas. |
 | `test_overview_panel.py` | El panel de contexto: qué ventanas entran, cuál es la actual, dónde va cada una, que la señal llegue a la pantalla y que un clic pida ir a su ventana. |
 | `test_signal_view.py` | Las cuatro conversiones desde píxeles, que es de donde salen las unidades de las herramientas. |
-| `test_overlay_items.py` | Lo que dibujan las herramientas: qué se reutiliza de un movimiento del mouse al siguiente y cuándo se rehace, y que el alto de la banda de amplitud no dependa del desplazamiento del canal. |
+| `test_overlay_items.py` | Lo que dibujan las herramientas: qué se reutiliza de un movimiento del mouse al siguiente y cuándo se rehace, que el alto de la banda de amplitud no dependa del desplazamiento del canal, y que las bandas de anotación sean una sola pieza que se pinta de su color y donde va, mirando los píxeles. |
 | `test_envelope_cache.py` | La envolvente por trozos: que dé lo mismo que de una vez, que no recalcule lo que tiene, que olvide otro registro y que tenga tope. Sin Qt. |
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 | `test_mne_bridge.py` | El puente con MNE: que ida y vuelta devuelva lo mismo, y que un termómetro no se escale como si fuera un EEG. |

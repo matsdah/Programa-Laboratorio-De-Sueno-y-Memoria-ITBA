@@ -735,14 +735,15 @@ def test_la_anotacion_empieza_y_termina_bajo_el_mouse(
 
 
 def bandas_dibujadas(ventana: MainWindow) -> list[tuple[float, float]]:
-    """Los tramos de las bandas que el visualizador tiene en pantalla."""
-    import pyqtgraph as pg
+    """Los tramos de las bandas que el visualizador tiene en pantalla.
 
-    return [
-        tuple(round(v, 3) for v in dibujado.getRegion())
-        for dibujado in ventana.signal_view.overlay_layer.items
-        if isinstance(dibujado, pg.LinearRegionItem)
-    ]
+    Son una sola pieza para todas desde que pintarlas por separado era casi
+    todo el cuadro; ver `AnnotationBands` en `psglab/ui/overlay_items.py`.
+    """
+    bandas = ventana.signal_view.overlay_layer.annotation_bands
+    if bandas is None:
+        return []
+    return [(round(inicio, 3), round(fin, 3)) for inicio, fin, _ in bandas.bands]
 
 
 def anotar_en(
@@ -2692,12 +2693,9 @@ def test_con_el_anotador_activo_la_banda_cambia_de_color_enseguida(
         ventana.current_preferences.with_annotation_color("Spindle", "#ff8800")
     )
 
-    colores = [
-        item.brush.color().name()
-        for item in ventana.signal_view.overlay_layer.items
-        if hasattr(item, "brush")
-    ]
-    assert "#ff8800" in colores
+    bandas = ventana.signal_view.overlay_layer.annotation_bands
+    assert bandas is not None
+    assert "#ff8800" in [color for _, _, color in bandas.bands]
     assert not ventana.carteles
 
 

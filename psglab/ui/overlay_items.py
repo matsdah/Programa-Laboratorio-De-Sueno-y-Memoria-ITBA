@@ -16,6 +16,12 @@ desplazamiento de cada uno, mismo esquema— se deja como está, y sólo se crea
 lo nuevo y se saca lo que ya no va. La lente se rehace siempre: depende de
 cuánto mide un píxel, que puede cambiar sin que cambie el overlay.
 
+**Las bandas de anotación son una sola pieza**, `AnnotationBands`, que pinta
+todos los rectángulos de la página, como la grilla pinta todas sus líneas.
+Eran una `LinearRegionItem` por anotación, cada una con sus dos
+`InfiniteLine`, y con 400 en la página pintarlas era casi todo el cuadro. Sus
+rótulos siguen siendo un `TextItem` cada uno.
+
 Cubre del pliego: V1_F de "Herramienta Lupa", por `_dibujar_lupa()`, que es lo
 que **amplía** de verdad el tramo bajo el cursor: `MagnifierTool` publica el
 radio y el zoom, y acá se los usa. Y el dibujo de V1_F de "Herramienta de
@@ -24,14 +30,21 @@ amplitud": la banda de 75 µV sobre el carril de su canal.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QRectF
-from PySide6.QtGui import QBrush, QColor, QPainterPath
-from PySide6.QtWidgets import QGraphicsItem, QGraphicsItemGroup, QGraphicsPathItem
+from PySide6.QtCore import QLineF, QRectF, Qt
+from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPainterPath, QTransform
+from PySide6.QtWidgets import (
+    QGraphicsItem,
+    QGraphicsItemGroup,
+    QGraphicsPathItem,
+    QStyleOptionGraphicsItem,
+    QWidget,
+)
 
 from psglab.core.windows import seconds_to_clock_time, seconds_to_samples
 from psglab.tools.base import (
@@ -55,6 +68,205 @@ if TYPE_CHECKING:
 Z_DE_LA_BANDA: float = 5.0
 Z_DE_LA_LENTE: float = 10.0
 
+#: Las bandas de anotación van **encima de la señal y debajo de todo lo
+#: demás**, y sus rótulos, un escalón más arriba. Encima de las curvas era lo
+#: que pasaba antes por orden de llegada, con las curvas y las bandas en 0;
+#: una pieza que dura entre dibujos lo perdía la primera vez que se rearmaban
+#: las curvas, así que ahora se dice.
+Z_DE_LAS_ANOTACIONES: float = 1.0
+
+#: El relleno y el borde de una banda sin clase —la selección en curso, que
+#: todavía no tiene—: los que pyqtgraph le daba a una `LinearRegionItem` sin
+#: pincel ni pluma, para que se siga viendo igual.
+_RELLENO_SIN_CLASE = QColor(0, 0, 255, 50)
+_BORDE_SIN_CLASE = QColor(200, 200, 100)
+
+#: Una banda: comienzo y final en segundos absolutos, y el color de su clase o
+#: None.
+Banda = tuple[float, float, str | None]
+
+
+def _translucido(color: str) -> QColor:
+    """El relleno de una banda: su color con la opacidad de siempre.
+
+    **No con `QColor(color + "55")`**: con ocho cifras Qt lee `#AARRGGBB` y
+    pyqtgraph `#RRGGBBAA`, así que el mismo texto que antes daba un verde
+    traslúcido pasaba a dar un rojo casi opaco.
+    """
+    relleno = QColor(color)
+    relleno.setAlpha(0x55)
+    return relleno
+
+
+class AnnotationBands(pg.GraphicsObject):
+    """Todas las bandas de anotación de la página, en una sola pieza.
+
+    Cada banda ocupa **todo el alto del gráfico**, como pide el pliego, con un
+    relleno traslúcido del color de su clase y los dos bordes en ese color. Se
+    pintan agrupadas por color, en vez de tres objetos por anotación que la
+    escena recorría uno por uno.
+
+    Se ve como las `LinearRegionItem` que reemplaza —comparado píxel a píxel,
+    la diferencia es de 1/255 por redondeo— salvo en una cosa: **los bordes
+    van encima de todos los rellenos**. Antes, el borde de una banda que caía
+    dentro de otra quedaba teñido por el relleno de la que se pintaba después;
+    ahora se ve entero, y es el que se agarra para corregir el tramo. Dos
+    bandas que se superponen se siguen viendo más oscuras donde se tocan.
+
+    No recibe clics. Los bordes que se agarran para corregir un tramo son del
+    anotador, que los encuentra por coordenadas y no por objeto.
+    """
+
+    def __init__(self) -> None:
+        """Arma la pieza vacía."""
+        super().__init__()
+        self._bandas: tuple[Banda, ...] = ()
+        #: De la primera banda a la última, en segundos, o None sin bandas.
+        self._extremos: tuple[float, float] | None = None
+        #: Los últimos límites que se le dieron a la escena.
+        self._limites = QRectF()
+        self.setZValue(Z_DE_LAS_ANOTACIONES)
+
+    @property
+    def bands(self) -> tuple[Banda, ...]:
+        """Las bandas que pinta, en el orden en que se las dio."""
+        return self._bandas
+
+    def set_bands(self, bands: Sequence[Banda]) -> None:
+        """Reemplaza las bandas. Si son las mismas, no hace nada."""
+        nuevas = tuple(bands)
+        if nuevas == self._bandas:
+            return
+        self._bandas = nuevas
+        self._extremos = (
+            (min(b[0] for b in nuevas), max(b[1] for b in nuevas)) if nuevas else None
+        )
+        self.boundingRect()
+        self.update()
+
+    def dataBounds(
+        self, axis: int, frac: float = 1.0, orthoRange: object = None
+    ) -> tuple[float, float] | None:
+        """Lo que ocupan en el eje horizontal; en el vertical, nada: miden lo
+        que la vista, como hacía `LinearRegionItem`."""
+        return self._extremos if axis == 0 else None
+
+    def boundingRect(self) -> QRectF:
+        """De la primera banda a la última, y de arriba abajo de la vista.
+
+        **Se calcula cada vez**, como en `LinearRegionItem`, y se le avisa a la
+        escena cuando cambió: el alto es el de la vista, y cambia sin que la
+        pieza se entere —al elegir otros canales, por ejemplo—. Así no depende
+        de que la señal de la vista llegue antes de pintar.
+        """
+        vista = self.viewRect()
+        if self._extremos is None or vista is None:
+            limites = QRectF()
+        else:
+            izquierda, derecha = self._extremos
+            limites = QRectF(izquierda, vista.top(), derecha - izquierda, vista.height())
+            limites = limites.normalized()
+        if limites != self._limites:
+            self.prepareGeometryChange()
+            self._limites = limites
+        return QRectF(limites)
+
+    def paint(
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget | None = None,
+    ) -> None:
+        """Pinta los rellenos en una tira de un píxel de alto, estirada a todo
+        el alto, y encima los bordes."""
+        vista = self.viewRect()
+        if vista is None or not self._bandas:
+            return
+        arriba, abajo = vista.top(), vista.bottom()
+        izquierda, derecha = vista.left(), vista.right()
+
+        por_color: dict[str | None, list[tuple[float, float]]] = {}
+        for inicio, fin, color in self._bandas:
+            # Lo que cae fuera de la vista no se manda a pintar.
+            if fin < izquierda or inicio > derecha:
+                continue
+            por_color.setdefault(color, []).append((inicio, fin))
+        if not por_color:
+            return
+
+        self._pintar_rellenos(painter, vista, por_color)
+        for color, tramos in por_color.items():
+            borde = _BORDE_SIN_CLASE if color is None else QColor(color)
+            painter.setPen(pg.mkPen(borde, width=1))
+            painter.drawLines(
+                [QLineF(x, arriba, x, abajo) for inicio, fin in tramos for x in (inicio, fin)]
+            )
+
+    def _pintar_rellenos(
+        self,
+        painter: QPainter,
+        vista: QRectF,
+        por_color: dict[str | None, list[tuple[float, float]]],
+    ) -> None:
+        """Los rellenos traslúcidos, compuestos en una tira y estirados.
+
+        **Es lo que hace barata a la pieza**, más que juntar los objetos.
+        Medido sobre una imagen suelta, rellenar 400 rectángulos traslúcidos
+        de 5 × 700 píxeles cuesta unos 70 ms aunque sea una sola llamada, y
+        opacos, 1,5 ms: lo más probable es que Qt mezcle cada fila por
+        separado, y angostos y altos son muchas filas cortas. Todas las filas
+        de una banda son iguales, así que se componen una vez, en una fila, y
+        la tira se estira a todo el alto: los mismos 400, 1,6 ms. Contra
+        pintarlas directo, la diferencia es de 1/255 en un canal, por redondeo.
+
+        La tira está en píxeles del dispositivo —con la densidad de la
+        pantalla— y el estirado es sin suavizar, para que los bordes de cada
+        relleno caigan donde caían.
+        """
+        transformacion = painter.transform()
+        vista_en_pixeles = transformacion.mapRect(vista)
+        if vista_en_pixeles.width() <= 0 or vista_en_pixeles.height() <= 0:
+            return
+        dispositivo = painter.device()
+        densidad = dispositivo.devicePixelRatioF() if dispositivo is not None else 1.0
+        # **La tira empieza y termina en un píxel entero** del dispositivo, y
+        # se copia uno a uno en horizontal. Con el ancho fraccionario de la
+        # vista se estiraba apenas, y la última columna se perdía. Lo que pase
+        # del borde lo recorta la vista.
+        desde = math.floor(vista_en_pixeles.left() * densidad)
+        hasta = math.ceil(vista_en_pixeles.right() * densidad)
+        destino = QRectF(
+            desde / densidad,
+            vista_en_pixeles.top(),
+            max(1, hasta - desde) / densidad,
+            vista_en_pixeles.height(),
+        )
+        tira = QImage(max(1, hasta - desde), 1, QImage.Format.Format_ARGB32_Premultiplied)
+        tira.setDevicePixelRatio(densidad)
+        tira.fill(Qt.GlobalColor.transparent)
+
+        pintor = QPainter(tira)
+        # Sólo el eje horizontal de la vista: segundos a píxeles, desde el
+        # borde izquierdo de la tira.
+        pintor.setTransform(
+            QTransform(
+                transformacion.m11(), 0.0, 0.0, 1.0,
+                transformacion.dx() - destino.left(), 0.0,
+            )
+        )
+        pintor.setPen(Qt.PenStyle.NoPen)
+        for color, tramos in por_color.items():
+            relleno = _RELLENO_SIN_CLASE if color is None else _translucido(color)
+            pintor.setBrush(QBrush(relleno))
+            pintor.drawRects([QRectF(inicio, 0.0, fin - inicio, 1.0) for inicio, fin in tramos])
+        pintor.end()
+
+        painter.save()
+        painter.resetTransform()
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        painter.drawImage(destino, tira)
+        painter.restore()
+
 
 class OverlayLayer:
     """Los ítems que las herramientas piden dibujar sobre un `SignalView`."""
@@ -67,11 +279,23 @@ class OverlayLayer:
         self._dibujados: dict[tuple[Overlay, object], list[tuple[object, ...]]] = {}
         #: Los ítems en el orden de los overlays que los pidieron.
         self._items: list[object] = []
+        #: Las bandas de todas las anotaciones, en una pieza que se crea la
+        #: primera vez que hace falta y queda en la escena.
+        self._bandas: AnnotationBands | None = None
 
     @property
     def items(self) -> list[object]:
-        """Los ítems dibujados, en el orden de los overlays que los pidieron."""
+        """Los ítems dibujados, en el orden de los overlays que los pidieron.
+
+        **Sin las bandas de anotación**, que son una sola pieza para todas:
+        ver `annotation_bands`. De una anotación, acá está su rótulo.
+        """
         return list(self._items)
+
+    @property
+    def annotation_bands(self) -> AnnotationBands | None:
+        """La pieza que pinta las bandas de anotación, o None si nunca hubo."""
+        return self._bandas
 
     def set_overlays(self, overlays: Sequence[Overlay]) -> None:
         """Deja dibujado exactamente `overlays`, reutilizando lo que se pueda.
@@ -86,7 +310,10 @@ class OverlayLayer:
         nuevos: dict[tuple[Overlay, object], list[tuple[object, ...]]] = {}
         orden: list[object] = []
 
+        bandas: list[Banda] = []
         for overlay in overlays:
+            if isinstance(overlay, SpanOverlay):
+                bandas.append((overlay.start_seconds, overlay.end_seconds, overlay.color))
             clave = (overlay, firma)
             reusables = anteriores.get(clave)
             if reusables and not isinstance(overlay, CircleOverlay):
@@ -107,6 +334,12 @@ class OverlayLayer:
                     item.removeItem(pieza)
         self._dibujados = nuevos
         self._items = orden
+
+        if bandas and self._bandas is None:
+            self._bandas = AnnotationBands()
+            item.addItem(self._bandas)
+        if self._bandas is not None:
+            self._bandas.set_bands(bandas)
 
     def _dibujar(self, overlay: Overlay) -> object | tuple[object, ...] | None:
         """Traduce un `Overlay` a algo que pyqtgraph sepa pintar.
@@ -181,24 +414,16 @@ class OverlayLayer:
 
     # -- Las anotaciones -----------------------------------------------------
 
-    def _dibujar_anotacion(self, overlay: SpanOverlay) -> object | tuple[object, ...]:
-        """Una banda de todo el alto, para que se vea sin importar qué canales
-        estén visibles, con los bordes del color de su clase, que se agarran
-        para corregir el tramo."""
-        region = pg.LinearRegionItem(
-            values=(overlay.start_seconds, overlay.end_seconds), movable=False
-        )
-        if overlay.color:
-            region.setBrush(pg.mkBrush(overlay.color + "55"))
-            for linea in region.lines:
-                linea.setPen(pg.mkPen(overlay.color, width=1))
+    def _dibujar_anotacion(self, overlay: SpanOverlay) -> object | None:
+        """El rótulo de una anotación, si tiene clase. **La banda no**: la
+        pintan todas juntas `AnnotationBands`, que `set_overlays()` alimenta."""
         if not overlay.label:
-            return region
+            return None
         rotulo = self._rotulo_de_la_anotacion(overlay)
         # **Encima de su banda**, que está encima de la señal: si no, el borde
         # de una banda más angosta que su nombre le cruza el texto.
-        rotulo.setZValue(region.zValue() + 1)
-        return region, rotulo
+        rotulo.setZValue(Z_DE_LAS_ANOTACIONES + 1)
+        return rotulo
 
     def _rotulo_de_la_anotacion(self, overlay: SpanOverlay) -> pg.TextItem:
         """La pestaña con el nombre de la clase, colgada del borde de la banda.
