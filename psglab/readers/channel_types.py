@@ -15,10 +15,15 @@ todos los formatos de forma confiable. Se usan dos fuentes:
 Si el nombre no coincide con nada, el canal se clasifica como OTHER y se
 muestra igual: el pliego pide explícitamente que no haya limitación de tipo.
 
+**Los patrones se anclan al comienzo de una palabra.** Buscados en cualquier
+parte del nombre, `loc` encontraba EOG en «Clock», `e1` en «Line1», `ojo` en
+«Cable rojo» y `chin` encontraba EMG en «Machine».
+
 Cubre del pliego: V4_F de "Visualización de la señal".
 """
 
 import re
+import unicodedata
 from typing import Final
 
 from psglab.core.recording import ChannelKind
@@ -37,13 +42,45 @@ EEG_POSITIONS: Final[tuple[str, ...]] = (
     "fp", "af", "f", "ft", "fc", "t", "c", "tp", "cp", "p", "po", "o", "iz",
 )
 
+#: Los electrodos de referencia: mastoides (M1, M2) y lóbulos de la oreja
+#: (A1, A2). Grabados solos son EEG, y **tienen que serlo** para que una
+#: derivación como «C4-M1» herede la clase del EEG: `analysis/derivation.py`
+#: le da la clase de sus dos canales sólo si coinciden.
+EEG_REFERENCES: Final[tuple[str, ...]] = ("m1", "m2", "a1", "a2")
+
 #: Patrones por clase de señal. Se evalúan en orden: el primero que coincide
 #: gana, así que los patrones más específicos van primero.
+#:
+#: Se buscan sobre los tokens unidos por espacios, y **los cortos empiezan en
+#: el comienzo de una palabra** (`\b`). Algunos exigen además la palabra
+#: entera: «LAT» y «RAT» son los tibiales anteriores, pero `\blat` a secas
+#: sería también «Lateral». Los nombres de clase —`eog`, `emg`, `ecg`,
+#: `ekg`— siguen valiendo en cualquier parte, porque «HEOG», «VEOG» o
+#: «ChinEMG» los llevan pegados y ninguna palabra común los contiene.
+#:
+#: - **EOG**: `E1` y `E2` son los nombres de la AASM para los dos ojos.
+#: - **EMG**: «Leg», «LAT» y «RAT» son las piernas; «LLEG1-RLEG1» también.
+#: - **Respiratorio**: el esfuerzo (ABD, THO, Chest, Effort), el flujo
+#:   (Therm, Nasal, Pres, PTAF, Cannula) y la oximetría (SpO2, Pleth, Pulse).
+#:   La oximetría no tiene clase propia y va acá, donde ya iba la SpO2: es lo
+#:   que se mira junto con el flujo, y así se escala sola como él.
+#:
+#: **La posición del cuerpo («Pos») queda en OTHER a propósito**: no es de
+#: ninguna de estas clases, y darle una la agruparía con lo que no es.
 KIND_PATTERNS: Final[tuple[tuple[ChannelKind, str], ...]] = (
-    (ChannelKind.EOG, r"eog|loc|roc|e[12]\b|ojo"),
-    (ChannelKind.EMG, r"emg|chin|menton|tib|barbilla"),
-    (ChannelKind.ECG, r"ecg|ekg|cardio"),
-    (ChannelKind.RESPIRATORY, r"resp|flow|flujo|thor|abdo|snore|ronqu|sao2|spo2"),
+    (ChannelKind.EOG, r"eog|\b(?:loc|roc|e[12])\d*\b|\bojo"),
+    (
+        ChannelKind.EMG,
+        r"emg|\bchin|\bmenton|\btib|\bbarbilla|\bsubment"
+        r"|\b[lr]?legs?\d*\b|\b(?:lat|rat)\d*\b|\bpierna",
+    ),
+    (ChannelKind.ECG, r"ecg|ekg|\bcardio"),
+    (
+        ChannelKind.RESPIRATORY,
+        r"\bresp|flow|\bflujo|\btho|\babd|\bchest|\beffort|\besfuerzo"
+        r"|\btherm|\bnasal|\bpres|\bptaf|\bcannula|\bcanula"
+        r"|snore|\bronqu|\bsao2|\bspo2|\bpleth|\bpulse|\bpulso|\bco2|\betco2",
+    ),
 )
 
 
@@ -53,6 +90,9 @@ KIND_PATTERNS: Final[tuple[tuple[ChannelKind, str], ...]] = (
 _POSICION_10_20: Final[re.Pattern[str]] = re.compile(
     r"^(?:" + "|".join(sorted(EEG_POSITIONS, key=len, reverse=True)) + r")(?:z|\d{1,2})?$"
 )
+
+#: Un token que es un electrodo de referencia, entero.
+_REFERENCIA: Final[re.Pattern[str]] = re.compile(r"^(?:" + "|".join(EEG_REFERENCES) + r")$")
 
 #: Un canal llamado sólo "EEG" o "EEG2" no nombra ninguna posición, y aun así
 #: declara su clase. Es lo que traen los montajes que ya vienen derivados.
@@ -72,8 +112,14 @@ def _tokens(name: str) -> list[str]:
     Separa por todo lo que no sea letra o dígito, que es lo que hace legibles
     los nombres reales: "EEG Fpz-Cz" da ["eeg", "fpz", "cz"] y "Fp1-A2" da
     ["fp1", "a2"].
+
+    **Antes le saca los acentos**: si no, «Mentón» se partía en «ment» y «n»
+    y ya no era EMG, y «Presión» dejaba de ser respiratorio.
     """
-    return [t for t in re.split(r"[^a-z0-9]+", name.lower()) if t]
+    sin_acentos = "".join(
+        c for c in unicodedata.normalize("NFKD", name.lower()) if not unicodedata.combining(c)
+    )
+    return [t for t in re.split(r"[^a-z0-9]+", sin_acentos) if t]
 
 
 def detect_channel_kind(name: str, unit: str | None = None) -> ChannelKind:
@@ -84,8 +130,8 @@ def detect_channel_kind(name: str, unit: str | None = None) -> ChannelKind:
         unit: unidad declarada en el archivo, si la hay. Ayuda a descartar
             falsos positivos (un canal en °C no es un EEG).
 
-    El orden es: patrones explícitos, después posición 10-20, y OTHER si no
-    coincide nada. Sobre eso se aplica el **veto de la unidad**: una clase
+    El orden es: patrones explícitos, después posición 10-20 o electrodo de
+    referencia, y OTHER si no coincide nada. Sobre eso se aplica el **veto de la unidad**: una clase
     eléctrica con una unidad que no lo es se degrada a OTHER, porque el archivo
     sabe más que el nombre. Es lo que salva a `"Temp rectal"` aunque alguien
     vuelva a poner los prefijos voraces.
@@ -108,7 +154,10 @@ def detect_channel_kind(name: str, unit: str | None = None) -> ChannelKind:
             detectada = kind
             break
     else:
-        if any(_EEG_EXPLICITO.match(t) or _POSICION_10_20.match(t) for t in tokens):
+        if any(
+            _EEG_EXPLICITO.match(t) or _POSICION_10_20.match(t) or _REFERENCIA.match(t)
+            for t in tokens
+        ):
             detectada = ChannelKind.EEG
 
     # El veto. `unit is None` significa "el formato no lo dice", que no es lo
