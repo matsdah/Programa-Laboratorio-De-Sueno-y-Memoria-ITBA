@@ -111,6 +111,10 @@ python -m venv .venv
 pip install -r requirements.txt -r requirements-dev.txt
 ```
 
+Cada clon activa también el hook que pone al equipo como coautor de cada
+commit, con `git config core.hooksPath .githooks`. Qué hace y cómo se suma a
+alguien está en el README, en "Coautores en cada commit".
+
 Hay un tercer archivo, `requirements-analysis.txt`, con las tres dependencias
 exclusivas de la Parte 2 (`mne-connectivity`, `antropy` y, desde el hito 75,
 `yasa`), que arrastran numba, llvmlite, xarray, pandas, scikit-learn y

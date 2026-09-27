@@ -181,6 +181,7 @@ que la gobiernan y cómo extenderla.
 | [`psglab/utils/`](psglab/utils/README.md) | Unidades (µV) y errores propios. | [→](psglab/utils/README.md) |
 | [`docs/`](docs/README.md) | Documentación, incluida la trazabilidad requisito → archivo. | [→](docs/README.md) |
 | [`tests/`](tests/README.md) | Un test por componente. | [→](tests/README.md) |
+| `.githooks/` | El hook que pone al equipo como coautor de cada commit; ver [Coautores en cada commit](#coautores-en-cada-commit). | |
 
 **Regla de dependencias:** apuntan en una sola dirección —
 `readers → core`, `tools → core`, `exporters → core`, `analysis → core`, y
@@ -211,6 +212,34 @@ git pull
 python -m pytest
 git commit -m "Descripción clara del cambio"
 ```
+
+### Coautores en cada commit
+
+Cada commit lleva a los otros miembros del equipo como coautores, con una línea
+`Co-authored-by:` por persona que GitHub vincula a su cuenta. No hay que
+escribirlas: las agrega el hook de [`.githooks/prepare-commit-msg`](.githooks/prepare-commit-msg),
+que se activa **una vez por clon**, desde la raíz del proyecto:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Vale para `git commit` con o sin `-m` y para VS Code o GitHub Desktop, que usan
+git por debajo. No toca los merges y no repite una línea que el mensaje ya
+tenga.
+
+A quien commitea no lo pone como coautor de sí mismo: lo reconoce por el
+`user.name` o el `user.email` de git, o por su login de GitHub puesto como
+nombre. Si igual aparecés como tu propio coautor, declarate con tu login:
+
+```bash
+git config coautores.yo <tu-login-de-github>
+```
+
+Cuando entre alguien al equipo, se suma una línea a la lista `MIEMBROS` del
+hook, con su login, su nombre y su email noreply de GitHub
+(`ID+login@users.noreply.github.com`; el `ID` sale de
+`https://api.github.com/users/<login>`).
 
 ## Testeo
 
