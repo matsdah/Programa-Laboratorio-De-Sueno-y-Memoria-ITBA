@@ -59,7 +59,8 @@ conoce las flechas del teclado.
 | `analysis_controller.py` | `AnalysisController`, el tercer controlador con estado propio (hito 79): la señal original a la que se vuelve, la descomposición ICA entre el ajuste y el «Aplicar» —que se olvida en cuanto la señal cambia— y el único cálculo que puede correr en otro hilo, con su barra de espera y las acciones que se apagan mientras dura. Un análisis que falla no cambia nada, y un resultado de otra señal se descarta. | V5_F de "Filtración" |
 | `playback_controller.py` | `PlaybackController`, el segundo controlador con estado propio (hito 79; estaba en `ViewMixin`): el cursor de la reproducción, el reloj, y cómo mueven la página y la época. La regla del cursor es de `Session.move_playhead()`; acá se redibuja lo que cambió y se avisa por señales cuándo cambió la época, cuándo se llegó al final y qué no se pudo. Mientras hay cursor la página es suya, y la ventana le pregunta `playhead` antes de moverla. | V1_F de "Navegación" |
 | `window_annotation.py` | `AnnotationMixin`: terminar un tramo arrastrado y preguntar su clase, el menú de una anotación, anotar con el teclado (hito 62) e importar las marcas del registro (hito 73). | — |
-| `window_files.py` | `FilesMixin`: abrir un registro y los recientes, importar un scoring, exportar —`export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos— y el trabajo sin exportar: antes de cerrar, de abrir otro registro o de importar un scoring encima pregunta —Exportar…, Descartar o Cancelar—, con un diálogo de guardado por cada cosa en juego; la regla de qué cuenta es de `Session`. Los tres diálogos arrancan en la carpeta del registro abierto, o en la del último que se abrió (hito 79). | V4_F de "Archivo de salida" |
+| `window_files.py` | `FilesMixin`: abrir un registro y los recientes, e importar un scoring, preguntándole antes a `work_guard.py` si hay trabajo que se perdería. Conserva `export()`, `export_scoring_dialog()` y `closeEvent()`, que se piden por su nombre, y delega. | — |
+| `work_guard.py` | `WorkGuard`, el cuarto controlador con estado propio (hito 79): exportar —`export()` escribe los tres archivos de salida, pero desde el hito 23 la ventana sólo ofrece el scoring, en cuatro formatos— y el trabajo sin exportar: antes de cerrar, de abrir otro registro o de importar un scoring encima pregunta —Exportar…, Descartar o Cancelar—, con un diálogo de guardado por cada cosa en juego; la regla de qué cuenta es de `Session`. Los diálogos arrancan en la carpeta del registro abierto, o en la del último que se abrió. | V4_F de "Archivo de salida" |
 | `window_view.py` | `ViewMixin`: moverse de ventana, la escala de tiempo y la página, la rueda —escala de tiempo fija bajo el mouse, y con Mayúsculas o deslizando de costado desplaza la página (hito 56)—, la amplitud, el foco entre paneles y las vistas de canales. Reproducir es de `playback_controller.py`; queda `toggle_playback()`, porque los atajos se buscan por nombre en la ventana. | — |
 | `window_preferences.py` | `PreferencesMixin`: aplicar y guardar el esquema, la letra y los colores de clase, la disposición de fábrica y la ventana de configuración. | — |
 | `window_scoring.py` | `ScoringMixin`: scorear —pasa a la ventana siguiente, salvo que se lo apague (hito 64)—, el arousal, la nomenclatura, ir a la próxima o a la anterior sin scorear (N y Mayús+N, hito 79), las fases sugeridas (hito 75), poner al día el menú «Scoring» al abrirlo —qué fase y qué arousal tiene la ventana— y el hipnograma con su eje, sus colores y la curva de las sugeridas. | V2_F de "Histograma" |
@@ -111,10 +112,10 @@ ven leyendo uno solo:
   estado que arma `MainWindow.__init__`, y un método de un mixin llama a los
   de cualquier otro. Un método nuevo va al archivo de su tema.
 - **Los controladores sí tienen estado propio** (hito 79). Son
-  `tool_controller.py`, `playback_controller.py` y `analysis_controller.py`,
-  que la ventana guarda con el mismo nombre: la ventana les pide lo que
-  necesita por su nombre —`toggle()`, `redraw_overlays()`, `playhead`,
-  `replace_recording()`, `run_in_background()`— y ellos le avisan con
+  `tool_controller.py`, `playback_controller.py`, `analysis_controller.py` y
+  `work_guard.py`, que la ventana guarda con el mismo nombre: la ventana les
+  pide lo que necesita por su nombre —`toggle()`, `redraw_overlays()`,
+  `playhead`, `replace_recording()`, `can_discard()`— y ellos le avisan con
   señales. No conocen la ventana,
   así que lo que haga falta de ella va como señal y no como llamada. Un
   método que un atajo ejecuta queda en la ventana, porque los atajos se

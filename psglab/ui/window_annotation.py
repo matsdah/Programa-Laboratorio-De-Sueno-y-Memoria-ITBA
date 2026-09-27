@@ -19,8 +19,7 @@ infraestructura que las conecta con la ventana.
 
 from collections import Counter
 
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import QInputDialog, QMenu
 
 from psglab.core.annotations import Annotation, marks_to_annotations
