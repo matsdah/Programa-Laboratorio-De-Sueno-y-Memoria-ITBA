@@ -50,10 +50,13 @@ a otro de cualquier otro. Lo que se ganó es encontrar las cosas y que un cambio
 toque un archivo de cientos de líneas y no uno de miles.
 
 **El desacople empezó en el hito 79**, con controladores que tienen su estado
-propio y la ventana guarda como atributo. El primero es `tool_controller`
-(`ui/tool_controller.py`), que era el mixin `window_tools.py`: las
-herramientas, quién tiene el mouse y lo que dibujan. La ventana le pide lo que
-necesita por su nombre y él le avisa con señales de Qt; ver su docstring.
+propio y la ventana guarda como atributo:
+
+    tool_controller        las herramientas, quién tiene el mouse y lo que dibujan
+    playback_controller    el cursor de la reproducción y cómo mueve la página
+
+La ventana les pide lo que necesita por su nombre y ellos le avisan con
+señales de Qt; ver el docstring de cada uno.
 
 **Los métodos siguen siendo de `MainWindow`**: los menús, los atajos y la
 suite los llaman por su nombre en la ventana, y `monkeypatch.setattr(MainWindow,
@@ -98,7 +101,7 @@ from psglab.ui.menus import build_menus, menu_path
 from psglab.ui.navigation import NavigationBar
 from psglab.ui.overview_panel import OverviewPanel
 from psglab.ui.panel_header import SIN_REGISTRO
-from psglab.ui.playback import PlaybackClock
+from psglab.ui.playback_controller import PlaybackController
 from psglab.ui.connectivity_panel import ConnectivityPanel
 from psglab.ui.ica_panel import IcaPanel
 from psglab.ui.filter_panel import FilterPanel
@@ -262,12 +265,9 @@ class MainWindow(
         self.navigation_bar.addWidget(self.navigation)
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self.navigation_bar)
 
-        #: El reloj de la reproducción. Sólo dice cuánto avanzar; mover el
-        #: cursor es de `_avanzar_reproduccion()`.
-        self.playback = PlaybackClock(self)
-        #: El instante que se está reproduciendo, en segundos desde el inicio
-        #: del registro, o None en pausa. Ver `_llevar_el_cursor()`.
-        self._cabezal: float | None = None
+        #: La reproducción: el reloj, el cursor y cómo mueven la página y la
+        #: época (hito 79). Ver `ui/playback_controller.py`.
+        self.playback_controller = PlaybackController(self.signal_view, parent=self)
 
         # Lo que la herramienta activa quiere informar: el porcentaje de la
         # ocupación (V3_F) y los picos que lleva contados la lupa (V2_F). Va a
@@ -383,9 +383,14 @@ class MainWindow(
         self.navigation.amplitude_up_requested.connect(self.increase_amplitude)
         self.navigation.amplitude_down_requested.connect(self.decrease_amplitude)
         self.navigation.playback_toggle_requested.connect(self.toggle_playback)
-        self.navigation.playback_speed_changed.connect(self._cambiar_velocidad)
-        self.playback.advanced.connect(self._avanzar_reproduccion)
-        self.playback.playing_changed.connect(self._al_cambiar_la_reproduccion)
+        reproduccion = self.playback_controller
+        self.navigation.playback_speed_changed.connect(reproduccion.set_speed)
+        reproduccion.clock.playing_changed.connect(self.navigation.set_playing)
+        reproduccion.epoch_changed.connect(lambda: self._reflejar_epoca())
+        reproduccion.reached_end.connect(
+            lambda: self.statusBar().showMessage("Fin del registro", 5000)
+        )
+        reproduccion.failed.connect(lambda error, que: self._show_error(error, que))
         self.scoring_panel.stage_selected.connect(self.score_current_window)
         self.scoring_panel.arousal_toggled.connect(self._set_arousal)
         self.scoring_panel.nomenclature_changed.connect(self._change_nomenclature)

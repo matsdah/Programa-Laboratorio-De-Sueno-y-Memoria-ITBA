@@ -88,8 +88,9 @@ class FilesMixin:
         # Y por el mismo motivo, la descomposición ICA del registro anterior: es
         # de otra señal y de otros canales.
         self._olvidar_ica()
-        # La reproducción avanzaba sobre la página del registro anterior.
-        self.playback.stop()
+        # La reproducción avanzaba sobre la página del registro anterior, y
+        # `attach()` la detiene antes de tomar la sesión nueva.
+        self.playback_controller.attach(sesion)
 
         self._session = sesion
         # **El registro tal como se leyó.** Los análisis de la Parte 2 devuelven
@@ -286,7 +287,7 @@ class FilesMixin:
         if not self._puede_descartarse_el_trabajo("cerrar el programa"):
             event.ignore()
             return
-        self.playback.stop()
+        self.playback_controller.stop()
         # **Antes de soltar la sesión.** Un cálculo largo todavía leyendo el
         # registro se quedaría trabajando sobre memoria que ya nadie tiene.
         self.wait_for_background()

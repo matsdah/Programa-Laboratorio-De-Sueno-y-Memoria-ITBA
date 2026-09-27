@@ -173,6 +173,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_icons.py": ("psglab/ui/icons.py",),
     "test_navigation.py": ("psglab/ui/navigation.py",),
     "test_playback.py": ("psglab/ui/playback.py",),
+    # El segundo controlador con estado propio (hito 79), sin la ventana.
+    "test_playback_controller.py": ("psglab/ui/playback_controller.py",),
     "test_scoring_panel.py": ("psglab/ui/scoring_panel.py",),
     "test_fonts.py": ("psglab/ui/fonts.py",),
     "test_exporters.py": (
