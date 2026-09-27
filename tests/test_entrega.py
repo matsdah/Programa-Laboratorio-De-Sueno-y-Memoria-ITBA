@@ -1231,6 +1231,83 @@ def test_scorear_una_ventana_le_da_altura(ventana: MainWindow):
     assert not np.isnan(alturas[2])
 
 
+def test_una_flecha_no_rearma_el_hipnograma(ventana: MainWindow):
+    """**Lo rearmaba dos veces por flecha**, y no muestra la época actual: con
+    una noche de ocho horas a medio scorear era la mitad de lo que costaba una
+    flecha. La curva tiene que ser el mismo objeto antes y después."""
+    ventana._go_to_window(0)
+    ventana.score_current_window(stages_of(ventana.session.scoring.nomenclature)[0])
+    antes = ventana.histogram_view.getPlotItem().listDataItems()[0]
+
+    ventana.go_to_next_window()
+    ventana.go_to_previous_window()
+
+    assert ventana.histogram_view.getPlotItem().listDataItems()[0] is antes
+
+
+def test_scorear_despues_de_una_flecha_rearma_el_hipnograma(ventana: MainWindow):
+    """El otro lado: lo que cambia el dibujo lo tiene que seguir cambiando."""
+    fases = stages_of(ventana.session.scoring.nomenclature)
+    ventana._go_to_window(0)
+    ventana.go_to_next_window()
+
+    ventana.score_current_window(fases[1])
+
+    _, alturas = ventana.histogram_view.getPlotItem().listDataItems()[0].getData()
+    assert not np.isnan(alturas[1])
+
+
+def test_cambiar_el_eje_a_hora_rearma_el_hipnograma(ventana: MainWindow):
+    """El eje de abajo es parte del dibujo, aunque las fases no cambien."""
+    if ventana.session.recording.start_time is None:
+        pytest.skip("el registro de prueba no informa su hora de inicio")
+    en_ventanas = marcas_horizontales(ventana)
+
+    ventana.set_histogram_time_axis(True)
+
+    assert marcas_horizontales(ventana) != en_ventanas
+    assert not ventana.carteles
+
+
+def test_cambiar_de_nomenclatura_sin_nada_scoreado_rearma_el_eje(ventana: MainWindow):
+    """Sin nada scoreado, las fases son las mismas —todas sin scorear— pero el
+    eje de la izquierda nombra las de la otra nomenclatura."""
+    from psglab.core.nomenclature import stage_label
+
+    otra = (
+        Nomenclature.RK
+        if ventana.session.scoring.nomenclature is Nomenclature.AASM
+        else Nomenclature.AASM
+    )
+
+    ventana._change_nomenclature(otra)
+
+    textos = [
+        texto
+        for _, texto in ventana.histogram_view.getPlotItem().getAxis("left")._tickLevels[0]
+    ]
+    assert textos == [stage_label(fase) for fase in stages_of(otra)]
+
+
+def test_otro_registro_con_otra_hora_rearma_el_eje(ventana: MainWindow, tmp_path: Path):
+    """Mismo largo y nada scoreado, así que las fases son las mismas; con el eje
+    en hora, lo que cambia es la hora de cada marca."""
+    ventana.set_histogram_time_axis(True)
+    antes = marcas_horizontales(ventana)
+    vhdr = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * VENTANAS)
+    marcadores = vhdr.with_suffix(".vmrk")
+    marcadores.write_text(
+        marcadores.read_text(encoding="utf-8").replace("20260907130000", "20260907223000"),
+        encoding="utf-8",
+    )
+
+    ventana.open_recording(vhdr)
+
+    assert ventana.session.recording.start_time.hour == 22
+    assert marcas_horizontales(ventana) != antes
+    assert not ventana.carteles
+
+
 def test_el_eje_arranca_numerando_las_ventanas_desde_uno(ventana: MainWindow):
     """Base 0 adentro, base 1 al mostrar. El eje mostraba base 0."""
     ventana._go_to_window(0)

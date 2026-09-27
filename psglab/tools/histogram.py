@@ -100,9 +100,9 @@ class HistogramTool(Tool):
 
         **Es `bars()` agrupado**, y existe para que el panel pueda pintar la
         noche por tramos en vez de por ventana (hito 34). Sobre un registro de
-        ocho horas son unos cientos de tramos contra 960 ventanas, y el
-        hipnograma se redibuja en cada cambio de época: la diferencia se paga
-        en cada tecla.
+        ocho horas son unos cientos de tramos contra 960 ventanas, y la
+        diferencia se paga en cada tecla que scorea, que es cuando el hipnograma
+        se redibuja.
 
         **Las ventanas sin scorear no son un tramo.** `UNSCORED` es la ausencia
         de fase, que el panel deja en blanco (V1_P), así que no se agrupa ni se

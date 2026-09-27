@@ -606,7 +606,9 @@ class SignalView(pg.PlotWidget):
                 (nombre, self._session.scale_uv(nombre), self._session.offset_uv(nombre))
                 for nombre in self._visible
             ),
-            theme.current().name,
+            # **El esquema entero y no su nombre**: uno armado a partir de otro
+            # —con `dataclasses.replace()`— se llama igual y pinta distinto.
+            theme.current(),
         )
 
     @property
