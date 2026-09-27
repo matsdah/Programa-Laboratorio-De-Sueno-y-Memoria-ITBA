@@ -13,6 +13,11 @@ Resumen legible del registro y de lo que se hizo sobre él:
     - duración en cada fase de sueño, si está scoreado
     - métricas de tiempo por fase: promedio, desvío estándar y mediana
     - lista de anotaciones con cantidad y tiempo promedio, si está anotado
+    - el informe de sueño estándar, al final (hito 79): tiempo en cama, tiempo
+      total de sueño, eficiencia, latencias, vigilia después del inicio,
+      porcentaje de cada fase e índice de arousals. **Va al final a
+      propósito**, para no mover nada de lo que ya leían los scripts del
+      laboratorio; sus definiciones están en `statistics.sleep_summary()`.
 
 **La frecuencia de muestreo no es un dato decorativo: es lo único que hace
 interpretable a "Anotaciones.txt".** Ese archivo guarda las posiciones en
@@ -40,10 +45,12 @@ from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import SleepStage, stage_label
 from psglab.core.recording import Recording
 from psglab.core.scoring import Scoring
+from psglab.exporters.atomic import write_text_atomically
 from psglab.exporters.statistics import (
     annotation_summary,
     episode_metrics,
     scored_time_seconds,
+    sleep_summary,
     stage_durations_seconds,
     stage_episodes,
     stage_window_counts,
@@ -67,7 +74,7 @@ def export_information(
         scoring: None si el registro todavía no está scoreado.
         annotations: None si no hay anotaciones.
     """
-    path.write_text(build_report(recording, scoring, annotations), encoding="utf-8")
+    write_text_atomically(path, build_report(recording, scoring, annotations))
 
 
 def build_report(
@@ -127,7 +134,82 @@ def build_report(
             promedio = format_duration(datos["duracion_promedio"])
             lineas.append(f"  {etiqueta}: {cantidad}, duración promedio {promedio}")
 
+    lineas += ["", "INFORME DE SUEÑO", "----------------"]
+    if scoring is None:
+        lineas.append("El registro todavía no está scoreado.")
+    else:
+        lineas += _informe_de_sueno(recording, scoring)
+
     return "\n".join(lineas) + "\n"
+
+
+def _informe_de_sueno(recording: Recording, scoring: Scoring) -> list[str]:
+    """El informe de sueño estándar, con cada definición dicha en su renglón.
+
+    Lo que no existe se dice con palabras —«no hay REM scoreado»— y no con un
+    cero, por la misma razón que el resto del archivo.
+    """
+    informe = sleep_summary(scoring, recording.n_samples, recording.sampling_rate)
+
+    sin_sueno = "no hay sueño scoreado"
+
+    def _medida(valor: float | None, que_mide: str, falta: str = sin_sueno) -> str:
+        """La duración con qué mide, o por qué no hay ninguna."""
+        if valor is None:
+            return falta
+        return f"{format_duration(valor)}{f' ({que_mide})' if que_mide else ''}"
+
+    hay_sueno = informe.sleep_latency is not None
+    lineas: list[str] = []
+    if informe.unscored_windows:
+        lineas += [
+            f"Atención: {informe.unscored_windows} "
+            f"{'ventana sin scorear no cuenta' if informe.unscored_windows == 1 else 'ventanas sin scorear no cuentan'}"
+            " como sueño ni como vigilia, así que estas medidas están incompletas.",
+            "",
+        ]
+    eficiencia = (
+        f"{_numero(informe.sleep_efficiency, 1)} %"
+        if informe.sleep_efficiency is not None
+        else "no se puede calcular: el registro no dura nada"
+    )
+    lineas += [
+        f"Tiempo en cama: {format_duration(informe.time_in_bed)} "
+        "(el registro entero: no hay marcas de luces apagadas y encendidas)",
+        f"Tiempo total de sueño: {format_duration(informe.total_sleep_time)}",
+        f"Eficiencia de sueño: {eficiencia}",
+        f"Latencia de sueño: {_medida(informe.sleep_latency, 'desde el comienzo del registro')}",
+        "Latencia de REM: "
+        + _medida(
+            informe.rem_latency,
+            "desde la primera ventana de sueño",
+            "no hay REM scoreado" if hay_sueno else sin_sueno,
+        ),
+        "Período de sueño: "
+        + _medida(
+            informe.sleep_period_time if hay_sueno else None,
+            "de la primera a la última ventana de sueño",
+        ),
+        f"Vigilia después del inicio del sueño: {_medida(informe.wake_after_sleep_onset, '')}",
+        "",
+    ]
+    if informe.total_sleep_time > 0:
+        lineas.append("Porcentaje de cada fase sobre el tiempo total de sueño:")
+        for fase, porcentaje in informe.stage_percent.items():
+            lineas.append(f"  {stage_label(fase):5} {_numero(porcentaje, 1):>6} %")
+    else:
+        lineas.append("Porcentaje de cada fase: no hay sueño scoreado.")
+    indice = (
+        f", {_numero(informe.arousal_index, 1)} por hora de sueño"
+        if informe.arousal_index is not None
+        else ""
+    )
+    ventanas = "ventana de sueño" if informe.arousals == 1 else "ventanas de sueño"
+    lineas += [
+        "",
+        f"Arousals: {informe.arousals} {ventanas} con arousal marcado{indice}",
+    ]
+    return lineas
 
 
 def _seccion_de_scoring(recording: Recording, scoring: Scoring) -> list[str]:

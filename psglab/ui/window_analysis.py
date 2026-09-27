@@ -29,8 +29,8 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtWidgets import QFileDialog, QInputDialog
 
-from psglab.core.recording import Recording
-from psglab.analysis.derivation import derive
+from psglab.core.recording import ChannelKind, Recording
+from psglab.analysis.derivation import derive, derive_montage, plan_aasm_montage
 from psglab.analysis.complexity import MEASURES, complexity_by_window, warm_up
 from psglab.analysis.connectivity import (
     METHOD_LABELS,
@@ -51,12 +51,12 @@ from psglab.analysis.impedance import (
     load_impedances_from_file,
     read_impedances,
 )
-from psglab.analysis.filters import apply_filters, settings_for_kinds
+from psglab.analysis.filters import FilterSettings, apply_filters, settings_for_kinds
 from psglab.analysis.psd import band_power, compute_psd, describe_method
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_samples
 from psglab.readers.base import warm_up_readers
-from psglab.utils.errors import PsgLabError
+from psglab.utils.errors import ChannelNotFoundError, PsgLabError
 
 #: Medidas de complejidad que la interfaz ofrece para recorrer la noche.
 #:
@@ -145,13 +145,15 @@ class AnalysisMixin:
         self,
         que_hace: str,
         calcular: Callable[[Recording], Recording],
-        mostrar: str | None = None,
+        mostrar: str | list[str] | None = None,
         accion: str | None = None,
+        duracion_del_mensaje: int = 5000,
     ) -> None:
         """Corre un análisis y lleva su resultado a la pantalla.
 
-        Es el camino único de todo el menú Análisis: los módulos devuelven un
-        `Recording` nuevo —no tocan el original, que es la regla 1 de la
+        Es el camino de todo el menú Análisis —filtrar va por
+        `_aplicar_analisis_en_segundo_plano()`, que termina igual—: los módulos
+        devuelven un `Recording` nuevo —no tocan el original, que es la regla 1 de la
         carpeta— y acá se lo entrega a la sesión con `set_recording()`, que
         conserva la ventana, los canales y las amplitudes.
 
@@ -165,8 +167,11 @@ class AnalysisMixin:
                 esto una derivación se creaba y no se veía. Mostrarlo es una
                 decisión de presentación —el usuario acaba de pedirlo— y por eso
                 vive acá y no en `core/`.
+                Puede ser una lista: el montaje AASM agrega varios.
             accion: qué no se pudo hacer si falla, para la primera línea del
                 cartel; ver `_show_error()`.
+            duracion_del_mensaje: cuánto queda `que_hace` en la barra de
+                estado, en milisegundos; 0 lo deja hasta el próximo mensaje.
         """
         if self._session is None:
             return
@@ -176,10 +181,65 @@ class AnalysisMixin:
         except PsgLabError as error:
             self._show_error(error, accion)
             return
-        if mostrar is not None and mostrar not in self._session.visible_channels:
-            self._session.set_visible_channels(
-                [*self._session.visible_channels, mostrar]
-            )
+        self._mostrar_el_procesado(procesado, que_hace, mostrar, duracion_del_mensaje)
+
+    def _aplicar_analisis_en_segundo_plano(
+        self,
+        que_hace: str,
+        description: str,
+        calcular: Callable[[Recording], Recording],
+        accion: str,
+        despues: Callable[[], None] | None = None,
+    ) -> None:
+        """Como `_aplicar_analisis()`, pero calculando en otro hilo.
+
+        Es para lo que tarda segundos sobre una noche —filtrar, 2,5 s—: la
+        ventana sigue repintando y la barra de espera se mueve. **`calcular`
+        recibe el registro de ahora y no puede tocar la sesión**: corre en
+        otro hilo. Si mientras tanto la señal cambió —se abrió otro registro—,
+        `analysis_controller` descarta el resultado y lo dice.
+
+        Args:
+            description: lo que se lee mientras calcula, sin los puntos
+                suspensivos.
+            despues: lo que hay que hacer cuando el resultado ya está en
+                pantalla, como avisar qué canales quedaron sin pasa-altos.
+        """
+        if self._session is None:
+            return
+        registro = self._session.recording
+
+        def poner(procesado: object) -> None:
+            try:
+                self.analysis_controller.replace_recording(lambda _actual: procesado)
+            except PsgLabError as error:
+                self._show_error(error, accion)
+                return
+            self._mostrar_el_procesado(procesado, que_hace, None)
+            if despues is not None:
+                despues()
+
+        self.analysis_controller.run_in_background(
+            description, lambda: calcular(registro), poner, accion
+        )
+
+    def _mostrar_el_procesado(
+        self,
+        procesado: Recording,
+        que_hace: str,
+        mostrar: str | list[str] | None,
+        duracion_del_mensaje: int = 5000,
+    ) -> None:
+        """Lleva a la pantalla un registro que ya es el de la sesión.
+
+        `mostrar` y `duracion_del_mensaje` son los de `_aplicar_analisis()`.
+        """
+        if self._session is None:
+            return
+        nuevos = [mostrar] if isinstance(mostrar, str) else list(mostrar or [])
+        nuevos = [c for c in nuevos if c not in self._session.visible_channels]
+        if nuevos:
+            self._session.set_visible_channels([*self._session.visible_channels, *nuevos])
         self.signal_view.set_session(self._session)
         self.channel_selector.set_recording(procesado)
         # La señal cambió: los resultados eran de la anterior —la ICA ya la
@@ -188,7 +248,7 @@ class AnalysisMixin:
         self._olvidar_resultados()
         self.playback_controller.stop()
         self.refresh()
-        self.statusBar().showMessage(que_hace, 5000)
+        self.statusBar().showMessage(que_hace, duracion_del_mensaje)
 
     def _al_olvidar_la_ica(self) -> None:
         """`analysis_controller` descartó la descomposición: su panel se vacía.
@@ -225,6 +285,55 @@ class AnalysisMixin:
             lambda registro: derive(registro, canal, referencia),
             mostrar=f"{canal}-{referencia}",
             accion=f"derivar «{canal}-{referencia}»",
+        )
+
+    def apply_aasm_montage(self) -> None:
+        """Deriva de un clic el montaje recomendado por la AASM.
+
+        Busca los electrodos en el registro (`plan_aasm_montage()`) y deriva
+        los que encuentra, de una sola vez y de manera atómica. Lo que falta
+        no impide lo demás —el respaldo del otro hemisferio existe para eso—,
+        pero **se dice**: la barra de estado nombra lo que no se pudo armar y
+        queda hasta el próximo mensaje, para que se alcance a leer.
+
+        Sin ninguna derivación posible —ni hecha antes— sale como cartel,
+        porque el usuario pidió algo y no pasó nada.
+        """
+        if self._session is None:
+            return
+        try:
+            plan = plan_aasm_montage(self._session.recording)
+        except PsgLabError as error:
+            self._show_error(error, "armar el montaje AASM")
+            return
+        if not plan.pairs:
+            if plan.already_present:
+                mensaje = "El montaje AASM ya está derivado"
+                if plan.missing:
+                    mensaje += f". No se puede: {'; '.join(plan.missing)}"
+                self.statusBar().showMessage(mensaje, 0 if plan.missing else 5000)
+                return
+            self._show_error(
+                ChannelNotFoundError(
+                    "No se encontraron en el registro los electrodos del montaje "
+                    "AASM: hacen falta F4, C4, O2, F3, C3 u O1, E1 o E2, y las "
+                    "mastoides M1 y M2 (o los lóbulos A1 y A2).",
+                    details="No se puede armar: " + "; ".join(plan.missing) + ".",
+                ),
+                "armar el montaje AASM",
+            )
+            return
+        mensaje = f"Se derivó el montaje AASM: {', '.join(plan.names)}"
+        if plan.missing:
+            mensaje += f". No se pudo: {'; '.join(plan.missing)}"
+        self._aplicar_analisis(
+            mensaje,
+            lambda registro: derive_montage(
+                registro, plan.pairs, names=plan.names, channel_kinds=plan.channel_kinds
+            ),
+            mostrar=plan.names,
+            accion="derivar el montaje AASM",
+            duracion_del_mensaje=0 if plan.missing else 5000,
         )
 
     def rereference_dialog(self) -> None:
@@ -656,15 +765,23 @@ class AnalysisMixin:
             )
             return
         antes = self._session.recording
-        self._aplicar_analisis(
+        # **En otro hilo** (hito 79): sobre una noche son segundos, y en el de
+        # la interfaz la ventana quedaba congelada y el sistema la marcaba
+        # como «no responde».
+        self._aplicar_analisis_en_segundo_plano(
             "Se filtró la señal",
+            "Filtrando la señal",
             lambda registro: apply_filters(
                 registro, settings_for_kinds(registro, por_clase)
             ),
             accion="filtrar la señal",
+            despues=lambda: self._avisar_sin_pasa_altos(antes, por_clase),
         )
-        if self._session is None or self._session.recording is antes:
-            return
+
+    def _avisar_sin_pasa_altos(
+        self, antes: Recording, por_clase: dict[ChannelKind, FilterSettings]
+    ) -> None:
+        """Dice qué canales quedaron sin pasa-altos, con la señal ya filtrada."""
         # **Qué canales quedaron sin pasa-altos** (hito 67). `settings_for_kinds()`
         # no se lo da a un canal grabado más lento que el registro, porque lo
         # dejaría plano; el panel lo avisa antes, y acá se confirma después: el

@@ -198,10 +198,20 @@ mensaje para el investigador, y atraparlo en el hilo lo haría desaparecer.
 
 ## Lo que corre en otro hilo
 
-**Dos operaciones lo hacen**: la conectividad de la noche desde el hito 42 y el
-ajuste de la ICA desde el 47. Las dos pasan por `_en_segundo_plano()`, que pone
-la barra indeterminada, apaga lo que no se puede pedir y devuelve el resultado
-al hilo de la interfaz.
+**Cuatro operaciones lo hacen**: la conectividad de la noche desde el hito 42,
+el ajuste de la ICA desde el 47, y desde el 79 filtrar y abrir un registro. Las
+tres primeras pasan por `AnalysisController.run_in_background()`, que pone la
+barra indeterminada, apaga lo que no se puede pedir y devuelve el resultado al
+hilo de la interfaz.
+
+**Abrir tiene su propia tarea** (`open_recording_in_background()`), para que
+no espere a una ICA: abrir mientras se ajusta se podía y se sigue pudiendo.
+Mientras lee, el registro anterior se sigue usando, y la pregunta por el
+trabajo sin exportar llega después de leer, así que cuenta también lo que se
+hizo mientras. Dos aperturas a la vez no: la segunda se ignora y se dice. Y si
+se cierra la ventana mientras lee, lo leído se descarta. `open_recording()`
+sigue leyendo en el hilo de la interfaz: es la vía de los scripts y los tests,
+que necesitan la sesión en cuanto vuelve.
 
 **La regla es qué lee de la sesión y cuándo.** Lo que el cálculo necesite de
 `Session` se resuelve **antes** de arrancar el hilo: el otro recibe el registro
@@ -210,7 +220,7 @@ y los nombres ya resueltos y no vuelve a preguntar nada. Tocar un widget o
 vea.
 
 **Con un cálculo en curso se apagan «Montaje» y «Filtrar» enteros**, más la
-conectividad de la noche. Las cuatro operaciones de esos dos menús sustituyen
+conectividad de la noche. Las operaciones de esos dos menús sustituyen
 el registro, y hacerlo debajo de una ICA que se está ajustando dejaría una
 descomposición de una señal que ya no está —y eso no falla solo: MNE acepta el
 pedido y devuelve una señal reconstruida con una matriz ajena—.

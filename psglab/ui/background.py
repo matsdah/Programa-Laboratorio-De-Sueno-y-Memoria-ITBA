@@ -9,6 +9,8 @@ ventana no repintaba: arrastrarla no la movía, y Windows la marcaba como «no
 responde». `MainWindow._trabajando()` ponía el cursor de espera y un mensaje
 antes de bloquear, que es todo lo que se puede hacer **desde adentro** del
 hilo bloqueado; no acortaba la espera ni la hacía menos parecida a un cuelgue.
+La conectividad y la ICA pasaron acá en los hitos 42 y 47, y filtrar y abrir
+un registro en el 79.
 
 ## Lo que sí y lo que no
 

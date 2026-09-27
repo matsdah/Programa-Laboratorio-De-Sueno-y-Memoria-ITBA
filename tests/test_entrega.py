@@ -46,6 +46,7 @@ from psglab.analysis.psd import DEFAULT_BANDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.annotations import Annotation  # noqa: E402
 from psglab.core.nomenclature import Nomenclature, SleepStage, stages_of  # noqa: E402
+from psglab.core.recording import ChannelKind  # noqa: E402
 from psglab.core.scoring import StageSuggestion  # noqa: E402
 from psglab.exporters.scoring_txt import export_scoring  # noqa: E402
 from psglab.exporters import DEFAULT_FILENAMES as NOMBRES  # noqa: E402
@@ -373,6 +374,42 @@ def test_cancelar_el_guardado_no_escribe_nada(
     ventana.export_scoring_dialog("xml")
 
     assert list(tmp_path.glob("*.xml")) == []
+    assert not ventana.carteles
+
+
+def test_informacion_se_exporta_desde_el_menu_con_el_informe_de_sueno(
+    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado
+):
+    """Hito 79: Informacion.txt vuelve a «Archivo», y trae al final el
+    informe de sueño con lo scoreado de verdad por la ventana."""
+    for fase in (SleepStage.WAKE, SleepStage.N2, SleepStage.N2):
+        ventana.score_current_window(fase)
+    dialogo_de_guardado["respuesta"] = tmp_path / NOMBRES["information"]
+
+    ventana.export_information_dialog()
+
+    (propuesto, _), = dialogo_de_guardado["llamadas"]
+    assert Path(propuesto).name == NOMBRES["information"]
+    texto = (tmp_path / NOMBRES["information"]).read_text(encoding="utf-8")
+    informe = texto.split("INFORME DE SUEÑO", 1)[1]
+    assert "Tiempo total de sueño: 0 h 01 min 00,00 s" in informe
+    assert "Latencia de sueño: 0 h 00 min 30,00 s" in informe
+    assert not ventana.carteles
+
+
+def test_anotaciones_se_exporta_desde_el_menu(
+    ventana: MainWindow, tmp_path: Path, dialogo_de_guardado
+):
+    """Y cuenta como exportado: cerrar ya no pregunta por las anotaciones."""
+    anotar_algo(ventana)
+    dialogo_de_guardado["respuesta"] = tmp_path / NOMBRES["annotations"]
+
+    ventana.export_annotations_dialog()
+
+    (propuesto, _), = dialogo_de_guardado["llamadas"]
+    assert Path(propuesto).name == NOMBRES["annotations"]
+    assert "Spindle" in (tmp_path / NOMBRES["annotations"]).read_text(encoding="utf-8")
+    assert ventana.work_guard.unexported() == []
     assert not ventana.carteles
 
 
@@ -1403,6 +1440,7 @@ def test_cada_analisis_tiene_camino_desde_la_barra_de_menu(ventana: MainWindow):
             "&Filtros por clase de canal…",
             "Componentes &independientes (ICA)…",
             "&Derivar canales…",
+            "Montaje &AASM",
             "&Re-referenciar…",
             "Referencia &promedio (EEG)",
             "&Espectro de la ventana…",
@@ -1436,6 +1474,90 @@ def test_el_canal_derivado_llega_al_selector(ventana: MainWindow, elige_canal):
     ventana.derive_dialog()
 
     assert f"{canales[0]}-{canales[1]}" in ventana.channel_selector.visible_channels()
+
+
+@pytest.fixture
+def ventana_aasm(qt_app, tmp_path, monkeypatch):
+    """La ventana con un registro de electrodos sueltos, como los graba un
+    equipo antes de derivar: faltan F3, C3 y O1, para ver qué se informa."""
+    carteles: list[str] = []
+    monkeypatch.setattr(
+        MainWindow, "_show_error", lambda self, error, accion=None: carteles.append(str(error))
+    )
+    principal = create_main_window()
+    vhdr = escribir_brainvision(
+        tmp_path / "aasm",
+        segundos=WINDOW_SECONDS * 2,
+        canales=[
+            ("F4", "µV"), ("C4", "µV"), ("O2", "µV"), ("E1", "µV"),
+            ("E2", "µV"), ("M1", "µV"), ("M2", "µV"),
+        ],
+    )
+    principal.open_recording(vhdr)
+    principal.carteles = carteles
+    return principal
+
+
+def test_el_montaje_aasm_de_un_clic(ventana_aasm: MainWindow):
+    """Las cinco derivaciones que se pueden armar, con su clase, a la vista, y
+    lo que falta dicho en la barra de estado hasta el próximo mensaje."""
+    ventana_aasm.apply_aasm_montage()
+
+    registro = ventana_aasm.session.recording
+    nuevos = ["F4-M1", "C4-M1", "O2-M1", "E1-M2", "E2-M2"]
+    assert registro.channel_names()[-5:] == nuevos
+    assert [registro.channel_by_name(n).kind for n in nuevos] == [ChannelKind.EEG] * 3 + [
+        ChannelKind.EOG
+    ] * 2
+    assert all(n in ventana_aasm.session.visible_channels for n in nuevos)
+    mensaje = ventana_aasm.statusBar().currentMessage()
+    assert "F4-M1" in mensaje
+    assert "F3-M2 (falta F3)" in mensaje
+    assert not ventana_aasm.carteles
+
+
+def test_el_montaje_aasm_da_la_resta(ventana_aasm: MainWindow):
+    ventana_aasm.apply_aasm_montage()
+
+    registro = ventana_aasm.session.recording
+    datos = np.asarray(registro.data)
+    fila = lambda nombre: datos[registro.channel_by_name(nombre).index]  # noqa: E731
+    assert fila("C4-M1") == pytest.approx(fila("C4") - fila("M1"))
+    assert fila("E2-M2") == pytest.approx(fila("E2") - fila("M2"))
+
+
+def test_el_montaje_aasm_dos_veces_no_repite(ventana_aasm: MainWindow):
+    ventana_aasm.apply_aasm_montage()
+    canales = ventana_aasm.session.recording.n_channels
+
+    ventana_aasm.apply_aasm_montage()
+
+    assert ventana_aasm.session.recording.n_channels == canales
+    assert "ya está derivado" in ventana_aasm.statusBar().currentMessage()
+    assert not ventana_aasm.carteles
+
+
+def test_el_montaje_aasm_se_vuelve_atras(ventana_aasm: MainWindow):
+    """Sustituye el registro como derivar, así que «Volver a la señal
+    original» lo deshace."""
+    antes = ventana_aasm.session.recording.channel_names()
+    ventana_aasm.apply_aasm_montage()
+
+    ventana_aasm.restore_original_recording()
+
+    assert ventana_aasm.session.recording.channel_names() == antes
+
+
+def test_sin_electrodos_del_montaje_aasm_avisa(ventana: MainWindow):
+    """El registro de siempre no tiene ninguno: el usuario pidió algo y no
+    pasó nada, así que sale un cartel que dice qué hace falta."""
+    antes = ventana.session.recording.n_channels
+
+    ventana.apply_aasm_montage()
+
+    assert ventana.session.recording.n_channels == antes
+    assert len(ventana.carteles) == 1
+    assert "M1" in ventana.carteles[0]
 
 
 def test_cancelar_el_primer_dialogo_no_deriva(ventana: MainWindow, elige_canal):
@@ -1921,6 +2043,7 @@ def test_filtrar_despues_de_ajustar_descarta_la_descomposicion(
 
     ventana_con_dos_eeg.show_filter_dialog()
     ventana_con_dos_eeg.filter_panel.boton_aplicar.click()
+    ventana_con_dos_eeg.wait_for_background()
 
     assert ventana_con_dos_eeg.analysis_controller.ica is None
     assert ventana_con_dos_eeg.ica_panel.component_count() == 0
@@ -1933,6 +2056,7 @@ def test_volver_a_la_señal_original_descarta_la_descomposicion(
     """Deshacer también cambia la señal: la ICA se ajustó sobre la procesada."""
     ventana_con_dos_eeg.show_filter_dialog()
     ventana_con_dos_eeg.filter_panel.boton_aplicar.click()
+    ventana_con_dos_eeg.wait_for_background()
     ventana_con_dos_eeg.show_ica_dialog()
     ventana_con_dos_eeg.wait_for_background()
     assert ventana_con_dos_eeg.analysis_controller.ica is not None
@@ -2145,6 +2269,7 @@ def test_filtrar_desde_la_ventana_cambia_la_señal(ventana: MainWindow):
 
     ventana.show_filter_dialog()
     ventana.filter_panel.boton_aplicar.click()
+    ventana.wait_for_background()
 
     assert not np.array_equal(ventana.session.recording.data, original)
     assert not ventana.carteles
@@ -2157,6 +2282,7 @@ def test_un_filtro_mal_elegido_no_obliga_a_reabrir_el_archivo(ventana: MainWindo
 
     ventana.show_filter_dialog()
     ventana.filter_panel.boton_aplicar.click()
+    ventana.wait_for_background()
     assert ventana.accion_señal_original.isEnabled()
 
     ventana.restore_original_recording()
@@ -2173,6 +2299,8 @@ def test_un_corte_imposible_avisa_y_no_cambia_la_señal(ventana: MainWindow):
 
     ventana.filter_panel.boton_aplicar.click()
 
+    ventana.wait_for_background()
+
     assert ventana.carteles
     assert np.array_equal(ventana.session.recording.data, original)
 
@@ -2185,6 +2313,7 @@ def test_se_puede_filtrar_despues_de_re_referenciar(ventana: MainWindow):
 
     ventana.show_filter_dialog()
     ventana.filter_panel.boton_aplicar.click()
+    ventana.wait_for_background()
 
     assert not np.array_equal(ventana.session.recording.data, re_referenciada)
     assert not ventana.carteles
@@ -2232,6 +2361,7 @@ def test_aplicar_los_sugeridos_a_100_hz_no_da_ningun_cartel(
 
     ventana_a_100_hz.show_filter_dialog()
     ventana_a_100_hz.filter_panel.boton_aplicar.click()
+    ventana_a_100_hz.wait_for_background()
 
     assert not ventana_a_100_hz.carteles
     assert not np.array_equal(ventana_a_100_hz.session.recording.data, original)
@@ -2281,6 +2411,8 @@ def test_sin_memoria_sale_un_cartel_y_no_una_traza(ventana: MainWindow, monkeypa
 
     ventana.filter_panel.boton_aplicar.click()
 
+    ventana.wait_for_background()
+
     assert ventana.carteles, "el MemoryError no se convirtió en cartel"
     assert "memoria" in ventana.carteles[0].lower()
 
@@ -2303,6 +2435,8 @@ def test_sin_memoria_la_señal_queda_como_estaba(ventana: MainWindow, monkeypatc
     )
 
     ventana.filter_panel.boton_aplicar.click()
+
+    ventana.wait_for_background()
 
     assert ventana.carteles
     assert np.array_equal(ventana.session.recording.data, original)
@@ -3428,6 +3562,8 @@ def test_el_panel_de_filtros_es_del_registro_abierto(ventana: MainWindow, tmp_pa
 
     ventana.filter_panel.boton_aplicar.click()
 
+    ventana.wait_for_background()
+
     assert not ventana.carteles
     assert ventana.accion_señal_original.isEnabled()
 
@@ -3448,6 +3584,8 @@ def test_aplicar_sin_ningun_filtro_no_toca_la_señal(ventana_con_dos_eeg: MainWi
     antes = ventana.session.recording
 
     ventana.filter_panel.boton_aplicar.click()
+
+    ventana.wait_for_background()
 
     assert ventana.session.recording is antes
     assert ventana.analysis_controller.ica is not None
@@ -3520,6 +3658,7 @@ def test_filtrar_vacia_los_resultados_de_la_señal_anterior(
 
     ventana.show_filter_dialog()
     ventana.filter_panel.boton_aplicar.click()
+    ventana.wait_for_background()
 
     assert ventana.psd_panel.channels() == []
     assert ventana.psd_panel.caption() == ""
@@ -3531,6 +3670,7 @@ def test_volver_a_la_original_vacia_los_resultados_de_la_procesada(
 ):
     ventana.show_filter_dialog()
     ventana.filter_panel.boton_aplicar.click()
+    ventana.wait_for_background()
     elige_canal("C3")
     ventana.show_psd_dialog()
 
@@ -5534,9 +5674,173 @@ def test_elegir_un_reciente_lo_abre(ventana: MainWindow, tmp_path):
     otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 2)
 
     ventana.open_recent_file(str(otro))
+    ventana.wait_for_background()
 
     assert ventana.session.n_windows == 2
     assert ventana.current_preferences.recent_files[0] == str(otro.resolve())
+
+
+# -- Abrir y filtrar sin congelar la ventana (hito 79) -------------------------
+
+
+def test_abrir_lee_el_registro_en_otro_hilo(ventana: MainWindow, tmp_path, monkeypatch):
+    """Una noche son segundos, y en el hilo de la interfaz la ventana quedaba
+    congelada y el sistema la marcaba como «no responde»."""
+    hilos: list[threading.Thread] = []
+    leer = files_mod.read_recording
+
+    def leer_y_anotar(ruta):
+        hilos.append(threading.current_thread())
+        return leer(ruta)
+
+    monkeypatch.setattr(files_mod, "read_recording", leer_y_anotar)
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 2)
+
+    ventana.open_recording_in_background(otro)
+    ventana.wait_for_background()
+
+    assert hilos and hilos[0] is not threading.main_thread()
+    assert ventana.session.n_windows == 2
+    assert not ventana.carteles
+
+
+def test_mientras_lee_sigue_el_registro_anterior(ventana: MainWindow, tmp_path, monkeypatch):
+    """Se puede seguir scoreando el de antes, y la pregunta por el trabajo sin
+    exportar llega después de leer: cuenta también lo que se hizo mientras."""
+    puede_seguir = threading.Event()
+    leer = files_mod.read_recording
+
+    def leer_despacio(ruta):
+        puede_seguir.wait(10)
+        return leer(ruta)
+
+    monkeypatch.setattr(files_mod, "read_recording", leer_despacio)
+    anterior = ventana.session
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 2)
+
+    ventana.open_recording_in_background(otro)
+    try:
+        assert ventana.session is anterior
+        assert ventana.statusBar().currentMessage() == f"Leyendo «{otro.name}»…"
+        assert not ventana.analysis_controller.wait_bar.isHidden()
+        ventana.score_current_window(SleepStage.N2)
+        assert anterior.scoring.get(0).stage is SleepStage.N2
+    finally:
+        puede_seguir.set()
+    preguntas: list[list[str]] = []
+    ventana.work_guard.ask = lambda _que, en_juego: preguntas.append(en_juego) or "descartar"
+    ventana.wait_for_background()
+
+    assert preguntas, "lo scoreado mientras leía tiene que contar como trabajo sin exportar"
+    assert ventana.session.n_windows == 2
+    assert ventana.analysis_controller.wait_bar.isHidden()
+
+
+def test_un_archivo_que_no_se_lee_en_otro_hilo_avisa_y_no_suelta_nada(
+    ventana: MainWindow, tmp_path
+):
+    anterior = ventana.session
+    roto = tmp_path / "roto.vhdr"
+    roto.write_text("esto no es un BrainVision", encoding="utf-8")
+
+    ventana.open_recording_in_background(roto)
+    ventana.wait_for_background()
+
+    assert ventana.session is anterior
+    assert len(ventana.carteles) == 1
+    assert ventana.analysis_controller.wait_bar.isHidden()
+
+
+def test_abrir_dos_a_la_vez_ignora_el_segundo(ventana: MainWindow, tmp_path, monkeypatch):
+    puede_seguir = threading.Event()
+    leer = files_mod.read_recording
+    leidos: list[str] = []
+
+    def leer_despacio(ruta):
+        leidos.append(Path(ruta).parent.name)
+        puede_seguir.wait(10)
+        return leer(ruta)
+
+    monkeypatch.setattr(files_mod, "read_recording", leer_despacio)
+    uno = escribir_brainvision(tmp_path / "uno", segundos=WINDOW_SECONDS * 2)
+    dos = escribir_brainvision(tmp_path / "dos", segundos=WINDOW_SECONDS * 3)
+
+    ventana.open_recording_in_background(uno)
+    try:
+        ventana.open_recording_in_background(dos)
+        mensaje = ventana.statusBar().currentMessage()
+    finally:
+        puede_seguir.set()
+    ventana.wait_for_background()
+
+    assert "Todavía se está abriendo" in mensaje
+    assert leidos == ["uno"]
+    assert ventana.session.n_windows == 2
+
+
+def test_cerrar_mientras_lee_no_abre_lo_que_se_estaba_leyendo(
+    ventana: MainWindow, tmp_path, monkeypatch
+):
+    """Cerrar espera a que termine la lectura, pero no la toma: volvería a
+    preguntar por el trabajo y cambiaría la sesión mientras se cierra."""
+    puede_seguir = threading.Event()
+    leer = files_mod.read_recording
+
+    def leer_despacio(ruta):
+        puede_seguir.wait(10)
+        return leer(ruta)
+
+    monkeypatch.setattr(files_mod, "read_recording", leer_despacio)
+    anterior = ventana.session
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 2)
+    ventana.open_recording_in_background(otro)
+    threading.Timer(0.2, puede_seguir.set).start()
+
+    assert ventana.close()
+
+    assert ventana.session is anterior
+    assert not ventana.carteles
+
+
+def test_abrir_no_espera_a_un_calculo_en_curso(ventana: MainWindow, tmp_path):
+    """La lectura tiene su propia tarea: abrir mientras se ajusta una ICA se
+    podía antes de que abrir fuera en segundo plano, y se sigue pudiendo."""
+    puede_seguir = threading.Event()
+    ventana.analysis_controller.run_in_background(
+        "Calculando", lambda: puede_seguir.wait(10), lambda _r: None
+    )
+    otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 2)
+
+    ventana.open_recording_in_background(otro)
+    ventana._lectura.wait()
+    puede_seguir.set()
+    ventana.wait_for_background()
+
+    assert ventana.session.n_windows == 2
+    assert not ventana.carteles
+
+
+def test_filtrar_corre_en_otro_hilo(ventana: MainWindow, monkeypatch):
+    hilos: list[threading.Thread] = []
+    filtrar = analysis_mod.apply_filters
+
+    def filtrar_y_anotar(registro, ajustes):
+        hilos.append(threading.current_thread())
+        return filtrar(registro, ajustes)
+
+    monkeypatch.setattr(analysis_mod, "apply_filters", filtrar_y_anotar)
+    antes = ventana.session.recording
+    ventana.show_filter_dialog()
+
+    ventana.filter_panel.boton_aplicar.click()
+    mientras = ventana.session.recording
+    ventana.wait_for_background()
+
+    assert hilos and hilos[0] is not threading.main_thread()
+    assert mientras is antes
+    assert ventana.session.recording is not antes
+    assert ventana.statusBar().currentMessage().startswith("Se filtró la señal")
+    assert not ventana.carteles
 
 
 def test_un_reciente_que_ya_no_esta_se_quita_y_se_avisa(ventana: MainWindow, tmp_path):
@@ -6087,6 +6391,8 @@ def test_filtrar_desde_el_panel_no_deja_plano_al_canal_lento(
     assert "«EMG» se grabó a 1 Hz" in ventana.filter_panel.rotulo.text()
 
     ventana.filter_panel.boton_aplicar.click()
+
+    ventana.wait_for_background()
 
     registro = ventana.session.recording
     emg = registro.get_segment(0, registro.n_samples, ["EMG"])[0]
