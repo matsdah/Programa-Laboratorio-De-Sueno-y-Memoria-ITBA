@@ -5,6 +5,10 @@ re-referenciar: cada uno toma lo que necesita de la sesión, calcula —en otro
 hilo si tarda— y le pasa el resultado a su panel. También el aviso de los
 canales planos (hito 32) y volver a la señal original.
 
+**La señal original, la ICA ajustada y el cálculo en otro hilo son de
+`analysis_controller`** desde el hito 79, que tiene el estado. Acá queda qué
+pedir, con qué parámetros y cómo mostrarlo, que es distinto en cada panel.
+
 **Es un pedazo de `MainWindow`** (hito 76), no una pieza aparte: la clase de
 acá no hereda de nada y no se instancia sola. `MainWindow` la hereda junto con
 las otras seis, **antes de `QMainWindow`** para que sus métodos le ganen a los
@@ -12,10 +16,9 @@ de Qt. Todas comparten el estado que arma `MainWindow.__init__`, así que la
 partición es por tema y no por dependencias: el código se leía en un archivo
 de 4300 líneas y 170 métodos, y ahora cada tema tiene el suyo.
 
-Cubre del pliego: V5_F de "Filtración" (`_olvidar_ica`, que descarta la
-descomposición cuando la señal deja de ser la suya). El cálculo está en
-`analysis/`; lo que vive acá es el ciclo de vida de la ICA entre el ajuste y el
-«Aplicar».
+Cubre del pliego: V5_F de "Filtración" (ajustar la ICA, mostrar sus
+componentes y aplicarla). El cálculo está en `analysis/`, y que la
+descomposición se olvide cuando la señal cambia, en `analysis_controller.py`.
 """
 
 import threading
@@ -89,7 +92,7 @@ class AnalysisMixin:
         Los que muestran un resultado se vacían, porque recalcularlos es
         trabajo que nadie pidió. Los que muestran una configuración —filtros e
         impedancias— se cargan con la del registro nuevo, que no calcula nada.
-        La ICA la olvida `_olvidar_ica()`.
+        La ICA la olvida `analysis_controller.attach()`.
         """
         self._olvidar_resultados()
         if self._session is not None:
@@ -103,7 +106,7 @@ class AnalysisMixin:
         filtrar, derivar, re-referenciar, aplicar la ICA o volver a la
         original. Hasta el hito 30, después de filtrar el espectro seguía
         mostrando el de la señal sin filtrar, con el mismo título y sin decir
-        nada. Es la misma regla que `_olvidar_ica()` aplica a la descomposición:
+        nada. Es la misma regla que `forget_ica()` aplica a la descomposición:
         un resultado de una señal que ya no está no se muestra como si fuera de
         ésta. Se vacía en vez de recalcularlo porque recalcular es trabajo que
         nadie pidió; el panel vacío dice desde dónde se vuelve a pedir.
@@ -169,8 +172,7 @@ class AnalysisMixin:
             return
         try:
             with self._trabajando(que_hace.replace("Se ", "").capitalize()):
-                procesado = calcular(self._session.recording)
-            self._session.set_recording(procesado)
+                procesado = self.analysis_controller.replace_recording(calcular)
         except PsgLabError as error:
             self._show_error(error, accion)
             return
@@ -180,44 +182,19 @@ class AnalysisMixin:
             )
         self.signal_view.set_session(self._session)
         self.channel_selector.set_recording(procesado)
-        # La señal cambió, así que la descomposición que hubiera dejó de ser de
-        # este registro. Va **después** del `except`: si el análisis falló, la
-        # señal es la de antes y la ICA sigue siendo válida. La reproducción
-        # se detiene por lo mismo: la página puede haber cambiado de largo.
-        self._olvidar_ica()
+        # La señal cambió: los resultados eran de la anterior —la ICA ya la
+        # olvidó `replace_recording()`— y la reproducción se detiene porque
+        # la página puede haber cambiado de largo.
         self._olvidar_resultados()
         self.playback_controller.stop()
-        self.accion_señal_original.setEnabled(True)
         self.refresh()
         self.statusBar().showMessage(que_hace, 5000)
 
-    def _olvidar_ica(self) -> None:
-        """Descarta la descomposición ICA porque la señal dejó de ser la suya.
+    def _al_olvidar_la_ica(self) -> None:
+        """`analysis_controller` descartó la descomposición: su panel se vacía.
 
-        **Es la única guarda que hay contra el error más caro del menú Análisis.**
-        `fit_ica()` se ajusta sobre la señal que había en ese momento, y el panel
-        se queda abierto esperando que el usuario elija qué quitar. Si entre el
-        ajuste y el "Aplicar" la señal cambió —se filtró, se derivó, se
-        re-referenció, se volvió a la original, o se abrió otro registro—, la
-        matriz de desmezclado ya no corresponde.
-
-        **Y no falla sola.** Filtrar no cambia los nombres de los canales, así que
-        MNE acepta el pedido sin protestar y devuelve una señal reconstruida con
-        una descomposición ajena. El resultado es plausible, irreversible y
-        equivocado, que es exactamente lo que `analysis/ica.py` dice querer
-        evitar cuando advierte que "el usuario puede no darse cuenta".
-
-        Olvidar es lo correcto y no una molestia: volver a ajustar es un clic, y
-        la alternativa —conservarla y avisar— le pide al investigador que decida
-        sobre algo que no puede ver. `apply_ica()` tiene además su propia guarda
-        para el caso en que los canales sí cambien.
-
-        No hace nada si no hay ninguna descomposición cargada, así que se la
-        puede llamar desde cualquier camino sin preguntar antes.
+        Por qué se descarta, y cuándo, lo explica `forget_ica()`.
         """
-        if self._ica is None:
-            return
-        self._ica = None
         self.ica_panel.clear_components()
         self.ica_dialog.hide()
 
@@ -599,13 +576,13 @@ class AnalysisMixin:
             matrices = connectivity_by_window(registro, canales, band=limites)
             return np.array([average_connectivity(matriz) for matriz in matrices])
 
-        self._en_segundo_plano(
+        self.analysis_controller.run_in_background(
             f"Midiendo la conectividad en {banda} a lo largo de la noche",
             medir,
             lambda promedios: self._mostrar_la_conectividad_de_la_noche(
                 banda, canales, promedios
             ),
-            accion="medir la conectividad de la noche",
+            action="medir la conectividad de la noche",
         )
 
     def _mostrar_la_conectividad_de_la_noche(
@@ -829,17 +806,17 @@ class AnalysisMixin:
             # señal desde cada uno, sobre una muestra de la noche.
             return descomposicion, topografias, explained_variance(descomposicion, registro)
 
-        self._en_segundo_plano(
+        self.analysis_controller.run_in_background(
             "Descomponiendo la señal en componentes",
             descomponer,
             self._mostrar_la_ica,
-            accion="calcular la ICA",
+            action="calcular la ICA",
         )
 
     def _mostrar_la_ica(self, resultado: object) -> None:
         """Guarda la descomposición y abre el panel. **Acá sí se tocan widgets.**"""
         descomposicion, topografias, varianzas = resultado
-        self._ica = descomposicion
+        self.analysis_controller.keep_ica(descomposicion)
         if self._session is not None:
             self.ica_panel.set_start_time(self._session.recording.start_time)
         self.ica_panel.set_components(topografias, varianzas)
@@ -858,12 +835,13 @@ class AnalysisMixin:
         dibuja debajo de la señal para ver **cuándo** ocurre el artefacto", y
         hasta el hito 19 no la llamaba nadie.
         """
-        if self._session is None or self._ica is None:
+        descomposicion = self.analysis_controller.ica
+        if self._session is None or descomposicion is None:
             return
         ventana = self._session.current_window
         try:
             valores = component_time_course(
-                self._ica, component, self._session.recording, window_index=ventana
+                descomposicion, component, self._session.recording, window_index=ventana
             )
         except PsgLabError as error:
             # El panel ya dibujó la topografía y dejó la curva vacía, así que el
@@ -885,7 +863,8 @@ class AnalysisMixin:
         la única red que hay contra una exclusión equivocada — y quitar un
         componente no se puede deshacer sobre los datos ya transformados.
         """
-        if self._session is None or self._ica is None:
+        descomposicion = self.analysis_controller.ica
+        if self._session is None or descomposicion is None:
             return
         cuantos = len(exclude)
         que_hizo = (
@@ -893,11 +872,10 @@ class AnalysisMixin:
             if cuantos == 1
             else f"Se quitaron {cuantos} componentes independientes"
         )
-        # **Se toma la descomposición en una variable local antes de aplicar.**
-        # `_aplicar_analisis()` llama a `_olvidar_ica()` al terminar bien, así que
-        # una lambda que leyera `self._ica` la encontraría en `None` la próxima
-        # vez que alguien la invocara.
-        descomposicion = self._ica
+        # **La descomposición va en una variable local**, como arriba: aplicar
+        # la olvida al terminar bien, así que una lambda que leyera
+        # `analysis_controller.ica` la encontraría en `None` la próxima vez que
+        # alguien la invocara.
         self._aplicar_analisis(
             que_hizo,
             lambda registro: apply_ica(registro, descomposicion, exclude),
@@ -912,22 +890,21 @@ class AnalysisMixin:
         referencia mal elegidos obligarían a cerrar y reabrir el registro,
         perdiendo el scoring que el usuario venía haciendo.
         """
-        if self._session is None or self._registro_original is None:
+        if self._session is None:
             return
         try:
-            self._session.set_recording(self._registro_original)
+            original = self.analysis_controller.restore_original()
         except PsgLabError as error:
             self._show_error(error, "volver a la señal original")
             return
+        if original is None:
+            return
         self.signal_view.set_session(self._session)
-        self.channel_selector.set_recording(self._registro_original)
-        # Deshacer también cambia la señal, así que la descomposición que hubiera
-        # se ajustó sobre la procesada y ya no corresponde. Lo mismo los
-        # resultados de análisis.
-        self._olvidar_ica()
+        self.channel_selector.set_recording(original)
+        # Volver también cambia la señal: la ICA ya la olvidó
+        # `restore_original()`, y los resultados de análisis eran de la otra.
         self._olvidar_resultados()
         self.playback_controller.stop()
-        self.accion_señal_original.setEnabled(False)
         self.refresh()
         self.statusBar().showMessage("Se volvió a la señal original", 5000)
 

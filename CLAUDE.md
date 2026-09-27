@@ -612,9 +612,11 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   método nuevo va al del tema. **Desde el hito 79 hay además controladores
   con estado propio**, que la ventana guarda como atributo:
   `ui/tool_controller.py` (`window.tool_controller`), con las herramientas,
-  quién tiene el mouse y lo que dibujan, y `ui/playback_controller.py`
-  (`window.playback_controller`), con el cursor de la reproducción. No
-  conocen la ventana y le avisan por señales, así que se testean sin armarla. **Un test que
+  quién tiene el mouse y lo que dibujan; `ui/playback_controller.py`
+  (`window.playback_controller`), con el cursor de la reproducción; y
+  `ui/analysis_controller.py` (`window.analysis_controller`), con la señal
+  original, la ICA ajustada y el cálculo en otro hilo. No conocen la ventana
+  y le avisan por señales, así que se testean sin armarla. **Un test que
   reemplace una función que la ventana importa la reemplaza en el módulo que
   la usa**: `fit_ica` en `window_analysis`, no en `main_window`, donde ya no
   tendría efecto. Los mixins van antes que `QMainWindow` en la herencia, o

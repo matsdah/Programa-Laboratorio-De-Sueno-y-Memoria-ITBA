@@ -5699,7 +5699,7 @@ exportar —Exportar… / Descartar / Cancelar— era el modelo. Lo que faltaba 
       frase no dice «todavía», porque vale también cuando un cambio de la
       señal descartó el resultado.
   - Test: `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_consistencia.py`, **104 tests en verde**;
+    `tests/test_consistencia.py`, **105 tests en verde**;
     `tests/test_scoring_panel.py`, **33 tests en verde**.
 
 **Se fue un test**: el que verificaba que la pregunta de borrar decía «Sí / No»
@@ -6307,7 +6307,7 @@ tema, no un desacople**, y los docstrings lo dicen así.
       `AttributeError` y no en silencio, porque `monkeypatch.setattr` falla si
       el nombre no existe.
   - Test: `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_consistencia.py`, **104 tests en verde**.
+    `tests/test_consistencia.py`, **105 tests en verde**.
 
 **Lo que no se hizo.** Los mixins siguen dependiendo del estado de la ventana
 entera, así que un cambio en `__init__` puede romper a cualquiera. Separar
@@ -6706,6 +6706,18 @@ una vez que agregarlos al lugar que después hay que partir.
            sin la ventana.
       3. `ui/analysis_controller.py`: la ICA, la señal original y la tarea en
          segundo plano.
+         **Hecho.** `AnalysisController` se queda con
+         `_registro_original`, `_ica` y `_tarea`, que estaban repartidos
+         entre `main_window.py` y `window_analysis.py`, con la barra de
+         espera y las acciones que se apagan mientras corre un cálculo. La
+         ventana lo guarda en `analysis_controller`; qué análisis pedir y
+         cómo mostrarlo sigue en `window_analysis.py`, que es presentación.
+         `replace_recording()` pone el resultado en la sesión y olvida la
+         ICA sólo si salió bien; `restore_original()` vuelve. Avisa por
+         señales el error, la ICA olvidada y si hay a qué volver.
+         `wait_for_background()` queda en la ventana, que la usa al cerrar.
+         - Test: `tests/test_analysis_controller.py`, **12 tests en verde**,
+           sin la ventana.
       4. `ui/work_guard.py`: el trabajo sin exportar, los diálogos de
          exportar y la recuperación de la tanda 2.
 

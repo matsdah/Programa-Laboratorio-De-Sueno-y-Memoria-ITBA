@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los sesenta y tres
+camino de búsqueda. Con `pytest` directo la recolección falla en los sesenta y cuatro
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -114,6 +114,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_navigation.py` | La barra inferior: que la franja convierta bien un clic en una ventana, sobre todo en los bordes, que queden los ocho controles en el orden pedido y que reproducir pida lo suyo. |
 | `test_scoring_panel.py` | El panel de scoring: el pie con la ventana y su fase, que reflejar la ventana no la vuelva a scorear, y las fases en su propia fila. |
 | `test_fonts.py` | Las tipografías que trae el programa: que estén con su licencia, que la que nombra cada esquema exista y que la de la interfaz esté disponible, y que si faltan el programa arranque igual. |
+| `test_analysis_controller.py` | La señal original, la ICA y el cálculo en otro hilo **sin armar la ventana** (hito 79): que un análisis que falla no cambie nada, que cambiar la señal olvide la ICA, que mientras se calcula se apaguen las acciones largas y que un resultado de otra señal se descarte. |
 | `test_playback_controller.py` | El cursor de la reproducción **sin armar la ventana** (hito 79): de dónde arranca, cuánto avanza cada paso del reloj, que el cambio de época y el final se avisen una vez, y que lo que no se puede salga por señal. |
 | `test_playback.py` | El reloj de la reproducción: que avance a la velocidad pedida aunque dibujar tarde, sin esperar al temporizador. |
 
@@ -266,8 +267,7 @@ conversores desde píxeles de `signal_view.py`, los paneles, los menús, el
 reloj de la reproducción, los esquemas de color y las preferencias. El que no,
 `main_window.py`, figura en `SIN_TEST_PROPIO` y lo recorre `test_entrega.py`
 por la ventana; sus pedazos los cubren ése y `test_main_window_layout.py`
-(hito 76), y `tool_controller.py` y `playback_controller.py` tienen el suyo desde el
-hito 79. Es deliberado y está
+(hito 76), y sus tres controladores tienen el suyo desde el hito 79. Es deliberado y está
 explicado en [`ui/README.md`](../psglab/ui/README.md#estado).
 
 > Este párrafo decía "diez de sus catorce" y nombraba como exentos a

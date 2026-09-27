@@ -624,7 +624,7 @@ def _montaje(window: "MainWindow") -> None:
     # **Queda en la ventana** para poder apagarlo entero mientras corre un
     # cálculo: las tres operaciones sustituyen el registro, y hacerlo debajo de
     # una ICA que se está ajustando dejaría una descomposición de una señal que
-    # ya no está. Ver `MainWindow._reflejar_lo_que_se_puede_pedir()`.
+    # ya no está. Ver `AnalysisController.set_long_actions()`.
     window.menu_montaje = montaje
     _agregar(montaje, "&Derivar canales…", window.derive_dialog)
     _agregar(montaje, "&Re-referenciar…", window.rereference_dialog)
@@ -669,7 +669,7 @@ def _analizar(window: "MainWindow") -> None:
     _agregar(analizar, "Conectividad de la &ventana…", window.show_connectivity_dialog)
     # **Queda en la ventana** porque hay que poder apagarla: es la única que
     # arranca un cálculo en otro hilo, y con uno en curso no se puede pedir
-    # otro. Ver `MainWindow._reflejar_lo_que_se_puede_pedir()`.
+    # otro. Ver `AnalysisController.set_long_actions()`.
     window.accion_conectividad_de_la_noche = _agregar(
         analizar, "Conectividad de la &noche…", window.show_connectivity_night_dialog
     )
