@@ -55,6 +55,7 @@ propio y la ventana guarda como atributo:
     tool_controller        las herramientas, quién tiene el mouse y lo que dibujan
     playback_controller    el cursor de la reproducción y cómo mueve la página
     analysis_controller    la señal original, la ICA y el cálculo en otro hilo
+    work_guard             exportar, y preguntar antes de perder trabajo
 
 La ventana les pide lo que necesita por su nombre y ellos le avisan con
 señales de Qt; ver el docstring de cada uno.
@@ -76,13 +77,13 @@ métodos que los implementan: `export()` a `window_files.py`,
 Cubre del pliego: ningún ID; es infraestructura.
 """
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from datetime import timedelta
 from contextlib import contextmanager
 
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QFont, QFontMetrics
+from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -106,6 +107,7 @@ from psglab.ui.connectivity_panel import ConnectivityPanel
 from psglab.ui.ica_panel import IcaPanel
 from psglab.ui.filter_panel import FilterPanel
 from psglab.ui.analysis_controller import AnalysisController
+from psglab.ui.work_guard import WorkGuard
 from psglab.ui.impedance_panel import ImpedancePanel
 from psglab.ui.metric_panel import MetricPanel
 from psglab.ui.psd_panel import PsdPanel
@@ -275,6 +277,17 @@ class MainWindow(
         #: hilo, con su barra de espera, que va a la derecha de las dos lecturas
         #: (hito 79). Ver `ui/analysis_controller.py`.
         self.analysis_controller = AnalysisController(self.statusBar(), parent=self)
+        #: Exportar y no perder el trabajo (hito 79). Ver `ui/work_guard.py`.
+        #: **Las dos funciones van por lambda**: la suite reemplaza
+        #: `_confirmar` y las preferencias después de armar la ventana.
+        self.work_guard = WorkGuard(
+            self,
+            self.statusBar(),
+            lambda titulo, pregunta, boton, informativo: self._confirmar(
+                titulo, pregunta, boton, informativo=informativo
+            ),
+            lambda: next(iter(self._preferencias.recent_files), None),
+        )
 
         self.statusBar().showMessage(SIN_REGISTRO)
 
@@ -379,6 +392,7 @@ class MainWindow(
 
         analisis = self.analysis_controller
         analisis.failed.connect(lambda error, que: self._show_error(error, que))
+        self.work_guard.failed.connect(lambda error, que: self._show_error(error, que))
         analisis.ica_forgotten.connect(lambda: self._al_olvidar_la_ica())
         analisis.restorable_changed.connect(self.accion_señal_original.setEnabled)
 
@@ -627,7 +641,7 @@ class MainWindow(
         apurado no puede borrar. Si no se pierde nada, lo es la acción.
 
         Está aparte para que los tests puedan contestarlo, igual que
-        `_preguntar_por_el_trabajo()`: el cartel es modal.
+        `WorkGuard.ask()`: el cartel es modal.
 
         Args:
             titulo: el título del cartel, que nombra la acción.

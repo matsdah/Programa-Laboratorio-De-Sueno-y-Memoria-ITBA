@@ -113,7 +113,7 @@ commit.
 | V1_F | `Scoring.txt`, y el mismo scoring en CSV, EDF+ y XML | `psglab/exporters/scoring_txt.py`, `psglab/exporters/scoring_formats.py` (los otros tres formatos), `psglab/core/nomenclature.py` (`STAGE_CODES`) |
 | V2_F | `Anotaciones.txt` | `psglab/exporters/annotations_txt.py`, `psglab/core/annotations.py` |
 | V3_F | `Informacion.txt` | `psglab/exporters/information_txt.py`, `psglab/exporters/statistics.py` |
-| V4_F | Elegir cuál de los tres exportar | `psglab/ui/window_files.py` (`export()`; desde el hito 23 la ventana sólo ofrece el scoring) |
+| V4_F | Elegir cuál de los tres exportar | `psglab/ui/work_guard.py` (`export()`; desde el hito 23 la ventana sólo ofrece el scoring) |
 
 ---
 
@@ -136,16 +136,17 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos veinticinco se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos veintiséis se rompen hacia todos lados.
 
-Veintitrés de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Veinticuatro de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
 `core/viewport.py`, `core/decimation.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
 `ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py`, `ui/shortcuts_dialog.py`,
 y desde el hito 76 `ui/main_window.py`, `ui/window_annotation.py`,
-`ui/window_view.py` y `ui/window_preferences.py`: la ventana se partió en
-pedazos por tema, y los que llevan un ID tienen su fila arriba. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
+`ui/window_view.py` y `ui/window_preferences.py`, más `ui/window_files.py`
+desde que exportar pasó a `ui/work_guard.py` en el hito 79: la ventana se
+partió en pedazos por tema, y los que llevan un ID tienen su fila arriba. Los otros dos —`core/recording.py` y `utils/units.py`— **sí tienen
 fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 
 | Archivo | De qué se ocupa | Qué se ve afectado si cambia |
@@ -171,9 +172,10 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/ui/preferences.py` | Lo que el programa recuerda entre sesiones | El esquema con el que arranca |
 | `psglab/ui/settings_dialog.py` | La ventana de configuración | Todo lo que el usuario puede elegir y el programa recuerda |
 | `psglab/ui/shortcuts_dialog.py` | La ayuda de atajos, en una tabla agrupada | Ayuda → Atajos de teclado |
-| `psglab/ui/main_window.py` | Arma la ventana y reúne sus siete pedazos; las esperas largas y los carteles | El programa entero |
+| `psglab/ui/main_window.py` | Arma la ventana y reúne sus seis pedazos y sus cuatro controladores; las esperas en el hilo de la interfaz y los carteles | El programa entero |
 | `psglab/ui/window_annotation.py` | Anotar con el mouse, con el teclado o desde las marcas del archivo | Todo lo que agrega o cambia una anotación |
-| `psglab/ui/window_view.py` | Época, página, reproducción, amplitud, foco y vistas de canales | Cómo se recorre y se mira el registro |
+| `psglab/ui/window_view.py` | Época, página, rueda, amplitud, foco y vistas de canales | Cómo se recorre y se mira el registro |
+| `psglab/ui/window_files.py` | Abrir un registro e importar un scoring, preguntando antes por el trabajo sin exportar | Abrir, importar y cerrar el programa |
 | `psglab/ui/window_preferences.py` | Aplicar y guardar lo que elige el usuario, y la ventana de configuración | El esquema, la letra y los colores de clase |
 
 ---

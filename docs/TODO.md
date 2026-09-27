@@ -5699,7 +5699,7 @@ exportar —Exportar… / Descartar / Cancelar— era el modelo. Lo que faltaba 
       frase no dice «todavía», porque vale también cuando un cambio de la
       señal descartó el resultado.
   - Test: `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_consistencia.py`, **105 tests en verde**;
+    `tests/test_consistencia.py`, **106 tests en verde**;
     `tests/test_scoring_panel.py`, **33 tests en verde**.
 
 **Se fue un test**: el que verificaba que la pregunta de borrar decía «Sí / No»
@@ -6307,7 +6307,7 @@ tema, no un desacople**, y los docstrings lo dicen así.
       `AttributeError` y no en silencio, porque `monkeypatch.setattr` falla si
       el nombre no existe.
   - Test: `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_consistencia.py`, **105 tests en verde**.
+    `tests/test_consistencia.py`, **106 tests en verde**.
 
 **Lo que no se hizo.** Los mixins siguen dependiendo del estado de la ventana
 entera, así que un cambio en `__init__` puede romper a cualquiera. Separar
@@ -6587,7 +6587,8 @@ más. **Varias piden una decisión antes**; están marcadas.
       conserva: la propuesta es un archivo de recuperación en el perfil, que
       no se exporta ni aparece en ninguna carpeta, y que al reabrir el mismo
       registro ofrece volver a donde estaba. Scorear una noche lleva horas, y
-      hoy un corte de luz se las lleva.
+      hoy un corte de luz se las lleva. Va en `ui/work_guard.py`, que desde
+      el cierre de la tanda 3 es el que cuida el trabajo.
 - [x] **Los diálogos de abrir, importar y exportar arrancan en la carpeta
       del registro**, y recuerdan la última. Hoy arrancan en el directorio
       desde donde se lanzó el programa, y el nombre propuesto es siempre
@@ -6669,7 +6670,7 @@ más. **Varias piden una decisión antes**; están marcadas.
 funcionalidad nueva le suma métodos a `MainWindow`, y es más barato mudarlos
 una vez que agregarlos al lugar que después hay que partir.
 
-- [ ] **`MainWindow` pasa de siete mixins a controladores con estado
+- [x] **`MainWindow` pasa de siete mixins a controladores con estado
       propio.** El hito 76 la partió por tema, y lo dice: «es una partición,
       no un desacople»; los ocho archivos comparten el estado de
       `__init__` y siguen siendo una clase de 170 métodos. En este orden, uno
@@ -6720,8 +6721,24 @@ una vez que agregarlos al lugar que después hay que partir.
            sin la ventana.
       4. `ui/work_guard.py`: el trabajo sin exportar, los diálogos de
          exportar y la recuperación de la tanda 2.
+         **Hecho, sin la recuperación**, que es una funcionalidad nueva y
+         tiene su ítem en la tanda 2: va a vivir acá. `WorkGuard` se queda
+         con exportar, su diálogo, la carpeta de los diálogos y el cartel
+         del trabajo sin exportar, que eran la mitad de `window_files.py`.
+         La ventana lo guarda en `work_guard` y le pregunta
+         `can_discard()` antes de soltar la sesión; `export()`,
+         `export_scoring_dialog()` y `closeEvent()` quedan en la ventana y
+         delegan. El error de exportar le llega por señal, y la pregunta de
+         reemplazar un archivo se la pasa la ventana. Los tests que
+         contestaban `_preguntar_por_el_trabajo` contestan `WorkGuard.ask`.
+         - Test: `tests/test_work_guard.py`, **14 tests en verde**, sin la
+           ventana.
 
-      `MainWindow` queda armando las piezas y los carteles.
+      `MainWindow` queda armando las piezas y los carteles. **Los cuatro
+      están hechos**: quedan seis mixins, que son partición por tema, y
+      cuatro controladores con estado propio que se testean sin la ventana.
+      De paso salieron cuatro imports que los pasos anteriores habían dejado
+      sin uso en `main_window.py` y `window_annotation.py`.
 - [ ] **`Session` delega la presentación de los canales** en
       `core/channel_display.py`: visibles, seleccionados, escala y
       desplazamiento de cada uno, ajustar al panel y centrar. Son la mitad de

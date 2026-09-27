@@ -615,8 +615,9 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   quién tiene el mouse y lo que dibujan; `ui/playback_controller.py`
   (`window.playback_controller`), con el cursor de la reproducción; y
   `ui/analysis_controller.py` (`window.analysis_controller`), con la señal
-  original, la ICA ajustada y el cálculo en otro hilo. No conocen la ventana
-  y le avisan por señales, así que se testean sin armarla. **Un test que
+  original, la ICA ajustada y el cálculo en otro hilo; y `ui/work_guard.py`
+  (`window.work_guard`), que exporta y pregunta antes de perder trabajo. No
+  conocen la ventana y le avisan por señales, así que se testean sin armarla. **Un test que
   reemplace una función que la ventana importa la reemplaza en el módulo que
   la usa**: `fit_ica` en `window_analysis`, no en `main_window`, donde ya no
   tendría efecto. Los mixins van antes que `QMainWindow` en la herencia, o

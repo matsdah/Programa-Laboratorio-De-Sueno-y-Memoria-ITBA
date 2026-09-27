@@ -111,6 +111,9 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # La señal original, la ICA ajustada y el cálculo en otro hilo, con
         # su barra de espera (hito 79).
         "analysis_controller",
+        # Exportar, y preguntar antes de perder trabajo (hito 79). Los tests
+        # contestan su cartel, que es modal, reemplazando `WorkGuard.ask`.
+        "work_guard",
         # Los seis paneles de análisis y sus contenedores. **El panel y el
         # contenedor son atributos distintos a propósito**: los tests muestran
         # el contenedor y preguntan por el contenido del panel. El título del
@@ -238,8 +241,6 @@ PRIVADOS_QUE_LA_SUITE_USA: frozenset[str] = frozenset(
         "_go_to_window",
         "_session",
         "_aplicar_analisis",
-        # El cartel del trabajo sin exportar, que es modal (hito 33).
-        "_preguntar_por_el_trabajo",
         # El cartel de un archivo que trae menos de lo que declara (hito 33).
         "_mostrar_avisos_de_lectura",
         # La pregunta antes de lo que no se deshace, también modal (hito 65).

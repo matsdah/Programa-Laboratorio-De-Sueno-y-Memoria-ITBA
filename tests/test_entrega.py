@@ -62,6 +62,7 @@ from psglab.ui.docks import ORDEN_DE_ANALISIS  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 from psglab.ui.menus import menu_path  # noqa: E402
 from psglab.ui.overview_panel import accessible_summary  # noqa: E402
+from psglab.ui.work_guard import WorkGuard  # noqa: E402
 from psglab.utils.errors import PsgLabError  # noqa: E402
 
 from conftest import FRECUENCIA_BV, escribir_brainvision, escribir_edf  # noqa: E402
@@ -3723,12 +3724,12 @@ def cartel_del_scoring(monkeypatch):
     """
     estado: dict[str, object] = {"respuesta": "cancelar", "preguntas": [], "en_juego": []}
 
-    def responder(_ventana: MainWindow, al_hacer: str, en_juego: list[str]) -> str:
+    def responder(_guardian: WorkGuard, al_hacer: str, en_juego: list[str]) -> str:
         estado["preguntas"].append(al_hacer)
         estado["en_juego"].append(list(en_juego))
         return str(estado["respuesta"])
 
-    monkeypatch.setattr(MainWindow, "_preguntar_por_el_trabajo", responder)
+    monkeypatch.setattr(WorkGuard, "ask", responder)
     return estado
 
 
@@ -3989,7 +3990,7 @@ def test_el_cartel_nombra_lo_que_esta_en_juego(ventana: MainWindow, monkeypatch)
     textos: list[str] = []
 
     def exec_sin_mostrar(cartel: QMessageBox) -> int:
-        # Sin clic en ningún botón: `_preguntar_por_el_trabajo()` devuelve
+        # Sin clic en ningún botón: `WorkGuard.ask()` devuelve
         # "cancelar", que acá no importa. Lo que se mira es el texto.
         textos.append(cartel.text())
         return 0
@@ -3997,7 +3998,7 @@ def test_el_cartel_nombra_lo_que_esta_en_juego(ventana: MainWindow, monkeypatch)
     monkeypatch.setattr(QMessageBox, "exec", exec_sin_mostrar)
     anotar_algo(ventana, cuantas=2)
     for en_juego in (["scoring"], ["annotations"], ["scoring", "annotations"]):
-        ventana._preguntar_por_el_trabajo("cerrar el programa", en_juego)
+        ventana.work_guard.ask("cerrar el programa", en_juego)
 
     assert textos[0].startswith("El scoring de ")
     assert textos[1].startswith("Las 2 anotaciones de ")
@@ -4097,7 +4098,7 @@ def test_el_cartel_de_verdad_ofrece_las_tres_salidas(ventana: MainWindow, monkey
     ):
         visto["elegir"] = texto
         assert (
-            ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
+            ventana.work_guard.ask("cerrar el programa", ["scoring"])
             == respuesta
         )
 
@@ -4418,7 +4419,7 @@ def test_el_boton_de_descartar_lleva_la_tinta_de_lo_que_destruye(
         return 0
 
     monkeypatch.setattr(QMessageBox, "exec", espiar)
-    ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
+    ventana.work_guard.ask("cerrar el programa", ["scoring"])
 
     assert vistos["Descartar"] is True
     assert vistos["Cancelar"] is False
@@ -5091,7 +5092,7 @@ def test_exportar_es_el_boton_principal_del_cartel(ventana: MainWindow, monkeypa
         return 0
 
     monkeypatch.setattr(QMessageBox, "exec", espiar)
-    ventana._preguntar_por_el_trabajo("cerrar el programa", ["scoring"])
+    ventana.work_guard.ask("cerrar el programa", ["scoring"])
 
     assert vistos == {"Exportar…": True, "Descartar": False, "Cancelar": False}
 
