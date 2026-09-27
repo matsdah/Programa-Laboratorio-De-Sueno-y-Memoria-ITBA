@@ -186,6 +186,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_recovery.py": ("psglab/core/recovery.py",),
     # Deshacer y rehacer, sin la ventana (hito 79).
     "test_history.py": ("psglab/core/history.py",),
+    # La presentación de los canales, sin la sesión (hito 79).
+    "test_channel_display.py": ("psglab/core/channel_display.py",),
     "test_scoring_panel.py": ("psglab/ui/scoring_panel.py",),
     "test_fonts.py": ("psglab/ui/fonts.py",),
     "test_exporters.py": (

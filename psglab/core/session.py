@@ -8,26 +8,30 @@ Este objeto es el que la interfaz consulta para dibujarse y el que modifica
 cuando el usuario hace algo. Mantenerlo fuera de `psglab.ui` es lo que permite
 testear la navegación y el manejo de amplitudes sin abrir una ventana.
 
-Cubre del pliego: V1_F de "Navegación en la señal"; V2_P, V3_P y V5_F de
-"Visualización de la señal"; V4_F del histograma (`go_to_window`, que es a
-donde llega el clic sobre el hipnograma).
+**Los canales viven en `core/channel_display.py`** desde el hito 79: cuáles se
+ven, cuáles están seleccionados, y la escala y el desplazamiento de cada uno.
+Eran la mitad de esta clase. Los métodos públicos siguen acá y delegan, así
+que la interfaz sigue hablando sólo con la sesión; lo que queda propio es lo
+que sabe de épocas —cuál es la actual, cuál existe, sobre qué tramo se mide—
+y de páginas.
+
+Cubre del pliego: V1_F de "Navegación en la señal"; V4_F del histograma
+(`go_to_window`, que es a donde llega el clic sobre el hipnograma).
 """
 
 from collections.abc import Callable
 
-import numpy as np
-
 from psglab.config import (
     AMPLITUDE_STEP_FACTOR,
-    DEFAULT_SCALE_BY_KIND_UV,
     DEFAULT_VIEW_SECONDS,
     DEFAULT_SCALE_UV,
     MAX_SCALE_UV,
     MIN_SCALE_UV,
 )
 from psglab.core.annotations import Annotation, AnnotationSet, is_arousal
+from psglab.core.channel_display import ChannelDisplay
 from psglab.core.nomenclature import Nomenclature
-from psglab.core.recording import Channel, Recording
+from psglab.core.recording import Recording
 from psglab.core.scoring import EpochScore, Scoring
 from psglab.core.viewport import Viewport
 from psglab.core.windows import (
@@ -40,7 +44,6 @@ from psglab.core.windows import (
 from psglab.utils.errors import (
     InvalidAnnotationError,
     InvalidRecordingError,
-    InvalidScaleError,
     InvalidViewportError,
     PsgLabError,
     ScoringMismatchError,
@@ -122,30 +125,11 @@ class Session:
         #: `has_unexported_annotations()`.
         self._anotaciones_a_salvo = self._foto_de_las_anotaciones()
         self._current_window = 0
-        self._visible_channels: list[str] = recording.channel_names()
-        self._selected_channels: list[str] = []
-        # La escala inicial pasa por la misma guarda que `set_scale_uv`, que
-        # declara ser el único lugar que recorta. Escribir el diccionario
-        # directamente esquivaba el recorte entero: con `0.0` el visualizador
-        # divide por cero, y con un valor negativo dibuja toda la señal
-        # invertida mientras la escala de la izquierda anuncia "-50 µV".
-        check_finite(
-            default_scale_uv,
-            error=InvalidScaleError,
-            message="La escala vertical inicial no es un número válido.",
-            details="Se esperaba un número finito.",
-        )
-        #: La escala de las clases que no tienen una propia, antes de medirlas.
-        self._escala_de_fabrica = clamp(default_scale_uv, MIN_SCALE_UV, MAX_SCALE_UV)
-        self._scales_uv: dict[str, float] = {
-            canal.name: self._escala_inicial(canal) for canal in recording.channels
-        }
-        #: Cuántos µV se le restan a cada canal antes de dibujarlo. Arranca en
-        #: cero para todos, que es el comportamiento que el programa tenía
-        #: antes de que el desplazamiento existiera.
-        self._offsets_uv: dict[str, float] = {
-            nombre: 0.0 for nombre in recording.channel_names()
-        }
+        #: Qué canales se ven, cuáles están seleccionados, y la escala y el
+        #: desplazamiento de cada uno. Era la mitad de esta clase hasta el hito
+        #: 79; los métodos públicos de acá delegan en él. Valida también la
+        #: escala inicial.
+        self._display = ChannelDisplay(recording, default_scale_uv)
         #: Qué tramo del registro se está mirando. Arranca en una época, que
         #: es la página que el programa tuvo siempre: abrir un registro da
         #: exactamente la misma pantalla que antes de que esto existiera.
@@ -159,73 +143,22 @@ class Session:
         #: A quién avisarle cuando cambia la página visible. Ver
         #: `add_view_listener()`.
         self._view_listeners: list[Callable[[Viewport], None]] = []
-        self._ajustar_las_clases_sin_escala(recording.channel_names(), 0)
+        # Las clases sin escala propia se miden sobre la primera época, que es
+        # la que se va a ver. Un registro sin ninguna ventana no tiene sobre
+        # qué medirlas y se quedan con la de fábrica.
+        if self.n_windows > 0:
+            self._display.fit_unscaled_kinds(
+                recording.channel_names(), *self._tramo_de(0)
+            )
 
-    def _escala_inicial(self, canal: Channel) -> float:
-        """Con qué escala arranca un canal: la de su clase.
+    def _tramo_de(self, window_index: int) -> tuple[int, int]:
+        """Las muestras de una época, que es sobre lo que mide `ChannelDisplay`.
 
-        **Cada clase arranca con la suya**, y la escala de fábrica es el piso
-        de las que no tienen una propia. Con una sola escala para todos, un
-        canal respiratorio a 100 µV se sale de su carril y barre media
-        pantalla; ver `DEFAULT_SCALE_BY_KIND_UV`. Las que quedan en el piso se
-        miden después, en `_ajustar_las_clases_sin_escala()`.
+        Quien llama ya validó el índice: las conversiones de `core/windows.py`
+        no validan.
         """
-        return clamp(
-            DEFAULT_SCALE_BY_KIND_UV.get(canal.kind.value, self._escala_de_fabrica),
-            MIN_SCALE_UV,
-            MAX_SCALE_UV,
-        )
+        return window_to_samples(window_index, self._recording.sampling_rate)
 
-    def _ajustar_las_clases_sin_escala(
-        self, channel_names: list[str], window_index: int
-    ) -> None:
-        """Les mide la escala a los canales cuya clase no tiene una propia.
-
-        Respiratorio y Otro no aparecen en `DEFAULT_SCALE_BY_KIND_UV` y no es
-        un olvido: un termómetro rectal y un flujo oro-nasal no comparten ni
-        unidad ni orden de magnitud, así que no hay ninguna escala de uso
-        corriente que darles. Lo que sí se puede es mirarlos: con la escala de
-        un EEG, un flujo respiratorio se sale de su carril y **barre media
-        pantalla tapando seis canales**, que es exactamente lo que se veía al
-        abrir un registro de verdad.
-
-        Se miden sobre la época que se va a ver —la primera al abrir, la actual
-        cuando un análisis agrega un canal— y no sobre el registro entero: son
-        ocho horas de señal. Un canal plano o sin datos se deja como está, por
-        el mismo motivo que en `fit_to_pane()`.
-
-        Args:
-            channel_names: los canales a ajustar; los de clase con escala
-                propia se saltean.
-            window_index: la época sobre la que se mide.
-
-        **Primero se centra** (hito 70). Una temperatura de 37 °C que varía una
-        décima se medía contra el cero: la escala salía de 37 y la señal se
-        dibujaba pegada al borde de su carril, lejos de su nombre y como una
-        línea sin forma. Centrada en su media, la escala mide lo que el canal
-        varía.
-        """
-        if self.n_windows == 0:
-            return
-        for nombre in channel_names:
-            canal = self._recording.channel_by_name(nombre)
-            if canal.kind.value in DEFAULT_SCALE_BY_KIND_UV:
-                continue
-            centro = self._centro(canal.name, window_index)
-            if centro is not None:
-                self.set_offset_uv(canal.name, centro)
-            apartamiento = self._apartamiento(canal.name, window_index)
-            if apartamiento is not None:
-                self.set_scale_uv(canal.name, apartamiento)
-
-    def _check_channels(self, channel_names: list[str]) -> None:
-        """Rechaza cualquier nombre que el registro no tenga.
-
-        Se apoya en `Recording.channel_by_name()`, que ya eleva el error con el
-        mensaje correcto y la lista de canales disponibles en `details`.
-        """
-        for nombre in channel_names:
-            self._recording.channel_by_name(nombre)
 
     # -- Lo que hay abierto -------------------------------------------------
     #
@@ -477,25 +410,9 @@ class Session:
                 ),
             )
 
-        nombres = recording.channel_names()
-        sobreviven = [n for n in self._visible_channels if n in nombres]
-        self._visible_channels = sobreviven if sobreviven else list(nombres)
-        self._selected_channels = [
-            n for n in self._selected_channels if n in nombres
-        ]
-        nuevos = [nombre for nombre in nombres if nombre not in self._scales_uv]
-        self._scales_uv = {
-            canal.name: self._scales_uv.get(canal.name) or self._escala_inicial(canal)
-            for canal in recording.channels
-        }
-        # Los desplazamientos se conservan **por nombre**, igual que las
-        # escalas: un canal que sobrevive a un filtrado sigue apoyado donde el
-        # usuario lo dejó.
-        self._offsets_uv = {
-            nombre: self._offsets_uv.get(nombre, 0.0) for nombre in nombres
-        }
+        nuevos = self._display.replace_recording(recording)
         self._recording = recording
-        self._ajustar_las_clases_sin_escala(nuevos, self._current_window)
+        self._display.fit_unscaled_kinds(nuevos, *self._tramo_de(self._current_window))
         # **La página se re-recorta y se avisa.** Filtrar o derivar puede
         # cambiar la duración por debajo de una época sin que `n_windows`
         # cambie, y una página que se pasa del final dibujaría un tramo que no
@@ -724,16 +641,22 @@ class Session:
             self._notify_window_changed(epoca)
         return instante
 
-    # -- Canales visibles (V3_P, V4_F de "Visualización") -------------------
+    # -- Canales: delegan en `ChannelDisplay` -------------------------------
+    #
+    # Qué canales se ven, cuáles están seleccionados y con qué escala y
+    # desplazamiento se dibuja cada uno viven en `core/channel_display.py`
+    # desde el hito 79. Estos métodos quedan para que la interfaz y las
+    # herramientas sigan hablando sólo con la sesión; el comportamiento, los
+    # errores y los motivos están documentados allá.
+    #
+    # Los que miden —centrar y ajustar al panel— son la excepción: reciben una
+    # época, y la época es de acá. Se valida y se convierte en muestras antes
+    # de delegar.
 
     @property
     def visible_channels(self) -> list[str]:
-        """Nombres de los canales que se están mostrando, en orden.
-
-        Devuelve una copia: la interfaz sólo quiere recorrerla, y prestarle la
-        interna la dejaría reordenar los canales sin pasar por el setter.
-        """
-        return list(self._visible_channels)
+        """Nombres de los canales que se están mostrando, en orden (una copia)."""
+        return self._display.visible_channels
 
     def set_visible_channels(self, channel_names: list[str]) -> None:
         """Define qué canales se muestran y en qué orden.
@@ -741,128 +664,57 @@ class Session:
         Raises:
             ChannelNotFoundError: si se pide un canal que el registro no tiene.
         """
-        self._check_channels(channel_names)
-        self._visible_channels = list(channel_names)
+        self._display.set_visible_channels(channel_names)
 
     @property
     def selected_channels(self) -> list[str]:
-        """Canales seleccionados por el usuario.
-
-        Si hay canales seleccionados, los cambios de amplitud se aplican sólo
-        a ellos; si no hay ninguno, se aplican a todos los visibles (V5_F).
-
-        Devuelve una copia, por el mismo motivo que `visible_channels`.
-        """
-        return list(self._selected_channels)
+        """Canales seleccionados: a ellos llegan los cambios de amplitud (una copia)."""
+        return self._display.selected_channels
 
     def set_selected_channels(self, channel_names: list[str]) -> None:
         """Define los canales sobre los que actúan los cambios de amplitud.
 
-        **No se exige que estén visibles.** Visibilidad y selección son ejes
-        distintos —qué se dibuja y qué recibe los cambios de amplitud— y el
-        pliego no los ata: seleccionar un canal y después ocultarlo deja su
-        escala cambiando aunque no se vea, y eso es coherente con que al volver
-        a mostrarlo aparezca como el usuario lo dejó.
+        No se exige que estén visibles; ver
+        `ChannelDisplay.set_selected_channels()`.
 
         Raises:
             ChannelNotFoundError: si se pide un canal que el registro no tiene.
         """
-        self._check_channels(channel_names)
-        self._selected_channels = list(channel_names)
-
-    # -- Amplitud (V2_P, V5_F de "Visualización") ---------------------------
+        self._display.set_selected_channels(channel_names)
 
     def scale_uv(self, channel_name: str) -> float:
-        """Escala vertical de un canal, en microvoltios.
-
-        Es el número que se muestra en la escala de la izquierda del
-        visualizador (V1_P): **cuántos microvoltios representa la altura del
-        canal**.
+        """Cuántos microvoltios representa la altura del carril de un canal.
 
         Raises:
             ChannelNotFoundError: si el registro no tiene ese canal.
         """
-        self._recording.channel_by_name(channel_name)
-        return self._scales_uv[channel_name]
-
-    def _channels_under_amplitude(self) -> list[str]:
-        """Canales a los que llega un cambio de amplitud (V5_F).
-
-        Los seleccionados si hay alguno; si no, todos los visibles.
-
-        **Sin repetidos.** Mostrar el mismo canal dos veces es un uso soportado
-        —`get_segment` lo documenta— y sin esta deduplicación cada pulsación de
-        flecha le aplicaba el paso dos veces: el canal se escapaba del resto y
-        el usuario no tenía cómo entender por qué.
-        """
-        elegidos = self._selected_channels or self._visible_channels
-        return list(dict.fromkeys(elegidos))
-
-    def _check_amplitude_factor(self, factor: float) -> None:
-        """Rechaza un paso de amplitud con el que no se puede escalar.
-
-        Sin esta guarda, un factor que no sea número sale como `TypeError` y el
-        cero como `ZeroDivisionError`. Los dos atraviesan el `except
-        PsgLabError` de la ventana principal.
-        """
-        check_finite(
-            factor,
-            error=InvalidScaleError,
-            message="El paso de amplitud no sirve para escalar la señal.",
-            details="factor tiene que ser un número finito mayor que cero.",
-        )
-        if factor <= 0:
-            raise InvalidScaleError(
-                "El paso de amplitud no sirve para escalar la señal.",
-                details=f"factor tiene que ser mayor que cero; se recibió {factor}.",
-            )
+        return self._display.scale_uv(channel_name)
 
     def increase_amplitude(self, factor: float = AMPLITUDE_STEP_FACTOR) -> None:
-        """Aumenta la amplitud (flecha "Arriba").
+        """Aumenta la amplitud (flecha "Arriba"): **baja** el número de `scale_uv`.
 
-        Se aplica a los canales seleccionados, o a todos los visibles si no
-        hay ninguno seleccionado.
+        Llega a los seleccionados, o a todos los visibles si no hay ninguno.
 
-        **Aumentar la amplitud baja el número de `scale_uv`, no lo sube**, y
-        conviene tenerlo presente porque parece al revés. `scale_uv` es cuántos
-        µV representa la altura del canal: para que la señal se dibuje más
-        grande, esa misma altura tiene que representar **menos** µV. Subir el
-        número achicaría la onda, que es lo contrario de lo que espera quien
-        aprieta la flecha.
-
-        Args:
-            factor: cuánto se multiplica la amplitud por cada pulsación. Por
-                defecto, el paso de `config`.
+        Raises:
+            InvalidScaleError: si el factor no es un número finito mayor que cero.
         """
-        self._check_amplitude_factor(factor)
-        for nombre in self._channels_under_amplitude():
-            self.set_scale_uv(nombre, self._scales_uv[nombre] / factor)
+        self._display.increase_amplitude(factor)
 
     def decrease_amplitude(self, factor: float = AMPLITUDE_STEP_FACTOR) -> None:
-        """Reduce la amplitud (flecha "Abajo"). Mismo criterio de alcance."""
-        self._check_amplitude_factor(factor)
-        for nombre in self._channels_under_amplitude():
-            self.set_scale_uv(nombre, self._scales_uv[nombre] * factor)
+        """Reduce la amplitud (flecha "Abajo"). Mismo alcance que la de subir.
+
+        Raises:
+            InvalidScaleError: si el factor no es un número finito mayor que cero.
+        """
+        self._display.decrease_amplitude(factor)
 
     def set_amplitude_scale(self, scale_uv: float) -> None:
         """Les da la misma escala a los canales bajo amplitud («µV por carril»).
 
-        El alcance es el de las flechas: los seleccionados, o todos los
-        visibles si no hay ninguno. Vive acá y no en el menú para que las dos
-        vías no puedan discrepar, que es lo que pasaba hasta el hito 79.
-
         Raises:
-            InvalidScaleError: si la escala no es un número finito. Se comprueba
-                antes de tocar ningún canal.
+            InvalidScaleError: si la escala no es un número finito.
         """
-        check_finite(
-            scale_uv,
-            error=InvalidScaleError,
-            message="La escala pedida no es un número válido.",
-            details="Se esperaba un número finito de microvoltios por carril.",
-        )
-        for nombre in self._channels_under_amplitude():
-            self.set_scale_uv(nombre, scale_uv)
+        self._display.set_amplitude_scale(scale_uv)
 
     def set_scale_uv(
         self,
@@ -873,97 +725,38 @@ class Session:
     ) -> None:
         """Fija la escala de un canal, recortada a los límites permitidos.
 
-        Los límites existen para que el usuario no pueda dejar la pantalla
-        inutilizable a fuerza de flechazos. Por defecto son los de `config`.
-
-        Es el **único lugar que recorta**: las dos flechas y la escala inicial
-        del constructor delegan acá en vez de repetir la comprobación, para que
-        no puedan discrepar.
-
         Raises:
             ChannelNotFoundError: si el registro no tiene ese canal.
-            InvalidScaleError: si la escala no es un número finito. `min(max(nan,
-                lo), hi)` devuelve **NaN**, así que la forma corta de recortar no
-                recorta nada: el canal dejaría de dibujarse y la escala de la
-                izquierda anunciaría "nan µV".
+            InvalidScaleError: si la escala no es un número finito.
         """
-        self._recording.channel_by_name(channel_name)
-        check_finite(
-            scale_uv,
-            error=InvalidScaleError,
-            message=f"La escala pedida para el canal «{channel_name}» no es un número válido.",
-            details="Se esperaba un número finito.",
-        )
-        self._scales_uv[channel_name] = clamp(scale_uv, minimum_uv, maximum_uv)
-
-    # -- Desplazamiento vertical --------------------------------------------
+        self._display.set_scale_uv(channel_name, scale_uv, minimum_uv, maximum_uv)
 
     def offset_uv(self, channel_name: str) -> float:
         """Cuántos microvoltios se le restan a un canal antes de dibujarlo.
 
-        Es el equivalente vertical de la escala, y responde a otra pregunta:
-        `scale_uv` dice **cuánto se agranda** la señal, y esto **dónde se apoya**
-        dentro de su carril.
-
-        Hace falta porque un canal puede tener una línea de base muy lejos del
-        cero —un termómetro marca 36, un canal de continua puede quedar
-        cientos de µV corrido— y entonces se dibuja pegado al borde de su
-        carril o directamente fuera. Antes la única salida era achicar la
-        escala hasta que entrara, y con eso se perdía la señal.
-
-        Arranca en 0,0 para todos los canales, que es exactamente el
-        comportamiento que tenía el programa antes de que esto existiera.
-
         Raises:
             ChannelNotFoundError: si el registro no tiene ese canal.
         """
-        self._recording.channel_by_name(channel_name)
-        return self._offsets_uv.get(channel_name, 0.0)
+        return self._display.offset_uv(channel_name)
 
     def set_offset_uv(self, channel_name: str, offset_uv: float) -> None:
-        """Fija el desplazamiento vertical de un canal.
-
-        **No se recorta**, a diferencia de la escala, y la asimetría es
-        deliberada: un recorte de la escala impide dejar la pantalla
-        inutilizable, pero un offset grande no rompe nada —la señal sale del
-        carril y se la vuelve a traer con «Offset → 0»—, y cuál es el valor
-        razonable depende del canal: para un EEG son decenas de µV y para un
-        termómetro, decenas de miles.
+        """Fija el desplazamiento vertical de un canal. No se recorta.
 
         Raises:
             ChannelNotFoundError: si el registro no tiene ese canal.
-            InvalidScaleError: si el desplazamiento no es un número finito. Un
-                NaN dejaría el canal sin dibujar y sin ningún cartel.
+            InvalidScaleError: si el desplazamiento no es un número finito.
         """
-        self._recording.channel_by_name(channel_name)
-        check_finite(
-            offset_uv,
-            error=InvalidScaleError,
-            message=(
-                f"El desplazamiento pedido para el canal «{channel_name}» no es "
-                "un número válido."
-            ),
-            details="Se esperaba un número finito.",
-        )
-        self._offsets_uv[channel_name] = float(offset_uv)
+        self._display.set_offset_uv(channel_name, offset_uv)
 
     def reset_offsets(self) -> None:
-        """Devuelve al cero el desplazamiento de los canales bajo amplitud.
-
-        Es «Offset → 0» de la referencia, y es la salida cuando el ajuste
-        automático dejó un canal en un lugar raro. Mismo alcance que las
-        flechas: los seleccionados, o todos los visibles si no hay selección.
-        """
-        for nombre in self._channels_under_amplitude():
-            self._offsets_uv[nombre] = 0.0
+        """«Offset → 0» sobre los canales bajo amplitud."""
+        self._display.reset_offsets()
 
     def center_offsets(self, window_index: int | None = None) -> None:
-        """Apoya cada canal en el centro de su carril.
+        """«Ajustar offset»: apoya cada canal bajo amplitud en el centro de su carril.
 
-        Es «Ajustar offset». Le da a cada canal el desplazamiento que lleva su
-        promedio a cero **en la ventana que se está mirando**, no en la noche
-        entera: la línea de base de un EEG deriva a lo largo de ocho horas, y
-        centrar contra el promedio global dejaría la ventana actual corrida.
+        Se mide sobre una época y no sobre la noche entera, porque la línea de
+        base deriva a lo largo de ocho horas.
 
         Args:
             window_index: qué ventana se usa para medir. Por omisión, la actual.
@@ -973,43 +766,10 @@ class Session:
         """
         ventana = self._current_window if window_index is None else window_index
         self._check_window(ventana)
-        for nombre in self._channels_under_amplitude():
-            centro = self._centro(nombre, ventana)
-            if centro is not None:
-                self.set_offset_uv(nombre, centro)
-
-    def _centro(self, channel_name: str, window_index: int) -> float | None:
-        """La media de un canal en una ventana, sin las muestras sin valor.
-
-        `None` si la ventana no tiene muestras con valor: ahí no hay nada que
-        centrar. La usan `center_offsets()` y el ajuste de la escala al abrir.
-        """
-        inicio, fin = window_to_samples(window_index, self._recording.sampling_rate)
-        tramo = self._recording.get_segment(inicio, fin, [channel_name])
-        if tramo.size == 0:
-            return None
-        # **Sin los valores que no son números** (hito 33). `np.mean` con un
-        # solo NaN devuelve NaN, y acá se escribía directo en el diccionario,
-        # salteando la guarda de `set_offset_uv()`: el canal se dejaba de
-        # dibujar y no había ningún cartel. Un canal entero sin valores
-        # finitos no tiene dónde apoyarse y se queda como está.
-        finitos = tramo[np.isfinite(tramo)]
-        if finitos.size == 0:
-            return None
-        return float(np.mean(finitos))
+        self._display.center_offsets(*self._tramo_de(ventana))
 
     def fit_to_pane(self, window_index: int | None = None) -> None:
-        """Ajusta la escala de cada canal para que su señal entre en el carril.
-
-        Es «Ajustar al panel». Toma el mayor apartamiento respecto del
-        desplazamiento vigente en la ventana que se mira, y lo convierte en la
-        escala del canal. Un canal plano no cambia de escala: dividir por cero
-        daría infinito y dejaría el canal invisible, y además no hay ninguna
-        escala "correcta" para una línea recta.
-
-        **Se mide después de restar el offset**, no antes: si no, un canal
-        corrido pediría una escala enorme para entrar y la señal quedaría
-        aplastada contra el eje.
+        """«Ajustar al panel»: la escala de cada canal bajo amplitud, para que entre.
 
         Args:
             window_index: qué ventana se usa para medir. Por omisión, la actual.
@@ -1019,35 +779,7 @@ class Session:
         """
         ventana = self._current_window if window_index is None else window_index
         self._check_window(ventana)
-        for nombre in self._channels_under_amplitude():
-            apartamiento = self._apartamiento(nombre, ventana)
-            if apartamiento is not None:
-                self.set_scale_uv(nombre, apartamiento)
-
-    def _apartamiento(self, channel_name: str, window_index: int) -> float | None:
-        """Cuánto se aparta un canal de su desplazamiento en esa ventana.
-
-        Es la medida con la que se ajusta una escala, y está sola porque la
-        usan dos: «Ajustar al panel» y el ajuste de las clases sin escala
-        propia al abrir el registro. Devuelve `None` cuando no hay nada que
-        medir —un canal plano, uno sin datos, uno todo NaN—: no existe ninguna
-        escala "correcta" para una línea recta, y dividir por cero dejaría el
-        canal invisible.
-        """
-        inicio, fin = window_to_samples(window_index, self._recording.sampling_rate)
-        tramo = self._recording.get_segment(inicio, fin, [channel_name])
-        if tramo.size == 0:
-            return None
-        # Los valores que no son números se descartan, como en
-        # `center_offsets()`: con uno solo, el máximo salía NaN y el canal se
-        # quedaba sin ajustar aunque el resto de la ventana sirviera.
-        finitos = tramo[np.isfinite(tramo)]
-        if finitos.size == 0:
-            return None
-        apartamiento = float(np.max(np.abs(finitos - self.offset_uv(channel_name))))
-        if apartamiento <= 0.0 or not np.isfinite(apartamiento):
-            return None
-        return apartamiento
+        self._display.fit_to_pane(*self._tramo_de(ventana))
 
     # -- Página visible -----------------------------------------------------
 

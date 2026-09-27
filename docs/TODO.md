@@ -296,7 +296,7 @@ código de hoy** antes de arreglar nada.
     `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
-    `tests/test_contratos.py`, **1227 tests en verde**;
+    `tests/test_contratos.py`, **1326 tests en verde**;
     `tests/test_entrega.py`, **437 tests en verde**.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
@@ -370,7 +370,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       van a la próxima y a la anterior sin scorear, con `Scoring.next_unscored()`.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
-    `tests/test_contratos.py`, **1227 tests en verde**;
+    `tests/test_contratos.py`, **1326 tests en verde**;
     `tests/test_entrega.py`, **437 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
@@ -602,11 +602,26 @@ una vez que agregarlos al lugar que después hay que partir.
       cuatro controladores con estado propio que se testean sin la ventana.
       De paso salieron cuatro imports que los pasos anteriores habían dejado
       sin uso en `main_window.py` y `window_annotation.py`.
-- [ ] **`Session` delega la presentación de los canales** en
+- [x] **`Session` delega la presentación de los canales** en
       `core/channel_display.py`: visibles, seleccionados, escala y
       desplazamiento de cada uno, ajustar al panel y centrar. Son la mitad de
       sus 1100 líneas y la mitad que toca la tanda 1. `Session` conserva sus
       métodos públicos, que delegan.
+      Hecho: `Session` bajó de 1179 a unas 900 líneas, y ningún test de
+      `test_session.py` cambió. **`ChannelDisplay` no sabe de épocas**: lo
+      que mide —centrar, ajustar al panel, la escala de las clases sin una
+      propia— lo mide sobre un tramo de muestras. La sesión valida la época,
+      la convierte y le pasa el tramo, así que la guarda de qué ventana
+      existe sigue en un solo lugar, y un tramo imposible lo rechaza
+      `Recording.get_segment()`. De `set_recording()` se lleva la regla de qué
+      sobrevive a un registro procesado, y devuelve los canales nuevos para
+      que la sesión los mida sobre la época actual. V2_P, V3_P y V5_F pasan
+      a `channel_display.py` en `TRAZABILIDAD.md`.
+  - Test: `tests/test_channel_display.py`, **25 tests en verde**, sin
+    sesión: que mida sobre el tramo que se le pasa y no sobre otro, el
+    alcance de la amplitud, las clases sin escala propia y qué sobrevive a
+    un registro procesado. `tests/test_contratos.py`, **1326 tests en
+    verde**, con sus filas y tres rechazos obligatorios.
 - [x] **`SignalView` (1344 líneas) separa lo que dibujan las herramientas**
       —banda, bandas de anotación, segmentos, lente— en
       `ui/overlay_items.py`, y la caché de la envolvente en su propia clase.

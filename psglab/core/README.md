@@ -21,7 +21,8 @@ ubicó mal.
 | Archivo | De qué se ocupa | Pliego |
 |---|---|---|
 | `recording.py` | El registro cargado en memoria: `Recording`, `Channel`, `ChannelKind`. `flat_channels()` dice qué canales no varían en un tramo, para que los análisis lo expliquen, y `non_finite_channels()`, cuántas muestras sin valor tiene cada uno, para avisarlo al importar. `content_limit_hz()` dice hasta qué frecuencia tiene contenido de verdad un canal grabado más lento que el registro (hito 72). | Soporte de V1_F–V3_F de "Importación", V4_F de "Visualización" |
-| `session.py` | Estado de trabajo del usuario. **Es el objeto central.** | V1_F de "Navegación"; V2_P, V3_P, V5_F de "Visualización"; V4_F del histograma |
+| `session.py` | Estado de trabajo del usuario. **Es el objeto central.** | V1_F de "Navegación"; V4_F del histograma |
+| `channel_display.py` | **Cómo se muestran los canales** (hito 79): `ChannelDisplay` lleva cuáles se ven, cuáles están seleccionados, y la escala y el desplazamiento de cada uno. Era la mitad de `Session`, que conserva sus métodos públicos y delega. No sabe de épocas: lo que mide —centrar, ajustar al panel, la escala de las clases sin una propia— lo mide sobre un tramo de muestras que le pasa la sesión. | V2_P, V3_P, V5_F de "Visualización" |
 | `scoring.py` | Fase y arousal de cada ventana: `Scoring`, `EpochScore`. Desde el hito 75, también las fases que sugiere un clasificador (`StageSuggestion`), **en una capa aparte**: `stage` sigue queriendo decir «la eligió una persona», así que ni los exportadores ni las estadísticas las ven, y una sugerida nunca pisa una fase puesta a mano. `next_unscored()` dice cuál es la próxima ventana sin scorear en cada dirección, contando las sugeridas como sin scorear (hito 79). | V1_F, V2_F, V3_F de "Scoring" |
 | `nomenclature.py` | Rechtschaffen y Kales frente a AASM: `Nomenclature`, `SleepStage`, conversión entre ambas. `check_nomenclature()` es pública desde el hito 48 porque `Scoring` la necesita para no guardar una nomenclatura inventada. | V1_F, V3_F de "Scoring"; V3_F del histograma |
 | `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. `is_arousal()` reconoce la clase «Arousal», que desde el hito 79 marca el arousal de su ventana (`Session.mark_arousal_of()`). Una anotación es inmutable; corregirla es reemplazarla con `replace()`, que valida la nueva antes de sacar la vieja (hito 52). **Agregar, borrar y buscar un tramo son búsquedas binarias** (hito 79), sobre una lista de comienzos que va al lado de la de anotaciones y una duración máxima que acota `in_range()`. `marks_to_annotations()` convierte las marcas que trae el archivo en anotaciones, en muestras (hito 73). | V1_F de "Anotación de la señal" |
@@ -56,7 +57,15 @@ propia se centra y se mide sobre la época actual.
 **Todas las vías que cambian la escala comparten el alcance**: las flechas,
 «Ajustar al panel» y `set_amplitude_scale()` —«µV por carril»— llegan a los
 canales seleccionados, o a todos los visibles si no hay ninguno. Lo resuelve
-`_channels_under_amplitude()`, y el menú no lo repite (hito 79).
+`ChannelDisplay._channels_under_amplitude()`, y el menú no lo repite (hito 79).
+
+**Los canales son de `ChannelDisplay`** (`channel_display.py`), y `Session` le
+delega (hito 79). Lo que se reparte es lo que cada uno sabe: la sesión sabe de
+épocas —cuál es la actual, si una existe— y el despliegue sabe de canales. Por
+eso centrar y ajustar al panel entran por la sesión con una época, que se
+valida y se convierte en muestras, y llegan al despliegue como un tramo. Un
+estado nuevo de los canales va a `ChannelDisplay`, con su delegación en
+`Session` si la interfaz lo necesita.
 
 **Se sustituye adentro, no se arma otra.** `set_scoring()` existe porque
 importar un scoring (V3_F) no es abrir otro registro: el usuario sigue parado
