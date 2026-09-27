@@ -402,11 +402,11 @@ que **el dibujo de la ventana de 30 s no hay que optimizarlo**.
 ## Estado
 
 Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
-[hito 6 del TODO](../../docs/TODO.md#hito-6-interfaz), y con él `python main.py`
+[hito 6 del TODO](../../docs/HISTORIAL.md#hito-6-interfaz), y con él `python main.py`
 abrió algo usable por primera vez.
 
 **Pero sin stubs no era lo mismo que conectada.** El
-[hito 9](../../docs/TODO.md#hito-9-lo-que-la-interfaz-no-consume) encontró seis
+[hito 9](../../docs/HISTORIAL.md#hito-9-lo-que-la-interfaz-no-consume) encontró seis
 requisitos del pliego hechos en `tools/`, con sus tests en verde, que esta capa
 no consumía: no se podía anotar, no había panel de Übersicht, el porcentaje de
 ocupación no se mostraba, la lupa no ampliaba y el eje del histograma no

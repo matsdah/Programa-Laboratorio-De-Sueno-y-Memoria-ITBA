@@ -778,7 +778,7 @@ class AnalysisMixin:
         señal de forma irreversible. El panel muestra las topografías y espera.
 
         **Corre en otro hilo desde el hito 47**, que es lo que quedaba del
-        [hito 33](../../docs/TODO.md#hito-33-la-auditoría-del-19-de-septiembre).
+        [hito 33](../../docs/HISTORIAL.md#hito-33-la-auditoría-del-19-de-septiembre).
         Es con diferencia lo más caro del programa —la auditoría midió 9 s sobre
         un registro real, y sobre ruido blanco, que es el peor caso para que
         FastICA converja, se midieron 345 s—, y **no cambia la señal**: por eso

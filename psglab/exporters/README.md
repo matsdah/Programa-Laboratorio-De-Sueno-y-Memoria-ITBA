@@ -8,7 +8,7 @@ tercero, y el scoring en los formatos que leen otros programas.
 septiembre de 2026 por decisión del usuario, aunque el pliego los pide
 (V2_F, V3_F y V4_F): `MainWindow.export()` los sigue escribiendo y se piden
 desde un script. Está anotado como pendiente de confirmar con el cliente en
-el [hito 23 del TODO](../../docs/TODO.md#hito-23-ajustes-de-la-barra-de-menú).
+el [hito 23 del TODO](../../docs/HISTORIAL.md#hito-23-ajustes-de-la-barra-de-menú).
 
 **Los formatos son texto plano y fáciles de leer con cualquier herramienta, y
 eso es deliberado:** los archivos de salida son la vía por la que el scoring
@@ -91,7 +91,7 @@ esas muestras a tiempo hace falta la frecuencia de muestreo, que vive en
 distinto** que el caso de la nomenclatura: una fase mal interpretada pasa
 desapercibida, mientras que una posición sin frecuencia directamente no se puede
 convertir y el problema salta enseguida. Ver el
-[hito 0 del TODO](../../docs/TODO.md#hito-0-desbloquear).
+[hito 0 del TODO](../../docs/HISTORIAL.md#hito-0-desbloquear).
 
 ## `Informacion.txt`
 
@@ -129,10 +129,10 @@ python -m pytest tests/test_exporters.py
 ## Estado
 
 Pendientes **0 stubs** en 0 módulos: la carpeta está terminada. Era el
-[hito 5 del TODO](../../docs/TODO.md#hito-5-exportadores).
+[hito 5 del TODO](../../docs/HISTORIAL.md#hito-5-exportadores).
 
 **Ninguno está bloqueado.** `annotations_txt.py` lo estuvo hasta que el
-[hito 0](../../docs/TODO.md#hito-0-desbloquear) fijó el índice de la primera
+[hito 0](../../docs/HISTORIAL.md#hito-0-desbloquear) fijó el índice de la primera
 muestra en 0.
 
 **Cerrado este hito el programa hace su trabajo completo desde un script

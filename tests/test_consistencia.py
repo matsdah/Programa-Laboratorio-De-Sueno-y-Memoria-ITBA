@@ -426,19 +426,14 @@ def test_un_hito_terminado_figura_como_cerrado():
     dice "Sigue abierta". No es trabajo pendiente sino una pregunta al cliente
     anotada donde corresponde. Un hito puede quedar cerrado con una de ésas
     colgando.
+
+    **Las secciones se leen de los dos archivos** desde que el TODO se partió
+    (hito 79): la de un hito cerrado está en `HISTORIAL.md`. Leyendo sólo el
+    TODO, el chequeo no encontraba ninguna sección cerrada y se las salteaba
+    todas en silencio.
     """
     todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
-
-    # La sección de cada hito, para poder contar sus ítems.
-    secciones: dict[str, str] = {}
-    actual: str | None = None
-    for linea in todo.splitlines():
-        encabezado = re.match(r"^## Hito (\d+):", linea)
-        if encabezado is not None:
-            actual = encabezado.group(1)
-            secciones[actual] = ""
-        elif actual is not None:
-            secciones[actual] += linea + "\n"
+    secciones = secciones_de_los_hitos()
 
     problemas: list[str] = []
     for numero, nombre, _, stubs, estado in re.findall(
@@ -457,6 +452,53 @@ def test_un_hito_terminado_figura_como_cerrado():
             )
         # Ver el docstring: un hito cerrado puede llevar un ítem sin tildar si
         # es una pregunta abierta y no trabajo pendiente.
+    assert not problemas, "\n".join(problemas)
+
+
+def secciones_de_los_hitos() -> dict[str, str]:
+    """El cuerpo de cada hito, del TODO y del historial, por su número."""
+    secciones: dict[str, str] = {}
+    for archivo in ("TODO.md", "HISTORIAL.md"):
+        actual: str | None = None
+        for linea in (RAIZ / "docs" / archivo).read_text(encoding="utf-8").splitlines():
+            encabezado = re.match(r"^## Hito (\d+):", linea)
+            if encabezado is not None:
+                actual = encabezado.group(1)
+                secciones[actual] = ""
+            elif re.match(r"^#{1,2} ", linea):
+                actual = None
+            elif actual is not None:
+                secciones[actual] += linea + "\n"
+    return secciones
+
+
+def test_cada_hito_vive_en_su_archivo():
+    """Los cerrados en el historial y los abiertos en el TODO (hito 79).
+
+    Es lo que mantiene la separación: sin esto, un hito que se cierra se queda
+    en el TODO y el archivo vuelve a crecer hasta que lo abierto no se
+    encuentra, que es por lo que se partió. Y la fila de la tabla tiene que
+    apuntar a donde está la sección, o el enlace lleva a la nada.
+    """
+    todo = (RAIZ / "docs" / "TODO.md").read_text(encoding="utf-8")
+    historial = (RAIZ / "docs" / "HISTORIAL.md").read_text(encoding="utf-8")
+    en_el_todo = set(re.findall(r"^## Hito (\d+):", todo, re.M))
+    en_el_historial = set(re.findall(r"^## Hito (\d+):", historial, re.M))
+
+    problemas: list[str] = []
+    for numero, enlace, estado in re.findall(
+        r"\|\s*\[(\d+)\.[^\]]*\]\(([^)]*)\)\s*\|\s*[\d—-]+\s*\|\s*\d+\s*\|\s*([^|]*)\|",
+        todo,
+    ):
+        cerrado = "✅" in estado
+        donde, debe = (en_el_historial, "HISTORIAL.md") if cerrado else (en_el_todo, "TODO.md")
+        if numero not in donde:
+            problemas.append(f"el hito {numero} está {'cerrado' if cerrado else 'abierto'} "
+                             f"y su sección no está en {debe}")
+        if cerrado != enlace.startswith("HISTORIAL.md#"):
+            problemas.append(f"la fila del hito {numero} apunta a {enlace}")
+    if en_el_todo & en_el_historial:
+        problemas.append(f"hitos en los dos archivos: {sorted(en_el_todo & en_el_historial)}")
     assert not problemas, "\n".join(problemas)
 
 
@@ -1437,20 +1479,16 @@ def test_las_exenciones_de_comportamiento_siguen_siendo_ciertas():
     assert not problemas, "\n".join(problemas)
 
 
-#: Documentos que declaran **cuántos hitos** tiene el proyecto. Cada uno lo dice
-#: en su propia frase, y las cuatro se desincronizaron a la vez: decían
-#: "diecisiete" con diecinueve filas en la tabla de progreso.
+#: Documentos que declaran **cuántos hitos** tiene el proyecto. Eran cuatro, y se
+#: desincronizaron a la vez: decían "diecisiete" con diecinueve filas en la
+#: tabla de progreso. **Desde el hito 79 es uno solo**, el TODO: cada hito nuevo
+#: obligaba a corregir los cuatro, y los otros tres ahora mandan a leerlo.
 #:
 #: La convención que este chequeo fija es "el número **y** el rango", porque un
 #: numeral suelto no se puede distinguir de los históricos —"los cuatro hitos
 #: que entraron en dos días"— y el rango además dice desde dónde se cuenta, que
 #: era la ambigüedad de fondo: el hito 0 existe.
-DOCUMENTOS_CON_LA_CUENTA_DE_HITOS: tuple[str, ...] = (
-    "README.md",
-    "docs/TODO.md",
-    "docs/EXPLICACION.txt",
-    "docs/README.md",
-)
+DOCUMENTOS_CON_LA_CUENTA_DE_HITOS: tuple[str, ...] = ("docs/TODO.md",)
 
 
 def hitos_de_la_tabla() -> list[int]:
@@ -1842,6 +1880,12 @@ def test_las_cuentas_de_tests_del_todo_coinciden_con_la_suite(request: pytest.Fi
     Por eso `TODO.md` pudo decir "15 tests en verde" cuando eran 17, y
     `tests/README.md` prometer `42 skipped` mucho después de que dejaran de ser
     42. Los números de stubs los verificaba un test y los de tests no.
+
+    **Sólo los del TODO**, desde que se partió (hito 79). Las de
+    `HISTORIAL.md` son las de cuando se cerró cada hito, y así se leen: hasta
+    la separación había que corregirlas todas cada vez que un archivo de test
+    cambiaba de tamaño, y una misma cuenta llegó a aparecer cuarenta y ocho
+    veces.
 
     No se cuentan los `def test_` del archivo: la suite recolecta más casos que
     funciones, porque hay `parametrize`. Se cuenta lo que pytest recolectó de
