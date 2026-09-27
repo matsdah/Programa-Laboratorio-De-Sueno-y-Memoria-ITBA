@@ -186,7 +186,7 @@ class AnalysisMixin:
         # se detiene por lo mismo: la página puede haber cambiado de largo.
         self._olvidar_ica()
         self._olvidar_resultados()
-        self.playback.stop()
+        self.playback_controller.stop()
         self.accion_señal_original.setEnabled(True)
         self.refresh()
         self.statusBar().showMessage(que_hace, 5000)
@@ -926,7 +926,7 @@ class AnalysisMixin:
         # resultados de análisis.
         self._olvidar_ica()
         self._olvidar_resultados()
-        self.playback.stop()
+        self.playback_controller.stop()
         self.accion_señal_original.setEnabled(False)
         self.refresh()
         self.statusBar().showMessage("Se volvió a la señal original", 5000)

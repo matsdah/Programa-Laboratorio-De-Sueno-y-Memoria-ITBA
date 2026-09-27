@@ -92,7 +92,7 @@ class ScoringMixin:
         # adelantaría la reproducción una ventana por cada tecla.
         if (
             self._preferencias.advance_after_scoring
-            and self._cabezal is None
+            and self.playback_controller.playhead is None
             and self._session.current_window < self._session.n_windows - 1
         ):
             self.go_to_next_window()

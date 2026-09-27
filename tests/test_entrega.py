@@ -3000,7 +3000,7 @@ def reproduccion(ventana: MainWindow):
     """La ventana, con la reproducción detenida al terminar pase lo que pase:
     un temporizador vivo seguiría moviendo la página en el test siguiente."""
     yield ventana
-    ventana.playback.stop()
+    ventana.playback_controller.stop()
 
 
 def pagina(ventana: MainWindow) -> float:
@@ -3016,10 +3016,10 @@ def test_reproducir_lleva_la_epoca_que_pasa_por_el_medio(reproduccion: MainWindo
     ventana = reproduccion
 
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(10.0)
-    ventana.playback.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
 
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(0) + 20.0)
     assert ventana.session.viewport.center_seconds == pytest.approx(centro_de(0) + 20.0)
     assert ventana.session.current_window == 1
@@ -3033,7 +3033,7 @@ def test_la_epoca_nueva_llega_a_la_barra_y_al_scoring(reproduccion: MainWindow):
     ventana = reproduccion
 
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(WINDOW_SECONDS)
+    ventana.playback_controller.clock.advanced.emit(WINDOW_SECONDS)
 
     # La lectura lleva también la hora desde el hito 36, cuando el registro la
     # informa: son la misma pregunta en dos unidades.
@@ -3061,12 +3061,12 @@ def test_al_principio_el_cursor_avanza_y_la_pagina_no(reproduccion: MainWindow):
     ventana.set_timescale(2 * WINDOW_SECONDS)
 
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
 
     assert pagina(ventana) == 0.0
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(0) + 10.0)
 
-    ventana.playback.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
 
     assert pagina(ventana) == pytest.approx(centro_de(0) + 20.0 - WINDOW_SECONDS)
     assert ventana.session.current_window == 1
@@ -3081,12 +3081,12 @@ def test_al_final_el_cursor_llega_al_borde_y_se_detiene(reproduccion: MainWindow
 
     ventana.toggle_playback()
     assert ventana.session.viewport.at_end
-    ventana.playback.advanced.emit(10.0)
-    assert ventana.playback.is_playing
+    ventana.playback_controller.clock.advanced.emit(10.0)
+    assert ventana.playback_controller.is_playing
 
-    ventana.playback.advanced.emit(10 * WINDOW_SECONDS)
+    ventana.playback_controller.clock.advanced.emit(10 * WINDOW_SECONDS)
 
-    assert not ventana.playback.is_playing
+    assert not ventana.playback_controller.is_playing
     assert ventana.session.current_window == VENTANAS - 1
     assert ventana.statusBar().currentMessage() == "Fin del registro"
     assert ventana.signal_view.playhead() is None
@@ -3101,9 +3101,9 @@ def test_con_el_registro_entero_en_pantalla_tambien_reproduce(reproduccion: Main
     entera = ventana.session.viewport
 
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(2 * WINDOW_SECONDS)
+    ventana.playback_controller.clock.advanced.emit(2 * WINDOW_SECONDS)
 
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
     assert ventana.session.viewport == entera
     assert ventana.session.current_window == 2
 
@@ -3119,7 +3119,7 @@ def test_arranca_desde_la_epoca_actual_aunque_la_vista_se_haya_ido(
 
     ventana.toggle_playback()
 
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(0))
     assert pagina(ventana) == 0.0
 
@@ -3129,17 +3129,17 @@ def test_sin_registro_reproducir_no_hace_nada(qt_app):
 
     principal.toggle_playback()
 
-    assert not principal.playback.is_playing
+    assert not principal.playback_controller.is_playing
 
 
 def test_apretar_de_nuevo_pausa(reproduccion: MainWindow):
     ventana = reproduccion
     ventana.navigation._reproducir.click()
-    ventana.playback.advanced.emit(5.0)
+    ventana.playback_controller.clock.advanced.emit(5.0)
 
     ventana.navigation._reproducir.click()
 
-    assert not ventana.playback.is_playing
+    assert not ventana.playback_controller.is_playing
     assert pagina(ventana) == pytest.approx(5.0)
     assert ventana.navigation._reproducir.toolTip() == "Reproducir"
 
@@ -3147,7 +3147,7 @@ def test_apretar_de_nuevo_pausa(reproduccion: MainWindow):
 def test_al_pausar_se_va_el_cursor_y_se_queda_la_epoca(reproduccion: MainWindow):
     ventana = reproduccion
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(20.0)
+    ventana.playback_controller.clock.advanced.emit(20.0)
     pagina_al_pausar = ventana.session.viewport
 
     ventana.toggle_playback()
@@ -3172,7 +3172,7 @@ def test_siguiente_y_anterior_reproduciendo_llevan_el_cursor(reproduccion: MainW
     ventana.navigation._anterior.click()
     assert ventana.session.current_window == 1
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(1))
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
     assert not ventana.carteles
 
 
@@ -3186,7 +3186,7 @@ def test_la_ultima_y_la_franja_reproduciendo_llevan_el_cursor(reproduccion: Main
 
     ventana._go_to_window(2)
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(2))
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
 
 
 def test_siguiente_en_la_ultima_reproduciendo_no_hace_nada(reproduccion: MainWindow):
@@ -3199,7 +3199,7 @@ def test_siguiente_en_la_ultima_reproduciendo_no_hace_nada(reproduccion: MainWin
     ventana.go_to_next_window()
 
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(VENTANAS - 1))
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
 
 
 def test_en_pausa_las_flechas_mueven_la_pagina_lo_minimo(ventana: MainWindow):
@@ -3244,7 +3244,7 @@ def test_los_atajos_de_pagina_reproduciendo_mueven_el_cursor(reproduccion: MainW
 
     assert ventana.signal_view.playhead() == pytest.approx(centro_de(0) + WINDOW_SECONDS)
     assert ventana.session.current_window == 1
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
 
 
 def test_scorear_reproduciendo_no_saca_la_pagina_del_cursor(reproduccion: MainWindow):
@@ -3254,7 +3254,7 @@ def test_scorear_reproduciendo_no_saca_la_pagina_del_cursor(reproduccion: MainWi
 
     ventana = reproduccion
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
     centrada = ventana.session.viewport
 
     ventana.score_current_window(SleepStage.N2)
@@ -3272,7 +3272,7 @@ def test_abrir_otro_registro_detiene_la_reproduccion(
     otro = escribir_brainvision(tmp_path / "otro", segundos=WINDOW_SECONDS * 3)
     ventana.open_recording(otro)
 
-    assert not ventana.playback.is_playing
+    assert not ventana.playback_controller.is_playing
     assert pagina(ventana) == 0.0
     assert ventana.signal_view.playhead() is None
 
@@ -3284,7 +3284,7 @@ def test_volver_a_la_senal_original_detiene_la_reproduccion(reproduccion: MainWi
 
     ventana.restore_original_recording()
 
-    assert not ventana.playback.is_playing
+    assert not ventana.playback_controller.is_playing
 
 
 def test_la_velocidad_del_selector_llega_al_reloj(reproduccion: MainWindow):
@@ -3292,7 +3292,7 @@ def test_la_velocidad_del_selector_llega_al_reloj(reproduccion: MainWindow):
 
     selector.setCurrentIndex(selector.findText("30×"))
 
-    assert reproduccion.playback.speed == 30.0
+    assert reproduccion.playback_controller.clock.speed == 30.0
 
 
 def test_espacio_reproduce_y_pausa(reproduccion: MainWindow):
@@ -3306,10 +3306,10 @@ def test_espacio_reproduce_y_pausa(reproduccion: MainWindow):
     ]
 
     espacio.activated.emit()
-    assert ventana.playback.is_playing
+    assert ventana.playback_controller.is_playing
 
     espacio.activated.emit()
-    assert not ventana.playback.is_playing
+    assert not ventana.playback_controller.is_playing
 
 
 def test_el_programa_abre_con_la_senal_los_canales_y_el_hipnograma(ventana: MainWindow):
@@ -5279,7 +5279,7 @@ def test_reproduciendo_desplazar_mueve_el_cursor(reproduccion: MainWindow):
     ventana = reproduccion
     ventana.set_timescale(60.0)
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(40.0)
+    ventana.playback_controller.clock.advanced.emit(40.0)
     cursor = ventana.signal_view.playhead()
 
     girar_la_rueda(ventana, 60.0, -1, horizontal=True)
@@ -5303,7 +5303,7 @@ def test_reproduciendo_la_rueda_acerca_hacia_el_cursor(reproduccion: MainWindow)
     ventana = reproduccion
     ventana.set_timescale(60.0)
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(40.0)
+    ventana.playback_controller.clock.advanced.emit(40.0)
     cursor = ventana.signal_view.playhead()
 
     girar_la_rueda(ventana, ventana.session.viewport.start_seconds + 5.0, 2)
@@ -5475,7 +5475,7 @@ def test_reproduciendo_puntuar_no_adelanta_la_reproduccion(reproduccion: MainWin
     ventana por cada tecla."""
     ventana = reproduccion
     ventana.toggle_playback()
-    ventana.playback.advanced.emit(10.0)
+    ventana.playback_controller.clock.advanced.emit(10.0)
     cursor = ventana.signal_view.playhead()
 
     ventana.score_current_window(SleepStage.N2)

@@ -533,7 +533,8 @@ hito 24 que el usuario revisó.
 
 El reloj (`ui/playback.py`) mide tiempo real y avisa cuántos segundos hay que
 avanzar. Contar pasos de 40 ms en vez de medirlos reproduciría más lento de lo
-que dice en cuanto un cuadro tarde más, y sin avisar.
+que dice en cuanto un cuadro tarde más, y sin avisar. Quien lo escucha y lleva
+el cursor es `ui/playback_controller.py` (hito 79).
 
 ### La ventana
 
@@ -609,10 +610,11 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   —`ui/window_annotation.py`, `window_files.py`, `window_view.py`,
   `window_preferences.py`, `window_scoring.py` y `window_analysis.py`—. Un
   método nuevo va al del tema. **Desde el hito 79 hay además controladores
-  con estado propio**, que la ventana guarda como atributo: el primero es
+  con estado propio**, que la ventana guarda como atributo:
   `ui/tool_controller.py` (`window.tool_controller`), con las herramientas,
-  quién tiene el mouse y lo que dibujan. No conoce la ventana y le avisa por
-  señales, así que se testea sin armarla. **Un test que
+  quién tiene el mouse y lo que dibujan, y `ui/playback_controller.py`
+  (`window.playback_controller`), con el cursor de la reproducción. No
+  conocen la ventana y le avisan por señales, así que se testean sin armarla. **Un test que
   reemplace una función que la ventana importa la reemplaza en el módulo que
   la usa**: `fit_ica` en `window_analysis`, no en `main_window`, donde ya no
   tendría efecto. Los mixins van antes que `QMainWindow` en la herencia, o

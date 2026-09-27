@@ -105,8 +105,9 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         "tool_readout",
         "page_readout",
         "settings_dialog",
-        # El reloj de la reproducción, que los tests hacen avanzar a mano.
-        "playback",
+        # La reproducción (hito 79): su reloj, que los tests hacen avanzar a
+        # mano, y el cursor.
+        "playback_controller",
         # Los seis paneles de análisis y sus contenedores. **El panel y el
         # contenedor son atributos distintos a propósito**: los tests muestran
         # el contenedor y preguntan por el contenido del panel. El título del

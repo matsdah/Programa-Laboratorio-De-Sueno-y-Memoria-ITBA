@@ -5699,7 +5699,7 @@ exportar —Exportar… / Descartar / Cancelar— era el modelo. Lo que faltaba 
       frase no dice «todavía», porque vale también cuando un cambio de la
       señal descartó el resultado.
   - Test: `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_consistencia.py`, **103 tests en verde**;
+    `tests/test_consistencia.py`, **104 tests en verde**;
     `tests/test_scoring_panel.py`, **33 tests en verde**.
 
 **Se fue un test**: el que verificaba que la pregunta de borrar decía «Sí / No»
@@ -6307,7 +6307,7 @@ tema, no un desacople**, y los docstrings lo dicen así.
       `AttributeError` y no en silencio, porque `monkeypatch.setattr` falla si
       el nombre no existe.
   - Test: `tests/test_entrega.py`, **399 tests en verde**;
-    `tests/test_consistencia.py`, **103 tests en verde**.
+    `tests/test_consistencia.py`, **104 tests en verde**.
 
 **Lo que no se hizo.** Los mixins siguen dependiendo del estado de la ventana
 entera, así que un cambio en `__init__` puede romper a cualquiera. Separar
@@ -6692,6 +6692,18 @@ una vez que agregarlos al lugar que después hay que partir.
            arma el controlador sin la ventana, que es lo que no se podía.
       2. `ui/playback_controller.py`: el cursor, el reloj y cómo mueven la
          página.
+         **Hecho.** `PlaybackController` se queda con el reloj y con el
+         cursor, que era `MainWindow._cabezal` y leían cinco métodos de tres
+         archivos; la ventana lo guarda en `playback_controller` y le
+         pregunta `playhead` antes de mover la página. Le avisa por señales
+         que cambió la época, que se llegó al final y qué no se pudo.
+         `toggle_playback()` queda en la ventana porque los atajos se buscan
+         ahí por nombre. `stop()` saca también el cursor que deja un paso
+         pedido a mano, y el banco de rendimiento lo usa en vez de escribir
+         `_cabezal`. El docstring de `ui/playback.py` decía todavía que la
+         reproducción no tocaba la época, como antes del hito 27.
+         - Test: `tests/test_playback_controller.py`, **13 tests en verde**,
+           sin la ventana.
       3. `ui/analysis_controller.py`: la ICA, la señal original y la tarea en
          segundo plano.
       4. `ui/work_guard.py`: el trabajo sin exportar, los diálogos de
