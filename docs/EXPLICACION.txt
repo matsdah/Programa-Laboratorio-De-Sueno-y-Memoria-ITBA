@@ -52,6 +52,12 @@ una copia en la carpeta de configuracion del usuario, que no es un archivo de
 salida ni aparece en ninguna carpeta del laboratorio. Al volver a abrir el
 mismo registro, ofrece recuperar esa copia.
 
+Ctrl+Z deshace el ultimo cambio del scoring o de las anotaciones -una fase de
+mas, una anotacion borrada, confirmar todas las fases sugeridas- y Ctrl+Y lo
+rehace. Tambien estan en el menu Scoring. Moverse de ventana, la amplitud o la
+senal no se deshacen asi: no son trabajo del investigador, y filtrar tiene su
+propio "Volver a la senal original".
+
 El programa abre con la senal, la lista de canales y el hipnograma: los demas
 paneles se abren desde el menu Herramientas, que junta las herramientas y los
 paneles. La barra de abajo mueve la epoca y tiene un boton para reproducir el

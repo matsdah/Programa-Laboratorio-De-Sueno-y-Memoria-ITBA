@@ -6612,3 +6612,69 @@ def test_despues_de_un_corte_se_recupera_la_noche(qt_app, tmp_path, monkeypatch)
     assert despues.statusBar().currentMessage() == (
         "Se recuperó el trabajo que no se había exportado."
     )
+
+
+# -- Deshacer y rehacer (hito 79) ---------------------------------------------------
+
+
+def test_ctrl_z_deshace_la_fase_y_vuelve_a_su_ventana(a_la_vista: MainWindow):
+    """Con el paso solo a la siguiente, una tecla de más scorea la ventana que
+    viene: Ctrl+Z la deshace y vuelve a mostrarla. Ctrl+Y la rehace."""
+    from PySide6.QtTest import QTest
+
+    ventana = a_la_vista
+    ventana.signal_view.setFocus()
+    QApplication.processEvents()
+    teclear(Qt.Key.Key_2, Qt.Key.Key_2)
+    assert ventana.session.current_window == 2
+
+    control = Qt.KeyboardModifier.ControlModifier
+    QTest.keyClick(QApplication.focusWidget(), Qt.Key.Key_Z, control)
+    QApplication.processEvents()
+
+    assert ventana.session.scoring.get(1).stage is SleepStage.UNSCORED
+    assert ventana.session.scoring.get(0).stage is SleepStage.N2
+    assert ventana.session.current_window == 1
+
+    QTest.keyClick(QApplication.focusWidget(), Qt.Key.Key_Y, control)
+    QApplication.processEvents()
+
+    assert ventana.session.scoring.get(1).stage is SleepStage.N2
+
+
+def test_deshacer_una_anotacion_la_saca_de_la_senal(ventana: MainWindow, monkeypatch):
+    """Anotar no pasa por `refresh()`: tiene que registrarse igual."""
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("Apnea", True))
+    ventana.annotate_current_window()
+    assert len(ventana.session.annotations.all()) == 1
+    assert bandas_dibujadas(ventana)
+
+    ventana.undo()
+
+    assert ventana.session.annotations.all() == []
+    assert bandas_dibujadas(ventana) == []
+
+
+def test_sin_nada_que_deshacer_la_barra_lo_dice(ventana: MainWindow):
+    ventana.undo()
+
+    assert ventana.statusBar().currentMessage() == "No hay nada que deshacer."
+
+
+def test_lo_recuperado_no_se_deshace(qt_app, tmp_path, monkeypatch):
+    """Deshacerlo sería perder lo que se acaba de recuperar."""
+    monkeypatch.setattr(WorkGuard, "ask_recovery", lambda *_a: True)
+    perfil = tmp_path / "perfil"
+    vhdr = escribir_brainvision(tmp_path / "registro", segundos=WINDOW_SECONDS * VENTANAS)
+    antes = create_main_window()
+    antes.work_guard.enable_recovery(perfil)
+    antes.open_recording(vhdr)
+    antes.score_current_window(SleepStage.N2)
+    antes.work_guard.save_recovery()
+
+    despues = create_main_window()
+    despues.work_guard.enable_recovery(perfil)
+    despues.open_recording(vhdr)
+    despues.undo()
+
+    assert despues.session.scoring.get(0).stage is SleepStage.N2

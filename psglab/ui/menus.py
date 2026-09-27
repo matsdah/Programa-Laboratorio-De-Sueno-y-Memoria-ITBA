@@ -12,8 +12,8 @@ Ver, Scoring, Montaje, Filtrar, Analizar, Herramientas y Ayuda.
 
 **«Scoring» volvió en el hito 79**, y es otro menú que el de antes del hito
 64, que sólo importaba y exportaba: ahora lleva la tarea principal del
-programa —las fases, el arousal, ir a la próxima sin scorear y las fases
-sugeridas—, que estaba repartida entre las teclas, que no se ven, y
+programa —las fases, el arousal, ir a la próxima sin scorear, deshacer y
+las fases sugeridas—, que estaba repartida entre las teclas, que no se ven, y
 «Analizar». Importar y exportar el scoring siguen en «Archivo». En el mismo
 cambio **«Escala de tiempo» y «Amplitud» pasaron adentro de «Ver»**: son cómo
 se ve la señal, y ocupaban dos lugares de la barra.
@@ -526,6 +526,11 @@ def _scoring(window: "MainWindow") -> None:
         scoring, "Ventana an&terior sin scorear", window.go_to_previous_unscored_window
     )
     _agregar(scoring, "&Ir a una ventana…", window.ask_window)
+    scoring.addSeparator()
+    # Hito 79: entraron con `core/history.py`. Antes no había qué ofrecer, y
+    # una entrada que no hace nada es peor que ninguna.
+    window.accion_deshacer = _agregar(scoring, "&Deshacer", window.undo)
+    window.accion_rehacer = _agregar(scoring, "Re&hacer", window.redo)
 
     # **Sugerir mide; confirmar es aparte** (hito 75). Lo que propone el
     # clasificador no toca el scoring hasta que alguien lo confirme. Estaban en

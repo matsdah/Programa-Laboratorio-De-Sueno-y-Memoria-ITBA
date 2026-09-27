@@ -326,6 +326,50 @@ class ScoringMixin:
             return
         self.refresh()
 
+    # -- Deshacer y rehacer (hito 79) ----------------------------------------
+
+    def undo(self) -> None:
+        """Ctrl+Z: deshace el último cambio del scoring o las anotaciones.
+
+        La regla —qué es un cambio, qué se deshace— es de `core/history.py`.
+        Acá se redibuja y **se va a la ventana del cambio**: deshacer una fase
+        que no se ve dejaría al usuario sin saber qué pasó.
+        """
+        self._ir_por_el_historial(adelante=False)
+
+    def redo(self) -> None:
+        """Ctrl+Y: vuelve a hacer el último cambio deshecho."""
+        self._ir_por_el_historial(adelante=True)
+
+    def _ir_por_el_historial(self, adelante: bool) -> None:
+        historial = self.work_guard.history
+        if self._session is None or historial is None:
+            return
+        nomenclatura = self._session.scoring.nomenclature
+        try:
+            hecho = historial.redo() if adelante else historial.undo()
+        except PsgLabError as error:
+            self._show_error(error, "rehacer" if adelante else "deshacer")
+            return
+        if not hecho:
+            que = "rehacer" if adelante else "deshacer"
+            self.statusBar().showMessage(f"No hay nada que {que}.", 5000)
+            return
+        # Deshacer un cambio de nomenclatura cambia los botones y las teclas.
+        if self._session.scoring.nomenclature is not nomenclatura:
+            self.scoring_panel.set_nomenclature(self._session.scoring.nomenclature)
+            install_shortcuts(self, self._session)
+        self._reload_histogram()
+        self.tool_controller.redraw_overlays()
+        ventana = historial.changed_window
+        if ventana is not None and ventana != self._session.current_window:
+            self._go_to_window(ventana)
+        else:
+            self.refresh()
+        self.statusBar().showMessage(
+            "Se rehízo el cambio." if adelante else "Se deshizo el último cambio.", 5000
+        )
+
     def _reflejar_el_scoring_en_el_menu(self) -> None:
         """Pone «Scoring» al día con la ventana actual, al abrirse (hito 79).
 
@@ -350,6 +394,11 @@ class ScoringMixin:
         for fase, accion in self.acciones_de_fase.items():
             accion.setChecked(epoca is not None and epoca.stage is fase)
         self.accion_arousal.setChecked(epoca is not None and epoca.arousal)
+        # Deshacer y rehacer, apagados si no hay nada: una entrada que no hace
+        # nada se lee como que no anda.
+        historial = self.work_guard.history
+        self.accion_deshacer.setEnabled(historial is not None and historial.can_undo)
+        self.accion_rehacer.setEnabled(historial is not None and historial.can_redo)
 
     def _change_nomenclature(self, nomenclature: Nomenclature) -> None:
         """Cambiar de nomenclatura sobre un registro ya scoreado pierde

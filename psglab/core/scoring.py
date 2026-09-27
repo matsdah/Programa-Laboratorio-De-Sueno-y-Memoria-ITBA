@@ -352,6 +352,17 @@ class Scoring:
             return None
         return self._suggestions[window_index]
 
+    def suggestions(self) -> tuple[StageSuggestion | None, ...]:
+        """Todas las sugeridas guardadas, una por ventana, **también las de
+        ventanas ya scoreadas** (hito 79).
+
+        `suggestion()` esconde las de una ventana scoreada porque es lo que se
+        muestra; ésta las devuelve tal cual porque es lo que se guarda:
+        `core/history.py` la usa para que deshacer «Descartar las sugeridas» las
+        vuelva a poner, y con `set_suggestions()` es la ida y vuelta de la capa.
+        """
+        return tuple(self._suggestions)
+
     def pending_suggestions(self) -> int:
         """Cuántas ventanas sin scorear tienen una fase sugerida."""
         return sum(

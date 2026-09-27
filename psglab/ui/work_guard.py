@@ -1,6 +1,7 @@
 """El trabajo del investigador: exportarlo y no perderlo.
 
-Tres cosas que van juntas porque las dos últimas usan a la primera:
+Cuatro cosas que van juntas porque las tres últimas cuidan lo mismo que la
+primera escribe:
 
 - **Exportar** los tres archivos de salida, con su diálogo de guardado, que
   arranca en la carpeta del registro y propone el nombre del pliego.
@@ -11,6 +12,9 @@ Tres cosas que van juntas porque las dos últimas usan a la primera:
   cada `SEGUNDOS_ENTRE_COPIAS` se deja una copia en el perfil del usuario; al
   reabrir el mismo registro después de un cierre inesperado, se ofrece volver
   a ella. Ver «La copia de recuperación», más abajo.
+- **Deshacer y rehacer** (hito 79): el historial de la sesión, que es
+  `core/history.py`. La ventana llama a `record()` después de cada cambio, y
+  `history` es de donde deshace y rehace.
 
 **Es una pieza con estado propio** (hito 79). Hasta ahí era la mitad del mixin
 `window_files.py`, que compartía con los demás el estado de la ventana. La
@@ -62,6 +66,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QStatusBar, QWidget
 
 from psglab.core import recovery
+from psglab.core.history import History
 from psglab.core.session import Session
 from psglab.exporters import DEFAULT_FILENAMES
 from psglab.exporters.annotations_txt import export_annotations
@@ -113,6 +118,7 @@ class WorkGuard(QObject):
         self._confirmar = confirm
         self._ultimo_reciente = last_recent
         self._session: Session | None = None
+        self._historial: History | None = None
         #: Dónde van las copias, o None si esta ventana no las escribe.
         self._carpeta: Path | None = None
         #: El texto de la última copia escrita, para no reescribir lo mismo.
@@ -132,6 +138,22 @@ class WorkGuard(QObject):
         """
         self._session = session
         self._ultima_copia = None
+        # Deshacer no cruza de un registro a otro: el historial empieza acá.
+        self._historial = History(session)
+
+    @property
+    def history(self) -> History | None:
+        """Lo que se puede deshacer y rehacer del registro abierto, o None."""
+        return self._historial
+
+    def record(self) -> None:
+        """Guarda en el historial cómo está el trabajo, si cambió.
+
+        La ventana la llama después de cualquier cambio; si nada cambió no se
+        guarda nada, así que llamarla de más no cuesta un paso de deshacer.
+        """
+        if self._historial is not None:
+            self._historial.record()
 
     # -- Exportar -----------------------------------------------------------
 
@@ -482,6 +504,10 @@ class WorkGuard(QObject):
             self.discard_recovery()
             self.failed.emit(error, "recuperar el trabajo")
             return False
+        # **Lo recuperado no se deshace**: no es un cambio de esta sesión, y
+        # deshacerlo sería perder lo que se acaba de recuperar.
+        if self._historial is not None:
+            self._historial.reset()
         return True
 
     def ask_recovery(self, written: datetime, windows: int, annotations: int) -> bool:

@@ -46,6 +46,7 @@ import pytest
 
 from psglab.core import nomenclature as nom
 from psglab.core import recovery
+from psglab.core.history import History
 from psglab.core.annotations import es_color_de_clase, marks_to_annotations
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
@@ -143,6 +144,11 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
     ],
     # Hito 79. La copia se lee de un archivo que pudo quedar cortado, así que
     # lo que trae es tan hostil como lo que trae un lector con un bug.
+    # Hito 79. El límite viene de una constante, pero es un argumento público.
+    "psglab/core/history.py": [
+        ("History(session=...)", lambda v: History(v)),
+        ("History(limit=...)", lambda v: History(sesion(), v)),
+    ],
     "psglab/core/recovery.py": [
         ("snapshot", lambda v: recovery.snapshot(v)),
         ("matches(data=...)", lambda v: recovery.matches(v, registro())),
@@ -385,6 +391,8 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     # Hito 79. Aceptar una copia vacía pondría la sesión como estaba, que
     # parece inofensivo, y le diría al usuario que recuperó algo que no estaba.
     ("restore con una copia vacía", {}, lambda v: recovery.restore(sesion(), v)),
+    # Un historial sin pasos no podría deshacer nada y lo diría callado.
+    ("History con un límite de cero", 0, lambda v: History(sesion(), v)),
     ("summary con una copia vacía", {}, lambda v: recovery.summary(v)),
     # Hito 75. Una confianza que no es una probabilidad no pasaría nunca un
     # umbral, y la sugerida quedaría sin confirmarse sin que nada dijera por qué.

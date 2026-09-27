@@ -561,9 +561,10 @@ def con_registro(qt_app, tmp_path) -> MainWindow:
     return ventana
 
 
-def test_scoring_va_en_cuatro_bloques(ventana: MainWindow):
-    """Las fases, lo que se marca en la ventana, adónde ir y las sugeridas."""
-    fases, marcar, ir, sugeridas = bloques(menu_llamado(ventana, "&Scoring"))
+def test_scoring_va_en_cinco_bloques(ventana: MainWindow):
+    """Las fases, lo que se marca en la ventana, adónde ir, deshacer y las
+    sugeridas. Deshacer entró en el hito 79, con `core/history.py`."""
+    fases, marcar, ir, deshacer, sugeridas = bloques(menu_llamado(ventana, "&Scoring"))
 
     assert fases == list(ventana.acciones_de_fase.values())
     assert [a.data() for a in marcar] == ["toggle_arousal", "annotate_current_window"]
@@ -572,6 +573,7 @@ def test_scoring_va_en_cuatro_bloques(ventana: MainWindow):
         "go_to_previous_unscored_window",
         "ask_window",
     ]
+    assert [a.data() for a in deshacer] == ["undo", "redo"]
     assert [a.text() for a in sugeridas] == ["&Fases sugeridas"]
 
 
@@ -639,7 +641,32 @@ def test_al_abrirse_tilda_la_fase_y_el_arousal_de_la_ventana(con_registro: MainW
     tildadas = [f for f, a in con_registro.acciones_de_fase.items() if a.isChecked()]
     assert tildadas == [SleepStage.R]
     assert con_registro.accion_arousal.isChecked()
-    assert all(a.isEnabled() for a in menu.actions() if not a.isSeparator())
+    historial = (con_registro.accion_deshacer, con_registro.accion_rehacer)
+    assert all(
+        a.isEnabled()
+        for a in menu.actions()
+        if not a.isSeparator() and a not in historial
+    )
+
+
+def test_deshacer_y_rehacer_se_prenden_cuando_hay_que(con_registro: MainWindow):
+    """Una entrada que no hace nada se lee como que no anda."""
+    from psglab.core.nomenclature import SleepStage
+
+    menu = con_registro.menu_scoring
+    deshacer, rehacer = con_registro.accion_deshacer, con_registro.accion_rehacer
+
+    menu.aboutToShow.emit()
+    assert (deshacer.isEnabled(), rehacer.isEnabled()) == (False, False)
+
+    con_registro.acciones_de_fase[SleepStage.N2].trigger()
+    menu.aboutToShow.emit()
+    assert (deshacer.isEnabled(), rehacer.isEnabled()) == (True, False)
+
+    deshacer.trigger()
+    menu.aboutToShow.emit()
+    assert con_registro.session.scoring.get(0).stage is SleepStage.UNSCORED
+    assert (deshacer.isEnabled(), rehacer.isEnabled()) == (False, True)
 
 
 def test_el_arousal_del_menu_lo_marca_y_lo_desmarca(con_registro: MainWindow):
