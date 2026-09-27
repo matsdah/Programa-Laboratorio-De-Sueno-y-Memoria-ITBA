@@ -29,7 +29,7 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtWidgets import QFileDialog, QInputDialog
 
-from psglab.core.recording import Recording
+from psglab.core.recording import ChannelKind, Recording
 from psglab.analysis.derivation import derive, derive_montage, plan_aasm_montage
 from psglab.analysis.complexity import MEASURES, complexity_by_window, warm_up
 from psglab.analysis.connectivity import (
@@ -51,7 +51,7 @@ from psglab.analysis.impedance import (
     load_impedances_from_file,
     read_impedances,
 )
-from psglab.analysis.filters import apply_filters, settings_for_kinds
+from psglab.analysis.filters import FilterSettings, apply_filters, settings_for_kinds
 from psglab.analysis.psd import band_power, compute_psd, describe_method
 from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_samples
@@ -151,8 +151,9 @@ class AnalysisMixin:
     ) -> None:
         """Corre un análisis y lleva su resultado a la pantalla.
 
-        Es el camino único de todo el menú Análisis: los módulos devuelven un
-        `Recording` nuevo —no tocan el original, que es la regla 1 de la
+        Es el camino de todo el menú Análisis —filtrar va por
+        `_aplicar_analisis_en_segundo_plano()`, que termina igual—: los módulos
+        devuelven un `Recording` nuevo —no tocan el original, que es la regla 1 de la
         carpeta— y acá se lo entrega a la sesión con `set_recording()`, que
         conserva la ventana, los canales y las amplitudes.
 
@@ -179,6 +180,61 @@ class AnalysisMixin:
                 procesado = self.analysis_controller.replace_recording(calcular)
         except PsgLabError as error:
             self._show_error(error, accion)
+            return
+        self._mostrar_el_procesado(procesado, que_hace, mostrar, duracion_del_mensaje)
+
+    def _aplicar_analisis_en_segundo_plano(
+        self,
+        que_hace: str,
+        description: str,
+        calcular: Callable[[Recording], Recording],
+        accion: str,
+        despues: Callable[[], None] | None = None,
+    ) -> None:
+        """Como `_aplicar_analisis()`, pero calculando en otro hilo.
+
+        Es para lo que tarda segundos sobre una noche —filtrar, 2,5 s—: la
+        ventana sigue repintando y la barra de espera se mueve. **`calcular`
+        recibe el registro de ahora y no puede tocar la sesión**: corre en
+        otro hilo. Si mientras tanto la señal cambió —se abrió otro registro—,
+        `analysis_controller` descarta el resultado y lo dice.
+
+        Args:
+            description: lo que se lee mientras calcula, sin los puntos
+                suspensivos.
+            despues: lo que hay que hacer cuando el resultado ya está en
+                pantalla, como avisar qué canales quedaron sin pasa-altos.
+        """
+        if self._session is None:
+            return
+        registro = self._session.recording
+
+        def poner(procesado: object) -> None:
+            try:
+                self.analysis_controller.replace_recording(lambda _actual: procesado)
+            except PsgLabError as error:
+                self._show_error(error, accion)
+                return
+            self._mostrar_el_procesado(procesado, que_hace, None)
+            if despues is not None:
+                despues()
+
+        self.analysis_controller.run_in_background(
+            description, lambda: calcular(registro), poner, accion
+        )
+
+    def _mostrar_el_procesado(
+        self,
+        procesado: Recording,
+        que_hace: str,
+        mostrar: str | list[str] | None,
+        duracion_del_mensaje: int = 5000,
+    ) -> None:
+        """Lleva a la pantalla un registro que ya es el de la sesión.
+
+        `mostrar` y `duracion_del_mensaje` son los de `_aplicar_analisis()`.
+        """
+        if self._session is None:
             return
         nuevos = [mostrar] if isinstance(mostrar, str) else list(mostrar or [])
         nuevos = [c for c in nuevos if c not in self._session.visible_channels]
@@ -709,15 +765,23 @@ class AnalysisMixin:
             )
             return
         antes = self._session.recording
-        self._aplicar_analisis(
+        # **En otro hilo** (hito 79): sobre una noche son segundos, y en el de
+        # la interfaz la ventana quedaba congelada y el sistema la marcaba
+        # como «no responde».
+        self._aplicar_analisis_en_segundo_plano(
             "Se filtró la señal",
+            "Filtrando la señal",
             lambda registro: apply_filters(
                 registro, settings_for_kinds(registro, por_clase)
             ),
             accion="filtrar la señal",
+            despues=lambda: self._avisar_sin_pasa_altos(antes, por_clase),
         )
-        if self._session is None or self._session.recording is antes:
-            return
+
+    def _avisar_sin_pasa_altos(
+        self, antes: Recording, por_clase: dict[ChannelKind, FilterSettings]
+    ) -> None:
+        """Dice qué canales quedaron sin pasa-altos, con la señal ya filtrada."""
         # **Qué canales quedaron sin pasa-altos** (hito 67). `settings_for_kinds()`
         # no se lo da a un canal grabado más lento que el registro, porque lo
         # dejaría plano; el panel lo avisa antes, y acá se confirma después: el

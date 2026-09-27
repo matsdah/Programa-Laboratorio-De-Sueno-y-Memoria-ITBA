@@ -297,7 +297,7 @@ código de hoy** antes de arreglar nada.
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
     `tests/test_contratos.py`, **1227 tests en verde**;
-    `tests/test_entrega.py`, **424 tests en verde**.
+    `tests/test_entrega.py`, **431 tests en verde**.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
 línea reanclada sin canal, la lupa sin restar el desplazamiento, la banda que
@@ -371,7 +371,7 @@ más. **Varias piden una decisión antes**; están marcadas.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
     `tests/test_contratos.py`, **1227 tests en verde**;
-    `tests/test_entrega.py`, **424 tests en verde**.
+    `tests/test_entrega.py`, **431 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
   0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
@@ -392,7 +392,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       ayuda de atajos suma C y, en «Anotación», lo que hace el mouse.
   - Test: `tests/test_annotator.py`, **49 tests en verde**;
     `tests/test_tool_controller.py`, **16 tests en verde**;
-    `tests/test_entrega.py`, **424 tests en verde**.
+    `tests/test_entrega.py`, **431 tests en verde**.
 - [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
       pedido encadena carteles modales para elegir canal, medida o banda
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
@@ -517,7 +517,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       mano. Anotar y marcar son un solo paso de deshacer.
   - Test: `tests/test_annotations.py`, **82 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
-    `tests/test_entrega.py`, **424 tests en verde**.
+    `tests/test_entrega.py`, **431 tests en verde**.
 
 ### Tanda 3: partir las clases grandes
 
@@ -683,9 +683,27 @@ función, y la historia ya está en este archivo y en git.
 
 ### Tanda 5: rendimiento y robustez
 
-- [ ] **Abrir un registro y filtrar, fuera del hilo de la interfaz**, con
+- [x] **Abrir un registro y filtrar, fuera del hilo de la interfaz**, con
       `BackgroundTask`, como ya van la ICA y la conectividad de la noche. Hoy
       congelan la ventana: abrir, 4,3 s en el registro de prueba.
+      Hecho. **Filtrar** pasa por `analysis_controller.run_in_background()`
+      como la ICA: la barra de espera se mueve, «Montaje» y «Filtrar» se
+      apagan mientras dura, y si la señal cambió mientras tanto el resultado
+      se descarta. **Abrir** tiene su propia `BackgroundTask`, para no esperar
+      a una ICA —abrir mientras se ajusta se podía y se sigue pudiendo—: el
+      diálogo y los recientes van por `open_recording_in_background()`, y
+      `open_recording()` sigue leyendo en el hilo de la interfaz para los
+      scripts y los tests. Mientras lee, **el registro anterior se sigue
+      usando**, y la pregunta por el trabajo sin exportar llega después de
+      leer, así que cuenta lo hecho mientras tanto. Dos aperturas a la vez no:
+      la segunda se ignora y se dice. Cerrar la ventana mientras lee espera
+      la lectura y la descarta: tomarla volvía a preguntar por el trabajo y
+      cambiaba la sesión mientras se cerraba.
+  - Test: en `tests/test_entrega.py`, que el archivo se lea y la señal se
+    filtre en otro hilo, que mientras tanto siga el registro anterior, el
+    error de lectura, dos aperturas a la vez, abrir con un cálculo en curso
+    y cerrar mientras lee. Los catorce tests que filtraban por la ventana
+    esperan ahora el resultado con `wait_for_background()`, como los de la ICA.
 - [ ] **Los overlays no se rehacen enteros en cada movimiento del mouse.**
       Con la lupa o el anotador activos, `set_overlays()` saca y vuelve a
       crear cada banda de anotación de la página y su rótulo en cada evento;

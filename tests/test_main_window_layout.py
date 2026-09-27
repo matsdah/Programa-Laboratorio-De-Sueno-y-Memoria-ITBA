@@ -170,6 +170,7 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "toggle_playback",
         # Archivo.
         "open_recording",
+        "open_recording_in_background",
         "open_recording_dialog",
         "open_scoring",
         "open_scoring_dialog",
