@@ -136,12 +136,12 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos veintiséis se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos veintisiete se rompen hacia todos lados.
 
-Veinticuatro de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Veinticinco de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
-`core/viewport.py`, `core/decimation.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
+`core/viewport.py`, `core/decimation.py`, `core/recovery.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
 `ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py`, `ui/shortcuts_dialog.py`,
 y desde el hito 76 `ui/main_window.py`, `ui/window_annotation.py`,
 `ui/window_view.py` y `ui/window_preferences.py`, más `ui/window_files.py`
@@ -161,6 +161,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |
 | `psglab/analysis/mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw`, y la escala volts ↔ µV | Filtrado, ICA y re-referenciado |
 | `psglab/core/viewport.py` | La página visible, separada de la época de scoring | La escala de tiempo y todo lo que se dibuja |
+| `psglab/core/recovery.py` | La copia de recuperación: qué del trabajo se guarda y cómo se vuelve a él | Recuperar una noche después de un cierre inesperado |
 | `psglab/core/decimation.py` | Reducir una señal larga a lo que entra en pantalla sin perder sus picos | Cualquier página más larga que unos segundos |
 | `psglab/ui/docks.py` | La disposición de los paneles alrededor de la señal | Dónde aparece cada panel |
 | `psglab/ui/icons.py` | Los iconos de la barra, dibujados por el programa | La barra de navegación |

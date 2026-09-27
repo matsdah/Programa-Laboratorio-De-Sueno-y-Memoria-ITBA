@@ -296,6 +296,16 @@ class StagingNotPossibleError(PsgLabError):
     """
 
 
+class UnreadableRecoveryError(PsgLabError):
+    """La copia de recuperación no se puede usar (hito 79).
+
+    No es un archivo de salida ni lo eligió el usuario: es la copia que el
+    programa deja en el perfil para después de un cierre inesperado. Pudo
+    quedar cortada por el mismo corte de luz, o ser de otro registro con el
+    mismo nombre. Se rechaza entera, sin tocar la sesión.
+    """
+
+
 # -- Quedarse sin memoria ---------------------------------------------------
 
 

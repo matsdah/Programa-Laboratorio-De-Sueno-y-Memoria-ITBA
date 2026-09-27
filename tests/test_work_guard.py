@@ -248,3 +248,172 @@ def test_sin_ninguna_carpeta_elige_el_sistema(armado: Guardian, tmp_path: Path):
     armado.reciente = str(tmp_path / "no-existe" / "ayer.edf")
 
     assert armado.guardian.working_folder() == ""
+
+
+# -- La copia de recuperación (hito 79) -------------------------------------------
+
+
+@pytest.fixture
+def perfil(armado: Guardian, tmp_path: Path) -> Path:
+    """La carpeta de las copias, como la prende la ventana del usuario."""
+    carpeta = tmp_path / "perfil"
+    armado.guardian.enable_recovery(carpeta)
+    return carpeta
+
+
+@pytest.fixture
+def recupera(monkeypatch):
+    """Contesta la pregunta de recuperar, que es modal."""
+    estado: dict[str, object] = {"respuesta": True, "preguntas": []}
+
+    def responder(_guardian: WorkGuard, _escrita, ventanas: int, anotaciones: int) -> bool:
+        estado["preguntas"].append((ventanas, anotaciones))
+        return bool(estado["respuesta"])
+
+    monkeypatch.setattr(WorkGuard, "ask_recovery", responder)
+    return estado
+
+
+def copias_en(carpeta: Path) -> list[Path]:
+    return sorted(carpeta.glob("*.json")) if carpeta.exists() else []
+
+
+def test_sin_prenderla_no_se_escribe_nada(armado: Guardian, sesion: Session):
+    """La ventana de los tests no escribe en el perfil de quien corre la suite."""
+    sesion.scoring.set_stage(0, SleepStage.N2)
+
+    armado.guardian.save_recovery()
+
+    assert armado.guardian.recovery_path() is None
+
+
+def test_con_trabajo_sin_exportar_se_escribe_la_copia(
+    armado: Guardian, sesion: Session, perfil: Path
+):
+    sesion.scoring.set_stage(0, SleepStage.N2)
+
+    armado.guardian.save_recovery()
+
+    assert copias_en(perfil) == [armado.guardian.recovery_path()]
+
+
+def test_sin_trabajo_no_hay_copia(armado: Guardian, sesion: Session, perfil: Path):
+    armado.guardian.save_recovery()
+
+    assert copias_en(perfil) == []
+
+
+def test_exportar_todo_borra_la_copia(
+    armado: Guardian, sesion: Session, perfil: Path, tmp_path: Path
+):
+    """Lo exportado ya está a salvo en su archivo."""
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+
+    armado.guardian.export("scoring", tmp_path / "Scoring.txt")
+    armado.guardian.save_recovery()
+
+    assert copias_en(perfil) == []
+
+
+@pytest.mark.parametrize("contesta", ["descartar", "exportar"])
+def test_cuando_el_usuario_decide_la_copia_sobra(
+    armado: Guardian,
+    sesion: Session,
+    perfil: Path,
+    respuesta: dict,
+    guardar_en: list[str],
+    tmp_path: Path,
+    contesta: str,
+):
+    """La que sobrevive es la de un cierre que nadie decidió."""
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+    respuesta["respuesta"] = contesta
+    guardar_en.append(str(tmp_path / "Scoring.txt"))
+
+    assert armado.guardian.can_discard("cerrar el programa")
+
+    assert copias_en(perfil) == []
+
+
+def test_cancelar_conserva_la_copia(
+    armado: Guardian, sesion: Session, perfil: Path, respuesta: dict
+):
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+
+    assert not armado.guardian.can_discard("cerrar el programa")
+
+    assert len(copias_en(perfil)) == 1
+
+
+def _despues_de_un_corte(armado: Guardian, tmp_path: Path) -> Session:
+    """Scorea, deja la copia y abre el mismo registro como si nada."""
+    anterior = armado.guardian._session
+    anterior.scoring.set_stage(0, SleepStage.N2)
+    anterior.scoring.set_stage(1, SleepStage.N3)
+    anotar(anterior)
+    armado.guardian.save_recovery()
+    nueva = _sesion(tmp_path)
+    armado.guardian.attach(nueva)
+    return nueva
+
+
+def test_al_reabrir_el_mismo_registro_se_ofrece_y_se_recupera(
+    armado: Guardian, sesion: Session, perfil: Path, recupera: dict, tmp_path: Path
+):
+    nueva = _despues_de_un_corte(armado, tmp_path)
+
+    assert armado.guardian.offer_recovery()
+
+    assert recupera["preguntas"] == [(2, 1)]
+    assert nueva.scoring.get(1).stage is SleepStage.N3
+    assert len(nueva.annotations.all()) == 1
+    # Sigue sin exportar, y la copia sigue ahí hasta que el usuario decida.
+    assert armado.guardian.unexported() == ["scoring", "annotations"]
+    assert len(copias_en(perfil)) == 1
+
+
+def test_descartarla_la_borra_y_no_se_vuelve_a_preguntar(
+    armado: Guardian, sesion: Session, perfil: Path, recupera: dict, tmp_path: Path
+):
+    nueva = _despues_de_un_corte(armado, tmp_path)
+    recupera["respuesta"] = False
+
+    assert not armado.guardian.offer_recovery()
+    assert not armado.guardian.offer_recovery()
+
+    assert recupera["preguntas"] == [(2, 1)]
+    assert nueva.scoring.scored_windows() == 0
+    assert copias_en(perfil) == []
+
+
+def test_una_copia_rota_se_borra_sin_preguntar(
+    armado: Guardian, sesion: Session, perfil: Path, recupera: dict, tmp_path: Path
+):
+    """Pudo quedar cortada por el mismo corte de luz."""
+    _despues_de_un_corte(armado, tmp_path)
+    ruta = armado.guardian.recovery_path()
+    ruta.write_text(ruta.read_text(encoding="utf-8")[:40], encoding="utf-8")
+
+    assert not armado.guardian.offer_recovery()
+
+    assert recupera["preguntas"] == []
+    assert copias_en(perfil) == []
+
+
+def test_otro_registro_no_ve_la_copia(
+    armado: Guardian, sesion: Session, perfil: Path, recupera: dict, tmp_path: Path
+):
+    """Una por registro: la de esta noche no se le ofrece a otra."""
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+    otra = tmp_path / "otra"
+    otra.mkdir()
+    armado.guardian.attach(_sesion(otra))
+
+    assert not armado.guardian.offer_recovery()
+
+    assert recupera["preguntas"] == []
+    assert len(copias_en(perfil)) == 1
