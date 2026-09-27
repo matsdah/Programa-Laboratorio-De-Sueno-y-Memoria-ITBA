@@ -716,7 +716,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **111 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **112 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 
