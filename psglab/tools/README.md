@@ -81,7 +81,9 @@ asignaba únicamente en la rama exclusiva, y dibujaba nada más lo suyo. La band
 de amplitud —no exclusiva y con `overlays()`— quedaba afuera de las dos cosas,
 así que tildarla no hacía nada. Hoy `ui/main_window.py` lleva `_mouse_tool` y
 `_drawing_tools` por separado. Una herramienta nueva que dibuje sin quedarse
-con el clic entra sola en la segunda.
+con el clic entra sola en la segunda, y **recibe el movimiento del mouse**
+(hito 79): los clics son sólo de `_mouse_tool`, el movimiento es de todas las
+que dibujan. Hasta ahí la banda se dibujaba y no se movía.
 
 `name` tiene que ser único: si se repite, `@register_tool` eleva
 `DuplicateToolError` **al importar**, que es cuando conviene enterarse.

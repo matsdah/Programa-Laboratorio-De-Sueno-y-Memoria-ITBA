@@ -307,7 +307,35 @@ def dialogo_de_guardado(monkeypatch):
 def test_ctrl_s_sigue_exportando_en_txt(ventana: MainWindow, dialogo_de_guardado):
     ventana.export_scoring_dialog()
 
-    assert dialogo_de_guardado["llamadas"] == [(SCORING_FILENAME, "Texto (*.txt)")]
+    (propuesto, filtro), = dialogo_de_guardado["llamadas"]
+    assert Path(propuesto).name == SCORING_FILENAME
+    assert filtro == "Texto (*.txt)"
+
+
+def test_exportar_propone_la_carpeta_del_registro(ventana: MainWindow, dialogo_de_guardado):
+    """Hito 79: arrancaba en la carpeta desde donde se lanzó el programa, y
+    con el nombre del pliego siempre igual, dos participantes exportados sin
+    mirar quedaban uno encima del otro."""
+    ventana.export_scoring_dialog("csv")
+
+    (propuesto, _), = dialogo_de_guardado["llamadas"]
+    assert Path(propuesto).parent == ventana.session.recording.file_path.parent
+
+
+def test_importar_arranca_en_la_carpeta_del_registro(ventana: MainWindow, monkeypatch):
+    carpetas: list[str] = []
+
+    def responder(_padre, _titulo, carpeta, _filtro, *_a, **_k) -> tuple[str, str]:
+        carpetas.append(carpeta)
+        return "", ""
+
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(responder))
+
+    ventana.open_scoring_dialog()
+    ventana.open_recording_dialog()
+
+    registro = str(ventana.session.recording.file_path.parent)
+    assert carpetas == [registro, registro]
 
 
 @pytest.mark.parametrize("extension", ["csv", "edf", "xml"])
@@ -317,7 +345,7 @@ def test_cada_formato_propone_su_nombre_y_su_filtro(
     ventana.export_scoring_dialog(extension)
 
     (propuesto, filtro), = dialogo_de_guardado["llamadas"]
-    assert propuesto == f"Scoring.{extension}"
+    assert Path(propuesto).name == f"Scoring.{extension}"
     assert filtro.endswith(f"(*.{extension})")
 
 
@@ -596,7 +624,7 @@ def test_se_puede_anotar_un_evento_desde_la_interfaz(
 ):
     """**El camino, no la pieza.**"""
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
 
     arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
 
@@ -613,7 +641,7 @@ def test_la_anotacion_cae_en_la_ventana_en_la_que_se_hizo(
     """El error caro: sin sumar el desplazamiento de la ventana, todas las
     anotaciones caen al principio del registro."""
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     ventana._go_to_window(3)
 
     arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
@@ -640,7 +668,7 @@ def test_la_anotacion_empieza_y_termina_bajo_el_mouse(
 
     vista = ventana.signal_view.getPlotItem().vb
     caja = vista.sceneBoundingRect()
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     desde_x = caja.left() + caja.width() * 0.25
     hasta_x = caja.left() + caja.width() * 0.35
 
@@ -689,7 +717,7 @@ def test_las_bandas_siguen_a_la_pagina(ventana: MainWindow):
     corrigió, seguían dibujadas las de la página anterior."""
     anotar_en(ventana, 10.0, 12.0)
     anotar_en(ventana, 40.0, 43.0)
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
 
     ventana._go_to_window(1)
     assert bandas_dibujadas(ventana) == [(40.0, 43.0)]
@@ -705,10 +733,10 @@ def test_las_anotaciones_se_ven_con_cualquier_herramienta(
     siempre. Antes se veía lo de la última herramienta que avisó, y activar la
     lupa las borraba de la pantalla."""
     anotar_en(ventana, 10.0, 12.0)
-    ventana._toggle_tool("annotator", True)
-    ventana._toggle_tool("annotator", False)
+    ventana.tool_controller.toggle("annotator", True)
+    ventana.tool_controller.toggle("annotator", False)
     if otra is not None:
-        ventana._toggle_tool(otra, True)
+        ventana.tool_controller.toggle(otra, True)
 
     assert (10.0, 12.0) in bandas_dibujadas(ventana)
     # Y siguen a la página con esa herramienta activa: ir y volver es lo que
@@ -745,7 +773,7 @@ def test_el_clic_derecho_borra_la_anotacion(
     elige_en_el_menu.elegir("Borrar")
     anotar_en(ventana, 10.0, 12.0, "Spindle")
     queda = anotar_en(ventana, 20.0, 22.0)
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
 
     clic_derecho(ventana, 11.0)
 
@@ -762,7 +790,7 @@ def test_el_clic_derecho_pregunta_antes_de_borrar(
     elige_en_el_menu.elegir("Borrar")
     confirmacion["respuesta"] = False
     anotar_en(ventana, 10.0, 12.0)
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
 
     clic_derecho(ventana, 11.0)
 
@@ -781,7 +809,7 @@ def test_el_clic_derecho_sin_anotar_no_borra(
 
     monkeypatch.setattr(MainWindow, "_confirmar", no_deberia_preguntar)
     anotar_en(ventana, 10.0, 12.0)
-    ventana._toggle_tool("magnifier", True)
+    ventana.tool_controller.toggle("magnifier", True)
 
     clic_derecho(ventana, 11.0)
 
@@ -793,7 +821,7 @@ def test_se_puede_crear_una_clase_nueva_al_vuelo(ventana: MainWindow, elige_clas
     """El pliego pide **asignarle o crear** una clase, así que el diálogo es
     editable y lo que se escriba se registra con su color."""
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     elige_clase("Espiga temporal")
 
     arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
@@ -806,7 +834,7 @@ def test_cancelar_el_dialogo_no_anota(ventana: MainWindow, elige_clase):
     """Quien se arrepiente a mitad del gesto no puede quedarse con un evento
     que no pidió."""
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     elige_clase("Spindle", acepta=False)
 
     arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
@@ -818,7 +846,7 @@ def test_cancelar_el_dialogo_no_anota(ventana: MainWindow, elige_clase):
 def test_una_clase_vacia_no_anota(ventana: MainWindow, elige_clase):
     """Aceptar con el campo en blanco es un error de dedo, no una clase."""
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     elige_clase("   ")
 
     arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
@@ -832,7 +860,7 @@ def test_las_anotaciones_exportadas_no_estan_vacias(
     """Cierra V2_F de "Archivo de salida", que dependía de esto: sin forma de
     anotar, `Anotaciones.txt` salía siempre vacío."""
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
 
     destino = tmp_path / NOMBRES["annotations"]
@@ -853,8 +881,8 @@ def test_un_clic_no_borra_la_linea_de_ocupacion_que_estaba_lejos(
     from psglab.tools.occupancy import OccupancyLine
 
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
-    ventana._toggle_tool("occupancy", True)
-    herramienta = ventana._tools["occupancy"]
+    ventana.tool_controller.toggle("occupancy", True)
+    herramienta = ventana.tool_controller.tools["occupancy"]
     herramienta.add_line(OccupancyLine(0.2, 0.0, 0.6, 0.0))
 
     # **Un clic a 90 µV de la línea, que está en y = 0**, y adentro de su mismo
@@ -940,15 +968,15 @@ def test_la_ocupacion_muestra_su_porcentaje(ventana: MainWindow):
     y **no lo leía nadie**: el número existía sólo para sus tests."""
     from psglab.tools.occupancy import OccupancyLine
 
-    ventana._toggle_tool("occupancy", True)
-    ventana._tools["occupancy"].add_line(OccupancyLine(0.1, 0.0, 0.4, 0.0))
+    ventana.tool_controller.toggle("occupancy", True)
+    ventana.tool_controller.tools["occupancy"].add_line(OccupancyLine(0.1, 0.0, 0.4, 0.0))
 
     assert "30,0 %" in ventana.tool_readout.text()
     assert "1 línea" in ventana.tool_readout.text()
 
 
 def test_sin_lineas_lo_dice_en_vez_de_mostrar_cero(ventana: MainWindow):
-    ventana._toggle_tool("occupancy", True)
+    ventana.tool_controller.toggle("occupancy", True)
 
     assert "sin líneas" in ventana.tool_readout.text()
 
@@ -959,8 +987,8 @@ def test_el_total_puede_pasar_del_cien_por_ciento(ventana: MainWindow):
     mostrarlo sin romperse ni recortarlo.**"""
     from psglab.tools.occupancy import OccupancyLine
 
-    ventana._toggle_tool("occupancy", True)
-    herramienta = ventana._tools["occupancy"]
+    ventana.tool_controller.toggle("occupancy", True)
+    herramienta = ventana.tool_controller.tools["occupancy"]
     herramienta.add_line(OccupancyLine(0.0, 0.0, 0.9, 0.0))
     herramienta.add_line(OccupancyLine(0.1, 0.0, 1.0, 0.0))
 
@@ -971,8 +999,8 @@ def test_el_separador_decimal_es_la_coma(ventana: MainWindow):
     """Es el idioma del programa."""
     from psglab.tools.occupancy import OccupancyLine
 
-    ventana._toggle_tool("occupancy", True)
-    ventana._tools["occupancy"].add_line(OccupancyLine(0.0, 0.0, 0.335, 0.0))
+    ventana.tool_controller.toggle("occupancy", True)
+    ventana.tool_controller.tools["occupancy"].add_line(OccupancyLine(0.0, 0.0, 0.335, 0.0))
 
     texto = ventana.tool_readout.text()
     assert "," in texto
@@ -981,8 +1009,8 @@ def test_el_separador_decimal_es_la_coma(ventana: MainWindow):
 
 def test_la_lupa_muestra_los_picos_contados(ventana: MainWindow):
     """V2_F de "Lupa": el contador tampoco lo leía nadie."""
-    ventana._toggle_tool("magnifier", True)
-    herramienta = ventana._tools["magnifier"]
+    ventana.tool_controller.toggle("magnifier", True)
+    herramienta = ventana.tool_controller.tools["magnifier"]
     herramienta.on_mouse_press(5.0, 0.0, "left")
     herramienta.on_mouse_press(7.0, 0.0, "left")
 
@@ -991,11 +1019,11 @@ def test_la_lupa_muestra_los_picos_contados(ventana: MainWindow):
 
 def test_apagar_la_herramienta_limpia_el_cartel(ventana: MainWindow):
     """Un número viejo al lado de una herramienta apagada es peor que ninguno."""
-    ventana._toggle_tool("magnifier", True)
-    ventana._tools["magnifier"].on_mouse_press(5.0, 0.0, "left")
+    ventana.tool_controller.toggle("magnifier", True)
+    ventana.tool_controller.tools["magnifier"].on_mouse_press(5.0, 0.0, "left")
     assert ventana.tool_readout.text()
 
-    ventana._toggle_tool("magnifier", False)
+    ventana.tool_controller.toggle("magnifier", False)
     assert ventana.tool_readout.text() == ""
 
 
@@ -1009,14 +1037,14 @@ def test_apagar_la_herramienta_limpia_el_cartel(ventana: MainWindow):
 
 def test_la_sesion_sabe_cual_es_la_herramienta_activa(ventana: MainWindow):
     """Prender una herramienta del menú se lo dice a la sesión."""
-    ventana._toggle_tool("magnifier", True)
+    ventana.tool_controller.toggle("magnifier", True)
     assert ventana.session.active_tool == "magnifier"
 
     # La exclusividad vale también acá: prender otra sustituye, no suma.
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     assert ventana.session.active_tool == "annotator"
 
-    ventana._toggle_tool("annotator", False)
+    ventana.tool_controller.toggle("annotator", False)
     assert ventana.session.active_tool is None
 
 
@@ -1026,8 +1054,8 @@ def test_un_panel_no_desplaza_a_la_herramienta_del_mouse(ventana: MainWindow):
     Prender un panel no puede tapar a la lupa, porque no compite con ella por
     el clic: el usuario sigue con la lupa en la mano.
     """
-    ventana._toggle_tool("magnifier", True)
-    ventana._toggle_tool("histogram", True)
+    ventana.tool_controller.toggle("magnifier", True)
+    ventana.tool_controller.toggle("histogram", True)
 
     assert ventana.session.active_tool == "magnifier"
 
@@ -1037,7 +1065,7 @@ def test_abrir_otro_registro_deja_la_sesion_sin_herramienta(
 ):
     """Las herramientas se sueltan al cambiar de registro, y la sesión que
     queda atrás tiene que decir lo mismo que la barra: ninguna activa."""
-    ventana._toggle_tool("magnifier", True)
+    ventana.tool_controller.toggle("magnifier", True)
     anterior = ventana.session
 
     ventana.open_recording(otro_registro(tmp_path))
@@ -1225,7 +1253,7 @@ def test_pedir_la_hora_real_sin_hora_de_inicio_avisa(
         sampling_rate=100.0,
     )
     principal._session = Session(sin_hora, Scoring(3, Nomenclature.AASM), AnnotationSet())
-    principal._activate_panel_tools()
+    principal.tool_controller.activate_panel_tools()
 
     principal.set_histogram_time_axis(True)
 
@@ -1289,7 +1317,7 @@ def test_el_panel_sigue_a_la_navegacion(ventana: MainWindow):
 def test_el_panel_respeta_el_span_asimetrico(ventana: MainWindow):
     """V3_F: el pliego pide poder mostrar dos antes y una después."""
     ventana._go_to_window(2)
-    ventana._tools["overview"].set_span(before=2, after=1)
+    ventana.tool_controller.tools["overview"].set_span(before=2, after=1)
 
     indices = [v.index for v, _ in ventana.overview_panel.rectangles()]
     assert indices == [0, 1, 2, 3]
@@ -1297,7 +1325,7 @@ def test_el_panel_respeta_el_span_asimetrico(ventana: MainWindow):
 
 def test_el_tamano_del_panel_llega_a_la_pantalla(ventana: MainWindow):
     """V2_F. `set_size()` existía desde el hito 7 y no lo llamaba nadie."""
-    ventana._tools["overview"].set_size(600, 130)
+    ventana.tool_controller.tools["overview"].set_size(600, 130)
 
     assert ventana.overview_panel.height() == 130
 
@@ -1309,7 +1337,7 @@ def test_los_eventos_anotados_aparecen_en_el_panel(
     lazo completo: anotar por el mouse y verlo en el contexto."""
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
     ventana._go_to_window(2)
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     arrastrar(ventana, caja.left() + caja.width() * 0.25, caja.left() + caja.width() * 0.35)
 
     con_eventos = [
@@ -2496,8 +2524,8 @@ def test_cambiar_el_color_de_una_clase_no_borra_lo_que_dibuja_otra_herramienta(
     no se veían."""
     from psglab.tools.occupancy import OccupancyLine
 
-    ventana._toggle_tool("occupancy", True)
-    ventana._tools["occupancy"].add_line(OccupancyLine(0.2, 0.0, 0.6, 0.0))
+    ventana.tool_controller.toggle("occupancy", True)
+    ventana.tool_controller.tools["occupancy"].add_line(OccupancyLine(0.2, 0.0, 0.6, 0.0))
     dibujadas = len(ventana.signal_view._overlay_items)
     assert dibujadas > 0
 
@@ -2513,8 +2541,8 @@ def test_con_el_anotador_activo_la_banda_cambia_de_color_enseguida(
 ):
     """El otro lado del test de arriba: cuando el que dibuja es el anotador, la
     banda tiene que tomar el color nuevo sin esperar a la próxima flecha."""
-    ventana._toggle_tool("annotator", True)
-    ventana._tools["annotator"].create_annotation("Spindle", 250, 250)
+    ventana.tool_controller.toggle("annotator", True)
+    ventana.tool_controller.tools["annotator"].create_annotation("Spindle", 250, 250)
 
     ventana.apply_preferences(
         ventana.current_preferences.with_annotation_color("Spindle", "#ff8800")
@@ -3343,10 +3371,10 @@ def test_abrir_otro_registro_suelta_el_anterior(ventana: MainWindow, tmp_path: P
     import gc
     import weakref
 
-    for herramienta in ventana._tools:
-        ventana._toggle_tool(herramienta, True)
-    for herramienta in ventana._tools:
-        ventana._toggle_tool(herramienta, False)
+    for herramienta in ventana.tool_controller.tools:
+        ventana.tool_controller.toggle(herramienta, True)
+    for herramienta in ventana.tool_controller.tools:
+        ventana.tool_controller.toggle(herramienta, False)
     anterior = weakref.ref(ventana.session.recording)
 
     ventana.open_recording(otro_registro(tmp_path))
@@ -3430,7 +3458,7 @@ def test_la_cantidad_de_vecinas_de_la_ubersicht_se_elige_en_la_configuracion(
         ventana.current_preferences.with_changes(overview_before=2, overview_after=0)
     )
 
-    mostradas = [(v.index, v.is_current) for v in ventana._tools["overview"].windows()]
+    mostradas = [(v.index, v.is_current) for v in ventana.tool_controller.tools["overview"].windows()]
     assert mostradas == [(1, False), (2, False), (3, True)]
     assert len(ventana.overview_panel.rectangles()) == 3
 
@@ -3578,8 +3606,8 @@ def test_la_suite_no_precalienta(qt_app, monkeypatch):
 
 
 def test_el_contador_de_la_lupa_se_pone_en_cero_desde_el_menu(ventana: MainWindow):
-    lupa = ventana._tools["magnifier"]
-    ventana._toggle_tool("magnifier", True)
+    lupa = ventana.tool_controller.tools["magnifier"]
+    ventana.tool_controller.toggle("magnifier", True)
     lupa.on_mouse_press(1.0, 0.0, "left")
     lupa.on_mouse_press(2.0, 0.0, "left")
     accion = next(
@@ -3599,10 +3627,10 @@ def test_los_ajustes_de_herramienta_llegan_a_las_herramientas(ventana: MainWindo
         )
     )
 
-    assert ventana._tools["amplitude_band"].height_uv == 100.0
-    ventana._toggle_tool("magnifier", True)
-    ventana._tools["magnifier"].on_mouse_move(10.0, 0.0)
-    (circulo,) = ventana._tools["magnifier"].overlays()
+    assert ventana.tool_controller.tools["amplitude_band"].height_uv == 100.0
+    ventana.tool_controller.toggle("magnifier", True)
+    ventana.tool_controller.tools["magnifier"].on_mouse_move(10.0, 0.0)
+    (circulo,) = ventana.tool_controller.tools["magnifier"].overlays()
     assert (circulo.radius_seconds, circulo.zoom) == (2.5, 8.0)
 
 
@@ -3991,7 +4019,7 @@ def test_exportar_desde_el_cartel_guarda_las_anotaciones(
     escrito = (tmp_path / NOMBRES["annotations"]).read_text(encoding="utf-8")
     assert "Spindle" in escrito
     ((propuesto, _),) = dialogo_de_guardado["llamadas"]
-    assert propuesto == NOMBRES["annotations"]
+    assert Path(propuesto).name == NOMBRES["annotations"]
 
 
 def test_con_scoring_y_anotaciones_se_guardan_los_dos(
@@ -4009,7 +4037,7 @@ def test_con_scoring_y_anotaciones_se_guardan_los_dos(
 
     assert ventana.close()
     assert cartel_del_scoring["en_juego"] == [["scoring", "annotations"]]
-    assert [propuesto for propuesto, _ in dialogo_de_guardado["llamadas"]] == [
+    assert [Path(propuesto).name for propuesto, _ in dialogo_de_guardado["llamadas"]] == [
         NOMBRES["scoring"],
         NOMBRES["annotations"],
     ]
@@ -4322,6 +4350,49 @@ def test_la_amplitud_de_cada_canal_se_lee_en_su_carril(ventana: MainWindow):
     assert all(detalle == "200 µV" for detalle in detalles)
 
 
+def test_la_escala_personalizada_sin_canales_visibles_no_rompe(
+    ventana: MainWindow, monkeypatch
+):
+    """Hito 79: preguntaba la escala del primer canal visible, y sin ninguno
+    elevaba `IndexError`, que salía como el cartel de los errores del
+    programa. Arranca en la de fábrica."""
+    from psglab.config import DEFAULT_SCALE_UV
+
+    pedida: list[float] = []
+
+    def responder(*args: object) -> tuple[float, bool]:
+        pedida.append(float(args[3]))
+        return 50.0, True
+
+    monkeypatch.setattr(QInputDialog, "getDouble", staticmethod(responder))
+    ventana._set_visible_channels([])
+
+    ventana.ask_amplitude_scale()
+
+    assert pedida == [DEFAULT_SCALE_UV]
+
+
+def test_la_escala_personalizada_arranca_en_la_del_canal_seleccionado(
+    ventana: MainWindow, monkeypatch
+):
+    """Es a ése al que se le va a aplicar: la del primero visible no dice
+    nada si el seleccionado es otro."""
+    segundo = ventana.session.visible_channels[1]
+    ventana.session.set_scale_uv(segundo, 321.0)
+    ventana._set_selected_channels([segundo])
+    pedida: list[float] = []
+
+    def responder(*args: object) -> tuple[float, bool]:
+        pedida.append(float(args[3]))
+        return 0.0, False
+
+    monkeypatch.setattr(QInputDialog, "getDouble", staticmethod(responder))
+
+    ventana.ask_amplitude_scale()
+
+    assert pedida == [321.0]
+
+
 def test_los_extremos_del_registro_llegan_a_la_franja(ventana: MainWindow):
     inicio = ventana.session.recording.start_time
 
@@ -4360,7 +4431,7 @@ def test_scorear_actualiza_la_fase_que_muestra_la_ubersicht(ventana: MainWindow)
     tenía anotar, y el mismo motivo."""
     from psglab.tools.overview import OverviewTool
 
-    contexto = ventana._tools["overview"]
+    contexto = ventana.tool_controller.tools["overview"]
     assert isinstance(contexto, OverviewTool)
 
     ventana.score_current_window(SleepStage.N2)
@@ -4388,18 +4459,18 @@ def test_tildar_la_banda_la_dibuja(ventana: MainWindow):
     exclusiva. La banda declara `exclusive = False` con razón, así que su
     `overlays()` no lo llamaba nadie.
     """
-    ventana._toggle_tool("amplitude_band", True)
+    ventana.tool_controller.toggle("amplitude_band", True)
 
-    assert any(isinstance(o, BandOverlay) for o in ventana._overlays_dibujados)
+    assert any(isinstance(o, BandOverlay) for o in ventana.tool_controller.drawn_overlays)
     assert ventana.signal_view._overlay_items
 
 
 def test_destildar_la_banda_la_saca(ventana: MainWindow):
     """La otra mitad, que es la que hace afirmable a la primera."""
-    ventana._toggle_tool("amplitude_band", True)
-    ventana._toggle_tool("amplitude_band", False)
+    ventana.tool_controller.toggle("amplitude_band", True)
+    ventana.tool_controller.toggle("amplitude_band", False)
 
-    assert not any(isinstance(o, BandOverlay) for o in ventana._overlays_dibujados)
+    assert not any(isinstance(o, BandOverlay) for o in ventana.tool_controller.drawn_overlays)
 
 
 def test_la_banda_va_sobre_el_canal_seleccionado(ventana: MainWindow):
@@ -4407,17 +4478,51 @@ def test_la_banda_va_sobre_el_canal_seleccionado(ventana: MainWindow):
     no ocupan lo mismo en dos carriles."""
     segundo = ventana.session.visible_channels[1]
     ventana.session.set_selected_channels([segundo])
-    ventana._toggle_tool("amplitude_band", True)
+    ventana.tool_controller.toggle("amplitude_band", True)
 
-    bandas = [o for o in ventana._overlays_dibujados if isinstance(o, BandOverlay)]
+    bandas = [o for o in ventana.tool_controller.drawn_overlays if isinstance(o, BandOverlay)]
     assert [b.channel_name for b in bandas] == [segundo]
 
 
+def test_seleccionar_otro_canal_redibuja_la_banda(ventana: MainWindow):
+    """Hito 79: la banda se apoya sobre el seleccionado, y cambiar la selección
+    no la redibujaba: quedaba en el carril viejo hasta el próximo evento."""
+    segundo = ventana.session.visible_channels[1]
+    ventana.tool_controller.toggle("amplitude_band", True)
+
+    ventana._set_selected_channels([segundo])
+
+    (banda,) = [o for o in ventana.tool_controller.drawn_overlays if isinstance(o, BandOverlay)]
+    assert banda.channel_name == segundo
+
+
+@pytest.mark.parametrize("modo", [None, "magnifier"])
+def test_la_banda_sigue_al_mouse_sobre_el_canal_de_abajo(ventana: MainWindow, modo: str | None):
+    """Hito 79: **la banda no se podía mover.** No es exclusiva, así que nunca
+    se quedaba con el mouse, y el filtro de eventos sólo se lo daba a la que sí:
+    el centro quedaba en 0 µV del primer canal, por más que el mouse pasara por
+    encima de la señal, que es lo que pide el pliego. Con la lupa encendida,
+    igual: el movimiento es de las dos."""
+    segundo = ventana.session.visible_channels[1]
+    ventana.tool_controller.toggle("amplitude_band", True)
+    if modo is not None:
+        ventana.tool_controller.toggle(modo, True)
+
+    QApplication.instance().sendEvent(
+        ventana.signal_view.viewport(),
+        evento_de_mouse(ventana, QEvent.Type.MouseMove, 300.0, canal=segundo, uv=30.0),
+    )
+
+    (banda,) = [o for o in ventana.tool_controller.drawn_overlays if isinstance(o, BandOverlay)]
+    assert banda.channel_name == segundo
+    assert banda.y_center_uv == pytest.approx(30.0, abs=3.0)
+
+
 def test_la_banda_no_se_tilda_sola_al_abrir(ventana: MainWindow):
-    """**Arrancaba tildada y sin dibujar nada**, porque `_activate_panel_tools()`
+    """**Arrancaba tildada y sin dibujar nada**, porque `activate_panel_tools()`
     usaba `not exclusive` como si dijera «es un panel». Por eso destildarla y
     volver a tildarla no cambiaba nada: ya estaba encendida."""
-    assert not ventana._tool_actions["amplitude_band"].isChecked()
+    assert not ventana.tool_controller.actions["amplitude_band"].isChecked()
 
 
 def test_los_paneles_si_se_encienden_solos(ventana: MainWindow):
@@ -4426,19 +4531,19 @@ def test_los_paneles_si_se_encienden_solos(ventana: MainWindow):
 
     Se afirma sobre lo que producen y no sobre su entrada de menú: los que
     tienen dock no llevan acción propia —la suya es la del panel— y por eso
-    `_tool_actions` no los tiene.
+    `tool_controller.actions` no los tiene.
     """
-    assert ventana._tools["overview"].windows()
-    assert ventana._tools["histogram"].bars()
+    assert ventana.tool_controller.tools["overview"].windows()
+    assert ventana.tool_controller.tools["histogram"].bars()
 
 
 def test_la_banda_y_un_modo_del_mouse_conviven(ventana: MainWindow):
     """No son excluyentes entre sí: la banda no compite por el clic."""
-    ventana._toggle_tool("amplitude_band", True)
-    ventana._toggle_tool("magnifier", True)
+    ventana.tool_controller.toggle("amplitude_band", True)
+    ventana.tool_controller.toggle("magnifier", True)
 
-    assert any(isinstance(o, BandOverlay) for o in ventana._overlays_dibujados)
-    assert ventana._mouse_tool is ventana._tools["magnifier"]
+    assert any(isinstance(o, BandOverlay) for o in ventana.tool_controller.drawn_overlays)
+    assert ventana.tool_controller.mouse_tool is ventana.tool_controller.tools["magnifier"]
 
 
 # -- La `y` se mide contra el canal bajo el cursor (hito 45) ------------------
@@ -4452,8 +4557,8 @@ def test_el_mouse_sobre_un_carril_da_la_uv_de_ese_canal(ventana: MainWindow):
     plausible y equivocado, que es la peor clase.
     """
     tercero = ventana.session.visible_channels[2]
-    ventana._toggle_tool("magnifier", True)
-    lupa = ventana._tools["magnifier"]
+    ventana.tool_controller.toggle("magnifier", True)
+    lupa = ventana.tool_controller.tools["magnifier"]
     QApplication.instance().sendEvent(
         ventana.signal_view.viewport(),
         evento_de_mouse(ventana, QEvent.Type.MouseMove, 300.0, canal=tercero),
@@ -4470,19 +4575,19 @@ def test_la_lupa_amplia_el_canal_de_abajo_del_cursor(ventana: MainWindow):
     la respuesta.
     """
     segundo = ventana.session.visible_channels[1]
-    ventana._toggle_tool("magnifier", True)
+    ventana.tool_controller.toggle("magnifier", True)
     QApplication.instance().sendEvent(
         ventana.signal_view.viewport(),
         evento_de_mouse(ventana, QEvent.Type.MouseMove, 300.0, canal=segundo),
     )
 
-    assert ventana._tools["magnifier"].overlays()[0].channel_name == segundo
+    assert ventana.tool_controller.tools["magnifier"].overlays()[0].channel_name == segundo
 
 
 def test_la_lupa_dibuja_una_lente_y_no_una_linea_suelta(ventana: MainWindow):
     """Del hito 9 al 45 fue una polilínea estirada sin ningún círculo, pese a
     que el tipo se llama `CircleOverlay`."""
-    ventana._toggle_tool("magnifier", True)
+    ventana.tool_controller.toggle("magnifier", True)
     QApplication.instance().sendEvent(
         ventana.signal_view.viewport(),
         evento_de_mouse(
@@ -4601,7 +4706,7 @@ def test_un_clic_de_verdad_suma_un_pico(ventana: MainWindow):
 
     Lo encontró la auditoría de los tests, no un fallo: el camino funciona.
     """
-    ventana._toggle_tool("magnifier", True)
+    ventana.tool_controller.toggle("magnifier", True)
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
     x = caja.left() + caja.width() * 0.5
     aplicacion = QApplication.instance()
@@ -4610,14 +4715,14 @@ def test_un_clic_de_verdad_suma_un_pico(ventana: MainWindow):
             ventana.signal_view.viewport(), evento_de_mouse(ventana, tipo, x)
         )
 
-    assert ventana._tools["magnifier"].click_count == 1
+    assert ventana.tool_controller.tools["magnifier"].click_count == 1
     assert "Picos contados: 1" in ventana.tool_readout.text()
 
 
 def test_el_boton_derecho_descuenta_por_el_mismo_camino(ventana: MainWindow):
     """La otra mitad de V2_F: corregir un clic de más sin reiniciar la cuenta."""
-    ventana._toggle_tool("magnifier", True)
-    lupa = ventana._tools["magnifier"]
+    ventana.tool_controller.toggle("magnifier", True)
+    lupa = ventana.tool_controller.tools["magnifier"]
     caja = ventana.signal_view.getPlotItem().vb.sceneBoundingRect()
     x = caja.left() + caja.width() * 0.5
     aplicacion = QApplication.instance()
@@ -4738,7 +4843,7 @@ def _x_de(ventana: MainWindow, segundos: float) -> float:
 
 def test_el_menu_ofrece_cambiar_la_clase_y_borrar(ventana: MainWindow, elige_en_el_menu):
     anotar_en(ventana, 10.0, 12.0)
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
 
     clic_derecho(ventana, 11.0)
 
@@ -4749,7 +4854,7 @@ def test_un_clic_derecho_donde_no_hay_nada_no_abre_el_menu(
     ventana: MainWindow, elige_en_el_menu
 ):
     anotar_en(ventana, 10.0, 12.0)
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
 
     clic_derecho(ventana, 20.0)
 
@@ -4761,7 +4866,7 @@ def test_se_le_puede_cambiar_la_clase(ventana: MainWindow, elige_en_el_menu, eli
     volver a encontrar el tramo exacto. El tramo no se toca."""
     anotar_en(ventana, 10.0, 12.0, "Spindle")
     antes = ventana.session.annotations.all()[0]
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     elige_en_el_menu.elegir("Cambiar clase…")
     elige_clase("Arousal")
 
@@ -4781,7 +4886,7 @@ def test_la_clase_nueva_puede_ser_una_que_no_existia(
 ):
     """Como al anotar: el diálogo es editable y lo escrito se registra."""
     anotar_en(ventana, 10.0, 12.0)
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     elige_en_el_menu.elegir("Cambiar clase…")
     elige_clase("Espiga temporal")
 
@@ -4793,7 +4898,7 @@ def test_la_clase_nueva_puede_ser_una_que_no_existia(
 
 def test_cerrar_el_menu_no_cambia_nada(ventana: MainWindow, elige_en_el_menu):
     anotar_en(ventana, 10.0, 12.0, "Spindle")
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     elige_en_el_menu.elegir(None)
 
     clic_derecho(ventana, 11.0)
@@ -4807,7 +4912,7 @@ def test_arrastrar_el_final_de_una_banda_lo_corrige(ventana: MainWindow, elige_c
     el tramo un poco corrido."""
     anotar_en(ventana, 10.0, 12.0)
     fs = ventana.session.recording.sampling_rate
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     elige_clase("", False)
 
     arrastrar(ventana, _x_de(ventana, 12.0), _x_de(ventana, 14.0))
@@ -4820,7 +4925,7 @@ def test_arrastrar_el_final_de_una_banda_lo_corrige(ventana: MainWindow, elige_c
 def test_arrastrar_el_comienzo_de_una_banda_lo_corrige(ventana: MainWindow, elige_clase):
     anotar_en(ventana, 10.0, 12.0)
     fs = ventana.session.recording.sampling_rate
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     elige_clase("", False)
 
     arrastrar(ventana, _x_de(ventana, 10.0), _x_de(ventana, 8.0))
@@ -4833,7 +4938,7 @@ def test_arrastrar_el_comienzo_de_una_banda_lo_corrige(ventana: MainWindow, elig
 def test_arrastrar_lejos_de_un_borde_sigue_anotando(ventana: MainWindow, elige_clase):
     """Lejos de un borde el arrastre es el de siempre: una anotación nueva."""
     anotar_en(ventana, 10.0, 12.0)
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     elige_clase("Arousal")
 
     arrastrar(ventana, _x_de(ventana, 20.0), _x_de(ventana, 22.0))
@@ -4844,7 +4949,7 @@ def test_arrastrar_lejos_de_un_borde_sigue_anotando(ventana: MainWindow, elige_c
 def test_sobre_un_borde_el_cursor_lo_dice(ventana: MainWindow):
     """El ↔ es lo único en la pantalla que avisa que el borde se agarra."""
     anotar_en(ventana, 10.0, 12.0)
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
     viewport = ventana.signal_view.viewport()
 
     for x, forma in (
@@ -5268,7 +5373,7 @@ def test_e_anota_la_ventana_actual(ventana: MainWindow, monkeypatch):
     assert (anotacion.label, anotacion.onset_sample, anotacion.duration_samples) == (
         "Apnea", inicio, fin - inicio
     )
-    assert ventana._tool_actions["annotator"].isChecked()
+    assert ventana.tool_controller.actions["annotator"].isChecked()
     assert not ventana.carteles
 
 
@@ -5296,7 +5401,7 @@ def test_mayus_f10_corrige_la_anotacion_de_la_ventana(
     monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: next(respuestas))
     ventana.annotate_current_window()
     fs = ventana.session.recording.sampling_rate
-    herramienta = ventana._tools["annotator"]
+    herramienta = ventana.tool_controller.tools["annotator"]
     herramienta.create_annotation("Apnea", int(5 * fs), int(2 * fs))
     elige_en_el_menu.elegir(annotation_mod._CAMBIAR_CLASE)
 
@@ -5578,7 +5683,7 @@ def test_borrar_una_anotacion_avisa_que_no_se_deshace(
 ):
     elige_en_el_menu.elegir("Borrar")
     anotar_en(ventana, 10.0, 12.0, "Spindle")
-    ventana._toggle_tool("annotator", True)
+    ventana.tool_controller.toggle("annotator", True)
 
     clic_derecho(ventana, 11.0)
 
@@ -5699,6 +5804,54 @@ def teclear(*teclas: Qt.Key) -> None:
     for tecla in teclas:
         QTest.keyClick(QApplication.focusWidget(), tecla)
         QApplication.processEvents()
+
+
+def test_el_0_y_el_5_scorean_w_y_r(a_la_vista: MainWindow):
+    """Hito 79: son los códigos de `Scoring.txt`, y dejan el scoring entero en
+    el teclado numérico. La letra sigue andando."""
+    from psglab.core.nomenclature import SleepStage
+
+    ventana = a_la_vista
+    ventana.signal_view.setFocus()
+    QApplication.processEvents()
+
+    teclear(Qt.Key.Key_0, Qt.Key.Key_5)
+
+    assert ventana.session.scoring.get(0).stage is SleepStage.WAKE
+    assert ventana.session.scoring.get(1).stage is SleepStage.R
+
+
+def test_la_n_lleva_a_la_proxima_sin_scorear(a_la_vista: MainWindow):
+    """Hito 79: es como se retoma un scoring a medias. Mayús+N vuelve."""
+    from psglab.core.nomenclature import SleepStage
+
+    ventana = a_la_vista
+    for indice in (1, 2):
+        ventana.session.scoring.set_stage(indice, SleepStage.N2)
+    ventana.signal_view.setFocus()
+    QApplication.processEvents()
+
+    teclear(Qt.Key.Key_N)
+    assert ventana.session.current_window == 3
+
+    from PySide6.QtTest import QTest
+
+    QTest.keyClick(QApplication.focusWidget(), Qt.Key.Key_N, Qt.KeyboardModifier.ShiftModifier)
+    QApplication.processEvents()
+    assert ventana.session.current_window == 0
+
+
+def test_sin_ninguna_sin_scorear_la_n_lo_dice(ventana: MainWindow):
+    """Una tecla muda se lee como que no anda."""
+    from psglab.core.nomenclature import SleepStage
+
+    for indice in range(ventana.session.n_windows):
+        ventana.session.scoring.set_stage(indice, SleepStage.N2)
+
+    ventana.go_to_next_unscored_window()
+
+    assert ventana.session.current_window == 0
+    assert "No quedan ventanas sin scorear" in ventana.statusBar().currentMessage()
 
 
 def test_tipear_en_la_tabla_de_impedancias_escribe_el_valor(a_la_vista: MainWindow):
@@ -6321,7 +6474,7 @@ def test_pregunta_antes_y_dice_con_que_canales(ventana: MainWindow, clasificador
     # Sólo cuenta las que faltan: lo scoreado no se sugiere.
     assert "4 ventanas sin scorear" in pregunta["pregunta"]
     assert "«C3»" in pregunta["informativo"]
-    assert "Analizar › Fases sugeridas › Confirmar las seguras" in pregunta["informativo"]
+    assert "Scoring › Fases sugeridas › Confirmar las seguras" in pregunta["informativo"]
     assert clasificador == []
 
 

@@ -928,6 +928,31 @@ def test_un_vhdr_en_mayusculas_no_se_informa_como_danado(brainvision_sintetico: 
     assert f"«{brainvision_sintetico.stem}.vhdr»" in str(error.value)
 
 
+@pytest.mark.parametrize(
+    ("fixture", "funcion"),
+    [("edf_sintetico", "read_raw_edf"), ("brainvision_sintetico", "read_raw_brainvision")],
+)
+def test_quedarse_sin_memoria_no_se_informa_como_danado(
+    request: pytest.FixtureRequest, monkeypatch, fixture: str, funcion: str
+):
+    """Hito 79: los lectores atrapan todo lo que eleva MNE, y `MemoryError`
+    también: un registro que no entraba en memoria salía como «el archivo está
+    dañado», y el investigador buscaba el problema en el archivo."""
+    import mne
+
+    from psglab.utils.errors import RecordingTooLargeError
+
+    def sin_memoria(*_args: object, **_kwargs: object) -> None:
+        raise MemoryError
+
+    monkeypatch.setattr(mne.io, funcion, sin_memoria)
+
+    with pytest.raises(RecordingTooLargeError) as error:
+        read_recording(request.getfixturevalue(fixture))
+
+    assert "dañado" not in str(error.value)
+
+
 # -- Las marcas que trae el archivo, en el CI (hito 74) -----------------------
 
 

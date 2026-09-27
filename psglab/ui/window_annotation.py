@@ -92,7 +92,7 @@ class AnnotationMixin:
         # El panel de contexto marca los eventos que caen en cada ventana
         # (V3_F), y anotar no mueve de ventana: hay que pedirle que se
         # rederive o el evento recién creado no aparece hasta la próxima flecha.
-        contexto = self._tools.get("overview")
+        contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
         self.statusBar().showMessage(f"Se anotó «{clase}»", 5000)
@@ -165,8 +165,8 @@ class AnnotationMixin:
 
     def _anotador_encendido(self) -> AnnotatorTool | None:
         """La herramienta de anotar, encendida por el mismo camino que el menú."""
-        herramienta = self._tools.get("annotator")
-        accion = self._tool_actions.get("annotator")
+        herramienta = self.tool_controller.tools.get("annotator")
+        accion = self.tool_controller.actions.get("annotator")
         if not isinstance(herramienta, AnnotatorTool) or accion is None:
             return None
         if not accion.isChecked():
@@ -220,31 +220,27 @@ class AnnotationMixin:
         except PsgLabError as error:
             self._show_error(error, "cambiar la clase")
             return
-        self._refrescar_contexto()
+        self.tool_controller.refresh_overview()
         self.statusBar().showMessage(
             f"«{anotacion.label}» pasó a ser «{clase}»", 5000
         )
+
+    def _al_soltar_el_anotador(self, herramienta: AnnotatorTool) -> None:
+        """El anotador soltó el botón: `tool_controller` lo avisa (hito 79).
+
+        **Acá se cierra el lazo de V1_F de "Anotación"**: si quedó un tramo
+        pendiente se pregunta su clase, y si se corrió un borde se avisa.
+        """
+        self._finish_annotation(herramienta)
+        self._avisar_borde_movido(herramienta)
 
     def _avisar_borde_movido(self, herramienta: AnnotatorTool) -> None:
         """Después de soltar un borde arrastrado: la Übersicht y el aviso."""
         movida = herramienta.moved_annotation
         if movida is None:
             return
-        self._refrescar_contexto()
+        self.tool_controller.refresh_overview()
         self.statusBar().showMessage(f"Se corrigió el tramo de «{movida.label}»", 5000)
-
-    def _cursor_del_anotador(
-        self, herramienta: AnnotatorTool, segundos: float, evento: QMouseEvent
-    ) -> None:
-        """↔ sobre el borde de una banda, que es lo único que dice que se puede
-        arrastrar. Mientras se arrastra, el cursor no cambia."""
-        if evento.buttons() != Qt.MouseButton.NoButton:
-            return
-        viewport = self.signal_view.viewport()
-        if herramienta.edge_at(segundos) is not None:
-            viewport.setCursor(Qt.CursorShape.SizeHorCursor)
-        else:
-            viewport.unsetCursor()
 
     def _borrar_anotacion(self, herramienta: AnnotatorTool, anotacion: Annotation) -> None:
         """Borra una anotación, confirmándolo antes.
@@ -268,7 +264,7 @@ class AnnotationMixin:
             self._show_error(error, "borrar la anotación")
             return
         # Igual que al anotar: la Übersicht marca qué ventanas tienen eventos.
-        contexto = self._tools.get("overview")
+        contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
         self.statusBar().showMessage(f"Se borró «{anotacion.label}»", 5000)
@@ -325,7 +321,7 @@ class AnnotationMixin:
         except PsgLabError as error:
             self._show_error(error, "importar las marcas del registro")
             return
-        self._redibujar_overlays()
+        self.tool_controller.redraw_overlays()
         self.refresh()
         self.statusBar().showMessage(
             f"Se {'agregó' if len(nuevas) == 1 else 'agregaron'} {len(nuevas)} "

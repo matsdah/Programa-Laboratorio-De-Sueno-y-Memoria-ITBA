@@ -8,7 +8,7 @@ Nace para resolver las limitaciones de los programas actuales: formatos de impor
 limitados, scoring sólo manual, imposibilidad de anotar la señal, ausencia de métricas,
 compatibilidad únicamente con Windows y precios excesivos.
 
-> **Estado: la Parte 1 está terminada.** `python main.py` abre el programa:
+> **Estado: las dos Partes están terminadas.** `python main.py` abre el programa:
 > importa registros en EDF y BrainVision, muestra la señal en ventanas de
 > 30 segundos, se navega y se scorea con el teclado, se anotan eventos, están
 > las seis herramientas —lupa, banda de amplitud, ocupación, Übersicht,
@@ -17,11 +17,13 @@ compatibilidad únicamente con Windows y precios excesivos.
 >
 > El **módulo de análisis de bioseñales** (`psglab/analysis/`), que es la
 > Parte 2, también está terminado: filtrado, ICA, impedancia, re-referenciado,
-> derivaciones, PSD, complejidad y conectividad. Necesita dos dependencias
-> aparte, en `requirements-analysis.txt`.
+> derivaciones, PSD, complejidad, conectividad y las fases sugeridas por un
+> clasificador. Necesita tres dependencias aparte, en
+> `requirements-analysis.txt`.
 >
-> **[`docs/TODO.md`](docs/TODO.md)** lleva los setenta y nueve hitos —del 0 al 78— con
-> lo que se decidió en cada uno, y es el único lugar que lleva la cuenta.
+> **[`docs/TODO.md`](docs/TODO.md)** lleva los ochenta hitos —del 0 al 79— con
+> lo que se decidió en cada uno, y es el único lugar que lleva la cuenta. El
+> último, abierto, es el plan que dejó la auditoría del 26 de septiembre.
 
 ---
 
@@ -179,10 +181,12 @@ que la gobiernan y cómo extenderla.
 | [`psglab/utils/`](psglab/utils/README.md) | Unidades (µV) y errores propios. | [→](psglab/utils/README.md) |
 | [`docs/`](docs/README.md) | Documentación, incluida la trazabilidad requisito → archivo. | [→](docs/README.md) |
 | [`tests/`](tests/README.md) | Un test por componente. | [→](tests/README.md) |
+| `.githooks/` | El hook que pone al equipo como coautor de cada commit; ver [Coautores en cada commit](#coautores-en-cada-commit). | |
 
 **Regla de dependencias:** apuntan en una sola dirección —
-`readers → core`, `tools → core`, `ui → core + tools`, `exporters → core`,
-`analysis → core`. **`core/` nunca importa nada de `ui/`.** Gracias a eso el modelo, el
+`readers → core`, `tools → core`, `exporters → core`, `analysis → core`, y
+`ui` importa de todas las demás, porque es la capa de arriba: abre archivos,
+exporta y pide análisis. **`core/` nunca importa nada de `ui/`.** Gracias a eso el modelo, el
 scoring y los exportadores se pueden testear sin abrir una ventana.
 
 Para saber qué archivo implementa cada requisito del pliego, mirá
@@ -208,6 +212,34 @@ git pull
 python -m pytest
 git commit -m "Descripción clara del cambio"
 ```
+
+### Coautores en cada commit
+
+Cada commit lleva a los otros miembros del equipo como coautores, con una línea
+`Co-authored-by:` por persona que GitHub vincula a su cuenta. No hay que
+escribirlas: las agrega el hook de [`.githooks/prepare-commit-msg`](.githooks/prepare-commit-msg),
+que se activa **una vez por clon**, desde la raíz del proyecto:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Vale para `git commit` con o sin `-m` y para VS Code o GitHub Desktop, que usan
+git por debajo. No toca los merges y no repite una línea que el mensaje ya
+tenga.
+
+A quien commitea no lo pone como coautor de sí mismo: lo reconoce por el
+`user.name` o el `user.email` de git, o por su login de GitHub puesto como
+nombre. Si igual aparecés como tu propio coautor, declarate con tu login:
+
+```bash
+git config coautores.yo <tu-login-de-github>
+```
+
+Cuando entre alguien al equipo, se suma una línea a la lista `MIEMBROS` del
+hook, con su login, su nombre y su email noreply de GitHub
+(`ID+login@users.noreply.github.com`; el `ID` sale de
+`https://api.github.com/users/<login>`).
 
 ## Testeo
 

@@ -1029,12 +1029,14 @@ class SignalView(pg.PlotWidget):
     ) -> np.ndarray:
         """`_a_carril()` para un array entero, sin recorrerlo en Python.
 
-        Es la misma cuenta que `show_window()`, y por eso la señal ampliada se
-        superpone exactamente con la que ya está dibujada.
+        Es la misma cuenta que `draw_viewport()` —desplazamiento incluido—, y
+        por eso la señal ampliada se superpone exactamente con la que ya está
+        dibujada.
         """
         if self._session is None:
             return microvoltios
-        return (microvoltios / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
+        desplazado = microvoltios - self._session.offset_uv(channel_name)
+        return (desplazado / self._session.scale_uv(channel_name)) * _LLENADO_DEL_CARRIL
 
     def _centro_de_carril(self, channel_name: str) -> float | None:
         """Dónde está dibujado el eje de un canal, o None si no está visible."""

@@ -51,11 +51,15 @@ class AmplitudeBandTool(ViewerTool):
         #: canal, que es donde el usuario la va a encontrar antes de mover el
         #: mouse.
         self._y_center_uv: float = 0.0
+        #: El canal sobre el que está el mouse, contra cuyo eje llega la `y`.
+        #: `None` hasta que el mouse entra al visualizador.
+        self._canal_del_mouse: str | None = None
 
     def activate(self, session: Session) -> None:
         """Empieza a publicar la banda y queda a la espera del mouse."""
         self._session = session
         self._y_center_uv = 0.0
+        self._canal_del_mouse = None
         self.notify_changed()
 
     def deactivate(self) -> None:
@@ -68,12 +72,15 @@ class AmplitudeBandTool(ViewerTool):
     ) -> None:
         """Mueve la banda para que siga al mouse en vertical.
 
-        Sólo mira `y`: la banda cruza la ventana entera, así que la posición
-        horizontal del mouse no la cambia.
+        La posición horizontal no la cambia: la banda cruza la página entera.
+        **Pasa al canal que está debajo del mouse**, porque la `y` llega medida
+        contra el eje de ése: es como el usuario elige qué señal comparar.
         """
         if self._session is None:
             return
         self._y_center_uv = y
+        if channel_name is not None:
+            self._canal_del_mouse = channel_name
         self.notify_changed()
 
     def set_height_uv(self, height_uv: float) -> None:
@@ -105,9 +112,10 @@ class AmplitudeBandTool(ViewerTool):
         """Sobre qué canal va la banda.
 
         El pliego pide que se adapte a la amplitud de **la señal elegida por el
-        usuario**, así que es el canal seleccionado. Si no hay ninguno, cae al
-        primero visible: la herramienta tiene que poder usarse apenas se abre un
-        registro, antes de que el usuario elija nada.
+        usuario**: la que tiene el mouse debajo, desde que el mouse pasó por el
+        visualizador. Antes, el canal seleccionado, y si no hay ninguno el
+        primero visible: la herramienta tiene que poder usarse apenas se abre
+        un registro, antes de que el usuario elija nada.
 
         Hace falta porque `Session.scale_uv()` es por canal y `BandOverlay`
         tiene que decir a cuál se refiere; si no, 75 µV no tienen una única
@@ -115,6 +123,8 @@ class AmplitudeBandTool(ViewerTool):
         """
         if self._session is None:
             return None
+        if self._canal_del_mouse in self._session.visible_channels:
+            return self._canal_del_mouse
         elegidos = self._session.selected_channels or self._session.visible_channels
         return elegidos[0] if elegidos else None
 

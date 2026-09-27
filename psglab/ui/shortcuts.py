@@ -84,6 +84,9 @@ FIXED_SHORTCUTS: Final[dict[str, str]] = {
     "E": "Anotar la ventana actual",
     "Shift+F10": "Corregir la anotación de esta ventana (con el foco en la señal)",
     "Menu": "Corregir la anotación de esta ventana (con el foco en la señal)",
+    # Hito 79: retomar un scoring a medias sin buscar en la franja.
+    "N": "Próxima ventana sin scorear",
+    "Shift+N": "Ventana anterior sin scorear",
 }
 
 #: Qué método de la ventana principal ejecuta cada atajo fijo. Está separado de
@@ -142,6 +145,8 @@ ACTIONS: Final[dict[str, str]] = {
     "End": "go_to_last_window",
     "Ctrl+G": "ask_window",
     "E": "annotate_current_window",
+    "N": "go_to_next_unscored_window",
+    "Shift+N": "go_to_previous_unscored_window",
 }
 
 #: Los atajos que sólo andan **con el foco en la señal**, y el método que
@@ -184,6 +189,7 @@ def stage_shortcuts(nomenclature: Nomenclature) -> dict[str, str]:
     """
     return {
         key_for_stage(fase): f"Marcar la ventana como {stage_label(fase)}"
+        + (f" (también {alias})" if (alias := _alias_numerico(fase)) else "")
         for fase in stages_of(nomenclature)
     }
 
@@ -275,9 +281,31 @@ def key_for_stage(stage: SleepStage) -> str:
     return {0: "W", 5: "R", 6: "M"}[codigo]
 
 
+def _alias_numerico(stage: SleepStage) -> str | None:
+    """El código de `Scoring.txt` como segunda tecla de una fase, si no es ya
+    su tecla (hito 79).
+
+    W, R y M se scorean con su inicial, y además con su código —0, 5 y 6—, que
+    es el que el laboratorio ya conoce por el archivo y deja el scoring entero
+    en el teclado numérico. Las fases numeradas no lo necesitan: su tecla ya es
+    su código. Es un alias y no la tecla de la fase: el botón y la ayuda
+    siguen mostrando la letra.
+    """
+    codigo = str(stage_code(stage))
+    return None if codigo == key_for_stage(stage) else codigo
+
+
+def stage_keys(stage: SleepStage) -> tuple[str, ...]:
+    """Todas las teclas que scorean una fase: la suya y, si tiene, su alias."""
+    alias = _alias_numerico(stage)
+    return (key_for_stage(stage),) if alias is None else (key_for_stage(stage), alias)
+
+
 def _fases_por_tecla(nomenclature: Nomenclature) -> dict[str, SleepStage]:
-    """La inversa de `stage_shortcuts()`: qué fase asigna cada tecla."""
-    return {key_for_stage(fase): fase for fase in stages_of(nomenclature)}
+    """Qué fase asigna cada tecla, alias incluidos."""
+    return {
+        tecla: fase for fase in stages_of(nomenclature) for tecla in stage_keys(fase)
+    }
 
 
 class _TeclasDelControl(QObject):
@@ -474,7 +502,7 @@ HELP_GROUPS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
             "Ctrl++", "Ctrl+-", "Ctrl+0", "Space",
         ),
     ),
-    ("Scoring", ("A",)),
+    ("Scoring", ("A", "N", "Shift+N")),
     ("Anotación", ("E", "Shift+F10", "Menu")),
     ("Visualización", ("Up", "Down", "F6", "Shift+F6")),
     ("Archivo", ("Ctrl+O", "Ctrl+S")),

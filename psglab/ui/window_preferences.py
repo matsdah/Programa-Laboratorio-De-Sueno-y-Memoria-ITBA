@@ -120,7 +120,7 @@ class PreferencesMixin:
         self.open_button.setIcon(icon("abrir", theme.icon_ink(scheme)))
         # La señal de la Übersicht toma el color de su canal, que cambia con el
         # esquema: no alcanza con repintar.
-        self._refrescar_contexto()
+        self.tool_controller.refresh_overview()
         self.overview_panel.update()
         self._redraw_histogram()
         # **La tilde del menú, cuando el esquema no vino del menú**: lo elige
@@ -284,14 +284,14 @@ class PreferencesMixin:
         self.psd_panel.set_log_power(prefs.psd_log_power)
         # V3_F de la Übersicht. `set_span()` estuvo sin ningún camino desde la
         # ventana hasta el hito 30: la cantidad sólo se cambiaba en `config.py`.
-        contexto = self._tools.get("overview")
+        contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.set_span(prefs.overview_before, prefs.overview_after)
         # Hito 32: los tres `set_*` tampoco tenían ningún camino desde la ventana.
-        banda = self._tools.get("amplitude_band")
+        banda = self.tool_controller.tools.get("amplitude_band")
         if isinstance(banda, AmplitudeBandTool):
             banda.set_height_uv(prefs.amplitude_band_uv)
-        lupa = self._tools.get("magnifier")
+        lupa = self.tool_controller.tools.get("magnifier")
         if isinstance(lupa, MagnifierTool):
             lupa.set_radius_seconds(prefs.magnifier_radius_seconds)
             lupa.set_zoom(prefs.magnifier_zoom)
@@ -316,8 +316,8 @@ class PreferencesMixin:
         """Vuelve a dibujar lo que muestra el color de una clase."""
         #  le avisa a la ventana por su callback, que es el que
         # repinta el panel: no hace falta llamarlo a mano.
-        contexto = self._tools.get("overview")
+        contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
         # Las bandas llevan el color de su clase.
-        self._redibujar_overlays()
+        self.tool_controller.redraw_overlays()

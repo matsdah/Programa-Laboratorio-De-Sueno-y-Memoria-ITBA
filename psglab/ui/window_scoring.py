@@ -28,7 +28,7 @@ from psglab.core.windows import window_to_clock_time
 from psglab.tools.histogram import HistogramTool
 from psglab.tools.overview import OverviewTool
 from psglab.ui import theme
-from psglab.ui.menus import menu_path
+from psglab.ui.menus import menu_path, rebuild_stage_actions
 from psglab.ui.shortcuts import install_shortcuts
 from psglab.utils.errors import PsgLabError
 
@@ -58,7 +58,7 @@ class ScoringMixin:
         Después de importar, el histograma tiene guardadas las barras del
         scoring anterior: `update_window()` sirve para una tecla, no para
         cambiar el archivo debajo."""
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         if isinstance(herramienta, HistogramTool) and self._session is not None:
             herramienta.activate(self._session)
 
@@ -84,7 +84,7 @@ class ScoringMixin:
         # época, no al scorear: sin esto, el chip de la fase recién puesta no
         # aparecía hasta la próxima flecha. Es lo mismo que ya hacía anotar, y
         # por el mismo motivo.
-        contexto = self._tools.get("overview")
+        contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
         # **Pasa sola a la ventana siguiente** (hito 64), salvo en la última y
@@ -98,6 +98,34 @@ class ScoringMixin:
             self.go_to_next_window()
             return
         self.refresh()
+
+    def go_to_next_unscored_window(self) -> None:
+        """N: la próxima ventana sin scorear (hito 79)."""
+        self._ir_a_la_sin_scorear(adelante=True)
+
+    def go_to_previous_unscored_window(self) -> None:
+        """Mayús+N: la ventana anterior sin scorear (hito 79)."""
+        self._ir_a_la_sin_scorear(adelante=False)
+
+    def _ir_a_la_sin_scorear(self, adelante: bool) -> None:
+        """Salta a la próxima sin scorear en esa dirección, o dice que no hay.
+
+        La regla es de `Scoring.next_unscored()`. Sin ninguna, **la barra de
+        estado lo dice** en vez de no hacer nada: una tecla muda se lee como
+        que no anda.
+        """
+        if self._session is None:
+            return
+        destino = self._session.scoring.next_unscored(
+            self._session.current_window, forward=adelante
+        )
+        if destino is None:
+            hacia = "adelante" if adelante else "atrás"
+            self.statusBar().showMessage(
+                f"No quedan ventanas sin scorear hacia {hacia}.", 5000
+            )
+            return
+        self._go_to_window(destino)
 
     def _elegir_nomenclatura(self, path: Path) -> Nomenclature | None:
         """Pregunta con qué nomenclatura se scoreó un archivo que no lo dice.
@@ -256,7 +284,7 @@ class ScoringMixin:
             self._show_error(error, "confirmar las fases sugeridas")
             return
         self._reload_histogram()
-        contexto = self._tools.get("overview")
+        contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
         self.refresh()
@@ -298,6 +326,31 @@ class ScoringMixin:
             return
         self.refresh()
 
+    def _reflejar_el_scoring_en_el_menu(self) -> None:
+        """Pone «Scoring» al día con la ventana actual, al abrirse (hito 79).
+
+        Las fases de la nomenclatura activa, con la de la ventana tildada, y
+        el arousal tildado si lo tiene. **Se hace al abrir el menú y no en cada
+        cambio**: la nomenclatura cambia por tres caminos —el panel, importar
+        un scoring, abrir un registro— y la ventana actual por muchos más, y un
+        menú cerrado no muestra nada.
+
+        **Sin registro, las entradas quedan apagadas**: los métodos a los que
+        llaman no hacen nada sin sesión, y una entrada que no responde se lee
+        como que el programa no anda. Las fases sugeridas quedan como están,
+        que sin registro explican por qué no se puede.
+        """
+        epoca = None
+        if self._session is not None:
+            rebuild_stage_actions(self, self._session.scoring.nomenclature)
+            epoca = self._session.scoring.get(self._session.current_window)
+        for accion in self.menu_scoring.actions():
+            if accion.menu() is None and not accion.isSeparator():
+                accion.setEnabled(epoca is not None)
+        for fase, accion in self.acciones_de_fase.items():
+            accion.setChecked(epoca is not None and epoca.stage is fase)
+        self.accion_arousal.setChecked(epoca is not None and epoca.arousal)
+
     def _change_nomenclature(self, nomenclature: Nomenclature) -> None:
         """Cambiar de nomenclatura sobre un registro ya scoreado pierde
         información, así que **se pregunta antes**.
@@ -323,7 +376,7 @@ class ScoringMixin:
         self.refresh()
 
     def _update_histogram_window(self, window_index: int) -> None:
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         if isinstance(herramienta, HistogramTool):
             herramienta.update_window(window_index)
 
@@ -347,7 +400,7 @@ class ScoringMixin:
         histograma tiene el tamaño de la noche desde el arranque y hay que poder
         ver qué falta.
         """
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         if not isinstance(herramienta, HistogramTool) or self._session is None:
             return
         barras = herramienta.bars()
@@ -462,7 +515,7 @@ class ScoringMixin:
         """
         if self._session is None:
             return
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         en_hora = (
             isinstance(herramienta, HistogramTool)
             and herramienta.uses_clock_time
@@ -491,7 +544,7 @@ class ScoringMixin:
         Los números de ventana van en **base 1**, que es la regla del proyecto
         para todo lo que se muestra.
         """
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         if self._session is None or cuantas <= 0:
             return []
         en_hora = isinstance(herramienta, HistogramTool) and herramienta.uses_clock_time
@@ -518,7 +571,7 @@ class ScoringMixin:
         a qué hora empezó, y tiene razón: un eje con una hora inventada se lee
         como si fuera cierta. Acá eso se convierte en un cartel.
         """
-        herramienta = self._tools.get("histogram")
+        herramienta = self.tool_controller.tools.get("histogram")
         if not isinstance(herramienta, HistogramTool):
             return
         try:

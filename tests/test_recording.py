@@ -460,6 +460,12 @@ def test_un_tramo_vacio_no_tiene_canales_planos():
     assert registro_con_un_plano().flat_channels(200, 200) == []
 
 
+def test_plano_acepta_los_enteros_de_numpy_como_get_segment():
+    """Hito 79: `get_segment()` los acepta —es lo que devuelve cualquier cuenta
+    sobre un array— y `flat_channels()` los rechazaba con su propia guarda."""
+    assert registro_con_un_plano().flat_channels(np.int64(0), np.int64(500)) == ["C3"]
+
+
 # -- Muestras sin valor (hito 33) --------------------------------------------
 
 

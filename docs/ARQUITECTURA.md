@@ -152,8 +152,9 @@ anotador) y dos son paneles con su propia zona de pantalla (Übersicht e
 histograma).
 
 La diferencia no es cosmética: **el sistema de coordenadas no es el mismo**.
-Un clic en el visualizador cae en el segundo 12 de la ventana actual; un clic
-en el histograma cae en la ventana 340 de la noche. Un solo contrato obligaría
+Un clic en el visualizador cae en un segundo del registro —el 3612, digamos,
+contado desde el comienzo y no desde la época, desde el refactor de la
+interfaz—; un clic en el histograma cae en la ventana 340 de la noche. Un solo contrato obligaría
 a documentar `x` de dos formas contradictorias, y tarde o temprano alguien
 interpretaría mal el parámetro.
 
@@ -181,6 +182,10 @@ Todas compatibles con MIT.
 | mne | BSD-3 | Lectura de formatos, filtrado, ICA |
 | mne-connectivity | BSD-3 | Conectividad |
 | antropy | BSD-3 | Complejidad |
+| yasa | BSD-3 | Fases sugeridas (hito 75) |
+| lightgbm | MIT | El clasificador que usa YASA |
+| lspopt | MIT | Dependencia de YASA |
+| seaborn | BSD-3 | Dependencia de YASA |
 | pytest | MIT | Tests |
 | pip-licenses | MIT | Verificación de licencias |
 
@@ -436,8 +441,8 @@ distinguir de un vistazo, que en este programa son las curvas, la paleta de
 canales y —desde el hito 34— la escala de fases (criterio 1.4.11).
 `theme.low_contrast_elements()` hace la cuenta y `tests/test_theme.py` exige
 que ningún esquema de fábrica tenga nada en esa lista. Un esquema con fondo de
-ventana propio —Papel, desde el hito 26— suma el texto sobre ese fondo a la
-cuenta.
+ventana propio suma el texto sobre ese fondo a la cuenta; lo estrenó Papel en
+el hito 26, que ya no existe, y hoy lo tienen Sereno y Nocturno.
 
 **El control se hereda solo**: recorre `theme.SCHEMES`, así que un esquema
 nuevo queda enrolado sin que nadie se acuerde de agregarlo. Los dos del hito 34

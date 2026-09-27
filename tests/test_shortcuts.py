@@ -74,6 +74,33 @@ def test_cada_atajo_de_fase_dice_que_hace(nomenclatura: Nomenclature):
         assert texto.strip()
 
 
+def test_w_r_y_m_se_scorean_tambien_con_su_codigo():
+    """Hito 79: el 0, el 5 y el 6 son los códigos de `Scoring.txt`, que el
+    laboratorio ya conoce, y dejan el scoring entero en el teclado numérico."""
+    from psglab.core.nomenclature import SleepStage
+    from psglab.ui.shortcuts import stage_keys
+
+    assert stage_keys(SleepStage.WAKE) == ("W", "0")
+    assert stage_keys(SleepStage.R) == ("R", "5")
+    assert stage_keys(SleepStage.MT) == ("M", "6")
+    assert stage_keys(SleepStage.N2) == ("2",)
+
+
+@pytest.mark.parametrize("nomenclatura", list(Nomenclature))
+def test_los_alias_no_chocan_con_nada(nomenclatura: Nomenclature):
+    from psglab.ui.shortcuts import stage_keys
+
+    todas = [t for fase in stages_of(nomenclatura) for t in stage_keys(fase)]
+    assert len(todas) == len(set(todas))
+    assert not set(todas) & set(FIXED_SHORTCUTS)
+
+
+def test_la_ayuda_nombra_el_alias():
+    """Una tecla que no dice nada en ninguna parte no existe para quien
+    aprende el programa."""
+    assert "también 0" in stage_shortcuts(Nomenclature.AASM)["W"]
+
+
 # -- Que no choquen entre sí -------------------------------------------------
 
 

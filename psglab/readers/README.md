@@ -91,6 +91,13 @@ Si el archivo está corrupto, elevá `UnreadableFileError` con un mensaje en
 español; si ningún lector registrado maneja la extensión, `read_recording()` ya
 eleva `UnsupportedFormatError` por su cuenta.
 
+**Quedarse sin memoria no es un archivo corrupto.** Un `except Exception`
+alrededor de MNE también atrapa `MemoryError`, y el cartel mandaba a buscar el
+problema en el archivo. Los dos lectores leen dentro de
+`memoria_suficiente("abrir el registro")`, que lo convierte en
+`RecordingTooLargeError`, y lo dejan pasar antes del `except` genérico (hito
+79). Un lector nuevo que se apoye en MNE tiene que hacer lo mismo.
+
 **Si se pudo leer pero con reservas** —un archivo que trae menos de lo que
 declara su cabecera—, no se eleva: se devuelve lo que hay y se agrega un
 mensaje para el investigador a la lista `metadata[IMPORT_WARNINGS_KEY]`, de

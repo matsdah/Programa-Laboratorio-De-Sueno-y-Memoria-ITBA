@@ -32,12 +32,11 @@ from psglab.ui.window_annotation import AnnotationMixin  # noqa: E402
 from psglab.ui.window_files import FilesMixin  # noqa: E402
 from psglab.ui.window_preferences import PreferencesMixin  # noqa: E402
 from psglab.ui.window_scoring import ScoringMixin  # noqa: E402
-from psglab.ui.window_tools import ToolsMixin  # noqa: E402
 from psglab.ui.window_view import ViewMixin  # noqa: E402
 
-#: Los pedazos de `MainWindow`, uno por tema (hito 76).
+#: Los pedazos de `MainWindow`, uno por tema (hito 76). Eran siete hasta
+#: que el de las herramientas pasó a ser `ToolController` (hito 79).
 MIXINS = (
-    ToolsMixin,
     AnnotationMixin,
     FilesMixin,
     ViewMixin,
@@ -69,8 +68,16 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # necesita poder tildar el que aplique, venga del menú o del archivo
         # de preferencias.
         "acciones_de_esquema",
+        # El menú «Scoring» (hito 79): las fases, que se rearman con la
+        # nomenclatura, y el arousal, que se tildan al abrirlo.
+        "menu_scoring",
+        "acciones_de_fase",
+        "accion_arousal",
         # El menú que se puebla desde el registro de herramientas.
         "tools_menu",
+        # Las herramientas, quién tiene el mouse y lo que dibujan (hito 79).
+        # Los tests las prenden con `tool_controller.toggle()`.
+        "tool_controller",
         # Los dos submenús que se rearman desde las preferencias (hito 64):
         # «Abrir reciente» y «Vistas de canales».
         "menu_recientes",
@@ -175,7 +182,7 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "open_recent_file",
         # Las marcas del archivo como anotaciones (hito 73).
         "import_file_marks",
-        # Las fases sugeridas, «Analizar › Fases sugeridas» (hito 75).
+        # Las fases sugeridas, «Scoring › Fases sugeridas» (hitos 75 y 79).
         "request_stage_suggestions",
         "accept_safe_suggestions",
         "accept_all_suggestions",
@@ -190,6 +197,9 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         "decrease_amplitude",
         "score_current_window",
         "toggle_arousal",
+        # Hito 79: retomar un scoring a medias.
+        "go_to_next_unscored_window",
+        "go_to_previous_unscored_window",
         "set_histogram_time_axis",
         # Montaje.
         "derive_dialog",
@@ -213,8 +223,6 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         # ventana antes de soltar la sesión, y cualquier test que necesite el
         # resultado (hito 42).
         "wait_for_background",
-        # El contador de la lupa, desde «Herramientas» (hito 32).
-        "reset_magnifier_count",
     }
 )
 
@@ -224,10 +232,7 @@ PRIVADOS_QUE_LA_SUITE_USA: frozenset[str] = frozenset(
     {
         "_show_error",
         "_go_to_window",
-        "_toggle_tool",
-        "_tools",
         "_session",
-        "_activate_panel_tools",
         "_ica",
         "_aplicar_analisis",
         # El cartel del trabajo sin exportar, que es modal (hito 33).
@@ -367,12 +372,12 @@ def test_reinstalar_no_duplica_espacio(ventana: MainWindow):
 
 def test_los_mixins_van_antes_que_qmainwindow():
     """**Si uno quedara después, sus métodos que Qt también define perderían
-    sin avisar**: `eventFilter()` dejaría de llevarle el mouse a las
-    herramientas y `closeEvent()` dejaría de preguntar por el trabajo sin
-    exportar. No habría error: Qt tiene los suyos."""
+    sin avisar**: `eventFilter()` dejaría de atender la rueda sobre la
+    señal y `closeEvent()` dejaría de preguntar por el trabajo sin exportar.
+    No habría error: Qt tiene los suyos."""
     orden = MainWindow.__mro__
     assert all(orden.index(m) < orden.index(QMainWindow) for m in MIXINS)
-    assert MainWindow.eventFilter is ToolsMixin.eventFilter
+    assert MainWindow.eventFilter is ViewMixin.eventFilter
     assert MainWindow.closeEvent is FilesMixin.closeEvent
 
 

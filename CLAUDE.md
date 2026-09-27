@@ -111,6 +111,10 @@ python -m venv .venv
 pip install -r requirements.txt -r requirements-dev.txt
 ```
 
+Cada clon activa también el hook que pone al equipo como coautor de cada
+commit, con `git config core.hooksPath .githooks`. Qué hace y cómo se suma a
+alguien está en el README, en "Coautores en cada commit".
+
 Hay un tercer archivo, `requirements-analysis.txt`, con las tres dependencias
 exclusivas de la Parte 2 (`mne-connectivity`, `antropy` y, desde el hito 75,
 `yasa`), que arrastran numba, llvmlite, xarray, pandas, scikit-learn y
@@ -600,11 +604,15 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   ser de los atajos. **Un filtro de eventos no se instala en la aplicación
   por cada ventana**: las de los tests no se destruyen, y con uno por ventana
   la suite dejó de terminar. Éste es uno solo y mira sólo al widget con foco.
-- **La ventana son ocho archivos y una sola clase** (hito 76).
-  `main_window.py` la arma y hereda lo que hace de siete mixins por tema
-  —`ui/window_tools.py`, `window_annotation.py`, `window_files.py`,
-  `window_view.py`, `window_preferences.py`, `window_scoring.py` y
-  `window_analysis.py`—. Un método nuevo va al del tema. **Un test que
+- **La ventana es una sola clase en varios archivos** (hito 76).
+  `main_window.py` la arma y hereda lo que hace de seis mixins por tema
+  —`ui/window_annotation.py`, `window_files.py`, `window_view.py`,
+  `window_preferences.py`, `window_scoring.py` y `window_analysis.py`—. Un
+  método nuevo va al del tema. **Desde el hito 79 hay además controladores
+  con estado propio**, que la ventana guarda como atributo: el primero es
+  `ui/tool_controller.py` (`window.tool_controller`), con las herramientas,
+  quién tiene el mouse y lo que dibujan. No conoce la ventana y le avisa por
+  señales, así que se testea sin armarla. **Un test que
   reemplace una función que la ventana importa la reemplaza en el módulo que
   la usa**: `fit_ica` en `window_analysis`, no en `main_window`, donde ya no
   tendría efecto. Los mixins van antes que `QMainWindow` en la herencia, o

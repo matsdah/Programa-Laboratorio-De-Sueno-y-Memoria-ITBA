@@ -83,6 +83,20 @@ def test_sin_ningun_canal_elegido_cae_al_primero_visible(
     assert banda.channel_name == "C3"
 
 
+def test_con_el_mouse_encima_va_sobre_el_canal_de_abajo(
+    herramienta: AmplitudeBandTool, sesion: Session
+):
+    """Hito 79: la `y` llega medida contra el canal que está debajo del mouse,
+    así que la banda tiene que ir sobre ése; dibujada sobre otro, quedaría en
+    un carril que el usuario no está mirando."""
+    sesion.set_selected_channels(["C3"])
+    herramienta.on_mouse_move(5.0, 20.0, "C4")
+
+    (banda,) = herramienta.overlays()
+    assert banda.channel_name == "C4"
+    assert banda.y_center_uv == 20.0
+
+
 def test_la_banda_dice_de_que_herramienta_es(herramienta: AmplitudeBandTool):
     """Sirve para borrar lo suyo sin tocar lo de las demás herramientas."""
     (banda,) = herramienta.overlays()

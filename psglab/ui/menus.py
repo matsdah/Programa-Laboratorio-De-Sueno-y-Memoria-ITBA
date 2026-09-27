@@ -7,14 +7,16 @@ cambia lo que el programa hace.
 
 ## Qué hay en la barra
 
-Un botón con el icono de una carpeta, que abre un registro, y después Scoring,
-Escala de tiempo, Amplitud, Ver, Montaje, Filtrar, Analizar, Herramientas,
-Configuración y Ayuda.
+Un botón con el icono de una carpeta, que abre un registro, y después Archivo,
+Ver, Scoring, Montaje, Filtrar, Analizar, Herramientas y Ayuda.
 
-**«Archivo» dejó de ser un menú** porque sólo le quedaba una acción: un menú
-de una entrada obliga a dos clics para lo que un botón hace en uno. Por el
-mismo motivo **«Configuración» abre su ventana directamente**: el submenú de
-esquemas repetía la solapa Colores de esa ventana.
+**«Scoring» volvió en el hito 79**, y es otro menú que el de antes del hito
+64, que sólo importaba y exportaba: ahora lleva la tarea principal del
+programa —las fases, el arousal, ir a la próxima sin scorear y las fases
+sugeridas—, que estaba repartida entre las teclas, que no se ven, y
+«Analizar». Importar y exportar el scoring siguen en «Archivo». En el mismo
+cambio **«Escala de tiempo» y «Amplitud» pasaron adentro de «Ver»**: son cómo
+se ve la señal, y ocupaban dos lugares de la barra.
 
 **«Herramientas» lleva también los paneles** desde el hito 28. Hasta entonces
 había un menú «Paneles» aparte, y los dos se pisaban: la Übersicht estaba en
@@ -43,12 +45,13 @@ sesión y por eso habilitan "volver a la señal original", y las terceras no.
 ## Lo que este módulo no hace
 
 **No implementa ninguna acción.** Cada entrada llama a un método de la ventana
-principal, y ahí es donde vive lo que hace. Si estás por escribir lógica acá,
+principal, o de uno de sus controladores —el contador de la lupa es de
+`tool_controller`, desde el hito 79—, y ahí es donde vive lo que hace. Si estás por escribir lógica acá,
 va en otro archivo.
 
 **Tampoco arma los modos del mouse del menú de herramientas.** Ésos se pueblan
 recorriendo el registro —`available_tools()`— desde
-`main_window._build_tools_menu()`, que es el punto de extensión que pide el
+`ToolController.build_menu()`, que es el punto de extensión que pide el
 pliego: una herramienta nueva aparece sola. Acá se ponen los paneles, que
 salen de `window.docks`, y aquél inserta los modos arriba de todo. **Es la
 única vía para activar una herramienta**: la barra horizontal que repetía ese
@@ -64,22 +67,22 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QActionGroup
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QToolButton, QWidget
 
 from psglab.config import AMPLITUDE_PRESETS_UV, VIEW_TIMESCALE_PRESETS
+from psglab.core.nomenclature import Nomenclature, stage_label, stages_of
 from psglab.exporters.scoring_formats import SCORING_FORMATS
 from psglab.ui import theme
 from psglab.ui.docks import ORDEN_DE_ANALISIS
 from psglab.ui.grid import BackgroundStyle
 from psglab.ui.icons import icon
 from psglab.ui.panel_header import SIN_REGISTRO
-from psglab.ui.shortcuts import key_for, readable_key
+from psglab.ui.shortcuts import key_for, key_for_stage, readable_key
 
 if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
     from collections.abc import Callable
 
-    from PySide6.QtGui import QAction
     from PySide6.QtWidgets import QMenu, QMenuBar
 
     from psglab.ui.main_window import MainWindow
@@ -100,8 +103,8 @@ def build_menus(window: "MainWindow") -> None:
     Deja en la ventana los dos `QAction` que el resto del programa necesita
     tocar después —`accion_eje_en_hora` y `accion_señal_original`—, el botón
     de abrir un registro, `open_button`, y el menú de herramientas,
-    `tools_menu`, con los paneles ya puestos: `_build_tools_menu()` le inserta
-    arriba los modos del mouse que salen del registro.
+    `tools_menu`, con los paneles ya puestos: `ToolController.build_menu()`
+    le inserta arriba los modos del mouse que salen del registro.
 
     **La barra de menú no es la nativa del sistema.** En macOS la nativa es la
     de arriba de la pantalla, que no muestra el botón de abrir ni deja una
@@ -112,9 +115,8 @@ def build_menus(window: "MainWindow") -> None:
     _abrir(window)
     _identificador(window)
     _archivo(window)
-    _escala_de_tiempo(window)
-    _amplitud(window)
     _ver(window)
+    _scoring(window)
     _montaje(window)
     _filtrar(window)
     _analizar(window)
@@ -144,8 +146,8 @@ def menu_path(window: "MainWindow", method_name: str) -> str | None:
     a mano**: renombrar una entrada no puede dejar a un panel mandando al
     usuario a buscar algo que ya no existe.
 
-    **Entra en los submenús** desde el hito 75, que agregó «Analizar › Fases
-    sugeridas»: «Analizar › Fases sugeridas › Confirmar las seguras».
+    **Entra en los submenús** desde el hito 75, que agregó «Fases
+    sugeridas»: «Scoring › Fases sugeridas › Confirmar las seguras».
 
     Returns:
         La ruta, o None si ninguna acción de la barra ejecuta ese método.
@@ -349,8 +351,9 @@ def rebuild_views_menu(window: "MainWindow") -> None:
     borrar.setEnabled(bool(vistas))
 
 
-def _escala_de_tiempo(window: "MainWindow") -> None:
-    """Cuánto registro entra en la pantalla.
+def _escala_de_tiempo(window: "MainWindow", ver: "QMenu") -> None:
+    """Cuánto registro entra en la pantalla. Es un submenú de «Ver» desde el
+    hito 79; hasta entonces ocupaba un lugar propio en la barra.
 
     **Es lo único del refactor que separa dos cosas que el programa tenía
     pegadas**: la época de scoring, que el pliego fija en 30 s y no cambia, y la
@@ -361,7 +364,7 @@ def _escala_de_tiempo(window: "MainWindow") -> None:
     registro de sueño, y un menú donde la mayoría no sirve obliga a buscar la
     que sí. La época aparece en la lista como una más, que es lo que es.
     """
-    escala = window.menuBar().addMenu("&Escala de tiempo")
+    escala = ver.addMenu("&Escala de tiempo")
     for segundos in VIEW_TIMESCALE_PRESETS:
         escala.addAction(
             _pagina(segundos),
@@ -398,8 +401,9 @@ def _pagina(segundos: float) -> str:
     return f"{duration_text(segundos)} por página"
 
 
-def _amplitud(window: "MainWindow") -> None:
-    """Todo lo que cambia el tamaño vertical de la señal.
+def _amplitud(window: "MainWindow", ver: "QMenu") -> None:
+    """Todo lo que cambia el tamaño vertical de la señal. Submenú de «Ver»,
+    como la escala de tiempo (hito 79).
 
     **Las entradas hablan de microvoltios por carril y no de "amplitud".** Es
     deliberado: el número que el programa guarda es cuántos µV representa la
@@ -411,7 +415,7 @@ def _amplitud(window: "MainWindow") -> None:
     canales seleccionados, o todos los visibles si no hay ninguno seleccionado.
     Lo resuelve `Session`, no este menú.
     """
-    amplitud = window.menuBar().addMenu("A&mplitud")
+    amplitud = ver.addMenu("A&mplitud")
     _agregar(amplitud, "&Ajustar al panel", window.fit_amplitude_to_pane)
     _agregar(amplitud, "Ajustar el &desplazamiento", window.center_amplitude_offsets)
     _agregar(amplitud, "Desplazamiento a &cero", window.reset_amplitude_offsets)
@@ -432,8 +436,23 @@ def _amplitud(window: "MainWindow") -> None:
 
 
 def _ver(window: "MainWindow") -> None:
-    """Lo que cambia cómo se ve la señal sin tocar el dato."""
+    """Lo que cambia cómo se ve la señal sin tocar el dato.
+
+    **Arriba, los tres submenús que se usan scoreando**: la escala de tiempo,
+    la amplitud y las vistas de canales. Abajo, lo que se elige una vez: el
+    fondo de la grilla, el esquema y el eje del hipnograma.
+    """
     ver = window.menuBar().addMenu("&Ver")
+    _escala_de_tiempo(window, ver)
+    _amplitud(window, ver)
+    # **Las vistas de canales** (hito 64): qué canales, en qué orden y con qué
+    # escala, guardados con un nombre. Los programas de scoring traen una para
+    # scorear, otra respiratoria y otra cardíaca; sin esto, cada registro
+    # obligaba a elegir los canales de nuevo.
+    window.menu_vistas = ver.addMenu("Vistas de &canales")
+    rebuild_views_menu(window)
+
+    ver.addSeparator()
     for estilo in BackgroundStyle:
         ver.addAction(
             estilo.value,
@@ -463,26 +482,103 @@ def _ver(window: "MainWindow") -> None:
     window.acciones_de_esquema[theme.current().name].setChecked(True)
 
     ver.addSeparator()
-    # **Las vistas de canales** (hito 64): qué canales, en qué orden y con qué
-    # escala, guardados con un nombre. Los programas de scoring traen una para
-    # scorear, otra respiratoria y otra cardíaca; sin esto, cada registro
-    # obligaba a elegir los canales de nuevo.
-    window.menu_vistas = ver.addMenu("Vistas de &canales")
-    rebuild_views_menu(window)
-
-    ver.addSeparator()
     # V2_F del histograma: el pliego pide poder elegir el eje.
     window.accion_eje_en_hora = ver.addAction("Hipnograma en hora real de la noche")
     window.accion_eje_en_hora.setCheckable(True)
     window.accion_eje_en_hora.toggled.connect(window.set_histogram_time_axis)
 
 
+def _scoring(window: "MainWindow") -> None:
+    """La tarea principal del programa, en un solo lugar (hito 79).
+
+    Hasta acá las fases y el arousal sólo estaban en el teclado y en el panel
+    de Scoring, que arranca oculto; ir a la próxima sin scorear, sólo en el
+    teclado; y las fases sugeridas, en «Analizar». Un menú es donde se
+    descubre que un atajo existe, y la columna de la derecha lo muestra.
+
+    **Las fases no se escriben acá**: las pone `rebuild_stage_actions()` con
+    las de la nomenclatura activa, arriba del primer separador. Al abrirse, el
+    menú se pone al día con la ventana actual —cuál es su fase, si tiene
+    arousal— desde `ScoringMixin._reflejar_el_scoring_en_el_menu()`, que es
+    donde está la sesión: este módulo no la conoce.
+    """
+    scoring = window.menuBar().addMenu("&Scoring")
+    window.menu_scoring = scoring
+    window.acciones_de_fase = {}
+    # **Exclusivas pero con ninguna tildada**: una ventana sin scorear no
+    # tiene fase, y el grupo exclusivo común no deja destildar la última.
+    window._grupo_de_fases = QActionGroup(window)
+    window._grupo_de_fases.setExclusionPolicy(
+        QActionGroup.ExclusionPolicy.ExclusiveOptional
+    )
+    window._separador_de_fases = scoring.addSeparator()
+    rebuild_stage_actions(window, Nomenclature.AASM)
+    scoring.aboutToShow.connect(window._reflejar_el_scoring_en_el_menu)
+
+    window.accion_arousal = _agregar(
+        scoring, "A&rousal en esta ventana", window.toggle_arousal
+    )
+    window.accion_arousal.setCheckable(True)
+    _agregar(scoring, "A&notar la ventana actual…", window.annotate_current_window)
+    scoring.addSeparator()
+    _agregar(scoring, "&Próxima ventana sin scorear", window.go_to_next_unscored_window)
+    _agregar(
+        scoring, "Ventana an&terior sin scorear", window.go_to_previous_unscored_window
+    )
+    _agregar(scoring, "&Ir a una ventana…", window.ask_window)
+
+    # **Sugerir mide; confirmar es aparte** (hito 75). Lo que propone el
+    # clasificador no toca el scoring hasta que alguien lo confirme. Estaban en
+    # «Analizar» hasta el hito 79, porque sugerir es un cálculo; pero se buscan
+    # scoreando, y confirmarlas es scorear.
+    scoring.addSeparator()
+    sugeridas = scoring.addMenu("&Fases sugeridas")
+    _agregar(sugeridas, "&Sugerir las fases…", window.request_stage_suggestions)
+    _agregar(sugeridas, "Confirmar las &seguras…", window.accept_safe_suggestions)
+    _agregar(sugeridas, "Confirmar &todas…", window.accept_all_suggestions)
+    sugeridas.addSeparator()
+    _agregar(sugeridas, "&Descartar las sugeridas", window.discard_suggestions)
+
+
+def rebuild_stage_actions(window: "MainWindow", nomenclature: Nomenclature) -> None:
+    """Pone en «Scoring» una entrada por fase de esa nomenclatura (hito 79).
+
+    Cambia con la nomenclatura —importar un scoring en Rechtschaffen y Kales
+    trae S3, S4 y M—, y por eso no se arma una sola vez. Si ya están las de
+    esa nomenclatura no toca nada: se llama cada vez que el menú se abre.
+
+    **El atajo va escrito a mano**, después del tabulador, y no por
+    `_mostrar_atajos()`: todas llaman al mismo método con una fase distinta, y
+    aquél busca la tecla por el nombre del método. Es la de `key_for_stage()`,
+    la misma que muestra el botón de la fase; el alias numérico no se repite
+    acá, como tampoco en el botón.
+    """
+    fases = stages_of(nomenclature)
+    if tuple(window.acciones_de_fase) == fases:
+        return
+    for accion in window.acciones_de_fase.values():
+        window.menu_scoring.removeAction(accion)
+        window._grupo_de_fases.removeAction(accion)
+        accion.deleteLater()
+    window.acciones_de_fase = {}
+    for fase in fases:
+        rotulo = "Fase " + stage_label(fase).replace("&", "&&")
+        accion = QAction(
+            f"{rotulo}\t{readable_key(key_for_stage(fase))}", window.menu_scoring
+        )
+        accion.setCheckable(True)
+        accion.setActionGroup(window._grupo_de_fases)
+        accion.triggered.connect(lambda _=False, f=fase: window.score_current_window(f))
+        window.menu_scoring.insertAction(window._separador_de_fases, accion)
+        window.acciones_de_fase[fase] = accion
+
+
 def _herramientas(window: "MainWindow") -> None:
     """Los paneles del menú de herramientas, y cómo volver a la disposición.
 
     El menú queda en cuatro bloques. **El primero, los modos del mouse, lo
-    inserta después `_build_tools_menu()`** antes del separador con que arranca
-    éste: salen del registro y acá no se conocen. Si no hubiera ninguno, `QMenu`
+    inserta después `ToolController.build_menu()`** antes del separador con
+    que arranca éste: salen del registro y acá no se conocen. Si no hubiera ninguno, `QMenu`
     no dibuja el separador que quedaría suelto arriba.
 
     **Se arma recorriendo los docks**, no con una lista escrita a mano: un panel
@@ -492,7 +588,7 @@ def _herramientas(window: "MainWindow") -> None:
     `docks.ORDEN_DE_ANALISIS`, que es el del flujo de trabajo.
 
     Una herramienta que tiene panel —la Übersicht, el hipnograma— **está acá
-    una sola vez, como su panel**: ver `main_window._build_tools_menu()`.
+    una sola vez, como su panel**: ver `ToolController.build_menu()`.
     """
     menu = window.menuBar().addMenu("&Herramientas")
     window.tools_menu = menu
@@ -509,7 +605,11 @@ def _herramientas(window: "MainWindow") -> None:
     _agregar(menu, "&Restaurar la disposición", window.restore_default_layout)
     # **Junto a restaurar, y no con los modos del mouse**: no es un modo sino
     # algo que vuelve a su estado inicial, como la disposición (hito 32).
-    _agregar(menu, "Poner en &cero el contador de la lupa", window.reset_magnifier_count)
+    _agregar(
+        menu,
+        "Poner en &cero el contador de la lupa",
+        window.tool_controller.reset_magnifier_count,
+    )
 
 
 def _montaje(window: "MainWindow") -> None:
@@ -573,16 +673,6 @@ def _analizar(window: "MainWindow") -> None:
     window.accion_conectividad_de_la_noche = _agregar(
         analizar, "Conectividad de la &noche…", window.show_connectivity_night_dialog
     )
-    # **Sugerir mide; confirmar es aparte** (hito 75). Lo que propone el
-    # clasificador no toca el scoring hasta que alguien lo confirme, y por eso
-    # vive acá y no junto al scoring de «Archivo».
-    analizar.addSeparator()
-    sugeridas = analizar.addMenu("&Fases sugeridas")
-    _agregar(sugeridas, "&Sugerir las fases…", window.request_stage_suggestions)
-    _agregar(sugeridas, "Confirmar las &seguras…", window.accept_safe_suggestions)
-    _agregar(sugeridas, "Confirmar &todas…", window.accept_all_suggestions)
-    sugeridas.addSeparator()
-    _agregar(sugeridas, "&Descartar las sugeridas", window.discard_suggestions)
 
 
 def _ayuda(window: "MainWindow") -> None:

@@ -72,7 +72,7 @@ commit.
 |----|-----------|---------|
 | V1_F | Dibujar una línea con el mouse | `psglab/tools/occupancy.py` |
 | V2_F | Calcular el porcentaje de ocupación horizontal | `psglab/tools/occupancy.py` |
-| V3_F | Mostrar el porcentaje | `psglab/tools/occupancy.py` (el cálculo), `psglab/ui/window_tools.py` (`_update_tool_readout`, que lo muestra) |
+| V3_F | Mostrar el porcentaje | `psglab/tools/occupancy.py` (el cálculo), `psglab/ui/tool_controller.py` (`update_readout`, que lo muestra) |
 | V4_F | Sumar la distancia horizontal de varias líneas | `psglab/tools/occupancy.py` |
 | V5_F | Borrar una línea con clic o al cambiar de ventana | `psglab/tools/occupancy.py` |
 
@@ -90,7 +90,7 @@ commit.
 | ID | Requisito | Archivo |
 |----|-----------|---------|
 | V1_F | Círculo de zoom que sigue al mouse | `psglab/tools/magnifier.py` (el gesto), `psglab/ui/signal_view.py` (`_dibujar_lupa`, que amplía) |
-| V2_F | Contador de clics para contar picos | `psglab/tools/magnifier.py` (la cuenta), `psglab/ui/window_tools.py` (`_update_tool_readout`, que la muestra) |
+| V2_F | Contador de clics para contar picos | `psglab/tools/magnifier.py` (la cuenta), `psglab/ui/tool_controller.py` (`update_readout`, que la muestra) |
 
 ### Herramienta Übersicht
 
@@ -128,7 +128,7 @@ commit.
 | Derivar | — | Derivar la señal | `psglab/analysis/derivation.py` |
 | PSD | V1_F | PSD por banda de frecuencia elegida | `psglab/analysis/psd.py`, `psglab/ui/psd_panel.py` (el dibujo) |
 | Complejidad | — | Complejidad de la señal | `psglab/analysis/complexity.py`, `psglab/ui/metric_panel.py` (el dibujo) |
-| Scoring automático | — | Sugerir la fase de cada ventana, que alguien confirma después (hito 75) | `psglab/analysis/auto_scoring.py`, `core/scoring.py` (la capa de las sugeridas), `ui/window_scoring.py` y `ui/menus.py` («Analizar › Fases sugeridas») |
+| Scoring automático | — | Sugerir la fase de cada ventana, que alguien confirma después (hito 75) | `psglab/analysis/auto_scoring.py`, `core/scoring.py` (la capa de las sugeridas), `ui/window_scoring.py` y `ui/menus.py` («Scoring › Fases sugeridas», desde el hito 79) |
 | Conectividad | — | Conectividad de la señal | `psglab/analysis/connectivity.py`, `psglab/ui/connectivity_panel.py` (la matriz), `psglab/ui/metric_panel.py` (a lo largo de la noche) |
 
 ---

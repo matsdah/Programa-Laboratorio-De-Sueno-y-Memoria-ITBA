@@ -63,7 +63,7 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "sesenta y nueve": 69, "setenta": 70, "setenta y uno": 71, "setenta y un": 71,
     "setenta y dos": 72, "setenta y tres": 73, "setenta y cuatro": 74,
     "setenta y cinco": 75, "setenta y seis": 76, "setenta y siete": 77,
-    "setenta y ocho": 78, "setenta y nueve": 79,
+    "setenta y ocho": 78, "setenta y nueve": 79, "ochenta": 80,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
@@ -156,15 +156,16 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     # la interfaz vuelve probable.
     "test_main_window_layout.py": (
         "psglab/ui/main_window.py",
-        # Y los siete pedazos: que vayan antes de Qt y no se pisen (hito 76).
+        # Y los seis pedazos: que vayan antes de Qt y no se pisen (hito 76).
         "psglab/ui/window_analysis.py",
         "psglab/ui/window_annotation.py",
         "psglab/ui/window_files.py",
         "psglab/ui/window_preferences.py",
         "psglab/ui/window_scoring.py",
-        "psglab/ui/window_tools.py",
         "psglab/ui/window_view.py",
     ),
+    # El primer controlador con estado propio (hito 79), armado sin la ventana.
+    "test_tool_controller.py": ("psglab/ui/tool_controller.py",),
     "test_theme.py": ("psglab/ui/theme.py",),
     "test_preferences.py": ("psglab/ui/preferences.py",),
     "test_menus.py": ("psglab/ui/menus.py",),

@@ -56,7 +56,12 @@ import numpy as np
 from psglab.core.recording import Channel, Recording
 from psglab.readers.base import IMPORT_WARNINGS_KEY, MARKS_KEY, Reader, register_reader
 from psglab.readers.channel_types import detect_channel_kind
-from psglab.utils.errors import UnknownUnitError, UnreadableFileError
+from psglab.utils.errors import (
+    RecordingTooLargeError,
+    UnknownUnitError,
+    UnreadableFileError,
+    memoria_suficiente,
+)
 from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
 
 #: Unidad en la que MNE entrega los canales que reconoce como eléctricos. No es
@@ -249,7 +254,13 @@ class EdfReader(Reader):
                 details=f"No existe {path}.",
             )
         try:
-            crudo = mne.io.read_raw_edf(path, preload=True, verbose="ERROR")
+            # **Quedarse sin memoria no es un archivo dañado** (hito 79): sin
+            # esto, `MemoryError` caía en el `except` de abajo y el cartel
+            # mandaba a buscar el problema en el archivo.
+            with memoria_suficiente("abrir el registro"):
+                crudo = mne.io.read_raw_edf(path, preload=True, verbose="ERROR")
+        except RecordingTooLargeError:
+            raise
         except Exception as error:  # noqa: BLE001 - MNE eleva de todo
             raise UnreadableFileError(
                 f"No se pudo leer el registro «{path.name}»: el archivo está dañado o "
@@ -285,7 +296,8 @@ class EdfReader(Reader):
                     f"leyó {len(crudo.ch_names)}."
                 ),
             )
-        datos = np.asarray(crudo.get_data(), dtype=float)
+        with memoria_suficiente("abrir el registro"):
+            datos = np.asarray(crudo.get_data(), dtype=float)
 
         canales: list[Channel] = []
         for posicion, nombre in enumerate(crudo.ch_names):

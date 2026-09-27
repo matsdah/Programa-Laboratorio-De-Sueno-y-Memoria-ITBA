@@ -45,7 +45,7 @@ Desde la ventana se exporta el scoring, en .txt, .csv, .edf o .xml; los otros
 dos archivos, Anotaciones.txt e Informacion.txt, salieron del menu a pedido
 del usuario y hoy se piden desde un script. Falta confirmarlo con el cliente.
 
-El programa abre con la senal y la lista de canales, y nada mas: los demas
+El programa abre con la senal, la lista de canales y el hipnograma: los demas
 paneles se abren desde el menu Herramientas, que junta las herramientas y los
 paneles. La barra de abajo mueve la epoca y tiene un boton para reproducir el
 registro solo, como EDFbrowser, a la velocidad que se elija: la reproduccion se
@@ -53,8 +53,10 @@ cuenta desde el medio del grafico, y la epoca actual es la que pasa por ahi.
 
 LA PARTE 2 TAMBIEN ESTA TERMINADA, el modulo de analisis de bioseniales:
 filtrado, ICA, impedancia, re-referenciado, derivaciones, densidad espectral,
-complejidad y conectividad. Todas esas funciones se piden desde los menus
-Montaje, Filtrar y Analizar. Necesita dos dependencias que no se instalan por defecto; estan en
+complejidad, conectividad y las fases sugeridas por un clasificador, que
+alguien tiene que confirmar. Todas esas funciones se piden desde los menus
+Montaje, Filtrar y Analizar, y las fases sugeridas desde Scoring. Necesita tres
+dependencias que no se instalan por defecto; estan en
 requirements-analysis.txt y el README explica cuando hacen falta.
 
 Se trabajo asi a proposito: primero se acuerda la estructura, despues se
@@ -62,8 +64,11 @@ programa. Con eso se evita descubrir a mitad de camino que dos personas
 escribieron lo mismo en dos lugares distintos.
 
 Como se llego hasta aca esta en docs/TODO.md, que es el unico documento que
-lleva la cuenta. El trabajo esta agrupado en setenta y nueve hitos, del 0 al 78:
-cada hito solo usa cosas que ya estan terminadas en los hitos anteriores.
+lleva la cuenta. El trabajo esta agrupado en ochenta hitos, del 0 al 79:
+cada hito solo usa cosas que ya estan terminadas en los hitos anteriores. El
+ultimo esta abierto: es el plan que dejo la auditoria del 26 de septiembre,
+con los errores que encontro y los cambios que propone, en el orden en que
+conviene hacerlos.
 
 
 -------------------------------------------------------------------------------

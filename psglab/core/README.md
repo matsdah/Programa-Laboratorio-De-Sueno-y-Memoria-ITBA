@@ -22,7 +22,7 @@ ubicó mal.
 |---|---|---|
 | `recording.py` | El registro cargado en memoria: `Recording`, `Channel`, `ChannelKind`. `flat_channels()` dice qué canales no varían en un tramo, para que los análisis lo expliquen, y `non_finite_channels()`, cuántas muestras sin valor tiene cada uno, para avisarlo al importar. `content_limit_hz()` dice hasta qué frecuencia tiene contenido de verdad un canal grabado más lento que el registro (hito 72). | Soporte de V1_F–V3_F de "Importación", V4_F de "Visualización" |
 | `session.py` | Estado de trabajo del usuario. **Es el objeto central.** | V1_F de "Navegación"; V2_P, V3_P, V5_F de "Visualización"; V4_F del histograma |
-| `scoring.py` | Fase y arousal de cada ventana: `Scoring`, `EpochScore`. Desde el hito 75, también las fases que sugiere un clasificador (`StageSuggestion`), **en una capa aparte**: `stage` sigue queriendo decir «la eligió una persona», así que ni los exportadores ni las estadísticas las ven, y una sugerida nunca pisa una fase puesta a mano. | V1_F, V2_F, V3_F de "Scoring" |
+| `scoring.py` | Fase y arousal de cada ventana: `Scoring`, `EpochScore`. Desde el hito 75, también las fases que sugiere un clasificador (`StageSuggestion`), **en una capa aparte**: `stage` sigue queriendo decir «la eligió una persona», así que ni los exportadores ni las estadísticas las ven, y una sugerida nunca pisa una fase puesta a mano. `next_unscored()` dice cuál es la próxima ventana sin scorear en cada dirección, contando las sugeridas como sin scorear (hito 79). | V1_F, V2_F, V3_F de "Scoring" |
 | `nomenclature.py` | Rechtschaffen y Kales frente a AASM: `Nomenclature`, `SleepStage`, conversión entre ambas. `check_nomenclature()` es pública desde el hito 48 porque `Scoring` la necesita para no guardar una nomenclatura inventada. | V1_F, V3_F de "Scoring"; V3_F del histograma |
 | `annotations.py` | Eventos anotados sobre la señal: `Annotation`, `AnnotationSet`. Una anotación es inmutable; corregirla es reemplazarla con `replace()`, que valida la nueva antes de sacar la vieja (hito 52). `marks_to_annotations()` convierte las marcas que trae el archivo en anotaciones, en muestras (hito 73). | V1_F de "Anotación de la señal" |
 | `windows.py` | Conversión entre ventanas, muestras y hora de la noche. | V1_P de "Visualización", V1_F de "Navegación", V2_F del histograma |
@@ -47,7 +47,14 @@ corriente —Respiratorio, Otro— se miden sobre la primera época, **después 
 centrarlas en su media** (hito 70): una temperatura de 37 °C se medía contra
 el cero y se dibujaba pegada al borde de su carril. Una sola escala
 para todos no puede servir: con los 100 µV de un EEG, un canal respiratorio se
-sale de su carril y tapa seis canales.
+sale de su carril y tapa seis canales. **Un canal que agrega un análisis sigue la misma
+regla** (hito 79): un EOG derivado abre con la escala del EOG, y uno sin escala
+propia se centra y se mide sobre la época actual.
+
+**Todas las vías que cambian la escala comparten el alcance**: las flechas,
+«Ajustar al panel» y `set_amplitude_scale()` —«µV por carril»— llegan a los
+canales seleccionados, o a todos los visibles si no hay ninguno. Lo resuelve
+`_channels_under_amplitude()`, y el menú no lo repite (hito 79).
 
 **Se sustituye adentro, no se arma otra.** `set_scoring()` existe porque
 importar un scoring (V3_F) no es abrir otro registro: el usuario sigue parado

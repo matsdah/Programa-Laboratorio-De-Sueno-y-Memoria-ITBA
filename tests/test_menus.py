@@ -40,10 +40,16 @@ def ventana(qt_app) -> MainWindow:
 
 
 def menu_llamado(ventana: MainWindow, titulo: str) -> QMenu:
-    """El menú de la barra con ese título, para no repetir la búsqueda."""
+    """El menú de la barra con ese título, para no repetir la búsqueda.
+
+    «Escala de tiempo» y «Amplitud» se buscan adentro de «Ver», donde están
+    desde el hito 79."""
     for accion in ventana.menuBar().actions():
         if accion.text() == titulo:
             assert accion.menu() is not None
+            return accion.menu()
+    for accion in menu_llamado(ventana, "&Ver").actions():
+        if accion.menu() is not None and accion.text() == titulo:
             return accion.menu()
     raise AssertionError(f"no hay ningún menú «{titulo}»")
 
@@ -74,20 +80,21 @@ def _todas_las_acciones(ventana: MainWindow) -> list:
 # -- La estructura -----------------------------------------------------------
 
 
-def test_estan_las_nueve_entradas(ventana: MainWindow):
+def test_estan_las_ocho_entradas(ventana: MainWindow):
     """Eran cinco, con «Análisis» de cajón de sastre: nueve entradas
     heterogéneas en un solo menú obligan a leerlo entero cada vez.
 
     «Paneles», que había salido de «Ver» en el hito 23, se fundió con
     «Herramientas» en el 28. **«Archivo» volvió en el hito 64**, con el
-    scoring y la configuración adentro, que eran dos entradas sueltas."""
+    scoring y la configuración adentro, que eran dos entradas sueltas. **En el
+    79 volvió «Scoring»**, con la tarea principal, y «Escala de tiempo» y
+    «Amplitud» pasaron adentro de «Ver»."""
     titulos = [accion.text() for accion in ventana.menuBar().actions()]
 
     assert titulos == [
         "&Archivo",
-        "&Escala de tiempo",
-        "A&mplitud",
         "&Ver",
+        "&Scoring",
         "&Montaje",
         "&Filtrar",
         "&Analizar",
@@ -151,7 +158,7 @@ def test_volver_a_la_senal_original_arranca_apagada(ventana: MainWindow):
 
 
 def test_el_menu_de_herramientas_queda_listo_para_poblarse(ventana: MainWindow):
-    """Lo llena `_build_tools_menu()` recorriendo el registro: es el punto de
+    """Lo llena `ToolController.build_menu()` recorriendo el registro: es el punto de
     extensión del pliego, y una herramienta nueva tiene que aparecer sola."""
     assert ventana.tools_menu is not None
     assert len(ventana.tools_menu.actions()) > 0
@@ -352,7 +359,7 @@ def test_herramientas_va_en_cuatro_bloques(ventana: MainWindow):
     modos, trabajo, analisis, restaurar = bloques(ventana.tools_menu)
     de_analisis = [clave for clave, _ in ORDEN_DE_ANALISIS]
 
-    assert modos == list(ventana._tool_actions.values())
+    assert modos == list(ventana.tool_controller.actions.values())
     assert trabajo == [
         dock.toggleViewAction()
         for clave, dock in ventana.docks.items()
@@ -387,7 +394,7 @@ def test_una_herramienta_con_panel_esta_como_su_panel(
     (entrada,) = [a for a in ventana.tools_menu.actions() if a.text() == texto]
 
     assert entrada is ventana.docks[clave].toggleViewAction()
-    assert clave not in ventana._tool_actions
+    assert clave not in ventana.tool_controller.actions
 
 
 def test_los_dos_esquemas_estan_en_ver(ventana: MainWindow):
@@ -425,12 +432,16 @@ def test_los_esquemas_son_excluyentes(ventana: MainWindow):
         ventana.set_color_scheme(anterior, remember=False)
 
 
-def test_ver_tiene_un_solo_submenu_el_de_las_vistas(ventana: MainWindow):
+def test_ver_abre_con_sus_tres_submenus(ventana: MainWindow):
     """Los esquemas y los fondos van sueltos; las vistas de canales (hito 64)
-    son una lista que crece, y por eso van en su submenú."""
+    son una lista que crece, y por eso van en su submenú. **La escala de
+    tiempo y la amplitud entraron en el hito 79**, y van arriba: son lo que se
+    cambia scoreando, y lo de abajo se elige una vez."""
     ver = menu_llamado(ventana, "&Ver")
+    submenus = ["&Escala de tiempo", "A&mplitud", "Vistas de &canales"]
 
-    assert [a.text() for a in ver.actions() if a.menu() is not None] == ["Vistas de &canales"]
+    assert [a.text() for a in ver.actions() if a.menu() is not None] == submenus
+    assert [a.text() for a in ver.actions()][:3] == submenus
 
 
 def test_no_hay_barra_de_herramientas(ventana: MainWindow):
@@ -500,9 +511,14 @@ def test_las_acciones_con_atajo_lo_muestran(ventana: MainWindow):
 
 
 def test_las_acciones_sin_atajo_no_muestran_ninguno(ventana: MainWindow):
+    """Las fases de «Scoring» escriben el suyo a mano: ver
+    `test_cada_fase_muestra_su_tecla`."""
     from psglab.ui.shortcuts import key_for
 
+    fases = list(ventana.acciones_de_fase.values())
     for accion in _todas_las_acciones(ventana):
+        if accion in fases:
+            continue
         metodo = accion.data()
         if not isinstance(metodo, str) or key_for(metodo) is None:
             assert "\t" not in accion.text(), accion.text()
@@ -525,6 +541,127 @@ def test_el_atajo_se_muestra_pero_no_se_registra_en_la_accion(ventana: MainWindo
     ninguno: mostrar el atajo rompería el atajo."""
     for accion in _todas_las_acciones(ventana):
         assert accion.shortcut().isEmpty(), accion.text()
+
+
+# -- Scoring (hito 79) ---------------------------------------------------------
+
+
+@pytest.fixture
+def con_registro(qt_app, tmp_path) -> MainWindow:
+    """Una ventana con un registro sintético de tres ventanas abierto."""
+    from conftest import escribir_brainvision
+
+    from psglab.config import WINDOW_SECONDS
+
+    ventana = create_main_window()
+    ventana.open_recording(
+        escribir_brainvision(tmp_path / "registro", segundos=WINDOW_SECONDS * 3)
+    )
+    assert ventana.session is not None
+    return ventana
+
+
+def test_scoring_va_en_cuatro_bloques(ventana: MainWindow):
+    """Las fases, lo que se marca en la ventana, adónde ir y las sugeridas."""
+    fases, marcar, ir, sugeridas = bloques(menu_llamado(ventana, "&Scoring"))
+
+    assert fases == list(ventana.acciones_de_fase.values())
+    assert [a.data() for a in marcar] == ["toggle_arousal", "annotate_current_window"]
+    assert [a.data() for a in ir] == [
+        "go_to_next_unscored_window",
+        "go_to_previous_unscored_window",
+        "ask_window",
+    ]
+    assert [a.text() for a in sugeridas] == ["&Fases sugeridas"]
+
+
+def test_cada_fase_muestra_su_tecla(ventana: MainWindow):
+    """La misma tecla que el botón de la fase; el alias numérico tampoco se
+    repite acá."""
+    from psglab.core.nomenclature import Nomenclature, stage_label, stages_of
+    from psglab.ui.shortcuts import key_for_stage, readable_key
+
+    assert [a.text() for a in ventana.acciones_de_fase.values()] == [
+        f"Fase {stage_label(fase)}\t{readable_key(key_for_stage(fase))}"
+        for fase in stages_of(Nomenclature.AASM)
+    ]
+
+
+def test_las_sugeridas_salieron_de_analizar(ventana: MainWindow):
+    """Se buscan scoreando, y confirmarlas es scorear."""
+    from psglab.ui.menus import menu_path
+
+    assert (
+        menu_path(ventana, "accept_safe_suggestions")
+        == "Scoring › Fases sugeridas › Confirmar las seguras"
+    )
+    analizar = menu_llamado(ventana, "&Analizar")
+    assert [a for a in analizar.actions() if a.menu() is not None] == []
+
+
+def test_sin_registro_las_entradas_de_scoring_se_apagan(ventana: MainWindow):
+    """Sin sesión no hacen nada, y una entrada muda se lee como que no anda.
+    El submenú de las sugeridas queda: sin registro explica por qué no."""
+    menu = menu_llamado(ventana, "&Scoring")
+
+    menu.aboutToShow.emit()
+
+    for accion in menu.actions():
+        if accion.isSeparator():
+            continue
+        assert accion.isEnabled() is (accion.menu() is not None), accion.text()
+
+
+def test_elegir_una_fase_del_menu_scorea_la_ventana(con_registro: MainWindow):
+    from psglab.core.nomenclature import SleepStage
+
+    con_registro.acciones_de_fase[SleepStage.N2].trigger()
+
+    assert con_registro.session.scoring.get(0).stage is SleepStage.N2
+
+
+def test_al_abrirse_tilda_la_fase_y_el_arousal_de_la_ventana(con_registro: MainWindow):
+    """Se pone al día al abrirse, no en cada cambio: un menú cerrado no
+    muestra nada."""
+    from psglab.core.nomenclature import SleepStage
+
+    sesion = con_registro.session
+    sesion.scoring.set_stage(1, SleepStage.R)
+    sesion.scoring.set_arousal(1, True)
+    menu = con_registro.menu_scoring
+
+    menu.aboutToShow.emit()
+    assert not [a for a in con_registro.acciones_de_fase.values() if a.isChecked()]
+    assert not con_registro.accion_arousal.isChecked()
+
+    con_registro.go_to_next_window()
+    menu.aboutToShow.emit()
+    tildadas = [f for f, a in con_registro.acciones_de_fase.items() if a.isChecked()]
+    assert tildadas == [SleepStage.R]
+    assert con_registro.accion_arousal.isChecked()
+    assert all(a.isEnabled() for a in menu.actions() if not a.isSeparator())
+
+
+def test_el_arousal_del_menu_lo_marca_y_lo_desmarca(con_registro: MainWindow):
+    con_registro.accion_arousal.trigger()
+    assert con_registro.session.scoring.get(0).arousal
+
+    con_registro.accion_arousal.trigger()
+    assert not con_registro.session.scoring.get(0).arousal
+
+
+def test_las_fases_siguen_a_la_nomenclatura(con_registro: MainWindow):
+    """Importar un scoring en Rechtschaffen y Kales trae S3, S4 y M: el menú
+    las muestra al abrirse, sin que nadie se lo avise."""
+    from psglab.core.nomenclature import Nomenclature, stages_of
+
+    con_registro.session.scoring.change_nomenclature(Nomenclature.RK)
+    con_registro.menu_scoring.aboutToShow.emit()
+
+    assert list(con_registro.acciones_de_fase) == list(stages_of(Nomenclature.RK))
+    assert bloques(con_registro.menu_scoring)[0] == list(
+        con_registro.acciones_de_fase.values()
+    )
 
 
 # -- La ruta de un menú, para los paneles vacíos ---------------------------------

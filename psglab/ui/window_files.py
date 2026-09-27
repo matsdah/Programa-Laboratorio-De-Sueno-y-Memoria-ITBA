@@ -84,7 +84,7 @@ class FilesMixin:
         # Las herramientas activas siguen guardando la sesión que recibieron
         # en `activate()`: si no se las suelta, la ocupación seguiría midiendo
         # sobre el registro anterior y el histograma dibujaría su scoring.
-        self._deactivate_all_tools()
+        self.tool_controller.deactivate_all()
         # Y por el mismo motivo, la descomposición ICA del registro anterior: es
         # de otra señal y de otros canales.
         self._olvidar_ica()
@@ -100,12 +100,7 @@ class FilesMixin:
         self.accion_señal_original.setEnabled(False)
         # Las herramientas se enteran solas de los cambios de ventana: es la
         # decisión del hito 6, y por eso acá no hay que acordarse de avisarles.
-        for herramienta in self._tools.values():
-            sesion.add_window_listener(herramienta.on_window_changed)
-            sesion.add_view_listener(herramienta.on_view_changed)
-        # **Después de las herramientas**: la ocupación se reancla en su
-        # `on_view_changed()`, y las bandas se comparan contra lo ya reanclado.
-        sesion.add_view_listener(self._al_cambiar_la_pagina)
+        self.tool_controller.attach(sesion)
 
         self._aplicar_colores_de_clase(sesion)
         self.signal_view.set_session(sesion)
@@ -113,7 +108,7 @@ class FilesMixin:
         self.channel_selector.set_recording(registro)
         self.scoring_panel.set_nomenclature(sesion.scoring.nomenclature)
         install_shortcuts(self, sesion)
-        self._activate_panel_tools()
+        self.tool_controller.activate_panel_tools()
         # El eje del histograma en hora real sólo se puede pedir si el archivo
         # informó cuándo empezó: pedirlo igual sería un cartel de error cada
         # vez que se abre un registro sin hora, por una preferencia que el
@@ -405,7 +400,7 @@ class FilesMixin:
     def open_recording_dialog(self) -> None:
         """Ctrl+O. El filtro se arma solo desde los lectores registrados."""
         ruta, _ = QFileDialog.getOpenFileName(
-            self, "Abrir registro", "", file_dialog_filter()
+            self, "Abrir registro", self._carpeta_de_trabajo(), file_dialog_filter()
         )
         if ruta:
             self.open_recording(Path(ruta))
@@ -424,7 +419,7 @@ class FilesMixin:
         filtros += [f"{nombre} (*.{ext})" for ext, nombre in SCORING_FORMATS.items()]
         filtros.append("Todos los archivos (*)")
         ruta, _ = QFileDialog.getOpenFileName(
-            self, "Importar scoring", "", ";;".join(filtros)
+            self, "Importar scoring", self._carpeta_de_trabajo(), ";;".join(filtros)
         )
         if ruta:
             self.open_scoring(Path(ruta))
@@ -440,6 +435,28 @@ class FilesMixin:
 
     # -- Ayudantes privados -------------------------------------------------
 
+    def _carpeta_de_trabajo(self) -> str:
+        """Dónde arrancan los diálogos de abrir, importar y exportar (hito 79).
+
+        **La carpeta del registro abierto**, que es donde suelen estar su
+        scoring y donde conviene dejar lo que se exporta. Sin registro, la del
+        último que se abrió. Arrancaban en la carpeta desde donde se lanzó el
+        programa, y como el nombre propuesto es siempre el del pliego
+        —`Scoring.txt`—, dos participantes exportados sin mirar terminaban en
+        la misma carpeta, uno encima del otro.
+
+        Returns:
+            La carpeta, o `""` —la que elija el sistema— si ninguna existe.
+        """
+        candidatas: list[Path] = []
+        if self._session is not None:
+            candidatas.append(self._session.recording.file_path.parent)
+        candidatas += [Path(ruta).parent for ruta in self._preferencias.recent_files[:1]]
+        for carpeta in candidatas:
+            if carpeta.is_dir():
+                return str(carpeta)
+        return ""
+
     def _export_dialog(self, kind: str, fmt: str = "txt") -> None:
         """Pregunta dónde guardar y exporta.
 
@@ -450,6 +467,9 @@ class FilesMixin:
         reemplazar para no convertir «noche.v2» en «noche.csv».
         """
         propuesto = Path(DEFAULT_FILENAMES[kind]).with_suffix(f".{fmt}").name
+        carpeta = self._carpeta_de_trabajo()
+        if carpeta:
+            propuesto = str(Path(carpeta) / propuesto)
         filtro = f"{SCORING_FORMATS.get(fmt, fmt.upper())} (*.{fmt})"
         ruta, _ = QFileDialog.getSaveFileName(self, "Exportar", propuesto, filtro)
         if not ruta:
