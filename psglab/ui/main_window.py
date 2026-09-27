@@ -441,10 +441,14 @@ class MainWindow(
         """Redibuja todos los paneles a partir del estado de la sesión.
 
         Se llama después de cualquier cambio: navegar, scorear, anotar o
-        cambiar la amplitud.
+        cambiar la amplitud. **Por eso registra el historial de deshacer**
+        (hito 79): es el único lugar por el que pasan todos los cambios del
+        scoring. Si lo que cambió no es trabajo —navegar, la amplitud—, la
+        foto es la misma y no se guarda nada.
         """
         if self._session is None:
             return
+        self.work_guard.record()
         self.signal_view.show_window(self._session.current_window)
         self.channel_selector.set_visible(self._session.visible_channels)
         self.tool_controller.refresh_overview()

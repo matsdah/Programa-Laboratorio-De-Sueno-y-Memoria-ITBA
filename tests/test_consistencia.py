@@ -181,6 +181,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_work_guard.py": ("psglab/ui/work_guard.py",),
     # La copia de recuperación, sin disco (hito 79).
     "test_recovery.py": ("psglab/core/recovery.py",),
+    # Deshacer y rehacer, sin la ventana (hito 79).
+    "test_history.py": ("psglab/core/history.py",),
     "test_scoring_panel.py": ("psglab/ui/scoring_panel.py",),
     "test_fonts.py": ("psglab/ui/fonts.py",),
     "test_exporters.py": (

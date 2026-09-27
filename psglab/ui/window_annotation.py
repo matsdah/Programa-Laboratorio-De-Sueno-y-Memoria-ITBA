@@ -94,6 +94,8 @@ class AnnotationMixin:
         contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
+        # Anotar no pasa por `refresh()`, que es donde se registra el resto.
+        self.work_guard.record()
         self.statusBar().showMessage(f"Se anotó «{clase}»", 5000)
 
     def _menu_de_anotacion(
@@ -220,6 +222,7 @@ class AnnotationMixin:
             self._show_error(error, "cambiar la clase")
             return
         self.tool_controller.refresh_overview()
+        self.work_guard.record()
         self.statusBar().showMessage(
             f"«{anotacion.label}» pasó a ser «{clase}»", 5000
         )
@@ -239,21 +242,25 @@ class AnnotationMixin:
         if movida is None:
             return
         self.tool_controller.refresh_overview()
+        # **Al soltar y no mientras se arrastra**: todo el arrastre es un solo
+        # paso de deshacer.
+        self.work_guard.record()
         self.statusBar().showMessage(f"Se corrigió el tramo de «{movida.label}»", 5000)
 
     def _borrar_anotacion(self, herramienta: AnnotatorTool, anotacion: Annotation) -> None:
         """Borra una anotación, confirmándolo antes.
 
-        **Pregunta** porque no hay deshacer, y una anotación es trabajo del
-        investigador. Desde el hito 52 se llega eligiendo «Borrar» en el menú
-        del clic derecho, así que un clic de más ya no borra solo; la pregunta
-        se conservó igual, porque elegir mal en un menú también es un clic.
+        **Pregunta** porque una anotación es trabajo del investigador. Desde
+        el hito 52 se llega eligiendo «Borrar» en el menú del clic derecho, así
+        que un clic de más ya no borra solo; la pregunta se conservó igual,
+        porque elegir mal en un menú también es un clic. Se preguntaba además
+        porque no había deshacer; desde el hito 79 lo hay, y el cartel lo dice.
         """
         if not self._confirmar(
             "Borrar la anotación",
             f"¿Borrar la anotación «{anotacion.label}»?",
             "Borrar",
-            informativo="No se puede deshacer.",
+            informativo="Se puede deshacer con Ctrl+Z.",
             destructivo=True,
         ):
             return
@@ -266,6 +273,7 @@ class AnnotationMixin:
         contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()
+        self.work_guard.record()
         self.statusBar().showMessage(f"Se borró «{anotacion.label}»", 5000)
 
     def import_file_marks(self) -> None:

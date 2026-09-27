@@ -73,6 +73,8 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         "menu_scoring",
         "acciones_de_fase",
         "accion_arousal",
+        "accion_deshacer",
+        "accion_rehacer",
         # El menú que se puebla desde el registro de herramientas.
         "tools_menu",
         # Las herramientas, quién tiene el mouse y lo que dibujan (hito 79).
@@ -207,6 +209,9 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
         # Hito 79: retomar un scoring a medias.
         "go_to_next_unscored_window",
         "go_to_previous_unscored_window",
+        # Deshacer y rehacer, Ctrl+Z y Ctrl+Y (hito 79).
+        "undo",
+        "redo",
         "set_histogram_time_axis",
         # Montaje.
         "derive_dialog",
