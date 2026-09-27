@@ -11,17 +11,21 @@ noche no se leía. Cada control tiene ahora un mínimo propio, chico, y crece
 si hay lugar. El selector muestra la abreviatura de la nomenclatura, que es
 como se la nombra en el laboratorio, y el nombre completo en el tooltip.
 
-**Y va en tres filas, no en una.** Arriba el selector y el arousal, en el medio
-las fases y abajo el pie con la ventana y su fase. En una sola fila el mínimo
-era la suma de todo —464 px con Rechtschaffen y Kales—, y eso era más que lo
-que la proporción de `docks.ANCHOS_DE_ABAJO` le pedía: el scoring se quedaba
-siempre en su mínimo y el hipnograma pagaba la diferencia. Apilado, el mínimo
-es el de la fila más ancha, que es la de las fases.
+**Va en una sola fila, a la vista desde que abre el programa** (hito 79,
+decisión 3 de la auditoría): las fases con su tecla, el arousal con la suya y,
+al final, el selector de nomenclatura, que es lo que menos se toca. Desde el
+hito 26 iba en tres filas —el selector y el arousal, las fases, el pie— y
+arrancaba oculto, así que la tarea principal del programa no se veía y se
+descubría por la ayuda de atajos. En una fila el mínimo es la suma de todo, y
+con Rechtschaffen y Kales pasa un poco la parte que `docks.ANCHOS_DE_ABAJO` le
+da al lado del hipnograma: la diferencia la paga el hipnograma, con unos
+pocos píxeles. Con AASM entra de sobra.
 
-**El pie repite la ventana a propósito.** La barra de navegación y la de estado
-ya la dicen, pero el panel se puede sacar a otra pantalla, y ahí no se ve
-ninguna de las dos. Además es la fase en texto, que un lector de pantalla lee
-y un botón marcado no siempre comunica.
+**El pie sólo se ve con el panel suelto** (`set_detached()`). Repite la
+ventana y su fase, que acoplado ya dicen la barra de navegación y la de
+estado; suelto en otra pantalla no se ve ninguna de las dos, y ahí vuelve.
+**El lector de pantalla lo recibe siempre**, como descripción del panel: es la
+fase en texto, que un botón marcado no siempre comunica.
 
 Cubre del pliego: V1_F, V2_F, V3_F de "Scoring de la señal".
 """
@@ -38,17 +42,22 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from psglab.core.nomenclature import Nomenclature, SleepStage, stage_label, stages_of
 from psglab.core.scoring import StageSuggestion
+from psglab.ui import theme
 from psglab.ui.panel_header import SIN_REGISTRO
-from psglab.ui.shortcuts import key_for_stage
+from psglab.ui.shortcuts import key_for, key_for_stage, readable_key
 
-#: Hasta dónde se achica un botón de fase. Alcanza para «REM», la etiqueta
-#: más larga, con el margen del estilo.
+#: Hasta dónde se achica un botón de fase, **si su texto entra**. No alcanzaba
+#: para «REM» con el relleno de la hoja de estilo, como decía este comentario:
+#: con la fila en su mínimo el botón decía «!EN» (hito 79). Ahora cada botón
+#: se queda con el mayor entre esto y lo que mide su texto; ver
+#: `_ancho_minimo()`.
 ANCHO_MINIMO_DE_BOTON: Final[int] = 40
 
 #: Cuánto mide de alto, desde el hito 34. **Son dos renglones**: la fase y
@@ -59,6 +68,10 @@ ALTO_DEL_BOTON: Final[int] = 46
 
 #: El alto mínimo de lo que se aprieta con el mouse, en píxeles (WCAG 2.5.8).
 ALTO_MINIMO_DE_UN_OBJETIVO = 24
+
+#: Cuánto aire separa las fases del arousal, además del espacio entre botones.
+#: Sin él, la casilla se lee como una fase más.
+SEPARACION_DEL_AROUSAL: Final[int] = 8
 
 #: Hasta dónde se achica el selector de nomenclatura. Alcanza para «AASM».
 ANCHO_MINIMO_DEL_SELECTOR: Final[int] = 72
@@ -128,6 +141,19 @@ def _texto_del_boton(fase: SleepStage) -> str:
     return f"{etiqueta}\n{tecla}"
 
 
+def _ancho_minimo(boton: QPushButton) -> int:
+    """Lo menos que puede medir un botón de fase sin cortar su texto.
+
+    El renglón más largo del botón —la fase o su tecla—, más el relleno y el
+    borde de cada lado que le pone la hoja de estilo. Nunca menos que
+    `ANCHO_MINIMO_DE_BOTON`.
+    """
+    renglones = boton.text().split("\n")
+    texto = max(boton.fontMetrics().horizontalAdvance(r) for r in renglones)
+    relleno = 2 * (theme.RELLENO_HORIZONTAL_DE_CONTROL + 1)
+    return max(ANCHO_MINIMO_DE_BOTON, texto + relleno)
+
+
 class ScoringPanel(QWidget):
     """Botones de fase de sueño y de arousal."""
 
@@ -155,6 +181,12 @@ class ScoringPanel(QWidget):
 
         self._nomenclaturas = QComboBox()
         self._nomenclaturas.setMinimumWidth(ANCHO_MINIMO_DEL_SELECTOR)
+        # **No se achica por debajo de lo que pide su texto** (hito 79): en el
+        # renglón, lo que sobra se lo llevan las fases, y el selector quedaba
+        # en su mínimo diciendo «AASN». Lo mostró la captura.
+        self._nomenclaturas.setSizePolicy(
+            QSizePolicy.Policy.Fixed, self._nomenclaturas.sizePolicy().verticalPolicy()
+        )
         for posicion, nomenclatura in enumerate(Nomenclature):
             self._nomenclaturas.addItem(
                 ABREVIATURAS.get(nomenclatura, nomenclatura.value), nomenclatura
@@ -168,7 +200,13 @@ class ScoringPanel(QWidget):
         # «combo, AASM» sin decir de qué.
         self._nomenclaturas.setAccessibleName("Nomenclatura")
 
-        self._arousal = QCheckBox("Arousal")
+        # **Con su tecla**, como las fases (hito 79): en una fila no hay
+        # segundo renglón, así que va al lado del nombre.
+        tecla = key_for("toggle_arousal")
+        self._arousal = QCheckBox(
+            "Arousal" + (f" ({readable_key(tecla)})" if tecla is not None else "")
+        )
+        self._arousal.setAccessibleName("Arousal")
         self._arousal.toggled.connect(self._on_arousal)
         # 24 px de alto como mínimo (WCAG 2.5.8): medía 15, y es lo único del
         # panel que se aprieta con el mouse sin ser un botón.
@@ -180,6 +218,8 @@ class ScoringPanel(QWidget):
         self._pie = QLabel()
         self._pie.setWordWrap(True)
         self._pie.setAccessibleName("Ventana actual y su fase")
+        # Acoplado no se ve; ver `set_detached()`.
+        self._pie.hide()
         #: Lo que dice el pie en texto pelado. El rótulo guarda el suyo con
         #: marcas, así que `text()` no sirve para contestar `status()`.
         self._texto_del_pie = ""
@@ -192,18 +232,23 @@ class ScoringPanel(QWidget):
         self._columna.setContentsMargins(4, 2, 4, 2)
         self._columna.setSpacing(4)
 
-        self._controles = QHBoxLayout()
-        self._controles.setSpacing(4)
-        self._controles.addWidget(self._nomenclaturas)
-        self._controles.addStretch(1)
-        self._controles.addWidget(self._arousal)
-
-        #: La fila de las fases. Sin espaciador: los botones se reparten lo que
-        #: sobra, y un botón más ancho es más fácil de acertar.
+        #: El renglón: las fases, el arousal y el selector. Las fases van
+        #: primero, con `set_nomenclature()`; sin espaciador, se reparten lo
+        #: que sobra, y un botón más ancho es más fácil de acertar.
+        #:
+        #: **El arousal y el selector van centrados**, y no es estética: en un
+        #: renglón horizontal, cada elemento de alto fijo le pone su alto como
+        #: tope a todo el renglón. Con el selector de 30 px, los botones de dos
+        #: renglones —la fase y su tecla— salían aplastados, con la tecla
+        #: montada sobre la fase. Lo mostró la captura. Centrado, un elemento
+        #: no pone tope.
         self._fila = QHBoxLayout()
         self._fila.setSpacing(4)
+        self._fila.addSpacing(SEPARACION_DEL_AROUSAL)
+        centrado = Qt.AlignmentFlag.AlignVCenter
+        self._fila.addWidget(self._arousal, 0, centrado)
+        self._fila.addWidget(self._nomenclaturas, 0, centrado)
 
-        self._columna.addLayout(self._controles)
         self._columna.addLayout(self._fila)
         self._columna.addWidget(self._pie)
         self._columna.addStretch(1)
@@ -243,12 +288,23 @@ class ScoringPanel(QWidget):
             texto: el pie ya armado, en texto pelado.
         """
         self._texto_del_pie = texto
+        # Lo que el lector de pantalla lee del panel, se vea el pie o no.
+        self.setAccessibleDescription(texto)
         marcado = escape(texto).replace(escape(SIN_SCOREAR), f"<i>{escape(SIN_SCOREAR)}</i>")
         # La sugerida también, hasta el próximo separador (hito 75). El pie
         # parte las palabras, y sin el espacio duro el «%» quedaba solo en el
         # renglón de abajo: lo mostró la captura.
         marcado = re.sub(rf"({SUGERIDA} [^·]*?)(?= ·|$)", r"<i>\1</i>", marcado)
         self._pie.setText(marcado.replace(" %", "&nbsp;%"))
+
+    def set_detached(self, detached: bool) -> None:
+        """Muestra el pie si el panel está suelto, y lo oculta si está acoplado.
+
+        La ventana lo conecta a `topLevelChanged` de su panel. Acoplado, la
+        ventana y su fase ya las dicen la barra de navegación y la de estado,
+        y el pie sólo le sumaba un renglón a una fila que se quiere compacta.
+        """
+        self._pie.setVisible(detached)
 
     def status(self) -> str:
         """Lo que dice el pie ahora, en texto pelado.
@@ -297,11 +353,18 @@ class ScoringPanel(QWidget):
             boton.setProperty("fase", fase.value)
             # Un mínimo explícito es lo que le gana al de Qt, que en Windows
             # es de 75 px por botón aunque diga «W».
-            boton.setMinimumWidth(ANCHO_MINIMO_DE_BOTON)
+            boton.setMinimumWidth(_ancho_minimo(boton))
             boton.setMinimumHeight(ALTO_DEL_BOTON)
+            # **Todos del mismo alto**, el del más alto: W y R tienen un solo
+            # renglón, y con el alto fijo de su contenido le ponían tope al
+            # renglón entero (ver `_fila`).
+            politica = boton.sizePolicy()
+            politica.setVerticalPolicy(QSizePolicy.Policy.Minimum)
+            boton.setSizePolicy(politica)
             boton.clicked.connect(lambda _=False, f=fase: self._on_stage(f))
             self._grupo.addButton(boton)
-            self._fila.addWidget(boton)
+            # Antes del arousal: las fases van primero en el renglón.
+            self._fila.insertWidget(len(self._botones), boton, 1)
             self._botones[fase] = boton
 
         self._reflejando = True

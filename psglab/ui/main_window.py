@@ -11,7 +11,7 @@ Distribución general, pensada para el rol UX/UI del pliego (sección 15):
     |          |                                         | ICA...   |
     |          |                                         | (solapas)|
     +----------+-----------------------------------------+----------+
-    |  Hipnograma (a la vista) · Contexto y Scoring (ocultos)       |
+    |  Scoring e hipnograma (a la vista) · Contexto (oculto)        |
     +---------------------------------------------------------------+
     |  Navegación: ⏮ ◀ ⏯ ▶ ⏭  1×  | franja | amplitud               |
     +---------------------------------------------------------------+
@@ -26,9 +26,9 @@ paneles de análisis arrancan ocultos y los abre la acción que los calcula.
 que es la única vía: la barra horizontal que lo repetía debajo de la barra de
 menú se quitó por confusa.
 
-**El programa abre con la señal, el selector de canales y el hipnograma**
-(el hipnograma, desde el hito 64), y no recuerda la disposición de una
-apertura a otra (hito 24). Los demás paneles se abren desde «Herramientas»,
+**El programa abre con la señal, el selector de canales, el scoring y el
+hipnograma** (el hipnograma desde el hito 64, el scoring compacto desde el
+79), y no recuerda la disposición de una apertura a otra (hito 24). Los demás paneles se abren desde «Herramientas»,
 que desde el hito 28 lleva también los paneles.
 
 **Este archivo arma la ventana y nada más** desde el hito 76. Hasta ahí tenía

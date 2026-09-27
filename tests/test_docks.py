@@ -71,13 +71,14 @@ def test_los_nombres_de_objeto_no_se_repiten(ventana: MainWindow):
     assert len(set(nombres)) == len(nombres)
 
 
-def test_arrancan_visibles_los_canales_y_el_hipnograma(ventana: MainWindow):
-    """Hito 24: la señal ocupa todo lo demás, y el scoring y el contexto se
-    abren desde «Herramientas». **El hipnograma volvió en el hito 64**: en
-    los programas de scoring es lo único que está siempre a la vista."""
+def test_arrancan_visibles_los_canales_el_scoring_y_el_hipnograma(ventana: MainWindow):
+    """Hito 24: la señal ocupa todo lo demás, y el contexto se abre desde
+    «Herramientas». **El hipnograma volvió en el hito 64**: en los programas de
+    scoring es lo único que está siempre a la vista. **Y el scoring en el 79**,
+    en una fila al lado: oculto, la tarea principal no se veía."""
     visibles = [clave for clave, dock in ventana.docks.items() if not dock.isHidden()]
 
-    assert visibles == ["channels", "histogram"]
+    assert visibles == ["channels", "scoring", "histogram"]
 
 
 @pytest.mark.parametrize("clave", ["overview", "scoring", "histogram"])
@@ -154,7 +155,9 @@ def test_restaurar_vuelve_a_la_vista_limpia(ventana: MainWindow):
 
     ventana.restore_default_layout()
 
-    assert [c for c, d in ventana.docks.items() if not d.isHidden()] == ["channels", "histogram"]
+    assert [c for c, d in ventana.docks.items() if not d.isHidden()] == [
+        "channels", "scoring", "histogram"
+    ]
 
 
 def test_la_disposicion_va_y_vuelve(ventana: MainWindow):
@@ -205,7 +208,9 @@ def test_la_disposicion_no_se_recuerda(qt_app, tmp_path, monkeypatch):
     nueva = create_main_window(saved_preferences=True)
     nueva.close()
 
-    assert [c for c, d in nueva.docks.items() if not d.isHidden()] == ["channels", "histogram"]
+    assert [c for c, d in nueva.docks.items() if not d.isHidden()] == [
+        "channels", "scoring", "histogram"
+    ]
     assert archivo.read_text(encoding="utf-8") == guardadas
 
 
@@ -244,28 +249,53 @@ def test_el_scoring_se_deja_angostar(ventana: MainWindow, nomenclatura: Nomencla
     de «Arousal» depende de la tipografía de cada plataforma —72 px en Windows,
     108 en la de los tests—.
 
-    **Es el de la fila más ancha y no la suma de las dos**, que es todo el punto
-    de apilarlas: en una sola fila el mínimo con Rechtschaffen y Kales era de
-    464 px, más que lo que la proporción le pedía al scoring.
+    **Desde el hito 79 es una sola fila**, así que el mínimo es la suma: las
+    fases, el arousal y el selector. Se exige que ninguno pase del suyo.
     """
     from psglab.core.nomenclature import stages_of
-    from psglab.ui.scoring_panel import ANCHO_MINIMO_DE_BOTON, ANCHO_MINIMO_DEL_SELECTOR
+    from psglab.ui.scoring_panel import (
+        ANCHO_MINIMO_DE_BOTON,
+        ANCHO_MINIMO_DEL_SELECTOR,
+        SEPARACION_DEL_AROUSAL,
+    )
 
     panel = ventana.scoring_panel
     panel.set_nomenclature(nomenclatura)
     botones = len(stages_of(nomenclatura))
     margenes = panel.layout().contentsMargins()
     fases = botones * ANCHO_MINIMO_DE_BOTON + panel._fila.spacing() * (botones - 1)
-    controles = (
-        ANCHO_MINIMO_DEL_SELECTOR
+    renglon = (
+        fases
+        + panel._fila.spacing() * 3
+        + SEPARACION_DEL_AROUSAL
         + panel._arousal.minimumSizeHint().width()
-        + panel._controles.spacing() * 2
+        + ANCHO_MINIMO_DEL_SELECTOR
     )
-    tope = margenes.left() + margenes.right() + max(fases, controles)
+    tope = margenes.left() + margenes.right() + renglon
 
-    assert all(b.minimumWidth() == ANCHO_MINIMO_DE_BOTON for b in panel._botones.values())
-    assert panel.minimumSizeHint().width() <= tope
-    assert panel.minimumSizeHint().width() < fases + controles
+    assert all(b.minimumWidth() >= ANCHO_MINIMO_DE_BOTON for b in panel._botones.values())
+    # Lo que un botón pasa de su mínimo es lo que mide su texto (hito 79).
+    de_mas = sum(b.minimumWidth() - ANCHO_MINIMO_DE_BOTON for b in panel._botones.values())
+    assert panel.minimumSizeHint().width() <= tope + de_mas
+
+
+def test_el_scoring_es_una_sola_fila(ventana: MainWindow):
+    """Decisión 3 del hito 79: compacto, al lado del hipnograma. Acoplado es
+    el renglón y nada más: el pie sólo aparece suelto."""
+    panel = ventana.scoring_panel
+
+    assert panel.minimumSizeHint().height() <= panel._fila.sizeHint().height() + 12
+    assert panel._pie.isHidden()
+
+
+def test_el_pie_aparece_con_el_panel_suelto(ventana: MainWindow):
+    """Suelto en otra pantalla, la barra de navegación y la de estado no se
+    ven, y el pie es lo único que dice en qué ventana se está."""
+    ventana.scoring_dock.setFloating(True)
+    assert not ventana.scoring_panel._pie.isHidden()
+
+    ventana.scoring_dock.setFloating(False)
+    assert ventana.scoring_panel._pie.isHidden()
 
 
 def test_la_ubersicht_se_deja_angostar(ventana: MainWindow):
