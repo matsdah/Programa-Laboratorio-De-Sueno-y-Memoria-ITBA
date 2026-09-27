@@ -6790,3 +6790,61 @@ def test_la_c_crea_una_clase_nueva(ventana: MainWindow, elige_en_el_menu, monkey
     assert "Apnea" in ventana.session.annotations.labels()
     assert [a.label for a in ventana.session.annotations.all()] == ["Apnea"]
 
+
+# -- Anotar un arousal marca su ventana (hito 79) ---------------------------------
+
+
+def test_anotar_un_arousal_marca_su_ventana(ventana: MainWindow):
+    """El arousal existía dos veces sin relación, y la marca es la que llega
+    a `Scoring.txt`: un arousal anotado con cuidado no llegaba a ningún lado."""
+    ventana.set_annotation_class("Arousal")
+
+    arrastrar_un_tramo(ventana)
+
+    assert ventana.session.scoring.get(0).arousal
+    assert ventana.scoring_panel.status().endswith("· arousal")
+
+
+def test_anotar_otra_clase_no_marca_nada(ventana: MainWindow):
+    ventana.set_annotation_class("Spindle")
+
+    arrastrar_un_tramo(ventana)
+
+    assert not ventana.session.scoring.get(0).arousal
+
+
+def test_cambiar_la_clase_a_arousal_la_marca(ventana: MainWindow, monkeypatch):
+    anotacion = anotar_en(ventana, 40.0, 43.0, clase="Spindle")
+    herramienta = ventana.tool_controller.tools["annotator"]
+    ventana.tool_controller.toggle("annotator", True)
+    monkeypatch.setattr(
+        QInputDialog, "getItem", staticmethod(lambda *_a, **_k: ("Arousal", True))
+    )
+
+    ventana._cambiar_clase(herramienta, anotacion)
+
+    assert ventana.session.scoring.get(1).arousal
+
+
+def test_borrar_el_arousal_no_desmarca_la_ventana(ventana: MainWindow, confirmacion):
+    """La marca pudo haberse puesto a mano antes de anotar."""
+    ventana.set_annotation_class("Arousal")
+    arrastrar_un_tramo(ventana)
+    (anotacion,) = ventana.session.annotations.all()
+    confirmacion["respuesta"] = True
+
+    ventana._borrar_anotacion(ventana.tool_controller.tools["annotator"], anotacion)
+
+    assert ventana.session.annotations.all() == []
+    assert ventana.session.scoring.get(0).arousal
+
+
+def test_deshacer_el_arousal_anotado_saca_las_dos_cosas(ventana: MainWindow):
+    """Anotar y marcar son un solo paso: deshacerlo no deja la marca suelta."""
+    ventana.set_annotation_class("Arousal")
+    arrastrar_un_tramo(ventana)
+
+    ventana.undo()
+
+    assert ventana.session.annotations.all() == []
+    assert not ventana.session.scoring.get(0).arousal

@@ -47,7 +47,7 @@ import pytest
 from psglab.core import nomenclature as nom
 from psglab.core import recovery
 from psglab.core.history import History
-from psglab.core.annotations import es_color_de_clase, marks_to_annotations
+from psglab.core.annotations import es_color_de_clase, is_arousal, marks_to_annotations
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
@@ -187,6 +187,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("add(duration=...)", lambda v: AnnotationSet().add(Annotation("Arousal", 0, v))),
         ("color_of", lambda v: AnnotationSet().color_of(v)),
         ("es_color_de_clase", lambda v: es_color_de_clase(v)),
+        ("is_arousal", lambda v: is_arousal(v)),
         ("marks_to_annotations(marks=...)", lambda v: marks_to_annotations(v, 100.0, 1000)),
         ("marks_to_annotations(marks=[...])", lambda v: marks_to_annotations([v], 100.0, 1000)),
         ("marks_to_annotations(sampling_rate=...)", lambda v: marks_to_annotations([], v, 1000)),
@@ -231,6 +232,7 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("replaced", lambda v: pagina().replaced(span_seconds=v)),
     ],
     "psglab/core/session.py": [
+        ("mark_arousal_of", lambda v: sesion().mark_arousal_of(v)),
         ("Session(recording=...)", lambda v: Session(v, Scoring(1, Nomenclature.AASM), AnnotationSet())),
         ("Session(scoring=...)", lambda v: Session(registro(), v, AnnotationSet())),
         ("Session(annotations=...)", lambda v: Session(registro(), Scoring(1, Nomenclature.AASM), v)),
@@ -391,6 +393,9 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     # Hito 79. Aceptar una copia vacía pondría la sesión como estaba, que
     # parece inofensivo, y le diría al usuario que recuperó algo que no estaba.
     ("restore con una copia vacía", {}, lambda v: recovery.restore(sesion(), v)),
+    # Hito 79. Marcar el arousal de algo que no es una anotación dejaría la
+    # ventana sin marcar y sin decir por qué.
+    ("mark_arousal_of con una clase suelta", "Arousal", lambda v: sesion().mark_arousal_of(v)),
     # Un historial sin pasos no podría deshacer nada y lo diría callado.
     ("History con un límite de cero", 0, lambda v: History(sesion(), v)),
     ("summary con una copia vacía", {}, lambda v: recovery.summary(v)),

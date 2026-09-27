@@ -25,7 +25,7 @@ from psglab.config import (
     MAX_SCALE_UV,
     MIN_SCALE_UV,
 )
-from psglab.core.annotations import Annotation, AnnotationSet
+from psglab.core.annotations import Annotation, AnnotationSet, is_arousal
 from psglab.core.nomenclature import Nomenclature
 from psglab.core.recording import Channel, Recording
 from psglab.core.scoring import EpochScore, Scoring
@@ -382,6 +382,41 @@ class Session:
         que `mark_scoring_exported()`.
         """
         self._anotaciones_a_salvo = self._foto_de_las_anotaciones()
+
+    def mark_arousal_of(self, annotation: Annotation) -> int | None:
+        """Si la anotación es un arousal, marca el arousal de su ventana (hito 79).
+
+        **La ventana de su comienzo**, que es donde la AASM cuenta un arousal
+        que cruza el borde entre dos épocas. Marcar una que ya estaba marcada
+        no cambia nada.
+
+        **Borrar la anotación no la desmarca**, por decisión del usuario: la
+        marca pudo haberse puesto a mano, con la tecla A, antes de anotar, y
+        desmarcarla borraría un dato que la anotación no puso.
+
+        Returns:
+            La ventana que se marcó, o None si la anotación no es un arousal.
+
+        Raises:
+            InvalidAnnotationError: si no es una anotación, o si empieza fuera
+                del registro.
+        """
+        if not isinstance(annotation, Annotation):
+            raise InvalidAnnotationError(
+                "No se pudo marcar el arousal de la anotación.",
+                details=f"annotation es {type(annotation).__name__}, se esperaba Annotation.",
+            )
+        if not is_arousal(annotation.label):
+            return None
+        inicio = annotation.onset_sample
+        if not isinstance(inicio, int) or not 0 <= inicio < self._recording.n_samples:
+            raise InvalidAnnotationError(
+                "El arousal empieza fuera del registro.",
+                details=f"onset_sample = {inicio!r}, n_samples = {self._recording.n_samples}.",
+            )
+        ventana = sample_to_window(inicio, self._recording.sampling_rate)
+        self._scoring.set_arousal(ventana, True)
+        return ventana
 
     def set_recording(self, recording: Recording) -> None:
         """Reemplaza el registro por uno procesado, sin perder la sesión.
