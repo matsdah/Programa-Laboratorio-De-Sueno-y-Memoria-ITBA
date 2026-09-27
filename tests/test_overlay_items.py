@@ -366,6 +366,22 @@ def test_cambiar_de_esquema_rehace_la_anotacion(vista: SignalView):
         theme.set_current(anterior)
 
 
+def test_un_esquema_con_el_mismo_nombre_y_otros_colores_rehace_la_anotacion(
+    vista: SignalView,
+):
+    """La firma lleva el esquema entero: uno armado con `dataclasses.replace()`
+    se llama igual que el original y pinta otra cosa."""
+    import dataclasses
+
+    anterior = theme.current()
+    otro = dataclasses.replace(anterior, accent="#123456")
+    assert otro.name == anterior.name
+    try:
+        assert _se_rehace_al(vista, ANOTACION, lambda: theme.set_current(otro))
+    finally:
+        theme.set_current(anterior)
+
+
 # -- La banda de amplitud: el alto es una longitud ----------------------------
 
 

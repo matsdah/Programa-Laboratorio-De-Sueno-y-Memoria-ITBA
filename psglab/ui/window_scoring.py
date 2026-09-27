@@ -448,6 +448,13 @@ class ScoringMixin:
         se leía como una fase más, que es justo lo que el pliego no quiere: el
         histograma tiene el tamaño de la noche desde el arranque y hay que poder
         ver qué falta.
+
+        **Si no cambió nada de lo que dibuja, no hace nada.** Se la llama dos
+        veces por flecha —una al reflejar la época y otra porque el hipnograma
+        avisa que se movió la actual— y el hipnograma no muestra la época
+        actual: con una noche de ocho horas a medio scorear, rearmarlo era la
+        mitad de lo que costaba una flecha. Lo que decide el dibujo es
+        `_firma_del_hipnograma()`.
         """
         herramienta = self.tool_controller.tools.get("histogram")
         if not isinstance(herramienta, HistogramTool) or self._session is None:
@@ -455,6 +462,10 @@ class ScoringMixin:
         barras = herramienta.bars()
         if not barras:
             return
+        firma = self._firma_del_hipnograma_actual(herramienta)
+        if firma == self._firma_del_hipnograma:
+            return
+        self._firma_del_hipnograma = firma
 
         orden = list(stages_of(self._session.scoring.nomenclature))
         altura = {fase: float(len(orden) - posicion) for posicion, fase in enumerate(orden)}
@@ -494,6 +505,26 @@ class ScoringMixin:
         )
         item.getAxis("bottom").setTicks([self._marcas_del_histograma(len(barras))])
 
+    def _firma_del_hipnograma_actual(self, herramienta: HistogramTool) -> object:
+        """Todo lo que decide cómo se ve el hipnograma, y nada más.
+
+        Las fases y las sugeridas de cada ventana, la nomenclatura —que ordena
+        el eje—, el esquema —que pinta las fases—, y el eje de abajo, que
+        depende de si va en hora y de a qué hora empezó el registro. **La época
+        actual no está**, porque el hipnograma no la dibuja: si algún día la
+        marca, tiene que entrar acá o la marca se queda quieta.
+        """
+        return (
+            herramienta.bars(),
+            herramienta.suggested_bars(),
+            self._session.scoring.nomenclature,
+            # El esquema entero y no su nombre: uno armado a partir de otro se
+            # llama igual y pinta distinto.
+            theme.current(),
+            herramienta.uses_clock_time,
+            self._session.recording.start_time,
+        )
+
     def _pintar_las_fases(
         self, herramienta: HistogramTool, altura: dict[SleepStage, float]
     ) -> None:
@@ -507,7 +538,7 @@ class ScoringMixin:
 
         **Un solo ítem de escena para todos los tramos**, y tramos en vez de
         ventanas: es la misma cuenta del hito 25 con la grilla, sobre un panel
-        que se redibuja en cada cambio de época.
+        que se redibuja con cada fase que se scorea.
         """
         esquema = theme.current()
         if not esquema.stage_colors:

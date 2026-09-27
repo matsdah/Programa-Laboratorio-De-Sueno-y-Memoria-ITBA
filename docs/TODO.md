@@ -297,7 +297,7 @@ código de hoy** antes de arreglar nada.
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
     `tests/test_contratos.py`, **1227 tests en verde**;
-    `tests/test_entrega.py`, **431 tests en verde**.
+    `tests/test_entrega.py`, **436 tests en verde**.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
 línea reanclada sin canal, la lupa sin restar el desplazamiento, la banda que
@@ -371,7 +371,7 @@ más. **Varias piden una decisión antes**; están marcadas.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
     `tests/test_contratos.py`, **1227 tests en verde**;
-    `tests/test_entrega.py`, **431 tests en verde**.
+    `tests/test_entrega.py`, **436 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
   0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
@@ -392,7 +392,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       ayuda de atajos suma C y, en «Anotación», lo que hace el mouse.
   - Test: `tests/test_annotator.py`, **49 tests en verde**;
     `tests/test_tool_controller.py`, **16 tests en verde**;
-    `tests/test_entrega.py`, **431 tests en verde**.
+    `tests/test_entrega.py`, **436 tests en verde**.
 - [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
       pedido encadena carteles modales para elegir canal, medida o banda
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
@@ -525,7 +525,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       mano. Anotar y marcar son un solo paso de deshacer.
   - Test: `tests/test_annotations.py`, **82 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
-    `tests/test_entrega.py`, **431 tests en verde**.
+    `tests/test_entrega.py`, **436 tests en verde**.
 
 ### Tanda 3: partir las clases grandes
 
@@ -621,7 +621,7 @@ una vez que agregarlos al lugar que después hay que partir.
       4,16 carriles en vez de 0,34: doce veces. Los respiratorios se centran
       solos al abrir un registro, así que le pasaba a cualquiera que midiera
       sobre uno.
-  - Test: `tests/test_overlay_items.py`, **23 tests en verde**, y
+  - Test: `tests/test_overlay_items.py`, **24 tests en verde**, y
     `tests/test_envelope_cache.py`, **7 tests en verde**, sin Qt;
     `tests/test_signal_view.py` sigue con **98 tests en verde**.
 - [ ] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
@@ -781,10 +781,30 @@ función, y la historia ya está en este archivo y en git.
   - Test: en `tests/test_overlay_items.py`, que cien anotaciones sean una
     pieza, que se pinten de su color y donde van —a cada lado de los dos
     bordes— y que lleguen al carril que se agrega sin redibujarlas.
-- [ ] **El hipnograma no se rearma en cada flecha.** `_reflejar_epoca()`
+- [x] **El hipnograma no se rearma en cada flecha.** `_reflejar_epoca()`
       llama a `_redraw_histogram()`, que limpia y vuelve a crear la curva,
       las barras y las marcas, aunque `HistogramTool.update_window()` exista
       para no hacerlo.
+      Hecho. **Eran dos por flecha**: además de `_reflejar_epoca()`, la
+      herramienta avisa que se movió la época actual, y el hipnograma no la
+      dibuja. `update_window()` no era la salida —pone al día los datos de
+      la herramienta, no el dibujo—: `_redraw_histogram()` compara ahora una
+      firma de lo que dibuja —las fases y las sugeridas, la nomenclatura, el
+      esquema, el eje en hora y la hora de inicio— y si no cambió no hace
+      nada. Medido intercalado con `medir_flecha()`, nuevo en el banco, sobre
+      una noche de 8 h con la mitad scoreada: **de 26–27 ms a 8 ms** por
+      flecha.
+      De paso, la firma de los overlays del visualizador llevaba el
+      **nombre** del esquema, y uno armado con `dataclasses.replace()` se
+      llama igual y pinta distinto: las dos llevan ahora el esquema entero.
+      Y el banco terminaba con un cartel modal que nadie contestaba —cerraba
+      la ventana con lo que las mediciones anotan sin exportar—, que es
+      probablemente el cuelgue que no se diagnosticó al medir los overlays.
+  - Test: en `tests/test_entrega.py`, que una flecha deje la misma curva y
+    que scorear, cambiar el eje a hora, la nomenclatura sin nada scoreado u
+    otro registro con otra hora la rehagan: sacar cualquiera de esas cosas
+    de la firma lo nota un test. En `tests/test_overlay_items.py`, un
+    esquema con el mismo nombre y otros colores.
 - [ ] **`AnnotationSet` con búsqueda binaria**: `_insertar()` rearma la
       lista de comienzos en cada anotación y `in_range()` recorre todas en
       cada repintado.

@@ -23,6 +23,8 @@ Qué mide:
 - **Un movimiento del mouse con la lupa**, sobre una página de 5 min con
   cientos de anotaciones: cada movimiento vuelve a pedir lo que dibujan las
   herramientas, y las bandas de anotación van incluidas.
+- **Una flecha** sobre una noche de ocho horas con la mitad scoreada: lo que
+  cuesta cambiar de época, con el hipnograma y la franja de posición.
 
 **Se informa la mediana y no el promedio.** Una corrida cualquiera trae algún
 cuadro que tardó el triple porque el sistema operativo hizo otra cosa, y el
@@ -222,8 +224,46 @@ def medir_overlays(ventana: MainWindow) -> None:
         fila(f"{cuantas} anotaciones en la página", mediana_ms(mover))
 
 
+def medir_flecha(ventana: MainWindow) -> None:
+    """Una flecha, ida y vuelta, sobre una noche de ocho horas.
+
+    **La mitad scoreada, con la fase cambiando cada pocas ventanas**, para que
+    el hipnograma tenga cientos de tramos: es lo que tiene una noche real a
+    medio scorear, y lo que el hipnograma rearmaba entero en cada flecha.
+    """
+    import tempfile
+
+    from psglab.core.nomenclature import SleepStage
+    from tests.conftest import escribir_brainvision
+
+    print("\n== Una flecha, noche de 8 h (960 ventanas), la mitad scoreada ==")
+    with tempfile.TemporaryDirectory() as carpeta:
+        ruta = escribir_brainvision(Path(carpeta), segundos=8 * 3600.0, frecuencia=100.0)
+        ventana.open_recording(ruta)
+    sesion = ventana.session
+    fases = (SleepStage.N1, SleepStage.N2, SleepStage.N3, SleepStage.R, SleepStage.WAKE)
+    for indice in range(0, sesion.n_windows, 2):
+        sesion.scoring.set_stage(indice, fases[(indice // 6) % len(fases)])
+    ventana._reload_histogram()
+    sesion.go_to_window(sesion.n_windows // 2)
+    ventana.refresh()
+    QApplication.processEvents()
+
+    adelante = [True]
+
+    def flecha() -> None:
+        if adelante[0]:
+            ventana.go_to_next_window()
+        else:
+            ventana.go_to_previous_window()
+        adelante[0] = not adelante[0]
+        QApplication.processEvents()
+
+    fila("flecha a la derecha o a la izquierda", mediana_ms(flecha))
+
+
 def main() -> int:
-    """Corre las tres mediciones sobre una ventana de tamaño fijo."""
+    """Corre las mediciones sobre una ventana de tamaño fijo."""
     aplicacion = create_application(sys.argv)
     ventana = create_main_window()
     ventana.resize(ANCHO, ALTO)
@@ -235,7 +275,13 @@ def main() -> int:
     medir_dibujo(ventana, registro_sintetico(7, 100.0, 10), "7 canales a 100 Hz")
     medir_dibujo(ventana, registro_sintetico(32, 1000.0, 10), "32 canales a 1000 Hz")
     medir_overlays(ventana)
+    medir_flecha(ventana)
 
+    # **Sin esto el banco no termina.** Las mediciones anotan y scorean, y
+    # cerrar con trabajo sin exportar abre un cartel modal que nadie contesta.
+    if ventana.session is not None:
+        ventana.session.mark_scoring_exported()
+        ventana.session.mark_annotations_exported()
     ventana.close()
     del aplicacion
     return 0
