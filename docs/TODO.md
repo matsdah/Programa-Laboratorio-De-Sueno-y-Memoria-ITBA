@@ -297,7 +297,7 @@ código de hoy** antes de arreglar nada.
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
     `tests/test_contratos.py`, **1227 tests en verde**;
-    `tests/test_entrega.py`, **436 tests en verde**.
+    `tests/test_entrega.py`, **437 tests en verde**.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
 línea reanclada sin canal, la lupa sin restar el desplazamiento, la banda que
@@ -371,7 +371,7 @@ más. **Varias piden una decisión antes**; están marcadas.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
     `tests/test_contratos.py`, **1227 tests en verde**;
-    `tests/test_entrega.py`, **436 tests en verde**.
+    `tests/test_entrega.py`, **437 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
   0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
@@ -392,7 +392,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       ayuda de atajos suma C y, en «Anotación», lo que hace el mouse.
   - Test: `tests/test_annotator.py`, **49 tests en verde**;
     `tests/test_tool_controller.py`, **16 tests en verde**;
-    `tests/test_entrega.py`, **436 tests en verde**.
+    `tests/test_entrega.py`, **437 tests en verde**.
 - [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
       pedido encadena carteles modales para elegir canal, medida o banda
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
@@ -525,7 +525,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       mano. Anotar y marcar son un solo paso de deshacer.
   - Test: `tests/test_annotations.py`, **97 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
-    `tests/test_entrega.py`, **436 tests en verde**.
+    `tests/test_entrega.py`, **437 tests en verde**.
 
 ### Tanda 3: partir las clases grandes
 
@@ -848,9 +848,27 @@ función, y la historia ya está en este archivo y en git.
     disco que se llena a mitad de camino en los tres archivos del pliego y
     un CSV que se corta en la tercera ventana: sin el cambio, los cuatro
     dejan el destino truncado.
-- [ ] **El XML de scoring, sin expansión de entidades.** Abrir un XML hecho
+- [x] **El XML de scoring, sin expansión de entidades.** Abrir un XML hecho
       a propósito puede agotar la memoria. Riesgo bajo: hace falta abrir un
       archivo malicioso.
+      Hecho, y no sólo con un test. **La protección que había era la de
+      expat**, que desde la 2.4 corta una expansión desmedida; pero en Linux
+      Python puede usar el expat del sistema, así que eso dependía de la
+      máquina, y un test que pidiera «se rechaza» habría verificado la
+      máquina y no el programa. `_leer_xml()` hace ahora una pasada previa
+      con `xml.parsers.expat` que **rechaza cualquier declaración de
+      entidad**, antes de que se use: un scoring no necesita ninguna, ni el
+      del NSRR ni el que escribe este programa. Cubre también las externas y
+      las de parámetro. Sin dependencia nueva: la versión en C de
+      `ET.XMLParser` no expone su expat, que es donde `defusedxml` cuelga
+      la misma guarda.
+  - Test: en `tests/test_scoring_formats.py`, la risa del millón, una
+    entidad inofensiva sobre un scoring por lo demás válido —la que expat
+    sí deja pasar—, una externa y una de parámetro, afirmando el motivo del
+    rechazo y no sólo el rechazo; y que un `DOCTYPE` sin entidades se siga
+    leyendo. En `tests/test_entrega.py`, que por la ventana sea un cartel y
+    el scoring quede como estaba. Sin la guarda fallan los cinco que
+    rechazan.
 - [ ] **Medir el reparto con los paneles de análisis abiertos.** En la
       captura de 1800 px la señal quedaba con alrededor de un tercio del
       ancho y el panel de contexto con la mitad del alto. Puede ser propio de

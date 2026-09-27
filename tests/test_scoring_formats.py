@@ -704,6 +704,87 @@ def test_un_xml_roto_avisa(tmp_path):
         read_scoring(ruta, 1)
 
 
+# -- Un XML con entidades (hito 79) --------------------------------------------------
+#
+# Un XML puede declarar entidades que se expanden a otras, y unas pocas líneas
+# alcanzan para ocupar gigas. **El expat de muchas máquinas ya corta una
+# expansión desmedida**, así que un test que sólo pidiera «se rechaza» pasaría
+# también sin la guarda del programa. Lo que se afirma es el motivo: que se
+# rechaza **por declarar entidades**, y también cuando son inofensivas, que es
+# lo que expat sí deja pasar.
+
+_RISA_DEL_MILLON = """<?xml version="1.0"?>
+<!DOCTYPE PSGAnnotation [
+  <!ENTITY a0 "jaja">
+  <!ENTITY a1 "&a0;&a0;&a0;&a0;&a0;&a0;&a0;&a0;&a0;&a0;">
+  <!ENTITY a2 "&a1;&a1;&a1;&a1;&a1;&a1;&a1;&a1;&a1;&a1;">
+  <!ENTITY a3 "&a2;&a2;&a2;&a2;&a2;&a2;&a2;&a2;&a2;&a2;">
+  <!ENTITY a4 "&a3;&a3;&a3;&a3;&a3;&a3;&a3;&a3;&a3;&a3;">
+  <!ENTITY a5 "&a4;&a4;&a4;&a4;&a4;&a4;&a4;&a4;&a4;&a4;">
+  <!ENTITY a6 "&a5;&a5;&a5;&a5;&a5;&a5;&a5;&a5;&a5;&a5;">
+  <!ENTITY a7 "&a6;&a6;&a6;&a6;&a6;&a6;&a6;&a6;&a6;&a6;">
+  <!ENTITY a8 "&a7;&a7;&a7;&a7;&a7;&a7;&a7;&a7;&a7;&a7;">
+  <!ENTITY a9 "&a8;&a8;&a8;&a8;&a8;&a8;&a8;&a8;&a8;&a8;">
+]>
+<PSGAnnotation><Nomenclature>&a9;</Nomenclature></PSGAnnotation>
+"""
+
+_CON_ENTIDADES = {
+    "risa-del-millon": _RISA_DEL_MILLON,
+    # Un scoring completo y válido, salvo por la entidad: sin la guarda se
+    # leería sin ningún problema.
+    "una-inofensiva": (
+        '<?xml version="1.0"?><!DOCTYPE PSGAnnotation [<!ENTITY n "AASM">]>'
+        "<PSGAnnotation><Nomenclature>&n;</Nomenclature><ScoredEvents>"
+        "<ScoredEvent><EventType>Stages|Stages</EventType>"
+        "<EventConcept>Wake|0</EventConcept><Start>0</Start><Duration>30</Duration>"
+        "</ScoredEvent></ScoredEvents></PSGAnnotation>"
+    ),
+    "externa": (
+        '<?xml version="1.0"?>'
+        '<!DOCTYPE PSGAnnotation [<!ENTITY x SYSTEM "file:///etc/passwd">]>'
+        "<PSGAnnotation><Nomenclature>&x;</Nomenclature></PSGAnnotation>"
+    ),
+    "de-parametro": (
+        '<?xml version="1.0"?>'
+        '<!DOCTYPE PSGAnnotation [<!ENTITY % p "x"> <!ELEMENT PSGAnnotation ANY>]>'
+        "<PSGAnnotation/>"
+    ),
+}
+
+
+@pytest.mark.parametrize("contenido", _CON_ENTIDADES.values(), ids=_CON_ENTIDADES.keys())
+def test_un_xml_que_declara_entidades_no_se_abre(tmp_path, contenido):
+    # **No «entidades.xml»**: el mensaje lleva el nombre del archivo, y
+    # entonces cualquier rechazo lo contendría.
+    ruta = tmp_path / "scoring.xml"
+    ruta.write_text(contenido, encoding="utf-8")
+
+    with pytest.raises(UnreadableFileError) as fallo:
+        read_scoring(ruta, 1)
+
+    assert "declara entidades de XML" in str(fallo.value)
+
+
+def test_un_xml_con_doctype_sin_entidades_se_lee(tmp_path):
+    """Lo que se rechaza son las entidades, no el `DOCTYPE`: uno que sólo
+    declara elementos no puede expandirse a nada."""
+    ruta = tmp_path / "con-doctype.xml"
+    ruta.write_text(
+        '<?xml version="1.0"?>'
+        "<!DOCTYPE PSGAnnotation [<!ELEMENT PSGAnnotation ANY>]>"
+        "<PSGAnnotation><Nomenclature>AASM</Nomenclature><ScoredEvents>"
+        "<ScoredEvent><EventType>Stages|Stages</EventType>"
+        "<EventConcept>Wake|0</EventConcept><Start>0</Start><Duration>30</Duration>"
+        "</ScoredEvent></ScoredEvents></PSGAnnotation>",
+        encoding="utf-8",
+    )
+
+    scoring = read_scoring(ruta, 1)
+
+    assert scoring.get(0).stage is SleepStage.WAKE
+
+
 @pytest.mark.parametrize("inicio", ["", "cero", "nan"])
 def test_un_inicio_que_no_es_un_numero_avisa(tmp_path, inicio):
     ruta = xml_con(tmp_path, [("Stages|Stages", "Wake|0", inicio, 30)])  # type: ignore[list-item]
