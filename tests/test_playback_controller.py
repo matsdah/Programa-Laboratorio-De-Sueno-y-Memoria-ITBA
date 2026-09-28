@@ -6,7 +6,7 @@ mixin, así que probar la reproducción era armar la ventana entera. Ahora
 —reflejar la época, avisar el final, mostrar un error— le llega por señales. Acá
 se miran esas señales y el cursor; el reloj tiene su propio test en
 `test_playback.py`, y que la ventana lo use bien lo sigue verificando
-`test_entrega.py`.
+`test_entrega_vista.py`.
 
 Los pasos se dan emitiendo `clock.advanced` a mano, que es lo que hace el reloj
 cada 40 ms: así el test no depende del tiempo real.

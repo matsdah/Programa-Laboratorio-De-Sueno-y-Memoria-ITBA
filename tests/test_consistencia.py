@@ -147,14 +147,39 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_derivation.py": ("psglab/analysis/derivation.py",),
     "test_reference.py": ("psglab/analysis/reference.py",),
     "test_mne_bridge.py": ("psglab/analysis/mne_bridge.py",),
+    # Desde el hito 79 son seis archivos, uno por tema. Cada uno declara lo
+    # que importa: los pedazos de la ventana cuyos nombres reemplaza (hito 76)
+    # quedaron en el archivo del tema que los usa.
     "test_entrega.py": (
         "psglab/app.py",
         "psglab/ui/main_window.py",
-        # Los pedazos de la ventana cuyos nombres reemplaza (hito 76).
+        "psglab/ui/work_guard.py",
+    ),
+    "test_entrega_scoring.py": (
+        "psglab/app.py",
+        "psglab/ui/main_window.py",
+        "psglab/ui/window_scoring.py",
+    ),
+    "test_entrega_anotacion.py": (
+        "psglab/ui/main_window.py",
+        "psglab/ui/window_files.py",
+    ),
+    "test_entrega_vista.py": (
+        "psglab/app.py",
+        "psglab/ui/main_window.py",
+    ),
+    "test_entrega_analisis.py": (
+        "psglab/app.py",
+        "psglab/ui/main_window.py",
+        "psglab/ui/window_analysis.py",
+        "psglab/ui/window_files.py",
+    ),
+    "test_entrega_interfaz.py": (
+        "psglab/app.py",
+        "psglab/ui/main_window.py",
         "psglab/ui/window_analysis.py",
         "psglab/ui/window_annotation.py",
         "psglab/ui/window_files.py",
-        "psglab/ui/window_scoring.py",
     ),
     # Cubre el mismo módulo que `test_entrega.py` y no se superpone con él:
     # aquél verifica que la ventana **haga** lo que el pliego pide, y éste

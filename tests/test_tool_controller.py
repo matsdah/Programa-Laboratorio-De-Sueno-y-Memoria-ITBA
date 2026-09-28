@@ -9,7 +9,7 @@ se miran esas señales y el estado propio: quién tiene el mouse, quién dibuja,
 qué dice la barra de estado.
 
 Que la ventana lo use bien —el menú, abrir un registro, anotar con el mouse—
-lo sigue verificando `test_entrega.py`.
+lo siguen verificando los `test_entrega*.py`.
 """
 
 from pathlib import Path

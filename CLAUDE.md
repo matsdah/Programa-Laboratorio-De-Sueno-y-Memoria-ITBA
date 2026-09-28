@@ -122,7 +122,7 @@ exclusivas de la Parte 2 (`mne-connectivity`, `antropy` y, desde el hito 75,
 `yasa`), que arrastran numba, llvmlite, xarray, pandas, scikit-learn y
 lightgbm. **Hay que instalarlo**: desde el hito 10 hay tests que las importan,
 así que sin él `test_complexity.py`, `test_connectivity.py`,
-`test_auto_scoring.py` y parte de `test_entrega.py` fallan.
+`test_auto_scoring.py` y parte de los `test_entrega*.py` fallan.
 
 ```bash
 pip install -r requirements-analysis.txt
@@ -180,8 +180,9 @@ python -m pytest tests/test_scoring.py::test_el_arousal_es_independiente_de_la_f
 python -m pytest -rs
 ```
 
-**La suite completa tarda varios minutos**, sobre todo por `test_entrega.py`, que
-arma una ventana por test. Conviene correrla en segundo plano y **sin otra
+**La suite completa tarda varios minutos**, sobre todo por los seis
+`test_entrega*.py`, que arman una ventana por test —eran uno solo hasta el
+hito 79; lo que comparten está en `tests/entrega_comun.py`—. Conviene correrla en segundo plano y **sin otra
 corrida de pytest en paralelo**: superpuestas, el tiempo casi se triplicó.
 
 Los tres bancos de medición **no son tests y pytest no los recolecta**: se

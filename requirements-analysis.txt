@@ -6,7 +6,7 @@
 #
 # **No son opcionales para correr la suite.** Se separaron cuando ningún test
 # las importaba, pero desde el hito 10 test_complexity.py, test_connectivity.py
-# y parte de test_entrega.py sí lo hacen, y sin ellas fallan. El CI las
+# y parte de los test_entrega*.py sí lo hacen, y sin ellas fallan. El CI las
 # instala en los dos jobs.
 #
 # `mne` y `scipy` NO están acá: la Parte 1 también los necesita (mne lee
