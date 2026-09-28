@@ -296,7 +296,7 @@ código de hoy** antes de arreglar nada.
     `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
-    `tests/test_contratos.py`, **1371 tests en verde**; y por la ventana, en
+    `tests/test_contratos.py`, **1359 tests en verde**; y por la ventana, en
     los seis `test_entrega*.py`.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
@@ -370,7 +370,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       van a la próxima y a la anterior sin scorear, con `Scoring.next_unscored()`.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
-    `tests/test_contratos.py`, **1371 tests en verde**;
+    `tests/test_contratos.py`, **1359 tests en verde**;
     `tests/test_entrega_interfaz.py`, **103 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
@@ -510,7 +510,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       los nombres de clase —`eog`, `emg`, `ecg`— siguen valiendo pegados,
       como en «HEOG». Y los acentos se sacan antes de partir el nombre:
       «Mentón» se partía en «ment» y «n» y dejaba de ser EMG.
-  - Test: `tests/test_channel_types.py`, **93 tests en verde**. Veinticinco
+  - Test: `tests/test_channel_types.py`, **77 tests en verde**. Veinticinco
     de los nuevos fallan sin el cambio; los demás cuidan que no se pase de
     largo: «Lateral» y «Pos» siguen en «Otro».
 - [x] **El arousal existe dos veces sin relación**: la marca de la ventana
@@ -523,7 +523,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       cambiar la clase a «Arousal», correr su comienzo e importar las marcas
       del archivo. **Borrar no desmarca**: la marca pudo haberse puesto a
       mano. Anotar y marcar son un solo paso de deshacer.
-  - Test: `tests/test_annotations.py`, **97 tests en verde**;
+  - Test: `tests/test_annotations.py`, **90 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_entrega_scoring.py`, **46 tests en verde**.
 
@@ -620,7 +620,7 @@ una vez que agregarlos al lugar que después hay que partir.
   - Test: `tests/test_channel_display.py`, **25 tests en verde**, sin
     sesión: que mida sobre el tramo que se le pasa y no sobre otro, el
     alcance de la amplitud, las clases sin escala propia y qué sobrevive a
-    un registro procesado. `tests/test_contratos.py`, **1371 tests en
+    un registro procesado. `tests/test_contratos.py`, **1359 tests en
     verde**, con sus filas y tres rechazos obligatorios.
 - [x] **`SignalView` (1344 líneas) separa lo que dibujan las herramientas**
       —banda, bandas de anotación, segmentos, lente— en
@@ -678,7 +678,7 @@ una vez que agregarlos al lugar que después hay que partir.
       scoring, que es de máquina y lleva punto. **No ve un número interpolado
       sin formato**, `f"{x} Hz"`.
   - Test: `tests/test_formatting.py`, **46 tests en verde**;
-    `tests/test_contratos.py`, **1371 tests en verde**;
+    `tests/test_contratos.py`, **1359 tests en verde**;
     `tests/test_consistencia.py`, **121 tests en verde**.
 - [x] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
       tema**, siguiendo a los controladores.
@@ -725,7 +725,7 @@ función, y la historia ya está en este archivo y en git.
       época, los colores, las teclas, los filtros sugeridos, los nombres de
       los archivos de salida. Es la pregunta de quien abre el código sin
       programar.
-- [ ] **El código muerto que la red no ve.** La red del hito 30 mira
+- [x] **El código muerto que la red no ve.** La red del hito 30 mira
       `analysis/`, `tools/` y los paneles, no `core/`, `readers/` ni
       `utils/`, y ahí sobrevivieron: en `core/windows.py`,
       `seconds_to_window_fraction()`, `window_fraction_to_seconds()`,
@@ -737,6 +737,21 @@ función, y la historia ya está en este archivo y en git.
       se eleva nunca; `PlaybackClock.toggle()`; y
       `OverviewTool._draw_window()`, que su propio docstring dice conservar
       por la trazabilidad. Extender la red y borrar o declarar cada uno.
+      Hecho. **La red del hito 30 mira ahora también `core/`, `readers/` y
+      `utils/`**, con funciones y clases además de métodos
+      (`CAPAS_CON_FUNCIONES_SUELTAS`); contra el código de antes encuentra
+      los doce de esas capas. **Se borraron los trece**, con los tests que
+      sólo los probaban a ellos, y además `AnnotationSet.remove_at()`, que la
+      red encontró y cuyo docstring decía que la usaba el anotador: los tests
+      del orden de las anotaciones borran ahora con `remove()`, y el orden se
+      sigue exigiendo porque de él dependen `in_range()` y la exportación. **Se
+      declararon cinco**, en `SIN_CAMINO_A_PROPOSITO` con su motivo: los dos
+      lectores, que los encuentra su decorador; `Session.active_tool`, un
+      accesor; `seconds_to_epoch_offset()`, que `tools/base.py` le señala a
+      quien escriba una herramienta; y `detect_nomenclature()`,
+      `detect_line_format()` y `to_microvolts()`, API para un script. De paso,
+      el docstring de `AnnotatorTool.create_annotation()` decía que recibía
+      segundos desde el inicio de la ventana: recibe muestras.
 - [ ] **Los docstrings que dicen lo contrario de lo que hace el código**:
       `core/windows.py` y `tools/annotator.py` todavía hablan de segundos
       desde el comienzo de la ventana; `ui/signal_view.py` dibuja «la ventana

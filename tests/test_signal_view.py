@@ -40,7 +40,7 @@ from psglab.core.nomenclature import Nomenclature  # noqa: E402
 from psglab.core.recording import Channel, ChannelKind, Recording  # noqa: E402
 from psglab.core.scoring import Scoring  # noqa: E402
 from psglab.core.session import Session  # noqa: E402
-from psglab.core.windows import seconds_to_sample, seconds_to_samples  # noqa: E402
+from psglab.core.windows import seconds_to_sample_absolute, seconds_to_samples  # noqa: E402
 from psglab.tools.base import CircleOverlay  # noqa: E402
 from psglab.ui.channel_axis import ANCHO_DEL_CANALON  # noqa: E402
 from psglab.ui import grid as modulo_de_la_grilla  # noqa: E402
@@ -201,7 +201,9 @@ def test_la_muestra_incluye_el_desplazamiento_de_la_ventana(
     izquierda, derecha = bordes(vista)
     pixel = izquierda + (derecha - izquierda) * 5.0 / vista.window_seconds
 
-    assert vista.sample_at_pixel(pixel) == seconds_to_sample(1, 5.0, FRECUENCIA)
+    assert vista.sample_at_pixel(pixel) == seconds_to_sample_absolute(
+        vista.window_seconds + 5.0, FRECUENCIA
+    )
 
 
 def test_la_muestra_crece_al_cambiar_de_ventana(vista: SignalView):

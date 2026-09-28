@@ -137,13 +137,6 @@ class PlaybackClock(QObject):
         self._anterior = None
         self.playing_changed.emit(False)
 
-    def toggle(self) -> None:
-        """Arranca si estaba detenido y se detiene si estaba reproduciendo."""
-        if self.is_playing:
-            self.stop()
-        else:
-            self.start()
-
     def _tick(self) -> None:
         """Un paso: cuánto pasó desde el anterior, por la velocidad."""
         if self._anterior is None:

@@ -38,7 +38,7 @@ Cubre del pliego: ningún ID. El pliego fija la ventana de 30 s y la cubre
 `core/windows.py`; esto es la extensión que agregó el refactor de la interfaz.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 from psglab.config import MIN_VIEW_SECONDS
 from psglab.utils.errors import InvalidViewportError
@@ -162,23 +162,6 @@ class Viewport:
         dibujo va a tardar, y el menú para poder tildar "Registro entero".
         """
         return self.start_seconds <= 0 and self.span_seconds >= self.duration_seconds
-
-    @property
-    def at_start(self) -> bool:
-        """Si la página empieza con el registro: no hay hacia dónde retroceder."""
-        return self.start_seconds <= 0
-
-    @property
-    def at_end(self) -> bool:
-        """Si la página llega al final del registro: no hay hacia dónde avanzar.
-
-        **Con tolerancia**, y no por descuido: `clamped()` calcula el comienzo
-        como `duración - página`, y sumarle la página de vuelta puede quedar una
-        fracción de microsegundo corta. Sin ella, la reproducción no se
-        detendría nunca en el final: seguiría pidiendo una página que no se
-        mueve.
-        """
-        return self.end_seconds >= self.duration_seconds - _TOLERANCIA_EN_SEGUNDOS
 
     # -- Construcción con recorte -------------------------------------------
 
@@ -357,10 +340,3 @@ class Viewport:
             self.start_seconds, self.span_seconds, duration_seconds
         )
 
-    def replaced(self, **cambios: float) -> "Viewport":
-        """Otra página con algunos campos cambiados, sin recortar.
-
-        Existe para los tests y para quien necesite construir una página exacta.
-        **El camino normal es `clamped()` y las transformaciones**, que recortan.
-        """
-        return replace(self, **cambios)

@@ -47,7 +47,7 @@ def test_dos_anotaciones_iguales_son_iguales_y_hashables():
     assert len({evento(10), evento(10)}) == 1
 
 
-# -- El orden, que es lo que le da sentido a remove_at -----------------------
+# -- El orden, del que dependen in_range() y la exportación ------------------
 
 
 def test_las_anotaciones_salen_ordenadas_por_inicio(anotaciones):
@@ -56,23 +56,6 @@ def test_las_anotaciones_salen_ordenadas_por_inicio(anotaciones):
         anotaciones.add(evento(inicio))
 
     assert [a.onset_sample for a in anotaciones.all()] == [100, 2500, 5000]
-
-
-def test_remove_at_borra_la_que_señala_el_indice_de_all(anotaciones):
-    """El test que justifica que la lista se guarde ordenada.
-
-    Si se guardaran por orden de creación y `all()` ordenara al salir, el índice
-    que ve el anotador y el que usa `remove_at` apuntarían a anotaciones
-    distintas, y el usuario vería desaparecer una banda que no tocó.
-    """
-    for inicio in (5000, 100, 2500):
-        anotaciones.add(evento(inicio))
-
-    senalada = anotaciones.all()[1]
-    anotaciones.remove_at(1)
-
-    assert senalada not in anotaciones.all()
-    assert [a.onset_sample for a in anotaciones.all()] == [100, 5000]
 
 
 def test_remove_borra_la_primera_de_dos_identicas(anotaciones):
@@ -89,20 +72,8 @@ def test_borrar_una_anotacion_que_no_esta_falla(anotaciones):
         anotaciones.remove(evento(999))
 
 
-@pytest.mark.parametrize("indice", [1, -1, 5])
-def test_remove_at_con_una_posicion_que_no_existe_falla(anotaciones, indice):
-    """El −1 importa: en Python cuenta desde el final.
-
-    Sin la guarda, `remove_at(-1)` borraría la última anotación de la noche en
-    vez de avisar que el índice está mal.
-    """
-    anotaciones.add(evento(100))
-    with pytest.raises(InvalidAnnotationError):
-        anotaciones.remove_at(indice)
-
-
 def test_all_devuelve_una_copia(anotaciones):
-    """Desordenar la lista interna rompería el índice de `remove_at`."""
+    """Desordenar la lista interna rompería la búsqueda de `in_range()`."""
     anotaciones.add(evento(100))
     anotaciones.add(evento(200))
 
@@ -225,25 +196,6 @@ def test_las_anotaciones_del_tramo_salen_ordenadas(anotaciones):
 # -- Lo que consume Informacion.txt -----------------------------------------
 
 
-def test_se_cuentan_las_anotaciones_por_clase(anotaciones):
-    anotaciones.add(evento(100, label="Arousal"))
-    anotaciones.add(evento(200, label="Arousal"))
-    anotaciones.add(evento(300, label="Spindle"))
-
-    assert anotaciones.count_by_label() == {"Arousal": 2, "Spindle": 1}
-
-
-def test_una_clase_sin_anotaciones_no_aparece_en_la_cuenta(anotaciones):
-    """`Informacion.txt` omite lo que no corresponde, no escribe ceros."""
-    anotaciones.add(evento(100, label="Arousal"))
-    assert "Complejo K" not in anotaciones.count_by_label()
-
-
-def test_un_conjunto_vacio_no_cuenta_nada(anotaciones):
-    assert anotaciones.count_by_label() == {}
-    assert anotaciones.all() == []
-
-
 def test_una_anotacion_completamente_fuera_del_tramo_no_entra(anotaciones):
     """El agujero más caro que tenía el conjunto de tests.
 
@@ -264,14 +216,10 @@ def test_una_anotacion_posterior_al_tramo_tampoco(anotaciones):
 
 
 def test_se_puede_borrar_la_primera_anotacion(anotaciones):
-    """Nadie llamaba `remove_at(0)`.
-
-    Con la guarda escrita `0 < index`, la primera anotación de la noche quedaría
-    inalcanzable y la suite no se enteraría.
-    """
+    """La primera anotación de la noche se puede borrar como cualquier otra."""
     anotaciones.add(evento(100))
     anotaciones.add(evento(200))
-    anotaciones.remove_at(0)
+    anotaciones.remove(anotaciones.all()[0])
     assert [a.onset_sample for a in anotaciones.all()] == [200]
 
 
@@ -292,7 +240,7 @@ def test_una_anotacion_en_la_primera_muestra_se_acepta(anotaciones):
 
 
 def test_dos_anotaciones_en_la_misma_muestra_conservan_el_orden_de_creacion(anotaciones):
-    """Es el desempate del que depende que `remove_at` señale lo que el usuario ve.
+    """Es el desempate: dos que empiezan juntas salen en el orden en que se anotaron.
 
     Con `bisect_left` en vez de `bisect_right` el orden se invierte, y ningún
     test lo notaba porque los dos casos existentes usaban anotaciones idénticas,
@@ -378,8 +326,8 @@ def test_reemplazar_cambia_una_por_otra(anotaciones):
 
 def test_la_reemplazante_va_a_su_lugar_por_inicio(anotaciones):
     """**La promesa de orden sobrevive a corregir**: mover el comienzo de una
-    anotación más allá de otra la cambia de lugar, y `remove_at()` depende de
-    que el índice sea la posición en `all()`."""
+    anotación más allá de otra la cambia de lugar, y `in_range()` busca sobre
+    ese orden."""
     primera, segunda = evento(100), evento(500)
     anotaciones.add(primera)
     anotaciones.add(segunda)
@@ -431,7 +379,6 @@ def test_una_anotacion_en_fracciones_de_muestra_se_rechaza(anotaciones, inicio, 
     fracción no es un lugar de la señal. Se aceptaba."""
     with pytest.raises(InvalidAnnotationError):
         anotaciones.add(Annotation("Arousal", inicio, duracion))
-
 
 
 # -- Las marcas del archivo como anotaciones (hito 73) ------------------------
@@ -535,7 +482,7 @@ def test_la_busqueda_da_lo_mismo_que_recorrer_todas(semilla: int):
         elif accion < 0.65:
             conjunto.remove(azar.choice(actuales))
         elif accion < 0.8:
-            conjunto.remove_at(azar.randrange(len(actuales)))
+            conjunto.remove(conjunto.all()[azar.randrange(len(actuales))])
         else:
             conjunto.replace(azar.choice(actuales), una())
 
@@ -562,14 +509,14 @@ def test_una_anotacion_larga_se_encuentra_lejos_de_su_comienzo(anotaciones):
 def test_borrar_la_mas_larga_no_esconde_las_otras(anotaciones):
     anotaciones.add(evento(0, 360_000))
     anotaciones.add(evento(5_000, 20_000))
-    anotaciones.remove_at(0)
+    anotaciones.remove(anotaciones.all()[0])
 
     assert anotaciones.in_range(24_000, 24_500) == [evento(5_000, 20_000)]
 
 
 def test_con_el_mismo_comienzo_quedan_en_el_orden_en_que_se_agregaron(anotaciones):
-    """`remove_at()` depende del orden, así que empatar en el comienzo no puede
-    reordenar."""
+    """Empatar en el comienzo no reordena: se exportan en el orden en que se
+    anotaron."""
     primera = evento(1_000, 50, "Arousal")
     segunda = evento(1_000, 80, "Spindle")
     tercera = evento(1_000, 20, "Arousal")

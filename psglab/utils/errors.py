@@ -58,10 +58,6 @@ class UndeclaredNomenclatureError(UnreadableFileError):
     """
 
 
-class MixedSamplingRateError(PsgLabError):
-    """Los canales tienen frecuencias de muestreo distintas e incompatibles."""
-
-
 class ScoringMismatchError(PsgLabError):
     """El archivo de scoring no corresponde al registro abierto."""
 
