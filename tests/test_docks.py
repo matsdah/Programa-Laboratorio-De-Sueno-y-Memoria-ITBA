@@ -110,18 +110,17 @@ def test_la_navegacion_no_es_un_panel_acoplable(ventana: MainWindow):
 
 
 @pytest.mark.parametrize("clave, titulo", list(docks.ORDEN_DE_ANALISIS))
-def test_el_contenedor_conserva_el_nombre_de_atributo(
-    ventana: MainWindow, clave: str, titulo: str
-):
-    """Siguen llamándose `*_dialog` aunque ya no sean `QDialog`.
+def test_el_contenedor_se_llama_dock(ventana: MainWindow, clave: str, titulo: str):
+    """`window.<clave>_dock`, el mismo objeto que `window.docks[clave]` (hito 79).
 
-    `QDockWidget` responde a `windowTitle()`, `show()`, `hide()` e
-    `isVisible()` igual que un diálogo, así que los ocho tests de entrega que
-    preguntan por el título de estas ventanas siguieron pasando sin tocarse.
-    Renombrarlos habría cambiado ocho tests para no ganar nada.
+    Se llamaron `*_dialog` desde que eran `QDialog` hasta el hito 79, y quien
+    leía el código buscaba un diálogo que no existía: el nombre viejo no
+    puede volver.
     """
-    contenedor = getattr(ventana, f"{clave}_dialog")
+    contenedor = getattr(ventana, f"{clave}_dock")
 
+    assert not hasattr(ventana, f"{clave}_dialog")
+    assert contenedor is ventana.docks[clave]
     assert isinstance(contenedor, QDockWidget)
     assert contenedor.windowTitle() == titulo
     assert contenedor.widget() is getattr(ventana, f"{clave}_panel")
@@ -131,9 +130,9 @@ def test_mostrar_un_panel_de_analisis_lo_saca_de_oculto(ventana: MainWindow):
     """Se pregunta por `isHidden()` y no por `isVisible()`: la ventana de los
     tests nunca se muestra, y un hijo de una ventana no mostrada nunca es
     visible aunque se lo haya pedido explícitamente."""
-    ventana.psd_dialog.show()
+    ventana.psd_dock.show()
 
-    assert not ventana.psd_dialog.isHidden()
+    assert not ventana.psd_dock.isHidden()
 
 
 # -- Guardar y restaurar la disposición --------------------------------------
@@ -151,7 +150,7 @@ def test_cerrar_un_panel_y_restaurar_lo_devuelve(ventana: MainWindow):
 
 def test_restaurar_vuelve_a_la_vista_limpia(ventana: MainWindow):
     ventana.scoring_dock.show()
-    ventana.psd_dialog.show()
+    ventana.psd_dock.show()
 
     ventana.restore_default_layout()
 
@@ -175,7 +174,7 @@ def test_restaurar_no_desarma_los_paneles(ventana: MainWindow):
     `restoreState()` mueve contenedores, no widgets."""
     ventana.restore_default_layout()
 
-    assert ventana.psd_dialog.widget() is ventana.psd_panel
+    assert ventana.psd_dock.widget() is ventana.psd_panel
     assert ventana.channels_dock.widget() is ventana.channel_selector
 
 

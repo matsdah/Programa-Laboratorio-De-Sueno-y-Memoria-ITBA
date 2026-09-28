@@ -122,17 +122,17 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
         # contenedor es fijo desde el hito 31: es el texto de su entrada en
         # «Herramientas».
         "psd_panel",
-        "psd_dialog",
+        "psd_dock",
         "metric_panel",
-        "metric_dialog",
+        "metric_dock",
         "connectivity_panel",
-        "connectivity_dialog",
+        "connectivity_dock",
         "impedance_panel",
-        "impedance_dialog",
+        "impedance_dock",
         "filter_panel",
-        "filter_dialog",
+        "filter_dock",
         "ica_panel",
-        "ica_dialog",
+        "ica_dock",
     }
 )
 
