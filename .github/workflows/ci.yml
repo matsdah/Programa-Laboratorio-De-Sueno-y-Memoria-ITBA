@@ -1,6 +1,7 @@
 # Integración continua del scorer de polisomnografía.
 #
-# Corre en cada push y en cada pull request contra las ramas de trabajo. Hace
+# Corre en cada push a Add y a Master, y en cada pull request contra ellas: un
+# push a una rama de trabajo no corre nada hasta que se abre la PR. Hace
 # tres cosas que hasta ahora se hacían a mano y que con un equipo de tres
 # personas ya no se sostienen:
 #

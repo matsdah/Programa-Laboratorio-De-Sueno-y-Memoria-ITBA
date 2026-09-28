@@ -216,8 +216,9 @@ def _atajos_en(menu: "QMenu | None") -> None:
 def _abrir(window: "MainWindow") -> None:
     """El botón con que se abre un registro, en la esquina izquierda de la barra.
 
-    Ocupa el lugar de «Archivo», que ya no tenía otra acción: «Salir» se quitó
-    porque lo hace la cruz de la ventana. `setAutoRaise()` es lo que le da el
+    Va a la izquierda de «Archivo», que tiene además los recientes, el scoring
+    y la configuración. No hay «Salir»: lo hace la cruz de la ventana.
+    `setAutoRaise()` es lo que le da el
     realce al pasar el mouse, y la hoja de estilo de `theme.py` lo repite con
     los colores del esquema.
 

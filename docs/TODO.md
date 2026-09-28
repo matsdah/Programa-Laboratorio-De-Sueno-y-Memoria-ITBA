@@ -768,7 +768,7 @@ función, y la historia ya está en este archivo y en git.
       `detect_line_format()` y `to_microvolts()`, API para un script. De paso,
       el docstring de `AnnotatorTool.create_annotation()` decía que recibía
       segundos desde el inicio de la ventana: recibe muestras.
-- [ ] **Los docstrings que dicen lo contrario de lo que hace el código**:
+- [x] **Los docstrings que dicen lo contrario de lo que hace el código**:
       `core/windows.py` y `tools/annotator.py` todavía hablan de segundos
       desde el comienzo de la ventana; `ui/signal_view.py` dibuja «la ventana
       de 30 segundos actual» y su eje sin hora se rotula «Segundos de la
@@ -779,6 +779,13 @@ función, y la historia ya está en este archivo y en git.
       del hito 76; `config.MAX_GRID_LINES` habla de una `InfiniteLine` por
       línea; y el comentario de arriba de `ci.yml` dice que corre contra las
       ramas de trabajo.
+      Hecho, los siete. **Uno no era sólo texto**: el eje de la señal sin
+      hora de inicio numera segundos desde el comienzo del registro —desde el
+      refactor de la interfaz— y seguía rotulado «Segundos de la ventana»;
+      ahora dice «Segundos desde el comienzo del registro». El comentario de
+      `window_preferences.py` ya había perdido su nombre antes de la mudanza:
+      era `OverviewTool.refresh()`. El de `annotator.py` sobre
+      `create_annotation()` se corrigió con el código muerto.
 - [x] **Este archivo en dos.** *(Decidido: sí.)* Son 6500 líneas, y la
       introducción encadena ochenta hitos en un solo párrafo. Lo cerrado
       podría ir a un historial y el TODO quedar con lo abierto y las reglas.

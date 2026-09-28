@@ -319,8 +319,8 @@ class PreferencesMixin:
 
     def _repintar_anotaciones(self) -> None:
         """Vuelve a dibujar lo que muestra el color de una clase."""
-        #  le avisa a la ventana por su callback, que es el que
-        # repinta el panel: no hace falta llamarlo a mano.
+        # `OverviewTool.refresh()` le avisa a la ventana por su callback, que
+        # es el que repinta el panel: no hace falta repintarlo a mano.
         contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()

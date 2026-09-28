@@ -1,8 +1,8 @@
 """Visualizador de las ondas: el corazón de la interfaz.
 
-Dibuja los canales visibles de la ventana de 30 segundos actual, con el
-nombre y la clase de cada uno y la escala de amplitud en microvoltios a la
-izquierda.
+Dibuja los canales visibles en la página que se está mirando —de 10 ms al
+registro entero, que no es la época de 30 s que se scorea—, con el nombre y la
+clase de cada uno y la escala de amplitud en microvoltios a la izquierda.
 
 **Ese "a la izquierda" es literal desde el hito 37**, y no lo era antes: los
 rótulos eran ítems de la escena apoyados sobre cada carril, o sea dentro del
@@ -88,13 +88,13 @@ class TimeAxis(pg.AxisItem):
     fuera el único en segundos relativos obligaba a hacer la cuenta a mano.
 
     **Cuando el archivo no informa su horario de inicio vuelve a los
-    segundos**, con el rótulo y todo: es lo que pasa con un EDF anónimo, y
-    numerar de 1 a 29 sigue siendo mejor que no decir nada.
+    segundos**, contados desde el comienzo del registro y con el rótulo que lo
+    dice: es lo que pasa con un EDF anónimo, y es mejor que no decir nada.
     """
 
     #: Qué rótulo lleva el eje cuando no hay hora que mostrar. Con la hora
     #: puesta no lleva ninguno: «21:05» no necesita que le expliquen qué es.
-    ROTULO_EN_SEGUNDOS: Final[str] = "Segundos de la ventana"
+    ROTULO_EN_SEGUNDOS: Final[str] = "Segundos desde el comienzo del registro"
 
     def __init__(self) -> None:
         """Crea el eje en segundos, que es como arranca sin registro."""
