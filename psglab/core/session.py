@@ -8,12 +8,11 @@ Este objeto es el que la interfaz consulta para dibujarse y el que modifica
 cuando el usuario hace algo. Mantenerlo fuera de `psglab.ui` es lo que permite
 testear la navegación y el manejo de amplitudes sin abrir una ventana.
 
-**Los canales viven en `core/channel_display.py`** desde el hito 79: cuáles se
-ven, cuáles están seleccionados, y la escala y el desplazamiento de cada uno.
-Eran la mitad de esta clase. Los métodos públicos siguen acá y delegan, así
-que la interfaz sigue hablando sólo con la sesión; lo que queda propio es lo
-que sabe de épocas —cuál es la actual, cuál existe, sobre qué tramo se mide—
-y de páginas.
+**Los canales viven en `core/channel_display.py`**: cuáles se ven, cuáles
+están seleccionados, y la escala y el desplazamiento de cada uno. Los métodos
+públicos están acá y delegan, así que la interfaz habla sólo con la sesión; lo
+propio de la sesión es lo que sabe de épocas —cuál es la actual, cuál existe,
+sobre qué tramo se mide— y de páginas.
 
 Cubre del pliego: V1_F de "Navegación en la señal"; V4_F del histograma
 (`go_to_window`, que es a donde llega el clic sobre el hipnograma).
@@ -126,9 +125,8 @@ class Session:
         self._anotaciones_a_salvo = self._foto_de_las_anotaciones()
         self._current_window = 0
         #: Qué canales se ven, cuáles están seleccionados, y la escala y el
-        #: desplazamiento de cada uno. Era la mitad de esta clase hasta el hito
-        #: 79; los métodos públicos de acá delegan en él. Valida también la
-        #: escala inicial.
+        #: desplazamiento de cada uno. Los métodos públicos de acá delegan en
+        #: él. Valida también la escala inicial.
         self._display = ChannelDisplay(recording, default_scale_uv)
         #: Qué tramo del registro se está mirando. Arranca en una época, que
         #: es la página que el programa tuvo siempre: abrir un registro da
@@ -228,7 +226,7 @@ class Session:
         # pierde nada de él.
         self._scoring_a_salvo = self._foto_del_scoring()
 
-    # -- Lo que se perdería al cerrar (hito 33) ------------------------------
+    # -- Lo que se perdería al cerrar -------------------------------------------
 
     def _foto_del_scoring(self) -> tuple[Nomenclature, tuple[EpochScore, ...]]:
         """El contenido del scoring, para compararlo después.
@@ -245,10 +243,9 @@ class Session:
         """Si el scoring tiene trabajo que no está en ningún archivo.
 
         **Es lo que la ventana pregunta antes de cerrar, de abrir otro
-        registro o de importar un scoring encima** (hito 33): el programa no
-        autoguarda, así que lo que no se exportó se pierde. Hasta la auditoría del 19 de
-        septiembre de 2026 no preguntaba nada, y una noche scoreada se perdía
-        con un Ctrl+O.
+        registro o de importar un scoring encima**: el programa no autoguarda,
+        así que lo que no se exportó se pierde, y sin preguntar una noche
+        scoreada se perdería con un Ctrl+O.
 
         Compara contra cómo estaba el scoring la última vez que quedó en un
         archivo —al abrir el registro, al importar un scoring o al exportarlo—,
@@ -290,10 +287,8 @@ class Session:
         """Si hay eventos anotados que no están en ningún archivo.
 
         **Es la misma regla que `has_unexported_scoring()`, sobre la otra
-        mitad del trabajo.** El cartel del hito 33 miraba sólo el scoring, que
-        es lo que la ventana ofrece exportar desde el menú, así que una sesión
-        con una noche de eventos anotados y ninguna fase puesta se cerraba sin
-        preguntar nada.
+        mitad del trabajo.** Sin ésta, una sesión con una noche de eventos
+        anotados y ninguna fase puesta se cerraría sin preguntar nada.
 
         Compara contra cómo estaban la última vez que quedaron en un archivo
         —al abrir el registro o al exportarlas—, así que agregar una anotación
@@ -317,7 +312,7 @@ class Session:
         self._anotaciones_a_salvo = self._foto_de_las_anotaciones()
 
     def mark_arousal_of(self, annotation: Annotation) -> int | None:
-        """Si la anotación es un arousal, marca el arousal de su ventana (hito 79).
+        """Si la anotación es un arousal, marca el arousal de su ventana.
 
         **La ventana de su comienzo**, que es donde la AASM cuenta un arousal
         que cruza el borde entre dos épocas. Marcar una que ya estaba marcada
@@ -587,7 +582,7 @@ class Session:
 
     def move_playhead(self, seconds: float) -> float:
         """Lleva la reproducción a un instante: la página se centra en él y la
-        época actual pasa a ser la que lo contiene (hito 27).
+        época actual pasa a ser la que lo contiene.
 
         Es la gemela de `_seguir_a_la_epoca()`, con la regla opuesta a
         propósito. Aquélla mueve la página **lo mínimo** para que entre la
@@ -595,8 +590,7 @@ class Session:
         flecha mueve el resaltado y no la vista. Reproduciendo, lo que se sigue
         es el instante que pasa por el medio del gráfico, y la época es la de
         ese instante: al pausar, el usuario queda parado en la época que estaba
-        mirando y la scorea ahí. **Hasta el hito 27 era al revés**: reproducir
-        movía la página y la época se quedaba donde estaba.
+        mirando y la scorea ahí.
 
         **En los bordes la página no se puede centrar, y no se fuerza.** La
         recorta `Viewport.clamped()`, y el instante queda adentro de la página
@@ -644,8 +638,8 @@ class Session:
     # -- Canales: delegan en `ChannelDisplay` -------------------------------
     #
     # Qué canales se ven, cuáles están seleccionados y con qué escala y
-    # desplazamiento se dibuja cada uno viven en `core/channel_display.py`
-    # desde el hito 79. Estos métodos quedan para que la interfaz y las
+    # desplazamiento se dibuja cada uno viven en `core/channel_display.py`.
+    # Estos métodos están para que la interfaz y las
     # herramientas sigan hablando sólo con la sesión; el comportamiento, los
     # errores y los motivos están documentados allá.
     #
@@ -889,10 +883,9 @@ class Session:
         Para `Session` el nombre es un texto opaco, y quien comprueba que exista
         es la ventana principal, que ya conoce el registro.
 
-        **Lo que sí valida es que sea texto** (hito 48). Hasta entonces guardaba
-        cualquier cosa, y su fila en `test_contratos.py` aceptaba los seis
-        valores hostiles: era indistinguible de un test vacío. `None` sigue
-        siendo válido y quiere decir «ninguna».
+        **Lo que sí valida es que sea texto**: guardar cualquier cosa dejaría
+        pasar un número o una lista hasta la ventana. `None` es válido y quiere
+        decir «ninguna».
 
         Raises:
             UnknownToolError: si el nombre no es `None` ni un texto con algo

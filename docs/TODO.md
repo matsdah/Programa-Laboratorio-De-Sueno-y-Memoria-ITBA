@@ -685,7 +685,7 @@ una vez que agregarlos al lugar que después hay que partir.
       rechaza una copia nueva: contra el código de antes encuentra las nueve.
   - Test: `tests/test_mne_bridge.py`, **34 tests en verde**, con el mensaje
     de cada uno de los dieciocho análisis que reciben primero el registro;
-    `tests/test_consistencia.py`, **123 tests en verde**.
+    `tests/test_consistencia.py`, **125 tests en verde**.
 - [x] **Una sola forma de escribir un número para el usuario.**
       `.replace(".", ",")` aparece 22 veces y hay tres `_numero()`: un
       `utils/formato.py` con el número con coma, los Hz y las duraciones.
@@ -708,7 +708,7 @@ una vez que agregarlos al lugar que después hay que partir.
       sin formato**, `f"{x} Hz"`.
   - Test: `tests/test_formatting.py`, **46 tests en verde**;
     `tests/test_contratos.py`, **1359 tests en verde**;
-    `tests/test_consistencia.py`, **123 tests en verde**.
+    `tests/test_consistencia.py`, **125 tests en verde**.
 - [x] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
       tema**, siguiendo a los controladores.
       Hecho, cuando ya eran 7258 líneas y 437 tests: **seis archivos de
@@ -749,13 +749,24 @@ esto…», «lo encontró la auditoría…»— en vez de decir qué hace el có
 Para quien llega sin contexto, triplica lo que hay que leer para entender una
 función, y la historia ya está en este archivo y en git.
 
-- [ ] **La regla**: un docstring dice qué hace y por qué, en presente. La
+- [x] **La regla**: un docstring dice qué hace y por qué, en presente. La
       historia va al hito y al commit. Se aplica al tocar cada módulo, no en
       una sola pasada; **`core/` primero**, que es lo que se lee para
       entender el modelo.
-- [ ] **Un trinquete en `test_consistencia.py`**: la cantidad de menciones a
+      Hecho: la regla está en `CLAUDE.md`, en «Convenciones», y **`core/` no
+      nombra ningún hito**. Eran 39 menciones en once módulos; cada una se
+      reescribió diciendo qué hace el código y por qué, sin «hasta el hito…»
+      ni «lo encontró la auditoría». El resto de `psglab/` sigue la regla al
+      tocarse, y el trinquete de abajo la sostiene.
+- [x] **Un trinquete en `test_consistencia.py`**: la cantidad de menciones a
       hitos dentro de `psglab/` no puede crecer. Sin él, la regla de arriba
       depende de acordarse.
+      Hecho: `TOPE_DE_MENCIONES_A_HITOS`. **Falla si sube y también si baja**
+      sin que se baje el tope, para que cada bajada quede fija. Cuenta
+      también «hito» al final de un renglón de comentario con el número en el
+      siguiente, que el conteo por renglón no veía. Y
+      `CAPAS_SIN_MENCIONES_A_HITOS` exige que `core/` siga en cero. Eran 476
+      menciones; con `core/` limpio quedan las del tope.
 - [ ] **«Dónde cambiar qué», en `EXPLICACION.txt`**: la duración de la
       época, los colores, las teclas, los filtros sugeridos, los nombres de
       los archivos de salida. Es la pregunta de quien abre el código sin
@@ -825,7 +836,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **123 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **125 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 

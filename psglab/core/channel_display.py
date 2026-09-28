@@ -1,9 +1,8 @@
 """Cómo se muestran los canales: cuáles, en qué orden, con qué escala y dónde.
 
-Es la mitad de `Session` que no sabe de épocas: qué canales se ven, cuáles
-están seleccionados, cuántos microvoltios representa el carril de cada uno y
-cuánto se le resta antes de dibujarlo. Estaba adentro de `Session` hasta el
-hito 79, donde era la mitad de sus 1100 líneas.
+Es la parte del estado de trabajo que no sabe de épocas: qué canales se ven,
+cuáles están seleccionados, cuántos microvoltios representa el carril de cada
+uno y cuánto se le resta antes de dibujarlo.
 
 **No conoce la ventana de scoring.** Lo que mide —centrar, ajustar al panel,
 la escala de las clases que no tienen una propia— lo mide sobre un tramo de
@@ -13,8 +12,8 @@ llega el tramo. Así la regla de qué es una ventana válida vive en un solo
 lugar, y medir sobre la página en vez de la época sería cambiar quién arma el
 tramo, no este módulo.
 
-`Session` conserva todos sus métodos públicos y delega en éste, así que la
-interfaz no se enteró de la separación.
+`Session` lo guarda y delega en él desde sus propios métodos públicos, así que
+la interfaz sigue hablando sólo con la sesión.
 
 Cubre del pliego: V2_P, V3_P y V5_F de "Visualización de la señal".
 """
@@ -224,7 +223,7 @@ class ChannelDisplay:
         Los seleccionados si hay alguno; si no, todos los visibles. **Todas las
         vías que cambian la escala pasan por acá** —las flechas, «µV por
         carril», «Ajustar al panel», centrar y «Offset → 0»—, y el menú no lo
-        repite (hito 79).
+        repite.
 
         **Sin repetidos.** Mostrar el mismo canal dos veces es un uso soportado
         —`get_segment` lo documenta— y sin esta deduplicación cada pulsación de
@@ -284,8 +283,8 @@ class ChannelDisplay:
         """Les da la misma escala a los canales bajo amplitud («µV por carril»).
 
         El alcance es el de las flechas: los seleccionados, o todos los
-        visibles si no hay ninguno. Vive acá y no en el menú para que las dos
-        vías no puedan discrepar, que es lo que pasaba hasta el hito 79.
+        visibles si no hay ninguno. Vive acá y no en el menú para que las
+        flechas y el menú no puedan discrepar.
 
         Raises:
             InvalidScaleError: si la escala no es un número finito. Se comprueba
@@ -451,11 +450,10 @@ class ChannelDisplay:
         entero: son ocho horas de señal. Un canal plano o sin datos se deja
         como está, por el mismo motivo que en `fit_to_pane()`.
 
-        **Primero se centra** (hito 70). Una temperatura de 37 °C que varía una
-        décima se medía contra el cero: la escala salía de 37 y la señal se
-        dibujaba pegada al borde de su carril, lejos de su nombre y como una
-        línea sin forma. Centrada en su media, la escala mide lo que el canal
-        varía.
+        **Primero se centra.** Una temperatura de 37 °C que varía una décima,
+        medida contra el cero, daría una escala de 37 y una señal pegada al
+        borde de su carril, lejos de su nombre y como una línea sin forma.
+        Centrada en su media, la escala mide lo que el canal varía.
 
         Args:
             channel_names: los canales a ajustar; los de clase con escala
@@ -481,11 +479,10 @@ class ChannelDisplay:
     def _finitos(self, channel_name: str, start_sample: int, stop_sample: int) -> np.ndarray:
         """Las muestras con valor de un canal en un tramo, sin los NaN ni los infinitos.
 
-        **Sin los valores que no son números** (hito 33). `np.mean` con un solo
-        NaN devuelve NaN, y se escribía directo como desplazamiento: el canal
-        se dejaba de dibujar y no había ningún cartel. Con el máximo pasaba lo
-        mismo, y el canal se quedaba sin ajustar aunque el resto del tramo
-        sirviera.
+        **Sin los valores que no son números.** `np.mean` con un solo NaN
+        devuelve NaN, y como desplazamiento dejaría el canal sin dibujar y sin
+        ningún cartel. Con el máximo pasa lo mismo: el canal quedaría sin
+        ajustar aunque el resto del tramo sirviera.
         """
         tramo = self._recording.get_segment(start_sample, stop_sample, [channel_name])
         return tramo[np.isfinite(tramo)]

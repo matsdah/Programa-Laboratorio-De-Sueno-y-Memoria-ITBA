@@ -322,6 +322,9 @@ rechazar antes de dar por terminado un cambio:
 - Ningún `.md` versionado repite un párrafo largo dentro de sí mismo, **este
   archivo incluido**. Explicar lo mismo dos veces en un archivo garantiza que
   alguien corrija una sola.
+- Las menciones a hitos dentro de `psglab/` no pueden crecer: es un trinquete,
+  `TOPE_DE_MENCIONES_A_HITOS`, y cuando bajan hay que bajarlo para que la
+  bajada quede fija. En `core/` no puede volver ninguna.
 - Todo módulo tiene test, figura en `SIN_TEST_PROPIO` o el TODO promete el suyo
   **por nombre de archivo**. Un módulo nuevo sin ninguna de las tres cosas hace
   fallar la suite. La exención **no es `ui/` entero**: son `app.py`, `config.py`
@@ -727,6 +730,10 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   documentación y todo texto que ve el usuario, en **español**.
 - Cada módulo abre con un docstring que dice de qué se ocupa y **qué IDs del
   pliego cubre**. Esa línea es la que alimenta `docs/TRAZABILIDAD.md`.
+- **Un docstring dice qué hace el código y por qué, en presente.** La historia
+  —«hasta el hito 33 esto…», «lo encontró la auditoría»— va al hito, en
+  `docs/HISTORIAL.md`, y al commit. Se aplica al tocar cada módulo y no en una
+  sola pasada; `core/` ya está entero (hito 79).
 - Type hints en todas las firmas.
 - Los errores que ve el usuario heredan de `PsgLabError`
   (`psglab/utils/errors.py`): mensaje en español dirigido a un investigador, no

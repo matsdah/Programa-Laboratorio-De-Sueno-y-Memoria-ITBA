@@ -1262,6 +1262,63 @@ def test_los_numeros_de_maquina_siguen_existiendo():
         assert funcion in nombres, f"{objetivo} ya no existe"
 
 
+#: Cuántas veces nombra algún hito el código de `psglab/`. **Es un trinquete**
+#: (hito 79): no puede subir, y cuando baja hay que bajarlo acá, para que la
+#: próxima bajada también quede fija. La regla está en `CLAUDE.md`, en
+#: «Convenciones»: un docstring dice qué hace el código y por qué, en presente,
+#: y la historia va al hito y al commit. Era 476 cuando se puso el trinquete;
+#: `core/` bajó a cero en la misma PR.
+TOPE_DE_MENCIONES_A_HITOS = 447
+
+#: Capas donde la regla ya se aplicó entera: ahí no puede volver ninguna.
+CAPAS_SIN_MENCIONES_A_HITOS: tuple[str, ...] = ("core",)
+
+#: «hito 33», «hitos 58 y 59», y también «hito» al final de un renglón de
+#: comentario con el número en el siguiente.
+_MENCION_A_UN_HITO = re.compile(r"(?i)\bhitos?(?:\s|#:?)+\d+")
+
+
+def menciones_a_hitos() -> dict[str, int]:
+    """Cuántas menciones a un hito hay en cada módulo de `psglab/`."""
+    return {
+        ruta_relativa(archivo): len(_MENCION_A_UN_HITO.findall(archivo.read_text(encoding="utf-8")))
+        for archivo in modulos_del_paquete()
+    }
+
+
+def test_las_menciones_a_hitos_no_crecen():
+    """El código cuenta lo que hace, no cómo se llegó a eso (hito 79).
+
+    La auditoría del 26 de septiembre midió que el 34 % de las líneas de
+    `psglab/` son docstrings y que gran parte de esa prosa cuenta la historia
+    del cambio —«hasta el hito 33 esto…»—, que ya está en `docs/HISTORIAL.md`
+    y en git. Para quien llega sin contexto, triplica lo que hay que leer.
+    La regla se aplica al tocar cada módulo, así que sin este chequeo
+    dependería de acordarse.
+    """
+    total = sum(menciones_a_hitos().values())
+    assert total <= TOPE_DE_MENCIONES_A_HITOS, (
+        f"el código nombra hitos {total} veces y el tope es "
+        f"{TOPE_DE_MENCIONES_A_HITOS}: la historia va al hito y al commit, y el "
+        "docstring dice qué hace el código y por qué, en presente"
+    )
+    assert total == TOPE_DE_MENCIONES_A_HITOS, (
+        f"el código nombra hitos {total} veces, menos que el tope de "
+        f"{TOPE_DE_MENCIONES_A_HITOS}: bajá TOPE_DE_MENCIONES_A_HITOS a {total} "
+        "para que la bajada quede fija"
+    )
+
+
+def test_las_capas_limpias_no_vuelven_a_nombrar_hitos():
+    """Donde la regla ya se aplicó entera no puede volver ninguna mención."""
+    sucios = {
+        ruta: cuantas
+        for ruta, cuantas in menciones_a_hitos().items()
+        if cuantas and any(f"psglab/{capa}/" in ruta for capa in CAPAS_SIN_MENCIONES_A_HITOS)
+    }
+    assert not sucios, f"estas capas ya no nombran hitos y volvieron a hacerlo: {sucios}"
+
+
 def test_analysis_tiene_una_sola_guarda_de_registro():
     """Nadie en `analysis/` vuelve a escribir `isinstance(x, Recording)` (hito 79).
 
