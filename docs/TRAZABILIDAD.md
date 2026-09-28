@@ -136,13 +136,13 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos treinta y dos se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos treinta y tres se rompen hacia todos lados.
 
-Treinta de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Treinta y uno de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`, `utils/formatting.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`, `readers/from_mne.py`,
 `core/viewport.py`, `core/decimation.py`, `core/recovery.py`, `core/history.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
-`ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py`, `ui/shortcuts_dialog.py`,
+`ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/analysis_request.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py`, `ui/shortcuts_dialog.py`,
 y desde el hito 76 `ui/main_window.py`, `ui/window_annotation.py`,
 `ui/window_view.py` y `ui/window_preferences.py`, más `ui/window_files.py`
 desde que exportar pasó a `ui/work_guard.py` en el hito 79, y
@@ -170,6 +170,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/exporters/atomic.py` | Escribir un archivo de salida entero o no escribirlo | Los tres archivos de salida y los cuatro formatos del scoring |
 | `psglab/core/decimation.py` | Reducir una señal larga a lo que entra en pantalla sin perder sus picos | Cualquier página más larga que unos segundos |
 | `psglab/ui/envelope_cache.py` | Qué trozos de la envolvente se calculan y cuáles se guardan entre cuadros | La reproducción y cualquier página larga |
+| `psglab/ui/analysis_request.py` | La fila con los parámetros de un análisis y «Calcular», arriba de su panel | Pedir el espectro, la complejidad y las dos conectividades |
 | `psglab/ui/docks.py` | La disposición de los paneles alrededor de la señal | Dónde aparece cada panel |
 | `psglab/ui/icons.py` | Los iconos de la barra, dibujados por el programa | La barra de navegación |
 | `psglab/ui/menus.py` | La barra de menú y qué acción vive en cada uno | Cómo se llega a cada funcionalidad |

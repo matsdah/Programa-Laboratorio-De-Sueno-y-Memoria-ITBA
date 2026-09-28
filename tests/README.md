@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los setenta y siete
+camino de búsqueda. Con `pytest` directo la recolección falla en los setenta y ocho
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -90,6 +90,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_derivation.py` | Las derivaciones: una resta exacta, y qué clase y qué unidad lleva el canal nuevo. |
 | `test_psd.py` | El espectro: que una onda de 10 Hz dé su pico en 10 Hz, y qué pasa con la última ventana incompleta. |
 | `test_psd_panel.py` | El panel del espectro: qué curvas quedan, dónde caen las bandas, y que la potencia no salga en logaritmos. |
+| `test_analysis_request.py` | La fila con que se pide un análisis desde su panel, **sin la ventana** (hito 79): qué se conserva al volver a llenarla, cuándo se prende «Calcular» y qué pasa con un campo o una opción que no existen. |
 | `test_settings_dialog.py` | La ventana de configuración: que mostrar no sea elegir, y que cada solapa entregue unas preferencias válidas. |
 | `test_complexity.py` | Las cuatro medidas de complejidad, cada una contra su ancla teórica. |
 | `test_auto_scoring.py` | Las fases sugeridas (hito 75): corre el clasificador de YASA de verdad sobre una noche sintética —vigilia con alfa, sueño lento—, qué canales elige y qué rechaza. |

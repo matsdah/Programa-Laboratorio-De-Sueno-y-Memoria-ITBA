@@ -393,11 +393,30 @@ más. **Varias piden una decisión antes**; están marcadas.
   - Test: `tests/test_annotator.py`, **49 tests en verde**;
     `tests/test_tool_controller.py`, **16 tests en verde**;
     `tests/test_entrega_anotacion.py`, **59 tests en verde**.
-- [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
+- [x] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
       pedido encadena carteles modales para elegir canal, medida o banda
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
       son docks: pueden llevar su selector y un botón «Calcular», con el
       canal seleccionado por omisión.
+      Hecho: `ui/analysis_request.py`, una fila con los parámetros y
+      «Calcular» debajo del encabezado del espectro, la métrica y la
+      conectividad. **El menú calcula en el acto** con lo que ya está
+      elegido, sin ningún cartel; el usuario cambia la elección en el panel y
+      vuelve a calcular sin cerrarlo. Un canal seleccionado en la lista le
+      gana a lo que tenga la fila; sin selección, la fila conserva lo que se
+      eligió ahí. La métrica cambia de campos según lo que muestre: canal y
+      medida para la complejidad, banda para la conectividad de la noche. Las
+      filas se vuelven a llenar al abrir un registro, cuando cambia la señal
+      —un canal derivado aparece— y cuando cambian las bandas en la
+      configuración. El panel vacío dice que se pide también con «Calcular».
+      **Derivar sigue con sus dos carteles**: no tiene panel, porque su
+      resultado es un canal nuevo en la señal. La ICA no pregunta nada.
+  - Test: `tests/test_analysis_request.py`, **9 tests en verde**, sin la
+    ventana; y en `tests/test_entrega_analisis.py`, que pedir no abra ningún
+    cartel, el canal seleccionado, «Calcular» con lo elegido, las opciones
+    que ofrece la fila, la métrica que cambia de campos y el canal derivado.
+    Los tres tests de «cancelar no calcula» se fueron: ya no hay cartel que
+    cancelar.
 - [x] **El panel de Scoring a la vista al abrir.** *(Decidido: visible y
       compacto.)* La tarea principal del programa hoy no se
       ve: se descubre por la ayuda de atajos. Una fila compacta con las fases
@@ -666,7 +685,7 @@ una vez que agregarlos al lugar que después hay que partir.
       rechaza una copia nueva: contra el código de antes encuentra las nueve.
   - Test: `tests/test_mne_bridge.py`, **34 tests en verde**, con el mensaje
     de cada uno de los dieciocho análisis que reciben primero el registro;
-    `tests/test_consistencia.py`, **124 tests en verde**.
+    `tests/test_consistencia.py`, **125 tests en verde**.
 - [x] **Una sola forma de escribir un número para el usuario.**
       `.replace(".", ",")` aparece 22 veces y hay tres `_numero()`: un
       `utils/formato.py` con el número con coma, los Hz y las duraciones.
@@ -689,7 +708,7 @@ una vez que agregarlos al lugar que después hay que partir.
       sin formato**, `f"{x} Hz"`.
   - Test: `tests/test_formatting.py`, **46 tests en verde**;
     `tests/test_contratos.py`, **1359 tests en verde**;
-    `tests/test_consistencia.py`, **124 tests en verde**.
+    `tests/test_consistencia.py`, **125 tests en verde**.
 - [x] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
       tema**, siguiendo a los controladores.
       Hecho, cuando ya eran 7258 líneas y 437 tests: **seis archivos de
@@ -709,7 +728,7 @@ una vez que agregarlos al lugar que después hay que partir.
     `tests/test_entrega_scoring.py`, **46 tests en verde**;
     `tests/test_entrega_anotacion.py`, **59 tests en verde**;
     `tests/test_entrega_vista.py`, **47 tests en verde**;
-    `tests/test_entrega_analisis.py`, **103 tests en verde**;
+    `tests/test_entrega_analisis.py`, **106 tests en verde**;
     `tests/test_entrega_interfaz.py`, **103 tests en verde**.
 - [x] **Los docks se llaman `*_dock`.** Siguen llamándose `psd_dialog` y
       compañía para no tocar ocho tests; quien lee el código busca un
@@ -817,7 +836,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **124 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **125 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 

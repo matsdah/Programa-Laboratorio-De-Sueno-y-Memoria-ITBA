@@ -37,6 +37,7 @@ from PySide6.QtGui import QBrush, QColor, QPen
 from PySide6.QtWidgets import QGraphicsRectItem, QStackedWidget, QVBoxLayout, QWidget
 
 from psglab.ui import theme
+from psglab.ui.analysis_request import AnalysisRequest
 from psglab.ui.fonts import font_for
 from psglab.ui.panel_header import EmptyState, PanelHeader
 from psglab.utils.formatting import number
@@ -96,6 +97,10 @@ class ConnectivityPanel(QWidget):
         #: El encabezado, con qué se está mirando. Ver `PanelHeader`.
         self.header = PanelHeader("Conectividad")
 
+        #: Con qué se pide el análisis: sus parámetros y «Calcular». Los llena
+        #: la ventana, que es la que sabe qué canales y bandas hay.
+        self.request = AnalysisRequest()
+
         #: Lo que se ve mientras no hay ninguna matriz. Ver `EmptyState`.
         self.vacio = EmptyState()
 
@@ -110,6 +115,7 @@ class ConnectivityPanel(QWidget):
         columna.setContentsMargins(0, 0, 0, 0)
         columna.setSpacing(0)
         columna.addWidget(self.header)
+        columna.addWidget(self.request)
         columna.addWidget(self._pila)
         self._reflejar_titulo()
 

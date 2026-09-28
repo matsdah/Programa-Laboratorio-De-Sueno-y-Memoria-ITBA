@@ -143,6 +143,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_connectivity_panel.py": ("psglab/ui/connectivity_panel.py",),
     "test_psd.py": ("psglab/analysis/psd.py",),
     "test_psd_panel.py": ("psglab/ui/psd_panel.py",),
+    # La fila de parámetros de los paneles de análisis (hito 79).
+    "test_analysis_request.py": ("psglab/ui/analysis_request.py",),
     "test_settings_dialog.py": ("psglab/ui/settings_dialog.py",),
     "test_derivation.py": ("psglab/analysis/derivation.py",),
     "test_reference.py": ("psglab/analysis/reference.py",),

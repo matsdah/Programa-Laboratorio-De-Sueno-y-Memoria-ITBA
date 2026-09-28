@@ -25,6 +25,7 @@ pytest.importorskip("pyqtgraph")
 from psglab.config import WINDOW_SECONDS  # noqa: E402
 from psglab.app import create_main_window  # noqa: E402
 from psglab.core.annotations import Annotation  # noqa: E402
+from psglab.ui.analysis_request import AnalysisRequest  # noqa: E402
 from psglab.ui.main_window import MainWindow  # noqa: E402
 
 from conftest import escribir_brainvision  # noqa: E402
@@ -272,34 +273,46 @@ def confirmacion(monkeypatch):
     return estado
 
 
+def _contestar_en_orden(monkeypatch, respuestas: list[tuple[str, bool]]) -> None:
+    """Contesta, en orden, lo que el programa le pregunta al usuario.
+
+    Hay dos formas de preguntar y las dos toman de la misma cola: los carteles
+    de `QInputDialog.getItem` —los de derivar— y la fila de parámetros de un
+    panel de análisis, que se lee con `AnalysisRequest.value()` en el orden en
+    que la ventana la lee: el canal y después la medida o la banda. Cuando la
+    cola se vacía, la fila contesta lo que muestra de verdad.
+    """
+    valor_de_la_fila = AnalysisRequest.value
+
+    def por_cartel(*_args, **_kwargs) -> tuple[str, bool]:
+        return respuestas.pop(0) if respuestas else ("", False)
+
+    def por_la_fila(fila: AnalysisRequest, key: str) -> str:
+        return respuestas.pop(0)[0] if respuestas else valor_de_la_fila(fila, key)
+
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(por_cartel))
+    monkeypatch.setattr(AnalysisRequest, "value", por_la_fila)
+
+
 @pytest.fixture
 def elige_canal(monkeypatch):
-    """Responde los diálogos de canal sin abrirlos, en orden."""
-    respuestas: dict[str, list[tuple[str, bool]]] = {"cola": []}
-
-    def responder(*_args, **_kwargs) -> tuple[str, bool]:
-        return respuestas["cola"].pop(0) if respuestas["cola"] else ("", False)
-
-    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(responder))
-
+    """Elige canales, en orden: en los carteles de derivar o en la fila del panel."""
     def fijar(*elegidos: str, acepta: bool = True) -> None:
-        respuestas["cola"] = [(nombre, acepta) for nombre in elegidos]
+        _contestar_en_orden(monkeypatch, [(nombre, acepta) for nombre in elegidos])
 
     return fijar
 
 
 @pytest.fixture
 def elige_opciones(monkeypatch):
-    """Contesta una secuencia de diálogos de `QInputDialog.getItem`.
+    """Contesta una secuencia de preguntas, como pares (valor, aceptó).
 
-    Los de complejidad y conectividad preguntan dos cosas seguidas —canal y
-    medida, o banda—, así que hace falta ir devolviendo respuestas distintas.
+    La complejidad lee dos cosas seguidas de su fila —canal y medida—, así que
+    hace falta ir devolviendo respuestas distintas. Ver `_contestar_en_orden`.
     """
-    def responder_con(*respuestas):
-        cola = iter(respuestas)
-        monkeypatch.setattr(
-            QInputDialog, "getItem", staticmethod(lambda *a, **k: next(cola))
-        )
+    def responder_con(*respuestas: tuple[str, bool]) -> None:
+        _contestar_en_orden(monkeypatch, list(respuestas))
+
     return responder_con
 
 
