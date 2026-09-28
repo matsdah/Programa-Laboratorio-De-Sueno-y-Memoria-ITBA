@@ -737,10 +737,17 @@ función, y la historia ya está en este archivo y en git.
 - [ ] **Un trinquete en `test_consistencia.py`**: la cantidad de menciones a
       hitos dentro de `psglab/` no puede crecer. Sin él, la regla de arriba
       depende de acordarse.
-- [ ] **«Dónde cambiar qué», en `EXPLICACION.txt`**: la duración de la
+- [x] **«Dónde cambiar qué», en `EXPLICACION.txt`**: la duración de la
       época, los colores, las teclas, los filtros sugeridos, los nombres de
       los archivos de salida. Es la pregunta de quien abre el código sin
       programar.
+      Hecho, al final de «4. Como encontrar algo», para no renumerar las
+      secciones de después. Nombra el archivo y la constante de cada cosa: las
+      cinco del ítem, y además la escala de cada clase de canal, las
+      respuestas del cliente sobre los archivos de salida, las bandas, las
+      clases de anotación, los nombres de canal que se reconocen y las
+      velocidades de la reproducción. Cierra separando lo que es del código de
+      lo que elige cada usuario, que va a `preferencias.json`.
 - [ ] **El código muerto que la red no ve.** La red del hito 30 mira
       `analysis/`, `tools/` y los paneles, no `core/`, `readers/` ni
       `utils/`, y ahí sobrevivieron: en `core/windows.py`,
