@@ -985,11 +985,17 @@ función, y la historia ya está en este archivo y en git.
     leyendo. En `tests/test_entrega.py`, que por la ventana sea un cartel y
     el scoring quede como estaba. Sin la guarda fallan los cinco que
     rechazan.
-- [ ] **Medir el reparto con los paneles de análisis abiertos.** En la
+- [x] **Medir el reparto con los paneles de análisis abiertos.** En la
       captura de 1800 px la señal quedaba con alrededor de un tercio del
       ancho y el panel de contexto con la mitad del alto. Puede ser propio de
       la herramienta de capturas: lo decide `python -m tests.medir_reparto`,
       que abre una ventana en la pantalla y lo corre quien esté frente a ella.
+      Hecho, en Windows con la letra del programa. **Es propio de la
+      herramienta de capturas**: con el espectro abierto, la señal se queda
+      con el 53 al 56 % del ancho —676 px a 1280, 760 a 1400 y 857 a 1539,
+      que es lo más que dio la pantalla para la ventana de 1800— y el
+      contexto con 145 px de alto, el 18 %. El banco mide ahora también a
+      1800 px y las dos alturas, que eran lo que había hecho sospechar.
 
 ### Lo que decidió el usuario
 

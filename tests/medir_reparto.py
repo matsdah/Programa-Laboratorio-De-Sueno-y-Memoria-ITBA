@@ -24,7 +24,8 @@ Qué mide, para cada ancho de ventana y cada nomenclatura:
   de `ANCHOS_DE_ABAJO` y lo que explica el reparto que sale.
 - **El ancho del panel de canales y el de la señal**, que son lo que queda.
 - **La pila de análisis de la derecha**: cuánto recibe al abrir uno de sus
-  paneles, el mínimo de cada uno de los seis y cuánto le queda a la señal.
+  paneles, el mínimo de cada uno de los seis, y cuánto ancho y cuánto alto le
+  quedan a la señal y al contexto, también a 1800 px.
 
 Con el registro de `data/` si está —el árbol de canales cambia de ancho con los
 nombres que trae—, y con uno sintético si no, que no se versiona.
@@ -52,6 +53,10 @@ REGISTRO = RAIZ / "data" / "SC4001E0-PSG.edf"
 #: 1280 es la pantalla chica que todavía se usa; los otros dos están alrededor
 #: del punto en que el scoring pasa a ser más ancho que el hipnograma.
 ANCHOS: tuple[int, ...] = (1400, 1280, 1170, 1050)
+
+#: Los anchos con que se mide la pila de análisis. 1800 es el de la captura
+#: donde la señal parecía quedar con un tercio del ancho.
+ANCHOS_DE_ANALISIS: tuple[int, ...] = (1800, 1400, 1280)
 
 #: El alto no cambia nada del reparto, que es horizontal. Se fija para que la
 #: tabla no dependa de con qué tamaño quedó abierta la ventana.
@@ -114,9 +119,17 @@ def medir_analisis(ventana: MainWindow, ancho: int) -> None:
     pila.show()
     asentar()
     central = ventana.centralWidget().geometry()
-    print(f"\n== Análisis con una ventana de {ventana.width()} px ==")
+    contexto = ventana.docks["overview"]
+    print(f"\n== Análisis con una ventana de {ventana.width()} × {ventana.height()} px ==")
     print(f"  {'Pila (derecha)':<28} x={pila.geometry().x():4d}  {pila.width():4d} px")
-    print(f"  {'Señal':<28} x={central.x():4d}  {central.width():4d} px")
+    print(
+        f"  {'Señal':<28} x={central.x():4d}  {central.width():4d} px"
+        f"   ({central.width() / ventana.width():.0%} del ancho, alto {central.height()} px)"
+    )
+    print(
+        f"  {'Contexto':<28} alto {contexto.height():4d} px"
+        f"   ({contexto.height() / ventana.height():.0%} del alto)"
+    )
     for clave, titulo in ORDEN_DE_ANALISIS:
         minimo = ventana.docks[clave].minimumSizeHint().width()
         print(f"  {titulo:<28} mínimo {minimo:4d} px")
@@ -159,7 +172,7 @@ def main() -> int:
     for nomenclatura in (Nomenclature.RK, Nomenclature.AASM):
         for ancho in ANCHOS:
             medir(ventana, ancho, nomenclatura)
-    for ancho in ANCHOS[:2]:
+    for ancho in ANCHOS_DE_ANALISIS:
         medir_analisis(ventana, ancho)
 
     ventana.close()
