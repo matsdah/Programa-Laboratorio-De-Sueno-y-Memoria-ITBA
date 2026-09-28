@@ -464,11 +464,11 @@ def test_los_paneles_cerrados_no_se_recorren(ventana: MainWindow):
 def test_los_paneles_de_analisis_cerrados_al_arrancar_no_se_recorren(
     ventana: MainWindow,
 ):
-    assert ventana.psd_dialog not in ventana.focusable_panes()
+    assert ventana.psd_dock not in ventana.focusable_panes()
 
-    ventana.psd_dialog.show()
+    ventana.psd_dock.show()
 
-    assert ventana.psd_dialog in ventana.focusable_panes()
+    assert ventana.psd_dock in ventana.focusable_panes()
 
 
 def test_todos_los_paneles_tienen_un_nombre_para_el_lector_de_pantalla(

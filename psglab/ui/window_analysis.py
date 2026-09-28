@@ -257,7 +257,7 @@ class AnalysisMixin:
         Por qué se descarta, y cuándo, lo explica `forget_ica()`.
         """
         self.ica_panel.clear_components()
-        self.ica_dialog.hide()
+        self.ica_dock.hide()
 
     def _elegir_canal(self, titulo: str, etiqueta: str) -> str | None:
         """Pregunta un canal de los que hay. `None` si el usuario cancela."""
@@ -533,8 +533,8 @@ class AnalysisMixin:
                 "es interpolación y no señal."
             )
         self.psd_panel.set_caption(descripcion)
-        self.psd_dialog.show()
-        self.psd_dialog.raise_()
+        self.psd_dock.show()
+        self.psd_dock.raise_()
 
     def show_complexity_dialog(self) -> None:
         """Recorre la noche con una medida de complejidad y la grafica.
@@ -572,8 +572,8 @@ class AnalysisMixin:
         self.metric_panel.set_caption(
             f"{medida} — «{canal}»" + self._nota_de_la_noche(series)
         )
-        self.metric_dialog.show()
-        self.metric_dialog.raise_()
+        self.metric_dock.show()
+        self.metric_dock.raise_()
 
     def show_connectivity_dialog(self) -> None:
         """Calcula la conectividad de la ventana actual y la muestra.
@@ -635,8 +635,8 @@ class AnalysisMixin:
             )
         descripcion += self._sin_contenido_en(canales, bandas[banda])
         self.connectivity_panel.set_caption(descripcion)
-        self.connectivity_dialog.show()
-        self.connectivity_dialog.raise_()
+        self.connectivity_dock.show()
+        self.connectivity_dock.raise_()
 
     def show_connectivity_night_dialog(self) -> None:
         """Mide la conectividad época por época y la grafica a lo largo de la noche.
@@ -722,8 +722,8 @@ class AnalysisMixin:
         self.metric_panel.set_caption(
             f"{etiqueta} a lo largo de la noche<br>{promediados}{nota}"
         )
-        self.metric_dialog.show()
-        self.metric_dialog.raise_()
+        self.metric_dock.show()
+        self.metric_dock.raise_()
 
     def show_filter_dialog(self) -> None:
         """Abre el panel de filtros (V1_F de "Filtración").
@@ -735,8 +735,8 @@ class AnalysisMixin:
         if self._session is None:
             return
         self.filter_panel.set_recording(self._session.recording)
-        self.filter_dialog.show()
-        self.filter_dialog.raise_()
+        self.filter_dock.show()
+        self.filter_dock.raise_()
 
     def apply_filters_from_panel(self) -> None:
         """Aplica lo que el panel tenga escrito.
@@ -814,8 +814,8 @@ class AnalysisMixin:
         if self._session is None:
             return
         self._cargar_impedancias()
-        self.impedance_dialog.show()
-        self.impedance_dialog.raise_()
+        self.impedance_dock.show()
+        self.impedance_dock.raise_()
 
     def _cargar_impedancias(self) -> None:
         """Llena el panel con los canales del registro y lo que traiga el archivo."""
@@ -938,8 +938,8 @@ class AnalysisMixin:
         if self._session is not None:
             self.ica_panel.set_start_time(self._session.recording.start_time)
         self.ica_panel.set_components(topografias, varianzas)
-        self.ica_dialog.show()
-        self.ica_dialog.raise_()
+        self.ica_dock.show()
+        self.ica_dock.raise_()
 
     def _mostrar_curva_del_componente(self, component: int) -> None:
         """Reconstruye la serie del componente elegido y se la da al panel.
@@ -999,7 +999,7 @@ class AnalysisMixin:
             lambda registro: apply_ica(registro, descomposicion, exclude),
             accion="quitar los componentes",
         )
-        self.ica_dialog.hide()
+        self.ica_dock.hide()
 
     def restore_original_recording(self) -> None:
         """Vuelve a la señal tal como se leyó del archivo.
