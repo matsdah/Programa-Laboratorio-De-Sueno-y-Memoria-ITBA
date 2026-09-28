@@ -22,11 +22,11 @@ from typing import Final
 from psglab.utils.errors import InvalidAnnotationError, UnknownAnnotationLabelError
 from psglab.utils.validation import check_finite, check_index
 
-#: Clases de evento ofrecidas por defecto. El usuario puede agregar las suyas.
-#: La clase de evento que además es la marca de arousal de su ventana (hito
-#: 79). Ver `is_arousal()`.
+#: La clase de evento que además es la marca de arousal de su ventana. Ver
+#: `is_arousal()`.
 AROUSAL_LABEL: Final[str] = "Arousal"
 
+#: Clases de evento ofrecidas por defecto. El usuario puede agregar las suyas.
 DEFAULT_LABELS: Final[tuple[str, ...]] = (
     AROUSAL_LABEL,
     "Complejo K",
@@ -70,14 +70,13 @@ PALETTE: Final[tuple[str, ...]] = (
 
 
 def is_arousal(label: object) -> bool:
-    """Si una clase de evento es la del arousal (hito 79).
+    """Si una clase de evento es la del arousal.
 
-    **El arousal existía dos veces sin relación**: la marca de la ventana —la
-    tecla A, que es la que exportan `Scoring.txt` y las estadísticas— y la
-    clase de anotación «Arousal». Anotar uno no marcaba nada, así que un
-    arousal anotado con cuidado no llegaba a ningún archivo de salida. Lo que
-    se decidió es que la marca es la que cuenta, y anotar la pone; ver
-    `Session.mark_arousal_of()`.
+    El arousal se registra de dos formas: la marca de la ventana —la tecla A,
+    que es la que exportan `Scoring.txt` y las estadísticas— y la clase de
+    anotación «Arousal». **La que cuenta es la marca**, y anotar un arousal la
+    pone, para que el que se anotó sobre la señal llegue a los archivos de
+    salida; ver `Session.mark_arousal_of()`.
 
     Sin distinguir mayúsculas ni espacios de más: «arousal» escrito a mano en
     el cartel es la misma clase. Lo que no es texto no es la clase.
@@ -101,10 +100,8 @@ class Annotation:
 
     **Inmutable a propósito.** Así se la puede guardar en un conjunto y usar
     como clave, que es lo que necesita el anotador para saber cuál está debajo
-    del clic. **Corregirla es reemplazarla** (hito 52): `AnnotationSet.replace()`
-    cambia una por otra, y no hay ningún camino que la modifique en el lugar.
-    Hasta ese hito se decía que una anotación «se crea, se borra, no se edita»,
-    y para corregir una clase equivocada había que borrarla y rehacer el gesto.
+    del clic. **Corregirla es reemplazarla**: `AnnotationSet.replace()` cambia
+    una por otra, y no hay ningún camino que la modifique en el lugar.
     """
 
     label: str
@@ -130,9 +127,8 @@ class AnnotationSet:
 
     **Al lado va la lista de los comienzos**, en el mismo orden, y la duración
     más larga. Con eso agregar, borrar y buscar un tramo son búsquedas
-    binarias (hito 79). Hasta ahí agregar rearmaba la lista de comienzos
-    entera en cada anotación —importar 20 000 marcas tardaba cinco segundos—
-    y `in_range()` recorría todas en cada repintado.
+    binarias: importar 20 000 marcas no rearma nada por cada una, y
+    `in_range()` no recorre todas en cada repintado.
     """
 
     def __init__(self, labels: tuple[str, ...] = DEFAULT_LABELS) -> None:
@@ -173,7 +169,7 @@ class AnnotationSet:
         self._insertar(annotation)
 
     def replace(self, old: Annotation, new: Annotation) -> None:
-        """Cambia una anotación por otra: es como se corrige una (hito 52).
+        """Cambia una anotación por otra: es como se corrige una.
 
         **Valida la nueva antes de sacar la vieja.** Si la nueva no sirve —una
         clase que no existe, un tramo sin ancho— el conjunto queda como estaba:
@@ -236,9 +232,8 @@ class AnnotationSet:
             details="Se esperaba una duración finita de 1 muestra o más.",
             minimum=1,
         )
-        # **En muestras enteras** (hito 71). Se aceptaba 10,5: `Anotaciones.txt`
-        # guarda puntos del registro, que son enteros, y una fracción no es un
-        # lugar de la señal.
+        # **En muestras enteras**: `Anotaciones.txt` guarda puntos del
+        # registro, que son enteros, y 10,5 no es un lugar de la señal.
         for campo, valor in (
             ("onset_sample", annotation.onset_sample),
             ("duration_samples", annotation.duration_samples),
@@ -321,15 +316,14 @@ class AnnotationSet:
         Registrar una clase que ya existe no es un error —es algo que el usuario
         teclea— y si se pasa un color, reemplaza al anterior.
 
-        **El color es exactamente `#rrggbb`** (hito 48), y no cualquier cosa
-        que pyqtgraph sepa dibujar. No es purismo: el visualizador pinta la
-        banda de una anotación con `color + "55"`, o sea que le **concatena** la
+        **El color es exactamente `#rrggbb`**, y no cualquier cosa que
+        pyqtgraph sepa dibujar. No es purismo: el visualizador pinta la banda
+        de una anotación con `color + "55"`, o sea que le **concatena** la
         transparencia al texto. Con `#e6754a` eso da un color válido; con `red`
         da `red55` y con `#e6754aff` da diez dígitos, y en los dos casos dibujar
-        la anotación eleva un `ValueError` crudo. Hasta este hito se aceptaba
-        cualquier cosa, y un archivo de preferencias editado a mano con `red`
-        llegaba hasta ahí. Lo normaliza `preferences.py` al leer, que es por
-        donde entra texto arbitrario.
+        la anotación elevaría un `ValueError` crudo. Lo que llega de un archivo
+        de preferencias editado a mano lo normaliza `preferences.py` al leer,
+        que es por donde entra texto arbitrario.
 
         Raises:
             InvalidAnnotationError: si la etiqueta está vacía —una clase sin
@@ -427,7 +421,7 @@ def marks_to_annotations(
     sampling_rate: float,
     n_samples: int,
 ) -> list[Annotation]:
-    """Las marcas que trae el archivo del registro, como anotaciones (hito 73).
+    """Las marcas que trae el archivo del registro, como anotaciones.
 
     Un BrainVision trae los marcadores de su `.vmrk` y un EDF+ sus anotaciones:
     los lectores los guardan en segundos, con su descripción. Acá pasan a la

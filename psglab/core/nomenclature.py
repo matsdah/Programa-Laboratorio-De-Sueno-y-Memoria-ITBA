@@ -137,10 +137,9 @@ def check_nomenclature(nomenclature: Nomenclature) -> None:
     crudo, atraviesa el `except PsgLabError` de la ventana principal y el
     investigador ve una traza de Python.
 
-    **Es pública desde el hito 48**, porque dejó de tener un solo dueño:
-    `Scoring.change_nomenclature()` la necesita para validar antes de guardar,
-    y copiar el `isinstance` allá habría dejado el mismo mensaje escrito en dos
-    lugares.
+    **Es pública** porque tiene dos dueños: `Scoring.change_nomenclature()`
+    la necesita para validar antes de guardar, y copiar el `isinstance` allá
+    dejaría el mismo mensaje escrito en dos lugares.
     """
     if not isinstance(nomenclature, Nomenclature):
         raise InvalidNomenclatureError(

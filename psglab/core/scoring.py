@@ -6,7 +6,7 @@ el tamaño total de la noche desde el arranque y muestre en blanco lo no
 anotado (V1_P del histograma), y que el usuario pueda scorear una parte
 alejada del registro sin haber pasado por las anteriores.
 
-**Las fases sugeridas viven al lado y no adentro** (hito 75). Un clasificador
+**Las fases sugeridas viven al lado y no adentro.** Un clasificador
 puede proponer la fase de cada ventana, y esa propuesta se guarda en una capa
 aparte: `EpochScore.stage` sigue queriendo decir «la eligió una persona». Así
 los exportadores, las estadísticas y el trabajo sin exportar no tienen que
@@ -57,7 +57,7 @@ class EpochScore:
 
 @dataclass(frozen=True)
 class StageSuggestion:
-    """La fase que propone un clasificador para una ventana (hito 75).
+    """La fase que propone un clasificador para una ventana.
 
     **No es scoring**: nadie la eligió. Se confirma con
     `Scoring.accept_suggestions()` o scoreando la ventana a mano.
@@ -215,18 +215,13 @@ class Scoring:
         Cambiar a la nomenclatura que ya está activa no hace nada, pero tampoco
         es un error: la interfaz puede llamar sin preguntar.
 
-        **La guarda es propia y no la de `convert()`** (hito 48). La validación
-        vivía adentro de la comprensión de abajo, que corre una vez por ventana
-        scoreada: sobre un scoring **sin scorear** el bucle no itera, así que
-        una nomenclatura inventada se guardaba tal cual. El objeto quedaba con
-        una cadena donde va un enum, y el siguiente `export_scoring()` moría con
-        un `AttributeError` crudo —que atraviesa el `except PsgLabError` de la
-        ventana y le deja al investigador una traza de Python—.
-
-        Lo encontró la auditoría de los tests: la fila de `CONTRATOS` de este
-        método construye justamente un scoring recién creado, así que
-        certificaba como seguro el único camino en el que la guarda no
-        disparaba.
+        **La guarda es propia y no la de `convert()`.** La de `convert()` corre
+        una vez por ventana scoreada, en la comprensión de abajo: sobre un
+        scoring **sin scorear** el bucle no itera, y una nomenclatura inventada
+        se guardaría tal cual. El objeto quedaría con una cadena donde va un
+        enum, y el siguiente `export_scoring()` moriría con un `AttributeError`
+        crudo, que atraviesa el `except PsgLabError` de la ventana y le deja al
+        investigador una traza de Python.
         """
         check_nomenclature(target)
         if target is self._nomenclature:
@@ -251,7 +246,7 @@ class Scoring:
         return sum(1 for score in self._scores if score.is_scored)
 
     def next_unscored(self, window_index: int, forward: bool = True) -> int | None:
-        """La próxima ventana sin scorear, contando desde una (hito 79).
+        """La próxima ventana sin scorear, contando desde una.
 
         Es como se retoma un scoring a medias. **La de partida no cuenta**:
         parado en una sin scorear, la tecla lleva a la siguiente. Una ventana
@@ -287,7 +282,7 @@ class Scoring:
         """
         return [score.stage for score in self._scores]
 
-    # -- Fases sugeridas (hito 75) -------------------------------------------
+    # -- Fases sugeridas ------------------------------------------------------
 
     def set_suggestions(self, suggestions: Sequence[StageSuggestion | None]) -> None:
         """Guarda las fases que propone un clasificador, una por ventana.
@@ -354,7 +349,7 @@ class Scoring:
 
     def suggestions(self) -> tuple[StageSuggestion | None, ...]:
         """Todas las sugeridas guardadas, una por ventana, **también las de
-        ventanas ya scoreadas** (hito 79).
+        ventanas ya scoreadas**.
 
         `suggestion()` esconde las de una ventana scoreada porque es lo que se
         muestra; ésta las devuelve tal cual porque es lo que se guarda:
