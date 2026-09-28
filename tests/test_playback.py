@@ -8,7 +8,7 @@ silencio —una reproducción que va al doble o a la mitad de lo que dice se ve
 "andando" igual—.
 
 Que la página avance y la época no, y que se detenga en el final, se verifica
-por la ventana en `test_entrega.py`.
+por la ventana en `test_entrega_vista.py`.
 """
 
 import pytest

@@ -1,7 +1,7 @@
 """La superficie pública de la ventana principal, congelada a propósito.
 
-Este archivo no verifica que el programa haga algo: eso es `test_entrega.py`,
-que recorre el camino completo. Verifica **cómo se llama** lo que hace, que es
+Este archivo no verifica que el programa haga algo: eso son los `test_entrega*.py`,
+que recorren el camino completo. Verifica **cómo se llama** lo que hace, que es
 otra cosa y hoy estaba escrito sólo de forma implícita, repartido en las 1610
 líneas de aquél.
 
@@ -137,7 +137,7 @@ ATRIBUTOS_PUBLICOS: frozenset[str] = frozenset(
 )
 
 #: Métodos y properties públicos. Son la API que usan los atajos de teclado
-#: (por nombre, vía `getattr`), los menús y `test_entrega.py`.
+#: (por nombre, vía `getattr`), los menús y los `test_entrega*.py`.
 METODOS_PUBLICOS: frozenset[str] = frozenset(
     {
         # Estado.
@@ -245,7 +245,7 @@ METODOS_PUBLICOS: frozenset[str] = frozenset(
     }
 )
 
-#: Privados que `test_entrega.py` llama o monkeypatchea. No son API pública,
+#: Privados que los `test_entrega*.py` llaman o monkeypatchean. No son API pública,
 #: pero la suite depende de ellos igual, así que renombrarlos tampoco es gratis.
 PRIVADOS_QUE_LA_SUITE_USA: frozenset[str] = frozenset(
     {
