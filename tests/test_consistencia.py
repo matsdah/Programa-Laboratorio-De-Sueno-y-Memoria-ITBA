@@ -92,6 +92,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
         "psglab/readers/edf.py",
         "psglab/readers/brainvision.py",
     ),
+    # Lo que los dos lectores hacen con lo que devuelve MNE (hito 79).
+    "test_from_mne.py": ("psglab/readers/from_mne.py",),
     "test_scoring_reader.py": ("psglab/readers/scoring_reader.py",),
     "test_scoring_formats.py": (
         "psglab/readers/scoring_formats.py",

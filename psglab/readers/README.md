@@ -15,6 +15,7 @@ polisomnografía": los formatos se suman de a uno sin rediseñar nada.
 | `base.py` | La clase `Reader`, el registro de formatos y `read_recording()`. | Base de V1_F y V2_F de "Importación" |
 | `brainvision.py` | Formato BrainVision (`.vhdr` + `.vmrk` + `.eeg`). | V1_F de "Importación" |
 | `edf.py` | Formato EDF y EDF+. | V2_F de "Importación" |
+| `from_mne.py` | **Lo que los dos lectores hacen con lo que devuelve MNE** (hito 79): por cuánto multiplicar cada fila para tenerla en µV, el armado de los canales —convirtiendo en el lugar— y las marcas del archivo. Estaba copiado en los dos. La tabla de grafías que MNE lleva a volts sigue siendo de cada lector, porque cambia con el formato. | — (infraestructura) |
 | `scoring_reader.py` | Un scoring ya existente, para ver o corregir la fase de cada ventana. Elige el lector por la extensión y lee él mismo el `.txt`. | V3_F de "Importación" |
 | `scoring_formats.py` | Un scoring en CSV, EDF+ o XML del NSRR, escrito por este programa o por otro. **Un XML que declara entidades no se abre** (hito 79): una pasada previa con `xml.parsers.expat` las rechaza antes de expandirlas, sin depender de la versión de expat de la máquina. | V3_F de "Importación" |
 | `channel_types.py` | Detección automática de la clase de cada canal (EEG, EOG, EMG, ECG, respiratorio, otro). | V4_F de "Visualización" |

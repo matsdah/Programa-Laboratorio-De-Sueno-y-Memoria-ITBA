@@ -639,9 +639,19 @@ una vez que agregarlos al lugar que después hay que partir.
   - Test: `tests/test_overlay_items.py`, **24 tests en verde**, y
     `tests/test_envelope_cache.py`, **7 tests en verde**, sin Qt;
     `tests/test_signal_view.py` sigue con **98 tests en verde**.
-- [ ] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
+- [x] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
       tienen el mismo `_factor_a_microvoltios()`, el mismo armado de canales
       y la misma lectura de marcas: a un módulo común de `readers/`.
+      Hecho, en `readers/from_mne.py`: `microvolt_factor()`,
+      `build_channels()` —que convierte en el lugar y deduce la clase con la
+      unidad ya convertida— y `marks_of()`. **La tabla de grafías que MNE
+      lleva a volts sigue siendo de cada lector**, y se le pasa: MNE usa una
+      por formato, con mayúsculas y sin normalizar, y confundirla con la de
+      `utils/units.py` fue el error del hito 33. Los dos lectores bajaron unas
+      setenta líneas cada uno y `test_readers.py` no cambió.
+  - Test: `tests/test_from_mne.py`, **11 tests en verde**, sin archivo: qué
+    fila se convierte y desde qué unidad, que la tabla decida y no la
+    unidad, la clase con la unidad convertida y las marcas.
 - [x] **Una sola guarda de registro en `analysis/`**: `_exigir_registro()`
       está escrita siete veces, en siete módulos.
       Hecho: **eran nueve**, porque `complexity.py` e `impedance.py` la
@@ -656,7 +666,7 @@ una vez que agregarlos al lugar que después hay que partir.
       rechaza una copia nueva: contra el código de antes encuentra las nueve.
   - Test: `tests/test_mne_bridge.py`, **34 tests en verde**, con el mensaje
     de cada uno de los dieciocho análisis que reciben primero el registro;
-    `tests/test_consistencia.py`, **121 tests en verde**.
+    `tests/test_consistencia.py`, **122 tests en verde**.
 - [x] **Una sola forma de escribir un número para el usuario.**
       `.replace(".", ",")` aparece 22 veces y hay tres `_numero()`: un
       `utils/formato.py` con el número con coma, los Hz y las duraciones.
@@ -679,7 +689,7 @@ una vez que agregarlos al lugar que después hay que partir.
       sin formato**, `f"{x} Hz"`.
   - Test: `tests/test_formatting.py`, **46 tests en verde**;
     `tests/test_contratos.py`, **1371 tests en verde**;
-    `tests/test_consistencia.py`, **121 tests en verde**.
+    `tests/test_consistencia.py`, **122 tests en verde**.
 - [x] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
       tema**, siguiendo a los controladores.
       Hecho, cuando ya eran 7258 líneas y 437 tests: **seis archivos de
@@ -768,7 +778,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **121 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **122 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 

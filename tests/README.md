@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los setenta y seis
+camino de búsqueda. Con `pytest` directo la recolección falla en los setenta y siete
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -64,6 +64,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_annotations.py` | Los eventos sobre la señal: qué se borra, qué se dibuja y cómo se reemplaza uno sin perderlo. |
 | `test_channel_types.py` | Que cada canal se clasifique solo: EEG, EOG, EMG, ECG u otro. |
 | `test_readers.py` | El despacho por formato, y que la señal de un EDF y un BrainVision salga en la escala correcta. |
+| `test_from_mne.py` | Lo que los dos lectores hacen con lo que devuelve MNE, **sin archivo** (hito 79): qué fila se convierte y desde qué unidad, que la tabla de grafías decida y no la unidad, la clase del canal y las marcas. |
 | `test_scoring_reader.py` | Importar un scoring ya hecho sin adivinar con qué nomenclatura se escribió. |
 | `test_scoring_formats.py` | El scoring en CSV, EDF+ y XML: la ida y la vuelta, y los archivos que escriben otros programas. |
 | `test_registry.py` | El registro de herramientas y su clase base: el punto de extensión. |
