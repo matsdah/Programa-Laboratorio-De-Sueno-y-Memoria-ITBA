@@ -68,7 +68,7 @@ from psglab.core.channel_display import ChannelDisplay
 from psglab.core.session import Session
 from psglab.core.decimation import bucket_size_for, envelope_by_bucket_size
 from psglab.core.viewport import Viewport
-from psglab.utils import units, validation
+from psglab.utils import formatting, units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
 
 #: Valores que nunca deberían llegar, y que llegan igual: un lector con un bug,
@@ -382,6 +382,15 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("from_raw(original=...)", lambda v: mne_bridge.from_raw(object(), v)),
         ("unidad_de_salida", lambda v: mne_bridge.unidad_de_salida(v)),
     ],
+    "psglab/utils/formatting.py": [
+        ("number(value=...)", lambda v: formatting.number(v)),
+        ("number(decimals=...)", lambda v: formatting.number(1.0, v)),
+        ("number(significant=...)", lambda v: formatting.number(1.0, significant=v)),
+        ("quantity(value=...)", lambda v: formatting.quantity(v, "Hz")),
+        ("quantity(unit=...)", lambda v: formatting.quantity(1.0, v)),
+        ("duration", lambda v: formatting.duration(v)),
+        ("parse_number", lambda v: formatting.parse_number(v)),
+    ],
     "psglab/utils/units.py": [
         ("conversion_factor", lambda v: units.conversion_factor(v)),
         ("to_microvolts(unit=...)", lambda v: units.to_microvolts(1.0, v)),
@@ -541,6 +550,11 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     # La unidad llega de la cabecera de un EDF o un BrainVision. Es entrada
     # externa, no un valor que arme el programa.
     ("normalize_unit_name con None", None, lambda v: units.normalize_unit_name(v)),
+    # Hito 79. `True` escrito como «1» sería un número que nadie calculó.
+    ("number con un booleano", True, lambda v: formatting.number(v)),
+    ("number con decimales negativos", -1, lambda v: formatting.number(1.0, v)),
+    # Hito 79. Leer algo que no es texto reventaba en `.strip()`.
+    ("parse_number con un número", 0.5, lambda v: formatting.parse_number(v)),
     # El factor cero dividía por cero al subir la amplitud.
     ("increase_amplitude con factor cero", 0, lambda v: sesion().increase_amplitude(v)),
     # Hito 79. «µV por carril» escribe la escala de varios canales de una vez:

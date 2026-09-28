@@ -67,6 +67,7 @@ from psglab.utils.errors import (
     UndeclaredNomenclatureError,
     UnreadableFileError,
 )
+from psglab.utils.formatting import quantity
 
 #: Cómo se puede escribir cada nomenclatura, en minúscula. Se aceptan el nombre
 #: corto y el largo porque el archivo lo puede haber escrito una persona: "RK"
@@ -691,7 +692,7 @@ def _tramo_evento(
     if inicio < -WINDOW_SECONDS / 2 and not sin_scorear:
         raise ScoringMismatchError(
             f"El scoring de «{path.name}» no corresponde a este registro: "
-            f"{donde} empieza {-inicio:g} s antes que la señal.",
+            f"{donde} empieza {quantity(-inicio, 's')} antes que la señal.",
             details="Revisá que el archivo de scoring sea el de este registro.",
         )
     ventanas = windows_in_span(inicio, duracion)

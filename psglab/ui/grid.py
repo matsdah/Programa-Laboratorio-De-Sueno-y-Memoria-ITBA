@@ -41,6 +41,7 @@ from PySide6.QtGui import QPainter
 
 from psglab.config import COARSE_GRID_SECONDS, FINE_GRID_SECONDS, MAX_GRID_LINES
 from psglab.ui import theme
+from psglab.utils.formatting import number
 
 #: En qué capa va la grilla: **debajo de la señal** y encima de la banda de la
 #: época actual, que está en −20.
@@ -135,8 +136,7 @@ def _segundos(valor: float) -> str:
     3,0 se muestra como "3" y 0,5 como "0,5": el separador decimal es la coma,
     y un valor entero no arrastra un ".0" que nadie escribiría a mano.
     """
-    entero = int(valor)
-    return str(entero) if valor == entero else str(valor).replace(".", ",")
+    return number(valor)
 
 
 class BackgroundStyle(Enum):

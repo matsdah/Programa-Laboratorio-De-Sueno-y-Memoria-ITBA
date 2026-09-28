@@ -296,6 +296,15 @@ class StagingNotPossibleError(PsgLabError):
     """
 
 
+class InvalidNumberError(PsgLabError):
+    """Lo que se iba a escribir como número no lo es (hito 79).
+
+    Lo eleva `utils/formatting.py`. Nunca es algo que haya hecho el
+    investigador —los números que se muestran los calcula el programa—, pero
+    sin esto un `ValueError` del formato atravesaría el `except` de la ventana.
+    """
+
+
 class UnreadableRecoveryError(PsgLabError):
     """La copia de recuperación no se puede usar (hito 79).
 

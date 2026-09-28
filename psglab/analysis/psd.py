@@ -48,6 +48,7 @@ from psglab.utils.errors import (
     UnknownPsdMethodError,
     WindowOutOfRangeError,
 )
+from psglab.utils.formatting import quantity
 
 #: Bandas de frecuencia convencionales, en Hz.
 DEFAULT_BANDS: Final[dict[str, tuple[float, float]]] = {
@@ -240,7 +241,7 @@ def describe_method(method: str) -> str:
         )
     if method == "welch":
         return (
-            f"Welch · segmentos de {WELCH_SEGMENT_SECONDS:g} s · "
+            f"Welch · segmentos de {quantity(WELCH_SEGMENT_SECONDS, 's')} · "
             f"{WELCH_WINDOW.capitalize()} · solape {round(WELCH_OVERLAP * 100)} %"
         )
     return "Multitaper (MNE) · el tramo entero, sin segmentar"

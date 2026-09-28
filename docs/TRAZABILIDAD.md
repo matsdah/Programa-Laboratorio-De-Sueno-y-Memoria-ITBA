@@ -136,10 +136,10 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos treinta se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos treinta y uno se rompen hacia todos lados.
 
-Veintiocho de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
-fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`,
+Veintinueve de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`, `utils/formatting.py`,
 `tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
 `core/viewport.py`, `core/decimation.py`, `core/recovery.py`, `core/history.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
 `ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py`, `ui/shortcuts_dialog.py`,
@@ -158,6 +158,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/utils/units.py` | Conversión a microvoltios | Cualquier requisito que hable de amplitud |
 | `psglab/utils/errors.py` | Excepciones con mensaje para el investigador | Todo mensaje de error que ve el usuario |
 | `psglab/utils/validation.py` | Que un NaN no atraviese una guarda numérica | Toda validación del modelo |
+| `psglab/utils/formatting.py` | Cómo se escribe un número para el usuario, con coma, y cómo se lee el que escribe | Todo número que se ve en la ventana, en un cartel o en Informacion.txt |
 | `psglab/tools/base.py` | Los contratos `Tool` y `ViewerTool`, y el sistema de coordenadas | Las seis herramientas |
 | `psglab/tools/registry.py` | Registro enchufable de herramientas | El menú Herramientas entero |
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |

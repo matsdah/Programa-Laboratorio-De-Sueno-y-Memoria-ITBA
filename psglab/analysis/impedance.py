@@ -45,6 +45,7 @@ from typing import Final
 from psglab.analysis.mne_bridge import _exigir_registro
 from psglab.core.recording import Recording
 from psglab.utils.errors import InvalidRecordingError, UnreadableFileError
+from psglab.utils.formatting import quantity
 
 #: Límite por defecto, en kiloohmios. Es el criterio habitual para EEG.
 DEFAULT_LIMIT_KOHM: Final[float] = 5.0
@@ -357,7 +358,7 @@ def impedance_report(
 
 def _kohm(valor: float) -> str:
     """Un valor en kΩ, con la coma decimal del idioma del programa."""
-    return f"{valor:.1f} kΩ".replace(".", ",")
+    return quantity(valor, "kΩ", 1)
 
 
 __all__ = [
