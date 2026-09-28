@@ -89,9 +89,9 @@ escribieron lo mismo en dos lugares distintos.
 Que falta esta en docs/TODO.md, que es el unico documento que lleva la
 cuenta, y como se llego hasta aca, en docs/HISTORIAL.md. El trabajo esta
 agrupado en hitos: cada hito solo usa cosas que ya estan terminadas en los
-hitos anteriores. El ultimo esta abierto: es el plan que dejo la auditoria
-del 26 de septiembre, con los errores que encontro y los cambios que
-propone, en el orden en que conviene hacerlos.
+hitos anteriores. Hoy estan todos cerrados; el ultimo fue el plan que dejo
+la auditoria del 26 de septiembre. Lo que queda son preguntas al cliente,
+que no dependen de escribir codigo sino de una respuesta.
 
 
 -------------------------------------------------------------------------------
