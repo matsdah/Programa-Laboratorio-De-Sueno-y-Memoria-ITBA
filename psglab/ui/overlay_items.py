@@ -56,6 +56,7 @@ from psglab.tools.base import (
 )
 from psglab.ui import theme
 from psglab.ui.fonts import font_for
+from psglab.utils.formatting import quantity
 from psglab.utils.units import format_amplitude
 
 if TYPE_CHECKING:
@@ -595,5 +596,5 @@ class OverlayLayer:
             return None
         reloj = seconds_to_clock_time(segundos, sesion.recording.start_time)
         if reloj is None:
-            return f"{segundos:.1f} s".replace(".", ",")
+            return quantity(segundos, "s", 1)
         return reloj.strftime("%H:%M:%S,") + f"{reloj.microsecond // 100000}"

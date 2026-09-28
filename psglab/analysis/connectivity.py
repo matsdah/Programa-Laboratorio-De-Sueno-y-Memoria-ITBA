@@ -40,6 +40,7 @@ from typing import Final
 
 import numpy as np
 
+from psglab.analysis.mne_bridge import _exigir_registro
 from psglab.core.recording import Recording
 from psglab.core.windows import count_windows, window_to_samples
 from psglab.utils.errors import (
@@ -48,6 +49,7 @@ from psglab.utils.errors import (
     UnknownConnectivityMethodError,
     WindowOutOfRangeError,
 )
+from psglab.utils.formatting import number, quantity
 
 #: Métodos disponibles, del más simple al más robusto frente a volume
 #: conduction.
@@ -96,15 +98,6 @@ _NOMBRES_DE_MNE: Final[dict[str, str]] = {
 EPOCH_SECONDS: Final[float] = 5.0
 
 
-def _exigir_registro(recording: Recording) -> None:
-    """Rechaza como `PsgLabError` lo que no sea un `Recording`."""
-    if not isinstance(recording, Recording):
-        raise InvalidRecordingError(
-            "No se puede medir la conectividad de eso: no es un registro abierto.",
-            details=f"recording es {type(recording).__name__}, se esperaba Recording.",
-        )
-
-
 def _validar_banda(band: tuple[float, float]) -> tuple[float, float]:
     """Misma comprobación que en `psd.py`, con el mismo criterio."""
     try:
@@ -151,14 +144,15 @@ def _exigir_frecuencias_en_la_banda(desde: float, hasta: float, sampling_rate: f
     nyquist = sampling_rate / 2
     if desde > nyquist:
         mensaje = (
-            f"La banda de {desde:g} a {hasta:g} Hz está por encima de lo que registra "
-            f"este archivo: a {sampling_rate:g} Hz, la frecuencia más alta que se "
-            f"puede medir es {nyquist:g} Hz."
+            f"La banda de {number(desde)} a {quantity(hasta, 'Hz')} está por encima de "
+            f"lo que registra este archivo: a {quantity(sampling_rate, 'Hz')}, la "
+            f"frecuencia más alta que se puede medir es {quantity(nyquist, 'Hz')}."
         )
     else:
         mensaje = (
-            f"La banda de {desde:g} a {hasta:g} Hz es más angosta que la resolución "
-            f"de la conectividad, de {1 / EPOCH_SECONDS:g} Hz, así que no contiene "
+            f"La banda de {number(desde)} a {quantity(hasta, 'Hz')} es más angosta que "
+            f"la resolución de la conectividad, de {quantity(1 / EPOCH_SECONDS, 'Hz')}, "
+            "así que no contiene "
             "ninguna frecuencia que medir."
         )
     raise InvalidBandError(
@@ -232,7 +226,7 @@ def compute_connectivity(
     """
     from mne_connectivity import spectral_connectivity_epochs
 
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede medir la conectividad de eso")
     # Mismo motivo que en `complexity.py`: `not in` hashea la clave.
     if not isinstance(method, str) or method not in _NOMBRES_DE_MNE:
         raise UnknownConnectivityMethodError(
@@ -332,7 +326,7 @@ def connectivity_by_window(
     Raises:
         Lo mismo que `compute_connectivity()`.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede medir la conectividad de eso")
     # **La banda se comprueba antes de recorrer la noche** (hito 33). Adentro
     # del recorrido la comprobaría `compute_connectivity()` en la primera
     # ventana, pero un registro más corto que una época no llega a pedirla: cada

@@ -296,8 +296,8 @@ código de hoy** antes de arreglar nada.
     `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
-    `tests/test_contratos.py`, **1227 tests en verde**;
-    `tests/test_entrega.py`, **437 tests en verde**.
+    `tests/test_contratos.py`, **1371 tests en verde**; y por la ventana, en
+    los seis `test_entrega*.py`.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
 línea reanclada sin canal, la lupa sin restar el desplazamiento, la banda que
@@ -330,7 +330,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       capa entera para poder volver a ponerla. Borrar una anotación sigue
       preguntando, y el cartel dice ahora que se puede deshacer.
   - Test: `tests/test_history.py`, **16 tests en verde**; y en
-    `tests/test_menus.py` y `tests/test_entrega.py`, el menú, Ctrl+Z y
+    `tests/test_menus.py` y `tests/test_entrega_scoring.py`, el menú, Ctrl+Z y
     Ctrl+Y apretados de verdad, y que anotar se registre.
 - [x] **Recuperar el trabajo después de un cierre inesperado.** *(Decidido: sí;
       ver «Lo que decidió el usuario».)* El programa no autoguarda
@@ -370,8 +370,8 @@ más. **Varias piden una decisión antes**; están marcadas.
       van a la próxima y a la anterior sin scorear, con `Scoring.next_unscored()`.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
-    `tests/test_contratos.py`, **1227 tests en verde**;
-    `tests/test_entrega.py`, **437 tests en verde**.
+    `tests/test_contratos.py`, **1371 tests en verde**;
+    `tests/test_entrega_interfaz.py`, **103 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
   0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
@@ -392,7 +392,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       ayuda de atajos suma C y, en «Anotación», lo que hace el mouse.
   - Test: `tests/test_annotator.py`, **49 tests en verde**;
     `tests/test_tool_controller.py`, **16 tests en verde**;
-    `tests/test_entrega.py`, **437 tests en verde**.
+    `tests/test_entrega_anotacion.py`, **59 tests en verde**.
 - [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
       pedido encadena carteles modales para elegir canal, medida o banda
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
@@ -490,7 +490,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       de EEG, y la regla de `derive()` le daba «Otro». Se vuelve atrás con
       «Volver a la señal original», como derivar.
   - Test: `tests/test_derivation.py`, **52 tests en verde**; y en
-    `tests/test_entrega.py`, el montaje por la ventana: la resta, la clase,
+    `tests/test_entrega_analisis.py`, el montaje por la ventana: la resta, la clase,
     lo que falta, no repetir y volver atrás.
 - [x] **Más rótulos de canal reconocidos.** `readers/channel_types.py` deja
       en «Otro» nombres comunes de polisomnografía —ABD, THO, Chest, Therm,
@@ -525,7 +525,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       mano. Anotar y marcar son un solo paso de deshacer.
   - Test: `tests/test_annotations.py`, **97 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
-    `tests/test_entrega.py`, **437 tests en verde**.
+    `tests/test_entrega_scoring.py`, **46 tests en verde**.
 
 ### Tanda 3: partir las clases grandes
 
@@ -602,11 +602,26 @@ una vez que agregarlos al lugar que después hay que partir.
       cuatro controladores con estado propio que se testean sin la ventana.
       De paso salieron cuatro imports que los pasos anteriores habían dejado
       sin uso en `main_window.py` y `window_annotation.py`.
-- [ ] **`Session` delega la presentación de los canales** en
+- [x] **`Session` delega la presentación de los canales** en
       `core/channel_display.py`: visibles, seleccionados, escala y
       desplazamiento de cada uno, ajustar al panel y centrar. Son la mitad de
       sus 1100 líneas y la mitad que toca la tanda 1. `Session` conserva sus
       métodos públicos, que delegan.
+      Hecho: `Session` bajó de 1179 a unas 900 líneas, y ningún test de
+      `test_session.py` cambió. **`ChannelDisplay` no sabe de épocas**: lo
+      que mide —centrar, ajustar al panel, la escala de las clases sin una
+      propia— lo mide sobre un tramo de muestras. La sesión valida la época,
+      la convierte y le pasa el tramo, así que la guarda de qué ventana
+      existe sigue en un solo lugar, y un tramo imposible lo rechaza
+      `Recording.get_segment()`. De `set_recording()` se lleva la regla de qué
+      sobrevive a un registro procesado, y devuelve los canales nuevos para
+      que la sesión los mida sobre la época actual. V2_P, V3_P y V5_F pasan
+      a `channel_display.py` en `TRAZABILIDAD.md`.
+  - Test: `tests/test_channel_display.py`, **25 tests en verde**, sin
+    sesión: que mida sobre el tramo que se le pasa y no sobre otro, el
+    alcance de la amplitud, las clases sin escala propia y qué sobrevive a
+    un registro procesado. `tests/test_contratos.py`, **1371 tests en
+    verde**, con sus filas y tres rechazos obligatorios.
 - [x] **`SignalView` (1344 líneas) separa lo que dibujan las herramientas**
       —banda, bandas de anotación, segmentos, lente— en
       `ui/overlay_items.py`, y la caché de la envolvente en su propia clase.
@@ -627,13 +642,65 @@ una vez que agregarlos al lugar que después hay que partir.
 - [ ] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
       tienen el mismo `_factor_a_microvoltios()`, el mismo armado de canales
       y la misma lectura de marcas: a un módulo común de `readers/`.
-- [ ] **Una sola guarda de registro en `analysis/`**: `_exigir_registro()`
+- [x] **Una sola guarda de registro en `analysis/`**: `_exigir_registro()`
       está escrita siete veces, en siete módulos.
-- [ ] **Una sola forma de escribir un número para el usuario.**
+      Hecho: **eran nueve**, porque `complexity.py` e `impedance.py` la
+      llevaban escrita adentro de la función. Queda una, en
+      `mne_bridge._exigir_registro()`, que ya era la que usaba
+      `auto_scoring.py`: es lo que todo `analysis/` importa, y no carga MNE.
+      **Recibe el comienzo del mensaje**, así que cada análisis le sigue
+      diciendo al investigador qué no pudo hacer —«No se puede filtrar
+      eso», «No se puede calcular el espectro de eso»— y no un rechazo
+      genérico. Las sugerencias de fases, que usaban el genérico del
+      puente, ganaron el suyo. `test_analysis_tiene_una_sola_guarda_de_registro`
+      rechaza una copia nueva: contra el código de antes encuentra las nueve.
+  - Test: `tests/test_mne_bridge.py`, **34 tests en verde**, con el mensaje
+    de cada uno de los dieciocho análisis que reciben primero el registro;
+    `tests/test_consistencia.py`, **121 tests en verde**.
+- [x] **Una sola forma de escribir un número para el usuario.**
       `.replace(".", ",")` aparece 22 veces y hay tres `_numero()`: un
       `utils/formato.py` con el número con coma, los Hz y las duraciones.
-- [ ] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
+      Hecho, en `utils/formatting.py` —en inglés, como pide `CLAUDE.md` para
+      los nombres de archivo—: `number()` con coma y sin ceros de más,
+      `quantity()` con su unidad, `duration()` —el `duration_text()` de
+      `ui/menus.py`, que bajó para que lo pueda usar cualquier capa— y
+      `parse_number()`, que lee con coma o con punto y no acepta «inf». Un
+      NaN se escribe «—» y no «nan». **Eran veinticinco `replace`**, y dos de
+      los tres `_numero()` no escribían sino que leían lo que tipea el
+      investigador. **Y unos veinte mensajes ni siquiera lo hacían**: «El
+      pasa-altos de 0.3 Hz no se puede aplicar…», «La banda de 0.5 a 4 Hz…»,
+      la frecuencia de muestreo de la barra de estado, y
+      `test_connectivity.py` exigía la resolución con punto. Ahora salen con
+      coma. `Informacion.txt` no cambia ni un carácter.
+      `test_todo_numero_que_ve_el_usuario_sale_de_formatting` rechaza un
+      `{x:g}` o una coma puesta a mano fuera del módulo —contra el código de
+      antes encuentra setenta y siete—, salvo en `details` y en el XML de
+      scoring, que es de máquina y lleva punto. **No ve un número interpolado
+      sin formato**, `f"{x} Hz"`.
+  - Test: `tests/test_formatting.py`, **46 tests en verde**;
+    `tests/test_contratos.py`, **1371 tests en verde**;
+    `tests/test_consistencia.py`, **121 tests en verde**.
+- [x] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
       tema**, siguiendo a los controladores.
+      Hecho, cuando ya eran 7258 líneas y 437 tests: **seis archivos de
+      test**, y lo que comparten en `tests/entrega_comun.py`, que no es un
+      test. `test_entrega.py` se queda con la entrega —abrir, navegar,
+      scorear, exportar— y con lo que protege el trabajo: los formatos del
+      scoring, el trabajo sin exportar, la recuperación y abrir otro
+      registro. Los otros cinco, por tema: `_scoring` —el hipnograma, las
+      sugeridas, deshacer y rehacer, el arousal—, `_anotacion`, `_vista`
+      —la Übersicht, la reproducción, la rueda—, `_analisis` —la Parte 2 y
+      el cálculo en otro hilo— e `_interfaz` —la configuración, el teclado,
+      los textos—. **La partió un script y no a mano**: cada sección fue
+      entera a su archivo, y a `entrega_comun.py` fue sólo lo que usa más de
+      uno, con lo que eso necesita. Los 437 identificadores de test son los
+      mismos antes y después, comparados uno por uno.
+  - Test: `tests/test_entrega.py`, **79 tests en verde**;
+    `tests/test_entrega_scoring.py`, **46 tests en verde**;
+    `tests/test_entrega_anotacion.py`, **59 tests en verde**;
+    `tests/test_entrega_vista.py`, **47 tests en verde**;
+    `tests/test_entrega_analisis.py`, **103 tests en verde**;
+    `tests/test_entrega_interfaz.py`, **103 tests en verde**.
 - [ ] **Los docks se llaman `*_dock`.** Siguen llamándose `psd_dialog` y
       compañía para no tocar ocho tests; quien lee el código busca un
       diálogo que no existe.
@@ -701,7 +768,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **111 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **121 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 
@@ -721,7 +788,7 @@ función, y la historia ya está en este archivo y en git.
       la segunda se ignora y se dice. Cerrar la ventana mientras lee espera
       la lectura y la descarta: tomarla volvía a preguntar por el trabajo y
       cambiaba la sesión mientras se cerraba.
-  - Test: en `tests/test_entrega.py`, que el archivo se lea y la señal se
+  - Test: en `tests/test_entrega_analisis.py`, que el archivo se lea y la señal se
     filtre en otro hilo, que mientras tanto siga el registro anterior, el
     error de lectura, dos aperturas a la vez, abrir con un cálculo en curso
     y cerrar mientras lee. Los catorce tests que filtraban por la ventana
@@ -800,7 +867,7 @@ función, y la historia ya está en este archivo y en git.
       Y el banco terminaba con un cartel modal que nadie contestaba —cerraba
       la ventana con lo que las mediciones anotan sin exportar—, que es
       probablemente el cuelgue que no se diagnosticó al medir los overlays.
-  - Test: en `tests/test_entrega.py`, que una flecha deje la misma curva y
+  - Test: en `tests/test_entrega_scoring.py`, que una flecha deje la misma curva y
     que scorear, cambiar el eje a hora, la nomenclatura sin nada scoreado u
     otro registro con otra hora la rehagan: sacar cualquiera de esas cosas
     de la firma lo nota un test. En `tests/test_overlay_items.py`, un

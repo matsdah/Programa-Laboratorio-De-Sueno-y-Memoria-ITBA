@@ -126,6 +126,7 @@ from psglab.ui.window_view import ViewMixin
 from psglab.ui.window_preferences import PreferencesMixin
 from psglab.ui.window_scoring import ScoringMixin
 from psglab.ui.window_analysis import AnalysisMixin
+from psglab.utils.formatting import quantity
 
 #: Lo que se le suma al ancho del identificador del registro para que no quede
 #: pegado al borde de la ventana ni a la última entrada del menú.
@@ -601,7 +602,7 @@ class MainWindow(
         registro = self._session.recording
         partes = [
             registro.file_path.name,
-            f"{registro.sampling_rate:g} Hz",
+            quantity(registro.sampling_rate, "Hz"),
             f"{registro.n_channels} canales",
         ]
         desde, hasta = self._horas_del_registro()

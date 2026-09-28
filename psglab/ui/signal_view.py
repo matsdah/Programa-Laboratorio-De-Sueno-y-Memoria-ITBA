@@ -58,6 +58,7 @@ from psglab.ui.channel_axis import ChannelAxis, ChannelLane
 from psglab.ui.envelope_cache import EnvelopeCache
 from psglab.ui.grid import GridBackground
 from psglab.ui.overlay_items import Z_DE_LA_BANDA, OverlayLayer
+from psglab.utils.formatting import quantity
 from psglab.utils.units import MICROVOLT
 
 #: Separación vertical entre canales, en unidades del gráfico. Cada canal ocupa
@@ -758,11 +759,12 @@ class SignalView(pg.PlotWidget):
         except Exception:  # noqa: BLE001 - un canal que ya no está no rompe el dibujo
             return ""
         if unidad == MICROVOLT:
-            return f"{escala:.0f} µV"
+            return quantity(escala, MICROVOLT, 0)
         # Tres cifras, sin notación científica: un termómetro puede ir por
         # décimas, y un marcador de eventos, por miles.
-        numero = f"{escala:.0f}" if escala >= 100 else f"{escala:.3g}"
-        return f"{numero.replace('.', ',')} {unidad}".strip()
+        if escala >= 100:
+            return quantity(escala, unidad, 0)
+        return quantity(escala, unidad, significant=3)
 
     def update_amplitude_scale(self) -> None:
         """Rearma los rótulos del canalón con la escala vigente.

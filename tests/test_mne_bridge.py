@@ -246,3 +246,58 @@ def test_se_puede_convertir_un_tramo_de_get_segment(registro_sintetico: Recordin
     raw = to_raw(recorte)
 
     assert raw.n_times == 1000
+
+
+# -- La guarda de registro de todo `analysis/` (hito 79) ---------------------
+
+#: Cada análisis que recibe un registro, y el comienzo de su mensaje. Estaban
+#: escritas nueve copias de la guarda; ahora es una sola, en el puente, y cada
+#: análisis le pasa **qué no pudo hacer**. Las dos de la ICA que reciben
+#: primero la descomposición no están: su primera guarda es la de la ICA.
+GUARDADAS: list[tuple[str, str, object, str]] = [
+    ("auto_scoring", "default_channels", (), "No se pueden sugerir fases para eso"),
+    ("auto_scoring", "suggest_stages", ("C3",), "No se pueden sugerir fases para eso"),
+    ("complexity", "complexity_by_window", (["C3"],), "No se puede medir la complejidad de eso"),
+    ("connectivity", "compute_connectivity", (), "No se puede medir la conectividad de eso"),
+    ("connectivity", "connectivity_by_window", (["C3"], (0.5, 4.0)), "No se puede medir la conectividad de eso"),
+    ("derivation", "derive", ("C3", "C4"), "No se puede derivar sobre eso"),
+    ("derivation", "derive_montage", ([("C3", "C4")],), "No se puede derivar sobre eso"),
+    ("derivation", "plan_aasm_montage", (), "No se puede derivar sobre eso"),
+    ("filters", "apply_filters", ({},), "No se puede filtrar eso"),
+    ("filters", "settings_for_kinds", ({},), "No se puede filtrar eso"),
+    ("ica", "fit_ica", (), "No se puede hacer una ICA de eso"),
+    ("ica", "apply_ica", (None, []), "No se puede hacer una ICA de eso"),
+    ("impedance", "read_impedances", (), "No se pueden leer impedancias de eso"),
+    ("mne_bridge", "to_raw", (), "No se puede analizar eso"),
+    ("psd", "compute_psd", (), "No se puede calcular el espectro de eso"),
+    ("psd", "band_powers_by_window", (["C3"],), "No se puede calcular el espectro de eso"),
+    ("reference", "rereference", (["C3"],), "No se puede re-referenciar eso"),
+    ("reference", "average_reference", (), "No se puede re-referenciar eso"),
+]
+
+
+@pytest.mark.parametrize(
+    ("modulo", "funcion", "resto", "que"),
+    GUARDADAS,
+    ids=[f"{m}.{f}" for m, f, _, _ in GUARDADAS],
+)
+def test_cada_analisis_rechaza_lo_que_no_es_un_registro_diciendo_que_no_pudo_hacer(
+    modulo: str, funcion: str, resto: tuple, que: str
+):
+    """Una sola guarda, y el mensaje sigue siendo el de cada análisis."""
+    import importlib
+
+    llamar = getattr(importlib.import_module(f"psglab.analysis.{modulo}"), funcion)
+    with pytest.raises(InvalidRecordingError) as error:
+        llamar("sintetico.edf", *resto)
+    assert error.value.message == f"{que}: no es un registro abierto."
+    assert "recording es str" in error.value.details
+
+
+def test_la_vuelta_del_puente_nombra_el_argumento_que_no_es_un_registro(
+    registro_sintetico: Recording,
+):
+    """`from_raw` recibe dos cosas; `details` dice cuál estaba mal."""
+    with pytest.raises(InvalidRecordingError) as error:
+        from_raw(to_raw(registro_sintetico), "sintetico.edf")
+    assert "original es str" in error.value.details

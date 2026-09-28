@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 from psglab.analysis.psd import DEFAULT_BANDS
 from psglab.ui import theme
 from psglab.ui.panel_header import EmptyState, PanelHeader, plain_axes
+from psglab.utils.formatting import number
 
 #: Colores de las bandas sombreadas, en orden. No salen de `config.py` porque
 #: el pliego no fija ninguno: pide mostrar la PSD por banda, y con qué color se
@@ -75,8 +76,7 @@ LADO_DE_LA_MUESTRA: Final[int] = 10
 
 def _sin_punto(valor: float) -> str:
     """Un número como lo escribiría un lector en español: coma, y sin «,0»."""
-    entero = int(valor)
-    return str(entero) if valor == entero else f"{valor:g}".replace(".", ",")
+    return number(valor)
 
 
 class PsdPanel(QWidget):
@@ -280,8 +280,8 @@ class PsdPanel(QWidget):
             celdas = (
                 nombre,
                 self._rango_de(nombre),
-                f"{absoluta:.3g}".replace(".", ","),
-                f"{relativa * 100:.1f}".replace(".", ","),
+                number(absoluta, significant=3),
+                number(relativa * 100, 1),
             )
             for columna, texto in enumerate(celdas):
                 celda = QTableWidgetItem(texto)

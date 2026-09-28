@@ -39,6 +39,7 @@ from PySide6.QtWidgets import QGraphicsRectItem, QStackedWidget, QVBoxLayout, QW
 from psglab.ui import theme
 from psglab.ui.fonts import font_for
 from psglab.ui.panel_header import EmptyState, PanelHeader
+from psglab.utils.formatting import number
 
 #: Hasta cuántos canales se escribe el valor dentro de cada celda (hito 55).
 #: Con más, la celda es más chica que el número y los textos se pisan.
@@ -195,7 +196,7 @@ class ConnectivityPanel(QWidget):
                 elif np.isnan(valor):
                     continue
                 else:
-                    texto = f"{valor:.2f}".replace(".", ",")
+                    texto = number(valor, 2)
                     posicion = 0.0 if alto <= bajo else (valor - bajo) / (alto - bajo)
                     fondo = mapa.map(min(max(posicion, 0.0), 1.0), mode="qcolor").name()
                 rotulo = pg.TextItem(

@@ -57,7 +57,6 @@ from psglab.config import VIEW_TIMESCALE_PRESETS
 from psglab.core.annotations import PALETTE
 from psglab.core.nomenclature import Nomenclature
 from psglab.ui import fonts, theme
-from psglab.ui.menus import duration_text
 from psglab.ui.preferences import (
     MAX_AMPLITUDE_BAND_UV,
     MAX_FONT_SIZE,
@@ -71,6 +70,7 @@ from psglab.ui.preferences import (
     Preferences,
 )
 from psglab.utils.errors import InvalidPreferencesError, PsgLabError
+from psglab.utils.formatting import duration, number, parse_number
 from psglab.utils.units import MICROVOLT
 
 #: Las cuatro solapas, en el orden en que aparecen. **Eran cinco hasta el hito
@@ -91,14 +91,17 @@ def _numero(texto: str) -> float:
     """Lee un número escrito como lo escribiría un investigador: con coma o punto.
 
     Raises:
-        ValueError: si no es un número.
+        ValueError: si no es un número, o está vacío.
     """
-    return float(texto.strip().replace(",", "."))
+    numero = parse_number(texto)
+    if numero is None:
+        raise ValueError(f"no es un número: {texto!r}")
+    return numero
 
 
 def _texto(numero: float) -> str:
     """Escribe un número con coma decimal y sin ceros de más."""
-    return f"{numero:g}".replace(".", ",")
+    return number(numero)
 
 
 class ColorButton(QPushButton):
@@ -598,7 +601,7 @@ class SettingsDialog(QDialog):
             opciones.sort()
         self.open_view.clear()
         for segundos in opciones:
-            self.open_view.addItem(duration_text(segundos), segundos)
+            self.open_view.addItem(duration(segundos), segundos)
         self.open_view.setCurrentIndex(
             self.open_view.findData(self._prefs.open_view_seconds)
         )

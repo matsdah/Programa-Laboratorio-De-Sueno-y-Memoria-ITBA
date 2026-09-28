@@ -45,6 +45,7 @@ from psglab.ui.theme import (
     scheme_by_name,
 )
 from psglab.utils.errors import InvalidPreferencesError, PsgLabError
+from psglab.utils.formatting import number
 
 #: Versión del formato del archivo. Se escribe siempre y hoy no se lee para
 #: decidir nada: existe para que una versión futura que cambie el formato pueda
@@ -220,7 +221,7 @@ class Preferences:
              MIN_MAGNIFIER_ZOOM, MAX_MAGNIFIER_ZOOM),
         ):
             if not (_es_numero(valor) and math.isfinite(valor) and minimo <= valor <= maximo):
-                _rechazar(f"{que} (entre {minimo:g} y {maximo:g})", valor)
+                _rechazar(f"{que} (entre {number(minimo)} y {number(maximo)})", valor)
         if not isinstance(self.advance_after_scoring, bool):
             _rechazar("pasar a la siguiente ventana al scorear", self.advance_after_scoring)
         if not (

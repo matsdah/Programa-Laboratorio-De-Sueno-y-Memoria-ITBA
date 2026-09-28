@@ -68,6 +68,7 @@ from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import StageSuggestion
 from psglab.core.windows import count_windows
 from psglab.utils.errors import StagingNotPossibleError, memoria_suficiente
+from psglab.utils.formatting import number
 from psglab.utils.units import is_electrical
 
 #: A qué frecuencia trabaja el clasificador. YASA remuestrea a esto.
@@ -126,7 +127,7 @@ def default_channels(recording: Recording) -> StagingChannels:
         InvalidRecordingError: si `recording` no es un registro.
         StagingNotPossibleError: si no hay ningún EEG que sirva.
     """
-    _exigir_registro(recording, "recording")
+    _exigir_registro(recording, "No se pueden sugerir fases para eso")
     lentos: list[str] = []
 
     def utiles(clase: ChannelKind) -> list[Channel]:
@@ -181,7 +182,7 @@ def suggest_stages(
             al mismo canal, si el registro dura menos de cinco minutos o si
             YASA no está instalado.
     """
-    _exigir_registro(recording, "recording")
+    _exigir_registro(recording, "No se pueden sugerir fases para eso")
     papeles = {"eeg": eeg, "eog": eog, "emg": emg}
     if not isinstance(eeg, str):
         raise StagingNotPossibleError(
@@ -199,7 +200,7 @@ def suggest_stages(
     minutos = recording.duration_seconds / 60
     if minutos < MINUTOS_MINIMOS:
         raise StagingNotPossibleError(
-            f"Para sugerir las fases hacen falta al menos {MINUTOS_MINIMOS:g} minutos "
+            f"Para sugerir las fases hacen falta al menos {number(MINUTOS_MINIMOS)} minutos "
             "de registro, y éste es más corto.",
             details=f"duración: {minutos:.1f} min.",
         )

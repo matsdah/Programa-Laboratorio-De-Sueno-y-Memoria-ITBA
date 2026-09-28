@@ -37,6 +37,7 @@ from typing import Final
 
 import numpy as np
 
+from psglab.analysis.mne_bridge import _exigir_registro
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.utils.errors import (
     ChannelNotFoundError,
@@ -44,19 +45,6 @@ from psglab.utils.errors import (
     InvalidRecordingError,
     memoria_suficiente,
 )
-
-
-def _exigir_registro(recording: Recording) -> None:
-    """Rechaza como `PsgLabError` lo que no sea un `Recording`.
-
-    Sin esto sale un `AttributeError` crudo, que la ventana principal no atrapa:
-    sólo atrapa `PsgLabError`, así que le llegaría al investigador como traza.
-    """
-    if not isinstance(recording, Recording):
-        raise InvalidRecordingError(
-            "No se puede derivar sobre eso: no es un registro abierto.",
-            details=f"recording es {type(recording).__name__}, se esperaba Recording.",
-        )
 
 
 def _canal_derivado(
@@ -114,7 +102,7 @@ def derive(
         InvalidRecordingError: si los dos canales están en unidades distintas, o
             si lo que se pasa no es un registro.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede derivar sobre eso")
     # `channel_by_name` es el que eleva `ChannelNotFoundError` con el mensaje
     # que ya nombra los canales disponibles: no hay que repetirlo acá.
     a = recording.channel_by_name(channel_a)
@@ -183,7 +171,7 @@ def derive_montage(
             `InvalidRecordingError` si `names` o `channel_kinds` no acompañan a
             `pairs` uno a uno.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede derivar sobre eso")
     if not isinstance(pairs, list):
         raise InvalidRecordingError(
             "El montaje tiene que ser una lista de pares (canal, referencia).",
@@ -367,7 +355,7 @@ def plan_aasm_montage(recording: Recording) -> MontagePlan:
     electrodo**: «C4» y «EEG C4-REF» lo son, «C4-M1» no —es una derivación, y
     cuenta como ya presente—.
     """
-    _exigir_registro(recording)
+    _exigir_registro(recording, "No se puede derivar sobre eso")
     por_electrodo: dict[str, str] = {}
     derivados: set[tuple[str, ...]] = set()
     for canal in recording.channels:

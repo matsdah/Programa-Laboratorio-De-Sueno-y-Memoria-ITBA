@@ -31,9 +31,10 @@ from psglab.config import (
     VIEW_PAN_FRACTION,
     VIEW_ZOOM_FACTOR,
 )
-from psglab.ui.menus import duration_text, rebuild_views_menu
+from psglab.ui.menus import rebuild_views_menu
 from psglab.ui.tool_controller import scene_position
 from psglab.utils.errors import PsgLabError
+from psglab.utils.formatting import duration
 
 #: Cuántas muestras tiene que abarcar una página, sumando los canales visibles,
 #: para que dibujarla muestre el cursor de espera. Veinte millones son unos
@@ -296,7 +297,7 @@ class ViewMixin:
         if pagina.shows_whole_recording:
             self.page_readout.setText("Página: registro entero")
             return
-        self.page_readout.setText(f"Página: {duration_text(pagina.span_seconds)}")
+        self.page_readout.setText(f"Página: {duration(pagina.span_seconds)}")
 
     # -- La rueda del mouse (hito 56) ----------------------------------------
 
@@ -392,7 +393,7 @@ class ViewMixin:
     # -- Amplitud (V2_P, V5_F) ----------------------------------------------
     #
     # Las cinco entran por el menú «Amplitud» y todas comparten el alcance que
-    # ya resolvía `Session._channels_under_amplitude()`: los canales
+    # resuelve `ChannelDisplay._channels_under_amplitude()`: los canales
     # seleccionados, o todos los visibles si no hay ninguno seleccionado. No se
     # reimplementa acá, que es lo que haría que las flechas y el menú pudieran
     # discrepar.

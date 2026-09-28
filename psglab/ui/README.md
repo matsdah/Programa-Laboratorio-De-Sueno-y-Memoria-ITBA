@@ -425,7 +425,7 @@ ocupación no se mostraba, la lupa no ampliaba y el eje del histograma no
 existía. Además `main_window` le pasaba a las herramientas la coordenada
 vertical en unidades del gráfico donde `ViewerTool` documenta microvoltios.
 
-La lección quedó en `tests/test_entrega.py`: **los gestos se mandan como
+La lección quedó en los `tests/test_entrega*.py`: **los gestos se mandan como
 eventos de Qt al viewport, no llamando a la herramienta.** Llamando a la
 herramienta, los mismos tests pasan en verde con el programa roto.
 
@@ -435,7 +435,7 @@ verificar debería poder verificarse desde `core/`, `tools/` o `exporters/`.
 
 **Lo que no dibuja sí los lleva, y hoy son casi todos**: de los treinta y tres
 módulos de la carpeta, sólo `main_window.py` figura en `SIN_TEST_PROPIO`, y lo
-recorre `test_entrega.py` por la ventana; sus siete pedazos los cubren ése y
+recorren los seis `test_entrega*.py` por la ventana; sus siete pedazos los cubren ésos y
 `test_main_window_layout.py` (hito 76). La frase de este párrafo
 decía que ninguno llevaba test y se quedó vieja mientras la lista crecía: lo
 encontró la auditoría del 19 de septiembre de 2026.

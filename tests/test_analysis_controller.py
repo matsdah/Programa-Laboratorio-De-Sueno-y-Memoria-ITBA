@@ -9,7 +9,7 @@ las tres reglas: un análisis que falla no cambia nada, cambiar la señal olvida
 la ICA, y un resultado de otra señal se descarta.
 
 Qué pide cada análisis y cómo se muestra lo sigue verificando
-`test_entrega.py`, por la ventana.
+`test_entrega_analisis.py`, por la ventana.
 """
 
 import threading

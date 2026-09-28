@@ -64,10 +64,11 @@ from psglab.analysis import (
     psd,
     reference,
 )
+from psglab.core.channel_display import ChannelDisplay
 from psglab.core.session import Session
 from psglab.core.decimation import bucket_size_for, envelope_by_bucket_size
 from psglab.core.viewport import Viewport
-from psglab.utils import units, validation
+from psglab.utils import formatting, units, validation
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
 
 #: Valores que nunca deberían llegar, y que llegan igual: un lector con un bug,
@@ -102,6 +103,11 @@ def registro(canales: int = 2, muestras: int = 3000, fs: float = 100.0) -> Recor
 
 def sesion() -> Session:
     return Session(registro(), Scoring(1, Nomenclature.AASM), AnnotationSet())
+
+
+def despliegue() -> ChannelDisplay:
+    """La presentación de los canales de `registro()`, sin sesión alrededor."""
+    return ChannelDisplay(registro())
 
 
 def anotaciones() -> AnnotationSet:
@@ -258,6 +264,24 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("set_scoring", lambda v: sesion().set_scoring(v)),
         ("set_recording", lambda v: sesion().set_recording(v)),
     ],
+    "psglab/core/channel_display.py": [
+        ("ChannelDisplay(recording=...)", lambda v: ChannelDisplay(v)),
+        ("ChannelDisplay(default_scale_uv=...)", lambda v: ChannelDisplay(registro(), v)),
+        ("replace_recording", lambda v: despliegue().replace_recording(v)),
+        ("set_visible_channels", lambda v: despliegue().set_visible_channels([v])),
+        ("set_selected_channels", lambda v: despliegue().set_selected_channels([v])),
+        ("scale_uv", lambda v: despliegue().scale_uv(v)),
+        ("set_scale_uv(scale=...)", lambda v: despliegue().set_scale_uv("C0", v)),
+        ("increase_amplitude(factor=...)", lambda v: despliegue().increase_amplitude(v)),
+        ("decrease_amplitude(factor=...)", lambda v: despliegue().decrease_amplitude(v)),
+        ("set_amplitude_scale", lambda v: despliegue().set_amplitude_scale(v)),
+        ("offset_uv", lambda v: despliegue().offset_uv(v)),
+        ("set_offset_uv(offset=...)", lambda v: despliegue().set_offset_uv("C0", v)),
+        ("center_offsets(start=...)", lambda v: despliegue().center_offsets(v, 10)),
+        ("fit_to_pane(stop=...)", lambda v: despliegue().fit_to_pane(0, v)),
+        ("fit_unscaled_kinds(channels=...)", lambda v: despliegue().fit_unscaled_kinds([v], 0, 10)),
+        ("fit_unscaled_kinds(start=...)", lambda v: despliegue().fit_unscaled_kinds(["C0"], v, 10)),
+    ],
     "psglab/analysis/derivation.py": [
         ("derive(recording=...)", lambda v: derivation.derive(v, "C0", "C1")),
         ("derive(channel_a=...)", lambda v: derivation.derive(registro(), v, "C1")),
@@ -357,6 +381,15 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("from_raw(raw=...)", lambda v: mne_bridge.from_raw(v, registro())),
         ("from_raw(original=...)", lambda v: mne_bridge.from_raw(object(), v)),
         ("unidad_de_salida", lambda v: mne_bridge.unidad_de_salida(v)),
+    ],
+    "psglab/utils/formatting.py": [
+        ("number(value=...)", lambda v: formatting.number(v)),
+        ("number(decimals=...)", lambda v: formatting.number(1.0, v)),
+        ("number(significant=...)", lambda v: formatting.number(1.0, significant=v)),
+        ("quantity(value=...)", lambda v: formatting.quantity(v, "Hz")),
+        ("quantity(unit=...)", lambda v: formatting.quantity(1.0, v)),
+        ("duration", lambda v: formatting.duration(v)),
+        ("parse_number", lambda v: formatting.parse_number(v)),
     ],
     "psglab/utils/units.py": [
         ("conversion_factor", lambda v: units.conversion_factor(v)),
@@ -517,11 +550,25 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     # La unidad llega de la cabecera de un EDF o un BrainVision. Es entrada
     # externa, no un valor que arme el programa.
     ("normalize_unit_name con None", None, lambda v: units.normalize_unit_name(v)),
+    # Hito 79. `True` escrito como «1» sería un número que nadie calculó.
+    ("number con un booleano", True, lambda v: formatting.number(v)),
+    ("number con decimales negativos", -1, lambda v: formatting.number(1.0, v)),
+    # Hito 79. Leer algo que no es texto reventaba en `.strip()`.
+    ("parse_number con un número", 0.5, lambda v: formatting.parse_number(v)),
     # El factor cero dividía por cero al subir la amplitud.
     ("increase_amplitude con factor cero", 0, lambda v: sesion().increase_amplitude(v)),
     # Hito 79. «µV por carril» escribe la escala de varios canales de una vez:
     # un NaN los dejaría a todos sin dibujar.
     ("set_amplitude_scale con NaN", float("nan"), lambda v: sesion().set_amplitude_scale(v)),
+    # Hito 79. El despliegue de los canales se construye y se reemplaza con un
+    # registro; sin él, la primera consulta de un nombre de canal reventaba.
+    ("ChannelDisplay con algo que no es un registro", "sintetico.edf",
+     lambda v: ChannelDisplay(v)),
+    ("replace_recording con algo que no es un registro", "sintetico.edf",
+     lambda v: despliegue().replace_recording(v)),
+    # Hito 79. Un tramo que empieza antes del registro, contado desde el final
+    # por numpy, centraría el canal sobre la última parte de la noche.
+    ("center_offsets con un tramo negativo", -10, lambda v: despliegue().center_offsets(v, 10)),
     # Una etiqueta que no es texto se usaba como clave de un diccionario.
     ("add_label con None", None, lambda v: AnnotationSet().add_label(v)),
     # Guardar algo que no es una anotación reventaba al pedirle `.label`.

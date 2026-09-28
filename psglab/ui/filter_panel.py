@@ -43,6 +43,7 @@ from psglab.ui.impedance_panel import FixedColumnDelegate
 from psglab.ui import theme
 from psglab.ui.channel_selector import color_de_la_clase
 from psglab.ui.panel_header import PanelHeader
+from psglab.utils.formatting import number, parse_number, quantity
 
 #: Cómo se llama cada clase de canal en la pantalla. El enum está en inglés
 #: —convención del proyecto— y todo lo que ve el usuario, en español.
@@ -166,7 +167,7 @@ class FilterPanel(QWidget):
         plural = "clase" if cuantas == 1 else "clases"
         self.header.set_caption(f"{cuantas} {plural} de canal")
         if self._frecuencia is not None:
-            self.header.set_detail(f"sugeridos para {self._frecuencia:g} Hz")
+            self.header.set_detail(f"sugeridos para {quantity(self._frecuencia, 'Hz')}")
 
     def restore_defaults(self) -> None:
         """Vuelve a los valores sugeridos para cada clase.
@@ -194,8 +195,8 @@ class FilterPanel(QWidget):
             "Dejá la celda vacía para desactivar ese filtro. Los valores "
             "sugeridos son los habituales en polisomnografía, no una "
             "imposición.\n"
-            f"Este registro se muestreó a {self._frecuencia:g} Hz, así que la "
-            f"frecuencia más alta que contiene es {self._frecuencia / 2:g} Hz: "
+            f"Este registro se muestreó a {quantity(self._frecuencia, 'Hz')}, así que "
+            f"la frecuencia más alta que contiene es {quantity(self._frecuencia / 2, 'Hz')}: "
             "los cortes que no entran vienen vacíos."
         )
         # **Y los canales que se grabaron más lento** (hito 67): el archivo los
@@ -297,17 +298,11 @@ class FilterPanel(QWidget):
         """Cómo se escribe un corte en la celda, con la coma del idioma."""
         if valor is None:
             return ""
-        return f"{valor:g}".replace(".", ",")
+        return number(valor)
 
     def _numero(self, texto: str) -> float | None:
         """Lo que dice una celda, como número. Vacío o ilegible es `None`."""
-        limpio = texto.strip().replace(",", ".")
-        if not limpio:
-            return None
-        try:
-            return float(limpio)
-        except ValueError:
-            return None
+        return parse_number(texto)
 
     def _al_aplicar(self) -> None:
         """El usuario apretó Aplicar."""

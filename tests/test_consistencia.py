@@ -79,6 +79,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_errors.py": ("psglab/utils/errors.py",),
     "test_validation.py": ("psglab/utils/validation.py",),
     "test_units.py": ("psglab/utils/units.py",),
+    # Cómo se escribe un número para el usuario (hito 79).
+    "test_formatting.py": ("psglab/utils/formatting.py",),
     "test_recording.py": ("psglab/core/recording.py",),
     "test_annotations.py": ("psglab/core/annotations.py",),
     "test_session.py": ("psglab/core/session.py",),
@@ -143,14 +145,39 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_derivation.py": ("psglab/analysis/derivation.py",),
     "test_reference.py": ("psglab/analysis/reference.py",),
     "test_mne_bridge.py": ("psglab/analysis/mne_bridge.py",),
+    # Desde el hito 79 son seis archivos, uno por tema. Cada uno declara lo
+    # que importa: los pedazos de la ventana cuyos nombres reemplaza (hito 76)
+    # quedaron en el archivo del tema que los usa.
     "test_entrega.py": (
         "psglab/app.py",
         "psglab/ui/main_window.py",
-        # Los pedazos de la ventana cuyos nombres reemplaza (hito 76).
+        "psglab/ui/work_guard.py",
+    ),
+    "test_entrega_scoring.py": (
+        "psglab/app.py",
+        "psglab/ui/main_window.py",
+        "psglab/ui/window_scoring.py",
+    ),
+    "test_entrega_anotacion.py": (
+        "psglab/ui/main_window.py",
+        "psglab/ui/window_files.py",
+    ),
+    "test_entrega_vista.py": (
+        "psglab/app.py",
+        "psglab/ui/main_window.py",
+    ),
+    "test_entrega_analisis.py": (
+        "psglab/app.py",
+        "psglab/ui/main_window.py",
+        "psglab/ui/window_analysis.py",
+        "psglab/ui/window_files.py",
+    ),
+    "test_entrega_interfaz.py": (
+        "psglab/app.py",
+        "psglab/ui/main_window.py",
         "psglab/ui/window_analysis.py",
         "psglab/ui/window_annotation.py",
         "psglab/ui/window_files.py",
-        "psglab/ui/window_scoring.py",
     ),
     # Cubre el mismo módulo que `test_entrega.py` y no se superpone con él:
     # aquél verifica que la ventana **haga** lo que el pliego pide, y éste
@@ -186,6 +213,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_recovery.py": ("psglab/core/recovery.py",),
     # Deshacer y rehacer, sin la ventana (hito 79).
     "test_history.py": ("psglab/core/history.py",),
+    # La presentación de los canales, sin la sesión (hito 79).
+    "test_channel_display.py": ("psglab/core/channel_display.py",),
     "test_scoring_panel.py": ("psglab/ui/scoring_panel.py",),
     "test_fonts.py": ("psglab/ui/fonts.py",),
     "test_exporters.py": (
@@ -1144,6 +1173,122 @@ def nombres_que_usa_la_interfaz() -> set[str]:
             elif isinstance(nodo, ast.Attribute):
                 usados.add(nodo.attr)
     return usados
+
+
+#: Dónde se puede escribir un número a mano, sin `utils/formatting.py`, y por
+#: qué. Son formatos que lee otro programa, así que llevan punto decimal.
+NUMEROS_DE_MAQUINA: dict[str, str] = {
+    "psglab/exporters/scoring_formats.py::_numero": (
+        "escribe el XML de scoring, que leen otros programas de polisomnografía: "
+        "el número va con punto, como en cualquier XML."
+    ),
+}
+
+
+def test_todo_numero_que_ve_el_usuario_sale_de_formatting():
+    """Nadie escribe `{x:g}` ni `.replace(".", ",")` fuera de `utils/formatting.py` (hito 79).
+
+    Cada módulo resolvía la coma por su cuenta —veinticinco `.replace(".",
+    ",")`, tres `_numero()`—, y como nadie lo exigía, **unos veinte mensajes
+    la olvidaban**: «El pasa-altos de 0.3 Hz…», la frecuencia de muestreo de la
+    barra de estado. Este chequeo rechaza un formato de número de coma
+    flotante (`f`, `g`, `e`, `%`) en un f-string, y la coma puesta a mano.
+
+    **Quedan afuera los `details` de un error**, que son la causa técnica para
+    quien programa, y los formatos de máquina de `NUMEROS_DE_MAQUINA`. **No ve
+    un número interpolado sin formato**, `f"{x} Hz"`: sin saber el tipo de `x`
+    no se puede distinguir de un nombre.
+    """
+    a_mano: list[str] = []
+    for archivo in modulos_del_paquete():
+        relativa = ruta_relativa(archivo)
+        if relativa == "psglab/utils/formatting.py":
+            continue
+        arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+        en_details: set[int] = set()
+        for nodo in ast.walk(arbol):
+            if isinstance(nodo, ast.keyword) and nodo.arg == "details":
+                en_details.update(id(hijo) for hijo in ast.walk(nodo.value))
+        funciones = [
+            nodo for nodo in ast.walk(arbol)
+            if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
+
+        def donde(linea: int) -> str:
+            adentro = [
+                f.name for f in funciones if f.lineno <= linea <= (f.end_lineno or f.lineno)
+            ]
+            return adentro[-1] if adentro else "<módulo>"
+
+        for nodo in ast.walk(arbol):
+            if id(nodo) in en_details:
+                continue
+            if isinstance(nodo, ast.FormattedValue) and nodo.format_spec is not None:
+                formato = "".join(
+                    parte.value for parte in nodo.format_spec.values
+                    if isinstance(parte, ast.Constant)
+                )
+                if not formato or formato[-1] not in "fgeFGE%":
+                    continue
+                que = f"{{x:{formato}}}"
+            elif (
+                isinstance(nodo, ast.Call)
+                and getattr(nodo.func, "attr", "") == "replace"
+                and [getattr(a, "value", None) for a in nodo.args[:2]] == [".", ","]
+            ):
+                que = 'replace(".", ",")'
+            else:
+                continue
+            funcion = donde(nodo.lineno)
+            if f"{relativa}::{funcion}" in NUMEROS_DE_MAQUINA:
+                continue
+            a_mano.append(f"{relativa}:{nodo.lineno} en {funcion}(): {que}")
+    assert not a_mano, (
+        "estos números se escriben a mano; usar number(), quantity() o duration() de "
+        "psglab/utils/formatting.py:\n" + "\n".join(a_mano)
+    )
+
+
+def test_los_numeros_de_maquina_siguen_existiendo():
+    """Una exención que apunta a una función borrada taparía a la próxima que se llame igual."""
+    for objetivo in NUMEROS_DE_MAQUINA:
+        archivo, _, funcion = objetivo.partition("::")
+        arbol = ast.parse((RAIZ / archivo).read_text(encoding="utf-8"))
+        nombres = {n.name for n in ast.walk(arbol) if isinstance(n, ast.FunctionDef)}
+        assert funcion in nombres, f"{objetivo} ya no existe"
+
+
+def test_analysis_tiene_una_sola_guarda_de_registro():
+    """Nadie en `analysis/` vuelve a escribir `isinstance(x, Recording)` (hito 79).
+
+    La guarda estaba escrita nueve veces —siete como `_exigir_registro()` en
+    cada módulo y dos adentro de la función—, cada una con su mensaje, y
+    corregir una no corregía las otras. Ahora vive en
+    `mne_bridge._exigir_registro()`, que recibe el comienzo del mensaje de cada
+    análisis. Este chequeo rechaza la décima copia.
+    """
+    copias: list[str] = []
+    for archivo in sorted((RAIZ / "psglab" / "analysis").glob("*.py")):
+        arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+        for funcion in ast.walk(arbol):
+            if not isinstance(funcion, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if archivo.name == "mne_bridge.py" and funcion.name == "_exigir_registro":
+                continue
+            if funcion.name == "_exigir_registro":
+                copias.append(f"{archivo.name}: define su propia _exigir_registro()")
+            for nodo in ast.walk(funcion):
+                if (
+                    isinstance(nodo, ast.Call)
+                    and getattr(nodo.func, "id", "") == "isinstance"
+                    and len(nodo.args) == 2
+                    and getattr(nodo.args[1], "id", "") == "Recording"
+                ):
+                    copias.append(f"{archivo.name}:{nodo.lineno} en {funcion.name}()")
+    assert not copias, (
+        "estas guardas de registro repiten la de mne_bridge._exigir_registro(); "
+        "llamarla con el mensaje del análisis:\n" + "\n".join(sorted(set(copias)))
+    )
 
 
 def test_cada_funcion_de_analysis_llega_a_la_ventana():

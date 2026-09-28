@@ -55,11 +55,7 @@ from psglab.exporters.statistics import (
     stage_episodes,
     stage_window_counts,
 )
-
-
-def _numero(valor: float, decimales: int = 2) -> str:
-    """Un número con coma decimal, que es la convención del idioma del informe."""
-    return f"{valor:.{decimales}f}".replace(".", ",")
+from psglab.utils.formatting import number
 
 
 def export_information(
@@ -96,7 +92,7 @@ def build_report(
         "========================",
         "",
         f"Archivo: {recording.file_path.name}",
-        f"Frecuencia de muestreo: {_numero(recording.sampling_rate, 1)} Hz",
+        f"Frecuencia de muestreo: {number(recording.sampling_rate, 1)} Hz",
         f"Canales: {recording.n_channels}",
         f"Duración del registro: {format_duration(recording.duration_seconds)} "
         f"({recording.n_samples} puntos)",
@@ -114,7 +110,7 @@ def build_report(
             # Un canal remuestreado hacia arriba tiene menos resolución real que
             # la que sugiere la matriz. Callarlo haría que se lo lea como si
             # fuera igual de fino que el EEG.
-            origen = f", original {_numero(canal.original_sampling_rate, 1)} Hz"
+            origen = f", original {number(canal.original_sampling_rate, 1)} Hz"
         unidad = canal.unit if canal.unit else "sin unidad"
         lineas.append(f"  {canal.name} — {canal.kind.value} [{unidad}]{origen}")
 
@@ -169,7 +165,7 @@ def _informe_de_sueno(recording: Recording, scoring: Scoring) -> list[str]:
             "",
         ]
     eficiencia = (
-        f"{_numero(informe.sleep_efficiency, 1)} %"
+        f"{number(informe.sleep_efficiency, 1)} %"
         if informe.sleep_efficiency is not None
         else "no se puede calcular: el registro no dura nada"
     )
@@ -196,11 +192,11 @@ def _informe_de_sueno(recording: Recording, scoring: Scoring) -> list[str]:
     if informe.total_sleep_time > 0:
         lineas.append("Porcentaje de cada fase sobre el tiempo total de sueño:")
         for fase, porcentaje in informe.stage_percent.items():
-            lineas.append(f"  {stage_label(fase):5} {_numero(porcentaje, 1):>6} %")
+            lineas.append(f"  {stage_label(fase):5} {number(porcentaje, 1):>6} %")
     else:
         lineas.append("Porcentaje de cada fase: no hay sueño scoreado.")
     indice = (
-        f", {_numero(informe.arousal_index, 1)} por hora de sueño"
+        f", {number(informe.arousal_index, 1)} por hora de sueño"
         if informe.arousal_index is not None
         else ""
     )
@@ -221,7 +217,7 @@ def _seccion_de_scoring(recording: Recording, scoring: Scoring) -> list[str]:
     abarcado = scored_time_seconds(scoring)
     lineas = [
         f"Nomenclatura: {scoring.nomenclature.value}",
-        f"Ventanas: {scoring.n_windows}, de {_numero(WINDOW_SECONDS, 0)} s cada una",
+        f"Ventanas: {scoring.n_windows}, de {number(WINDOW_SECONDS, 0)} s cada una",
         f"Ventanas scoreadas: {scoring.scored_windows()} de {scoring.n_windows}",
         # Los dos números de tiempo, rotulados distinto a propósito: el de
         # arriba es la duración real del registro y éste cuenta ventanas
@@ -278,4 +274,4 @@ def format_duration(seconds: float) -> str:
     minutos, segundos = divmod(resto, 60)
     # Los segundos van con cero adelante, como los minutos: alinea las columnas
     # del informe y es lo que fija el ejemplo de arriba.
-    return f"{int(horas)} h {int(minutos):02d} min {segundos:05.2f} s".replace(".", ",")
+    return f"{int(horas)} h {int(minutos):02d} min {number(segundos, 2).rjust(5, '0')} s"

@@ -19,6 +19,7 @@ from psglab.core.session import Session
 from psglab.tools.base import BandOverlay, Overlay, ViewerTool
 from psglab.tools.registry import register_tool
 from psglab.utils.errors import InvalidScaleError
+from psglab.utils.formatting import quantity
 from psglab.utils.units import MICROVOLT
 from psglab.utils.validation import check_finite
 
@@ -37,7 +38,8 @@ class AmplitudeBandTool(ViewerTool):
     #: texto dice cuál es la de fábrica y no afirma la vigente.
     description = (
         "Banda para comparar la amplitud de la señal: "
-        f"{AMPLITUDE_BAND_UV:.0f} {MICROVOLT}, salvo que se cambie en la configuración"
+        f"{quantity(AMPLITUDE_BAND_UV, MICROVOLT, 0)}, salvo que se cambie en la "
+        "configuración"
     )
     exclusive = False  # Sólo se dibuja: no compite por el clic del mouse.
 

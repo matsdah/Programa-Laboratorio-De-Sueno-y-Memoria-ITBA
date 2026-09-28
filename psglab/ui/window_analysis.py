@@ -57,6 +57,7 @@ from psglab.analysis.reference import average_reference, rereference
 from psglab.core.windows import count_windows, window_to_samples
 from psglab.readers.base import warm_up_readers
 from psglab.utils.errors import ChannelNotFoundError, PsgLabError
+from psglab.utils.formatting import number, quantity
 
 #: Medidas de complejidad que la interfaz ofrece para recorrer la noche.
 #:
@@ -518,7 +519,7 @@ class AnalysisMixin:
             descripcion += (
                 f"<br>{self._nombrar(sin_medir)} "
                 f"{'queda' if len(sin_medir) == 1 else 'quedan'} fuera de lo que este "
-                f"registro puede medir, que llega hasta {tope:g} Hz: su potencia sale "
+                f"registro puede medir, que llega hasta {quantity(tope, 'Hz')}: su potencia sale "
                 "en cero."
             )
         # **Y un canal grabado más lento** (hito 72): el archivo lo trae a la
@@ -527,8 +528,8 @@ class AnalysisMixin:
         limite = self._session.recording.content_limit_hz(canal)
         if limite < self._session.recording.sampling_rate / 2:
             descripcion += (
-                f"<br>«{canal}» se grabó a {f'{2 * limite:g}'.replace('.', ',')} Hz: "
-                f"por encima de {f'{limite:g}'.replace('.', ',')} Hz, lo que se ve "
+                f"<br>«{canal}» se grabó a {quantity(2 * limite, 'Hz')}: "
+                f"por encima de {quantity(limite, 'Hz')}, lo que se ve "
                 "es interpolación y no señal."
             )
         self.psd_panel.set_caption(descripcion)
@@ -624,7 +625,7 @@ class AnalysisMixin:
         promedio = average_connectivity(matriz)
         descripcion = (
             f"Conectividad en {banda} — ventana {ventana + 1} — "
-            f"promedio {promedio:.3f}".replace(".", ",", 1)
+            f"promedio {number(promedio, 3)}"
         )
         planos = self._planos_en_la_ventana(ventana, canales)
         if planos:

@@ -293,7 +293,7 @@ def _clic(widget, fraccion: float):
     """Un evento de clic izquierdo a esa fracción del ancho del widget.
 
     Se construye con las tres posiciones —local, de la ventana y global— igual
-    que el helper de `test_entrega.py`: la forma corta está deprecada en Qt 6 y
+    que el helper de `entrega_comun.py`: la forma corta está deprecada en Qt 6 y
     llena la corrida de advertencias.
     """
     from PySide6.QtCore import QPointF, Qt
