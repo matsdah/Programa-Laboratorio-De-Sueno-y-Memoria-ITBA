@@ -666,7 +666,7 @@ una vez que agregarlos al lugar que después hay que partir.
       rechaza una copia nueva: contra el código de antes encuentra las nueve.
   - Test: `tests/test_mne_bridge.py`, **34 tests en verde**, con el mensaje
     de cada uno de los dieciocho análisis que reciben primero el registro;
-    `tests/test_consistencia.py`, **121 tests en verde**.
+    `tests/test_consistencia.py`, **122 tests en verde**.
 - [x] **Una sola forma de escribir un número para el usuario.**
       `.replace(".", ",")` aparece 22 veces y hay tres `_numero()`: un
       `utils/formato.py` con el número con coma, los Hz y las duraciones.
@@ -689,7 +689,7 @@ una vez que agregarlos al lugar que después hay que partir.
       sin formato**, `f"{x} Hz"`.
   - Test: `tests/test_formatting.py`, **46 tests en verde**;
     `tests/test_contratos.py`, **1371 tests en verde**;
-    `tests/test_consistencia.py`, **121 tests en verde**.
+    `tests/test_consistencia.py`, **122 tests en verde**.
 - [x] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
       tema**, siguiendo a los controladores.
       Hecho, cuando ya eran 7258 líneas y 437 tests: **seis archivos de
@@ -778,7 +778,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **121 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **122 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 
