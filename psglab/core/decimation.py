@@ -24,15 +24,15 @@ traza. Respetar el orden cuesta una comparación y es lo que hace que una espiga
 hacia arriba se vea como una espiga hacia arriba.
 
 **Las cubetas se cuentan desde el comienzo del registro, no desde el borde de
-la página** (hito 49). Hasta entonces cada página se partía desde su primera
-muestra, y eso tenía dos costos. El caro: al reproducir, la página avanza un
-poco en cada cuadro, así que **ninguna cubeta del cuadro anterior servía** y la
-envolvente se recalculaba entera —con 32 canales a 1000 Hz y página de 5 min,
-unos 100 ms de los 40 que tiene un cuadro—. El visible: la misma muestra caía
-en cubetas distintas de un cuadro al otro, y los picos cambiaban de forma
-mientras la señal pasaba. Con la grilla fija al registro, una cubeta es la
-misma en cualquier página del mismo tamaño, y el visualizador puede guardarla y
-calcular sólo las que entran.
+la página.** Partir cada página desde su primera muestra tendría dos costos. El
+caro: al reproducir, la página avanza un poco en cada cuadro, así que
+**ninguna cubeta del cuadro anterior serviría** y la envolvente se recalcularía
+entera —con 32 canales a 1000 Hz y página de 5 min, unos 100 ms de los 40 que
+tiene un cuadro—. El visible: la misma muestra caería en cubetas distintas de
+un cuadro al otro, y los picos cambiarían de forma mientras la señal pasa. Con
+la grilla fija al registro, una cubeta es la misma en cualquier página del
+mismo tamaño, y el visualizador puede guardarla y calcular sólo las que
+entran.
 
 Por eso la función recibe el **tamaño** de cubeta y no la cantidad: la cantidad
 depende de dónde empieza el tramo, el tamaño no. `bucket_size_for()` lo saca
