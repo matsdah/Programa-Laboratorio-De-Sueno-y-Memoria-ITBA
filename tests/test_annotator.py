@@ -101,9 +101,8 @@ def test_la_conversion_no_deriva_con_una_frecuencia_no_redonda(frecuencia: float
     """**El caso donde el contrato viejo fallaba.**
 
     Con 256,125 Hz, sumar un desplazamiento sobre el borde de una época se
-    escapaba a la siguiente en 240 de 960 ventanas: es el hallazgo que
-    documenta `core.windows.seconds_to_sample()`. Con segundos absolutos hay un
-    solo redondeo, así que la cuenta cierra en cualquier época.
+    escapaba a la siguiente en 240 de 960 ventanas. Con segundos absolutos hay
+    un solo redondeo, así que la cuenta cierra en cualquier época.
 
     Arma su propia sesión porque la fixture está fijada a 100 Hz, que es
     justamente la frecuencia redonda donde el error no aparece.

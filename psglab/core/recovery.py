@@ -1,12 +1,11 @@
 """La copia de recuperación: qué se guarda del trabajo y cómo se vuelve a él.
 
-**El programa no autoguarda**, por decisión del hito 33: guardar a escondidas
-obliga a elegir por el usuario dónde y en qué formato. Pero scorear una noche
-lleva horas, y un corte de luz se las llevaba enteras. El 26 de septiembre de
-2026 el usuario decidió una copia que **no es un archivo de salida**: vive en
-su perfil, no se exporta ni aparece en ninguna carpeta, y al reabrir el mismo
-registro después de un cierre inesperado el programa ofrece volver a donde
-estaba.
+**El programa no autoguarda**: guardar a escondidas obliga a elegir por el
+usuario dónde y en qué formato. Pero scorear una noche lleva horas, y un corte
+de luz no se las puede llevar enteras. Por eso hay una copia que **no es un
+archivo de salida**: vive en el perfil del usuario, no se exporta ni aparece
+en ninguna carpeta, y al reabrir el mismo registro después de un cierre
+inesperado el programa ofrece volver a donde estaba.
 
 Este módulo es la regla, sin Qt y sin disco: qué es el trabajo —las fases, los
 arousals, las anotaciones con sus clases y la ventana donde estaba parado el

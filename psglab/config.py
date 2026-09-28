@@ -243,8 +243,9 @@ VIEW_TIMESCALE_PRESETS: Final[tuple[float, ...]] = (
 
 #: Techo de líneas de grilla y de marcas de época por serie.
 #:
-#: Sin él, una página de cuatro horas le pide 28 800 `InfiniteLine` a
-#: `ui/grid.py`: no es lento, es una pantalla negra de líneas.
+#: Sin él, una página de cuatro horas le pide 28 800 líneas a `ui/grid.py`,
+#: que las dibuja todas en un solo objeto de la escena: no es lento, es una
+#: pantalla negra de líneas.
 MAX_GRID_LINES: Final[int] = 400
 
 #: Por encima de esta página no se dibujan los bordes de cada época, sólo la

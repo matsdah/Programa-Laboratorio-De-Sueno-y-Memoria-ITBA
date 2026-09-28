@@ -15,17 +15,13 @@ from psglab.core.windows import (
     count_windows,
     epoch_to_seconds,
     sample_to_seconds_absolute,
-    sample_to_seconds,
     sample_to_window,
     seconds_to_epoch_offset,
-    seconds_to_sample,
     seconds_to_sample_absolute,
     seconds_to_samples,
     seconds_to_view_fraction,
-    seconds_to_window_fraction,
     view_fraction_to_seconds,
     window_duration,
-    window_fraction_to_seconds,
     seconds_to_clock_time,
     window_to_clock_time,
     window_span_seconds,
@@ -275,99 +271,6 @@ def test_un_hercio_es_una_frecuencia_valida():
     por_ventana = int(WINDOW_SECONDS)  # a 1 Hz, una muestra por segundo
     assert count_windows(3 * por_ventana, 1.0) == 3
     assert window_to_samples(1, 1.0) == (por_ventana, 2 * por_ventana)
-
-
-# -- Las otras unidades: fracción de ventana y segundos ----------------------
-
-
-def test_la_mitad_de_la_ventana_es_la_fraccion_un_medio():
-    """Es la conversión que necesita el medidor de ocupación.
-
-    Su `OccupancyLine` trabaja en fracción y `ViewerTool` le entrega segundos;
-    saltearse esta conversión es lo que haría informar 3000 % de ocupación.
-    """
-    assert seconds_to_window_fraction(WINDOW_SECONDS / 2) == pytest.approx(0.5)
-    assert seconds_to_window_fraction(0.0) == pytest.approx(0.0)
-    assert seconds_to_window_fraction(WINDOW_SECONDS) == pytest.approx(1.0)
-
-
-def test_la_fraccion_y_los_segundos_son_inversas():
-    for segundos in (0.0, 7.5, 15.0, 29.9):
-        fraccion = seconds_to_window_fraction(segundos)
-        assert window_fraction_to_seconds(fraccion) == pytest.approx(segundos)
-
-
-def test_un_evento_al_inicio_de_una_ventana_cae_en_su_primera_muestra(sampling_rate):
-    """Es la conversión que necesita el anotador: recibe segundos y guarda muestras."""
-    for ventana in (0, 1, 19, 500):
-        start, _ = window_to_samples(ventana, sampling_rate)
-        assert seconds_to_sample(ventana, 0.0, sampling_rate) == start
-
-
-def test_segundos_y_muestras_son_inversas_con_una_frecuencia_no_redonda():
-    """Con 256,125 Hz, que es el caso que rompe las cuentas ingenuas."""
-    frecuencia = 256.125
-    for ventana in (0, 1, 960):
-        for segundos in (0.0, WINDOW_SECONDS * 0.4, WINDOW_SECONDS - 0.5):
-            muestra = seconds_to_sample(ventana, segundos, frecuencia)
-            vuelta = sample_to_seconds(ventana, muestra, frecuencia)
-            assert vuelta == pytest.approx(segundos, abs=1 / frecuencia)
-
-
-def test_un_evento_anotado_cae_en_la_ventana_de_la_que_salio():
-    """La propiedad que importa de verdad: la anotación no se corre de ventana.
-
-    Con una frecuencia no redonda, calcular la muestra como
-    `ventana * 30 * fs + segundos * fs` la deja caer en la ventana de al lado.
-    """
-    frecuencia = 256.125
-    for ventana in (0, 1, 500, 960, 2000):
-        for segundos in (0.0, 15.0, 29.99):
-            muestra = seconds_to_sample(ventana, segundos, frecuencia)
-            assert sample_to_window(muestra, frecuencia) == ventana
-
-
-def test_una_muestra_pedida_al_filo_de_la_ventana_sigue_en_esa_ventana():
-    """La promesa textual del módulo, que no se cumplía.
-
-    `floor(i·spw) + floor(off·fs)` puede alcanzar el borde de la ventana
-    siguiente. Medido a 256,125 Hz —una frecuencia real de EDF— sobre ocho
-    horas: 240 de 960 ventanas caían del otro lado. Una anotación marcada al
-    final de la ventana desaparecía del lugar donde el usuario la puso.
-    """
-    frecuencia = 256.125
-    fuera = [
-        i
-        for i in range(960)
-        if sample_to_window(
-            seconds_to_sample(i, WINDOW_SECONDS - 0.001, frecuencia), frecuencia
-        )
-        != i
-    ]
-    assert not fuera, f"{len(fuera)} ventanas devolvieron una muestra de otra ventana"
-
-
-def test_el_recorte_cae_en_la_ultima_muestra_de_la_ventana():
-    """El recorte tiene que dar `stop - 1`, no `stop - 2`.
-
-    Los tests de al lado afirman que la muestra recortada **pertenece** a la
-    ventana, y eso lo cumple cualquier muestra de adentro: con `stop - 2` la
-    suite seguía verde y una anotación marcada en el último instante quedaba
-    una muestra antes de donde el usuario la puso.
-    """
-    for frecuencia in (256.0, 256.125):
-        _, stop = window_to_samples(3, frecuencia)
-        assert seconds_to_sample(3, WINDOW_SECONDS, frecuencia) == stop - 1
-        assert seconds_to_sample(3, 10 * WINDOW_SECONDS, frecuencia) == stop - 1
-
-
-def test_el_redondeo_de_una_muestra_es_hacia_abajo():
-    """Fija el sentido, que ningún test distinguía.
-
-    Con `ceil` en vez de `floor` el resultado se corre una muestra, y la
-    tolerancia de los otros tests —una muestra entera— no lo nota.
-    """
-    assert seconds_to_sample(0, 0.019, 100.0) == 1
 
 
 # -- Eventos con inicio y duración ----------------------------------------------

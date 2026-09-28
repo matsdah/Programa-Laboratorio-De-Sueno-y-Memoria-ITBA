@@ -198,7 +198,6 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("marks_to_annotations(marks=[...])", lambda v: marks_to_annotations([v], 100.0, 1000)),
         ("marks_to_annotations(sampling_rate=...)", lambda v: marks_to_annotations([], v, 1000)),
         ("marks_to_annotations(n_samples=...)", lambda v: marks_to_annotations([], 100.0, v)),
-        ("remove_at", lambda v: AnnotationSet().remove_at(v)),
         ("replace(old=...)", lambda v: AnnotationSet().replace(v, Annotation("Arousal", 0, 10))),
         ("replace(new=...)", lambda v: _con_una().replace(Annotation("Arousal", 0, 10), v)),
         ("add(annotation=...)", lambda v: AnnotationSet().add(v)),
@@ -235,7 +234,6 @@ CONTRATOS: dict[str, list[tuple[str, object]]] = {
         ("for_duration", lambda v: pagina().for_duration(v)),
         ("containing(start=...)", lambda v: pagina().containing(v, 10.0)),
         ("containing(end=...)", lambda v: pagina().containing(0.0, v)),
-        ("replaced", lambda v: pagina().replaced(span_seconds=v)),
     ],
     "psglab/core/session.py": [
         ("mark_arousal_of", lambda v: sesion().mark_arousal_of(v)),

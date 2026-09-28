@@ -1,9 +1,9 @@
-"""Deshacer y rehacer los cambios del scoring y de las anotaciones (hito 79).
+"""Deshacer y rehacer los cambios del scoring y de las anotaciones.
 
-Con el paso solo a la ventana siguiente del hito 64, una tecla de más scorea la
-ventana que viene, y hasta acá no había vuelta atrás: había que volver con la
-flecha y rescorear. Confirmar todas las fases sugeridas, o importar un scoring
-encima, eran peores: cientos de ventanas de un golpe.
+Scorear pasa sola a la ventana siguiente, así que una tecla de más scorea la
+ventana que viene; confirmar todas las fases sugeridas, o importar un scoring
+encima, cambian cientos de ventanas de un golpe. Todo eso se tiene que poder
+volver atrás.
 
 ## Fotos y no comandos
 

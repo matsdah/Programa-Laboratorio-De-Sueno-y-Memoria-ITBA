@@ -1352,7 +1352,7 @@ def test_una_anotacion_mas_despues_de_exportar_vuelve_a_contar(session):
 def test_anotar_y_borrarla_no_es_un_cambio(session):
     """La misma regla que deshacer una fase: se compara contra el archivo."""
     session.annotations.add(Annotation("Spindle", 100, 50))
-    session.annotations.remove_at(0)
+    session.annotations.remove(session.annotations.all()[0])
 
     assert not session.has_unexported_annotations()
 
@@ -1363,7 +1363,7 @@ def test_sin_ninguna_anotacion_no_hay_nada_que_perder(session):
     vacío, sobre la otra mitad."""
     session.annotations.add(Annotation("Spindle", 100, 50))
     session.mark_annotations_exported()
-    session.annotations.remove_at(0)
+    session.annotations.remove(session.annotations.all()[0])
 
     assert not session.has_unexported_annotations()
 

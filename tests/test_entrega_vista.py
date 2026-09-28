@@ -209,7 +209,8 @@ def test_al_final_el_cursor_llega_al_borde_y_se_detiene(reproduccion: MainWindow
     ventana._go_to_window(VENTANAS - 1)
 
     ventana.toggle_playback()
-    assert ventana.session.viewport.at_end
+    pagina = ventana.session.viewport
+    assert pagina.end_seconds == pytest.approx(pagina.duration_seconds)
     ventana.playback_controller.clock.advanced.emit(10.0)
     assert ventana.playback_controller.is_playing
 

@@ -296,7 +296,7 @@ código de hoy** antes de arreglar nada.
     `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
-    `tests/test_contratos.py`, **1371 tests en verde**; y por la ventana, en
+    `tests/test_contratos.py`, **1359 tests en verde**; y por la ventana, en
     los seis `test_entrega*.py`.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
@@ -370,7 +370,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       van a la próxima y a la anterior sin scorear, con `Scoring.next_unscored()`.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
-    `tests/test_contratos.py`, **1371 tests en verde**;
+    `tests/test_contratos.py`, **1359 tests en verde**;
     `tests/test_entrega_interfaz.py`, **103 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
@@ -510,7 +510,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       los nombres de clase —`eog`, `emg`, `ecg`— siguen valiendo pegados,
       como en «HEOG». Y los acentos se sacan antes de partir el nombre:
       «Mentón» se partía en «ment» y «n» y dejaba de ser EMG.
-  - Test: `tests/test_channel_types.py`, **93 tests en verde**. Veinticinco
+  - Test: `tests/test_channel_types.py`, **77 tests en verde**. Veinticinco
     de los nuevos fallan sin el cambio; los demás cuidan que no se pase de
     largo: «Lateral» y «Pos» siguen en «Otro».
 - [x] **El arousal existe dos veces sin relación**: la marca de la ventana
@@ -523,7 +523,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       cambiar la clase a «Arousal», correr su comienzo e importar las marcas
       del archivo. **Borrar no desmarca**: la marca pudo haberse puesto a
       mano. Anotar y marcar son un solo paso de deshacer.
-  - Test: `tests/test_annotations.py`, **97 tests en verde**;
+  - Test: `tests/test_annotations.py`, **90 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_entrega_scoring.py`, **46 tests en verde**.
 
@@ -620,7 +620,7 @@ una vez que agregarlos al lugar que después hay que partir.
   - Test: `tests/test_channel_display.py`, **25 tests en verde**, sin
     sesión: que mida sobre el tramo que se le pasa y no sobre otro, el
     alcance de la amplitud, las clases sin escala propia y qué sobrevive a
-    un registro procesado. `tests/test_contratos.py`, **1371 tests en
+    un registro procesado. `tests/test_contratos.py`, **1359 tests en
     verde**, con sus filas y tres rechazos obligatorios.
 - [x] **`SignalView` (1344 líneas) separa lo que dibujan las herramientas**
       —banda, bandas de anotación, segmentos, lente— en
@@ -666,7 +666,7 @@ una vez que agregarlos al lugar que después hay que partir.
       rechaza una copia nueva: contra el código de antes encuentra las nueve.
   - Test: `tests/test_mne_bridge.py`, **34 tests en verde**, con el mensaje
     de cada uno de los dieciocho análisis que reciben primero el registro;
-    `tests/test_consistencia.py`, **122 tests en verde**.
+    `tests/test_consistencia.py`, **124 tests en verde**.
 - [x] **Una sola forma de escribir un número para el usuario.**
       `.replace(".", ",")` aparece 22 veces y hay tres `_numero()`: un
       `utils/formato.py` con el número con coma, los Hz y las duraciones.
@@ -688,8 +688,8 @@ una vez que agregarlos al lugar que después hay que partir.
       scoring, que es de máquina y lleva punto. **No ve un número interpolado
       sin formato**, `f"{x} Hz"`.
   - Test: `tests/test_formatting.py`, **46 tests en verde**;
-    `tests/test_contratos.py`, **1371 tests en verde**;
-    `tests/test_consistencia.py`, **122 tests en verde**.
+    `tests/test_contratos.py`, **1359 tests en verde**;
+    `tests/test_consistencia.py`, **124 tests en verde**.
 - [x] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
       tema**, siguiendo a los controladores.
       Hecho, cuando ya eran 7258 líneas y 437 tests: **seis archivos de
@@ -730,13 +730,24 @@ esto…», «lo encontró la auditoría…»— en vez de decir qué hace el có
 Para quien llega sin contexto, triplica lo que hay que leer para entender una
 función, y la historia ya está en este archivo y en git.
 
-- [ ] **La regla**: un docstring dice qué hace y por qué, en presente. La
+- [x] **La regla**: un docstring dice qué hace y por qué, en presente. La
       historia va al hito y al commit. Se aplica al tocar cada módulo, no en
       una sola pasada; **`core/` primero**, que es lo que se lee para
       entender el modelo.
-- [ ] **Un trinquete en `test_consistencia.py`**: la cantidad de menciones a
+      Hecho: la regla está en `CLAUDE.md`, en «Convenciones», y **`core/` no
+      nombra ningún hito**. Eran 39 menciones en once módulos; cada una se
+      reescribió diciendo qué hace el código y por qué, sin «hasta el hito…»
+      ni «lo encontró la auditoría». El resto de `psglab/` sigue la regla al
+      tocarse, y el trinquete de abajo la sostiene.
+- [x] **Un trinquete en `test_consistencia.py`**: la cantidad de menciones a
       hitos dentro de `psglab/` no puede crecer. Sin él, la regla de arriba
       depende de acordarse.
+      Hecho: `TOPE_DE_MENCIONES_A_HITOS`. **Falla si sube y también si baja**
+      sin que se baje el tope, para que cada bajada quede fija. Cuenta
+      también «hito» al final de un renglón de comentario con el número en el
+      siguiente, que el conteo por renglón no veía. Y
+      `CAPAS_SIN_MENCIONES_A_HITOS` exige que `core/` siga en cero. Eran 476
+      menciones; con `core/` limpio quedan las del tope.
 - [x] **«Dónde cambiar qué», en `EXPLICACION.txt`**: la duración de la
       época, los colores, las teclas, los filtros sugeridos, los nombres de
       los archivos de salida. Es la pregunta de quien abre el código sin
@@ -748,7 +759,7 @@ función, y la historia ya está en este archivo y en git.
       clases de anotación, los nombres de canal que se reconocen y las
       velocidades de la reproducción. Cierra separando lo que es del código de
       lo que elige cada usuario, que va a `preferencias.json`.
-- [ ] **El código muerto que la red no ve.** La red del hito 30 mira
+- [x] **El código muerto que la red no ve.** La red del hito 30 mira
       `analysis/`, `tools/` y los paneles, no `core/`, `readers/` ni
       `utils/`, y ahí sobrevivieron: en `core/windows.py`,
       `seconds_to_window_fraction()`, `window_fraction_to_seconds()`,
@@ -760,7 +771,22 @@ función, y la historia ya está en este archivo y en git.
       se eleva nunca; `PlaybackClock.toggle()`; y
       `OverviewTool._draw_window()`, que su propio docstring dice conservar
       por la trazabilidad. Extender la red y borrar o declarar cada uno.
-- [ ] **Los docstrings que dicen lo contrario de lo que hace el código**:
+      Hecho. **La red del hito 30 mira ahora también `core/`, `readers/` y
+      `utils/`**, con funciones y clases además de métodos
+      (`CAPAS_CON_FUNCIONES_SUELTAS`); contra el código de antes encuentra
+      los doce de esas capas. **Se borraron los trece**, con los tests que
+      sólo los probaban a ellos, y además `AnnotationSet.remove_at()`, que la
+      red encontró y cuyo docstring decía que la usaba el anotador: los tests
+      del orden de las anotaciones borran ahora con `remove()`, y el orden se
+      sigue exigiendo porque de él dependen `in_range()` y la exportación. **Se
+      declararon cinco**, en `SIN_CAMINO_A_PROPOSITO` con su motivo: los dos
+      lectores, que los encuentra su decorador; `Session.active_tool`, un
+      accesor; `seconds_to_epoch_offset()`, que `tools/base.py` le señala a
+      quien escriba una herramienta; y `detect_nomenclature()`,
+      `detect_line_format()` y `to_microvolts()`, API para un script. De paso,
+      el docstring de `AnnotatorTool.create_annotation()` decía que recibía
+      segundos desde el inicio de la ventana: recibe muestras.
+- [x] **Los docstrings que dicen lo contrario de lo que hace el código**:
       `core/windows.py` y `tools/annotator.py` todavía hablan de segundos
       desde el comienzo de la ventana; `ui/signal_view.py` dibuja «la ventana
       de 30 segundos actual» y su eje sin hora se rotula «Segundos de la
@@ -771,6 +797,13 @@ función, y la historia ya está en este archivo y en git.
       del hito 76; `config.MAX_GRID_LINES` habla de una `InfiniteLine` por
       línea; y el comentario de arriba de `ci.yml` dice que corre contra las
       ramas de trabajo.
+      Hecho, los siete. **Uno no era sólo texto**: el eje de la señal sin
+      hora de inicio numera segundos desde el comienzo del registro —desde el
+      refactor de la interfaz— y seguía rotulado «Segundos de la ventana»;
+      ahora dice «Segundos desde el comienzo del registro». El comentario de
+      `window_preferences.py` ya había perdido su nombre antes de la mudanza:
+      era `OverviewTool.refresh()`. El de `annotator.py` sobre
+      `create_annotation()` se corrigió con el código muerto.
 - [x] **Este archivo en dos.** *(Decidido: sí.)* Son 6500 líneas, y la
       introducción encadena ochenta hitos en un solo párrafo. Lo cerrado
       podría ir a un historial y el TODO quedar con lo abierto y las reglas.
@@ -791,7 +824,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **122 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **124 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 
