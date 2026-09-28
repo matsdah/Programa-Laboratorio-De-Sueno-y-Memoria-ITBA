@@ -701,9 +701,15 @@ una vez que agregarlos al lugar que después hay que partir.
     `tests/test_entrega_vista.py`, **47 tests en verde**;
     `tests/test_entrega_analisis.py`, **103 tests en verde**;
     `tests/test_entrega_interfaz.py`, **103 tests en verde**.
-- [ ] **Los docks se llaman `*_dock`.** Siguen llamándose `psd_dialog` y
+- [x] **Los docks se llaman `*_dock`.** Siguen llamándose `psd_dialog` y
       compañía para no tocar ocho tests; quien lee el código busca un
       diálogo que no existe.
+      Hecho: los seis son `window.<clave>_dock`, y `docks.py` ya no explica
+      por qué el nombre mentía. **Los métodos `show_psd_dialog()` y compañía
+      no cambian**: antes de calcular preguntan con un cuadro de diálogo, así
+      que su nombre es cierto, y son la API de los menús y los atajos.
+  - Test: `tests/test_docks.py`, `tests/test_main_window_layout.py` y
+    `tests/test_entrega_interfaz.py`, con el nombre nuevo.
 
 ### Tanda 4: que el código lo lea alguien que no programa
 

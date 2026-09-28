@@ -572,8 +572,8 @@ el cursor es `ui/playback_controller.py` (hito 79).
 ### La ventana
 
 La señal es el widget central y los demás paneles son `QDockWidget`, que arma
-`ui/docks.py` y quedan en `window.docks`. Los seis de análisis conservan el
-nombre `*_dialog` de cuando eran diálogos. La barra de navegación es fija, no un
+`ui/docks.py` y quedan en `window.docks`; los seis de análisis, también como
+`window.<clave>_dock` —hasta el hito 79, `*_dialog`—. La barra de navegación es fija, no un
 panel: es la única vía de navegación con el mouse. Los menús viven en
 `ui/menus.py` y cada acción llama a un método de la ventana. **«Herramientas»
 lleva también los paneles** desde el hito 28 —ya no hay menú «Paneles»—: arriba

@@ -14,15 +14,14 @@ mueve, se apila en solapas, se cierra y se saca a otra pantalla.
 el programa abre siempre con la vista de abajo, y lo que el usuario arme vale
 hasta que lo cierre. Hasta ese hito se guardaba al cerrar.
 
-## El nombre del atributo no cambió
+## El nombre del atributo
 
-Los seis paneles de análisis siguen colgando de la ventana como `psd_dialog`,
-`metric_dialog` y compañía, aunque ya no sean `QDialog`. **No es pereza**:
-`QDockWidget` responde a `windowTitle()`, `show()`, `hide()` e `isVisible()`
-igual que un diálogo, así que los ocho tests de entrega que preguntan por el
-título de esas ventanas siguieron pasando sin tocarse. Renombrarlos habría
-cambiado ocho tests para no ganar nada; el sufijo dejó de ser literal y pasó a
-significar "el contenedor del panel", que es lo que siempre quiso decir.
+Los seis paneles de análisis cuelgan de la ventana como `psd_dock`,
+`metric_dock` y compañía: `window.<clave>_dock`, el mismo objeto que
+`window.docks[clave]`. Se llamaron `*_dialog` desde que eran `QDialog` hasta el
+hito 79, y quien leía el código buscaba un diálogo que no existía. Los métodos
+que los piden —`show_psd_dialog()` y compañía— sí conservan el nombre, porque
+antes de calcular preguntan con un cuadro de diálogo.
 
 ## Qué arranca visible
 
@@ -301,9 +300,6 @@ def _analisis(window: "MainWindow") -> None:
         dock.toggleViewAction().toggled.connect(
             lambda visible: visible and QTimer.singleShot(0, lambda: repartir_derecha(window))
         )
-        # **El nombre del atributo conserva el sufijo `_dialog`.** Ver la
-        # explicación de arriba: cambiarlo costaría ocho tests y no ganaría
-        # nada.
-        setattr(window, f"{clave}_dialog", dock)
+        setattr(window, f"{clave}_dock", dock)
         window.docks[clave] = dock
         anterior = dock
