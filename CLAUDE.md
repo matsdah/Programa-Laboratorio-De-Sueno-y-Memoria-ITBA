@@ -65,8 +65,9 @@ cargarse y los mecanismos enchufables no existirían.
 
 **[`docs/TODO.md`](docs/TODO.md) es la cola de trabajo** y el único documento
 que lleva estado. Ordena el trabajo en hitos **por dependencias reales**, no por
-sección del pliego, y lleva las dos Partes. Hoy no queda ningún stub: lo que
-sigue abierto está anotado al final del último hito.
+sección del pliego, y lleva las dos Partes. Hoy no queda ningún stub ni
+ningún hito abierto: lo que sigue pendiente son las preguntas al cliente, al
+principio del TODO, y el próximo trabajo se abre como un hito nuevo.
 
 **Un hito no se empieza si el anterior no está cerrado**, por la misma razón de
 siempre: se escribiría contra algo que todavía no se puede testear. Un módulo
