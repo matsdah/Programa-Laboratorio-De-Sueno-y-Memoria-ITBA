@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
 )
 
 from psglab.ui import theme
+from psglab.ui.analysis_request import AnalysisRequest
 from psglab.ui.panel_header import (
     SECUNDARIO_PROPERTY,
     EmptyState,
@@ -96,6 +97,10 @@ class MetricPanel(QWidget):
         #: El encabezado, con qué se está mirando. Ver `PanelHeader`.
         self.header = PanelHeader("Métrica")
 
+        #: Con qué se pide el análisis: sus parámetros y «Calcular». Los llena
+        #: la ventana, que es la que sabe qué canales y bandas hay.
+        self.request = AnalysisRequest()
+
         #: Lo que se ve mientras no hay ningún resultado. Ver `EmptyState`.
         self.vacio = EmptyState()
 
@@ -123,6 +128,7 @@ class MetricPanel(QWidget):
         columna.setContentsMargins(0, 0, 0, 0)
         columna.setSpacing(0)
         columna.addWidget(self.header)
+        columna.addWidget(self.request)
         columna.addWidget(self.leyenda)
         columna.addWidget(self._pila)
         self._reflejar_titulo()

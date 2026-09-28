@@ -96,6 +96,7 @@ from psglab.core.nomenclature import Nomenclature
 from psglab.core.session import Session
 from psglab.core.windows import window_to_clock_time
 from psglab.ui import preferences, theme
+from psglab.ui.analysis_request import CALCULAR
 from psglab.ui.background import BackgroundTask
 from psglab.ui.channel_selector import ChannelSelector
 from psglab.ui.docks import build_docks
@@ -239,6 +240,16 @@ class MainWindow(
         self.psd_panel = PsdPanel()
         self.metric_panel = MetricPanel()
         self.connectivity_panel = ConnectivityPanel()
+        #: Qué muestra el panel de la métrica, que sirve a dos análisis: la
+        #: complejidad o la conectividad de la noche. Decide qué campos lleva
+        #: su fila y qué calcula «Calcular».
+        self._pedido_de_la_metrica: str = "complejidad"
+        # Con lambdas, para que un test pueda reemplazar el método en la clase.
+        self.psd_panel.request.requested.connect(lambda: self._calcular_el_espectro())
+        self.metric_panel.request.requested.connect(lambda: self._calcular_la_metrica())
+        self.connectivity_panel.request.requested.connect(
+            lambda: self._medir_la_conectividad()
+        )
 
         self.impedance_panel = ImpedancePanel()
         self.impedance_panel.on_changed = self._refrescar_informe_de_impedancia
@@ -363,9 +374,11 @@ class MainWindow(
                 # **Una ruta por renglón.** El título de pyqtgraph no corta
                 # líneas, y las dos de la métrica juntas no entran en el ancho
                 # de la pila de análisis.
-                panel.set_hint(
-                    f"{que_falta}<br>Se pide desde " + "<br>o desde ".join(rutas)
-                )
+                pista = f"{que_falta}<br>Se pide desde " + "<br>o desde ".join(rutas)
+                # Los que llevan sus parámetros arriba se piden también desde ahí.
+                if hasattr(panel, "request"):
+                    pista += f"<br>o con «{CALCULAR}», arriba"
+                panel.set_hint(pista)
 
     def _connect_signals(self) -> None:
         """Conecta las señales de los paneles entre sí.

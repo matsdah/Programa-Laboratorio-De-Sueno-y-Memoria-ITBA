@@ -387,14 +387,6 @@ def test_la_banda_de_la_onda_se_lleva_la_mayor_parte(ventana: MainWindow, elige_
     assert desde <= 10.0 < hasta
 
 
-def test_cancelar_no_abre_nada(ventana: MainWindow, elige_canal):
-    elige_canal("C3", acepta=False)
-
-    ventana.show_psd_dialog()
-
-    assert ventana.psd_panel.channels() == []
-
-
 def test_pedir_el_espectro_de_otra_ventana_reemplaza(ventana: MainWindow, elige_canal):
     """No puede quedar la curva de la anterior encima."""
     elige_canal("C3")
@@ -490,14 +482,6 @@ def test_con_un_solo_canal_visible_avisa_en_vez_de_romper(
     ventana.show_connectivity_dialog()
 
     assert ventana.carteles
-
-
-def test_cancelar_no_calcula_nada(ventana: MainWindow, elige_opciones):
-    elige_opciones(("C3", False))
-
-    ventana.show_complexity_dialog()
-
-    assert ventana.metric_panel.channels() == []
 
 
 # -- ICA, por la ventana (V5_F de "Filtración") ------------------------------
@@ -1181,24 +1165,6 @@ def test_el_titulo_dice_la_banda_y_entre_que_canales(
         assert canal in titulo
 
 
-def test_cancelar_la_banda_no_mide_nada(ventana: MainWindow, elige_opciones, monkeypatch):
-    """Es la operación más cara del menú después de la ICA: cancelar no puede
-    arrancarla igual."""
-    llamadas: list[object] = []
-    monkeypatch.setattr(
-        analysis_mod,
-        "connectivity_by_window",
-        lambda *args, **kwargs: llamadas.append(args),
-    )
-    elige_opciones(("", False))
-
-    ventana.show_connectivity_night_dialog()
-    ventana.wait_for_background()
-
-    assert llamadas == []
-    assert not ventana.carteles
-
-
 def test_con_un_solo_canal_visible_avisa_sin_medir(ventana: MainWindow):
     ventana.session.set_visible_channels(ventana.session.visible_channels[:1])
 
@@ -1761,7 +1727,7 @@ def test_el_espectro_de_un_canal_lento_dice_hasta_donde_es_senal(
     """Se dibujaba hasta 50 Hz un canal que no tiene nada por encima de 0,5, y
     la potencia de las bandas de arriba parecía suya."""
     ventana = ventana_con_un_canal_lento
-    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("EMG", True))
+    ventana.psd_panel.request.set_value("canal", "EMG")
 
     ventana.show_psd_dialog()
 
@@ -1772,7 +1738,7 @@ def test_el_espectro_de_un_canal_normal_no_lo_menciona(
     ventana_con_un_canal_lento: MainWindow, monkeypatch
 ):
     ventana = ventana_con_un_canal_lento
-    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("C3", True))
+    ventana.psd_panel.request.set_value("canal", "C3")
 
     ventana.show_psd_dialog()
 
@@ -1794,7 +1760,7 @@ def test_la_conectividad_nombra_al_canal_que_no_tiene_nada_en_la_banda(
     """Medir la conectividad del EMG de 1 Hz en alfa es medir interpolación."""
     ventana = ventana_con_un_canal_lento
     alta = banda_que(ventana, arriba_de=1.0)
-    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: (alta, True))
+    ventana.connectivity_panel.request.set_value("banda", alta)
 
     ventana.show_connectivity_dialog()
 
@@ -1804,7 +1770,7 @@ def test_la_conectividad_nombra_al_canal_que_no_tiene_nada_en_la_banda(
 
 
 def test_en_una_banda_que_el_canal_lento_alcanza_no_se_dice_nada(
-    ventana_con_un_canal_lento: MainWindow, monkeypatch
+    ventana_con_un_canal_lento: MainWindow, elige_opciones
 ):
     ventana = ventana_con_un_canal_lento
     actuales = ventana._preferencias.bands()
@@ -1814,7 +1780,7 @@ def test_en_una_banda_que_el_canal_lento_alcanza_no_se_dice_nada(
             *((nombre, desde, hasta) for nombre, (desde, hasta) in actuales.items()),
         )
     )
-    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: ("Lenta", True))
+    elige_opciones(("Lenta", True))
 
     ventana.show_connectivity_dialog()
 
@@ -1822,13 +1788,76 @@ def test_en_una_banda_que_el_canal_lento_alcanza_no_se_dice_nada(
 
 
 def test_la_conectividad_de_la_noche_tambien_lo_dice(
-    ventana_con_un_canal_lento: MainWindow, monkeypatch
+    ventana_con_un_canal_lento: MainWindow, elige_opciones
 ):
     ventana = ventana_con_un_canal_lento
     alta = banda_que(ventana, arriba_de=1.0)
-    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_k: (alta, True))
+    elige_opciones((alta, True))
 
     ventana.show_connectivity_night_dialog()
     ventana.wait_for_background()
 
     assert "«EMG» se grabó más lento" in ventana.metric_panel.caption()
+
+
+# -- Los parámetros, en el panel ------------------------------------------------
+#
+# Cada panel lleva sus parámetros y «Calcular»: el menú calcula con lo que ya
+# está elegido, sin carteles, y el usuario cambia la elección en el panel.
+
+
+def test_pedir_un_analisis_no_abre_ningun_cartel(ventana: MainWindow, monkeypatch):
+    monkeypatch.setattr(
+        QInputDialog, "getItem", staticmethod(lambda *_a, **_k: pytest.fail("preguntó"))
+    )
+
+    ventana.show_psd_dialog()
+    ventana.show_complexity_dialog()
+
+    assert ventana.psd_panel.caption().startswith("Espectro de «")
+    assert not ventana.carteles
+
+
+def test_el_menu_calcula_con_el_canal_seleccionado(ventana: MainWindow):
+    ventana.session.set_selected_channels(["EOG-izq"])
+
+    ventana.show_psd_dialog()
+
+    assert "«EOG-izq»" in ventana.psd_panel.caption()
+    assert ventana.psd_panel.request.value("canal") == "EOG-izq"
+
+
+def test_calcular_en_el_panel_usa_lo_elegido_ahi(ventana: MainWindow):
+    ventana.show_psd_dialog()
+    ventana.psd_panel.request.set_value("canal", "EOG-izq")
+
+    ventana.psd_panel.request.boton.click()
+
+    assert "«EOG-izq»" in ventana.psd_panel.caption()
+
+
+def test_la_fila_ofrece_los_canales_y_las_bandas_del_registro(ventana: MainWindow):
+    assert ventana.psd_panel.request.options("canal") == ventana.session.recording.channel_names()
+    assert ventana.connectivity_panel.request.options("banda") == list(
+        ventana.current_preferences.bands()
+    )
+    assert ventana.psd_panel.request.boton.isEnabled()
+
+
+def test_la_fila_de_la_metrica_cambia_con_lo_que_muestra(ventana: MainWindow):
+    """El panel de la métrica sirve a dos análisis, y cada uno pide lo suyo."""
+    ventana.show_complexity_dialog()
+    assert ventana.metric_panel.request.keys() == ["canal", "medida"]
+
+    ventana.show_connectivity_night_dialog()
+    ventana.wait_for_background()
+    assert ventana.metric_panel.request.keys() == ["banda"]
+
+
+def test_el_canal_derivado_aparece_en_la_fila_del_espectro(ventana: MainWindow, elige_canal):
+    canales = ventana.session.recording.channel_names()
+    elige_canal(canales[0], canales[1])
+
+    ventana.derive_dialog()
+
+    assert f"{canales[0]}-{canales[1]}" in ventana.psd_panel.request.options("canal")

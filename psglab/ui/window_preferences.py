@@ -192,6 +192,9 @@ class PreferencesMixin:
         if self._session is not None:
             self._aplicar_colores_de_clase(self._session)
             self._repintar_anotaciones()
+            # Las bandas de la fila del espectro y de la conectividad salen de
+            # la configuración.
+            self._preparar_los_pedidos()
         self._guardar_preferencias()
 
     def show_settings_dialog(self) -> None:
