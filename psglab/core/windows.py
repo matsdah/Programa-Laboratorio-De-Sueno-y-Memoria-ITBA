@@ -164,77 +164,6 @@ def sample_to_window(
     return index
 
 
-def seconds_to_window_fraction(
-    seconds: float,
-    window_seconds: float = WINDOW_SECONDS,
-) -> float:
-    """De segundos desde el inicio de la ventana a fracción de ventana (0 a 1).
-
-    La necesita el medidor de ocupación: `ViewerTool` le entrega segundos y
-    `OccupancyLine` trabaja en fracción. Sin esta función la herramienta tendría
-    que dividir por 30 a mano, y su propio docstring advierte lo que pasa si se
-    saltea la conversión: informa 3000 % de ocupación.
-    """
-    return seconds / window_seconds
-
-
-def window_fraction_to_seconds(
-    fraction: float,
-    window_seconds: float = WINDOW_SECONDS,
-) -> float:
-    """La inversa de `seconds_to_window_fraction`."""
-    return fraction * window_seconds
-
-
-def seconds_to_sample(
-    window_index: int,
-    offset_seconds: float,
-    sampling_rate: float,
-    window_seconds: float = WINDOW_SECONDS,
-) -> int:
-    """De un punto dentro de una ventana a su muestra en el registro entero.
-
-    La necesita el anotador: recibe el evento en segundos desde el inicio de la
-    ventana y `Anotaciones.txt` guarda muestras.
-
-    El desplazamiento se suma sobre el borde que devuelve `window_to_samples`,
-    no sobre `window_index * 30 * fs`, para que la muestra caiga en la misma
-    ventana de la que se dice que salió incluso con una frecuencia no redonda.
-
-    **Sumar no alcanzaba.** `floor(i·spw) + floor(off·fs)` puede alcanzar
-    `floor((i+1)·spw)`, así que la muestra se iba a la ventana siguiente. Medido
-    a 256,125 Hz sobre ocho horas: **240 de 960 ventanas** fallaban, para
-    desplazamientos en los últimos 2,9 ms. Una anotación marcada pegada al final
-    de la ventana se guardaba con una muestra que ya no le pertenece, y al
-    redibujarla desaparecía del lugar donde el usuario la puso. Por eso el
-    resultado se recorta a la última muestra de la ventana.
-
-    Un desplazamiento mayor que la ventana entera se recorta igual: la promesa
-    es que el resultado pertenezca a `window_index`, y eso vale para cualquier
-    entrada.
-    """
-    start, stop = window_to_samples(window_index, sampling_rate, window_seconds)
-    return min(start + math.floor(offset_seconds * sampling_rate), stop - 1)
-
-
-def sample_to_seconds(
-    window_index: int,
-    sample: int,
-    sampling_rate: float,
-    window_seconds: float = WINDOW_SECONDS,
-) -> float:
-    """La inversa de `seconds_to_sample`: dónde cae una muestra dentro de su ventana.
-
-    Devuelve segundos desde el inicio de la ventana. Es lo que necesita el
-    visualizador para dibujar una anotación guardada, que viene en muestras,
-    sobre la ventana que está mostrando.
-    """
-    # `window_to_samples` ya comprobó que la frecuencia sea positiva, así que
-    # la división de abajo es segura.
-    start, _ = window_to_samples(window_index, sampling_rate, window_seconds)
-    return (sample - start) / sampling_rate
-
-
 def window_to_clock_time(
     window_index: int,
     start_time: datetime | None,
@@ -299,18 +228,18 @@ def window_duration(
 #
 # Todas trabajan en **segundos absolutos desde el inicio del registro**, que es
 # el sistema que las dos nociones comparten. El contrato de coordenadas de
-# `ViewerTool` pasó a ser ése, y con eso desaparece la conversión más delicada
-# del módulo: `seconds_to_sample()` existe porque sumar un offset sobre el borde
-# de una época se escapa a la siguiente —240 de 960 ventanas fallaban a
-# 256,125 Hz— y sin borde de época en la cuenta esa deriva es imposible.
+# `ViewerTool` pasó a ser ése, y con eso desapareció la conversión más
+# delicada del módulo: sumar un offset sobre el borde de una época se escapaba
+# a la siguiente —240 de 960 ventanas fallaban a 256,125 Hz—, y sin borde de
+# época en la cuenta esa deriva es imposible.
 
 
 def seconds_to_sample_absolute(seconds: float, sampling_rate: float) -> int:
     """De segundos desde el inicio del registro a la muestra que les toca.
 
-    Es lo que usa el anotador con la página libre. Como no hay borde de época
-    sobre el que sumar, **la deriva que documenta `seconds_to_sample()` no puede
-    existir**: no hay dos redondeos que discrepen, hay uno.
+    Es lo que usa el anotador. Como no hay borde de época sobre el que sumar,
+    **la deriva de sumar un offset al borde de la época no puede existir**: no
+    hay dos redondeos que discrepen, hay uno.
 
     Raises:
         ZeroDivisionError: si la frecuencia no es finita y positiva.
@@ -368,11 +297,10 @@ def seconds_to_view_fraction(
 ) -> float:
     """De segundos absolutos a fracción de la página visible (0 a 1).
 
-    Reemplaza a `seconds_to_window_fraction()` en el medidor de ocupación: el
-    ancho contra el que se mide ya no son los 30 s del pliego sino la página,
-    que el usuario elige. Sin esta función la ocupación informaría **30 000 %**
-    sobre una página de una hora, que es el mismo error que su docstring viene
-    señalando, dos órdenes de magnitud más arriba.
+    Es lo que usa el medidor de ocupación: el ancho contra el que se mide no
+    son los 30 s del pliego sino la página, que el usuario elige. Medida contra
+    la época, la ocupación informaría **30 000 %** sobre una página de una
+    hora.
 
     Recibe los dos números y no un `Viewport` para que este módulo no dependa de
     `core/viewport.py`: la flecha va en la otra dirección.

@@ -21,9 +21,7 @@ import pytest
 
 from psglab.core.recording import ChannelKind
 from psglab.readers.channel_types import (
-    detect_all,
     detect_channel_kind,
-    is_eeg_position,
 )
 
 #: Los siete canales del registro `SC4001E0-PSG.edf`, con la unidad que declara
@@ -71,16 +69,9 @@ def test_un_termometro_no_es_un_eeg_ni_sin_su_unidad() -> None:
     como EEG.
     """
     assert detect_channel_kind("Temp rectal") is ChannelKind.OTHER
-    assert not is_eeg_position("Temp rectal")
 
 
 # -- Las posiciones del 10-20 ------------------------------------------------
-
-
-@pytest.mark.parametrize("nombre", ["C3", "C4", "Cz", "O1", "F7", "T3", "Fp1", "Pz"])
-def test_las_posiciones_sueltas_son_eeg(nombre: str) -> None:
-    assert detect_channel_kind(nombre) is ChannelKind.EEG
-    assert is_eeg_position(nombre)
 
 
 @pytest.mark.parametrize("nombre", ["Fpz-Cz", "Fp1-A2", "C3-M2", "EEG C4-A1"])
@@ -101,16 +92,6 @@ def test_un_canal_que_solo_dice_eeg_tambien_lo_es(nombre: str) -> None:
     Es lo que traen los montajes que ya vienen derivados del equipo.
     """
     assert detect_channel_kind(nombre) is ChannelKind.EEG
-
-
-@pytest.mark.parametrize("nombre", ["Event marker", "Temp rectal", "Luz", "SpO2 wave"])
-def test_lo_que_no_es_una_posicion_no_lo_parece(nombre: str) -> None:
-    """El complemento: `is_eeg_position` no puede volverse permisiva.
-
-    Es la mitad que faltaba cuando la comparación era por prefijo, y la que
-    dejaba pasar el termómetro.
-    """
-    assert not is_eeg_position(nombre)
 
 
 # -- Los patrones por clase --------------------------------------------------
@@ -260,33 +241,6 @@ def test_el_veto_no_alcanza_a_las_clases_que_no_son_electricas() -> None:
     assert detect_channel_kind("Flujo", "l/min") is ChannelKind.RESPIRATORY
 
 
-# -- La versión de lista -----------------------------------------------------
-
-
-def test_detect_all_clasifica_todos_en_orden() -> None:
-    nombres = [n for n, _, _ in CANALES_REALES]
-    unidades = [u for _, u, _ in CANALES_REALES]
-    assert detect_all(nombres, unidades) == [k for _, _, k in CANALES_REALES]
-
-
-def test_detect_all_sin_unidades() -> None:
-    """Un formato que no las declare no es un error."""
-    assert detect_all(["C3", "EOG izq"]) == [ChannelKind.EEG, ChannelKind.EOG]
-
-
-def test_detect_all_con_menos_unidades_que_canales() -> None:
-    """Lo que falta se trata como "no lo dice", no como una unidad vacía.
-
-    Una unidad vacía **veta**, así que confundir las dos cosas haría que los
-    canales sin unidad declarada perdieran su clase.
-    """
-    assert detect_all(["C3", "C4"], ["uV"]) == [ChannelKind.EEG, ChannelKind.EEG]
-
-
-def test_detect_all_de_una_lista_vacia() -> None:
-    assert detect_all([]) == []
-
-
 # -- Entrada hostil ----------------------------------------------------------
 
 
@@ -299,7 +253,6 @@ def test_un_nombre_que_no_es_texto_no_rompe_la_importacion(valor: object) -> Non
     cualquier nombre desconocido.
     """
     assert detect_channel_kind(valor) is ChannelKind.OTHER  # type: ignore[arg-type]
-    assert not is_eeg_position(valor)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("valor", [3.5, [], {}, object()])

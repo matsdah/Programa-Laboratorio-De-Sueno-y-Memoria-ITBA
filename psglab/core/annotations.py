@@ -122,11 +122,11 @@ class Annotation:
 class AnnotationSet:
     """Todas las anotaciones de un registro, más las clases disponibles.
 
-    La lista interna se mantiene **siempre ordenada por muestra de inicio**. No
-    es una optimización: es lo que hace que el índice de `remove_at()` signifique
-    lo mismo que la posición en `all()`. Si se guardaran por orden de creación y
-    `all()` ordenara al salir, los dos índices divergirían y el anotador
-    terminaría borrando una banda distinta de la que el usuario señaló.
+    La lista interna se mantiene **siempre ordenada por muestra de inicio**, y
+    dos que empiezan en la misma muestra quedan en el orden en que se
+    agregaron. Es lo que deja buscar un tramo con búsqueda binaria
+    (`in_range()`) y lo que hace que `all()` salga en el orden en que se
+    exportan, sin ordenar en cada pedido.
 
     **Al lado va la lista de los comienzos**, en el mismo orden, y la duración
     más larga. Con eso agregar, borrar y buscar un tramo son búsquedas
@@ -182,7 +182,7 @@ class AnnotationSet:
 
         La nueva se inserta en su lugar por muestra de inicio, que puede no ser
         el de la vieja si se movió su comienzo: es lo que mantiene la promesa
-        de orden de la que depende `remove_at()`.
+        de orden de la que dependen `in_range()` y `all()`.
 
         Raises:
             InvalidAnnotationError: si `old` no está en el conjunto, o si `new`
@@ -282,7 +282,7 @@ class AnnotationSet:
 
         Si hay dos anotaciones exactamente iguales —misma clase, mismo inicio,
         misma duración, mismos canales— son indistinguibles por definición y se
-        borra la primera. Para señalar una en particular está `remove_at()`.
+        borra la primera.
 
         Raises:
             InvalidAnnotationError: si la anotación no está en el conjunto. Un
@@ -310,31 +310,6 @@ class AnnotationSet:
             "Se quiso borrar una anotación que no está en el registro.",
             details=f"{annotation!r}",
         )
-
-    def remove_at(self, index: int) -> None:
-        """Elimina la anotación que ocupa una posición de `all()`.
-
-        Es lo que necesita el anotador cuando el usuario hace clic sobre una
-        banda concreta: ahí no quiere borrar "una igual a esta" sino esa.
-
-        Raises:
-            InvalidAnnotationError: si la posición no existe. Se rechazan también
-                los índices negativos: en Python cuentan desde el final, así que
-                sin la guarda `remove_at(-1)` borraría la última anotación de la
-                noche en vez de avisar que el índice está mal.
-        """
-        check_index(
-            index,
-            error=InvalidAnnotationError,
-            message="Se quiso borrar una anotación que no existe.",
-            details="Se esperaba una posición entera.",
-        )
-        if not 0 <= index < len(self._annotations):
-            raise InvalidAnnotationError(
-                "Se quiso borrar una anotación que no existe.",
-                details=f"index = {index}, hay {len(self._annotations)} anotaciones.",
-            )
-        self._sacar(index)
 
     def add_label(self, label: str, color: str | None = None) -> None:
         """Registra una clase de evento nueva creada por el usuario (V1_F).
@@ -441,25 +416,10 @@ class AnnotationSet:
         """Todas las anotaciones, ordenadas por muestra de inicio.
 
         Es una lista nueva: quien la recibe sólo quiere recorrerla, y prestarle
-        la interna lo dejaría desordenarla, que es justo lo que le da sentido al
-        índice de `remove_at()`.
+        la interna lo dejaría desordenarla, y con eso romper la búsqueda de
+        `in_range()`.
         """
         return list(self._annotations)
-
-    def count_by_label(self) -> dict[str, int]:
-        """Cantidad de anotaciones de cada clase.
-
-        Lo consume "Informacion.txt" (V3_F de "Archivo de salida").
-
-        **Sólo aparecen las clases que tienen al menos una anotación.** El
-        informe declara que las secciones que no corresponden se omiten con una
-        explicación y no con ceros, así que una clase registrada y sin usar no
-        tiene por qué ocupar una línea.
-        """
-        cuentas: dict[str, int] = {}
-        for anotacion in self._annotations:
-            cuentas[anotacion.label] = cuentas.get(anotacion.label, 0) + 1
-        return cuentas
 
 
 def marks_to_annotations(

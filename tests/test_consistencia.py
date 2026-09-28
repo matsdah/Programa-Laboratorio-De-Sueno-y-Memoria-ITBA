@@ -1394,6 +1394,35 @@ SIN_CAMINO_A_PROPOSITO: dict[str, str] = {
         "con él. `set_size()` valida un tamaño pedido por programa y nadie lo "
         "pide."
     ),
+    # -- `core/`, `readers/` y `utils/`, desde el hito 79 --------------------
+    **{
+        f"psglab/readers/{archivo}::{clase}": (
+            "lo encuentra `@register_reader` al importarse, no un nombre: el resto "
+            "del programa sólo llama a `read_recording()`."
+        )
+        for archivo, clase in (("edf.py", "EdfReader"), ("brainvision.py", "BrainVisionReader"))
+    },
+    "psglab/core/session.py::Session.active_tool": (
+        "accesor de sólo lectura de lo que registra `set_active_tool()`: los tests "
+        "lo leen para afirmar qué herramienta quedó activa."
+    ),
+    "psglab/core/windows.py::seconds_to_epoch_offset": (
+        "`tools/base.py` la señala a quien escriba una herramienta nueva como la "
+        "forma de razonar por época sin escribir `seconds % 30`: es un punto de "
+        "extensión, y ninguna de las seis herramientas de hoy la necesita."
+    ),
+    **{
+        f"psglab/readers/scoring_reader.py::{funcion}": (
+            "API del módulo para un script: `read_scoring()` usa la misma regla "
+            "sobre las líneas ya leídas, para no abrir el archivo dos veces."
+        )
+        for funcion in ("detect_nomenclature", "detect_line_format")
+    },
+    "psglab/utils/units.py::to_microvolts": (
+        "la conversión de un valor suelto, para un script. Los lectores convierten "
+        "filas enteras en el lugar con `conversion_factor()`, que es la misma "
+        "regla sin la copia."
+    ),
 }
 
 #: Métodos sin camino desde la ventana que **sí son un hueco**: hacen algo que el
@@ -1407,8 +1436,25 @@ SIN_CAMINO_A_PROPOSITO: dict[str, str] = {
 HUECOS_ABIERTOS: dict[str, str] = {}
 
 
+#: Capas donde la red mira también las funciones sueltas y las clases, no sólo
+#: los métodos. Entraron en el hito 79: la red del hito 30 no las miraba, y ahí
+#: sobrevivieron doce definiciones que sólo usaban los tests —cuatro
+#: conversiones de antes del refactor, tres métodos de `Viewport`, una clase de
+#: error que no se elevaba nunca—.
+CAPAS_CON_FUNCIONES_SUELTAS: tuple[str, ...] = ("core", "readers", "utils")
+
+
+def nombre_de(objetivo: str) -> str:
+    """El nombre que se busca usado: `ruta::Clase.metodo` da `metodo`, `ruta::f` da `f`."""
+    return objetivo.split("::", 1)[1].rsplit(".", 1)[-1]
+
+
 def metodos_publicos_de_herramientas_y_paneles() -> list[str]:
-    """Cada método público de `tools/` y de `ui/*_panel.py`, como `ruta::Clase.metodo`.
+    """Lo público que tiene que tener camino, como `ruta::Clase.metodo` o `ruta::nombre`.
+
+    Los métodos de `tools/` y de `ui/*_panel.py`, desde el hito 30, y desde el
+    hito 79 también las funciones, las clases y los métodos de las capas de
+    `CAPAS_CON_FUNCIONES_SUELTAS`.
 
     Quedan afuera los que llama Qt por su cuenta —`paintEvent()`,
     `sizeHint()`, el `createEditor()` de un delegate—, que nunca aparecen
@@ -1418,6 +1464,13 @@ def metodos_publicos_de_herramientas_y_paneles() -> list[str]:
         (RAIZ / "psglab" / "ui").glob("*_panel.py")
     )
     encontrados: list[str] = []
+    for capa in CAPAS_CON_FUNCIONES_SUELTAS:
+        for archivo in sorted((RAIZ / "psglab" / capa).glob("*.py")):
+            arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+            for nodo in arbol.body:
+                if isinstance(nodo, (ast.FunctionDef, ast.ClassDef)) and not nodo.name.startswith("_"):
+                    encontrados.append(f"{ruta_relativa(archivo)}::{nodo.name}")
+            archivos.append(archivo)
     for archivo in archivos:
         arbol = ast.parse(archivo.read_text(encoding="utf-8"))
         for clase in (n for n in arbol.body if isinstance(n, ast.ClassDef)):
@@ -1457,7 +1510,8 @@ def nombres_que_usa_el_paquete() -> set[str]:
 
 
 def test_cada_metodo_de_herramientas_y_paneles_tiene_quien_lo_llame():
-    """Ningún método de `tools/` ni de un panel puede quedar sin camino en silencio.
+    """Nada público de `tools/`, de un panel, de `core/`, `readers/` ni `utils/`
+    puede quedar sin camino en silencio.
 
     O algo de `psglab/` lo usa, o figura en `SIN_CAMINO_A_PROPOSITO` con su
     motivo, o en `HUECOS_ABIERTOS`, que lo obliga a estar en el TODO.
@@ -1467,7 +1521,7 @@ def test_cada_metodo_de_herramientas_y_paneles_tiene_quien_lo_llame():
     huerfanos = [
         objetivo
         for objetivo in metodos_publicos_de_herramientas_y_paneles()
-        if objetivo.rsplit(".", 1)[1] not in usados and objetivo not in declarados
+        if nombre_de(objetivo) not in usados and objetivo not in declarados
     ]
     assert not huerfanos, (
         "estos métodos públicos no los llama nada de psglab/ y no figuran en "
@@ -1482,7 +1536,7 @@ def test_cada_hueco_abierto_esta_en_el_todo():
     ausentes = [
         objetivo
         for objetivo in HUECOS_ABIERTOS
-        if f"{objetivo.rsplit('.', 1)[1]}()" not in todo
+        if f"{nombre_de(objetivo)}()" not in todo
     ]
     assert not ausentes, f"estos huecos abiertos no figuran en docs/TODO.md: {ausentes}"
 
@@ -1504,7 +1558,7 @@ def test_las_exenciones_de_herramientas_y_paneles_siguen_existiendo():
         for objetivo in tabla:
             if objetivo not in reales:
                 problemas.append(f"{nombre_de_tabla} nombra algo que no existe: {objetivo}")
-            elif objetivo.rsplit(".", 1)[1] in usados:
+            elif nombre_de(objetivo) in usados:
                 problemas.append(f"{nombre_de_tabla} exime algo que ya tiene camino: {objetivo}")
     assert not problemas, "\n".join(problemas)
 

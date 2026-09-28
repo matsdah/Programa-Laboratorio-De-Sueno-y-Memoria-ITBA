@@ -169,11 +169,9 @@ class AnnotatorTool(ViewerTool):
         self._desde = self._hasta = None
 
         fs = self._session.recording.sampling_rate
-        # **Segundos absolutos.** Antes eran segundos desde el inicio de la
-        # epoca y habia que sumarlos sobre su borde, que es la cuenta que
-        # `seconds_to_sample()` documenta con las 240 de 960 ventanas que
-        # fallaban a 256,125 Hz. Sin borde de epoca en el medio, esa deriva es
-        # estructuralmente imposible: hay un solo redondeo.
+        # **Segundos absolutos**, con un solo redondeo. Sumar un offset sobre
+        # el borde de la época dejaba 240 de 960 ventanas corridas a
+        # 256,125 Hz; sin borde de época en el medio, esa deriva no existe.
         inicio = seconds_to_sample_absolute(desde, fs)
         fin = seconds_to_sample_absolute(hasta, fs)
         # Una selección sin ancho no es un evento: el pliego pide marcarlo con
@@ -198,11 +196,10 @@ class AnnotatorTool(ViewerTool):
         en coordenadas de la ventana: es lo que exige "Anotaciones.txt" y lo
         único que sobrevive a un cambio de zoom.
 
-        Los eventos de mouse llegan en **segundos** desde el inicio de la
-        ventana, así que la conversión la hace
-        `core.windows.seconds_to_sample()`, que suma el desplazamiento sobre el
-        borde real de la ventana. Calcularlo como `ventana * 30 * fs` deja la
-        anotación en la ventana de al lado cuando la frecuencia no es redonda.
+        Recibe muestras, y no segundos: la conversión la hizo quien las pide,
+        con `core.windows.seconds_to_sample_absolute()`. Calcularlo como
+        `ventana * 30 * fs` deja la anotación en la ventana de al lado cuando
+        la frecuencia no es redonda.
         """
         if self._session is None:
             raise InvalidAnnotationError(

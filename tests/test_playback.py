@@ -155,14 +155,6 @@ def test_arrancar_y_detener_avisa_una_vez_cada_uno(reproduccion):
     assert estados == [True, False]
 
 
-def test_alternar_arranca_y_detiene(reproduccion):
-    reproduccion.toggle()
-    assert reproduccion.is_playing
-
-    reproduccion.toggle()
-    assert not reproduccion.is_playing
-
-
 def test_arrancar_prende_el_temporizador(reproduccion):
     reproduccion.start()
 
