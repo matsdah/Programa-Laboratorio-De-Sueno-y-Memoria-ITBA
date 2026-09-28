@@ -167,30 +167,3 @@ def detect_channel_kind(name: str, unit: str | None = None) -> ChannelKind:
     return detectada
 
 
-def detect_all(names: list[str], units: list[str] | None = None) -> list[ChannelKind]:
-    """Detecta la clase de una lista de canales de una sola vez.
-
-    `units` puede faltar, o traer menos elementos que `names`: un formato que no
-    declare la unidad de todos sus canales no es un error, y lo que falte se
-    trata como "no lo dice".
-    """
-    return [
-        detect_channel_kind(
-            nombre,
-            units[i] if units is not None and i < len(units) else None,
-        )
-        for i, nombre in enumerate(names)
-    ]
-
-
-def is_eeg_position(name: str) -> bool:
-    """Indica si el nombre corresponde a una posición del sistema 10-20.
-
-    Alcanza con que **alguno** de sus tokens lo sea: los montajes bipolares se
-    nombran con las dos posiciones ("Fpz-Cz") y los referenciados agregan la
-    referencia ("Fp1-A2"), así que exigir que el nombre entero fuera una
-    posición dejaría afuera a casi todos los canales reales.
-    """
-    if not isinstance(name, str):
-        return False
-    return any(_POSICION_10_20.match(t) for t in _tokens(name))

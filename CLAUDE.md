@@ -65,8 +65,9 @@ cargarse y los mecanismos enchufables no existirían.
 
 **[`docs/TODO.md`](docs/TODO.md) es la cola de trabajo** y el único documento
 que lleva estado. Ordena el trabajo en hitos **por dependencias reales**, no por
-sección del pliego, y lleva las dos Partes. Hoy no queda ningún stub: lo que
-sigue abierto está anotado al final del último hito.
+sección del pliego, y lleva las dos Partes. Hoy no queda ningún stub ni
+ningún hito abierto: lo que sigue pendiente son las preguntas al cliente, al
+principio del TODO, y el próximo trabajo se abre como un hito nuevo.
 
 **Un hito no se empieza si el anterior no está cerrado**, por la misma razón de
 siempre: se escribiría contra algo que todavía no se puede testear. Un módulo
@@ -179,6 +180,12 @@ python -m pytest tests/test_scoring.py
 python -m pytest tests/test_scoring.py::test_el_arousal_es_independiente_de_la_fase
 python -m pytest -rs
 ```
+
+**La suite sale con `os._exit()` en cuanto pytest informó** (hito 80), y en
+Windows con `TerminateProcess`: desarmar al final las ventanas de Qt que dejan
+los tests tiraba el CI con un `Segmentation fault`, con todo en verde, y en
+Windows salía con 139 sin que nadie lo notara. Lo hace `conftest.py`, y el
+código de salida es el de la sesión: **mirarlo**, no sólo el resumen.
 
 **La suite completa tarda varios minutos**, sobre todo por los seis
 `test_entrega*.py`, que arman una ventana por test —eran uno solo hasta el
@@ -322,6 +329,9 @@ rechazar antes de dar por terminado un cambio:
 - Ningún `.md` versionado repite un párrafo largo dentro de sí mismo, **este
   archivo incluido**. Explicar lo mismo dos veces en un archivo garantiza que
   alguien corrija una sola.
+- Las menciones a hitos dentro de `psglab/` no pueden crecer: es un trinquete,
+  `TOPE_DE_MENCIONES_A_HITOS`, y cuando bajan hay que bajarlo para que la
+  bajada quede fija. En `core/` no puede volver ninguna.
 - Todo módulo tiene test, figura en `SIN_TEST_PROPIO` o el TODO promete el suyo
   **por nombre de archivo**. Un módulo nuevo sin ninguna de las tres cosas hace
   fallar la suite. La exención **no es `ui/` entero**: son `app.py`, `config.py`
@@ -572,8 +582,8 @@ el cursor es `ui/playback_controller.py` (hito 79).
 ### La ventana
 
 La señal es el widget central y los demás paneles son `QDockWidget`, que arma
-`ui/docks.py` y quedan en `window.docks`. Los seis de análisis conservan el
-nombre `*_dialog` de cuando eran diálogos. La barra de navegación es fija, no un
+`ui/docks.py` y quedan en `window.docks`; los seis de análisis, también como
+`window.<clave>_dock` —hasta el hito 79, `*_dialog`—. La barra de navegación es fija, no un
 panel: es la única vía de navegación con el mouse. Los menús viven en
 `ui/menus.py` y cada acción llama a un método de la ventana. **«Herramientas»
 lleva también los paneles** desde el hito 28 —ya no hay menú «Paneles»—: arriba
@@ -727,6 +737,10 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   documentación y todo texto que ve el usuario, en **español**.
 - Cada módulo abre con un docstring que dice de qué se ocupa y **qué IDs del
   pliego cubre**. Esa línea es la que alimenta `docs/TRAZABILIDAD.md`.
+- **Un docstring dice qué hace el código y por qué, en presente.** La historia
+  —«hasta el hito 33 esto…», «lo encontró la auditoría»— va al hito, en
+  `docs/HISTORIAL.md`, y al commit. Se aplica al tocar cada módulo y no en una
+  sola pasada; `core/` ya está entero (hito 79).
 - Type hints en todas las firmas.
 - Los errores que ve el usuario heredan de `PsgLabError`
   (`psglab/utils/errors.py`): mensaje en español dirigido a un investigador, no

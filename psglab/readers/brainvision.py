@@ -43,20 +43,15 @@ from typing import Final
 import mne
 import numpy as np
 
-from psglab.core.recording import Channel, Recording
+from psglab.core.recording import Recording
 from psglab.readers.base import MARKS_KEY, Reader, register_reader
-from psglab.readers.channel_types import detect_channel_kind
+from psglab.readers.from_mne import build_channels, marks_of
 from psglab.utils.errors import (
     RecordingTooLargeError,
-    UnknownUnitError,
     UnreadableFileError,
     memoria_suficiente,
 )
-from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
-
-#: Unidad en la que MNE entrega los canales de voltaje. Ver `readers/edf.py`,
-#: donde está medido contra el rango físico de la cabecera.
-_UNIDAD_DE_MNE = "V"
+from psglab.utils.units import MICROVOLT
 
 #: Las unidades que MNE lleva a volts al leer un BrainVision, exactamente como
 #: las compara él: son las de voltaje de su `_unit_dict` (MNE 1.12), con el
@@ -209,23 +204,6 @@ def _unidades_declaradas(path: Path) -> dict[int, str]:
     return unidades
 
 
-def _factor_a_microvoltios(unidad: str) -> float | None:
-    """Por cuánto multiplicar la fila que entregó MNE para tenerla en µV.
-
-    La misma regla que en `readers/edf.py`, con la tabla de este formato: si MNE
-    la llevó a volts, de volt a microvolt; si no y es eléctrica, desde su unidad;
-    si no es eléctrica, o es ambigua, None y queda como vino.
-    """
-    if unidad in _UNIDADES_QUE_MNE_PASA_A_VOLTS:
-        return conversion_factor(_UNIDAD_DE_MNE)
-    if not is_electrical(unidad):
-        return None
-    try:
-        return conversion_factor(unidad)
-    except UnknownUnitError:
-        return None
-
-
 @register_reader
 class BrainVisionReader(Reader):
     """Lector de registros BrainVision (VHDR/VMRK/EEG)."""
@@ -317,42 +295,25 @@ class BrainVisionReader(Reader):
         with memoria_suficiente("abrir el registro"):
             datos = np.asarray(crudo.get_data(), dtype=float)
 
-        canales: list[Channel] = []
-        for posicion, nombre in enumerate(crudo.ch_names):
+        canales = build_channels(
+            crudo.ch_names,
+            datos,
             # Por posición: un canal que MNE agrega y la cabecera no nombra
             # —el de las exportaciones con cabecera ASCII— lo entrega en volts,
             # que es lo que dice µV para esta regla.
-            unidad_declarada = declaradas.get(posicion, _UNIDAD_POR_DEFECTO)
-            factor = _factor_a_microvoltios(unidad_declarada)
-            if factor is not None:
-                # En sitio, por lo mismo que en `edf.py`: `to_microvolts()`
-                # copiaría el canal entero para descartarlo enseguida.
-                datos[posicion] *= factor
-                unidad_de_la_fila = MICROVOLT
-            else:
-                unidad_de_la_fila = unidad_declarada
-            canales.append(
-                Channel(
-                    name=nombre,
-                    # Igual que en `edf.py`: si se convirtió, la detección recibe
-                    # µV y no una grafía que el veto de la unidad no reconozca.
-                    kind=detect_channel_kind(
-                        nombre, MICROVOLT if factor is not None else unidad_declarada
-                    ),
-                    unit=unidad_de_la_fila,
-                    index=posicion,
-                    # BrainVision usa una sola frecuencia para todo el registro,
-                    # así que no hay ninguna original distinta que registrar.
-                    original_sampling_rate=float(crudo.info["sfreq"]),
-                )
-            )
+            units=[
+                declaradas.get(posicion, _UNIDAD_POR_DEFECTO)
+                for posicion in range(len(crudo.ch_names))
+            ],
+            # BrainVision usa una sola frecuencia para todo el registro, así
+            # que no hay ninguna original distinta que registrar.
+            original_rates=[float(crudo.info["sfreq"])] * len(crudo.ch_names),
+            mne_volt_units=_UNIDADES_QUE_MNE_PASA_A_VOLTS,
+        )
 
         metadatos: dict[str, object] = {}
         if len(crudo.annotations):
-            metadatos[MARKS_KEY] = [
-                (float(a["onset"]), float(a["duration"]), str(a["description"]))
-                for a in crudo.annotations
-            ]
+            metadatos[MARKS_KEY] = marks_of(crudo)
         impedancias = _impedancias_declaradas(crudo, list(crudo.ch_names))
         if impedancias:
             metadatos[IMPEDANCE_KEY] = impedancias

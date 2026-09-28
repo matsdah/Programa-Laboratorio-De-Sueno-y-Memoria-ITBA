@@ -192,6 +192,9 @@ class PreferencesMixin:
         if self._session is not None:
             self._aplicar_colores_de_clase(self._session)
             self._repintar_anotaciones()
+            # Las bandas de la fila del espectro y de la conectividad salen de
+            # la configuración.
+            self._preparar_los_pedidos()
         self._guardar_preferencias()
 
     def show_settings_dialog(self) -> None:
@@ -319,8 +322,8 @@ class PreferencesMixin:
 
     def _repintar_anotaciones(self) -> None:
         """Vuelve a dibujar lo que muestra el color de una clase."""
-        #  le avisa a la ventana por su callback, que es el que
-        # repinta el panel: no hace falta llamarlo a mano.
+        # `OverviewTool.refresh()` le avisa a la ventana por su callback, que
+        # es el que repinta el panel: no hace falta repintarlo a mano.
         contexto = self.tool_controller.tools.get("overview")
         if isinstance(contexto, OverviewTool):
             contexto.refresh()

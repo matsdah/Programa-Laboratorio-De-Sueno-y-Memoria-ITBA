@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
 
 from psglab.analysis.psd import DEFAULT_BANDS
 from psglab.ui import theme
+from psglab.ui.analysis_request import AnalysisRequest
 from psglab.ui.panel_header import EmptyState, PanelHeader, plain_axes
 from psglab.utils.formatting import number
 
@@ -141,6 +142,10 @@ class PsdPanel(QWidget):
         #: panel diera ninguna pista de por qué.
         self.header = PanelHeader("Espectro")
 
+        #: Con qué se pide el análisis: sus parámetros y «Calcular». Los llena
+        #: la ventana, que es la que sabe qué canales y bandas hay.
+        self.request = AnalysisRequest()
+
         #: Lo que se ve mientras no hay ningún espectro calculado. Ver
         #: `set_hint()`.
         self.vacio = EmptyState()
@@ -162,6 +167,7 @@ class PsdPanel(QWidget):
         columna.setContentsMargins(0, 0, 0, 0)
         columna.setSpacing(0)
         columna.addWidget(self.header)
+        columna.addWidget(self.request)
         columna.addWidget(self._pila)
         self._reflejar_titulo()
 

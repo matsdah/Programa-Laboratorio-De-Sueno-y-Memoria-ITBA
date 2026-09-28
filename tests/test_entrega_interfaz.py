@@ -149,24 +149,15 @@ def test_el_espectro_usa_las_bandas_elegidas(ventana: MainWindow, elige_canal):
     assert not ventana.carteles
 
 
-def test_la_conectividad_ofrece_las_mismas_bandas_que_el_espectro(
-    ventana: MainWindow, monkeypatch
-):
+def test_la_conectividad_ofrece_las_mismas_bandas_que_el_espectro(ventana: MainWindow):
     """Dos definiciones de «sigma» en el mismo programa serían una trampa."""
-    ofrecidas: list[list[str]] = []
-
-    def respondiendo(_padre, _titulo, _etiqueta, opciones, *_resto, **_kw):
-        ofrecidas.append(list(opciones))
-        return ("", False)
-
-    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(respondiendo))
     ventana.apply_preferences(
         ventana.current_preferences.with_bands({"Huso": (11.0, 16.0)})
     )
 
     ventana.show_connectivity_dialog()
 
-    assert ["Huso"] in ofrecidas
+    assert ventana.connectivity_panel.request.options("banda") == ["Huso"]
 
 
 def test_el_eje_del_espectro_sigue_a_la_configuracion(ventana: MainWindow):
@@ -464,11 +455,11 @@ def test_los_paneles_cerrados_no_se_recorren(ventana: MainWindow):
 def test_los_paneles_de_analisis_cerrados_al_arrancar_no_se_recorren(
     ventana: MainWindow,
 ):
-    assert ventana.psd_dialog not in ventana.focusable_panes()
+    assert ventana.psd_dock not in ventana.focusable_panes()
 
-    ventana.psd_dialog.show()
+    ventana.psd_dock.show()
 
-    assert ventana.psd_dialog in ventana.focusable_panes()
+    assert ventana.psd_dock in ventana.focusable_panes()
 
 
 def test_todos_los_paneles_tienen_un_nombre_para_el_lector_de_pantalla(
@@ -552,11 +543,14 @@ def test_un_panel_vacio_dice_desde_donde_se_pide(ventana: MainWindow, clave: str
     assert que_falta.endswith(".") and "Se pide" not in que_falta
     assert pista.startswith("Se pide desde ")
 
+    # Los que llevan sus parámetros arriba lo dicen en el último renglón.
+    renglones = pista.removeprefix("Se pide desde ").split("<br>")
+    con_calcular = clave != "ica"
+    assert (renglones[-1] == "o con «Calcular», arriba") is con_calcular
+    if con_calcular:
+        renglones = renglones[:-1]
     # Una ruta por renglón: la métrica tiene dos.
-    rutas = [
-        renglon.removeprefix("o desde ")
-        for renglon in pista.removeprefix("Se pide desde ").split("<br>")
-    ]
+    rutas = [renglon.removeprefix("o desde ") for renglon in renglones]
     for ruta in rutas:
         metodo = next(
             accion.data()

@@ -308,16 +308,3 @@ class OverviewTool(Tool):
         self._ancho_px, self._alto_px = int(width_px), int(height_px)
         self.notify_changed()
 
-    def _draw_window(self, window_index: int, is_current: bool) -> None:
-        """Dibuja una de las ventanas del panel.
-
-        La ventana actual se pinta con un fondo más oscuro (V1_F), y sobre
-        todas se marcan las anotaciones que caigan dentro, que es lo que
-        permite ver los eventos vecinos.
-
-        **No dibuja: describe.** `tools/` no conoce Qt, así que lo que arma es
-        el dato que la interfaz va a pintar. El nombre quedó del esqueleto y se
-        conserva para no romper la trazabilidad del pliego; lo que devuelve
-        `windows()` es lo que se dibuja.
-        """
-        self._ventanas = (*self._ventanas, self._describir(window_index, is_current))

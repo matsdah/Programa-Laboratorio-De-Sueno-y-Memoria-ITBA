@@ -22,11 +22,11 @@ from typing import Final
 from psglab.utils.errors import InvalidAnnotationError, UnknownAnnotationLabelError
 from psglab.utils.validation import check_finite, check_index
 
-#: Clases de evento ofrecidas por defecto. El usuario puede agregar las suyas.
-#: La clase de evento que además es la marca de arousal de su ventana (hito
-#: 79). Ver `is_arousal()`.
+#: La clase de evento que además es la marca de arousal de su ventana. Ver
+#: `is_arousal()`.
 AROUSAL_LABEL: Final[str] = "Arousal"
 
+#: Clases de evento ofrecidas por defecto. El usuario puede agregar las suyas.
 DEFAULT_LABELS: Final[tuple[str, ...]] = (
     AROUSAL_LABEL,
     "Complejo K",
@@ -70,14 +70,13 @@ PALETTE: Final[tuple[str, ...]] = (
 
 
 def is_arousal(label: object) -> bool:
-    """Si una clase de evento es la del arousal (hito 79).
+    """Si una clase de evento es la del arousal.
 
-    **El arousal existía dos veces sin relación**: la marca de la ventana —la
-    tecla A, que es la que exportan `Scoring.txt` y las estadísticas— y la
-    clase de anotación «Arousal». Anotar uno no marcaba nada, así que un
-    arousal anotado con cuidado no llegaba a ningún archivo de salida. Lo que
-    se decidió es que la marca es la que cuenta, y anotar la pone; ver
-    `Session.mark_arousal_of()`.
+    El arousal se registra de dos formas: la marca de la ventana —la tecla A,
+    que es la que exportan `Scoring.txt` y las estadísticas— y la clase de
+    anotación «Arousal». **La que cuenta es la marca**, y anotar un arousal la
+    pone, para que el que se anotó sobre la señal llegue a los archivos de
+    salida; ver `Session.mark_arousal_of()`.
 
     Sin distinguir mayúsculas ni espacios de más: «arousal» escrito a mano en
     el cartel es la misma clase. Lo que no es texto no es la clase.
@@ -101,10 +100,8 @@ class Annotation:
 
     **Inmutable a propósito.** Así se la puede guardar en un conjunto y usar
     como clave, que es lo que necesita el anotador para saber cuál está debajo
-    del clic. **Corregirla es reemplazarla** (hito 52): `AnnotationSet.replace()`
-    cambia una por otra, y no hay ningún camino que la modifique en el lugar.
-    Hasta ese hito se decía que una anotación «se crea, se borra, no se edita»,
-    y para corregir una clase equivocada había que borrarla y rehacer el gesto.
+    del clic. **Corregirla es reemplazarla**: `AnnotationSet.replace()` cambia
+    una por otra, y no hay ningún camino que la modifique en el lugar.
     """
 
     label: str
@@ -122,17 +119,16 @@ class Annotation:
 class AnnotationSet:
     """Todas las anotaciones de un registro, más las clases disponibles.
 
-    La lista interna se mantiene **siempre ordenada por muestra de inicio**. No
-    es una optimización: es lo que hace que el índice de `remove_at()` signifique
-    lo mismo que la posición en `all()`. Si se guardaran por orden de creación y
-    `all()` ordenara al salir, los dos índices divergirían y el anotador
-    terminaría borrando una banda distinta de la que el usuario señaló.
+    La lista interna se mantiene **siempre ordenada por muestra de inicio**, y
+    dos que empiezan en la misma muestra quedan en el orden en que se
+    agregaron. Es lo que deja buscar un tramo con búsqueda binaria
+    (`in_range()`) y lo que hace que `all()` salga en el orden en que se
+    exportan, sin ordenar en cada pedido.
 
     **Al lado va la lista de los comienzos**, en el mismo orden, y la duración
     más larga. Con eso agregar, borrar y buscar un tramo son búsquedas
-    binarias (hito 79). Hasta ahí agregar rearmaba la lista de comienzos
-    entera en cada anotación —importar 20 000 marcas tardaba cinco segundos—
-    y `in_range()` recorría todas en cada repintado.
+    binarias: importar 20 000 marcas no rearma nada por cada una, y
+    `in_range()` no recorre todas en cada repintado.
     """
 
     def __init__(self, labels: tuple[str, ...] = DEFAULT_LABELS) -> None:
@@ -173,7 +169,7 @@ class AnnotationSet:
         self._insertar(annotation)
 
     def replace(self, old: Annotation, new: Annotation) -> None:
-        """Cambia una anotación por otra: es como se corrige una (hito 52).
+        """Cambia una anotación por otra: es como se corrige una.
 
         **Valida la nueva antes de sacar la vieja.** Si la nueva no sirve —una
         clase que no existe, un tramo sin ancho— el conjunto queda como estaba:
@@ -182,7 +178,7 @@ class AnnotationSet:
 
         La nueva se inserta en su lugar por muestra de inicio, que puede no ser
         el de la vieja si se movió su comienzo: es lo que mantiene la promesa
-        de orden de la que depende `remove_at()`.
+        de orden de la que dependen `in_range()` y `all()`.
 
         Raises:
             InvalidAnnotationError: si `old` no está en el conjunto, o si `new`
@@ -236,9 +232,8 @@ class AnnotationSet:
             details="Se esperaba una duración finita de 1 muestra o más.",
             minimum=1,
         )
-        # **En muestras enteras** (hito 71). Se aceptaba 10,5: `Anotaciones.txt`
-        # guarda puntos del registro, que son enteros, y una fracción no es un
-        # lugar de la señal.
+        # **En muestras enteras**: `Anotaciones.txt` guarda puntos del
+        # registro, que son enteros, y 10,5 no es un lugar de la señal.
         for campo, valor in (
             ("onset_sample", annotation.onset_sample),
             ("duration_samples", annotation.duration_samples),
@@ -282,7 +277,7 @@ class AnnotationSet:
 
         Si hay dos anotaciones exactamente iguales —misma clase, mismo inicio,
         misma duración, mismos canales— son indistinguibles por definición y se
-        borra la primera. Para señalar una en particular está `remove_at()`.
+        borra la primera.
 
         Raises:
             InvalidAnnotationError: si la anotación no está en el conjunto. Un
@@ -311,31 +306,6 @@ class AnnotationSet:
             details=f"{annotation!r}",
         )
 
-    def remove_at(self, index: int) -> None:
-        """Elimina la anotación que ocupa una posición de `all()`.
-
-        Es lo que necesita el anotador cuando el usuario hace clic sobre una
-        banda concreta: ahí no quiere borrar "una igual a esta" sino esa.
-
-        Raises:
-            InvalidAnnotationError: si la posición no existe. Se rechazan también
-                los índices negativos: en Python cuentan desde el final, así que
-                sin la guarda `remove_at(-1)` borraría la última anotación de la
-                noche en vez de avisar que el índice está mal.
-        """
-        check_index(
-            index,
-            error=InvalidAnnotationError,
-            message="Se quiso borrar una anotación que no existe.",
-            details="Se esperaba una posición entera.",
-        )
-        if not 0 <= index < len(self._annotations):
-            raise InvalidAnnotationError(
-                "Se quiso borrar una anotación que no existe.",
-                details=f"index = {index}, hay {len(self._annotations)} anotaciones.",
-            )
-        self._sacar(index)
-
     def add_label(self, label: str, color: str | None = None) -> None:
         """Registra una clase de evento nueva creada por el usuario (V1_F).
 
@@ -346,15 +316,14 @@ class AnnotationSet:
         Registrar una clase que ya existe no es un error —es algo que el usuario
         teclea— y si se pasa un color, reemplaza al anterior.
 
-        **El color es exactamente `#rrggbb`** (hito 48), y no cualquier cosa
-        que pyqtgraph sepa dibujar. No es purismo: el visualizador pinta la
-        banda de una anotación con `color + "55"`, o sea que le **concatena** la
+        **El color es exactamente `#rrggbb`**, y no cualquier cosa que
+        pyqtgraph sepa dibujar. No es purismo: el visualizador pinta la banda
+        de una anotación con `color + "55"`, o sea que le **concatena** la
         transparencia al texto. Con `#e6754a` eso da un color válido; con `red`
         da `red55` y con `#e6754aff` da diez dígitos, y en los dos casos dibujar
-        la anotación eleva un `ValueError` crudo. Hasta este hito se aceptaba
-        cualquier cosa, y un archivo de preferencias editado a mano con `red`
-        llegaba hasta ahí. Lo normaliza `preferences.py` al leer, que es por
-        donde entra texto arbitrario.
+        la anotación elevaría un `ValueError` crudo. Lo que llega de un archivo
+        de preferencias editado a mano lo normaliza `preferences.py` al leer,
+        que es por donde entra texto arbitrario.
 
         Raises:
             InvalidAnnotationError: si la etiqueta está vacía —una clase sin
@@ -441,25 +410,10 @@ class AnnotationSet:
         """Todas las anotaciones, ordenadas por muestra de inicio.
 
         Es una lista nueva: quien la recibe sólo quiere recorrerla, y prestarle
-        la interna lo dejaría desordenarla, que es justo lo que le da sentido al
-        índice de `remove_at()`.
+        la interna lo dejaría desordenarla, y con eso romper la búsqueda de
+        `in_range()`.
         """
         return list(self._annotations)
-
-    def count_by_label(self) -> dict[str, int]:
-        """Cantidad de anotaciones de cada clase.
-
-        Lo consume "Informacion.txt" (V3_F de "Archivo de salida").
-
-        **Sólo aparecen las clases que tienen al menos una anotación.** El
-        informe declara que las secciones que no corresponden se omiten con una
-        explicación y no con ceros, así que una clase registrada y sin usar no
-        tiene por qué ocupar una línea.
-        """
-        cuentas: dict[str, int] = {}
-        for anotacion in self._annotations:
-            cuentas[anotacion.label] = cuentas.get(anotacion.label, 0) + 1
-        return cuentas
 
 
 def marks_to_annotations(
@@ -467,7 +421,7 @@ def marks_to_annotations(
     sampling_rate: float,
     n_samples: int,
 ) -> list[Annotation]:
-    """Las marcas que trae el archivo del registro, como anotaciones (hito 73).
+    """Las marcas que trae el archivo del registro, como anotaciones.
 
     Un BrainVision trae los marcadores de su `.vmrk` y un EDF+ sus anotaciones:
     los lectores los guardan en segundos, con su descripción. Acá pasan a la

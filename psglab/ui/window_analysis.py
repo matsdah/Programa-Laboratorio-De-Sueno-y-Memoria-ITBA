@@ -116,6 +116,84 @@ class AnalysisMixin:
         self.psd_panel.clear_band_powers()
         self.metric_panel.clear_metric()
         self.connectivity_panel.clear_matrix()
+        # Los canales pueden haber cambiado —derivar agrega uno—, así que la
+        # fila de cada panel vuelve a ofrecer los que hay.
+        self._preparar_los_pedidos()
+
+    # -- Los parámetros de cada análisis, en su panel ---------------------------
+    #
+    # Cada panel lleva arriba una `AnalysisRequest`: los parámetros del análisis
+    # y «Calcular». El menú prepara la fila y calcula con lo que ya está
+    # elegido; «Calcular» vuelve a calcular con lo que eligió el usuario, sin
+    # carteles de por medio.
+
+    def _canal_por_omision(self) -> str | None:
+        """El canal con que arranca un pedido: el seleccionado, o el primero visible."""
+        if self._session is None:
+            return None
+        nombres = self._session.recording.channel_names()
+        for candidato in (*self._session.selected_channels, *self._session.visible_channels):
+            if candidato in nombres:
+                return candidato
+        return nombres[0] if nombres else None
+
+    def _preparar_los_pedidos(self) -> None:
+        """Llena la fila de cada panel con los canales y las bandas que hay.
+
+        Lo que el usuario ya eligió se conserva mientras siga existiendo; ver
+        `AnalysisRequest.set_fields()`.
+        """
+        if self._session is None:
+            return
+        canales = self._session.recording.channel_names()
+        bandas = list(self._preferencias.bands())
+        self.psd_panel.request.set_fields(
+            [("canal", "Canal:", canales, self._canal_por_omision())]
+        )
+        # **Un canal seleccionado en la lista es una elección**, y le gana a lo
+        # que tenga la fila: seleccionar el EOG y pedir el espectro es pedir el
+        # del EOG. Sin selección, la fila conserva lo que el usuario eligió ahí.
+        seleccionado = next(
+            (c for c in self._session.selected_channels if c in canales), None
+        )
+        if seleccionado is not None:
+            self.psd_panel.request.set_value("canal", seleccionado)
+        self.connectivity_panel.request.set_fields([("banda", "Banda:", bandas, None)])
+        if self._pedido_de_la_metrica == "conectividad":
+            self.metric_panel.request.set_fields([("banda", "Banda:", bandas, None)])
+        else:
+            self.metric_panel.request.set_fields(
+                [
+                    ("canal", "Canal:", canales, self._canal_por_omision()),
+                    ("medida", "Medida:", list(MEDIDAS_RAPIDAS), None),
+                ]
+            )
+            if seleccionado is not None:
+                self.metric_panel.request.set_value("canal", seleccionado)
+
+    def _canales_para_la_conectividad(self, accion: str) -> list[str] | None:
+        """Los canales visibles, o `None` y un cartel si no son al menos dos."""
+        if self._session is None:
+            return None
+        canales = self._session.visible_channels
+        if len(canales) < 2:
+            self._show_error(
+                PsgLabError(
+                    "La conectividad se mide entre canales, así que hacen falta "
+                    "al menos dos visibles.",
+                    details=f"canales visibles: {canales}.",
+                ),
+                accion,
+            )
+            return None
+        return canales
+
+    def _calcular_la_metrica(self) -> None:
+        """«Calcular» del panel de la métrica: lo que ese panel esté mostrando."""
+        if self._pedido_de_la_metrica == "conectividad":
+            self._medir_la_conectividad_de_la_noche()
+        else:
+            self._calcular_la_complejidad()
 
     def warm_up_in_background(self) -> None:
         """Paga en otro hilo las dos esperas que se cobraban a la primera vez.
@@ -257,7 +335,7 @@ class AnalysisMixin:
         Por qué se descarta, y cuándo, lo explica `forget_ica()`.
         """
         self.ica_panel.clear_components()
-        self.ica_dialog.hide()
+        self.ica_dock.hide()
 
     def _elegir_canal(self, titulo: str, etiqueta: str) -> str | None:
         """Pregunta un canal de los que hay. `None` si el usuario cancela."""
@@ -455,8 +533,15 @@ class AnalysisMixin:
         """
         if self._session is None:
             return
-        canal = self._elegir_canal("Espectro", "Canal:")
-        if canal is None:
+        self._preparar_los_pedidos()
+        self._calcular_el_espectro()
+
+    def _calcular_el_espectro(self) -> None:
+        """Calcula el espectro con el canal elegido en su panel y lo muestra."""
+        if self._session is None:
+            return
+        canal = self.psd_panel.request.value("canal")
+        if not canal:
             return
         ventana = self._session.current_window
         try:
@@ -533,8 +618,8 @@ class AnalysisMixin:
                 "es interpolación y no señal."
             )
         self.psd_panel.set_caption(descripcion)
-        self.psd_dialog.show()
-        self.psd_dialog.raise_()
+        self.psd_dock.show()
+        self.psd_dock.raise_()
 
     def show_complexity_dialog(self) -> None:
         """Recorre la noche con una medida de complejidad y la grafica.
@@ -550,13 +635,17 @@ class AnalysisMixin:
         """
         if self._session is None:
             return
-        canal = self._elegir_canal("Complejidad", "Canal:")
-        if canal is None:
+        self._pedido_de_la_metrica = "complejidad"
+        self._preparar_los_pedidos()
+        self._calcular_la_complejidad()
+
+    def _calcular_la_complejidad(self) -> None:
+        """Calcula la complejidad con el canal y la medida elegidos en su panel."""
+        if self._session is None:
             return
-        medida, acepto = QInputDialog.getItem(
-            self, "Complejidad", "Medida:", list(MEDIDAS_RAPIDAS), 0, False
-        )
-        if not acepto:
+        canal = self.metric_panel.request.value("canal")
+        medida = self.metric_panel.request.value("medida")
+        if not canal or not medida:
             return
         try:
             with self._trabajando(f"Calculando {medida} sobre toda la noche"):
@@ -572,8 +661,8 @@ class AnalysisMixin:
         self.metric_panel.set_caption(
             f"{medida} — «{canal}»" + self._nota_de_la_noche(series)
         )
-        self.metric_dialog.show()
-        self.metric_dialog.raise_()
+        self.metric_dock.show()
+        self.metric_dock.raise_()
 
     def show_connectivity_dialog(self) -> None:
         """Calcula la conectividad de la ventana actual y la muestra.
@@ -584,25 +673,22 @@ class AnalysisMixin:
         """
         if self._session is None:
             return
-        canales = self._session.visible_channels
-        if len(canales) < 2:
-            self._show_error(
-                PsgLabError(
-                    "La conectividad se mide entre canales, así que hacen falta "
-                    "al menos dos visibles.",
-                    details=f"canales visibles: {canales}.",
-                ),
-                "medir la conectividad",
-            )
+        self._preparar_los_pedidos()
+        self._medir_la_conectividad()
+
+    def _medir_la_conectividad(self) -> None:
+        """Mide la conectividad de la ventana actual en la banda elegida en su panel."""
+        if self._session is None:
+            return
+        canales = self._canales_para_la_conectividad("medir la conectividad")
+        if canales is None:
             return
         # **Las mismas bandas que el espectro.** Dos definiciones distintas de
         # «sigma» en el mismo programa serían una trampa: el usuario que
         # corrigió una en la configuración espera verla corregida acá también.
         bandas = self._preferencias.bands()
-        banda, acepto = QInputDialog.getItem(
-            self, "Conectividad", "Banda:", list(bandas), 0, False
-        )
-        if not acepto:
+        banda = self.connectivity_panel.request.value("banda")
+        if banda not in bandas:
             return
 
         ventana = self._session.current_window
@@ -635,8 +721,8 @@ class AnalysisMixin:
             )
         descripcion += self._sin_contenido_en(canales, bandas[banda])
         self.connectivity_panel.set_caption(descripcion)
-        self.connectivity_dialog.show()
-        self.connectivity_dialog.raise_()
+        self.connectivity_dock.show()
+        self.connectivity_dock.raise_()
 
     def show_connectivity_night_dialog(self) -> None:
         """Mide la conectividad época por época y la grafica a lo largo de la noche.
@@ -658,22 +744,20 @@ class AnalysisMixin:
         """
         if self._session is None:
             return
-        canales = self._session.visible_channels
-        if len(canales) < 2:
-            self._show_error(
-                PsgLabError(
-                    "La conectividad se mide entre canales, así que hacen falta "
-                    "al menos dos visibles.",
-                    details=f"canales visibles: {canales}.",
-                ),
-                "medir la conectividad de la noche",
-            )
+        self._pedido_de_la_metrica = "conectividad"
+        self._preparar_los_pedidos()
+        self._medir_la_conectividad_de_la_noche()
+
+    def _medir_la_conectividad_de_la_noche(self) -> None:
+        """Mide la noche entera en la banda elegida en el panel de la métrica."""
+        if self._session is None:
+            return
+        canales = self._canales_para_la_conectividad("medir la conectividad de la noche")
+        if canales is None:
             return
         bandas = self._preferencias.bands()
-        banda, acepto = QInputDialog.getItem(
-            self, "Conectividad de la noche", "Banda:", list(bandas), 0, False
-        )
-        if not acepto:
+        banda = self.metric_panel.request.value("banda")
+        if banda not in bandas:
             return
 
         # **Lo único que se lee de la sesión se lee acá**, en el hilo de la
@@ -722,8 +806,8 @@ class AnalysisMixin:
         self.metric_panel.set_caption(
             f"{etiqueta} a lo largo de la noche<br>{promediados}{nota}"
         )
-        self.metric_dialog.show()
-        self.metric_dialog.raise_()
+        self.metric_dock.show()
+        self.metric_dock.raise_()
 
     def show_filter_dialog(self) -> None:
         """Abre el panel de filtros (V1_F de "Filtración").
@@ -735,8 +819,8 @@ class AnalysisMixin:
         if self._session is None:
             return
         self.filter_panel.set_recording(self._session.recording)
-        self.filter_dialog.show()
-        self.filter_dialog.raise_()
+        self.filter_dock.show()
+        self.filter_dock.raise_()
 
     def apply_filters_from_panel(self) -> None:
         """Aplica lo que el panel tenga escrito.
@@ -814,8 +898,8 @@ class AnalysisMixin:
         if self._session is None:
             return
         self._cargar_impedancias()
-        self.impedance_dialog.show()
-        self.impedance_dialog.raise_()
+        self.impedance_dock.show()
+        self.impedance_dock.raise_()
 
     def _cargar_impedancias(self) -> None:
         """Llena el panel con los canales del registro y lo que traiga el archivo."""
@@ -938,8 +1022,8 @@ class AnalysisMixin:
         if self._session is not None:
             self.ica_panel.set_start_time(self._session.recording.start_time)
         self.ica_panel.set_components(topografias, varianzas)
-        self.ica_dialog.show()
-        self.ica_dialog.raise_()
+        self.ica_dock.show()
+        self.ica_dock.raise_()
 
     def _mostrar_curva_del_componente(self, component: int) -> None:
         """Reconstruye la serie del componente elegido y se la da al panel.
@@ -999,7 +1083,7 @@ class AnalysisMixin:
             lambda registro: apply_ica(registro, descomposicion, exclude),
             accion="quitar los componentes",
         )
-        self.ica_dialog.hide()
+        self.ica_dock.hide()
 
     def restore_original_recording(self) -> None:
         """Vuelve a la señal tal como se leyó del archivo.

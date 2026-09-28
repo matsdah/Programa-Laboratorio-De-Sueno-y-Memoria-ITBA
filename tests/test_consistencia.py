@@ -64,6 +64,14 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "setenta y dos": 72, "setenta y tres": 73, "setenta y cuatro": 74,
     "setenta y cinco": 75, "setenta y seis": 76, "setenta y siete": 77,
     "setenta y ocho": 78, "setenta y nueve": 79, "ochenta": 80,
+    "ochenta y un": 81, "ochenta y uno": 81, "ochenta y dos": 82,
+    "ochenta y tres": 83, "ochenta y cuatro": 84, "ochenta y cinco": 85,
+    "ochenta y seis": 86, "ochenta y siete": 87, "ochenta y ocho": 88,
+    "ochenta y nueve": 89,
+    "noventa": 90, "noventa y un": 91, "noventa y uno": 91,
+    "noventa y dos": 92, "noventa y tres": 93, "noventa y cuatro": 94,
+    "noventa y cinco": 95, "noventa y seis": 96, "noventa y siete": 97,
+    "noventa y ocho": 98, "noventa y nueve": 99,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
@@ -79,6 +87,9 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_errors.py": ("psglab/utils/errors.py",),
     "test_validation.py": ("psglab/utils/validation.py",),
     "test_units.py": ("psglab/utils/units.py",),
+    # Cómo termina el proceso de la suite (hito 80): no cubre un módulo del
+    # paquete sino `conftest.py`.
+    "test_salida.py": (),
     # Cómo se escribe un número para el usuario (hito 79).
     "test_formatting.py": ("psglab/utils/formatting.py",),
     "test_recording.py": ("psglab/core/recording.py",),
@@ -92,6 +103,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
         "psglab/readers/edf.py",
         "psglab/readers/brainvision.py",
     ),
+    # Lo que los dos lectores hacen con lo que devuelve MNE (hito 79).
+    "test_from_mne.py": ("psglab/readers/from_mne.py",),
     "test_scoring_reader.py": ("psglab/readers/scoring_reader.py",),
     "test_scoring_formats.py": (
         "psglab/readers/scoring_formats.py",
@@ -141,6 +154,8 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_connectivity_panel.py": ("psglab/ui/connectivity_panel.py",),
     "test_psd.py": ("psglab/analysis/psd.py",),
     "test_psd_panel.py": ("psglab/ui/psd_panel.py",),
+    # La fila de parámetros de los paneles de análisis (hito 79).
+    "test_analysis_request.py": ("psglab/ui/analysis_request.py",),
     "test_settings_dialog.py": ("psglab/ui/settings_dialog.py",),
     "test_derivation.py": ("psglab/analysis/derivation.py",),
     "test_reference.py": ("psglab/analysis/reference.py",),
@@ -1258,6 +1273,63 @@ def test_los_numeros_de_maquina_siguen_existiendo():
         assert funcion in nombres, f"{objetivo} ya no existe"
 
 
+#: Cuántas veces nombra algún hito el código de `psglab/`. **Es un trinquete**
+#: (hito 79): no puede subir, y cuando baja hay que bajarlo acá, para que la
+#: próxima bajada también quede fija. La regla está en `CLAUDE.md`, en
+#: «Convenciones»: un docstring dice qué hace el código y por qué, en presente,
+#: y la historia va al hito y al commit. Era 476 cuando se puso el trinquete;
+#: `core/` bajó a cero en la misma PR.
+TOPE_DE_MENCIONES_A_HITOS = 447
+
+#: Capas donde la regla ya se aplicó entera: ahí no puede volver ninguna.
+CAPAS_SIN_MENCIONES_A_HITOS: tuple[str, ...] = ("core",)
+
+#: «hito 33», «hitos 58 y 59», y también «hito» al final de un renglón de
+#: comentario con el número en el siguiente.
+_MENCION_A_UN_HITO = re.compile(r"(?i)\bhitos?(?:\s|#:?)+\d+")
+
+
+def menciones_a_hitos() -> dict[str, int]:
+    """Cuántas menciones a un hito hay en cada módulo de `psglab/`."""
+    return {
+        ruta_relativa(archivo): len(_MENCION_A_UN_HITO.findall(archivo.read_text(encoding="utf-8")))
+        for archivo in modulos_del_paquete()
+    }
+
+
+def test_las_menciones_a_hitos_no_crecen():
+    """El código cuenta lo que hace, no cómo se llegó a eso (hito 79).
+
+    La auditoría del 26 de septiembre midió que el 34 % de las líneas de
+    `psglab/` son docstrings y que gran parte de esa prosa cuenta la historia
+    del cambio —«hasta el hito 33 esto…»—, que ya está en `docs/HISTORIAL.md`
+    y en git. Para quien llega sin contexto, triplica lo que hay que leer.
+    La regla se aplica al tocar cada módulo, así que sin este chequeo
+    dependería de acordarse.
+    """
+    total = sum(menciones_a_hitos().values())
+    assert total <= TOPE_DE_MENCIONES_A_HITOS, (
+        f"el código nombra hitos {total} veces y el tope es "
+        f"{TOPE_DE_MENCIONES_A_HITOS}: la historia va al hito y al commit, y el "
+        "docstring dice qué hace el código y por qué, en presente"
+    )
+    assert total == TOPE_DE_MENCIONES_A_HITOS, (
+        f"el código nombra hitos {total} veces, menos que el tope de "
+        f"{TOPE_DE_MENCIONES_A_HITOS}: bajá TOPE_DE_MENCIONES_A_HITOS a {total} "
+        "para que la bajada quede fija"
+    )
+
+
+def test_las_capas_limpias_no_vuelven_a_nombrar_hitos():
+    """Donde la regla ya se aplicó entera no puede volver ninguna mención."""
+    sucios = {
+        ruta: cuantas
+        for ruta, cuantas in menciones_a_hitos().items()
+        if cuantas and any(f"psglab/{capa}/" in ruta for capa in CAPAS_SIN_MENCIONES_A_HITOS)
+    }
+    assert not sucios, f"estas capas ya no nombran hitos y volvieron a hacerlo: {sucios}"
+
+
 def test_analysis_tiene_una_sola_guarda_de_registro():
     """Nadie en `analysis/` vuelve a escribir `isinstance(x, Recording)` (hito 79).
 
@@ -1392,6 +1464,35 @@ SIN_CAMINO_A_PROPOSITO: dict[str, str] = {
         "con él. `set_size()` valida un tamaño pedido por programa y nadie lo "
         "pide."
     ),
+    # -- `core/`, `readers/` y `utils/`, desde el hito 79 --------------------
+    **{
+        f"psglab/readers/{archivo}::{clase}": (
+            "lo encuentra `@register_reader` al importarse, no un nombre: el resto "
+            "del programa sólo llama a `read_recording()`."
+        )
+        for archivo, clase in (("edf.py", "EdfReader"), ("brainvision.py", "BrainVisionReader"))
+    },
+    "psglab/core/session.py::Session.active_tool": (
+        "accesor de sólo lectura de lo que registra `set_active_tool()`: los tests "
+        "lo leen para afirmar qué herramienta quedó activa."
+    ),
+    "psglab/core/windows.py::seconds_to_epoch_offset": (
+        "`tools/base.py` la señala a quien escriba una herramienta nueva como la "
+        "forma de razonar por época sin escribir `seconds % 30`: es un punto de "
+        "extensión, y ninguna de las seis herramientas de hoy la necesita."
+    ),
+    **{
+        f"psglab/readers/scoring_reader.py::{funcion}": (
+            "API del módulo para un script: `read_scoring()` usa la misma regla "
+            "sobre las líneas ya leídas, para no abrir el archivo dos veces."
+        )
+        for funcion in ("detect_nomenclature", "detect_line_format")
+    },
+    "psglab/utils/units.py::to_microvolts": (
+        "la conversión de un valor suelto, para un script. Los lectores convierten "
+        "filas enteras en el lugar con `conversion_factor()`, que es la misma "
+        "regla sin la copia."
+    ),
 }
 
 #: Métodos sin camino desde la ventana que **sí son un hueco**: hacen algo que el
@@ -1405,8 +1506,25 @@ SIN_CAMINO_A_PROPOSITO: dict[str, str] = {
 HUECOS_ABIERTOS: dict[str, str] = {}
 
 
+#: Capas donde la red mira también las funciones sueltas y las clases, no sólo
+#: los métodos. Entraron en el hito 79: la red del hito 30 no las miraba, y ahí
+#: sobrevivieron doce definiciones que sólo usaban los tests —cuatro
+#: conversiones de antes del refactor, tres métodos de `Viewport`, una clase de
+#: error que no se elevaba nunca—.
+CAPAS_CON_FUNCIONES_SUELTAS: tuple[str, ...] = ("core", "readers", "utils")
+
+
+def nombre_de(objetivo: str) -> str:
+    """El nombre que se busca usado: `ruta::Clase.metodo` da `metodo`, `ruta::f` da `f`."""
+    return objetivo.split("::", 1)[1].rsplit(".", 1)[-1]
+
+
 def metodos_publicos_de_herramientas_y_paneles() -> list[str]:
-    """Cada método público de `tools/` y de `ui/*_panel.py`, como `ruta::Clase.metodo`.
+    """Lo público que tiene que tener camino, como `ruta::Clase.metodo` o `ruta::nombre`.
+
+    Los métodos de `tools/` y de `ui/*_panel.py`, desde el hito 30, y desde el
+    hito 79 también las funciones, las clases y los métodos de las capas de
+    `CAPAS_CON_FUNCIONES_SUELTAS`.
 
     Quedan afuera los que llama Qt por su cuenta —`paintEvent()`,
     `sizeHint()`, el `createEditor()` de un delegate—, que nunca aparecen
@@ -1416,6 +1534,13 @@ def metodos_publicos_de_herramientas_y_paneles() -> list[str]:
         (RAIZ / "psglab" / "ui").glob("*_panel.py")
     )
     encontrados: list[str] = []
+    for capa in CAPAS_CON_FUNCIONES_SUELTAS:
+        for archivo in sorted((RAIZ / "psglab" / capa).glob("*.py")):
+            arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+            for nodo in arbol.body:
+                if isinstance(nodo, (ast.FunctionDef, ast.ClassDef)) and not nodo.name.startswith("_"):
+                    encontrados.append(f"{ruta_relativa(archivo)}::{nodo.name}")
+            archivos.append(archivo)
     for archivo in archivos:
         arbol = ast.parse(archivo.read_text(encoding="utf-8"))
         for clase in (n for n in arbol.body if isinstance(n, ast.ClassDef)):
@@ -1455,7 +1580,8 @@ def nombres_que_usa_el_paquete() -> set[str]:
 
 
 def test_cada_metodo_de_herramientas_y_paneles_tiene_quien_lo_llame():
-    """Ningún método de `tools/` ni de un panel puede quedar sin camino en silencio.
+    """Nada público de `tools/`, de un panel, de `core/`, `readers/` ni `utils/`
+    puede quedar sin camino en silencio.
 
     O algo de `psglab/` lo usa, o figura en `SIN_CAMINO_A_PROPOSITO` con su
     motivo, o en `HUECOS_ABIERTOS`, que lo obliga a estar en el TODO.
@@ -1465,7 +1591,7 @@ def test_cada_metodo_de_herramientas_y_paneles_tiene_quien_lo_llame():
     huerfanos = [
         objetivo
         for objetivo in metodos_publicos_de_herramientas_y_paneles()
-        if objetivo.rsplit(".", 1)[1] not in usados and objetivo not in declarados
+        if nombre_de(objetivo) not in usados and objetivo not in declarados
     ]
     assert not huerfanos, (
         "estos métodos públicos no los llama nada de psglab/ y no figuran en "
@@ -1480,7 +1606,7 @@ def test_cada_hueco_abierto_esta_en_el_todo():
     ausentes = [
         objetivo
         for objetivo in HUECOS_ABIERTOS
-        if f"{objetivo.rsplit('.', 1)[1]}()" not in todo
+        if f"{nombre_de(objetivo)}()" not in todo
     ]
     assert not ausentes, f"estos huecos abiertos no figuran en docs/TODO.md: {ausentes}"
 
@@ -1502,7 +1628,7 @@ def test_las_exenciones_de_herramientas_y_paneles_siguen_existiendo():
         for objetivo in tabla:
             if objetivo not in reales:
                 problemas.append(f"{nombre_de_tabla} nombra algo que no existe: {objetivo}")
-            elif objetivo.rsplit(".", 1)[1] in usados:
+            elif nombre_de(objetivo) in usados:
                 problemas.append(f"{nombre_de_tabla} exime algo que ya tiene camino: {objetivo}")
     assert not problemas, "\n".join(problemas)
 

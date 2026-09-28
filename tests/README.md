@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los setenta y seis
+camino de búsqueda. Con `pytest` directo la recolección falla en los setenta y ocho
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -53,6 +53,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_validation.py` | Que un NaN no atraviese una guarda numérica. |
 | `test_contratos.py` | Que ningún método público escape del `except` de la interfaz. |
 | `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
+| `test_salida.py` | Cómo termina el proceso de la suite (hito 80): `conftest.py` sale con `os._exit()` en cuanto pytest informó, para que el intérprete no desarme las ventanas de Qt —en el CI eso cayó con un `Segmentation fault` con todo en verde—. Verifica, en otro proceso, que el código de salida y el resumen no se pierdan. |
 | `test_formatting.py` | Cómo se escribe un número para el usuario y cómo se lee el que escribe (hito 79): con coma, sin ceros de más, un NaN que no se escribe «nan», las duraciones y que «inf» no se lea como un corte de filtro. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
 | `test_viewport.py` | La página visible: que se recorte en un solo lugar y que navegar no la mueva si la época ya está dentro. |
@@ -64,6 +65,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_annotations.py` | Los eventos sobre la señal: qué se borra, qué se dibuja y cómo se reemplaza uno sin perderlo. |
 | `test_channel_types.py` | Que cada canal se clasifique solo: EEG, EOG, EMG, ECG u otro. |
 | `test_readers.py` | El despacho por formato, y que la señal de un EDF y un BrainVision salga en la escala correcta. |
+| `test_from_mne.py` | Lo que los dos lectores hacen con lo que devuelve MNE, **sin archivo** (hito 79): qué fila se convierte y desde qué unidad, que la tabla de grafías decida y no la unidad, la clase del canal y las marcas. |
 | `test_scoring_reader.py` | Importar un scoring ya hecho sin adivinar con qué nomenclatura se escribió. |
 | `test_scoring_formats.py` | El scoring en CSV, EDF+ y XML: la ida y la vuelta, y los archivos que escriben otros programas. |
 | `test_registry.py` | El registro de herramientas y su clase base: el punto de extensión. |
@@ -89,6 +91,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_derivation.py` | Las derivaciones: una resta exacta, y qué clase y qué unidad lleva el canal nuevo. |
 | `test_psd.py` | El espectro: que una onda de 10 Hz dé su pico en 10 Hz, y qué pasa con la última ventana incompleta. |
 | `test_psd_panel.py` | El panel del espectro: qué curvas quedan, dónde caen las bandas, y que la potencia no salga en logaritmos. |
+| `test_analysis_request.py` | La fila con que se pide un análisis desde su panel, **sin la ventana** (hito 79): qué se conserva al volver a llenarla, cuándo se prende «Calcular» y qué pasa con un campo o una opción que no existen. |
 | `test_settings_dialog.py` | La ventana de configuración: que mostrar no sea elegir, y que cada solapa entregue unas preferencias válidas. |
 | `test_complexity.py` | Las cuatro medidas de complejidad, cada una contra su ancla teórica. |
 | `test_auto_scoring.py` | Las fases sugeridas (hito 75): corre el clasificador de YASA de verdad sobre una noche sintética —vigilia con alfa, sueño lento—, qué canales elige y qué rechaza. |

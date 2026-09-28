@@ -1,9 +1,8 @@
 """La página visible del registro: qué tramo se está mirando.
 
-Hasta el refactor de la interfaz había **una** noción horizontal, la ventana de
-30 s del pliego, que era cuatro cosas a la vez: la unidad de scoring, la página
-de dibujo, el origen de coordenadas de las herramientas y el denominador de la
-ocupación. Este módulo separa dos de ellas:
+La ventana de 30 s del pliego podría ser cuatro cosas a la vez: la unidad de
+scoring, la página de dibujo, el origen de coordenadas de las herramientas y el
+denominador de la ocupación. El programa separa dos de ellas:
 
 - **Época de scoring** (`WINDOW_SECONDS`, 30 s) — la unidad de `Scoring`, la
   base de `count_windows()`, del histograma y de la Übersicht. **No cambia.**
@@ -38,7 +37,7 @@ Cubre del pliego: ningún ID. El pliego fija la ventana de 30 s y la cubre
 `core/windows.py`; esto es la extensión que agregó el refactor de la interfaz.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 from psglab.config import MIN_VIEW_SECONDS
 from psglab.utils.errors import InvalidViewportError
@@ -163,23 +162,6 @@ class Viewport:
         """
         return self.start_seconds <= 0 and self.span_seconds >= self.duration_seconds
 
-    @property
-    def at_start(self) -> bool:
-        """Si la página empieza con el registro: no hay hacia dónde retroceder."""
-        return self.start_seconds <= 0
-
-    @property
-    def at_end(self) -> bool:
-        """Si la página llega al final del registro: no hay hacia dónde avanzar.
-
-        **Con tolerancia**, y no por descuido: `clamped()` calcula el comienzo
-        como `duración - página`, y sumarle la página de vuelta puede quedar una
-        fracción de microsegundo corta. Sin ella, la reproducción no se
-        detendría nunca en el final: seguiría pidiendo una página que no se
-        mueve.
-        """
-        return self.end_seconds >= self.duration_seconds - _TOLERANCIA_EN_SEGUNDOS
-
     # -- Construcción con recorte -------------------------------------------
 
     @classmethod
@@ -269,10 +251,10 @@ class Viewport:
     def zoomed_at(self, factor: float, anchor_seconds: float) -> "Viewport":
         """Multiplica la duración de la página **dejando quieto un instante**.
 
-        Es lo que hace la rueda del mouse (hito 56): el instante bajo el
-        puntero sigue bajo el puntero, igual que en un mapa. Con `zoomed()`,
-        que conserva el centro, acercarse a un huso del borde lo sacaba de la
-        pantalla a la segunda muesca.
+        Es lo que hace la rueda del mouse: el instante bajo el puntero sigue
+        bajo el puntero, igual que en un mapa. Con `zoomed()`, que conserva el
+        centro, acercarse a un huso del borde lo sacaría de la pantalla a la
+        segunda muesca.
 
         El instante queda a la misma **fracción** de la página antes y
         después. En los bordes del registro la página se recorta y el instante
@@ -357,10 +339,3 @@ class Viewport:
             self.start_seconds, self.span_seconds, duration_seconds
         )
 
-    def replaced(self, **cambios: float) -> "Viewport":
-        """Otra página con algunos campos cambiados, sin recortar.
-
-        Existe para los tests y para quien necesite construir una página exacta.
-        **El camino normal es `clamped()` y las transformaciones**, que recortan.
-        """
-        return replace(self, **cambios)

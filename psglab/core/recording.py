@@ -86,12 +86,12 @@ class Channel:
 class Recording:
     """Un registro polisomnográfico completo.
 
-    **Dos registros son el mismo sólo si son el mismo objeto** (hito 71). La
-    igualdad de fábrica de un `dataclass` compara campo por campo, y con la
-    señal adentro eso elevaba `ValueError` —numpy no dice si dos matrices son
-    «iguales»—: `a == b` o `a in lista` rompían. El programa ya los compara por
-    identidad: un filtro o una derivación devuelven otro registro, aunque los
-    números coincidan.
+    **Dos registros son el mismo sólo si son el mismo objeto.** La igualdad de
+    fábrica de un `dataclass` compara campo por campo, y con la señal adentro
+    eso eleva `ValueError` —numpy no dice si dos matrices son «iguales»—:
+    `a == b` o `a in lista` romperían. El programa los compara por identidad:
+    un filtro o una derivación devuelven otro registro, aunque los números
+    coincidan.
 
     Attributes:
         file_path: archivo del que se cargó el registro.
@@ -331,7 +331,7 @@ class Recording:
         )
 
     def content_limit_hz(self, name: str) -> float:
-        """Hasta qué frecuencia tiene contenido de verdad un canal (hito 72).
+        """Hasta qué frecuencia tiene contenido de verdad un canal.
 
         Es la mitad de la frecuencia a la que **se grabó**, que puede ser menor
         que la del registro: un EDF trae canales de 1 Hz junto a otros de
@@ -413,9 +413,9 @@ class Recording:
                 principio: numpy interpreta el negativo como "desde el final".
                 Es la clase de error que produce un resultado plausible y
                 equivocado, que es peor que uno vacío. **También si alguno de
-                los dos no es un entero** (hito 50): con `3.5` o `None` el que
-                explotaba era el índice de numpy, con un `TypeError` crudo que
-                la ventana no sabe atrapar. Un entero de numpy sirve, porque es
+                los dos no es un entero**: con `3.5` o `None` el que explotaría
+                es el índice de numpy, con un `TypeError` crudo que la ventana
+                no sabe atrapar. Un entero de numpy sirve, porque es
                 lo que devuelve cualquier cuenta sobre un array; un booleano no,
                 aunque Python lo cuente como entero.
         """
@@ -446,12 +446,12 @@ class Recording:
     def non_finite_channels(self) -> dict[str, int]:
         """Cuántas muestras sin valor —NaN o infinito— tiene cada canal.
 
-        **Existe para que el registro se pueda avisar al abrirlo** (hito 33).
-        Una muestra sin valor no se ve en la pantalla —la curva se corta— y
+        **Existe para que el registro se pueda avisar al abrirlo.** Una
+        muestra sin valor no se ve en la pantalla —la curva se corta— y
         contagia todo lo que la toque: un filtro la esparce a lo largo de la
         señal, la referencia promedio la pasa a **todos** los canales y la PSD
-        de esa época sale entera sin valor. Diez muestras terminaron en unas
-        treinta mil, medido en la auditoría del 19 de septiembre de 2026.
+        de esa época sale entera sin valor. Diez muestras terminan en unas
+        treinta mil.
 
         Es la misma clase de diagnóstico que `flat_channels()`, y vive acá por
         el mismo motivo: decidir qué cuenta como señal utilizable es una regla
@@ -488,7 +488,7 @@ class Recording:
     ) -> list[str]:
         """Qué canales no varían en un tramo: un electrodo desconectado, típicamente.
 
-        **Existe para que los análisis puedan explicarse** (hito 32). Con un
+        **Existe para que los análisis puedan explicarse.** Con un
         canal plano el espectro sale en cero, la dimensión de Higuchi no existe
         y la conectividad cuenta 0 y baja el promedio: las tres respuestas son
         correctas, y sin decir por qué parecen un error del programa. La regla
@@ -511,7 +511,7 @@ class Recording:
             ChannelNotFoundError, InvalidRecordingError: los de `get_segment()`,
                 que valida el tramo y los canales —el tipo de los extremos
                 incluido— con la misma regla para los dos métodos: un entero
-                de numpy sirve y un `None` no (hito 79).
+                de numpy sirve y un `None` no.
         """
         tramo = self.get_segment(start_sample, stop_sample, channel_names)
         nombres = self.channel_names() if channel_names is None else list(channel_names)
