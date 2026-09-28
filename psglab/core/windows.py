@@ -2,9 +2,9 @@
 
 Todo el programa habla en varias unidades a la vez: el usuario piensa en
 ventanas de 30 segundos, el archivo guarda muestras ("puntos"), las
-herramientas reciben segundos desde el inicio de la ventana, el medidor de
-ocupación trabaja en fracción de ventana y el histograma muestra la hora de la
-noche.
+herramientas reciben segundos desde el inicio del registro, el medidor de
+ocupación trabaja en fracción de la página visible y el histograma muestra la
+hora de la noche.
 
 **Este módulo es el único lugar donde se convierte entre unidades.** El
 reparto con `psglab/ui/signal_view.py` es exacto y conviene tenerlo claro:
@@ -13,8 +13,8 @@ reparto con `psglab/ui/signal_view.py` es exacto y conviene tenerlo claro:
     píxel  ←→ unidad     en `signal_view.py`, que es lo único que conoce el
                          ancho en píxeles del visualizador
 
-Una herramienta que reciba segundos y necesite muestras o fracción de ventana
-llama acá; no escribe la cuenta. Es lo que evita que aparezcan `* 30 * fs`
+Una herramienta que reciba segundos y necesite muestras o fracción de la
+página llama acá; no escribe la cuenta. Es lo que evita que aparezcan `* 30 * fs`
 repartidos por el código.
 
 **Los bordes se calculan siempre desde el índice de la ventana, nunca

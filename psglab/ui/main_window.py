@@ -196,8 +196,8 @@ class MainWindow(
         # aplica sobre la ventana, que recién existe ahora.
         self.setStyleSheet(theme.stylesheet(theme.current()))
         #: La disposición de fábrica, capturada con todos los paneles y la barra
-        #: de navegación ya puestos. Es a lo que vuelve «Paneles ▸ Restaurar
-        #: la disposición», y tiene que guardarse acá y no antes: `saveState()`
+        #: de navegación ya puestos. Es a lo que vuelve «Herramientas ▸
+        #: Restaurar la disposición», y tiene que guardarse acá y no antes: `saveState()`
         #: sólo serializa lo que ya existe.
         self._layout_por_defecto = self.saveState()
         #: Si esta ventana es la del usuario, y por lo tanto la que escribe sus
@@ -508,10 +508,6 @@ class MainWindow(
     def session(self) -> Session | None:
         """Sesión de trabajo actual, o None si no hay registro abierto."""
         return self._session
-
-    # **Llegar a cualquier ventana sin mouse** (hito 62). Hasta acá sólo lo
-    # hacían los clics en la franja, el hipnograma y la Übersicht, y con el
-    # teclado la ventana 500 de una noche eran 500 flechas.
 
     # -- Las esperas largas --------------------------------------------------
 
