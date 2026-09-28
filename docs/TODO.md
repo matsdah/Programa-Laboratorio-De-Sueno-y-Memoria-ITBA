@@ -296,8 +296,8 @@ código de hoy** antes de arreglar nada.
     `tests/test_readers.py`, **94 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
     `tests/test_recording.py`, **60 tests en verde**;
-    `tests/test_contratos.py`, **1371 tests en verde**;
-    `tests/test_entrega.py`, **437 tests en verde**.
+    `tests/test_contratos.py`, **1371 tests en verde**; y por la ventana, en
+    los seis `test_entrega*.py`.
 
 Cada test nuevo se corrió contra el código sin su arreglo, y todos fallan: la
 línea reanclada sin canal, la lupa sin restar el desplazamiento, la banda que
@@ -330,7 +330,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       capa entera para poder volver a ponerla. Borrar una anotación sigue
       preguntando, y el cartel dice ahora que se puede deshacer.
   - Test: `tests/test_history.py`, **16 tests en verde**; y en
-    `tests/test_menus.py` y `tests/test_entrega.py`, el menú, Ctrl+Z y
+    `tests/test_menus.py` y `tests/test_entrega_scoring.py`, el menú, Ctrl+Z y
     Ctrl+Y apretados de verdad, y que anotar se registre.
 - [x] **Recuperar el trabajo después de un cierre inesperado.** *(Decidido: sí;
       ver «Lo que decidió el usuario».)* El programa no autoguarda
@@ -371,7 +371,7 @@ más. **Varias piden una decisión antes**; están marcadas.
   - Test: `tests/test_scoring.py`, **57 tests en verde**;
     `tests/test_shortcuts.py`, **39 tests en verde**;
     `tests/test_contratos.py`, **1371 tests en verde**;
-    `tests/test_entrega.py`, **437 tests en verde**.
+    `tests/test_entrega_interfaz.py`, **103 tests en verde**.
 
   Cada test nuevo falla sin su cambio: la próxima sin scorear, las teclas
   0, 5 y N y la carpeta de los diálogos. La N y Mayús+N ganaron su entrada
@@ -392,7 +392,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       ayuda de atajos suma C y, en «Anotación», lo que hace el mouse.
   - Test: `tests/test_annotator.py`, **49 tests en verde**;
     `tests/test_tool_controller.py`, **16 tests en verde**;
-    `tests/test_entrega.py`, **437 tests en verde**.
+    `tests/test_entrega_anotacion.py`, **59 tests en verde**.
 - [ ] **Los parámetros de cada análisis, adentro de su panel.** Hoy cada
       pedido encadena carteles modales para elegir canal, medida o banda
       —derivar son dos seguidos— y el panel se abre después. Los paneles ya
@@ -490,7 +490,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       de EEG, y la regla de `derive()` le daba «Otro». Se vuelve atrás con
       «Volver a la señal original», como derivar.
   - Test: `tests/test_derivation.py`, **52 tests en verde**; y en
-    `tests/test_entrega.py`, el montaje por la ventana: la resta, la clase,
+    `tests/test_entrega_analisis.py`, el montaje por la ventana: la resta, la clase,
     lo que falta, no repetir y volver atrás.
 - [x] **Más rótulos de canal reconocidos.** `readers/channel_types.py` deja
       en «Otro» nombres comunes de polisomnografía —ABD, THO, Chest, Therm,
@@ -525,7 +525,7 @@ más. **Varias piden una decisión antes**; están marcadas.
       mano. Anotar y marcar son un solo paso de deshacer.
   - Test: `tests/test_annotations.py`, **97 tests en verde**;
     `tests/test_session.py`, **167 tests en verde**;
-    `tests/test_entrega.py`, **437 tests en verde**.
+    `tests/test_entrega_scoring.py`, **46 tests en verde**.
 
 ### Tanda 3: partir las clases grandes
 
@@ -656,7 +656,7 @@ una vez que agregarlos al lugar que después hay que partir.
       rechaza una copia nueva: contra el código de antes encuentra las nueve.
   - Test: `tests/test_mne_bridge.py`, **34 tests en verde**, con el mensaje
     de cada uno de los dieciocho análisis que reciben primero el registro;
-    `tests/test_consistencia.py`, **116 tests en verde**.
+    `tests/test_consistencia.py`, **121 tests en verde**.
 - [x] **Una sola forma de escribir un número para el usuario.**
       `.replace(".", ",")` aparece 22 veces y hay tres `_numero()`: un
       `utils/formato.py` con el número con coma, los Hz y las duraciones.
@@ -679,9 +679,28 @@ una vez que agregarlos al lugar que después hay que partir.
       sin formato**, `f"{x} Hz"`.
   - Test: `tests/test_formatting.py`, **46 tests en verde**;
     `tests/test_contratos.py`, **1371 tests en verde**;
-    `tests/test_consistencia.py`, **116 tests en verde**.
-- [ ] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
+    `tests/test_consistencia.py`, **121 tests en verde**.
+- [x] **`tests/test_entrega.py` (6400 líneas, 370 tests) se parte por
       tema**, siguiendo a los controladores.
+      Hecho, cuando ya eran 7258 líneas y 437 tests: **seis archivos de
+      test**, y lo que comparten en `tests/entrega_comun.py`, que no es un
+      test. `test_entrega.py` se queda con la entrega —abrir, navegar,
+      scorear, exportar— y con lo que protege el trabajo: los formatos del
+      scoring, el trabajo sin exportar, la recuperación y abrir otro
+      registro. Los otros cinco, por tema: `_scoring` —el hipnograma, las
+      sugeridas, deshacer y rehacer, el arousal—, `_anotacion`, `_vista`
+      —la Übersicht, la reproducción, la rueda—, `_analisis` —la Parte 2 y
+      el cálculo en otro hilo— e `_interfaz` —la configuración, el teclado,
+      los textos—. **La partió un script y no a mano**: cada sección fue
+      entera a su archivo, y a `entrega_comun.py` fue sólo lo que usa más de
+      uno, con lo que eso necesita. Los 437 identificadores de test son los
+      mismos antes y después, comparados uno por uno.
+  - Test: `tests/test_entrega.py`, **79 tests en verde**;
+    `tests/test_entrega_scoring.py`, **46 tests en verde**;
+    `tests/test_entrega_anotacion.py`, **59 tests en verde**;
+    `tests/test_entrega_vista.py`, **47 tests en verde**;
+    `tests/test_entrega_analisis.py`, **103 tests en verde**;
+    `tests/test_entrega_interfaz.py`, **103 tests en verde**.
 - [ ] **Los docks se llaman `*_dock`.** Siguen llamándose `psd_dialog` y
       compañía para no tocar ocho tests; quien lee el código busca un
       diálogo que no existe.
@@ -749,7 +768,7 @@ función, y la historia ya está en este archivo y en git.
       nuevo, `test_cada_hito_vive_en_su_archivo`, exige que cada hito esté en
       el archivo que le toca y que su fila apunte ahí. Cerrar un hito pasa a
       ser cinco ediciones.
-  - Test: `tests/test_consistencia.py`, **116 tests en verde**.
+  - Test: `tests/test_consistencia.py`, **121 tests en verde**.
 
 ### Tanda 5: rendimiento y robustez
 
@@ -769,7 +788,7 @@ función, y la historia ya está en este archivo y en git.
       la segunda se ignora y se dice. Cerrar la ventana mientras lee espera
       la lectura y la descarta: tomarla volvía a preguntar por el trabajo y
       cambiaba la sesión mientras se cerraba.
-  - Test: en `tests/test_entrega.py`, que el archivo se lea y la señal se
+  - Test: en `tests/test_entrega_analisis.py`, que el archivo se lea y la señal se
     filtre en otro hilo, que mientras tanto siga el registro anterior, el
     error de lectura, dos aperturas a la vez, abrir con un cálculo en curso
     y cerrar mientras lee. Los catorce tests que filtraban por la ventana
@@ -848,7 +867,7 @@ función, y la historia ya está en este archivo y en git.
       Y el banco terminaba con un cartel modal que nadie contestaba —cerraba
       la ventana con lo que las mediciones anotan sin exportar—, que es
       probablemente el cuelgue que no se diagnosticó al medir los overlays.
-  - Test: en `tests/test_entrega.py`, que una flecha deje la misma curva y
+  - Test: en `tests/test_entrega_scoring.py`, que una flecha deje la misma curva y
     que scorear, cambiar el eje a hora, la nomenclatura sin nada scoreado u
     otro registro con otra hora la rehagan: sacar cualquiera de esas cosas
     de la firma lo nota un test. En `tests/test_overlay_items.py`, un

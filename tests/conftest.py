@@ -179,7 +179,7 @@ def escribir_brainvision(
     comprueba fuera de una máquina que tenga los registros.
 
     Es función y no sólo fixture porque la duración importa: los tests del
-    lector alcanzan con tres segundos, y `test_entrega.py` necesita varias
+    lector alcanzan con tres segundos, y la comprobación de entrega necesita varias
     ventanas de 30 s para poder scorear y exportar.
 
     **`frecuencia` la agregó el hito 17**, y no es un parámetro de comodidad:

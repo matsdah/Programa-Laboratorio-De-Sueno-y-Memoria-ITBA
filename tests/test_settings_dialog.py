@@ -1,7 +1,7 @@
 """Tests de la ventana de configuración.
 
 Se miran las preferencias que la ventana **entrega**, no los píxeles. Que esas
-preferencias lleguen a donde tienen efecto lo verifica `test_entrega.py`, por la
+preferencias lleguen a donde tienen efecto lo verifica `test_entrega_interfaz.py`, por la
 ventana principal.
 
 Lo que más se cuida acá es una sola cosa: **mostrar no es elegir**. Abrir la

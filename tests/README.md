@@ -13,7 +13,7 @@ python -m pytest -rs
 
 El proyecto no se instala como paquete (no hay `pyproject.toml`), así que
 `psglab` sólo es importable porque `python -m` agrega el directorio actual al
-camino de búsqueda. Con `pytest` directo la recolección falla en los setenta y uno
+camino de búsqueda. Con `pytest` directo la recolección falla en los setenta y seis
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
@@ -102,7 +102,13 @@ verde por omisión, que es peor que dar rojo.
 | `test_impedance.py` | El control de impedancia, y la distinción que lo sostiene: "sin medir" no es "0 kΩ". |
 | `test_impedance_panel.py` | La tabla editable: que la celda sin valor lo diga, y que un cero escrito a mano sí cuente. |
 | `test_reference.py` | La re-referenciación: el canal de referencia en cero, y la suma de los EEG en cero. |
-| `test_entrega.py` | La comprobación de entrega: abrir, navegar, scorear y exportar **por la ventana**, no por las piezas. |
+| `test_entrega.py` | La comprobación de entrega: abrir, navegar, scorear y exportar **por la ventana**, no por las piezas. Y lo que protege el trabajo: los cuatro formatos del scoring, el trabajo sin exportar, la copia de recuperación y abrir otro registro. **Desde el hito 79 son seis archivos**, uno por tema, con la misma regla: todo pasa por `MainWindow` y los gestos se mandan como eventos de Qt. |
+| `test_entrega_scoring.py` | El scoring por la ventana: el eje y el clic del hipnograma, scorear de corrido, las fases sugeridas, deshacer y rehacer, y que anotar un arousal marque su ventana. |
+| `test_entrega_anotacion.py` | Anotar por la ventana, con el mouse de verdad: crear y corregir una anotación, la clase activa, las marcas del archivo y el camino entre una herramienta que dibuja y la pantalla. |
+| `test_entrega_vista.py` | Mirar la señal por la ventana: la Übersicht, la reproducción contada desde el medio y la rueda que cambia la escala de tiempo. |
+| `test_entrega_analisis.py` | La Parte 2 por la ventana: el menú «Analizar» y cómo se deshace, espectro, complejidad, conectividad, ICA, impedancia, filtros, y lo que se calcula fuera del hilo de la interfaz. |
+| `test_entrega_interfaz.py` | La interfaz por la ventana: que las preferencias lleguen a donde tienen efecto, el teclado, los textos de los carteles y el de los errores inesperados. |
+| `entrega_comun.py` | **No es un test**: lo que comparten los seis archivos de la comprobación de entrega (hito 79). La fixture `ventana` —la principal con un registro abierto, armada como la arma `main.py`—, los gestos de mouse y las fixtures con otros registros. Sólo está lo que usa más de uno. |
 | `test_main_window_layout.py` | Cómo se llama lo que la ventana hace: la superficie pública que un refactor no puede renombrar en silencio. Desde el hito 76, también que sus pedazos vayan antes que `QMainWindow` y no se pisen. |
 | `test_theme.py` | Los esquemas de color: que un esquema sea inmutable, que la paleta cicle y que lo guardado vuelva igual. |
 | `test_preferences.py` | Lo que el programa recuerda entre sesiones, y que un archivo roto no le impida arrancar. |

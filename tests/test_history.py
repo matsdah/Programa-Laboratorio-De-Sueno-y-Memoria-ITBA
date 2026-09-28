@@ -7,7 +7,7 @@ sugeridas confirmadas o descartadas, un scoring importado encima. Y lo que no es
 trabajo —moverse de ventana— no tiene que gastar un paso.
 
 Que Ctrl+Z, el menú y la ventana lo usen bien lo verifican `test_menus.py` y
-`test_entrega.py`.
+`test_entrega_scoring.py`.
 """
 
 from pathlib import Path

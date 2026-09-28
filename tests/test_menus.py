@@ -4,7 +4,7 @@
 de interfaz y renombrarlos no debería hacer fallar nada; el test que miraba si
 existía "&Análisis" quedó obsoleto en cuanto ese menú se repartió, y lo que de
 verdad protegía —que cada análisis fuera alcanzable— se verifica en
-`test_entrega.py`, por la acción.
+`test_entrega_analisis.py`, por la acción.
 
 Lo que sí se testea acá son las tres cosas que sí se pueden romper en silencio:
 
@@ -145,7 +145,7 @@ def test_ninguna_accion_quedo_sin_conectar(ventana: MainWindow):
 
 
 def test_deja_puestas_las_dos_acciones_que_se_tocan_despues(ventana: MainWindow):
-    """`accion_eje_en_hora` la prende el usuario y la consulta `test_entrega`;
+    """`accion_eje_en_hora` la prende el usuario y la consulta `test_entrega_interfaz`;
     `accion_señal_original` se habilita cuando un análisis sustituye la señal."""
     assert ventana.accion_eje_en_hora.isCheckable()
     assert ventana.accion_señal_original is not None
