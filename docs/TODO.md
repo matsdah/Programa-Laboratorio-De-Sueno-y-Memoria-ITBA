@@ -15,7 +15,7 @@ ver «Al agregar o cerrar un ítem», al final.
 Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos: las dos Partes
 están cerradas y ningún módulo de `psglab/` eleva `NotImplementedError`.
 
-Son **ochenta hitos**, del 0 al 79, que son las filas de la tabla de
+Son **ochenta y un hitos**, del 0 al 80, que son las filas de la tabla de
 progreso, y **están todos cerrados**: lo que queda abierto son las preguntas
 al cliente, abajo. La cuenta vive sólo en este archivo:
 hasta el hito 79 la repetían cuatro documentos, y cada hito nuevo obligaba a
@@ -194,6 +194,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [77. Una sola tipografía](HISTORIAL.md#hito-77-una-sola-tipografía) | — | 0 | ✅ cerrado |
 | [78. Que la suite vea la letra real](HISTORIAL.md#hito-78-que-la-suite-vea-la-letra-real) | — | 0 | ✅ cerrado |
 | [79. La auditoría del 26 de septiembre](HISTORIAL.md#hito-79-la-auditoría-del-26-de-septiembre) | — | 0 | ✅ cerrado |
+| [80. La suite sale sin desarmar Qt](HISTORIAL.md#hito-80-la-suite-sale-sin-desarmar-qt) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus

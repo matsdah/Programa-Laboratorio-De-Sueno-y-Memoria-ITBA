@@ -64,6 +64,14 @@ NUMEROS_EN_PALABRAS: dict[str, int] = {
     "setenta y dos": 72, "setenta y tres": 73, "setenta y cuatro": 74,
     "setenta y cinco": 75, "setenta y seis": 76, "setenta y siete": 77,
     "setenta y ocho": 78, "setenta y nueve": 79, "ochenta": 80,
+    "ochenta y un": 81, "ochenta y uno": 81, "ochenta y dos": 82,
+    "ochenta y tres": 83, "ochenta y cuatro": 84, "ochenta y cinco": 85,
+    "ochenta y seis": 86, "ochenta y siete": 87, "ochenta y ocho": 88,
+    "ochenta y nueve": 89,
+    "noventa": 90, "noventa y un": 91, "noventa y uno": 91,
+    "noventa y dos": 92, "noventa y tres": 93, "noventa y cuatro": 94,
+    "noventa y cinco": 95, "noventa y seis": 96, "noventa y siete": 97,
+    "noventa y ocho": 98, "noventa y nueve": 99,
 }
 
 #: Raíz del repositorio, deducida de la ubicación de este archivo.
@@ -79,6 +87,9 @@ COBERTURA_DE_TESTS: dict[str, tuple[str, ...]] = {
     "test_errors.py": ("psglab/utils/errors.py",),
     "test_validation.py": ("psglab/utils/validation.py",),
     "test_units.py": ("psglab/utils/units.py",),
+    # Cómo termina el proceso de la suite (hito 80): no cubre un módulo del
+    # paquete sino `conftest.py`.
+    "test_salida.py": (),
     # Cómo se escribe un número para el usuario (hito 79).
     "test_formatting.py": ("psglab/utils/formatting.py",),
     "test_recording.py": ("psglab/core/recording.py",),

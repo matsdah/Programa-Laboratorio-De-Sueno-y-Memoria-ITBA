@@ -18,6 +18,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pathlib
+import sys
 
 import numpy as np
 import pytest
@@ -115,7 +116,69 @@ def qt_app():
     aplicacion = QApplication([])
     install_qt_translations(aplicacion)
     fonts.register_bundled_fonts()
+    # **Se la sostiene hasta el final del proceso.** Al cerrarse la sesión,
+    # pytest suelta el valor de la fixture, y una `QApplication` destruida con
+    # las ventanas de los tests todavía vivas es lo que cae. Ver «La salida del
+    # proceso», más abajo.
+    _APLICACION.append(aplicacion)
     yield aplicacion
+
+
+# -- La salida del proceso ----------------------------------------------------
+#
+# **La suite sale con `os._exit()` en cuanto pytest terminó de informar.** Las
+# ventanas que arman los tests no se destruyen —cerrarlas preguntaría por el
+# trabajo sin exportar con un cartel modal—, y al terminar el intérprete las
+# desarma en cualquier orden, después de la `QApplication`. En el CI eso cayó
+# con un `Segmentation fault` dos veces, en macOS y en Ubuntu con Python 3.11,
+# con todos los tests en verde: el job salía rojo por algo que pasa cuando ya
+# no queda nada que verificar. Saliendo antes, el desarme no ocurre.
+
+#: La `QApplication` de la suite, que no se suelta nunca: la sostiene hasta
+#: `os._exit()`.
+_APLICACION: list[object] = []
+
+#: El código con que terminó la sesión. Lo guarda `pytest_sessionfinish` y lo
+#: devuelve `pytest_unconfigure`, que es lo último que corre.
+_CODIGO_DE_SALIDA: list[int] = []
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Guarda con qué código terminó la sesión: pasó, falló o no recolectó."""
+    _CODIGO_DE_SALIDA[:] = [int(exitstatus)]
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """Termina el proceso con ese código, sin desarmar lo que dejó Qt.
+
+    `trylast` es lo que la deja para el final: los informes de pytest y de
+    cualquier otro plugin ya se escribieron. Se vacían stdout y stderr antes,
+    porque ni `os._exit()` ni `TerminateProcess` lo hacen.
+
+    **En Windows con `TerminateProcess` y no con `os._exit()`.** Allá
+    `_exit` termina con `ExitProcess`, que igual le avisa a cada DLL que el
+    proceso se va, y los destructores estáticos de Qt caen ahí: medido, la
+    suite llegaba a este punto con código 0 y salía con 139. En Linux y
+    macOS, `_exit` no corre esos destructores.
+    """
+    if not _CODIGO_DE_SALIDA:
+        return
+    codigo = _CODIGO_DE_SALIDA[0]
+    sys.stdout.flush()
+    sys.stderr.flush()
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        # **Con los tipos declarados.** Sin ellos ctypes pasa el pseudo-handle
+        # del proceso, que es -1, como un entero de 32 bits: el handle queda
+        # inválido, `TerminateProcess` falla sin decir nada y se sigue de largo.
+        kernel32 = ctypes.windll.kernel32
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        kernel32.TerminateProcess.argtypes = (wintypes.HANDLE, wintypes.UINT)
+        kernel32.TerminateProcess(kernel32.GetCurrentProcess(), codigo)
+    os._exit(codigo)
 
 
 #: Resolución del BrainVision sintético: cuántos µV vale una cuenta entera del
