@@ -158,6 +158,61 @@ pueden haberse visto afectados y que habria que volver a probar.
 Ademas, cada archivo .py arranca con un comentario que dice de que se ocupa y
 que requisitos del pliego cubre.
 
+Donde cambiar que
+-----------------
+
+Lo que mas se pregunta quien abre el codigo sin programar. Casi todo es una
+linea con un nombre en mayusculas; cambiar el valor alcanza, y ningun otro
+archivo repite el numero.
+
+  La duracion de la epoca (30 s), la grilla (3 s y 0,5 s), la banda de
+  amplitud (75 uV) y los nombres de los tres archivos de salida:
+      psglab/config.py  -> WINDOW_SECONDS, COARSE_GRID_SECONDS,
+      FINE_GRID_SECONDS, AMPLITUDE_BAND_UV, SCORING_FILENAME,
+      ANNOTATIONS_FILENAME, INFORMATION_FILENAME
+
+  Con que escala abre cada clase de canal (EEG, EOG, EMG, ECG), las escalas
+  del menu "Amplitud" y sus limites:
+      psglab/config.py  -> DEFAULT_SCALE_BY_KIND_UV, AMPLITUDE_PRESETS_UV,
+      MIN_SCALE_UV, MAX_SCALE_UV
+
+  Las respuestas del cliente sobre los archivos de salida (si Scoring.txt
+  lleva el numero de ventana o la nomenclatura, desde que muestra se cuentan
+  las anotaciones, como se cuenta la ocupacion):
+      psglab/config.py  -> SCORING_INCLUDES_WINDOW_NUMBER,
+      SCORING_INCLUDES_NOMENCLATURE_HEADER, ANNOTATION_SAMPLE_BASE,
+      OCCUPANCY_COUNTS_OVERLAP_ONCE
+
+  Los filtros sugeridos para cada clase de canal, y el notch de 50 Hz:
+      psglab/analysis/filters.py  -> DEFAULT_FILTERS, DEFAULT_NOTCH_HZ
+
+  Las bandas de frecuencia (delta, theta, alfa, sigma, beta):
+      psglab/analysis/psd.py  -> DEFAULT_BANDS
+  El usuario tambien las cambia desde la ventana de configuracion, sin tocar
+  el codigo.
+
+  Las teclas:
+      psglab/ui/shortcuts.py  -> FIXED_SHORTCUTS, ACTIONS, SIGNAL_ACTIONS
+  Las de las fases salen del codigo de cada fase (1 a 4, W, R, M) en
+  key_for_stage(), en el mismo archivo.
+
+  Los colores: psglab/ui/theme.py, en los dos esquemas (SERENO y NOCTURNO),
+  incluido el color de cada fase de sueno. No se configuran desde la ventana
+  a proposito; agregar un esquema es sumarlo a SCHEMES.
+
+  Las clases de anotacion con que arranca un registro:
+      psglab/core/annotations.py  -> DEFAULT_LABELS
+
+  Que nombre de canal se reconoce como EEG, EOG, EMG, respiratorio:
+      psglab/readers/channel_types.py  -> KIND_PATTERNS, EEG_POSITIONS
+
+  Las velocidades de la reproduccion:
+      psglab/ui/playback.py  -> PLAYBACK_SPEEDS
+
+Lo que elige cada usuario -el esquema, el tamano de letra, las bandas, la
+cantidad de ventanas del contexto- no esta en el codigo: se guarda en su
+perfil, en preferencias.json, y se cambia desde la ventana de configuracion.
+
 
 -------------------------------------------------------------------------------
 5. COMO INSTALARLO Y USARLO
