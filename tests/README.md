@@ -53,6 +53,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_validation.py` | Que un NaN no atraviese una guarda numérica. |
 | `test_contratos.py` | Que ningún método público escape del `except` de la interfaz. |
 | `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
+| `test_salida.py` | Cómo termina el proceso de la suite (hito 80): `conftest.py` sale con `os._exit()` en cuanto pytest informó, para que el intérprete no desarme las ventanas de Qt —en el CI eso cayó con un `Segmentation fault` con todo en verde—. Verifica, en otro proceso, que el código de salida y el resumen no se pierdan. |
 | `test_formatting.py` | Cómo se escribe un número para el usuario y cómo se lee el que escribe (hito 79): con coma, sin ceros de más, un NaN que no se escribe «nan», las duraciones y que «inf» no se lea como un corte de filtro. |
 | `test_windows.py` | Conversión entre ventanas, muestras y tiempo. |
 | `test_viewport.py` | La página visible: que se recorte en un solo lugar y que navegar no la mueva si la época ya está dentro. |

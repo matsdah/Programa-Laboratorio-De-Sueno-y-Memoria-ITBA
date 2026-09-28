@@ -1,6 +1,6 @@
 # Historial — los hitos cerrados
 
-Los hitos del 0 al 79, en orden, cada uno con lo que se hizo, lo que se
+Los hitos del 0 al 80, en orden, cada uno con lo que se hizo, lo que se
 decidió y lo que se midió. **No lleva estado**: lo abierto, las preguntas al
 cliente y la tabla de progreso están en [`TODO.md`](TODO.md), que es el único
 lugar que dice qué falta. Hasta el 27 de septiembre de 2026 las dos cosas
@@ -109,7 +109,8 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 76](#hito-76-la-ventana-en-ocho-archivos)** partió la ventana principal en ocho archivos, uno por tema, y el
 **[hito 77](#hito-77-una-sola-tipografía)** dejó una sola tipografía, IBM Plex Sans, y el
 **[hito 78](#hito-78-que-la-suite-vea-la-letra-real)** hizo que los tests, las capturas y los bancos la vean, y el
-**[hito 79](#hito-79-la-auditoría-del-26-de-septiembre)** resolvió lo que encontró la auditoría del 26 de septiembre.
+**[hito 79](#hito-79-la-auditoría-del-26-de-septiembre)** resolvió lo que encontró la auditoría del 26 de septiembre, y el
+**[hito 80](#hito-80-la-suite-sale-sin-desarmar-qt)** hizo que la suite salga sin desarmar Qt, que tiraba el CI con todo en verde.
 
 **Del 34 al 48 se hicieron con el 33 abierto**, y lo cerró el 49. Decía acá
 que el 34 era «la única vez que pasa» y dejó de ser cierto en el 35: es
@@ -7209,3 +7210,52 @@ de quien scorea una noche entera.
 - [x] **La cuenta de hitos**, a ochenta en los cuatro documentos que la
       declaran, y el numeral «ochenta» en el diccionario de
       `tests/test_consistencia.py`, que llegaba hasta setenta y nueve.
+
+---
+
+## Hito 80: La suite sale sin desarmar Qt
+
+**Abierto y cerrado el 28 de septiembre de 2026.** El CI cayó dos veces con un
+`Segmentation fault` **con todos los tests en verde**: en macOS con Python 3.11
+en la #135 —4783 pasados— y en Ubuntu con Python 3.11 en la #147 —4762
+pasados—. Las dos veces el resumen de pytest ya estaba escrito, y el proceso
+cayó uno o dos minutos después, al terminar el intérprete. El job salía rojo
+y el merge automático se trababa por algo que pasa cuando ya no queda nada
+que verificar.
+
+**La causa es el desarme de Qt.** Las ventanas que arman los tests no se
+destruyen, a propósito: cerrarlas pregunta por el trabajo sin exportar con un
+cartel modal que nadie contesta. Al terminar, el intérprete las desarma en
+cualquier orden, después de la `QApplication`, y eso es lo que cae, sólo a
+veces y según la plataforma.
+
+- [x] **La suite sale con `os._exit()` en cuanto pytest informó.**
+      `pytest_sessionfinish` guarda el código de la sesión y
+      `pytest_unconfigure`, con `trylast` para ser lo último que corre, vacía
+      stdout y stderr y sale con ese código, sin desarmar nada. Saliendo
+      antes, el desarme no ocurre. Nada llama a pytest dentro del mismo
+      proceso, así que salir así no corta a nadie. De paso, el job ya no
+      espera los dos minutos que tardaba en caer.
+- [x] **En Windows, con `TerminateProcess`.** Arreglándolo apareció que **en
+      Windows la suite también salía con 139**, con todo en verde, y desde
+      antes: nadie lo veía porque se leía el resumen y no el código de
+      salida. Ahí `os._exit()` no alcanza: `_exit` termina con
+      `ExitProcess`, que igual le avisa a cada DLL que el proceso se va, y
+      los destructores estáticos de Qt caen en ese aviso —medido: la suite
+      llegaba a `pytest_unconfigure` con código 0 y salía con 139—.
+      `TerminateProcess` corta sin avisar. **Con los tipos de ctypes
+      declarados**: sin ellos el pseudo-handle del proceso, -1, viaja como
+      un entero de 32 bits, la llamada falla sin decir nada y se sigue de
+      largo hasta el `_exit`. Y la `QApplication` queda sostenida hasta el
+      final, porque pytest suelta el valor de la fixture de sesión antes del
+      último hook.
+  - Test: `tests/test_salida.py`, **3 tests en verde**, que corren pytest en
+    otro proceso con `conftest.py` como plugin: una suite en verde sale con
+    0, una con un fallo sale con 1 —el caso que no se puede perder—, y con
+    una ventana de Qt abierta y sin cerrar sale con el código de la sesión.
+    Todos miran también que el resumen se haya escrito. El `Segmentation
+    fault` no se reproduce en Windows, así que lo que verifica que el arreglo
+    alcanza es el CI.
+- [x] **La cuenta de hitos en palabras llega a «noventa y nueve».** El mapa de
+      `test_consistencia.py` terminaba en «ochenta», y este hito es el
+      ochenta y uno.

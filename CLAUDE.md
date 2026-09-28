@@ -181,6 +181,12 @@ python -m pytest tests/test_scoring.py::test_el_arousal_es_independiente_de_la_f
 python -m pytest -rs
 ```
 
+**La suite sale con `os._exit()` en cuanto pytest informó** (hito 80), y en
+Windows con `TerminateProcess`: desarmar al final las ventanas de Qt que dejan
+los tests tiraba el CI con un `Segmentation fault`, con todo en verde, y en
+Windows salía con 139 sin que nadie lo notara. Lo hace `conftest.py`, y el
+código de salida es el de la sesión: **mirarlo**, no sólo el resumen.
+
 **La suite completa tarda varios minutos**, sobre todo por los seis
 `test_entrega*.py`, que arman una ventana por test —eran uno solo hasta el
 hito 79; lo que comparten está en `tests/entrega_comun.py`—. Conviene correrla en segundo plano y **sin otra
