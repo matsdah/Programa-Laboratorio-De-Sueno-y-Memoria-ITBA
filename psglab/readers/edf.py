@@ -53,20 +53,14 @@ from pathlib import Path
 import mne
 import numpy as np
 
-from psglab.core.recording import Channel, Recording
+from psglab.core.recording import Recording
 from psglab.readers.base import IMPORT_WARNINGS_KEY, MARKS_KEY, Reader, register_reader
-from psglab.readers.channel_types import detect_channel_kind
+from psglab.readers.from_mne import build_channels, marks_of
 from psglab.utils.errors import (
     RecordingTooLargeError,
-    UnknownUnitError,
     UnreadableFileError,
     memoria_suficiente,
 )
-from psglab.utils.units import MICROVOLT, conversion_factor, is_electrical
-
-#: Unidad en la que MNE entrega los canales que reconoce como eléctricos. No es
-#: la que declara el archivo: es la del SI, que MNE usa internamente.
-_UNIDAD_DE_MNE = "V"
 
 #: Las grafías de unidad que MNE lleva a volts al leer un EDF, **exactamente
 #: como las compara él**: con mayúsculas y sin normalizar. Copiadas de
@@ -202,26 +196,6 @@ def _duracion_legible(segundos: float) -> str:
     return f"{sueltos} s"
 
 
-def _factor_a_microvoltios(unidad: str) -> float | None:
-    """Por cuánto multiplicar la fila que entregó MNE para tenerla en µV.
-
-    Returns:
-        El factor, o None si el canal no es eléctrico y queda en su escala.
-        **Una unidad eléctrica ambigua también da None** —"MV", que puede ser
-        mega o mili—: `conversion_factor()` se niega a adivinarla, y el canal
-        queda como vino y con su unidad a la vista en vez de impedir abrir el
-        registro entero por uno solo.
-    """
-    if unidad in _UNIDADES_QUE_MNE_PASA_A_VOLTS:
-        return conversion_factor(_UNIDAD_DE_MNE)
-    if not is_electrical(unidad):
-        return None
-    try:
-        return conversion_factor(unidad)
-    except UnknownUnitError:
-        return None
-
-
 @register_reader
 class EdfReader(Reader):
     """Lector de registros EDF y EDF+."""
@@ -299,41 +273,17 @@ class EdfReader(Reader):
         with memoria_suficiente("abrir el registro"):
             datos = np.asarray(crudo.get_data(), dtype=float)
 
-        canales: list[Channel] = []
-        for posicion, nombre in enumerate(crudo.ch_names):
-            unidad_declarada, frecuencia_original = cabecera[posicion]
-            factor = _factor_a_microvoltios(unidad_declarada)
-            if factor is not None:
-                # **En sitio**: `to_microvolts()` devuelve un array nuevo, y sobre
-                # el registro de prueba eso eran 42 ms por canal en copias que se
-                # descartaban enseguida.
-                datos[posicion] *= factor
-                unidad_de_la_fila = MICROVOLT
-            else:
-                unidad_de_la_fila = unidad_declarada
-            canales.append(
-                Channel(
-                    name=nombre,
-                    # La clase se deduce de la unidad del archivo: es la que dice
-                    # que un canal en grados no puede ser un EEG. Si el canal se
-                    # convirtió se le pasa µV, porque MNE reconoce grafías —la mu
-                    # de Shift-JIS— que la detección no, y el veto de la unidad
-                    # dejaría fuera del EEG un canal que sí lo es.
-                    kind=detect_channel_kind(
-                        nombre, MICROVOLT if factor is not None else unidad_declarada
-                    ),
-                    unit=unidad_de_la_fila,
-                    index=posicion,
-                    original_sampling_rate=frecuencia_original,
-                )
-            )
+        canales = build_channels(
+            crudo.ch_names,
+            datos,
+            units=[unidad for unidad, _ in cabecera],
+            original_rates=[frecuencia for _, frecuencia in cabecera],
+            mne_volt_units=_UNIDADES_QUE_MNE_PASA_A_VOLTS,
+        )
 
         metadatos: dict[str, object] = {}
         if len(crudo.annotations):
-            metadatos[MARKS_KEY] = [
-                (float(a["onset"]), float(a["duration"]), str(a["description"]))
-                for a in crudo.annotations
-            ]
+            metadatos[MARKS_KEY] = marks_of(crudo)
         declarada = _duracion_declarada_si_falta(path)
         if declarada is not None:
             leida = datos.shape[1] / float(crudo.info["sfreq"])

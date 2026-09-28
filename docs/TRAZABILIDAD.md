@@ -136,11 +136,11 @@ commit.
 ## Módulos de infraestructura
 
 Se listan acá porque la tabla también sirve para la pregunta inversa: **qué se
-rompe si se toca este archivo**. Estos treinta y uno se rompen hacia todos lados.
+rompe si se toca este archivo**. Estos treinta y dos se rompen hacia todos lados.
 
-Veintinueve de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
+Treinta de ellos no implementan ninguna funcionalidad numerada y por eso no tienen
 fila arriba: `config.py`, `utils/errors.py`, `utils/validation.py`, `utils/formatting.py`,
-`tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`,
+`tools/base.py`, `tools/registry.py`, `app.py`, `analysis/mne_bridge.py`, `readers/from_mne.py`,
 `core/viewport.py`, `core/decimation.py`, `core/recovery.py`, `core/history.py`, `ui/docks.py`, `ui/icons.py`, `ui/menus.py`,
 `ui/theme.py`, `ui/fonts.py`, `ui/panel_header.py`, `ui/background.py`, `ui/preferences.py`, `ui/settings_dialog.py`, `ui/shortcuts_dialog.py`,
 y desde el hito 76 `ui/main_window.py`, `ui/window_annotation.py`,
@@ -163,6 +163,7 @@ fila arriba**, y aparecen igual acá porque los toca media Parte 1.
 | `psglab/tools/registry.py` | Registro enchufable de herramientas | El menú Herramientas entero |
 | `psglab/app.py` | Construcción de la aplicación y la ventana | El arranque del programa |
 | `psglab/analysis/mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw`, y la escala volts ↔ µV | Filtrado, ICA y re-referenciado |
+| `psglab/readers/from_mne.py` | Lo que los dos lectores hacen con lo que devuelve MNE: la escala a µV, los canales y las marcas | Abrir cualquier EDF o BrainVision |
 | `psglab/core/viewport.py` | La página visible, separada de la época de scoring | La escala de tiempo y todo lo que se dibuja |
 | `psglab/core/recovery.py` | La copia de recuperación: qué del trabajo se guarda y cómo se vuelve a él | Recuperar una noche después de un cierre inesperado |
 | `psglab/core/history.py` | Deshacer y rehacer: fotos del trabajo y cómo volver a ellas | Ctrl+Z, Ctrl+Y y «Scoring › Deshacer» |

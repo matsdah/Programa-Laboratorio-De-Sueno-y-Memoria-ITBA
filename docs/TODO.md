@@ -639,9 +639,19 @@ una vez que agregarlos al lugar que después hay que partir.
   - Test: `tests/test_overlay_items.py`, **24 tests en verde**, y
     `tests/test_envelope_cache.py`, **7 tests en verde**, sin Qt;
     `tests/test_signal_view.py` sigue con **98 tests en verde**.
-- [ ] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
+- [x] **Los lectores comparten lo que repiten.** `edf.py` y `brainvision.py`
       tienen el mismo `_factor_a_microvoltios()`, el mismo armado de canales
       y la misma lectura de marcas: a un módulo común de `readers/`.
+      Hecho, en `readers/from_mne.py`: `microvolt_factor()`,
+      `build_channels()` —que convierte en el lugar y deduce la clase con la
+      unidad ya convertida— y `marks_of()`. **La tabla de grafías que MNE
+      lleva a volts sigue siendo de cada lector**, y se le pasa: MNE usa una
+      por formato, con mayúsculas y sin normalizar, y confundirla con la de
+      `utils/units.py` fue el error del hito 33. Los dos lectores bajaron unas
+      setenta líneas cada uno y `test_readers.py` no cambió.
+  - Test: `tests/test_from_mne.py`, **11 tests en verde**, sin archivo: qué
+    fila se convierte y desde qué unidad, que la tabla decida y no la
+    unidad, la clase con la unidad convertida y las marcas.
 - [x] **Una sola guarda de registro en `analysis/`**: `_exigir_registro()`
       está escrita siete veces, en siete módulos.
       Hecho: **eran nueve**, porque `complexity.py` e `impedance.py` la
