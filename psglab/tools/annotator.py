@@ -60,8 +60,8 @@ class AnnotatorTool(ViewerTool):
     def __init__(self) -> None:
         self._session: Session | None = None
         self._activa: bool = False
-        #: Extremos de la selección en curso, en segundos desde el inicio de la
-        #: ventana. `None` cuando el usuario no está arrastrando.
+        #: Extremos de la selección en curso, en segundos desde el inicio del
+        #: registro. `None` cuando el usuario no está arrastrando.
         self._desde: float | None = None
         self._hasta: float | None = None
         #: El tramo ya soltado y todavía sin clase, en muestras del registro.
