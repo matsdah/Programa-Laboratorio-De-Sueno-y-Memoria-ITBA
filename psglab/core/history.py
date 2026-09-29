@@ -201,11 +201,8 @@ class History:
         for sobrante in actuales - set(foto.anotaciones):
             anotaciones.remove(sobrante)
         for faltante in foto.anotaciones:
+            # Su clase sigue estando: `AnnotationSet` no tiene cómo borrar una.
             if faltante not in actuales:
-                # Las clases no se borran nunca, así que la suya sigue estando;
-                # esto es sólo por si la foto es anterior a alguna guarda.
-                if faltante.label not in anotaciones.labels():
-                    anotaciones.add_label(faltante.label)
                 anotaciones.add(faltante)
 
     def _donde_cambio(self, antes: _Foto, despues: _Foto) -> int | None:

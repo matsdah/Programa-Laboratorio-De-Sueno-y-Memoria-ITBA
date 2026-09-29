@@ -352,3 +352,14 @@ def test_al_desactivarse_se_vacian(sesion: Session):
     histograma.deactivate()
 
     assert histograma.suggested_bars() == ()
+
+
+def test_sin_registro_redibujar_y_actualizar_no_dejan_barras():
+    """La ventana avisa a todas las herramientas, abiertas o no (hito 81)."""
+    tool = HistogramTool()
+
+    tool.redraw()
+    tool.update_window(0)
+
+    assert tool.bars() == ()
+    assert tool.suggested_bars() == ()

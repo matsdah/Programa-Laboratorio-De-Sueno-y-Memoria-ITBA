@@ -199,20 +199,9 @@ class SignalView(pg.PlotWidget):
         desde el refactor las dos ya no coincidan. Distinguirlas por nombre es
         lo que evita que los tests que la usan como "el ancho de la pantalla"
         queden mintiendo en silencio: el ancho de la pantalla es
-        `view_span_seconds`.
+        `session.viewport.span_seconds`.
         """
         return WINDOW_SECONDS
-
-    @property
-    def view_span_seconds(self) -> float:
-        """Cuanto dura la pagina que se esta mirando.
-
-        Sin sesion devuelve la epoca, que es la pagina con la que el programa
-        arranca.
-        """
-        if self._session is None:
-            return WINDOW_SECONDS
-        return self._session.viewport.span_seconds
 
     def set_session(self, session: Session) -> None:
         """Asocia el visualizador a una sesión de trabajo."""

@@ -1861,3 +1861,39 @@ def test_el_canal_derivado_aparece_en_la_fila_del_espectro(ventana: MainWindow, 
     ventana.derive_dialog()
 
     assert f"{canales[0]}-{canales[1]}" in ventana.psd_panel.request.options("canal")
+
+
+# -- Lo que ningún test disparaba (hito 81) ------------------------------------
+
+
+def test_calcular_en_el_panel_de_la_metrica_usa_lo_que_dice_su_fila(
+    ventana: MainWindow, elige_opciones
+):
+    """El botón «Calcular» del panel, y no el menú: con el panel ya abierto,
+    elegir otro canal en la fila y calcular grafica ése. Ningún test apretaba
+    el botón, así que nada verificaba que siguiera conectado."""
+    elige_opciones(
+        ("C3", True), ("permutation_entropy", True),
+        ("EOG-izq", True), ("permutation_entropy", True),
+    )
+    ventana.show_complexity_dialog()
+    assert ventana.metric_panel.channels() == ["C3"]
+
+    ventana.metric_panel.request.boton.click()
+
+    assert "EOG-izq" in ventana.metric_panel.channels()
+    assert len(ventana.metric_panel.series("EOG-izq")) == VENTANAS
+    assert not ventana.carteles
+
+
+def test_limpiar_las_impedancias_deja_todos_los_canales_sin_medir(
+    ventana_con_impedancias: MainWindow,
+):
+    ventana = ventana_con_impedancias
+    ventana.show_impedance_dialog()
+    assert ventana.impedance_panel.values()
+
+    ventana.impedance_panel.boton_limpiar.click()
+
+    assert ventana.impedance_panel.values() == {}
+    assert not ventana.carteles

@@ -75,12 +75,12 @@ def _leer_lineas(path: Path) -> list[str]:
     # orden de bytes y le saca la marca al que la tiene. El Bloc de notas de
     # Windows la escribe, y con ella la cabecera `# AASM` no se reconocía y la
     # primera línea salía como "un valor que no es un número entero".
-    for codec in ("utf-8-sig", "latin-1"):
-        try:
-            return crudo.decode(codec).splitlines()
-        except UnicodeDecodeError:
-            continue
-    return crudo.decode("latin-1", errors="replace").splitlines()
+    # Latin-1 va último y sin `try`: le asigna un carácter a cada byte, así que
+    # no puede fallar.
+    try:
+        return crudo.decode("utf-8-sig").splitlines()
+    except UnicodeDecodeError:
+        return crudo.decode("latin-1").splitlines()
 
 
 def _es_comentario(linea: str) -> bool:

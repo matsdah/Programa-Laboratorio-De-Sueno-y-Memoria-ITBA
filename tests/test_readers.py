@@ -543,6 +543,34 @@ def test_un_vhdr_sin_codepage_se_decodifica_como_lo_hace_mne(tmp_path: Path):
     assert pico == pytest.approx(50.0, abs=RESOLUCION_BV_UV)
 
 
+@pytest.mark.parametrize("codepage", ["ANSI", "UTF-8"])
+def test_un_vhdr_escrito_en_la_codificacion_de_windows_se_entiende(
+    tmp_path: Path, codepage: str
+):
+    """**BrainAmp Recorder escribe `Codepage=ANSI`**, que Python no conoce con
+    ese nombre, y la cabecera en cp1252. Con `UTF-8` declarado y los mismos
+    bytes, la «µ» no es UTF-8 válido y se cae a latin-1, igual que MNE. Las dos
+    ramas estaban sin ejecutar (hito 81)."""
+    vhdr = escribir_brainvision(tmp_path, segundos=3, codepage=codepage)
+    vhdr.write_bytes(vhdr.read_text(encoding="utf-8").encode("cp1252"))
+
+    registro = read_recording(vhdr)
+
+    assert [canal.unit for canal in registro.channels] == [MICROVOLT] * 3
+    assert registro.channel_by_name("C3").kind is ChannelKind.EEG
+    pico = float(np.max(np.abs(registro.data[0])))
+    assert pico == pytest.approx(50.0, abs=RESOLUCION_BV_UV)
+
+
+def test_un_vhdr_con_un_codepage_que_no_existe_sale_como_archivo_danado(tmp_path: Path):
+    """MNE lo rechaza antes que el lector: tiene que llegar como el cartel de
+    siempre y no como un `LookupError`."""
+    vhdr = escribir_brainvision(tmp_path, segundos=3, codepage="no-existe")
+
+    with pytest.raises(UnreadableFileError):
+        read_recording(vhdr)
+
+
 def test_las_coordenadas_no_pisan_las_unidades(tmp_path: Path):
     """`[Coordinates]` también tiene líneas `Ch<n>=`, y no hablan de unidades.
     Leyendo la cabecera por posición, sin mirar la sección, un canal en mV se

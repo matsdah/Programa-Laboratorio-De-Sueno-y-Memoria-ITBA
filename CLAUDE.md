@@ -192,6 +192,16 @@ código de salida es el de la sesión: **mirarlo**, no sólo el resumen.
 hito 79; lo que comparten está en `tests/entrega_comun.py`—. Conviene correrla en segundo plano y **sin otra
 corrida de pytest en paralelo**: superpuestas, el tiempo casi se triplicó.
 
+La cobertura se mide con `coverage` (hito 81), que está en
+`requirements-dev.txt`; en Python 3.12 o más nuevo, con `COVERAGE_CORE=sysmon`,
+que ve también lo que corre en un `QThread`. El porqué y lo que no mide están
+en [`tests/README.md`](tests/README.md#la-cobertura).
+
+```bash
+python -m coverage run -m pytest
+python -m coverage report
+```
+
 Los tres bancos de medición **no son tests y pytest no los recolecta**: se
 corren a mano e imprimen una tabla, sin afirmar nada.
 
@@ -559,8 +569,8 @@ equivocados:
 
 El eje del visualizador está en segundos absolutos, `OccupancyLine` guarda
 fracciones **de la página** y el anotador guarda muestras. En `SignalView`,
-`window_seconds` es la época y `view_span_seconds` es la página: los nombres
-están separados a propósito. Una página larga no se dibuja muestra por muestra
+`window_seconds` es la época, y la página se lee de `Session.viewport`: el
+nombre no dice «pantalla» a propósito. Una página larga no se dibuja muestra por muestra
 sino con la envolvente mínimo/máximo de `core/decimation.py`, que no puede
 perder un pico.
 

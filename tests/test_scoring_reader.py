@@ -397,3 +397,26 @@ def test_una_ventana_nombrada_dos_veces_se_rechaza(tmp_path: Path):
         read_scoring(archivo, 3)
 
     assert "ventana 1" in str(error.value)
+
+
+# -- Lo que la medición de cobertura encontró sin ejecutar (hito 81) -----------
+
+
+def test_un_archivo_en_latin_1_se_lee_igual(tmp_path: Path):
+    """Un archivo guardado con la codificación de Windows: la «í» de un
+    comentario no es UTF-8 válido. Se cae a latin-1 y los datos salen igual."""
+    archivo = tmp_path / "Scoring.txt"
+    archivo.write_bytes("# Scoring de María\n# AASM\n0 0\n2 1\n".encode("latin-1"))
+
+    scoring = read_scoring(archivo, 2)
+
+    assert scoring.nomenclature is Nomenclature.AASM
+    assert [scoring.get(i).stage for i in range(2)] == [SleepStage.WAKE, SleepStage.N2]
+
+
+def test_la_cabecera_se_encuentra_aunque_haya_lineas_en_blanco_antes(escribir):
+    assert detect_nomenclature(escribir("\n\n# RK\n0 0\n")) is Nomenclature.RK
+
+
+def test_un_archivo_que_es_todo_comentarios_no_declara_nomenclatura(escribir):
+    assert detect_nomenclature(escribir("# exportado a mano\n# sin datos\n")) is None

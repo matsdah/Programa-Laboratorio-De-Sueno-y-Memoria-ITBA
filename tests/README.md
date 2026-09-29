@@ -17,6 +17,36 @@ camino de búsqueda. Con `pytest` directo la recolección falla en los setenta y
 archivos que importan `psglab` al cargarse, con
 `ModuleNotFoundError: No module named 'psglab'`.
 
+## La cobertura
+
+Desde el hito 81 se puede medir qué líneas de `psglab/` ejecuta la suite.
+`coverage` está en `requirements-dev.txt` y su configuración, en `.coveragerc`:
+
+```bash
+python -m coverage run -m pytest
+python -m coverage report
+```
+
+**`conftest.py` guarda la medición antes de salir.** `coverage` escribe sus
+datos en un `atexit`, y la suite sale con `os._exit()` o `TerminateProcess`
+(hito 80), que no lo corren: sin ese guardado, la corrida termina en verde y
+sin ninguna línea medida.
+
+**En Python 3.12 o más nuevo conviene `COVERAGE_CORE=sysmon`**, por dos
+motivos. Mide también lo que corre en un `QThread` —abrir, filtrar, la ICA—,
+que el trazador de siempre no ve y daría como no cubierto. Y no necesita la
+extensión en C de `coverage`, que en Windows puede bloquear el Control de
+aplicaciones inteligente: sin ella, `coverage` cae a un trazador en Python
+varias veces más lento, y lo avisa con `Couldn't import C tracer`.
+
+**Se miden líneas y no ramas.** Con `sysmon`, las ramas necesitan Python 3.14.
+
+**El número no es una meta ni lo exige el CI.** Lo que sirve es la lista de
+líneas sin ejecutar: una función pública con ninguna es un camino que ningún
+test recorre, esté o no conectado a la ventana. Así salieron los hallazgos del
+hito 81, desde el clic en un botón de fase hasta un color de anotación que se
+aceptaba sin validar.
+
 ## Los tests que se apagan, y por qué hoy no hay ninguno
 
 Los tests de los módulos que todavía no están implementados están

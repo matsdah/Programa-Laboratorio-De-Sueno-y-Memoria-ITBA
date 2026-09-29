@@ -281,3 +281,13 @@ def test_el_circulo_se_publica_con_el_radio_de_la_pagina_que_se_mira(
     (circulo,) = lupa.overlays()
 
     assert circulo.radius_seconds == pytest.approx(RADIO_INICIAL_SEGUNDOS * 3.0 / WINDOW_SECONDS)
+
+
+def test_sin_registro_mover_el_mouse_no_dibuja_la_lupa():
+    """Pasar el mouse sobre la señal vacía no puede dejar una lupa colgada de
+    un canal que no existe (hito 81)."""
+    tool = MagnifierTool()
+
+    tool.on_mouse_move(1.0, 2.0, "C3")
+
+    assert not tool.overlays()
