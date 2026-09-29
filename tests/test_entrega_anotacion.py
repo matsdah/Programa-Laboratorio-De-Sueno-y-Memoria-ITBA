@@ -917,3 +917,39 @@ def test_la_c_crea_una_clase_nueva(ventana: MainWindow, elige_en_el_menu, monkey
     assert ventana.tool_controller.tools["annotator"].active_label == "Apnea"
     assert "Apnea" in ventana.session.annotations.labels()
     assert [a.label for a in ventana.session.annotations.all()] == ["Apnea"]
+
+
+# -- El menú emergente, sin reemplazarlo (hito 81) -----------------------------
+
+
+@pytest.mark.parametrize("elegida, esperado", [("Borrar", "Borrar"), (None, None)])
+def test_el_menu_emergente_devuelve_el_texto_de_lo_elegido(
+    ventana: MainWindow, monkeypatch, elegida, esperado
+):
+    """Todos los tests del clic derecho reemplazan `_elegir_en_un_menu()`
+    entero, porque el menú es modal. Éste reemplaza sólo el `exec()`: arma el
+    menú de verdad y verifica que traiga las opciones y que devuelva lo elegido,
+    o None si se cerró sin elegir.
+
+    **Con una subclase en el módulo que lo usa**, y no con
+    `monkeypatch.setattr(QMenu, "exec", ...)`: en PySide6 `QMenu.exec` es
+    estático y de instancia a la vez, Shiboken ignora el reemplazo sobre la
+    clase y el menú se abre de verdad, que es colgar la suite."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QMenu
+
+    import psglab.ui.window_annotation as anotacion_mod
+
+    ofrecidas: list[list[str]] = []
+
+    class MenuDePrueba(QMenu):
+        def exec(self, _donde):  # noqa: A003 - es el nombre del método de Qt
+            ofrecidas.append([a.text() for a in self.actions()])
+            return next((a for a in self.actions() if a.text() == elegida), None)
+
+    monkeypatch.setattr(anotacion_mod, "QMenu", MenuDePrueba)
+
+    eleccion = ventana._elegir_en_un_menu(["Cambiar la clase…", "Borrar"], QPoint(0, 0))
+
+    assert eleccion == esperado
+    assert ofrecidas == [["Cambiar la clase…", "Borrar"]]

@@ -1614,3 +1614,24 @@ def test_la_consola_sigue_mostrando_la_traza(qt_app, monkeypatch):
     elevar(KeyError("canal"))
 
     assert consola == [KeyError]
+
+
+# -- Lo que ningún test disparaba (hito 81) ------------------------------------
+
+
+def test_el_atajo_de_una_clase_oculta_y_vuelve_a_mostrar_sus_canales(ventana: MainWindow):
+    """El pie del selector de canales: un botón por clase. El registro de
+    prueba trae un canal de cada clase, así que ocultar el EEG deja los otros
+    dos. Ningún test hacía clic en estos botones."""
+    from psglab.core.recording import ChannelKind
+
+    todos = list(ventana.session.visible_channels)
+    boton = ventana.channel_selector._atajos[ChannelKind.EEG]
+
+    boton.click()
+    assert "C3" not in ventana.session.visible_channels
+    assert set(ventana.session.visible_channels) == set(todos) - {"C3"}
+
+    boton.click()
+    assert ventana.session.visible_channels == todos
+    assert not ventana.carteles

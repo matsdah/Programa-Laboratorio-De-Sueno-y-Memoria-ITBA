@@ -165,6 +165,7 @@ def pytest_unconfigure(config: pytest.Config) -> None:
     if not _CODIGO_DE_SALIDA:
         return
     codigo = _CODIGO_DE_SALIDA[0]
+    _guardar_la_cobertura()
     sys.stdout.flush()
     sys.stderr.flush()
     if sys.platform == "win32":
@@ -179,6 +180,23 @@ def pytest_unconfigure(config: pytest.Config) -> None:
         kernel32.TerminateProcess.argtypes = (wintypes.HANDLE, wintypes.UINT)
         kernel32.TerminateProcess(kernel32.GetCurrentProcess(), codigo)
     os._exit(codigo)
+
+
+def _guardar_la_cobertura() -> None:
+    """Escribe lo que midió `coverage`, si la suite corre bajo él.
+
+    `coverage` guarda sus datos en un `atexit`, y ni `os._exit()` ni
+    `TerminateProcess` lo corren: sin esto, `coverage run -m pytest` termina
+    con la suite en verde y sin ninguna línea medida.
+    """
+    try:
+        import coverage
+    except ImportError:
+        return
+    medicion = coverage.Coverage.current()
+    if medicion is not None:
+        medicion.stop()
+        medicion.save()
 
 
 #: Resolución del BrainVision sintético: cuántos µV vale una cuenta entera del

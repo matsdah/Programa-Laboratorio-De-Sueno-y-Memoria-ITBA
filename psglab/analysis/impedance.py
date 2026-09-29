@@ -142,16 +142,12 @@ def load_impedances_from_file(path: Path) -> dict[str, float]:
             details=f"{type(error).__name__}: {error}",
         ) from error
 
-    # La misma cascada que `scoring_reader.py`: latin-1 nunca falla, así que
-    # sirve de última red y el archivo siempre se puede leer.
-    for codificacion in ("utf-8", "latin-1"):
-        try:
-            texto = crudo.decode(codificacion)
-            break
-        except UnicodeDecodeError:
-            continue
-    else:  # pragma: no cover - latin-1 acepta cualquier byte
-        texto = crudo.decode("latin-1", errors="replace")
+    # La misma cascada que `scoring_reader.py`: latin-1 le asigna un carácter a
+    # cada byte, así que va último y sin `try`, y el archivo siempre se lee.
+    try:
+        texto = crudo.decode("utf-8")
+    except UnicodeDecodeError:
+        texto = crudo.decode("latin-1")
 
     medidas: dict[str, float] = {}
     for numero, linea in enumerate(texto.splitlines(), start=1):

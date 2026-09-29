@@ -248,3 +248,48 @@ def test_lo_que_falla_al_aplicarse_deshace_lo_ya_puesto():
     assert nueva.scoring.scored_windows() == 0
     assert not any(nueva.scoring.get(i).arousal for i in range(VENTANAS))
     assert nueva.annotations.all() == []
+
+
+# -- Copias rotas que ningún test probaba (hito 81) ----------------------------
+
+
+def test_una_anotacion_con_un_color_que_no_es_un_color_rechaza_la_copia():
+    """**Se aceptaba**: la copia es un JSON en el perfil y puede quedar dañada,
+    y un color `7` llegaba hasta el dibujo. Ver
+    `test_un_color_propio_que_no_es_rrggbb_se_rechaza`."""
+    copia = _por_texto(recovery.snapshot(_con_trabajo()))
+    copia["anotaciones"][0][4] = 7
+    nueva = _sesion()
+
+    with pytest.raises(UnreadableRecoveryError):
+        recovery.restore(nueva, copia)
+
+    assert nueva.annotations.all() == []
+
+
+def test_una_anotacion_con_los_canales_mal_escritos_rechaza_la_copia():
+    copia = _por_texto(recovery.snapshot(_con_trabajo()))
+    copia["anotaciones"][0][3] = 5
+    nueva = _sesion()
+
+    with pytest.raises(UnreadableRecoveryError):
+        recovery.restore(nueva, copia)
+
+    assert nueva.annotations.all() == []
+
+
+def test_una_copia_que_se_rompe_a_mitad_deshace_tambien_lo_que_ya_entro():
+    """La primera anotación entra y la última no, porque su clase no está en
+    la copia: **todo o nada** quiere decir que la primera también se va, y las
+    fases con ella. Ningún test llegaba a una falla después de la primera
+    anotación, así que el deshacer de las anotaciones no se ejecutaba nunca."""
+    copia = _por_texto(recovery.snapshot(_con_trabajo()))
+    copia["anotaciones"].append(["Fantasma", 10, 5, [], None])
+    nueva = _sesion()
+
+    with pytest.raises(UnreadableRecoveryError):
+        recovery.restore(nueva, copia)
+
+    assert nueva.annotations.all() == []
+    assert nueva.scoring.scored_windows() == 0
+    assert not any(nueva.scoring.get(i).arousal for i in range(VENTANAS))

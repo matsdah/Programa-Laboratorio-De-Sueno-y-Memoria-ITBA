@@ -11,3 +11,4 @@
 
 pytest>=8.0             # MIT    - testeos recurrentes por componente
 pip-licenses>=4.3       # MIT    - verificación de licencias de las dependencias
+coverage>=7.6           # Apache-2.0 - cobertura de la suite (ver tests/README.md)

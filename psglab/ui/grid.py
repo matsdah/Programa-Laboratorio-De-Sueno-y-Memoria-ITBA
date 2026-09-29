@@ -186,11 +186,6 @@ class GridBackground:
         # ajuste a sí mismo.
         plot.addItem(self._item, ignoreBounds=True)
 
-    @property
-    def style(self) -> BackgroundStyle:
-        """El fondo elegido por el usuario (V2_F)."""
-        return self._style
-
     def set_style(self, style: BackgroundStyle) -> None:
         """Cambia el fondo y redibuja las líneas (V2_F)."""
         self._style = style

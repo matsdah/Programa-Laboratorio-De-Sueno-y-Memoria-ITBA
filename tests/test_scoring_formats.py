@@ -937,3 +937,13 @@ def test_cada_formato_se_escribe_sin_dejar_provisorios(tmp_path, extension):
 
     assert list(tmp_path.iterdir()) == [destino]
     assert destino.stat().st_size > 0
+
+
+@pytest.mark.parametrize("valor, texto", [(30.0, "30"), (7.5, "7.5"), (0.1, "0.1"), (1 / 3, "0.333333")])
+def test_los_segundos_se_escriben_sin_ceros_de_mas(valor: float, texto: str):
+    """Con la época del pliego todo es entero y la rama de los decimales no se
+    ejecutaba (hito 81). `config.py` promete que cambiar la época es cambiar
+    una línea, y con una de 7,5 s sería la que escribe cada comienzo."""
+    from psglab.exporters.scoring_formats import _numero
+
+    assert _numero(valor) == texto

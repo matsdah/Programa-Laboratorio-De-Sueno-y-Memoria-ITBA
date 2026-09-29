@@ -548,3 +548,35 @@ def test_borrar_una_de_dos_iguales_deja_la_otra(anotaciones):
 
     assert anotaciones.all() == [evento(2_000)]
     assert anotaciones.in_range(2_000, 2_001) == [evento(2_000)]
+
+
+# -- El color propio de una anotación (hito 81) --------------------------------
+
+
+@pytest.mark.parametrize("color", [7, "rojo", "#12345", "#e6754aff"])
+def test_un_color_propio_que_no_es_rrggbb_se_rechaza(anotaciones: AnnotationSet, color):
+    """**Entraba cualquier cosa**: `add_label()` valida el color de la clase
+    desde el hito 48, y el de cada anotación quedó afuera. El anotador lo pasa
+    tal cual al dibujo, que le concatena la transparencia: un `7` era un
+    `TypeError` crudo en cada repintado. Lo encontró el hito 81, probando qué
+    aceptaba una copia de recuperación dañada."""
+    with pytest.raises(InvalidAnnotationError):
+        anotaciones.add(Annotation("Arousal", 0, 100, (), color))
+    assert anotaciones.all() == []
+
+
+def test_un_color_propio_valido_y_la_ausencia_de_color_se_aceptan(anotaciones: AnnotationSet):
+    anotaciones.add(Annotation("Arousal", 0, 100, (), "#abcdef"))
+    anotaciones.add(Annotation("Arousal", 200, 100))
+
+    assert [a.color for a in anotaciones.all()] == ["#abcdef", None]
+
+
+def test_reemplazar_por_una_con_color_invalido_deja_la_original(anotaciones: AnnotationSet):
+    original = evento(0)
+    anotaciones.add(original)
+
+    with pytest.raises(InvalidAnnotationError):
+        anotaciones.replace(original, Annotation("Arousal", 0, 100, (), "rojo"))
+
+    assert anotaciones.all() == [original]
