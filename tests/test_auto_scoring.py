@@ -299,3 +299,27 @@ def test_sin_yasa_lo_dice_en_vez_de_una_traza(monkeypatch):
     registro = registro_corto([Channel("C4", ChannelKind.EEG, "µV", 0)], segundos=600)
     with pytest.raises(StagingNotPossibleError, match="requirements-analysis"):
         suggest_stages(registro, "C4")
+
+
+# -- Lo que la medición de cobertura encontró sin ejecutar (hito 81) -----------
+
+
+def test_un_eeg_que_no_esta_en_microvoltios_no_se_elige():
+    """Un canal clasificado como EEG pero con una unidad que no es eléctrica
+    —un marcador mal rotulado, una temperatura— no sirve para el clasificador,
+    aunque tenga un nombre central."""
+    registro = registro_corto(
+        [Channel("C4", ChannelKind.EEG, "DegC", 0), Channel("O1", ChannelKind.EEG, "µV", 1)]
+    )
+    assert default_channels(registro).eeg == "O1"
+
+
+def test_una_fase_que_el_clasificador_inventa_sale_como_error_del_programa():
+    """Si yasa devolviera una etiqueta nueva, el `KeyError` atravesaría el
+    `except` de la ventana. Se prueba la traducción directamente: forzar a yasa
+    a inventar una fase no tiene otro camino."""
+    from psglab.analysis.auto_scoring import _fase
+
+    assert _fase("N2") is SleepStage.N2
+    with pytest.raises(StagingNotPossibleError):
+        _fase("N5")

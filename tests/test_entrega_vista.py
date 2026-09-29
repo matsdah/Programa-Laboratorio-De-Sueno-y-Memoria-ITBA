@@ -729,3 +729,121 @@ def test_reproduciendo_la_rueda_acerca_hacia_el_cursor(reproduccion: MainWindow)
 
     assert ventana.session.viewport.span_seconds == pytest.approx(30.0)
     assert ventana.session.viewport.center_seconds == pytest.approx(cursor)
+
+
+# -- Lo que ningún test disparaba (hito 81) ------------------------------------
+#
+# La medición de cobertura del hito 81 encontró estas acciones conectadas a un
+# atajo o a un menú y sin ningún test que las ejecutara: funcionaban, pero nada
+# lo afirmaba. Cada test entra por el atajo o por la entrada de menú, que es el
+# camino del usuario, y no llamando al método.
+
+
+def disparar_el_atajo(ventana: MainWindow, tecla: str) -> None:
+    """Dispara el atajo por su señal, como `test_espacio_reproduce_y_pausa`."""
+    from PySide6.QtGui import QShortcut
+
+    (atajo,) = [a for a in ventana.findChildren(QShortcut) if a.key().toString() == tecla]
+    atajo.activated.emit()
+
+
+def entrada_de_menu(ventana: MainWindow, metodo: str):
+    """La entrada de menú que ejecuta ese método: `menus._agregar()` lo deja en
+    `QAction.data()`."""
+    from PySide6.QtGui import QAction
+
+    (accion,) = [a for a in ventana.menuBar().findChildren(QAction) if a.data() == metodo]
+    return accion
+
+
+@pytest.mark.parametrize("tecla, factor", [("Ctrl++", 0.5), ("Ctrl+-", 2.0)])
+def test_acercar_y_alejar_con_el_teclado_cambian_la_pagina(
+    pagina_de_un_minuto: MainWindow, tecla: str, factor: float
+):
+    ventana = pagina_de_un_minuto
+    centro = ventana.session.viewport.center_seconds
+
+    disparar_el_atajo(ventana, tecla)
+
+    assert ventana.session.viewport.span_seconds == pytest.approx(60.0 * factor)
+    assert ventana.session.viewport.center_seconds == pytest.approx(centro)
+    assert not ventana.carteles
+
+
+@pytest.mark.parametrize(
+    "ida, vuelta, paso",
+    [
+        ("Shift+Right", "Shift+Left", WINDOW_SECONDS / 2),
+        ("Ctrl+Right", "Ctrl+Left", WINDOW_SECONDS),
+    ],
+)
+def test_los_atajos_hacia_atras_deshacen_los_de_adelante(
+    ventana: MainWindow, ida: str, vuelta: str, paso: float
+):
+    """Los de adelante los cubrían otros tests; los de atrás, ninguno."""
+    disparar_el_atajo(ventana, ida)
+    disparar_el_atajo(ventana, ida)
+    assert pagina(ventana) == pytest.approx(2 * paso)
+
+    disparar_el_atajo(ventana, vuelta)
+
+    assert pagina(ventana) == pytest.approx(paso)
+    assert not ventana.carteles
+
+
+@pytest.mark.parametrize("acepta, esperado", [(True, 45.0), (False, WINDOW_SECONDS)])
+def test_la_escala_personalizada_usa_lo_que_se_contesta(
+    ventana: MainWindow, monkeypatch, acepta: bool, esperado: float
+):
+    """«Ver › Escala de tiempo › Personalizado…». Cancelar no toca la página."""
+    from PySide6.QtWidgets import QInputDialog
+
+    monkeypatch.setattr(
+        QInputDialog, "getDouble", staticmethod(lambda *_a, **_k: (45.0, acepta))
+    )
+
+    entrada_de_menu(ventana, "ask_timescale").trigger()
+
+    assert ventana.session.viewport.span_seconds == pytest.approx(esperado)
+    assert not ventana.carteles
+
+
+def test_desplazamiento_a_cero_desde_el_menu(ventana: MainWindow):
+    canales = ventana.session.visible_channels
+    for canal in canales:
+        ventana.session.set_offset_uv(canal, 400.0)
+
+    entrada_de_menu(ventana, "reset_amplitude_offsets").trigger()
+
+    assert [ventana.session.offset_uv(c) for c in canales] == [0.0] * len(canales)
+    assert not ventana.carteles
+
+
+def test_ajustar_el_desplazamiento_desde_el_menu_lo_lleva_al_promedio(ventana: MainWindow):
+    """La señal sintética es una senoidal de promedio cero en cada época, así
+    que el desplazamiento que la centra es cero, y no los 400 µV de antes."""
+    canales = ventana.session.visible_channels
+    for canal in canales:
+        ventana.session.set_offset_uv(canal, 400.0)
+
+    entrada_de_menu(ventana, "center_amplitude_offsets").trigger()
+
+    for canal in canales:
+        assert ventana.session.offset_uv(canal) == pytest.approx(0.0, abs=1.0)
+    assert not ventana.carteles
+
+
+def test_ajustar_al_panel_desde_el_menu_cambia_la_escala(ventana: MainWindow):
+    """Con una escala de cien mil µV la onda es una raya; después del ajuste,
+    cada canal queda con la escala que `Session` calcula para esa época."""
+    canales = ventana.session.visible_channels
+    for canal in canales:
+        ventana.session.set_scale_uv(canal, 100_000.0)
+
+    entrada_de_menu(ventana, "fit_amplitude_to_pane").trigger()
+
+    ajustadas = [ventana.session.scale_uv(c) for c in canales]
+    assert all(escala < 100_000.0 for escala in ajustadas)
+    ventana.session.fit_to_pane()
+    assert ajustadas == [ventana.session.scale_uv(c) for c in canales]
+    assert not ventana.carteles

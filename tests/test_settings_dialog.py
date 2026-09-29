@@ -498,3 +498,16 @@ def test_apagar_el_paso_a_la_siguiente(dialogo: SettingsDialog, cambios):
     dialogo.advance_after_scoring.setChecked(False)
 
     assert ultima(cambios).advance_after_scoring is False
+
+
+def test_un_color_de_clase_rechazado_se_avisa_y_no_se_guarda(
+    dialogo: SettingsDialog, cambios, errores
+):
+    """Desde la ventana no se puede llegar acá —`ColorButton.choose()` ya
+    descarta los colores que no se pueden dibujar—, pero si alguien llama al
+    botón por otro lado el error tiene que salir como cartel y no como traza
+    (hito 81)."""
+    dialogo.annotation_buttons["Arousal"].on_chosen("no es un color")
+
+    assert len(errores) == 1
+    assert not cambios

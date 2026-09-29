@@ -1,0 +1,15 @@
+# Configuración de la medición de cobertura. Se corre con:
+#     python -m coverage run -m pytest
+#     python -m coverage report
+# Ver "La cobertura" en tests/README.md, que explica por qué mide líneas y no
+# ramas, y por qué conviene COVERAGE_CORE=sysmon.
+
+[run]
+source = psglab
+
+[report]
+show_missing = True
+skip_covered = True
+exclude_also =
+    if TYPE_CHECKING:
+    if __name__ == .__main__.:

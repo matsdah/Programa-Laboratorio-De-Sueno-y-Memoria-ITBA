@@ -417,3 +417,46 @@ def test_otro_registro_no_ve_la_copia(
 
     assert recupera["preguntas"] == []
     assert len(copias_en(perfil)) == 1
+
+
+# -- El cartel de recuperar, sin reemplazarlo (hito 81) ------------------------
+
+
+@pytest.fixture
+def aprieta(monkeypatch):
+    """Arma el cartel de verdad y aprieta el botón que se pida, sin mostrarlo.
+
+    Todos los demás tests reemplazan `ask_recovery()` entero, así que el texto
+    y los botones del cartel no los verificaba nadie. Esto reemplaza sólo el
+    `exec()` modal: guarda lo que dice el cartel y hace clic donde se le diga.
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    estado: dict[str, object] = {"boton": "Recuperar", "textos": []}
+
+    def exec_(cartel: QMessageBox) -> int:
+        estado["textos"].append(f"{cartel.text()} {cartel.informativeText()}")
+        (boton,) = [b for b in cartel.buttons() if b.text() == estado["boton"]]
+        boton.click()
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", exec_)
+    return estado
+
+
+@pytest.mark.parametrize("boton, recupera", [("Recuperar", True), ("Descartar", False)])
+def test_el_cartel_de_recuperar_devuelve_lo_que_se_aprieta(
+    armado: Guardian, sesion: Session, aprieta, boton: str, recupera: bool
+):
+    from datetime import datetime
+
+    aprieta["boton"] = boton
+
+    respuesta = armado.guardian.ask_recovery(datetime(2026, 9, 28, 23, 5), 3, 1)
+
+    assert respuesta is recupera
+    (texto,) = aprieta["textos"]
+    assert sesion.recording.file_path.name in texto
+    assert "3 ventanas scoreadas" in texto
+    assert "1 anotación" in texto
+    assert "28/09 a las 23:05" in texto

@@ -163,7 +163,8 @@ class AnnotationSet:
                 ninguna muestra. **La duración cero se rechaza a
                 propósito**: el pliego pide marcar el evento con una banda sobre
                 la señal, y una banda sin ancho no se puede dibujar ni solapar
-                con nada.
+                con nada. También si trae un color propio que no es
+                `#rrggbb`, la misma regla que `add_label()`.
         """
         self._validar(annotation)
         self._insertar(annotation)
@@ -214,6 +215,14 @@ class AnnotationSet:
                 f"La clase de evento «{annotation.label}» no está registrada, así que "
                 "no se puede anotar con ella.",
                 details=f"Clases disponibles: {', '.join(self.labels())}.",
+            )
+        # El color propio pasa por la misma regla que el de la clase: el
+        # anotador se lo da tal cual al dibujo, que le concatena la
+        # transparencia. Ver `add_label()`.
+        if annotation.color is not None and not es_color_de_clase(annotation.color):
+            raise InvalidAnnotationError(
+                "El color de la anotación no es un color que se pueda dibujar.",
+                details=f"annotation.color = {annotation.color!r}, se esperaba #rrggbb.",
             )
         check_finite(
             annotation.onset_sample,

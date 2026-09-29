@@ -336,3 +336,11 @@ def test_el_informe_no_lleva_ninguna_marca_de_markdown(marca: str):
 def test_el_informe_sin_ninguna_medida_tampoco():
     """La cuarta situación: el caso de todo EDF, que trae otra frase."""
     assert "**" not in impedance_report({}, channels=["C3", "O1"])
+
+
+def test_un_archivo_en_latin_1_se_lee_igual(tmp_path: Path):
+    """La «é» del comentario no es UTF-8 válido: se cae a latin-1 (hito 81)."""
+    archivo = tmp_path / "impedancias.txt"
+    archivo.write_bytes("# Medición de José\nC3 4.2\n".encode("latin-1"))
+
+    assert load_impedances_from_file(archivo) == {"C3": 4.2}

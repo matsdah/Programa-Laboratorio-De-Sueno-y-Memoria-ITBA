@@ -1,6 +1,6 @@
 # Historial — los hitos cerrados
 
-Los hitos del 0 al 80, en orden, cada uno con lo que se hizo, lo que se
+Los hitos del 0 al 81, en orden, cada uno con lo que se hizo, lo que se
 decidió y lo que se midió. **No lleva estado**: lo abierto, las preguntas al
 cliente y la tabla de progreso están en [`TODO.md`](TODO.md), que es el único
 lugar que dice qué falta. Hasta el 27 de septiembre de 2026 las dos cosas
@@ -110,7 +110,8 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 77](#hito-77-una-sola-tipografía)** dejó una sola tipografía, IBM Plex Sans, y el
 **[hito 78](#hito-78-que-la-suite-vea-la-letra-real)** hizo que los tests, las capturas y los bancos la vean, y el
 **[hito 79](#hito-79-la-auditoría-del-26-de-septiembre)** resolvió lo que encontró la auditoría del 26 de septiembre, y el
-**[hito 80](#hito-80-la-suite-sale-sin-desarmar-qt)** hizo que la suite salga sin desarmar Qt, que tiraba el CI con todo en verde.
+**[hito 80](#hito-80-la-suite-sale-sin-desarmar-qt)** hizo que la suite salga sin desarmar Qt, que tiraba el CI con todo en verde, y el
+**[hito 81](#hito-81-la-cobertura-de-los-tests)** midió por primera vez qué líneas ejecuta la suite y cubrió lo que ningún test recorría.
 
 **Del 34 al 48 se hicieron con el 33 abierto**, y lo cerró el 49. Decía acá
 que el 34 era «la única vez que pasa» y dejó de ser cierto en el 35: es
@@ -7259,3 +7260,152 @@ veces y según la plataforma.
 - [x] **La cuenta de hitos en palabras llega a «noventa y nueve».** El mapa de
       `test_consistencia.py` terminaba en «ochenta», y este hito es el
       ochenta y uno.
+
+---
+
+## Hito 81: La cobertura de los tests
+
+**Abierto y cerrado el 29 de septiembre de 2026.** El usuario pidió auditar los
+tests, medir su cobertura y **parchear los caminos que ningún test recorre**, y
+borrar el código que resultara inalcanzable avisando antes de cada borrado.
+Hasta acá la suite nunca se había medido: las redes de `test_consistencia.py`
+miran nombres y archivos, y la auditoría de los tests del
+[hito 48](#hito-48-la-auditoría-de-los-tests) usó mutación, pero ninguna
+decía qué líneas no ejecuta ningún test.
+
+**La primera medición dio 95 % de las líneas**, 508 sin ejecutar de 10 665, con
+4791 tests en verde. El número importa poco; lo que sirvió fue la lista. **Al
+cerrar, 96 %**: 407 sin ejecutar de 10 653, con 4854 tests en verde, y los
+archivos enteros pasaron de 49 a 63.
+
+### Cómo se mide
+
+- [x] **`coverage` en `requirements-dev.txt` y `.coveragerc`**, con
+      `source = psglab`. Ver [«La cobertura»](../tests/README.md#la-cobertura).
+- [x] **`conftest.py` guarda la medición antes de salir.** `coverage` escribe
+      en un `atexit`, y la suite sale con `TerminateProcess` o `os._exit()`
+      desde el [hito 80](#hito-80-la-suite-sale-sin-desarmar-qt): sin esto la
+      corrida terminaba en verde y sin ninguna línea medida.
+- [x] **Con `COVERAGE_CORE=sysmon`, y midiendo líneas y no ramas.** En esta
+      máquina el Control de aplicaciones inteligente de Windows **bloquea la
+      extensión en C de `coverage`**, que cae a un trazador en Python varias
+      veces más lento. `sys.monitoring`, de Python 3.12, no la necesita y
+      además **ve lo que corre en un `QThread`**, que el trazador de siempre
+      daba como no cubierto. Las ramas con `sysmon` piden Python 3.14.
+
+### Funciones vivas que ningún test ejecutaba
+
+Diecisiete funciones con **cero líneas ejecutadas**. Ninguna era un camino
+muerto: todas tienen un atajo, una entrada de menú o un botón que las llama.
+Eran caminos **del usuario** que nadie recorría.
+
+- [x] **El clic en un botón de fase del scoring.** Es la vía del mouse para
+      scorear, y todos los tests scoreaban por el teclado o llamando al
+      método. Test: `tests/test_entrega_scoring.py`, **48 tests en verde**.
+- [x] **Ctrl++ y Ctrl+−, Mayús+← y Ctrl+←, «Escala de tiempo › Personalizado…»
+      y las tres entradas de «Ver › Amplitud»** —ajustar al panel, ajustar el
+      desplazamiento y desplazamiento a cero—. Los de adelante tenían test y
+      los de atrás no. Cada test entra por el atajo o por la entrada de menú,
+      no por el método. Test: `tests/test_entrega_vista.py`, **56 tests en
+      verde**.
+- [x] **Los atajos por clase del selector de canales.** Test:
+      `tests/test_entrega_interfaz.py`, **104 tests en verde**.
+- [x] **«Calcular» del panel de la métrica y «Limpiar» de impedancias.** Test:
+      `tests/test_entrega_analisis.py`, **108 tests en verde**.
+- [x] **Los dos modales que los tests reemplazaban enteros**: el cartel de
+      recuperar el trabajo y el menú del clic derecho. Ahora se arman de
+      verdad y sólo se reemplaza el `exec()`, así que su texto y sus opciones
+      se verifican. **`QMenu.exec` no se puede reemplazar sobre la clase**: en
+      PySide6 es estático y de instancia a la vez, Shiboken ignora el
+      reemplazo y el menú se abre de verdad, que colgó la suite la primera
+      vez. Se reemplaza `QMenu` en el módulo que lo usa por una subclase.
+      Tests: `tests/test_work_guard.py`, **27 tests en verde**, y
+      `tests/test_entrega_anotacion.py`, **61 tests en verde**.
+- [x] **El aviso de un color de clase rechazado en la configuración**, que desde
+      la ventana no se alcanza porque `ColorButton.choose()` ya los descarta.
+      Test: `tests/test_settings_dialog.py`, **50 tests en verde**.
+
+`create_application()` queda sin test: sólo la llama `main.py`, y una segunda
+`QApplication` en el proceso de la suite no se puede crear.
+
+### El bug
+
+- [x] **El color propio de una anotación no se validaba.** `add_label()`
+      exige `#rrggbb` desde el hito 48, y el de cada anotación quedó afuera:
+      `AnnotationSet.add()` aceptaba `7`, `"rojo"` o `"#12345"`. El único
+      camino por el que entra es **la copia de recuperación**, un JSON en el
+      perfil que puede quedar dañado, y de ahí el anotador lo pasaba al
+      dibujo, que le concatena la transparencia: un `7` era un `TypeError`
+      crudo en cada repintado. Lo encontró un test de copias rotas, escrito
+      para cubrir el deshacer de `restore()`. `_validar()` ahora aplica la
+      misma regla, así que `add()` y `replace()` lo rechazan y la copia se
+      descarta entera. Tests: `tests/test_annotations.py`, **96 tests en
+      verde**, y `tests/test_recovery.py`, **31 tests en verde**, que agrega
+      además **la copia que se rompe a mitad**: la primera anotación entra y
+      la última no, y el deshacer tiene que sacar también la primera. Esa
+      rama no la ejecutaba nadie.
+
+### Guardas que ninguna fila alcanzaba
+
+- [x] **Quince filas nuevas en `RECHAZOS_OBLIGATORIOS`**, y una más por el
+      bug. Los `HOSTILES` de `CONTRATOS` no traen ceros ni negativos, así que
+      ninguna guarda de rango disparaba —`m = 0`, una tolerancia negativa, una
+      página mínima de cero, una frecuencia negativa—; y las filas de ICA
+      pasan `object()` como ICA, así que la guarda de la ICA rechazaba primero
+      y las del componente, la ventana y los excluidos no se ejecutaban nunca.
+      Las nuevas usan una ICA ajustada de verdad. **Se verificó con coverage
+      que cada fila llega a su guarda** y no la rechaza el armado, que es el
+      riesgo que advierte el propio archivo. Test: `tests/test_contratos.py`,
+      **1375 tests en verde**.
+
+### Los respaldos de lectura y el resto de las capas de negocio
+
+- [x] **BrainVision con `Codepage=ANSI`**, que es lo que escribe BrainAmp
+      Recorder, y con `UTF-8` declarado y bytes de cp1252: las dos ramas del
+      decodificador estaban sin ejecutar. **Un codepage que no existe lo
+      rechaza MNE antes que el lector**, y llega como el cartel de archivo
+      dañado. Test: `tests/test_readers.py`, **97 tests en verde**.
+- [x] **Un scoring y un archivo de impedancias en latin-1**, y la detección de
+      la cabecera con líneas en blanco o sólo comentarios. Tests:
+      `tests/test_scoring_reader.py`, **41 tests en verde**, y
+      `tests/test_impedance.py`, **55 tests en verde**.
+- [x] **Un EEG que no está en µV no lo elige el clasificador**, y una fase que
+      yasa inventara sale como error del programa. Test:
+      `tests/test_auto_scoring.py`, **22 tests en verde**.
+- [x] **Los segundos con decimales al exportar el scoring**, que con la época
+      del pliego nunca aparecen y con una de 7,5 s serían cada comienzo; y
+      **`duration()` con infinito o NaN**. Tests:
+      `tests/test_scoring_formats.py`, **92 tests en verde**, y
+      `tests/test_formatting.py`, **49 tests en verde**.
+- [x] **El hipnograma, la lupa y la ocupación sin registro abierto.** Tests:
+      `tests/test_histogram.py`, **38 tests en verde**;
+      `tests/test_magnifier.py`, **37 tests en verde**; y
+      `tests/test_occupancy.py`, **53 tests en verde**.
+
+### Lo que se borró
+
+Cinco pedazos inalcanzables, cada uno confirmado con el usuario antes:
+
+- [x] **`GridBackground.style`**, una propiedad que nada leía: sólo se usa
+      `set_style()`.
+- [x] **`SignalView.view_span_seconds`**, otra que sólo nombraba un docstring.
+      `CLAUDE.md` la citaba como la mitad de la separación entre época y
+      página; ahora dice que la página se lee de `Session.viewport`.
+- [x] **El último `return` de `scoring_reader._leer_lineas()`** y **el `else`
+      de la cascada de `load_impedances_from_file()`**: los dos seguían a un
+      intento con latin-1, que le asigna un carácter a cada byte y no falla
+      nunca. Las dos cascadas quedaron iguales, como decía el comentario de
+      la segunda.
+- [x] **Volver a crear la clase de una anotación al deshacer**, en
+      `History._aplicar()`. `AnnotationSet` no tiene cómo borrar una clase,
+      `add()` exige que exista y la sesión no deja reemplazar el conjunto.
+
+### Lo que queda sin cubrir, a propósito
+
+Las ramas `except PsgLabError` de los mixins de la ventana y sus guardas `if
+self._session is None`: las primeras sólo se alcanzan si `core/` rechaza algo
+que la interfaz ya filtró, y las segundas protegen slots que Qt puede llamar
+sin registro. Los respaldos de lectura que necesitan un error del disco entre
+dos lecturas. Y la guarda de `connectivity.py` para un registro de menos de
+dos muestras por época. Ninguno es código muerto, y escribirles un test es
+simular una falla que el programa no puede provocar.

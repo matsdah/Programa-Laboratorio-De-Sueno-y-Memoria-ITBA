@@ -126,3 +126,9 @@ def test_lo_que_se_escribe_se_vuelve_a_leer_igual():
     """La tabla de filtros y la de bandas escriben un número y después lo leen."""
     for valor in (0.3, 35.0, 49.5, 0.125):
         assert parse_number(number(valor)) == valor
+
+
+@pytest.mark.parametrize("segundos", [math.inf, -math.inf, math.nan])
+def test_una_duracion_que_no_es_finita_se_muestra_como_sin_valor(segundos: float):
+    """La rama existía y ningún test la recorría (hito 81)."""
+    assert duration(segundos) == SIN_VALOR

@@ -754,3 +754,23 @@ def test_deshacer_el_arousal_anotado_saca_las_dos_cosas(ventana: MainWindow):
 
     assert ventana.session.annotations.all() == []
     assert not ventana.session.scoring.get(0).arousal
+
+
+# -- Lo que ningún test disparaba (hito 81) ------------------------------------
+
+
+@pytest.mark.parametrize("fase", [SleepStage.N2, SleepStage.WAKE])
+def test_un_clic_en_el_boton_de_la_fase_scorea_la_ventana_actual(
+    ventana: MainWindow, fase: SleepStage
+):
+    """**Es la vía del mouse para scorear, y ningún test la recorría**: todos
+    scoreaban por el teclado o llamando al método. La medición de cobertura
+    del hito 81 lo encontró por `ScoringPanel._on_stage`, sin ninguna línea
+    ejecutada."""
+    ventana.session.go_to_window(2)
+
+    ventana.scoring_panel._botones[fase].click()
+
+    assert ventana.session.scoring.get(2).stage is fase
+    assert ventana.session.scoring.scored_windows() == 1
+    assert not ventana.carteles

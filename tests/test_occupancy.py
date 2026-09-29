@@ -718,3 +718,19 @@ def test_la_duracion_no_depende_del_sentido_del_trazo(herramienta: OccupancyTool
 
     (linea,) = herramienta.overlays()
     assert linea.label == "2,5 s"
+
+
+def test_sin_registro_una_linea_se_dibuja_contra_la_epoca():
+    """Sin sesión no hay página: la línea se lleva a segundos contra la época,
+    que es la página con la que el programa arranca. La rama no la recorría
+    ningún test (hito 81)."""
+    from psglab.config import WINDOW_SECONDS
+
+    herramienta = OccupancyTool()
+    herramienta.clear()
+    herramienta.add_line(OccupancyLine(0.1, 0.0, 0.2, 0.0))
+
+    (segmento,) = herramienta.overlays()
+
+    assert segmento.x1_seconds == pytest.approx(0.1 * WINDOW_SECONDS)
+    assert segmento.x2_seconds == pytest.approx(0.2 * WINDOW_SECONDS)

@@ -39,6 +39,7 @@ que declara la misma precondición, y `memoria_suficiente`, que no recibe datos
 sino el texto que va a aparecer en el cartel.
 """
 
+import functools
 from pathlib import Path
 
 import numpy as np
@@ -103,6 +104,22 @@ def registro(canales: int = 2, muestras: int = 3000, fs: float = 100.0) -> Recor
 
 def sesion() -> Session:
     return Session(registro(), Scoring(1, Nomenclature.AASM), AnnotationSet())
+
+
+@functools.cache
+def ica_ajustada() -> object:
+    """Una ICA ajustada de verdad sobre ruido, para llegar a las guardas que
+    vienen **después** de la de la ICA: con `object()`, que es lo que usan las
+    filas de `CONTRATOS`, la de la ICA rechaza primero y las del componente,
+    la ventana o la lista de excluidos no se ejecutan nunca (hito 81)."""
+    return ica.fit_ica(registro_con_ruido())
+
+
+def registro_con_ruido() -> Recording:
+    """Como `registro()`, pero con señal: la ICA no se ajusta sobre ceros."""
+    ruido = np.random.default_rng(0).normal(0.0, 20.0, (3, 3000))
+    canales = [Channel(f"C{i}", ChannelKind.EEG, "µV", i) for i in range(3)]
+    return Recording(Path("sintetico.edf"), canales, ruido, 100.0)
 
 
 def despliegue() -> ChannelDisplay:
@@ -595,6 +612,44 @@ RECHAZOS_OBLIGATORIOS: list[tuple[str, object, object]] = [
     # entera en NaN sin avisar.
     ("connectivity_by_window con una banda sobre Nyquist", (60.0, 90.0),
      lambda v: connectivity.connectivity_by_window(registro(), ["C0", "C1"], v)),
+    # Hito 81. **Guardas que ninguna fila alcanzaba**, y la medición de
+    # cobertura las mostró sin ejecutar. Los `HOSTILES` no traen ceros ni
+    # negativos, así que las guardas de rango no disparaban nunca; y las de
+    # ICA quedaban detrás de la guarda de la ICA misma. Borrar cualquiera de
+    # éstas dejaba la suite en verde.
+    ("sample_entropy con m = 0", 0, lambda v: complexity.sample_entropy(SEÑAL, v)),
+    ("permutation_entropy con order = 0", 0, lambda v: complexity.permutation_entropy(SEÑAL, v)),
+    ("higuchi_fractal_dimension con k_max = 0", 0,
+     lambda v: complexity.higuchi_fractal_dimension(SEÑAL, v)),
+    ("sample_entropy con una tolerancia negativa", -0.2,
+     lambda v: complexity.sample_entropy(SEÑAL, 2, v)),
+    ("sample_entropy con una tolerancia NaN", float("nan"),
+     lambda v: complexity.sample_entropy(SEÑAL, 2, v)),
+    ("validate con un pasa-altos que no es un número", "1",
+     lambda v: filters.validate(filters.FilterSettings(highpass_hz=v), 256.0)),
+    ("settings_for_kinds con una clave que no es ChannelKind", "EEG",
+     lambda v: filters.settings_for_kinds(registro(), {v: filters.FilterSettings()})),
+    ("settings_for_kinds con algo que no son filtros", (1.0, 30.0),
+     lambda v: filters.settings_for_kinds(registro(), {ChannelKind.EEG: v})),
+    ("component_topography con un componente que no es entero", "0",
+     lambda v: ica.component_topography(ica_ajustada(), v)),
+    ("component_time_course con una ventana que no es entera", "0",
+     lambda v: ica.component_time_course(ica_ajustada(), 0, registro_con_ruido(), v)),
+    ("apply_ica con los excluidos sueltos y no en una lista", 0,
+     lambda v: ica.apply_ica(registro_con_ruido(), ica_ajustada(), v)),
+    ("channels_above_limit con un canal que no se nombra con texto", {3: 4.0},
+     lambda v: impedance.channels_above_limit(v)),
+    ("channels_above_limit con una impedancia booleana", {"C0": True},
+     lambda v: impedance.channels_above_limit(v)),
+    ("marks_to_annotations con una frecuencia negativa", -100.0,
+     lambda v: marks_to_annotations([], v, 1000)),
+    ("Viewport.clamped con una página mínima de cero", 0.0,
+     lambda v: Viewport.clamped(0.0, 30.0, 3600.0, minimum_span_seconds=v)),
+    # Hito 81. **No era un hueco de test sino un bug**: el color propio de una
+    # anotación no se validaba, y desde una copia de recuperación dañada un
+    # `7` llegaba al dibujo, que le concatena la transparencia.
+    ("add con un color propio que no es #rrggbb", 7,
+     lambda v: AnnotationSet().add(Annotation("Arousal", 0, 100, (), v))),
 ]
 
 
