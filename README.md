@@ -94,7 +94,8 @@ Para saber qué archivo implementa cada requisito del pliego, mirá
 ## Cómo contribuir
 
 1. **Los pull requests van a la branch `Add`, nunca a `Master`**, y vienen
-   comentados explicando qué cambió y por qué.
+   comentados explicando qué cambió y por qué. La de `Add` a `Master` la
+   revisa además Claude (ver [Integración continua](#integración-continua)).
 2. Cada módulo declara en su docstring qué requisitos del pliego cubre.
 3. `main.py` se mantiene mínimo, y cada componente nuevo viene con su test en `tests/`.
 
@@ -146,6 +147,11 @@ python -m pytest -rs
 nada hasta que abras la pull request, así que antes de pushear corré
 `python -m pytest`. Si reapuntás una pull request a otra base, cerrala y
 reabrila: cambiar la base no vuelve a disparar el CI.
+
+Las pull requests contra `Master` pasan además por
+[una revisión de Claude](.github/workflows/claude-review.yml), que comenta el
+diff y **bloquea el merge** si encuentra un bug o una regla dura de
+`CLAUDE.md` rota. Necesita el secret `CLAUDE_CODE_OAUTH_TOKEN`.
 
 ## Licencia
 
