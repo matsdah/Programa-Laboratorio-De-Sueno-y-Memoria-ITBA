@@ -1,66 +1,84 @@
-"""Escribir un archivo de salida entero o no escribirlo.
+"""Escribir un archivo de salida entero o conservar el anterior.
 
-Los exportadores escribían directo sobre el destino, así que un corte de luz,
-el disco lleno o un error a mitad de camino dejaban el archivo **truncado**:
-un `Scoring.txt` con la mitad de la noche, que se lee sin error y le da a los
-análisis del laboratorio un resultado plausible y equivocado. Y si el destino
-ya existía —la exportación de ayer—, se perdía también esa.
+Cada exportación se escribe en un archivo exclusivo al lado del destino y se
+renombra recién al terminar. El descriptor permanece abierto durante todas las
+escrituras; si algo falla, se cierra y se borra el provisorio.
 
-Acá se escribe en un archivo provisorio **al lado del destino**, en la misma
-carpeta y por eso en el mismo disco, y recién al terminar se lo renombra con
-`os.replace()`, que es una operación de un solo paso: o queda el archivo
-nuevo entero, o el que había. Es lo mismo que ya hacían las preferencias y la
-copia de recuperación.
+El destino anterior queda intacto ante un error de escritura, como un disco
+lleno, antes del reemplazo. El nombre aleatorio y la creación exclusiva evitan
+que un sobrante de una exportación previa o dos exportaciones simultáneas
+compartan el archivo temporal. Los permisos 0666 sujetos a `umask` mantienen
+los permisos habituales de los archivos compartidos del laboratorio.
 
-**El provisorio tiene un nombre fijo y no uno de `tempfile`.** `mkstemp()` lo
-crea con permisos 0600, y el renombrado los conserva: el archivo exportado
-quedaría ilegible para el resto del laboratorio en una carpeta compartida.
-Con un nombre fijo se crea como cualquier otro archivo; si quedó uno de un
-corte anterior, se pisa, porque es nuestro.
+La carpeta de destino debe ser de confianza: otro proceso con permiso para
+renombrar archivos dentro de ella podría sustituir el provisorio después de
+cerrarlo y antes de `os.replace()`. En Windows hay que cerrarlo para renombrar.
 
-Cubre del pliego: ningún ID; es infraestructura de los tres archivos de salida.
+Cubre del pliego: ningún ID; es infraestructura de los archivos de salida.
 """
 
 import os
+import secrets
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-
-
-def provisional_path(path: Path) -> Path:
-    """Dónde se escribe antes de renombrar: al lado del destino, oculto.
-
-    «Scoring.txt» se escribe primero en «.Scoring.txt.tmp».
-    """
-    return path.with_name(f".{path.name}.tmp")
+from typing import BinaryIO, TextIO
 
 
 @contextmanager
-def atomic_destination(path: Path) -> Iterator[Path]:
-    """Da la ruta donde escribir; al salir bien, la pone en el lugar de `path`.
+def atomic_destination(
+    path: Path,
+    mode: str = "w",
+    *,
+    encoding: str | None = "utf-8",
+    newline: str | None = None,
+) -> Iterator[TextIO | BinaryIO]:
+    """Dar un flujo abierto y reemplazar el destino al terminar bien.
 
-    Si lo que escribe eleva —o el renombrado falla—, el provisorio se borra y
-    `path` queda como estaba: sin crear si no existía, con lo de antes si
-    existía. El error sale igual, para que quien exporta lo muestre.
-
-    Ejemplo::
-
-        with atomic_destination(destino) as provisorio:
-            provisorio.write_text(texto, encoding="utf-8")
+    Se crea con permisos normales (0666 sujetos a `umask`). Un nombre aleatorio
+    evita que archivos viejos o exportaciones simultáneas compartan provisorio.
+    El descriptor abierto evita que un enlace simbólico desvíe la escritura.
     """
-    provisorio = provisional_path(Path(path))
-    try:
-        yield provisorio
-        os.replace(provisorio, path)
-    except BaseException:
+    if mode not in {"w", "wb"}:
+        raise ValueError("El modo de exportación debe ser «w» o «wb».")
+
+    path = Path(path)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_BINARY", 0)
+    temporary: Path | None = None
+    descriptor: int | None = None
+    for _ in range(100):
+        candidate = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
         try:
-            provisorio.unlink()
+            descriptor = os.open(candidate, flags, 0o666)
+            temporary = candidate
+            break
+        except FileExistsError:
+            continue
+    if descriptor is None or temporary is None:
+        raise FileExistsError(f"No se pudo crear un provisorio al lado de {path}.")
+
+    try:
+        kwargs = {} if "b" in mode else {"encoding": encoding, "newline": newline}
+        with os.fdopen(descriptor, mode, **kwargs) as stream:
+            descriptor = None
+            yield stream
+            stream.flush()
+        os.replace(temporary, path)
+    except BaseException:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        try:
+            temporary.unlink()
         except OSError:
             pass
         raise
 
 
 def write_text_atomically(path: Path, text: str) -> None:
-    """Escribe un texto en UTF-8, entero o nada. Ver `atomic_destination()`."""
-    with atomic_destination(path) as provisorio:
-        provisorio.write_text(text, encoding="utf-8")
+    """Escribir texto UTF-8 completo o conservar el destino anterior."""
+    with atomic_destination(path) as stream:
+        stream.write(text)
