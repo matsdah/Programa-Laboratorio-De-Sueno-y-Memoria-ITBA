@@ -457,6 +457,17 @@ jobs de macOS fallando sin que la suite local, que corre en Windows, pudiera
 verlo. El rol Admin puede saltearlo, pero sólo desde una pull request y
 marcándolo a mano: nunca con un push directo.
 
+**Las pull requests contra `Master` pasan además por una revisión de Claude**
+(hito 82), en [otro workflow](.github/workflows/claude-review.yml): Claude
+Code lee el diff contra las reglas de este archivo, lo comenta en la pull
+request y deja un veredicto, `APROBADO` o `BLOQUEAR`. **Es bloqueante**: en
+`Master` el ruleset exige ese check además de los siete del CI, y en `Add` no
+corre, porque ahí las pull requests son muchas y chicas. Qué cuenta como
+bloqueante lo dice el prompt de ese workflow; si se equivoca seguido, se
+corrige ahí. Autentica con la suscripción del equipo, en el secret
+`CLAUDE_CODE_OAUTH_TOKEN`: si el token vence o se agota la cuota, el check
+queda en rojo y no se puede mergear a `Master` sin el bypass de Admin.
+
 Dependabot actualiza **sólo las acciones del workflow**, una vez por mes y
 contra `Add` (`.github/dependabot.yml`); los `requirements*.txt` no, por el
 motivo que da ese archivo. CodeQL corre con la configuración por defecto de

@@ -15,7 +15,7 @@ ver «Al agregar o cerrar un ítem», al final.
 Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos: las dos Partes
 están cerradas y ningún módulo de `psglab/` eleva `NotImplementedError`.
 
-Son **ochenta y dos hitos**, del 0 al 81, que son las filas de la tabla de
+Son **ochenta y tres hitos**, del 0 al 82, que son las filas de la tabla de
 progreso, y **están todos cerrados**: lo que queda abierto son las preguntas
 al cliente, abajo. La cuenta vive sólo en este archivo:
 hasta el hito 79 la repetían cuatro documentos, y cada hito nuevo obligaba a
@@ -95,6 +95,11 @@ Con la pull request abierta sí quiere decir que **no hace falta acordarse** de
 que las cuentas de este archivo cuadren, ni de que los enlaces no se rompan, ni
 de borrar el `pytestmark` al terminar un módulo: si algo de eso queda mal, el
 pull request falla.
+
+Las pull requests contra `Master` tienen además [una revisión de
+Claude](../.github/workflows/claude-review.yml), que lee el diff contra las
+reglas de `CLAUDE.md` y bloquea el merge si encuentra algo grave. En `Add` no
+corre.
 
 ### Cuándo un ítem está terminado
 
@@ -196,6 +201,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [79. La auditoría del 26 de septiembre](HISTORIAL.md#hito-79-la-auditoría-del-26-de-septiembre) | — | 0 | ✅ cerrado |
 | [80. La suite sale sin desarmar Qt](HISTORIAL.md#hito-80-la-suite-sale-sin-desarmar-qt) | — | 0 | ✅ cerrado |
 | [81. La cobertura de los tests](HISTORIAL.md#hito-81-la-cobertura-de-los-tests) | — | 0 | ✅ cerrado |
+| [82. La revisión de Claude contra Master](HISTORIAL.md#hito-82-la-revisión-de-claude-contra-master) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
