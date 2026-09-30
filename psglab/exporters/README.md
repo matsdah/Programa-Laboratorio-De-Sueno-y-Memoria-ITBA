@@ -31,14 +31,16 @@ programa para poder leerse.
 | `scoring_formats.py` | El scoring en CSV, EDF+ y XML del NSRR, y `export_scoring_as()`, que elige el formato por la extensión. | V1_F de "Archivo de salida" |
 | `atomic.py` | Escribir un archivo de salida **entero o no escribirlo**: primero en un provisorio al lado del destino y después renombrado. Lo usan todos los de arriba. | — (infraestructura) |
 
-**Ningún archivo de salida queda a medias** (hito 79). Un corte de luz o el
-disco lleno a mitad de una exportación dejaban el destino truncado —un
-`Scoring.txt` con media noche, que se lee sin error—, y si ya existía se perdía
-también el de antes. `atomic.py` escribe en un provisorio al lado del destino y
-lo renombra al terminar, que es un paso solo: queda el archivo nuevo entero o el
-que había. El provisorio lleva un nombre fijo y no uno de `tempfile`, porque
-`mkstemp()` lo crea en 0600 y el exportado quedaría ilegible para el resto del
-laboratorio.
+**Un error de escritura no deja el destino a medias** (hito 79). Si el disco
+se llena durante una exportación, escribir directamente en el destino podría
+dejar un `Scoring.txt` con media noche y perder también la versión anterior.
+`atomic.py` escribe en un provisorio al lado del destino y lo renombra al
+terminar: ante un error antes del reemplazo, el archivo anterior queda intacto.
+Esto no garantiza la persistencia ante un corte de energía. Cada exportación
+crea un provisorio único junto al destino con
+creación exclusiva y permisos normales (0666 sujetos a `umask`). El descriptor
+queda abierto durante toda la escritura; así, dos exportaciones solapadas no
+comparten archivo y un provisorio viejo o simbólico no puede desviar la salida.
 
 Los nombres propuestos en el diálogo de guardado salen de `DEFAULT_FILENAMES`,
 en el `__init__.py` del paquete, que a su vez los toma de

@@ -168,9 +168,7 @@ def export_scoring_as(
 
 def export_scoring_csv(scoring: Scoring, path: Path) -> None:
     """Una fila por ventana: número (base 1), inicio en segundos, fase y arousal."""
-    with atomic_destination(path) as provisorio, provisorio.open(
-        "w", encoding="utf-8", newline=""
-    ) as archivo:
+    with atomic_destination(path, "w", newline="") as archivo:
         escritor = csv.writer(archivo, lineterminator="\n")
         escritor.writerow(CSV_COLUMNS)
         for indice in range(scoring.n_windows):
@@ -213,10 +211,8 @@ def export_scoring_edf(
     muestras = (len(datos) + 1) // 2
     datos = datos.ljust(2 * muestras, b"\x00")
 
-    with atomic_destination(path) as provisorio:
-        provisorio.write_bytes(
-            _cabecera_edf(start_time, muestras, scoring.nomenclature.name) + datos
-        )
+    with atomic_destination(path, "wb") as archivo:
+        archivo.write(_cabecera_edf(start_time, muestras, scoring.nomenclature.name) + datos)
 
 
 def export_scoring_xml(scoring: Scoring, path: Path) -> None:
@@ -235,8 +231,8 @@ def export_scoring_xml(scoring: Scoring, path: Path) -> None:
         _evento_xml(eventos, NSRR_AROUSAL_TYPE, NSRR_AROUSAL_CONCEPT, indice, 1)
 
     ET.indent(raiz)
-    with atomic_destination(path) as provisorio:
-        ET.ElementTree(raiz).write(provisorio, encoding="UTF-8", xml_declaration=True)
+    with atomic_destination(path, "wb") as archivo:
+        ET.ElementTree(raiz).write(archivo, encoding="UTF-8", xml_declaration=True)
 
 
 # -- Ayudantes ----------------------------------------------------------------
@@ -351,4 +347,3 @@ def _cabecera_edf(start_time: datetime | None, muestras: int, nomenclatura: str)
 def _campo(texto: str, ancho: int) -> str:
     """Un campo de la cabecera: ASCII, alineado a la izquierda y con espacios."""
     return texto[:ancho].ljust(ancho)
-
