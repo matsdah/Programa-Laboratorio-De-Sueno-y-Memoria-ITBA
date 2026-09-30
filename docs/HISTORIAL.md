@@ -7431,6 +7431,10 @@ autentique con **la suscripción del equipo** y no con una API key.
 - [x] **Qué bloquea está en el prompt**: un bug de correctitud, una regla dura
       de `CLAUDE.md` rota o un hito cerrado sin sus cinco ediciones. El estilo
       se comenta y no bloquea.
+- [x] **Corre con Sonnet 5.5, fijado con `--model`** en `claude_args`. Sin
+      fijarlo sería el modelo por defecto de la cuenta del token, que cambia
+      sin que nadie toque el workflow; Sonnet y no Opus, para gastar menos
+      cuota de la suscripción.
 - [x] **Se saltea en borradores y en las de Dependabot**, que no recibe los
       secrets de Actions. Un job salteado cuenta como aprobado para el check
       requerido.
