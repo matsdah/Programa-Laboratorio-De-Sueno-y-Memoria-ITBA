@@ -44,6 +44,9 @@ decide cuándo:
   su trabajo. Lo que sobrevive es lo de un cierre que nadie decidió.
 - **Se ofrece** al abrir un registro que tiene una copia, con `offer_recovery()`.
   Si el usuario la descarta, se borra: no se vuelve a preguntar.
+- **Se aparta sin destruirla** si es de una versión anterior, no coincide con
+  la señal original o falla la recuperación. Así no se aplica a otra noche ni
+  se pierde la única copia por un error.
 
 **Sólo la ventana del usuario la escribe** (`enable_recovery()`, que llama
 `apply_saved_preferences()`): la de los tests no escribe en el perfil de quien
@@ -67,8 +70,10 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QStatusBar, QWidget
 
 from psglab.core import recovery
 from psglab.core.history import History
+from psglab.core.recording import Recording
 from psglab.core.session import Session
 from psglab.exporters import DEFAULT_FILENAMES
+from psglab.exporters.atomic import write_text_atomically
 from psglab.exporters.annotations_txt import export_annotations
 from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_formats import SCORING_FORMATS, export_scoring_as
@@ -118,6 +123,9 @@ class WorkGuard(QObject):
         self._confirmar = confirm
         self._ultimo_reciente = last_recent
         self._session: Session | None = None
+        self._source_identity: dict[str, object] | None = None
+        self._preserved_path: Path | None = None
+        self._preserved_reason: str | None = None
         self._historial: History | None = None
         #: Dónde van las copias, o None si esta ventana no las escribe.
         self._carpeta: Path | None = None
@@ -125,11 +133,12 @@ class WorkGuard(QObject):
         self._ultima_copia: str | None = None
         #: Si ya se avisó que la copia no se pudo escribir: una vez alcanza.
         self._avisado = False
+        self._pausado = False
         self._reloj = QTimer(self)
         self._reloj.setInterval(SEGUNDOS_ENTRE_COPIAS * 1000)
         self._reloj.timeout.connect(self.save_recovery)
 
-    def attach(self, session: Session) -> None:
+    def attach(self, session: Session, source_identity: dict[str, object] | None = None) -> None:
         """Toma la sesión de un registro recién abierto.
 
         Hay que preguntar `can_discard()` antes, sobre la anterior: después ya
@@ -137,6 +146,15 @@ class WorkGuard(QObject):
         ofrece aparte, con `offer_recovery()`, cuando la ventana ya lo dibujó.
         """
         self._session = session
+        self._pausado = False
+        # La ventana que lee en segundo plano pasa la huella calculada allí.
+        # El argumento opcional conserva el contrato para clientes de prueba y
+        # aperturas sin hilo.
+        self._source_identity = (
+            source_identity
+            if source_identity is not None
+            else recovery.fingerprint(session.recording)
+        )
         self._ultima_copia = None
         # Deshacer no cruza de un registro a otro: el historial empieza acá.
         self._historial = History(session)
@@ -401,6 +419,22 @@ class WorkGuard(QObject):
         self._carpeta = folder
         self._reloj.start()
 
+    @property
+    def source_identity(self) -> dict[str, object] | None:
+        """Huella completa del registro original, calculada al abrirlo."""
+        return self._source_identity
+
+    def pause_recovery(self) -> None:
+        """Suspende el reloj mientras un diálogo modal interrumpe el trabajo."""
+        self._pausado = True
+        self._reloj.stop()
+
+    def resume_recovery(self) -> None:
+        """Reanuda el reloj después del diálogo."""
+        self._pausado = False
+        if self._carpeta is not None:
+            self._reloj.start()
+
     def recovery_path(self) -> Path | None:
         """El archivo de la copia del registro abierto, o None si no hay.
 
@@ -433,19 +467,25 @@ class WorkGuard(QObject):
         segundos: se avisa una vez en la barra de estado.
         """
         ruta = self.recovery_path()
-        if ruta is None or self._session is None:
+        if ruta is None or self._session is None or self._pausado:
             return
+        if self._preserved_path == ruta and ruta.exists():
+            self._preserve_recovery(ruta, self._preserved_reason or "invalid")
+            if self._preserved_path == ruta and ruta.exists():
+                return
         if not self.unexported():
             self.discard_recovery()
             return
-        texto = json.dumps(recovery.snapshot(self._session), ensure_ascii=False)
+        if self._source_identity is None:
+            return
+        texto = json.dumps(
+            recovery.snapshot(self._session, self._source_identity), ensure_ascii=False
+        )
         if texto == self._ultima_copia:
             return
         try:
             ruta.parent.mkdir(parents=True, exist_ok=True)
-            provisoria = ruta.with_suffix(".tmp")
-            provisoria.write_text(texto, encoding="utf-8")
-            provisoria.replace(ruta)
+            write_text_atomically(ruta, texto)
         except OSError:
             if not self._avisado:
                 self._barra_de_estado.showMessage(
@@ -461,23 +501,47 @@ class WorkGuard(QObject):
         ruta = self.recovery_path()
         if ruta is None:
             return
+        if self._preserved_path == ruta and ruta.exists():
+            self._preserve_recovery(ruta, self._preserved_reason or "invalid")
+            if self._preserved_path == ruta and ruta.exists():
+                return
         try:
             ruta.unlink(missing_ok=True)
         except OSError:
             pass
 
-    def offer_recovery(self) -> bool:
+    def offer_recovery(
+        self,
+        prepare_recording: Callable[[dict[str, object]], Recording | None] | None = None,
+        apply_recording: Callable[[Recording], object] | None = None,
+        rollback_recording: Callable[[], object] | None = None,
+    ) -> bool:
         """Si el registro abierto tiene una copia, ofrece volver a ella.
 
         Se llama al abrir, con el registro ya dibujado y antes de que el
         usuario haga nada: `recovery.restore()` sólo acepta una sesión sin
         trabajo. Una copia que no se puede leer, que es de otro registro o que
-        no trae nada se borra sin preguntar.
+        no trae nada se aparta para conservarla. Si el investigador elige
+        «Descartar», sí se borra.
 
         Returns:
             Si se recuperó el trabajo. La ventana tiene que redibujar lo que
             depende del scoring y las anotaciones.
         """
+        self.pause_recovery()
+        try:
+            return self._offer_recovery_paused(
+                prepare_recording, apply_recording, rollback_recording
+            )
+        finally:
+            self.resume_recovery()
+
+    def _offer_recovery_paused(
+        self,
+        prepare_recording: Callable[[dict[str, object]], Recording | None] | None,
+        apply_recording: Callable[[Recording], object] | None,
+        rollback_recording: Callable[[], object] | None,
+    ) -> bool:
         ruta = self.recovery_path()
         if ruta is None or self._session is None or not ruta.exists():
             return False
@@ -486,27 +550,87 @@ class WorkGuard(QObject):
             escrita = datetime.fromtimestamp(ruta.stat().st_mtime)
             ventanas, anotaciones = recovery.summary(copia)
         except (OSError, ValueError, PsgLabError):
-            self.discard_recovery()
+            self._preserve_recovery(ruta, "invalid")
             return False
-        if not recovery.matches(copia, self._session.recording) or not (
-            ventanas or anotaciones
-        ):
-            self.discard_recovery()
+        if self._source_identity is None or not recovery.matches(copia, self._source_identity):
+            self._preserve_recovery(ruta, "mismatch")
+            return False
+        if not (ventanas or anotaciones):
+            self._preserve_recovery(ruta, "empty")
             return False
         if not self.ask_recovery(escrita, ventanas, anotaciones):
             self.discard_recovery()
             return False
+        previo = self._session.recording
         try:
-            recovery.restore(self._session, copia)
-        except PsgLabError as error:
-            self.discard_recovery()
-            self.failed.emit(error, "recuperar el trabajo")
+            candidate = prepare_recording(copia) if prepare_recording is not None else None
+            if candidate is not None:
+                recovery.preflight(
+                    self._session, copia, self._source_identity, recording=candidate
+                )
+                if apply_recording is None:
+                    self._session.set_recording(candidate)
+                else:
+                    apply_recording(candidate)
+            recovery.restore(self._session, copia, self._source_identity)
+        except Exception as error:
+            # Guardar primero la única copia: incluso volver al registro
+            # original puede fallar, y el reloj se reanuda al salir.
+            self._preserve_recovery(ruta, "restore-failed")
+            rollback_error: Exception | None = None
+            if self._session.recording is not previo:
+                try:
+                    if rollback_recording is None:
+                        self._session.set_recording(previo)
+                    else:
+                        rollback_recording()
+                except Exception as fallo:
+                    rollback_error = fallo
+            if rollback_error is not None:
+                mostrado = PsgLabError(
+                    "No se pudo recuperar el trabajo ni volver a la señal original. "
+                    "La copia se conservó en el perfil.",
+                    details=(
+                        f"Recuperación: {type(error).__name__}: {error}; "
+                        f"reversión: {type(rollback_error).__name__}: {rollback_error}"
+                    ),
+                )
+            elif isinstance(error, PsgLabError):
+                mostrado = error
+            else:
+                mostrado = PsgLabError(
+                    "No se pudo recuperar el trabajo.",
+                    details=f"{type(error).__name__}: {error}",
+                )
+            self.failed.emit(mostrado, "recuperar el trabajo")
             return False
         # **Lo recuperado no se deshace**: no es un cambio de esta sesión, y
         # deshacerlo sería perder lo que se acaba de recuperar.
         if self._historial is not None:
             self._historial.reset()
         return True
+
+    def _preserve_recovery(self, path: Path, reason: str) -> None:
+        """Aparta una copia que no se puede usar sin destruir la evidencia."""
+        if not path.exists():
+            return
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+        target = path.with_name(f"{path.stem}.{reason}-{stamp}{path.suffix}")
+        ordinal = 1
+        while target.exists():
+            target = path.with_name(
+                f"{path.stem}.{reason}-{stamp}-{ordinal}{path.suffix}"
+            )
+            ordinal += 1
+        try:
+            path.replace(target)
+            self._preserved_path = None
+            self._preserved_reason = None
+        except OSError:
+            # Si ni siquiera se puede renombrar, mantener el original es mejor
+            # que intentar borrarlo.
+            self._preserved_path = path
+            self._preserved_reason = reason
 
     def ask_recovery(self, written: datetime, windows: int, annotations: int) -> bool:
         """Pregunta si se recupera la copia. Devuelve si el usuario aceptó.
@@ -520,8 +644,8 @@ class WorkGuard(QObject):
         nombre = self._session.recording.file_path.name if self._session else ""
         partes = []
         if windows:
-            scoreadas = "ventana scoreada" if windows == 1 else "ventanas scoreadas"
-            partes.append(f"{windows} {scoreadas}")
+            trabajo = "ventana con trabajo" if windows == 1 else "ventanas con trabajo"
+            partes.append(f"{windows} {trabajo}")
         if annotations:
             anotadas = "anotación" if annotations == 1 else "anotaciones"
             partes.append(f"{annotations} {anotadas}")
@@ -531,7 +655,8 @@ class WorkGuard(QObject):
         cartel.setText(f"«{nombre}» se cerró la última vez sin exportar su trabajo.")
         cartel.setInformativeText(
             f"Hay una copia del {written:%d/%m a las %H:%M} con "
-            f"{' y '.join(partes)}. ¿Recuperarla? Si la descartás, se borra."
+            f"{' y '.join(partes)}. ¿Recuperarla? Si la descartás, se borra. "
+            "Los filtros, la ICA y la re-referencia no se vuelven a aplicar."
         )
         recuperar = cartel.addButton("Recuperar", QMessageBox.ButtonRole.AcceptRole)
         recuperar.setProperty(theme.PRIMARIO_PROPERTY, True)

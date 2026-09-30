@@ -97,6 +97,16 @@ def test_el_nombre_por_defecto_es_el_del_montaje(registro_sintetico: Recording):
     assert derive(registro_sintetico, "C3", "C4").channels[-1].name == "C3-C4"
 
 
+def test_derivacion_guarda_los_canales_de_origen_y_encadena(
+    registro_sintetico: Recording,
+):
+    primero = derive(registro_sintetico, "C3", "C4")
+    segundo = derive(primero, "C3-C4", "EOG-izq", name="doble")
+
+    assert primero.channels[-1].derived_from == ("C3", "C4")
+    assert segundo.channels[-1].derived_from == ("C3-C4", "EOG-izq")
+
+
 def test_se_le_puede_dar_otro_nombre(registro_sintetico: Recording):
     derivado = derive(registro_sintetico, "C3", "C4", name="Central izquierda")
 
@@ -190,6 +200,10 @@ def test_el_montaje_agrega_un_canal_por_par(registro_sintetico: Recording):
     )
 
     assert montado.n_channels == registro_sintetico.n_channels + 2
+    assert [c.derived_from for c in montado.channels[-2:]] == [
+        ("C3", "C4"),
+        ("EOG-izq", "EMG-menton"),
+    ]
     assert [c.name for c in montado.channels[-2:]] == ["C3-C4", "EOG-izq-EMG-menton"]
 
 

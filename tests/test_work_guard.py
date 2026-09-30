@@ -12,18 +12,22 @@ Que el menú, Ctrl+S y cerrar la ventana pasen por acá lo sigue verificando
 `test_entrega.py`.
 """
 
+import json
 from pathlib import Path
 
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QFileDialog, QMainWindow
 
+from psglab.analysis.derivation import derive
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
+from psglab.core import recovery
 from psglab.ui.work_guard import WorkGuard
+from psglab.utils.errors import PsgLabError
 
 FRECUENCIA = 100.0
 VENTANAS = 2
@@ -297,6 +301,30 @@ def test_con_trabajo_sin_exportar_se_escribe_la_copia(
     assert copias_en(perfil) == [armado.guardian.recovery_path()]
 
 
+def test_provisorio_viejo_no_desvia_la_copia_de_recuperacion(
+    armado: Guardian, sesion: Session, perfil: Path, tmp_path: Path
+):
+    ruta = armado.guardian.recovery_path()
+    assert ruta is not None
+    ruta.parent.mkdir(parents=True)
+    ajeno = tmp_path / "ajeno.txt"
+    ajeno.write_text("intacto", encoding="utf-8")
+    provisorio_viejo = ruta.with_suffix(".tmp")
+    try:
+        provisorio_viejo.symlink_to(ajeno)
+    except (OSError, NotImplementedError):
+        pytest.skip("Este sistema no permite crear symlinks")
+
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+
+    assert ajeno.read_text(encoding="utf-8") == "intacto"
+    assert provisorio_viejo.is_symlink()
+    assert ruta.is_file()
+    assert not ruta.is_symlink()
+    assert json.loads(ruta.read_text(encoding="utf-8"))["fases"][0] == "N2"
+
+
 def test_sin_trabajo_no_hay_copia(armado: Guardian, sesion: Session, perfil: Path):
     armado.guardian.save_recovery()
 
@@ -389,7 +417,7 @@ def test_descartarla_la_borra_y_no_se_vuelve_a_preguntar(
     assert copias_en(perfil) == []
 
 
-def test_una_copia_rota_se_borra_sin_preguntar(
+def test_una_copia_rota_se_conserva_aparte_sin_preguntar(
     armado: Guardian, sesion: Session, perfil: Path, recupera: dict, tmp_path: Path
 ):
     """Pudo quedar cortada por el mismo corte de luz."""
@@ -400,7 +428,220 @@ def test_una_copia_rota_se_borra_sin_preguntar(
     assert not armado.guardian.offer_recovery()
 
     assert recupera["preguntas"] == []
-    assert copias_en(perfil) == []
+    assert ruta not in copias_en(perfil)
+    apartadas = list(perfil.glob("*.invalid-*.json"))
+    assert len(apartadas) == 1
+    assert apartadas[0].read_text(encoding="utf-8")
+
+
+def test_copia_de_formato_viejo_se_conserva_y_se_aparta(
+    armado: Guardian, sesion: Session, perfil: Path
+):
+    """Un formato no compatible queda disponible para diagnóstico."""
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+    ruta = armado.guardian.recovery_path()
+    copia = json.loads(ruta.read_text(encoding="utf-8"))
+    copia["formato"] = 1
+    ruta.write_text(json.dumps(copia), encoding="utf-8")
+
+    assert not armado.guardian.offer_recovery()
+
+    assert not ruta.exists()
+    apartadas = list(perfil.glob("*.mismatch-*.json"))
+    assert len(apartadas) == 1
+    assert json.loads(apartadas[0].read_text(encoding="utf-8"))["formato"] == 1
+
+
+def test_reintenta_apartar_copia_rota_antes_de_escribir_el_nuevo_trabajo(
+    armado: Guardian, sesion: Session, perfil: Path, monkeypatch
+):
+    ruta = armado.guardian.recovery_path()
+    ruta.parent.mkdir(parents=True)
+    ruta.write_text("{ roto", encoding="utf-8")
+    reemplazo = Path.replace
+    fallar_una_vez = True
+
+    def reemplazar_una_vez(origen: Path, destino: Path):
+        nonlocal fallar_una_vez
+        if fallar_una_vez and ".invalid-" in destino.name:
+            fallar_una_vez = False
+            raise OSError("fallo transitorio")
+        return reemplazo(origen, destino)
+
+    monkeypatch.setattr(Path, "replace", reemplazar_una_vez)
+    assert not armado.guardian.offer_recovery()
+    assert ruta.read_text(encoding="utf-8") == "{ roto"
+
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+
+    apartadas = list(perfil.glob("*.invalid-*.json"))
+    assert len(apartadas) == 1
+    assert apartadas[0].read_text(encoding="utf-8") == "{ roto"
+    assert ruta.exists()
+    assert json.loads(ruta.read_text(encoding="utf-8"))["fases"][0] == "N2"
+
+
+def test_si_no_se_puede_apartar_la_copia_autoguardado_no_la_pisa(
+    armado: Guardian, sesion: Session, perfil: Path, monkeypatch
+):
+    ruta = armado.guardian.recovery_path()
+    assert ruta is not None
+    ruta.parent.mkdir(parents=True)
+    ruta.write_text("{ roto", encoding="utf-8")
+    reemplazo = Path.replace
+
+    def impedir_apartarla(origen: Path, destino: Path):
+        if ".invalid-" in destino.name:
+            raise OSError("el perfil no admite renombrar")
+        return reemplazo(origen, destino)
+
+    monkeypatch.setattr(Path, "replace", impedir_apartarla)
+    assert not armado.guardian.offer_recovery()
+
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+
+    assert ruta.read_text(encoding="utf-8") == "{ roto"
+    assert list(perfil.glob("*.invalid-*.json")) == []
+
+
+def test_timer_pausado_no_escribe_ni_borra_durante_el_cartel(
+    armado: Guardian, sesion: Session, perfil: Path
+):
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+    ruta = armado.guardian.recovery_path()
+    antes = ruta.read_text(encoding="utf-8")
+
+    armado.guardian.pause_recovery()
+    sesion.mark_scoring_exported()
+    armado.guardian.save_recovery()
+
+    assert ruta.exists()
+    assert ruta.read_text(encoding="utf-8") == antes
+    armado.guardian.resume_recovery()
+
+
+def test_fingerprint_queda_cacheada_en_guardian(
+    armado: Guardian, sesion: Session, perfil: Path, monkeypatch
+):
+    """El reloj no vuelve a recorrer la señal completa cada diez segundos."""
+    sesion.scoring.set_stage(0, SleepStage.N2)
+
+    def no_recalcular(_registro):
+        raise AssertionError("la huella ya se calculó al abrir")
+
+    monkeypatch.setattr("psglab.ui.work_guard.recovery.fingerprint", no_recalcular)
+    armado.guardian.save_recovery()
+
+    assert armado.guardian.recovery_path().exists()
+
+
+def test_copia_tras_cambiar_senal_identifica_el_registro_original(
+    armado: Guardian, sesion: Session, perfil: Path
+):
+    original = sesion.recording
+    sesion_original = Session(
+        original, Scoring(VENTANAS, Nomenclature.AASM), AnnotationSet()
+    )
+    identidad_original = recovery.snapshot(sesion_original)["registro"]
+    procesado = Recording(
+        original.file_path,
+        [*original.channels, Channel("C3-M1", ChannelKind.EEG, "µV", 1)],
+        np.vstack([original.data, np.ones_like(original.data)]),
+        original.sampling_rate,
+    )
+    sesion.set_recording(procesado)
+    sesion.scoring.set_stage(0, SleepStage.N2)
+
+    armado.guardian.save_recovery()
+
+    ruta = armado.guardian.recovery_path()
+    assert ruta is not None
+    copia = json.loads(ruta.read_text(encoding="utf-8"))
+    assert copia["registro"] == identidad_original
+    assert recovery.matches(copia, original)
+    assert not recovery.matches(copia, procesado)
+
+
+def test_el_reloj_no_borra_la_copia_durante_el_cartel_modal(
+    armado: Guardian, sesion: Session, perfil: Path, monkeypatch
+):
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+    ruta = armado.guardian.recovery_path()
+    abierta = _sesion(sesion.recording.file_path.parent)
+    armado.guardian.attach(abierta)
+
+    def preguntar(*_args):
+        armado.guardian.save_recovery()  # Simula el timeout en el loop modal.
+        return True
+
+    monkeypatch.setattr(WorkGuard, "ask_recovery", preguntar)
+    assert armado.guardian.offer_recovery()
+    assert ruta.exists()
+
+
+def test_si_falla_el_rollback_la_copia_sigue_a_salvo(
+    armado: Guardian, sesion: Session, perfil: Path, recupera: dict, tmp_path: Path,
+    monkeypatch,
+):
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+    ruta = armado.guardian.recovery_path()
+    contenido = ruta.read_text(encoding="utf-8")
+    nueva = _sesion(tmp_path)
+    armado.guardian.attach(nueva)
+
+    def fallar_restore(*_args):
+        raise PsgLabError("falló la restauración")
+
+    def fallar_rollback():
+        raise PsgLabError("falló la reversión")
+
+    monkeypatch.setattr("psglab.ui.work_guard.recovery.restore", fallar_restore)
+    assert not armado.guardian.offer_recovery(
+        lambda _copia: _sesion(tmp_path).recording,
+        lambda candidato: nueva.set_recording(candidato),
+        fallar_rollback,
+    )
+
+    assert not ruta.exists()
+    apartadas = list(perfil.glob("*.restore-failed-*.json"))
+    assert len(apartadas) == 1
+    assert apartadas[0].read_text(encoding="utf-8") == contenido
+
+
+def test_copia_invalida_con_montaje_no_cambia_la_sesion_antes_de_rechazarla(
+    armado: Guardian, sesion: Session, perfil: Path, recupera: dict
+):
+    original = sesion.recording
+    candidato = derive(original, "C3", "C3", name="C3-C3")
+    trabajo = Session(
+        candidato, Scoring(VENTANAS, Nomenclature.AASM), AnnotationSet()
+    )
+    trabajo.scoring.set_stage(0, SleepStage.N2)
+    copia = recovery.snapshot(trabajo, armado.guardian.source_identity)
+    copia["anotaciones"] = [["Spindle", 100, 50, ["canal-inexistente"], None]]
+    ruta = armado.guardian.recovery_path()
+    assert ruta is not None
+    ruta.parent.mkdir(parents=True)
+    ruta.write_text(json.dumps(copia), encoding="utf-8")
+    aplicaciones = []
+
+    assert not armado.guardian.offer_recovery(
+        lambda _copia: candidato,
+        lambda registro: aplicaciones.append(registro),
+    )
+
+    assert recupera["preguntas"] == [(1, 1)]
+    assert aplicaciones == []
+    assert sesion.recording is original
+    assert sesion.scoring.scored_windows() == 0
+    assert sesion.annotations.all() == []
+    assert len(list(perfil.glob("*.restore-failed-*.json"))) == 1
 
 
 def test_otro_registro_no_ve_la_copia(
@@ -417,6 +658,26 @@ def test_otro_registro_no_ve_la_copia(
 
     assert recupera["preguntas"] == []
     assert len(copias_en(perfil)) == 1
+
+
+def test_misma_ruta_y_forma_con_senal_alterada_aparta_la_copia(
+    armado: Guardian, sesion: Session, perfil: Path, recupera: dict, tmp_path: Path
+):
+    sesion.scoring.set_stage(0, SleepStage.N2)
+    armado.guardian.save_recovery()
+    ruta = armado.guardian.recovery_path()
+    contenido = ruta.read_text(encoding="utf-8")
+    nueva = _sesion(tmp_path)
+    nueva.recording.data[0, nueva.recording.n_samples // 2] = 1.0
+    armado.guardian.attach(nueva)
+
+    assert not armado.guardian.offer_recovery()
+
+    assert recupera["preguntas"] == []
+    assert not ruta.exists()
+    apartadas = list(perfil.glob("*.mismatch-*.json"))
+    assert len(apartadas) == 1
+    assert apartadas[0].read_text(encoding="utf-8") == contenido
 
 
 # -- El cartel de recuperar, sin reemplazarlo (hito 81) ------------------------
@@ -457,6 +718,7 @@ def test_el_cartel_de_recuperar_devuelve_lo_que_se_aprieta(
     assert respuesta is recupera
     (texto,) = aprieta["textos"]
     assert sesion.recording.file_path.name in texto
-    assert "3 ventanas scoreadas" in texto
+    assert "3 ventanas con trabajo" in texto
     assert "1 anotación" in texto
     assert "28/09 a las 23:05" in texto
+    assert "filtros, la ICA y la re-referencia no se vuelven a aplicar" in texto

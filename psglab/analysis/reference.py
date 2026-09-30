@@ -49,6 +49,7 @@ def _restar(recording: Recording, referencia: np.ndarray) -> Recording:
                 unit=c.unit,
                 index=c.index,
                 original_sampling_rate=c.original_sampling_rate,
+                derived_from=c.derived_from,
             )
             for c in recording.channels
         ],
