@@ -9,6 +9,7 @@ Se usa la señal sintética de `conftest.py` —cuatro canales, diez minutos, qu
 son exactamente veinte ventanas de 30 segundos— y nunca un registro real.
 """
 
+from dataclasses import FrozenInstanceError
 from datetime import datetime
 from pathlib import Path
 
@@ -47,6 +48,18 @@ def recording(synthetic_signal, channel_names, sampling_rate) -> Recording:
 def canal(nombre: str, indice: int) -> Channel:
     """Un canal mínimo, para los tests que sólo miran la validación."""
     return Channel(name=nombre, kind=ChannelKind.EEG, unit="µV", index=indice)
+
+
+def test_la_procedencia_del_canal_es_opcional_e_inmutable():
+    original = canal("C3", 0)
+    derivado = Channel(
+        "C3-C4", ChannelKind.EEG, "µV", 1, derived_from=("C3", "C4")
+    )
+
+    assert original.derived_from is None
+    assert derivado.derived_from == ("C3", "C4")
+    with pytest.raises(FrozenInstanceError):
+        derivado.derived_from = ("C4", "C3")
 
 
 # -- Lo que el registro sabe de sí mismo ------------------------------------

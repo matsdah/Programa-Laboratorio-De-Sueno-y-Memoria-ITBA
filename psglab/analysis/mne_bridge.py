@@ -246,6 +246,7 @@ def from_raw(raw: Any, original: Recording) -> Recording:
                 unit=unidad_de_salida(viejo),
                 index=posicion,
                 original_sampling_rate=viejo.original_sampling_rate,
+                derived_from=viejo.derived_from,
             )
         )
 

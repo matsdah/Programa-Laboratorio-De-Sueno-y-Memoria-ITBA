@@ -37,6 +37,7 @@ from psglab.analysis.ica import (
     explained_variance,
     fit_ica,
 )
+from psglab.analysis.derivation import derive
 from psglab.analysis.psd import band_power, compute_psd
 from psglab.config import WINDOW_SECONDS
 from psglab.core.recording import Channel, ChannelKind, Recording
@@ -244,6 +245,15 @@ def test_quitar_el_componente_del_parpadeo_baja_su_potencia(mezclado: Recording)
     antes = potencia(mezclado, "Fp1", (0.1, 1.0))
     despues = potencia(limpio, "Fp1", (0.1, 1.0))
     assert despues < antes / 10
+
+
+def test_ica_preserva_procedencia_de_canales_derivados(mezclado: Recording):
+    ica = fit_ica(mezclado)
+    montado = derive(mezclado, "Fp1", "Fp2")
+
+    limpio = apply_ica(montado, ica, [componente_frontal(ica)])
+
+    assert limpio.channel_by_name("Fp1-Fp2").derived_from == ("Fp1", "Fp2")
 
 
 def test_quitar_el_parpadeo_no_se_lleva_el_alfa(mezclado: Recording):

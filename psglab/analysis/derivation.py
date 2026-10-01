@@ -79,6 +79,7 @@ def _canal_derivado(
             if a.original_sampling_rate == b.original_sampling_rate
             else None
         ),
+        derived_from=(a.name, b.name),
     )
 
 

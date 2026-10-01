@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 
 from psglab.analysis.reference import average_reference, rereference
+from psglab.analysis.derivation import derive
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.utils.errors import (
     ChannelNotFoundError,
@@ -115,6 +116,14 @@ def test_la_lista_de_canales_no_cambia(con_mastoides: Recording):
     nuevo = rereference(con_mastoides, ["A2"])
 
     assert nuevo.channel_names() == con_mastoides.channel_names()
+
+
+def test_referencia_preserva_procedencia_de_canales_derivados(con_mastoides: Recording):
+    montado = derive(con_mastoides, "C3", "C4")
+
+    nuevo = rereference(montado, ["A2"])
+
+    assert nuevo.channel_by_name("C3-C4").derived_from == ("C3", "C4")
 
 
 # -- Lo que no es eléctrico --------------------------------------------------
