@@ -142,6 +142,9 @@ python -m pytest -rs
 
 - **Tests en Windows, macOS y Linux**, con Python 3.11 y 3.14.
 - **Verificación de licencias**, que falla si entra una dependencia GPL.
+- **Cobertura**, con Python 3.14, que sube a
+  [Codecov](https://app.codecov.io/gh/matsdah/Programa-Laboratorio-De-Sueno-y-Memoria-ITBA)
+  y se comenta en la pull request. Es informativa: no bloquea el merge.
 
 **Sólo dispara en `Add` y en `Master`**: un push a tu rama de trabajo no corre
 nada hasta que abras la pull request, así que antes de pushear corré

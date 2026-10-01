@@ -41,8 +41,12 @@ varias veces más lento, y lo avisa con `Couldn't import C tracer`.
 
 **Se miden líneas y no ramas.** Con `sysmon`, las ramas necesitan Python 3.14.
 
-**El número no es una meta ni lo exige el CI.** Lo que sirve es la lista de
-líneas sin ejecutar: una función pública con ninguna es un camino que ningún
+**El número no es una meta ni lo exige el CI.** El CI la mide igual con
+Python 3.14, en los tres sistemas, y la sube a
+[Codecov](https://app.codecov.io/gh/matsdah/Programa-Laboratorio-De-Sueno-y-Memoria-ITBA),
+que comenta en cada pull request qué líneas nuevas quedaron sin ejecutar; sus
+estados son informativos ([`.github/codecov.yml`](../.github/codecov.yml)) y
+ninguno bloquea el merge. Lo que sirve es la lista de líneas sin ejecutar: una función pública con ninguna es un camino que ningún
 test recorre, esté o no conectado a la ventana. Así salieron los hallazgos del
 hito 81, desde el clic en un botón de fase hasta un color de anotación que se
 aceptaba sin validar.

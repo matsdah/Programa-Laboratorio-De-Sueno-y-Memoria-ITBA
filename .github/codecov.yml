@@ -1,0 +1,21 @@
+# Configuración de Codecov, que recibe la cobertura que sube ci.yml.
+#
+# **Informativa y no bloqueante.** tests/README.md dice que el número no es
+# una meta: lo que sirve es ver qué líneas nuevas quedaron sin ejecutar. Por
+# eso los dos estados que Codecov le pone a la pull request no pueden salir en
+# rojo, y ninguno está entre los checks que exige el ruleset.
+
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+comment:
+  layout: "diff, flags, files"
+  # Sin comentario si la pull request no cambia la cobertura: la de un README
+  # no tiene nada que decir.
+  require_changes: true
