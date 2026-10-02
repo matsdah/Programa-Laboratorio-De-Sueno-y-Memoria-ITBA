@@ -224,9 +224,9 @@ cerrar el hito.
       antigua, e informar la ubicación de las copias conservadas.
 - [ ] Revisión independiente de Prisma y corrección de los hallazgos que bloqueen.
 - [x] Tests: `tests/test_recovery.py`, **51 tests en verde**;
-      `tests/test_work_guard.py`, **45 tests en verde**; y
+      `tests/test_work_guard.py`, **48 tests en verde**; y
       `tests/test_contratos.py`, **1453 tests en verde**. Suite completa:
-      4956 aprobados y 25 salteados en macOS con Python 3.14.
+      4959 aprobados y 25 salteados en macOS con Python 3.14.
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
 seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta

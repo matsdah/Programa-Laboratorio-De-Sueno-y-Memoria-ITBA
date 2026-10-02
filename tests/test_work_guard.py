@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PySide6.QtWidgets import QFileDialog, QMainWindow
+from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 
 from psglab.analysis.derivation import derive
 from psglab.core.annotations import Annotation, AnnotationSet
@@ -506,8 +506,13 @@ def test_copia_v1_sin_derivaciones_se_ofrece_y_recupera(
 
 
 def test_rechazar_copia_v1_la_conserva_sin_recuperar(
-    armado: Guardian, sesion: Session, perfil: Path, recupera: dict, tmp_path: Path
+    armado: Guardian, sesion: Session, perfil: Path, recupera: dict, tmp_path: Path,
+    monkeypatch,
 ):
+    avisos = []
+    monkeypatch.setattr(
+        QMessageBox, "information", staticmethod(lambda *_args: avisos.append(_args[-1]))
+    )
     sesion.scoring.set_stage(0, SleepStage.N2)
     copia = _copia_v1(sesion)
     ruta = armado.guardian.recovery_path()
@@ -525,6 +530,62 @@ def test_rechazar_copia_v1_la_conserva_sin_recuperar(
     apartadas = list(perfil.glob("*.declined-v1-*.json"))
     assert len(apartadas) == 1
     assert json.loads(apartadas[0].read_text(encoding="utf-8")) == copia
+    assert str(apartadas[0]) in avisos[-1]
+    assert not armado.fallas
+
+
+def test_copia_v1_vacia_informa_ruta_conservada(
+    armado: Guardian, sesion: Session, perfil: Path, tmp_path: Path
+):
+    copia = _copia_v1(sesion)
+    ruta = armado.guardian.recovery_path()
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_text(json.dumps(copia), encoding="utf-8")
+    nueva = _sesion(tmp_path)
+    armado.guardian.attach(nueva)
+
+    assert not armado.guardian.offer_recovery()
+
+    (apartada,) = perfil.glob("*.empty-*.json")
+    assert str(apartada) in armado.fallas[-1][0].message
+
+
+def test_copia_v2_vacia_se_aparta_sin_abrir_cartel(
+    armado: Guardian, sesion: Session, perfil: Path
+):
+    ruta = armado.guardian.recovery_path()
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_text(json.dumps(recovery.snapshot(sesion)), encoding="utf-8")
+
+    assert not armado.guardian.offer_recovery()
+
+    assert armado.fallas == []
+    assert len(list(perfil.glob("*.empty-*.json"))) == 1
+
+
+def test_si_no_se_puede_apartar_v1_vacia_informa_que_sigue_en_origen(
+    armado: Guardian, sesion: Session, perfil: Path, tmp_path: Path, monkeypatch
+):
+    ruta = armado.guardian.recovery_path()
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_text(json.dumps(_copia_v1(sesion)), encoding="utf-8")
+    nueva = _sesion(tmp_path)
+    armado.guardian.attach(nueva)
+    reemplazo = Path.replace
+
+    def impedir(origen: Path, destino: Path):
+        if ".empty-" in destino.name:
+            raise OSError("sin permiso")
+        return reemplazo(origen, destino)
+
+    monkeypatch.setattr(Path, "replace", impedir)
+    assert not armado.guardian.offer_recovery()
+
+    mensaje = armado.fallas[-1][0].message
+    assert str(ruta) in mensaje
+    assert "sigue en su ubicación original" in mensaje
+    assert ruta.exists()
+    assert list(perfil.glob("*.empty-*.json")) == []
 
 
 def test_si_falla_archivar_v1_no_se_sobrescribe_ni_se_borra_la_unica_copia(
@@ -650,6 +711,10 @@ def test_copia_v1_invalida_no_se_ofrece_ni_toca_la_sesion(
 def test_reintenta_apartar_copia_rota_antes_de_escribir_el_nuevo_trabajo(
     armado: Guardian, sesion: Session, perfil: Path, monkeypatch
 ):
+    avisos = []
+    monkeypatch.setattr(
+        QMessageBox, "information", staticmethod(lambda *_args: avisos.append(_args[-1]))
+    )
     ruta = armado.guardian.recovery_path()
     ruta.parent.mkdir(parents=True)
     ruta.write_text("{ roto", encoding="utf-8")
@@ -675,6 +740,8 @@ def test_reintenta_apartar_copia_rota_antes_de_escribir_el_nuevo_trabajo(
     assert apartadas[0].read_text(encoding="utf-8") == "{ roto"
     assert ruta.exists()
     assert json.loads(ruta.read_text(encoding="utf-8"))["fases"][0] == "N2"
+    assert len(avisos) == 1
+    assert str(apartadas[0]) in avisos[0]
 
 
 def test_si_no_se_puede_apartar_la_copia_autoguardado_no_la_pisa(
@@ -806,6 +873,7 @@ def test_si_falla_el_rollback_la_copia_sigue_a_salvo(
     apartadas = list(perfil.glob("*.restore-failed-*.json"))
     assert len(apartadas) == 1
     assert apartadas[0].read_text(encoding="utf-8") == contenido
+    assert str(apartadas[0]) in armado.fallas[-1][0].message
 
 
 def test_copia_invalida_con_montaje_no_cambia_la_sesion_antes_de_rechazarla(

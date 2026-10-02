@@ -481,7 +481,10 @@ class WorkGuard(QObject):
         if not self._ensure_legacy_archive(ruta):
             return
         if self._preserved_path == ruta and ruta.exists():
-            self._preserve_recovery(ruta, self._preserved_reason or "invalid")
+            razon = self._preserved_reason or "invalid"
+            conservada = self._preserve_recovery(ruta, razon)
+            if conservada is not None and conservada != ruta:
+                self._show_preserved_info(razon, conservada)
             if self._preserved_path == ruta and ruta.exists():
                 return
         if not self.unexported():
@@ -515,7 +518,10 @@ class WorkGuard(QObject):
         if not self._ensure_legacy_archive(ruta):
             return
         if self._preserved_path == ruta and ruta.exists():
-            self._preserve_recovery(ruta, self._preserved_reason or "invalid")
+            razon = self._preserved_reason or "invalid"
+            conservada = self._preserve_recovery(ruta, razon)
+            if conservada is not None and conservada != ruta:
+                self._show_preserved_info(razon, conservada)
             if self._preserved_path == ruta and ruta.exists():
                 return
         try:
@@ -584,7 +590,10 @@ class WorkGuard(QObject):
                 return False
             legacy = True
         if not (ventanas or anotaciones):
-            self._preserve_recovery(ruta, "empty")
+            if legacy:
+                self._preserve_with_notice(ruta, "empty")
+            else:
+                self._preserve_recovery(ruta, "empty")
             return False
         derived = bool(copia.get("derivaciones"))
         if legacy or derived:
@@ -595,11 +604,7 @@ class WorkGuard(QObject):
             aceptada = self.ask_recovery(escrita, ventanas, anotaciones)
         if not aceptada:
             if legacy:
-                conservada = self._preserve_recovery(ruta, "declined-v1")
-                if conservada is not None:
-                    self._barra_de_estado.showMessage(
-                        f"La copia antigua se conservó en {conservada}", 0
-                    )
+                self._preserve_with_notice(ruta, "declined-v1")
             else:
                 self.discard_recovery()
             return False
@@ -618,7 +623,7 @@ class WorkGuard(QObject):
         except Exception as error:
             # Guardar primero la única copia: incluso volver al registro
             # original puede fallar, y el reloj se reanuda al salir.
-            self._preserve_recovery(ruta, "restore-failed")
+            conservada = self._preserve_recovery(ruta, "restore-failed")
             rollback_error: Exception | None = None
             if self._session.recording is not previo:
                 try:
@@ -643,6 +648,16 @@ class WorkGuard(QObject):
                 mostrado = PsgLabError(
                     "No se pudo recuperar el trabajo.",
                     details=f"{type(error).__name__}: {error}",
+                )
+            if conservada is not None:
+                situacion = (
+                    f"La copia se conservó en {conservada}."
+                    if conservada != ruta
+                    else f"No se pudo apartar; la copia sigue en su ubicación original: {ruta}."
+                )
+                mostrado = PsgLabError(
+                    f"{mostrado.message} {situacion}",
+                    details=mostrado.details,
                 )
             self.failed.emit(mostrado, "recuperar el trabajo")
             return False
@@ -702,12 +717,34 @@ class WorkGuard(QObject):
     def _preserve_with_notice(self, path: Path, reason: str) -> None:
         kept = self._preserve_recovery(path, reason)
         if kept is not None:
-            self.failed.emit(
-                PsgLabError(
-                    f"La copia no se puede aplicar a este registro. Se conservó en {kept}."
-                ),
-                "recuperar el trabajo",
+            if reason == "declined-v1" and kept != path:
+                self._show_preserved_info(reason, kept)
+                return
+            motivo = {
+                "invalid": "La copia está dañada o no es válida.",
+                "mismatch": "La copia no corresponde a este registro.",
+                "empty": "La copia no contiene trabajo para recuperar.",
+                "declined-v1": "Elegiste conservar la copia antigua.",
+            }.get(reason, "La copia no se pudo recuperar.")
+            situacion = (
+                f"Se conservó en {kept}."
+                if kept != path
+                else f"No se pudo apartar; sigue en su ubicación original: {path}."
             )
+            self.failed.emit(
+                PsgLabError(f"{motivo} {situacion}"),
+                "preservar la copia antigua"
+                if reason == "declined-v1"
+                else "recuperar el trabajo",
+            )
+
+    def _show_preserved_info(self, reason: str, path: Path) -> None:
+        """Informa con un diálogo persistente dónde quedó una copia conservada."""
+        if reason == "declined-v1":
+            message = f"La copia antigua se conservó en {path}."
+        else:
+            message = f"La copia que no se pudo conservar antes ahora está archivada en {path}."
+        QMessageBox.information(self._ventana, "Copia conservada", message)
 
     def _preserve_recovery(self, path: Path, reason: str) -> Path | None:
         """Aparta una copia que no se puede usar sin destruir la evidencia."""
