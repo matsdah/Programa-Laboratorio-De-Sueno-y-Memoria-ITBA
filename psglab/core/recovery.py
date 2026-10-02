@@ -13,6 +13,10 @@ estaba parado el usuario—, cómo se reconoce que una copia es del registro
 original y cómo se vuelve a ella. Cuándo se escribe, dónde y cuándo se borra es de
 `ui/work_guard.py`.
 
+El formato 1 sólo identificaba nombre, frecuencia, muestras y nombres de canal.
+`legacy_matches()` limita su recuperación al registro original sin derivados;
+`upgrade_legacy()` lo adapta en memoria para pasar la validación actual.
+
 **La copia es un diccionario de tipos de JSON** y no un objeto: se escribe y se
 lee de un archivo que pudo quedar cortado por el mismo corte de luz, así que
 `restore()` desconfía de todo lo que trae y lo rechaza entero antes de tocar la
@@ -21,6 +25,7 @@ sesión.
 Cubre del pliego: ningún ID; es infraestructura del trabajo del investigador.
 """
 
+from copy import deepcopy
 from hashlib import sha256
 import math
 from typing import Any, Final
@@ -143,6 +148,83 @@ def matches(data: object, source_identity: dict[str, Any] | Recording) -> bool:
     if not isinstance(data, dict):
         return False
     return data.get("formato") == RECOVERY_FORMAT and data.get("registro") == source_identity
+
+
+def legacy_matches(data: object, original_recording: Recording) -> bool:
+    """Compara la identidad débil del formato 1 con el registro recién abierto.
+
+    El formato 1 sólo guardaba nombre, frecuencia, muestras y nombres de
+    canales. No permite comprobar el contenido de la señal ni reconstruir
+    canales derivados; quien lo ofrezca debe advertir esa limitación.
+    """
+    if not isinstance(original_recording, Recording):
+        raise PsgLabError(
+            "No se pudo comparar la copia antigua con el registro.",
+            details="original_recording debe ser Recording.",
+        )
+    if not isinstance(data, dict) or type(data.get("formato")) is not int:
+        return False
+    if data["formato"] != 1 or "derivaciones" in data:
+        return False
+    registro = data.get("registro")
+    if not isinstance(registro, dict) or set(registro) != {
+        "archivo", "frecuencia", "muestras", "canales"
+    }:
+        return False
+    frecuencia = registro["frecuencia"]
+    muestras = registro["muestras"]
+    canales = registro["canales"]
+    if (
+        not isinstance(registro["archivo"], str)
+        or not isinstance(frecuencia, (int, float))
+        or isinstance(frecuencia, bool)
+        or not math.isfinite(frecuencia)
+        or not isinstance(muestras, int)
+        or isinstance(muestras, bool)
+        or not isinstance(canales, list)
+        or not all(isinstance(canal, str) for canal in canales)
+        or any(canal.derived_from is not None for canal in original_recording.channels)
+    ):
+        return False
+    return registro == {
+        "archivo": original_recording.file_path.name,
+        "frecuencia": float(original_recording.sampling_rate),
+        "muestras": int(original_recording.n_samples),
+        "canales": original_recording.channel_names(),
+    }
+
+
+def upgrade_legacy(
+    data: object, original_recording: Recording, source_identity: dict[str, Any]
+) -> dict[str, Any]:
+    """Adapta una copia genuina de formato 1 para validarla como formato 2.
+
+    Sólo devuelve un diccionario nuevo en memoria. El formato 1 no certifica
+    los bytes de la señal; quien ofrece la recuperación debe avisarlo y correr
+    `preflight()` sobre el resultado antes de cambiar la sesión.
+    """
+    if not legacy_matches(data, original_recording):
+        raise UnreadableRecoveryError(
+            "La copia antigua no corresponde al registro original.",
+            details="La identidad de formato 1 no coincide o contiene canales derivados.",
+        )
+    _validate_identity(source_identity)
+    if (
+        source_identity["archivo"] != original_recording.file_path.name
+        or source_identity["frecuencia"] != float(original_recording.sampling_rate)
+        or source_identity["muestras"] != original_recording.n_samples
+        or [canal[0] for canal in source_identity["canales"]]
+        != original_recording.channel_names()
+    ):
+        raise PsgLabError(
+            "No se pudo identificar el registro para recuperar la copia antigua.",
+            details="source_identity no corresponde al registro original.",
+        )
+    copia = deepcopy(data)
+    copia["formato"] = RECOVERY_FORMAT
+    copia["registro"] = deepcopy(source_identity)
+    copia["derivaciones"] = []
+    return copia
 
 
 def summary(data: object) -> tuple[int, int]:
