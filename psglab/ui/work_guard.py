@@ -808,8 +808,9 @@ class WorkGuard(QObject):
         informacion += "Los filtros, la ICA y la re-referencia no se vuelven a aplicar."
         if derived:
             informacion += (
-                " Los canales derivados se reconstruyen desde la señal original. "
-                "Si aplicaste filtros antes del montaje, su señal puede verse diferente."
+                " Los canales derivados se reconstruyen desde la señal original, sin filtrar. "
+                "Si aplicaste un filtro antes de crear el montaje, la forma de onda recuperada "
+                "puede ser distinta de la que veías al anotar."
             )
         cartel.setInformativeText(informacion)
         recuperar = cartel.addButton("Recuperar", QMessageBox.ButtonRole.AcceptRole)

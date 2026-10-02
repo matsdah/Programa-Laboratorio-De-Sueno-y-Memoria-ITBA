@@ -987,6 +987,7 @@ def test_el_cartel_de_recuperar_devuelve_lo_que_se_aprieta(
     assert "1 anotación" in texto
     assert "28/09 a las 23:05" in texto
     assert "filtros, la ICA y la re-referencia no se vuelven a aplicar" in texto
+    assert "canales derivados" not in texto
 
 
 def test_el_cartel_v1_advierte_que_no_puede_verificar_la_senal(
@@ -1019,6 +1020,12 @@ def test_el_cartel_de_montaje_advierte_sobre_filtros_previos(
     )
 
     (texto,) = aprieta["textos"]
-    assert "canales derivados" in texto
-    assert "filtros antes del montaje" in texto
-    assert "puede verse diferente" in texto
+    assert (
+        "Los canales derivados se reconstruyen desde la señal original, sin filtrar."
+        in texto
+    )
+    assert (
+        "Si aplicaste un filtro antes de crear el montaje, la forma de onda recuperada "
+        "puede ser distinta de la que veías al anotar."
+        in texto
+    )
