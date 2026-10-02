@@ -6,6 +6,9 @@
 
 [run]
 source = psglab
+# Rutas relativas en el reporte: el CI sube uno por sistema, y Codecov los
+# junta sólo si Windows y Linux nombran igual al mismo archivo.
+relative_files = True
 
 [report]
 show_missing = True

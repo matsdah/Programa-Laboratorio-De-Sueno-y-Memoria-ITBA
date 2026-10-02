@@ -8,10 +8,14 @@ en ninguna carpeta, y al reabrir el mismo registro después de un cierre
 inesperado el programa ofrece volver a donde estaba.
 
 Este módulo es la regla, sin Qt y sin disco: qué es el trabajo —las fases, los
-arousals, las anotaciones con sus clases y la ventana donde estaba parado el
-usuario—, cómo se reconoce que una copia es del registro abierto y cómo se
-vuelve a ella. Cuándo se escribe, dónde y cuándo se borra es de
+arousals, las anotaciones con sus clases, las derivaciones y la ventana donde
+estaba parado el usuario—, cómo se reconoce que una copia es del registro
+original y cómo se vuelve a ella. Cuándo se escribe, dónde y cuándo se borra es de
 `ui/work_guard.py`.
+
+El formato 1 sólo identificaba nombre, frecuencia, muestras y nombres de canal.
+`legacy_matches()` limita su recuperación al registro original sin derivados;
+`upgrade_legacy()` lo adapta en memoria para pasar la validación actual.
 
 **La copia es un diccionario de tipos de JSON** y no un objeto: se escribe y se
 lee de un archivo que pudo quedar cortado por el mismo corte de luz, así que
@@ -21,20 +25,67 @@ sesión.
 Cubre del pliego: ningún ID; es infraestructura del trabajo del investigador.
 """
 
+from copy import deepcopy
+from hashlib import sha256
+import math
 from typing import Any, Final
 
-from psglab.core.annotations import Annotation
+import numpy as np
+
+from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
-from psglab.core.recording import Recording
+from psglab.core.recording import ChannelKind, Recording
 from psglab.core.session import Session
+from psglab.core.windows import count_windows
 from psglab.utils.errors import PsgLabError, UnreadableRecoveryError
 
-#: La forma de la copia. Si cambia, una copia vieja se descarta en vez de
-#: leerse mal: `matches()` la compara.
-RECOVERY_FORMAT: Final[int] = 1
+#: La forma de la copia. Las copias de otra versión no coinciden con ésta.
+RECOVERY_FORMAT: Final[int] = 2
+_HASH_CHUNK_BYTES: Final[int] = 1024 * 1024
 
 
-def snapshot(session: Session) -> dict[str, Any]:
+def fingerprint(original_recording: Recording) -> dict[str, Any]:
+    """Calcula una identidad estable del registro fuente, incluido todo su contenido.
+
+    Se recorre la matriz en bloques para no crear una segunda copia grande de
+    una noche completa en memoria. La identidad resultante sólo contiene JSON.
+    """
+    if not isinstance(original_recording, Recording):
+        raise PsgLabError(
+            "No se pudo identificar el registro para recuperación.",
+            details=f"original_recording es {type(original_recording).__name__}, se esperaba Recording.",
+        )
+    digest = sha256()
+    elementos = max(1, _HASH_CHUNK_BYTES // original_recording.data.dtype.itemsize)
+    for bloque in np.nditer(
+        original_recording.data,
+        flags=["external_loop", "buffered"],
+        op_flags=["readonly"],
+        order="C",
+        buffersize=elementos,
+    ):
+        # `external_loop` may expose a strided view when the input matrix is
+        # non-contiguous. Convert just this bounded buffer to C-order bytes.
+        digest.update(bloque.tobytes(order="C"))
+    return {
+        "archivo": original_recording.file_path.name,
+        "inicio": (
+            original_recording.start_time.isoformat()
+            if original_recording.start_time is not None
+            else None
+        ),
+        "frecuencia": float(original_recording.sampling_rate),
+        "muestras": int(original_recording.n_samples),
+        "canales": [
+            [c.name, c.kind.name, c.unit, c.original_sampling_rate]
+            for c in original_recording.channels
+        ],
+        "dtype": original_recording.data.dtype.str,
+        "sha256": digest.hexdigest(),
+    }
+
+
+def snapshot(session: Session, source_identity: dict[str, Any] | None = None) -> dict[str, Any]:
     """El trabajo de la sesión, listo para escribirse como JSON.
 
     Las fases van por el nombre de su `SleepStage` y la nomenclatura por el de
@@ -50,12 +101,20 @@ def snapshot(session: Session) -> dict[str, Any]:
             "No se pudo guardar la copia de recuperación.",
             details=f"session es {type(session).__name__}, se esperaba Session.",
         )
+    if source_identity is None:
+        source_identity = fingerprint(session.recording)
+    _validate_identity(source_identity)
     scoring = session.scoring
     ventanas = [scoring.get(i) for i in range(scoring.n_windows)]
     anotaciones = session.annotations
     return {
         "formato": RECOVERY_FORMAT,
-        "registro": _huella(session.recording),
+        "registro": source_identity,
+        "derivaciones": [
+            [*channel.derived_from, channel.name, channel.kind.name]
+            for channel in session.recording.channels
+            if getattr(channel, "derived_from", None) is not None
+        ],
         "ventana": session.current_window,
         "nomenclatura": scoring.nomenclature.name,
         "fases": [ventana.stage.name for ventana in ventanas],
@@ -68,32 +127,108 @@ def snapshot(session: Session) -> dict[str, Any]:
     }
 
 
-def matches(data: object, recording: Recording) -> bool:
+def matches(data: object, source_identity: dict[str, Any] | Recording) -> bool:
     """Si la copia es de este registro, y de esta forma de copia.
 
-    Se compara el nombre del archivo, la frecuencia, cuántas muestras y qué
-    canales tiene, que es lo que haría que las fases cayeran en otras
-    ventanas o las anotaciones en otros canales. **No la ruta entera**: la
-    carpeta pudo cambiar de nombre, y eso no cambia el registro.
+    Compara la identidad del registro fuente, incluida una huella SHA-256 de
+    toda la señal y los metadatos que fijan tiempo, frecuencia y canales.
 
     Raises:
         PsgLabError: si `recording` no es un registro. Una copia rota no eleva:
             simplemente no coincide.
     """
-    if not isinstance(recording, Recording):
+    if isinstance(source_identity, Recording):
+        source_identity = fingerprint(source_identity)
+    if not isinstance(source_identity, dict):
         raise PsgLabError(
             "No se pudo comparar la copia de recuperación con el registro.",
-            details=f"recording es {type(recording).__name__}, se esperaba Recording.",
+            details=f"source_identity es {type(source_identity).__name__}, se esperaba dict.",
         )
+    _validate_identity(source_identity)
     if not isinstance(data, dict):
         return False
-    return data.get("formato") == RECOVERY_FORMAT and data.get("registro") == _huella(
-        recording
-    )
+    return data.get("formato") == RECOVERY_FORMAT and data.get("registro") == source_identity
+
+
+def legacy_matches(data: object, original_recording: Recording) -> bool:
+    """Compara la identidad débil del formato 1 con el registro recién abierto.
+
+    El formato 1 sólo guardaba nombre, frecuencia, muestras y nombres de
+    canales. No permite comprobar el contenido de la señal ni reconstruir
+    canales derivados; quien lo ofrezca debe advertir esa limitación.
+    """
+    if not isinstance(original_recording, Recording):
+        raise PsgLabError(
+            "No se pudo comparar la copia antigua con el registro.",
+            details="original_recording debe ser Recording.",
+        )
+    if not isinstance(data, dict) or type(data.get("formato")) is not int:
+        return False
+    if data["formato"] != 1 or "derivaciones" in data:
+        return False
+    registro = data.get("registro")
+    if not isinstance(registro, dict) or set(registro) != {
+        "archivo", "frecuencia", "muestras", "canales"
+    }:
+        return False
+    frecuencia = registro["frecuencia"]
+    muestras = registro["muestras"]
+    canales = registro["canales"]
+    if (
+        not isinstance(registro["archivo"], str)
+        or not isinstance(frecuencia, (int, float))
+        or isinstance(frecuencia, bool)
+        or not math.isfinite(frecuencia)
+        or not isinstance(muestras, int)
+        or isinstance(muestras, bool)
+        or not isinstance(canales, list)
+        or not all(isinstance(canal, str) for canal in canales)
+        or any(canal.derived_from is not None for canal in original_recording.channels)
+    ):
+        return False
+    return registro == {
+        "archivo": original_recording.file_path.name,
+        "frecuencia": float(original_recording.sampling_rate),
+        "muestras": int(original_recording.n_samples),
+        "canales": original_recording.channel_names(),
+    }
+
+
+def upgrade_legacy(
+    data: object, original_recording: Recording, source_identity: dict[str, Any]
+) -> dict[str, Any]:
+    """Adapta una copia genuina de formato 1 para validarla como formato 2.
+
+    Sólo devuelve un diccionario nuevo en memoria. El formato 1 no certifica
+    los bytes de la señal; quien ofrece la recuperación debe avisarlo y correr
+    `preflight()` sobre el resultado antes de cambiar la sesión.
+    """
+    if not legacy_matches(data, original_recording):
+        raise UnreadableRecoveryError(
+            "La copia antigua no corresponde al registro original.",
+            details="La identidad de formato 1 no coincide o contiene canales derivados.",
+        )
+    _validate_identity(source_identity)
+    if (
+        source_identity["archivo"] != original_recording.file_path.name
+        or source_identity["frecuencia"] != float(original_recording.sampling_rate)
+        or source_identity["muestras"] != original_recording.n_samples
+        or [canal[0] for canal in source_identity["canales"]]
+        != original_recording.channel_names()
+    ):
+        raise PsgLabError(
+            "No se pudo identificar el registro para recuperar la copia antigua.",
+            details="source_identity no corresponde al registro original.",
+        )
+    copia = deepcopy(data)
+    copia["formato"] = RECOVERY_FORMAT
+    copia["registro"] = deepcopy(source_identity)
+    copia["derivaciones"] = []
+    return copia
 
 
 def summary(data: object) -> tuple[int, int]:
-    """Cuántas ventanas scoreadas y cuántas anotaciones trae la copia.
+    """Cuántas ventanas con trabajo y cuántas anotaciones trae la copia.
 
     Es lo que la pregunta le muestra al usuario, y lo que dice si vale la pena
     preguntar: una copia con cero y cero no tiene nada que recuperar.
@@ -101,12 +236,34 @@ def summary(data: object) -> tuple[int, int]:
     Raises:
         UnreadableRecoveryError: si la copia no tiene la forma esperada.
     """
-    fases, _arousals, _clases, anotaciones = _partes(data)
-    scoreadas = sum(1 for fase in fases if fase != SleepStage.UNSCORED.name)
-    return scoreadas, len(anotaciones)
+    fases, arousals, _clases, anotaciones = _partes(data)
+    if not all(
+        isinstance(indice, int)
+        and not isinstance(indice, bool)
+        and 0 <= indice < len(fases)
+        for indice in arousals
+    ):
+        raise UnreadableRecoveryError(
+            "La copia de recuperación no se puede leer.",
+            details="Los arousals de la copia no son índices de ventana válidos.",
+        )
+    con_fase = {i for i, fase in enumerate(fases) if fase != SleepStage.UNSCORED.name}
+    return len(con_fase | set(arousals)), len(anotaciones)
 
 
-def restore(session: Session, data: object) -> None:
+def preflight(
+    session: Session,
+    data: object,
+    source_identity: dict[str, Any] | None = None,
+    recording: Recording | None = None,
+) -> None:
+    """Valida íntegramente una copia contra el registro candidato, sin mutar nada."""
+    _validate_restore(session, data, source_identity, recording)
+
+
+def restore(
+    session: Session, data: object, source_identity: dict[str, Any] | None = None
+) -> None:
     """Vuelve a poner en la sesión el trabajo de la copia.
 
     **Sobre una sesión recién abierta**: se ofrece al abrir el registro, antes
@@ -131,14 +288,79 @@ def restore(session: Session, data: object) -> None:
             "No se pudo recuperar el trabajo.",
             details=f"session es {type(session).__name__}, se esperaba Session.",
         )
-    if not matches(data, session.recording):
+    if source_identity is None:
+        source_identity = fingerprint(session.recording)
+    _validate_restore(session, data, source_identity, session.recording)
+    copia: dict[str, Any] = data if isinstance(data, dict) else {}
+    scoring = session.scoring
+    nomenclatura_antes = scoring.nomenclature
+    colores_antes = dict(session.annotations._colors)
+    ventana_antes = session.current_window
+    fases, arousals, clases, anotaciones = _partes(copia)
+    nomenclatura = Nomenclature[copia["nomenclatura"]]
+    etapas = [SleepStage[nombre] for nombre in fases]
+    ventana = copia["ventana"]
+    recuperadas = [Annotation(etiqueta, inicio, duracion, tuple(canales), color)
+                   for etiqueta, inicio, duracion, canales, color in anotaciones]
+
+    try:
+        scoring.change_nomenclature(nomenclatura)
+        for indice, etapa in enumerate(etapas):
+            if etapa is not SleepStage.UNSCORED:
+                scoring.set_stage(indice, etapa)
+        for indice in arousals:
+            scoring.set_arousal(indice, True)
+        for clase, color in clases:
+            if clase not in session.annotations.labels():
+                session.annotations.add_label(clase, color)
+        for anotacion in recuperadas:
+            session.annotations.add(anotacion)
+        if scoring.n_windows:
+            session.go_to_window(ventana)
+    except Exception as error:
+        _deshacer(session)
+        scoring.change_nomenclature(nomenclatura_antes)
+        session.annotations._colors = colores_antes
+        if scoring.n_windows:
+            session.go_to_window(ventana_antes)
+        raise UnreadableRecoveryError(
+            "La copia de recuperación no se puede leer.",
+            details=f"{type(error).__name__}: {error}",
+        ) from error
+
+
+def _validate_restore(
+    session: Session,
+    data: object,
+    source_identity: dict[str, Any] | None,
+    recording: Recording | None,
+) -> None:
+    """Comprueba todos los datos y su relación con el candidato antes de escribir."""
+    if not isinstance(session, Session):
+        raise PsgLabError(
+            "No se pudo recuperar el trabajo.",
+            details=f"session es {type(session).__name__}, se esperaba Session.",
+        )
+    if recording is None:
+        recording = session.recording
+    if not isinstance(recording, Recording):
+        raise PsgLabError("No se pudo validar la recuperación contra el registro.", details="recording debe ser Recording.")
+    if source_identity is None:
+        source_identity = fingerprint(recording)
+    _validate_identity(source_identity)
+    if not matches(data, source_identity):
         raise UnreadableRecoveryError(
             "La copia de recuperación no es de este registro.",
             details="matches() dio False: otro archivo, otra forma de copia o una copia rota.",
         )
     # `matches()` ya comprobó que es un diccionario; esto sólo lo nombra.
-    copia: dict[str, Any] = data if isinstance(data, dict) else {}
+    copia: dict[str, Any] = data  # type: ignore[assignment]
     scoring = session.scoring
+    if count_windows(recording.n_samples, recording.sampling_rate) != scoring.n_windows:
+        raise UnreadableRecoveryError(
+            "La copia de recuperación no se puede aplicar a este montaje.",
+            details="La cantidad de ventanas del registro candidato no coincide con el scoring.",
+        )
     if scoring.scored_windows() or session.annotations.all():
         raise PsgLabError(
             "El trabajo se recupera sobre el registro recién abierto, antes de scorear.",
@@ -183,12 +405,13 @@ def restore(session: Session, data: object) -> None:
     # el registro, así que no lo comprueba; y la copia es de este registro
     # —lo dijo `matches()`—, así que una anotación fuera de él es una copia
     # rota y no un evento.
-    canales = set(session.recording.channel_names())
+    canales = set(recording.channel_names())
     if not all(
         isinstance(a.onset_sample, int)
         and isinstance(a.duration_samples, int)
         and 0 <= a.onset_sample
-        and a.end_sample <= session.recording.n_samples
+        and a.end_sample <= recording.n_samples
+        and all(isinstance(canal, str) for canal in a.channels)
         and set(a.channels) <= canales
         for a in recuperadas
     ):
@@ -196,44 +419,88 @@ def restore(session: Session, data: object) -> None:
             "La copia de recuperación no se puede leer.",
             details="Una anotación cae fuera del registro o sobre un canal que no tiene.",
         )
-
-    # **Recién acá se toca la sesión.** Lo que queda puede rechazar todavía
-    # —una anotación fuera del registro, un color inválido—, y entonces se
-    # deshace lo hecho para no dejar la noche a medias.
+    _validar_derivaciones(copia.get("derivaciones"), recording)
+    # Emula las validaciones del conjunto real, sobre uno temporal. Así una
+    # etiqueta/color/anotación malformada nunca llega a la primera escritura.
+    temporal = AnnotationSet()
     try:
-        scoring.change_nomenclature(nomenclatura)
-        for indice, etapa in enumerate(etapas):
-            if etapa is not SleepStage.UNSCORED:
-                scoring.set_stage(indice, etapa)
-        for indice in arousals:
-            scoring.set_arousal(indice, True)
-        # **Sólo las clases que falten**: las que ya están traen el color que
-        # el usuario eligió en sus preferencias, que pudo cambiar desde que se
-        # escribió la copia.
         for clase, color in clases:
-            if clase not in session.annotations.labels():
-                session.annotations.add_label(clase, color)
-        for anotacion in recuperadas:
-            session.annotations.add(anotacion)
+            if not isinstance(clase, str) or (color is not None and not isinstance(color, str)):
+                raise ValueError("clase o color no es texto")
+            if clase not in temporal.labels():
+                temporal.add_label(clase, color)
+        for etiqueta, inicio, duracion, canales_evento, color in anotaciones:
+            temporal.add(Annotation(etiqueta, inicio, duracion, tuple(canales_evento), color))
     except (PsgLabError, TypeError, ValueError) as error:
-        _deshacer(session)
         raise UnreadableRecoveryError(
             "La copia de recuperación no se puede leer.",
-            details=f"{type(error).__name__}: {error}",
+            details=f"Clase, color o anotación inválida: {error!r}",
         ) from error
-    if scoring.n_windows:
-        session.go_to_window(ventana)
 
 
-def _huella(recording: Recording) -> dict[str, Any]:
-    """Lo que identifica a un registro para la copia. Ver `matches()`."""
-    return {
-        "archivo": recording.file_path.name,
-        "frecuencia": float(recording.sampling_rate),
-        "muestras": int(recording.n_samples),
-        "canales": recording.channel_names(),
-    }
+def _validate_identity(identity: object) -> None:
+    if not isinstance(identity, dict):
+        valido = False
+    else:
+        canales = identity.get("canales")
+        frecuencia = identity.get("frecuencia")
+        muestras = identity.get("muestras")
+        digest = identity.get("sha256")
+        valido = (
+            isinstance(identity.get("archivo"), str)
+            and (identity.get("inicio") is None or isinstance(identity.get("inicio"), str))
+            and isinstance(frecuencia, (int, float))
+            and not isinstance(frecuencia, bool)
+            and math.isfinite(frecuencia)
+            and frecuencia > 0
+            and isinstance(muestras, int)
+            and not isinstance(muestras, bool)
+            and muestras > 0
+            and isinstance(canales, list)
+            and all(
+                isinstance(c, list)
+                and len(c) == 4
+                and isinstance(c[0], str)
+                and isinstance(c[1], str)
+                and c[1] in ChannelKind.__members__
+                and isinstance(c[2], str)
+                and (c[3] is None or isinstance(c[3], (int, float)))
+                for c in canales
+            )
+            and isinstance(identity.get("dtype"), str)
+            and isinstance(digest, str)
+            and len(digest) == 64
+            and all(ch in "0123456789abcdef" for ch in digest)
+        )
+    if not valido:
+        raise PsgLabError(
+            "No se pudo guardar la copia de recuperación.",
+            details="source_identity no tiene la forma de fingerprint().",
+        )
 
+
+def _validar_derivaciones(derivaciones: object, recording: Recording) -> None:
+    if not isinstance(derivaciones, list):
+        raise UnreadableRecoveryError("La copia de recuperación no se puede leer.", details="La receta de derivaciones no es una lista.")
+    actuales = [
+        [*channel.derived_from, channel.name, channel.kind.name]
+        for channel in recording.channels
+        if getattr(channel, "derived_from", None) is not None
+    ]
+    if derivaciones != actuales:
+        raise UnreadableRecoveryError("La copia de recuperación no corresponde al montaje.", details="Las derivaciones del registro no coinciden con la copia.")
+    disponibles = {c.name for c in recording.channels if getattr(c, "derived_from", None) is None}
+    vistos: set[str] = set()
+    for entrada in derivaciones:
+        if not isinstance(entrada, list) or len(entrada) != 4 or not all(isinstance(v, str) for v in entrada):
+            raise UnreadableRecoveryError("La copia de recuperación no se puede leer.", details="Una derivación no tiene la forma esperada.")
+        fuente_a, fuente_b, nombre, clase = entrada
+        if nombre in vistos or fuente_a not in disponibles or fuente_b not in disponibles:
+            raise UnreadableRecoveryError("La copia de recuperación no se puede leer.", details="Las fuentes u orden de derivación no son válidos.")
+        if clase not in ChannelKind.__members__:
+            raise UnreadableRecoveryError("La copia de recuperación no se puede leer.", details="Tipo de canal derivado desconocido.")
+        disponibles.add(nombre)
+        vistos.add(nombre)
 
 def _partes(data: object) -> tuple[list[Any], list[Any], list[Any], list[Any]]:
     """Las cuatro listas de la copia, comprobando que sean listas de lo esperado.
@@ -264,8 +531,7 @@ def _partes(data: object) -> tuple[list[Any], list[Any], list[Any], list[Any]]:
 def _deshacer(session: Session) -> None:
     """Deja la sesión sin fases, arousals ni anotaciones, como estaba al abrir.
 
-    La nomenclatura queda como la dejó la copia: sin nada scoreado, no hay
-    nada que se interprete distinto.
+    Quien llama restaura después la nomenclatura y los colores previos.
     """
     scoring = session.scoring
     for indice in range(scoring.n_windows):

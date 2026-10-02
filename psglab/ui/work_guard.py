@@ -44,6 +44,11 @@ decide cuándo:
   su trabajo. Lo que sobrevive es lo de un cierre que nadie decidió.
 - **Se ofrece** al abrir un registro que tiene una copia, con `offer_recovery()`.
   Si el usuario la descarta, se borra: no se vuelve a preguntar.
+- **Se recupera una copia de formato 1** sólo si sus canales coinciden con los
+  del registro original, con una advertencia sobre la identidad débil de la
+  señal. Se archivan sus bytes antes de que el reloj pueda escribir formato 2.
+- **Se aparta sin destruirla** si no coincide con el registro, está dañada o
+  falla la recuperación. La ruta conservada se informa al usuario.
 
 **Sólo la ventana del usuario la escribe** (`enable_recovery()`, que llama
 `apply_saved_preferences()`): la de los tests no escribe en el perfil de quien
@@ -58,6 +63,7 @@ scoring).
 
 import hashlib
 import json
+import secrets
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -67,8 +73,10 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QStatusBar, QWidget
 
 from psglab.core import recovery
 from psglab.core.history import History
+from psglab.core.recording import Recording
 from psglab.core.session import Session
 from psglab.exporters import DEFAULT_FILENAMES
+from psglab.exporters.atomic import atomic_destination, write_text_atomically
 from psglab.exporters.annotations_txt import export_annotations
 from psglab.exporters.information_txt import export_information
 from psglab.exporters.scoring_formats import SCORING_FORMATS, export_scoring_as
@@ -118,6 +126,12 @@ class WorkGuard(QObject):
         self._confirmar = confirm
         self._ultimo_reciente = last_recent
         self._session: Session | None = None
+        self._source_identity: dict[str, object] | None = None
+        self._preserved_path: Path | None = None
+        self._preserved_reason: str | None = None
+        self._legacy_archive_pending: Path | None = None
+        self._legacy_original_bytes: bytes | None = None
+        self._legacy_archive_warned = False
         self._historial: History | None = None
         #: Dónde van las copias, o None si esta ventana no las escribe.
         self._carpeta: Path | None = None
@@ -125,11 +139,12 @@ class WorkGuard(QObject):
         self._ultima_copia: str | None = None
         #: Si ya se avisó que la copia no se pudo escribir: una vez alcanza.
         self._avisado = False
+        self._pausado = False
         self._reloj = QTimer(self)
         self._reloj.setInterval(SEGUNDOS_ENTRE_COPIAS * 1000)
         self._reloj.timeout.connect(self.save_recovery)
 
-    def attach(self, session: Session) -> None:
+    def attach(self, session: Session, source_identity: dict[str, object] | None = None) -> None:
         """Toma la sesión de un registro recién abierto.
 
         Hay que preguntar `can_discard()` antes, sobre la anterior: después ya
@@ -137,6 +152,18 @@ class WorkGuard(QObject):
         ofrece aparte, con `offer_recovery()`, cuando la ventana ya lo dibujó.
         """
         self._session = session
+        self._pausado = False
+        self._legacy_archive_pending = None
+        self._legacy_original_bytes = None
+        self._legacy_archive_warned = False
+        # La ventana que lee en segundo plano pasa la huella calculada allí.
+        # El argumento opcional conserva el contrato para clientes de prueba y
+        # aperturas sin hilo.
+        self._source_identity = (
+            source_identity
+            if source_identity is not None
+            else recovery.fingerprint(session.recording)
+        )
         self._ultima_copia = None
         # Deshacer no cruza de un registro a otro: el historial empieza acá.
         self._historial = History(session)
@@ -401,6 +428,22 @@ class WorkGuard(QObject):
         self._carpeta = folder
         self._reloj.start()
 
+    @property
+    def source_identity(self) -> dict[str, object] | None:
+        """Huella completa del registro original, calculada al abrirlo."""
+        return self._source_identity
+
+    def pause_recovery(self) -> None:
+        """Suspende el reloj mientras un diálogo modal interrumpe el trabajo."""
+        self._pausado = True
+        self._reloj.stop()
+
+    def resume_recovery(self) -> None:
+        """Reanuda el reloj después del diálogo."""
+        self._pausado = False
+        if self._carpeta is not None:
+            self._reloj.start()
+
     def recovery_path(self) -> Path | None:
         """El archivo de la copia del registro abierto, o None si no hay.
 
@@ -433,19 +476,30 @@ class WorkGuard(QObject):
         segundos: se avisa una vez en la barra de estado.
         """
         ruta = self.recovery_path()
-        if ruta is None or self._session is None:
+        if ruta is None or self._session is None or self._pausado:
             return
+        if not self._ensure_legacy_archive(ruta):
+            return
+        if self._preserved_path == ruta and ruta.exists():
+            razon = self._preserved_reason or "invalid"
+            conservada = self._preserve_recovery(ruta, razon)
+            if conservada is not None and conservada != ruta:
+                self._show_preserved_info(razon, conservada)
+            if self._preserved_path == ruta and ruta.exists():
+                return
         if not self.unexported():
             self.discard_recovery()
             return
-        texto = json.dumps(recovery.snapshot(self._session), ensure_ascii=False)
+        if self._source_identity is None:
+            return
+        texto = json.dumps(
+            recovery.snapshot(self._session, self._source_identity), ensure_ascii=False
+        )
         if texto == self._ultima_copia:
             return
         try:
             ruta.parent.mkdir(parents=True, exist_ok=True)
-            provisoria = ruta.with_suffix(".tmp")
-            provisoria.write_text(texto, encoding="utf-8")
-            provisoria.replace(ruta)
+            write_text_atomically(ruta, texto)
         except OSError:
             if not self._avisado:
                 self._barra_de_estado.showMessage(
@@ -461,67 +515,277 @@ class WorkGuard(QObject):
         ruta = self.recovery_path()
         if ruta is None:
             return
+        if not self._ensure_legacy_archive(ruta):
+            return
+        if self._preserved_path == ruta and ruta.exists():
+            razon = self._preserved_reason or "invalid"
+            conservada = self._preserve_recovery(ruta, razon)
+            if conservada is not None and conservada != ruta:
+                self._show_preserved_info(razon, conservada)
+            if self._preserved_path == ruta and ruta.exists():
+                return
         try:
             ruta.unlink(missing_ok=True)
         except OSError:
             pass
 
-    def offer_recovery(self) -> bool:
+    def offer_recovery(
+        self,
+        prepare_recording: Callable[[dict[str, object]], Recording | None] | None = None,
+        apply_recording: Callable[[Recording], object] | None = None,
+        rollback_recording: Callable[[], object] | None = None,
+    ) -> bool:
         """Si el registro abierto tiene una copia, ofrece volver a ella.
 
         Se llama al abrir, con el registro ya dibujado y antes de que el
         usuario haga nada: `recovery.restore()` sólo acepta una sesión sin
         trabajo. Una copia que no se puede leer, que es de otro registro o que
-        no trae nada se borra sin preguntar.
+        no trae nada se aparta para conservarla. Si el investigador elige
+        «Descartar», sí se borra.
 
         Returns:
             Si se recuperó el trabajo. La ventana tiene que redibujar lo que
             depende del scoring y las anotaciones.
         """
+        self.pause_recovery()
+        try:
+            return self._offer_recovery_paused(
+                prepare_recording, apply_recording, rollback_recording
+            )
+        finally:
+            self.resume_recovery()
+
+    def _offer_recovery_paused(
+        self,
+        prepare_recording: Callable[[dict[str, object]], Recording | None] | None,
+        apply_recording: Callable[[Recording], object] | None,
+        rollback_recording: Callable[[], object] | None,
+    ) -> bool:
         ruta = self.recovery_path()
         if ruta is None or self._session is None or not ruta.exists():
             return False
         try:
-            copia = json.loads(ruta.read_text(encoding="utf-8"))
+            original_bytes = ruta.read_bytes()
+            copia = json.loads(original_bytes.decode("utf-8"))
             escrita = datetime.fromtimestamp(ruta.stat().st_mtime)
             ventanas, anotaciones = recovery.summary(copia)
         except (OSError, ValueError, PsgLabError):
-            self.discard_recovery()
+            self._preserve_with_notice(ruta, "invalid")
             return False
-        if not recovery.matches(copia, self._session.recording) or not (
-            ventanas or anotaciones
-        ):
-            self.discard_recovery()
+        legacy = False
+        if self._source_identity is None:
+            self._preserve_with_notice(ruta, "mismatch")
             return False
-        if not self.ask_recovery(escrita, ventanas, anotaciones):
-            self.discard_recovery()
+        if not recovery.matches(copia, self._source_identity):
+            if not recovery.legacy_matches(copia, self._session.recording):
+                self._preserve_with_notice(ruta, "mismatch")
+                return False
+            try:
+                copia = recovery.upgrade_legacy(
+                    copia, self._session.recording, self._source_identity
+                )
+                recovery.preflight(self._session, copia, self._source_identity)
+            except PsgLabError:
+                self._preserve_with_notice(ruta, "invalid")
+                return False
+            legacy = True
+        if not (ventanas or anotaciones):
+            if legacy:
+                self._preserve_with_notice(ruta, "empty")
+            else:
+                self._preserve_recovery(ruta, "empty")
             return False
+        derived = bool(copia.get("derivaciones"))
+        if legacy or derived:
+            aceptada = self.ask_recovery(
+                escrita, ventanas, anotaciones, legacy, derived
+            )
+        else:
+            aceptada = self.ask_recovery(escrita, ventanas, anotaciones)
+        if not aceptada:
+            if legacy:
+                self._preserve_with_notice(ruta, "declined-v1")
+            else:
+                self.discard_recovery()
+            return False
+        previo = self._session.recording
         try:
-            recovery.restore(self._session, copia)
-        except PsgLabError as error:
-            self.discard_recovery()
-            self.failed.emit(error, "recuperar el trabajo")
+            candidate = prepare_recording(copia) if prepare_recording is not None else None
+            if candidate is not None:
+                recovery.preflight(
+                    self._session, copia, self._source_identity, recording=candidate
+                )
+                if apply_recording is None:
+                    self._session.set_recording(candidate)
+                else:
+                    apply_recording(candidate)
+            recovery.restore(self._session, copia, self._source_identity)
+        except Exception as error:
+            # Guardar primero la única copia: incluso volver al registro
+            # original puede fallar, y el reloj se reanuda al salir.
+            conservada = self._preserve_recovery(ruta, "restore-failed")
+            rollback_error: Exception | None = None
+            if self._session.recording is not previo:
+                try:
+                    if rollback_recording is None:
+                        self._session.set_recording(previo)
+                    else:
+                        rollback_recording()
+                except Exception as fallo:
+                    rollback_error = fallo
+            if rollback_error is not None:
+                mostrado = PsgLabError(
+                    "No se pudo recuperar el trabajo ni volver a la señal original. "
+                    "La copia se conservó en el perfil.",
+                    details=(
+                        f"Recuperación: {type(error).__name__}: {error}; "
+                        f"reversión: {type(rollback_error).__name__}: {rollback_error}"
+                    ),
+                )
+            elif isinstance(error, PsgLabError):
+                mostrado = error
+            else:
+                mostrado = PsgLabError(
+                    "No se pudo recuperar el trabajo.",
+                    details=f"{type(error).__name__}: {error}",
+                )
+            if conservada is not None:
+                situacion = (
+                    f"La copia se conservó en {conservada}."
+                    if conservada != ruta
+                    else f"No se pudo apartar; la copia sigue en su ubicación original: {ruta}."
+                )
+                mostrado = PsgLabError(
+                    f"{mostrado.message} {situacion}",
+                    details=mostrado.details,
+                )
+            self.failed.emit(mostrado, "recuperar el trabajo")
             return False
+        if legacy:
+            self._legacy_archive_pending = ruta
+            self._legacy_original_bytes = original_bytes
+            self._ensure_legacy_archive(ruta)
         # **Lo recuperado no se deshace**: no es un cambio de esta sesión, y
         # deshacerlo sería perder lo que se acaba de recuperar.
         if self._historial is not None:
             self._historial.reset()
         return True
 
-    def ask_recovery(self, written: datetime, windows: int, annotations: int) -> bool:
+    def _archive_legacy_copy(self, path: Path, content: bytes) -> Path:
+        """Copia los bytes del formato 1 a un nombre único antes de migrar."""
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+        target = path.with_name(
+            f"{path.stem}.migrated-v1-{stamp}-{secrets.token_hex(8)}{path.suffix}"
+        )
+        with atomic_destination(target, "wb") as output:
+            output.write(content)
+        return target
+
+    def _ensure_legacy_archive(self, path: Path) -> bool:
+        """Nunca permite reemplazar o borrar el único archivo antiguo."""
+        if self._legacy_archive_pending != path:
+            return True
+        try:
+            if self._legacy_original_bytes is None:
+                raise OSError("Faltan los bytes originales de la copia antigua.")
+            archived = self._archive_legacy_copy(path, self._legacy_original_bytes)
+        except OSError as error:
+            self._barra_de_estado.showMessage(
+                f"No se pudo archivar la copia antigua en {path}; no se reemplazará.",
+                0,
+            )
+            if not self._legacy_archive_warned:
+                self.failed.emit(
+                    PsgLabError(
+                        f"El trabajo se recuperó, pero no se pudo archivar la copia "
+                        f"antigua en {path}. El archivo original se conserva y no "
+                        "se reemplazará hasta poder archivarlo.",
+                        details=f"{type(error).__name__}: {error}",
+                    ),
+                    "conservar la copia antigua",
+                )
+                self._legacy_archive_warned = True
+            return False
+        self._legacy_archive_pending = None
+        self._legacy_original_bytes = None
+        self._legacy_archive_warned = False
+        self._barra_de_estado.showMessage(
+            f"La copia antigua se conservó en {archived}", 8000
+        )
+        return True
+
+    def _preserve_with_notice(self, path: Path, reason: str) -> None:
+        kept = self._preserve_recovery(path, reason)
+        if kept is not None:
+            if reason == "declined-v1" and kept != path:
+                self._show_preserved_info(reason, kept)
+                return
+            motivo = {
+                "invalid": "La copia está dañada o no es válida.",
+                "mismatch": "La copia no corresponde a este registro.",
+                "empty": "La copia no contiene trabajo para recuperar.",
+                "declined-v1": "Elegiste conservar la copia antigua.",
+            }.get(reason, "La copia no se pudo recuperar.")
+            situacion = (
+                f"Se conservó en {kept}."
+                if kept != path
+                else f"No se pudo apartar; sigue en su ubicación original: {path}."
+            )
+            self.failed.emit(
+                PsgLabError(f"{motivo} {situacion}"),
+                "preservar la copia antigua"
+                if reason == "declined-v1"
+                else "recuperar el trabajo",
+            )
+
+    def _show_preserved_info(self, reason: str, path: Path) -> None:
+        """Informa con un diálogo persistente dónde quedó una copia conservada."""
+        if reason == "declined-v1":
+            message = f"La copia antigua se conservó en {path}."
+        else:
+            message = f"La copia que no se pudo conservar antes ahora está archivada en {path}."
+        QMessageBox.information(self._ventana, "Copia conservada", message)
+
+    def _preserve_recovery(self, path: Path, reason: str) -> Path | None:
+        """Aparta una copia que no se puede usar sin destruir la evidencia."""
+        if not path.exists():
+            return None
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+        target = path.with_name(f"{path.stem}.{reason}-{stamp}{path.suffix}")
+        ordinal = 1
+        while target.exists():
+            target = path.with_name(
+                f"{path.stem}.{reason}-{stamp}-{ordinal}{path.suffix}"
+            )
+            ordinal += 1
+        try:
+            path.replace(target)
+            self._preserved_path = None
+            self._preserved_reason = None
+            return target
+        except OSError:
+            # Si ni siquiera se puede renombrar, mantener el original es mejor
+            # que intentar borrarlo.
+            self._preserved_path = path
+            self._preserved_reason = reason
+            return path
+
+    def ask_recovery(
+        self, written: datetime, windows: int, annotations: int,
+        legacy: bool = False, derived: bool = False,
+    ) -> bool:
         """Pregunta si se recupera la copia. Devuelve si el usuario aceptó.
 
         Aparte, como `ask()`, para que los tests lo contesten: es modal.
 
-        **Recuperar es el botón por omisión**: es lo que se quiere casi
-        siempre, y un Enter apurado no puede costar la noche. Descartar la
-        borra, y el texto lo dice.
+        Para copias nuevas, Recuperar es el botón por omisión. Una copia de
+        formato 1 no verifica la señal completa: por omisión se conserva.
         """
         nombre = self._session.recording.file_path.name if self._session else ""
         partes = []
         if windows:
-            scoreadas = "ventana scoreada" if windows == 1 else "ventanas scoreadas"
-            partes.append(f"{windows} {scoreadas}")
+            trabajo = "ventana con trabajo" if windows == 1 else "ventanas con trabajo"
+            partes.append(f"{windows} {trabajo}")
         if annotations:
             anotadas = "anotación" if annotations == 1 else "anotaciones"
             partes.append(f"{annotations} {anotadas}")
@@ -529,15 +793,35 @@ class WorkGuard(QObject):
         cartel.setIcon(QMessageBox.Icon.Question)
         cartel.setWindowTitle("Recuperar el trabajo")
         cartel.setText(f"«{nombre}» se cerró la última vez sin exportar su trabajo.")
-        cartel.setInformativeText(
-            f"Hay una copia del {written:%d/%m a las %H:%M} con "
-            f"{' y '.join(partes)}. ¿Recuperarla? Si la descartás, se borra."
-        )
+        informacion = f"Hay una copia del {written:%d/%m a las %H:%M} con {' y '.join(partes)}. "
+        if legacy:
+            informacion += (
+                "Esta copia es de un formato anterior: coinciden el nombre, "
+                "la frecuencia, la duración y los canales, pero no se puede "
+                "comprobar que la señal sea la misma. ¿Recuperarla? "
+                "Si la conservás, se guarda en el perfil. "
+            )
+            if self._carpeta is not None:
+                informacion += f"Carpeta de copias: {self._carpeta}. "
+        else:
+            informacion += "¿Recuperarla? Si la descartás, se borra. "
+        informacion += "Los filtros, la ICA y la re-referencia no se vuelven a aplicar."
+        if derived:
+            informacion += (
+                " Los canales derivados se reconstruyen desde la señal original, sin filtrar. "
+                "Si aplicaste un filtro antes de crear el montaje, la forma de onda recuperada "
+                "puede ser distinta de la que veías al anotar."
+            )
+        cartel.setInformativeText(informacion)
         recuperar = cartel.addButton("Recuperar", QMessageBox.ButtonRole.AcceptRole)
         recuperar.setProperty(theme.PRIMARIO_PROPERTY, True)
-        descartar = cartel.addButton("Descartar", QMessageBox.ButtonRole.DestructiveRole)
-        descartar.setProperty(theme.DESTRUCTIVO_PROPERTY, True)
-        cartel.setDefaultButton(recuperar)
-        cartel.setEscapeButton(descartar)
+        if legacy:
+            otro = cartel.addButton("Conservar copia", QMessageBox.ButtonRole.RejectRole)
+            cartel.setDefaultButton(otro)
+        else:
+            otro = cartel.addButton("Descartar", QMessageBox.ButtonRole.DestructiveRole)
+            otro.setProperty(theme.DESTRUCTIVO_PROPERTY, True)
+            cartel.setDefaultButton(recuperar)
+        cartel.setEscapeButton(otro)
         cartel.exec()
         return cartel.clickedButton() is recuperar

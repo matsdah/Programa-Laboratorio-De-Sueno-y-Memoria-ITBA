@@ -27,9 +27,12 @@ from PySide6.QtWidgets import QFileDialog
 
 from psglab.core.annotations import AnnotationSet
 from psglab.core.nomenclature import Nomenclature
+from psglab.core.recording import ChannelKind, Recording
 from psglab.core.scoring import Scoring
 from psglab.core.session import Session
 from psglab.core.windows import count_windows
+from psglab.core import recovery
+from psglab.analysis.derivation import derive_montage
 from psglab.exporters.scoring_formats import SCORING_FORMATS
 from psglab.readers.base import IMPORT_WARNINGS_KEY, file_dialog_filter, read_recording
 from psglab.readers.scoring_reader import read_scoring
@@ -65,7 +68,7 @@ class FilesMixin:
         except PsgLabError as error:
             self._show_error(error, f"abrir «{path.name}»")
             return
-        self._tomar_la_sesion(sesion, path)
+        self._tomar_la_sesion(sesion, path, recovery.fingerprint(sesion.recording))
 
     def open_recording_in_background(self, path: Path) -> None:
         """Abre un registro leyéndolo en otro hilo (hito 79).
@@ -103,10 +106,16 @@ class FilesMixin:
                 except RuntimeError:
                     pass
 
-        def listo(sesion: object) -> None:
+        def listo(resultado: object) -> None:
             terminar()
-            if isinstance(sesion, Session) and not self._lectura_descartada:
-                self._tomar_la_sesion(sesion, path)
+            if (
+                isinstance(resultado, tuple)
+                and len(resultado) == 2
+                and isinstance(resultado[0], Session)
+                and isinstance(resultado[1], dict)
+                and not self._lectura_descartada
+            ):
+                self._tomar_la_sesion(resultado[0], path, resultado[1])
 
         def fallo(error: object) -> None:
             terminar()
@@ -119,7 +128,15 @@ class FilesMixin:
         self._lectura.stopped.connect(terminar)
         self.statusBar().showMessage(aviso)
         self.analysis_controller.wait_bar.show()
-        self._lectura.start(lambda: self._leer_la_sesion(path, nomenclatura, pagina))
+        self._lectura.start(lambda: self._leer_sesion_con_huella(path, nomenclatura, pagina))
+
+    @staticmethod
+    def _leer_sesion_con_huella(
+        path: Path, nomenclature: Nomenclature, view_seconds: float
+    ) -> tuple[Session, dict[str, object]]:
+        """Lee la señal y calcula su huella completa en el hilo de apertura."""
+        sesion = FilesMixin._leer_la_sesion(path, nomenclature, view_seconds)
+        return sesion, recovery.fingerprint(sesion.recording)
 
     @staticmethod
     def _leer_la_sesion(path: Path, nomenclature: Nomenclature, view_seconds: float) -> Session:
@@ -144,7 +161,9 @@ class FilesMixin:
         sesion.set_viewport(sesion.viewport.with_span(view_seconds))
         return sesion
 
-    def _tomar_la_sesion(self, sesion: Session, path: Path) -> None:
+    def _tomar_la_sesion(
+        self, sesion: Session, path: Path, source_identity: dict[str, object] | None = None
+    ) -> None:
         """Pone en la ventana la sesión de un registro recién leído."""
         registro = sesion.recording
 
@@ -163,7 +182,10 @@ class FilesMixin:
         self.playback_controller.attach(sesion)
 
         self._session = sesion
-        self.work_guard.attach(sesion)
+        self.work_guard.attach(
+            sesion,
+            source_identity if source_identity is not None else recovery.fingerprint(registro),
+        )
         # **El registro tal como se leyó.** Los análisis de la Parte 2 devuelven
         # un registro nuevo, y sin guardar éste un filtro mal elegido obligaría
         # a reabrir el archivo. Es la regla 1 de `analysis/` vista desde la
@@ -197,8 +219,50 @@ class FilesMixin:
         # **La copia de recuperación, al final** (hito 79): con el registro ya
         # dibujado y los avisos del archivo leídos, antes de que el usuario
         # haga nada. Si la hay, es porque la última vez se cerró sin decidir.
-        if self.work_guard.offer_recovery():
+        if self.work_guard.offer_recovery(
+            self._recovery_candidate,
+            lambda candidato: self.analysis_controller.replace_recording(
+                lambda _actual: candidato
+            ),
+            self.analysis_controller.restore_original,
+        ):
+            original = self.analysis_controller.original_recording
+            if original is not None and sesion.recording is not original:
+                self._mostrar_el_procesado(
+                    sesion.recording,
+                    "Se restauró el montaje derivado",
+                    None,
+                )
             self._al_recuperar_el_trabajo()
+
+    def _recovery_candidate(self, copia: dict[str, object]) -> Recording | None:
+        """Reconstruye, sin mutar la sesión, el montaje guardado en la copia."""
+        derivaciones = copia.get("derivaciones", [])
+        if not isinstance(derivaciones, list):
+            raise PsgLabError("La copia de recuperación no se puede leer.")
+        if not derivaciones:
+            return None
+        original = self.analysis_controller.original_recording
+        if original is None:
+            raise PsgLabError("No se pudo reconstruir el montaje de la copia.")
+        try:
+            if any(
+                not isinstance(fila, list)
+                or len(fila) != 4
+                or any(not isinstance(valor, str) for valor in fila)
+                for fila in derivaciones
+            ):
+                raise TypeError("La receta contiene filas inválidas.")
+            pares = [(fila[0], fila[1]) for fila in derivaciones]
+            nombres = [fila[2] for fila in derivaciones]
+            clases = [ChannelKind[fila[3]] for fila in derivaciones]
+            return derive_montage(
+                original, pares, names=nombres, channel_kinds=clases
+            )
+        except (IndexError, KeyError, TypeError, ValueError) as error:
+            raise PsgLabError(
+                "La copia de recuperación no se puede leer.", details=str(error)
+            ) from error
 
     def _al_recuperar_el_trabajo(self) -> None:
         """Redibuja lo que depende del scoring y las anotaciones recuperados.
@@ -382,5 +446,3 @@ class FilesMixin:
         """Exporta Informacion.txt desde «Archivo» (V4_F), con el informe de
         sueño al final."""
         self.work_guard.export_dialog("information")
-
-

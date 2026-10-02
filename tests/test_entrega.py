@@ -1269,3 +1269,44 @@ def test_despues_de_un_corte_se_recupera_la_noche(qt_app, tmp_path, monkeypatch)
     assert despues.statusBar().currentMessage() == (
         "Se recuperó el trabajo que no se había exportado."
     )
+
+
+def test_recuperar_una_anotacion_sobre_un_canal_del_montaje_aasm(
+    qt_app, tmp_path, monkeypatch
+):
+    """Un montaje no debe ocultar ni perder la copia de trabajo sin exportar."""
+    monkeypatch.setattr(WorkGuard, "ask_recovery", lambda *_a: True)
+    perfil = tmp_path / "perfil"
+    vhdr = escribir_brainvision(
+        tmp_path / "registro_montaje",
+        segundos=WINDOW_SECONDS * VENTANAS,
+        canales=[("C4", "µV"), ("M1", "µV")],
+    )
+
+    antes = create_main_window()
+    antes.work_guard.enable_recovery(perfil)
+    antes.open_recording(vhdr)
+    antes.apply_aasm_montage()
+    assert "C4-M1" in antes.session.recording.channel_names()
+    antes.score_current_window(SleepStage.N2)
+    antes.session.annotations.add_label("Huso")
+    antes.session.annotations.add(Annotation("Huso", 100, 50, ("C4-M1",)))
+    antes.work_guard.save_recovery()
+
+    despues = create_main_window()
+    despues.work_guard.enable_recovery(perfil)
+    despues.open_recording(vhdr)
+
+    assert "C4-M1" in despues.session.recording.channel_names()
+    assert despues.session.scoring.get(0).stage is SleepStage.N2
+    assert despues.session.annotations.all() == [
+        Annotation("Huso", 100, 50, ("C4-M1",))
+    ]
+    original = despues.analysis_controller.original_recording
+    assert original is not despues.session.recording
+    assert despues.accion_señal_original.isEnabled()
+
+    despues.restore_original_recording()
+
+    assert despues.session.recording is original
+    assert despues.session.scoring.get(0).stage is SleepStage.N2

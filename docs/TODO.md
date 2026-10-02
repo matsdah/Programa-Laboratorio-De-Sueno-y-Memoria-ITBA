@@ -15,9 +15,9 @@ ver «Al agregar o cerrar un ítem», al final.
 Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos: las dos Partes
 están cerradas y ningún módulo de `psglab/` eleva `NotImplementedError`.
 
-Son **ochenta y dos hitos**, del 0 al 81, que son las filas de la tabla de
-progreso, y **están todos cerrados**: lo que queda abierto son las preguntas
-al cliente, abajo. La cuenta vive sólo en este archivo:
+Son **ochenta y cinco hitos**, del 0 al 84, que son las filas de la tabla de
+progreso; el 84 sigue abierto hasta la revisión independiente. La cuenta vive
+sólo en este archivo:
 hasta el hito 79 la repetían cuatro documentos, y cada hito nuevo obligaba a
 corregir los cuatro.
 
@@ -95,6 +95,14 @@ Con la pull request abierta sí quiere decir que **no hace falta acordarse** de
 que las cuentas de este archivo cuadren, ni de que los enlaces no se rompan, ni
 de borrar el `pytestmark` al terminar un módulo: si algo de eso queda mal, el
 pull request falla.
+
+Las pull requests contra `Master` tienen además [una revisión de
+Claude](../.github/workflows/claude-review.yml), que lee el diff contra las
+reglas de `CLAUDE.md` y bloquea el merge si encuentra algo grave. En `Add` no
+corre.
+
+Todas las pull requests reciben también un comentario de Codecov con la
+cobertura de las líneas que cambiaron. Es informativo y no bloquea.
 
 ### Cuándo un ítem está terminado
 
@@ -196,7 +204,29 @@ nada**. Un verde por omisión es peor que un rojo.
 | [79. La auditoría del 26 de septiembre](HISTORIAL.md#hito-79-la-auditoría-del-26-de-septiembre) | — | 0 | ✅ cerrado |
 | [80. La suite sale sin desarmar Qt](HISTORIAL.md#hito-80-la-suite-sale-sin-desarmar-qt) | — | 0 | ✅ cerrado |
 | [81. La cobertura de los tests](HISTORIAL.md#hito-81-la-cobertura-de-los-tests) | — | 0 | ✅ cerrado |
+| [82. La revisión de Claude contra Master](HISTORIAL.md#hito-82-la-revisión-de-claude-contra-master) | — | 0 | ✅ cerrado |
+| [83. La cobertura en cada pull request](HISTORIAL.md#hito-83-la-cobertura-en-cada-pull-request) | — | 0 | ✅ cerrado |
+| [84. Recuperar copias antiguas sin perderlas](TODO.md#hito-84-recuperar-copias-antiguas-sin-perderlas) | — | 0 | en revisión |
 | | **0** | **0** | |
+
+## Hito 84: Recuperar copias antiguas sin perderlas
+
+El formato 2 conservaba las copias de formato 1, pero no las ofrecía y no
+avisaba dónde quedaban. La implementación está en la rama
+`hito-84/recuperacion-v1`; falta la revisión independiente de Prisma antes de
+cerrar el hito.
+
+- [x] Comparar la identidad antigua con el registro original y adaptar en
+      memoria las copias sin canales derivados, con preflight antes de ofrecerlas.
+- [x] Advertir sobre la identidad débil del formato 1 y sobre los filtros
+      anteriores a un montaje reconstruido.
+- [x] Archivar los bytes originales antes de reemplazar o borrar una copia
+      antigua, e informar la ubicación de las copias conservadas.
+- [ ] Revisión independiente de Prisma y corrección de los hallazgos que bloqueen.
+- [x] Tests: `tests/test_recovery.py`, **51 tests en verde**;
+      `tests/test_work_guard.py`, **48 tests en verde**; y
+      `tests/test_contratos.py`, **1453 tests en verde**. Suite completa:
+      4959 aprobados y 25 salteados en macOS con Python 3.14.
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
 seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta

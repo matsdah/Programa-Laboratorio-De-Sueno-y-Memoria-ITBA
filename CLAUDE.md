@@ -444,6 +444,12 @@ dependencia GPL. Contempla que PySide6 declara una licencia disyuntiva
 (`LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`), así que un chequeo ingenuo de
 "GPL" fallaría contra la dependencia principal del proyecto.
 
+Los jobs de Python 3.14 **miden además la cobertura** y la suben a Codecov
+(hito 83), que comenta cada pull request con las líneas nuevas que ningún test
+ejecuta. **Es informativa**: sus estados no pueden salir en rojo
+([`.github/codecov.yml`](.github/codecov.yml)) y no están en el ruleset, y si
+Codecov no responde los tests no fallan. Autentica por OIDC, sin secret.
+
 **Sólo dispara en `Add` y `Master`.** Un push a una rama de trabajo no corre
 nada hasta que se abra la pull request, así que en el día a día el único control
 es `python -m pytest` local, y conviene correrlo entero: el chequeo de las
@@ -456,6 +462,17 @@ Hasta entonces sólo cubría `Master`, y el PR #82 entró en `Add` con los dos
 jobs de macOS fallando sin que la suite local, que corre en Windows, pudiera
 verlo. El rol Admin puede saltearlo, pero sólo desde una pull request y
 marcándolo a mano: nunca con un push directo.
+
+**Las pull requests contra `Master` pasan además por una revisión de Claude**
+(hito 82), en [otro workflow](.github/workflows/claude-review.yml): Claude
+Code lee el diff contra las reglas de este archivo, lo comenta en la pull
+request y deja un veredicto, `APROBADO` o `BLOQUEAR`. **Es bloqueante**: en
+`Master` el ruleset exige ese check además de los siete del CI, y en `Add` no
+corre, porque ahí las pull requests son muchas y chicas. Qué cuenta como
+bloqueante lo dice el prompt de ese workflow; si se equivoca seguido, se
+corrige ahí. Autentica con la suscripción del equipo, en el secret
+`CLAUDE_CODE_OAUTH_TOKEN`: si el token vence o se agota la cuota, el check
+queda en rojo y no se puede mergear a `Master` sin el bypass de Admin.
 
 Dependabot actualiza **sólo las acciones del workflow**, una vez por mes y
 contra `Add` (`.github/dependabot.yml`); los `requirements*.txt` no, por el

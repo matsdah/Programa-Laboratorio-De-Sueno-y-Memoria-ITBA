@@ -55,6 +55,8 @@ class Channel:
         index: posición del canal dentro de la matriz de datos.
         original_sampling_rate: frecuencia a la que venía este canal en el
             archivo, en Hz, o None si el formato no la distingue por canal.
+        derived_from: nombres de los dos canales restados para producir este
+            canal, o None si es una señal de origen.
 
     **Inmutable a propósito.** `channel_by_name()` y `channels_of_kind()`
     devuelven el canal interno, y siendo mutable se lo podía renombrar desde
@@ -80,6 +82,7 @@ class Channel:
     unit: str
     index: int
     original_sampling_rate: float | None = None
+    derived_from: tuple[str, str] | None = None
 
 
 @dataclass(eq=False)
@@ -520,4 +523,3 @@ class Recording:
             for nombre, fila in zip(nombres, tramo)
             if fila.size and float(np.ptp(fila)) == 0.0
         ]
-

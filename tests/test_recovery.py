@@ -17,11 +17,13 @@ Cuándo se escribe, se borra y se ofrece lo verifica `test_work_guard.py`.
 """
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from psglab.analysis.derivation import derive_montage
 import psglab.core.recovery as recovery
 from psglab.core.annotations import Annotation, AnnotationSet
 from psglab.core.nomenclature import Nomenclature, SleepStage
@@ -140,8 +142,26 @@ def test_una_clase_que_ya_existe_conserva_su_color():
     assert nueva.annotations.color_of("Mía") == "#654321"
 
 
-def test_el_resumen_cuenta_ventanas_scoreadas_y_anotaciones():
-    assert recovery.summary(recovery.snapshot(_con_trabajo())) == (2, 2)
+def test_el_resumen_cuenta_ventanas_con_trabajo_y_anotaciones():
+    # Dos ventanas tienen fase y una tercera sólo tiene arousal.
+    assert recovery.summary(recovery.snapshot(_con_trabajo())) == (3, 2)
+
+
+def test_la_copia_guarda_derivaciones_encadenadas_en_orden_y_con_clase():
+    original = _registro()
+    montado = derive_montage(
+        original,
+        [("C0", "C1"), ("C0-C1", "C1")],
+        names=["C0-C1", "doble"],
+        channel_kinds=[ChannelKind.EEG, ChannelKind.OTHER],
+    )
+
+    copia = _por_texto(recovery.snapshot(_sesion(montado)))
+
+    assert copia["derivaciones"] == [
+        ["C0", "C1", "C0-C1", "EEG"],
+        ["C0-C1", "C1", "doble", "OTHER"],
+    ]
 
 
 # -- Que sea de este registro -------------------------------------------------------
@@ -178,6 +198,184 @@ def test_una_copia_de_otra_forma_no_coincide():
     copia["formato"] = recovery.RECOVERY_FORMAT + 1
 
     assert not recovery.matches(copia, _registro())
+
+
+def _identidad_v1(registro: Recording) -> dict[str, object]:
+    """Los cuatro campos de `registro` que escribía el formato 1."""
+    return {
+        "archivo": registro.file_path.name,
+        "frecuencia": float(registro.sampling_rate),
+        "muestras": int(registro.n_samples),
+        "canales": registro.channel_names(),
+    }
+
+
+def test_v1_coincide_solo_con_la_identidad_antigua_del_original():
+    original = _registro()
+    copia = {"formato": 1, "registro": _identidad_v1(original)}
+
+    assert recovery.legacy_matches(copia, original)
+    assert not recovery.legacy_matches(copia, _registro(nombre="otra.edf"))
+    assert not recovery.legacy_matches(copia, _registro(ventanas=VENTANAS + 1))
+    assert not recovery.legacy_matches(copia, _registro(canales=3))
+    assert not recovery.legacy_matches(copia, _registro(canales=1))
+    assert not recovery.matches(copia, original)
+
+
+def test_v1_no_puede_distinguir_otra_senal_con_la_misma_forma():
+    original = _registro()
+    copia = {"formato": 1, "registro": _identidad_v1(original)}
+    reemplazo = _registro()
+    reemplazo.data[0, reemplazo.n_samples // 2] = 1.0
+
+    assert recovery.legacy_matches(copia, reemplazo)
+
+
+@pytest.mark.parametrize(
+    "campo, valor",
+    [
+        ("archivo", "otra.edf"),
+        ("frecuencia", 99.0),
+        ("muestras", 12001),
+        ("canales", ["C1", "C0"]),
+    ],
+)
+def test_v1_rechaza_cualquier_cambio_en_la_identidad(campo: str, valor: object):
+    original = _registro()
+    registro_v1 = _identidad_v1(original)
+    registro_v1[campo] = valor
+
+    assert not recovery.legacy_matches({"formato": 1, "registro": registro_v1}, original)
+
+
+@pytest.mark.parametrize(
+    "cambio",
+    [
+        {"formato": True},
+        {"formato": 2},
+        {"derivaciones": []},
+        {"registro": {"archivo": "noche.edf", "frecuencia": 100.0,
+                      "muestras": 12000, "canales": ["C0", "C1", "C0-M1"]}},
+        {"registro": {"archivo": "noche.edf", "frecuencia": 100.0,
+                      "muestras": True, "canales": ["C0", "C1"]}},
+    ],
+    ids=["formato-bool", "formato-nuevo", "receta-nueva", "canal-extra", "muestras-bool"],
+)
+def test_v1_rechaza_formas_o_canales_que_no_son_del_original(cambio: dict):
+    original = _registro()
+    copia = {"formato": 1, "registro": _identidad_v1(original), **cambio}
+
+    assert not recovery.legacy_matches(copia, original)
+
+
+def test_v1_se_convierte_solo_en_memoria_y_pasa_el_preflight_actual():
+    original = _registro()
+    copia_v1 = {
+        "formato": 1,
+        "registro": _identidad_v1(original),
+        "ventana": 1,
+        "nomenclatura": "AASM",
+        "fases": ["N2", "UNSCORED", "UNSCORED", "UNSCORED"],
+        "arousals": [],
+        "clases": [["Spindle", "#123456"]],
+        "anotaciones": [["Spindle", 100, 50, ["C0"], None]],
+    }
+    antes = _por_texto(copia_v1)
+    identidad = recovery.fingerprint(original)
+
+    convertida = recovery.upgrade_legacy(copia_v1, original, identidad)
+
+    assert copia_v1 == antes
+    assert convertida == {
+        **copia_v1,
+        "formato": recovery.RECOVERY_FORMAT,
+        "registro": identidad,
+        "derivaciones": [],
+    }
+    recovery.preflight(_sesion(original), convertida, identidad)
+
+
+def test_misma_forma_con_senal_distinta_no_coincide():
+    original = _registro()
+    copia = recovery.snapshot(_sesion(original))
+    reemplazo = _registro()
+    reemplazo.data[0, reemplazo.n_samples // 2] = 1.0
+
+    assert not recovery.matches(copia, reemplazo)
+
+
+def test_fingerprint_identifica_el_contenido_completo_del_registro_original():
+    original = _registro()
+    identidad = recovery.fingerprint(original)
+    distinta = _registro()
+    distinta.data[0, distinta.n_samples // 2] = 1.0
+
+    assert identidad["sha256"] == recovery.fingerprint(original)["sha256"]
+    assert identidad["sha256"] != recovery.fingerprint(distinta)["sha256"]
+    assert recovery.matches(
+        recovery.snapshot(_sesion(original), identidad), identidad
+    )
+    assert not recovery.matches(
+        recovery.snapshot(_sesion(original), identidad),
+        recovery.fingerprint(distinta),
+    )
+
+
+def test_fingerprint_incluye_hora_de_inicio():
+    base = _registro()
+    con_inicio = Recording(
+        base.file_path, base.channels, base.data, base.sampling_rate,
+        start_time=datetime(2024, 1, 2, tzinfo=timezone.utc),
+    )
+
+    assert recovery.fingerprint(base) != recovery.fingerprint(con_inicio)
+
+
+def test_fingerprint_admite_matriz_no_contigua():
+    base = _registro()
+    almacen = np.arange(base.n_channels * base.n_samples * 2, dtype=float).reshape(
+        base.n_channels, base.n_samples * 2
+    )
+    no_contigua = almacen[:, ::2]
+    vista = Recording(base.file_path, base.channels, no_contigua, base.sampling_rate)
+    compacta = Recording(base.file_path, base.channels, no_contigua.copy(), base.sampling_rate)
+
+    assert not vista.data.flags.c_contiguous
+    assert recovery.fingerprint(vista) == recovery.fingerprint(compacta)
+
+
+def test_un_arousal_sin_fase_cuenta_como_trabajo_recuperable():
+    sesion = _sesion()
+    sesion.scoring.set_arousal(2, True)
+
+    assert recovery.summary(recovery.snapshot(sesion)) == (1, 0)
+
+
+def test_la_copia_corrupta_se_prevalida_sin_tocar_la_sesion():
+    identidad = recovery.fingerprint(_registro())
+    original = _con_trabajo()
+    copia = _por_texto(recovery.snapshot(original, identidad))
+    copia["anotaciones"][0][3] = ["canal-inexistente"]
+    nueva = _sesion()
+    antes = recovery.snapshot(nueva, identidad)
+
+    with pytest.raises(UnreadableRecoveryError):
+        recovery.preflight(nueva, copia, identidad)
+
+    assert recovery.snapshot(nueva, identidad) == antes
+
+
+def test_canales_anotacion_anidados_rechazan_copia_sin_error_crudo():
+    identidad = recovery.fingerprint(_registro())
+    copia = recovery.snapshot(_con_trabajo(), identidad)
+    copia["anotaciones"][0][3] = [["C0"]]
+    nueva = _sesion()
+
+    with pytest.raises(UnreadableRecoveryError):
+        recovery.preflight(nueva, copia, identidad)
+
+    assert nueva.scoring.scored_windows() == 0
+    assert nueva.annotations.all() == []
 
 
 # -- Todo o nada ---------------------------------------------------------------
@@ -235,19 +433,33 @@ def test_una_copia_rota_se_rechaza_sin_tocar_la_sesion(copia: object):
     assert nueva.annotations.all() == []
 
 
-def test_lo_que_falla_al_aplicarse_deshace_lo_ya_puesto():
-    """Un color de clase inválido sólo lo rechaza `add_label()`, y para
-    entonces las fases ya se habían puesto."""
+def test_lo_que_falla_al_aplicarse_deshace_lo_ya_puesto(monkeypatch):
+    """Un fallo en la segunda anotación revierte la primera y el scoring."""
     copia = recovery.snapshot(_con_trabajo())
-    copia["clases"].append(["Nueva", "rojo"])
     nueva = _sesion()
+    nomenclatura_antes = nueva.scoring.nomenclature
+    clases_antes = nueva.annotations.labels()
+    agregar = nueva.annotations.add
+    llamadas = 0
+
+    def fallar_en_la_segunda(anotacion):
+        nonlocal llamadas
+        llamadas += 1
+        if llamadas == 2:
+            raise PsgLabError("falló la segunda anotación")
+        agregar(anotacion)
+
+    monkeypatch.setattr(nueva.annotations, "add", fallar_en_la_segunda)
 
     with pytest.raises(UnreadableRecoveryError):
         recovery.restore(nueva, copia)
 
+    assert llamadas == 2
     assert nueva.scoring.scored_windows() == 0
     assert not any(nueva.scoring.get(i).arousal for i in range(VENTANAS))
     assert nueva.annotations.all() == []
+    assert nueva.scoring.nomenclature is nomenclatura_antes
+    assert nueva.annotations.labels() == clases_antes
 
 
 # -- Copias rotas que ningún test probaba (hito 81) ----------------------------

@@ -19,7 +19,6 @@ import psglab.exporters.statistics as stats
 from psglab.config import ANNOTATION_SAMPLE_BASE
 from psglab.exporters.atomic import (
     atomic_destination,
-    provisional_path,
     write_text_atomically,
 )
 from psglab.exporters.annotations_txt import export_annotations
@@ -482,6 +481,11 @@ def test_el_programa_hace_su_trabajo_entero_desde_un_script(tmp_path):
 # -- Enteros o nada (hito 79) ------------------------------------------------
 
 
+def _nombre_provisorio_antiguo(destino: Path) -> Path:
+    """Nombre fijo que usaba la implementación anterior, para probar sobrantes."""
+    return destino.with_name(f".{destino.name}.tmp")
+
+
 def test_escribir_de_a_una_vez_deja_el_texto_y_ningun_provisorio(tmp_path):
     destino = tmp_path / "Scoring.txt"
 
@@ -498,8 +502,8 @@ def test_un_error_a_mitad_de_camino_deja_el_archivo_de_antes(tmp_path):
     destino.write_text("lo de ayer\n", encoding="utf-8")
 
     with pytest.raises(RuntimeError):
-        with atomic_destination(destino) as provisorio:
-            provisorio.write_text("la mitad de", encoding="utf-8")
+        with atomic_destination(destino) as archivo:
+            archivo.write("la mitad de")
             raise RuntimeError("se cortó la luz")
 
     assert destino.read_text(encoding="utf-8") == "lo de ayer\n"
@@ -510,29 +514,43 @@ def test_un_error_sin_archivo_previo_no_crea_nada(tmp_path):
     destino = tmp_path / "Scoring.txt"
 
     with pytest.raises(RuntimeError):
-        with atomic_destination(destino) as provisorio:
-            provisorio.write_text("la mitad de", encoding="utf-8")
+        with atomic_destination(destino) as archivo:
+            archivo.write("la mitad de")
             raise RuntimeError("disco lleno")
 
     assert list(tmp_path.iterdir()) == []
 
 
-def test_un_provisorio_que_quedo_de_un_corte_se_pisa(tmp_path):
+def test_un_provisorio_que_quedo_de_un_corte_no_se_toca(tmp_path):
     destino = tmp_path / "Scoring.txt"
-    provisional_path(destino).write_text("basura de un corte", encoding="utf-8")
+    _nombre_provisorio_antiguo(destino).write_text(
+        "basura de un corte", encoding="utf-8"
+    )
 
     write_text_atomically(destino, "entero\n")
 
     assert destino.read_text(encoding="utf-8") == "entero\n"
-    assert list(tmp_path.iterdir()) == [destino]
+    assert set(tmp_path.iterdir()) == {destino, _nombre_provisorio_antiguo(destino)}
+    assert (
+        _nombre_provisorio_antiguo(destino).read_text(encoding="utf-8")
+        == "basura de un corte"
+    )
 
 
-def test_el_provisorio_va_al_lado_del_destino():
-    """En la misma carpeta y por eso en el mismo disco: `os.replace()` entre
-    discos distintos no es de un paso, y en Windows ni siquiera funciona."""
-    destino = Path("/datos/noche 1/Scoring.txt")
+def test_el_provisorio_se_crea_al_lado_del_destino(tmp_path, monkeypatch):
+    import psglab.exporters.atomic as atomic
 
-    assert provisional_path(destino).parent == destino.parent
+    reemplazar = atomic.os.replace
+    origenes = []
+
+    def observar(origen, destino):
+        origenes.append(Path(origen))
+        reemplazar(origen, destino)
+
+    monkeypatch.setattr(atomic.os, "replace", observar)
+    write_text_atomically(tmp_path / "Scoring.txt", "entero")
+
+    assert origenes[0].parent == tmp_path
 
 
 def test_el_archivo_exportado_se_crea_con_los_permisos_de_siempre(tmp_path):
@@ -547,6 +565,49 @@ def test_el_archivo_exportado_se_crea_con_los_permisos_de_siempre(tmp_path):
     assert destino.stat().st_mode == comun.stat().st_mode
 
 
+def test_un_provisorio_simbolico_no_puede_escribir_sobre_otro_archivo(tmp_path):
+    destino = tmp_path / "Scoring.txt"
+    ajeno = tmp_path / "ajeno.txt"
+    ajeno.write_text("no tocar", encoding="utf-8")
+    try:
+        _nombre_provisorio_antiguo(destino).symlink_to(ajeno)
+    except OSError as exc:
+        pytest.skip(f"no se pueden crear enlaces simbólicos: {exc}")
+
+    write_text_atomically(destino, "nuevo")
+
+    assert ajeno.read_text(encoding="utf-8") == "no tocar"
+    assert destino.read_text(encoding="utf-8") == "nuevo"
+    assert _nombre_provisorio_antiguo(destino).is_symlink()
+
+
+def test_contextos_solapados_escriben_en_provisorios_distintos(tmp_path):
+    primero = tmp_path / "Scoring.txt"
+    with atomic_destination(primero) as flujo_uno:
+        with atomic_destination(primero) as flujo_dos:
+            temporarios = [p for p in tmp_path.iterdir() if p != primero]
+            assert len(temporarios) == 2
+            flujo_uno.write("uno")
+            flujo_dos.write("dos")
+
+    # Ambos writes tuvieron sus propios descriptores; gana el último replace.
+    assert primero.read_text(encoding="utf-8") == "uno"
+    assert list(tmp_path.glob(".Scoring.txt.*.tmp")) == []
+
+
+def test_atomic_destination_entrega_un_flujo_binario_si_se_pide(tmp_path):
+    destino = tmp_path / "bytes.bin"
+    with atomic_destination(destino, mode="wb") as archivo:
+        archivo.write(b"\x00\xff")
+    assert destino.read_bytes() == b"\x00\xff"
+
+
+def test_atomic_destination_rechaza_modos_ajenos_a_exportacion(tmp_path):
+    with pytest.raises(ValueError, match="modo de exportación"):
+        with atomic_destination(tmp_path / "salida.txt", mode="a"):
+            pass
+
+
 @pytest.mark.parametrize("exportar", ["scoring", "annotations", "information"])
 def test_los_tres_archivos_no_quedan_truncados_si_escribir_falla(
     tmp_path, monkeypatch, exportar
@@ -558,13 +619,32 @@ def test_los_tres_archivos_no_quedan_truncados_si_escribir_falla(
     """
     destino = tmp_path / "salida.txt"
     destino.write_text("lo de antes\n", encoding="utf-8")
-    escribir = Path.write_text
+    import psglab.exporters.atomic as atomic
 
-    def falla_a_la_mitad(self, texto, *a, **k):
-        escribir(self, texto[: len(texto) // 2], *a, **k)
-        raise OSError("disco lleno")
+    fdopen_original = atomic.os.fdopen
 
-    monkeypatch.setattr(Path, "write_text", falla_a_la_mitad)
+    class FlujoConFalla:
+        def __init__(self, flujo):
+            self.flujo = flujo
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return self.flujo.__exit__(*args)
+
+        def write(self, texto):
+            self.flujo.write(texto[: len(texto) // 2])
+            raise OSError("disco lleno")
+
+        def __getattr__(self, nombre):
+            return getattr(self.flujo, nombre)
+
+    monkeypatch.setattr(
+        atomic.os,
+        "fdopen",
+        lambda *a, **k: FlujoConFalla(fdopen_original(*a, **k)),
+    )
     with pytest.raises(OSError):
         if exportar == "scoring":
             export_scoring(scoring_de_ejemplo(), destino)
@@ -575,6 +655,7 @@ def test_los_tres_archivos_no_quedan_truncados_si_escribir_falla(
     monkeypatch.undo()
 
     assert destino.read_text(encoding="utf-8") == "lo de antes\n"
+    assert list(tmp_path.iterdir()) == [destino]
 
 
 # -- El informe de sueño estándar (hito 79) ----------------------------------

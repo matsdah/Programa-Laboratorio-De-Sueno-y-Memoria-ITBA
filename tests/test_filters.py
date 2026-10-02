@@ -37,6 +37,7 @@ from psglab.analysis.filters import (
     settings_for_kinds,
     validate,
 )
+from psglab.analysis.derivation import derive
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.utils.errors import (
     ChannelNotFoundError,
@@ -120,6 +121,14 @@ def test_el_pasabajos_saca_la_componente_alta_y_deja_las_otras():
     assert razon[50.0] > ATENUACION_MINIMA
     assert razon[1.0] == pytest.approx(1.0, rel=0.1)
     assert razon[10.0] == pytest.approx(1.0, rel=0.1)
+
+
+def test_filtrado_preserva_procedencia_de_derivados():
+    montado = derive(armar_registro(), "C3", "C4")
+
+    filtrado = apply_filters(montado, {"C3-C4": FilterSettings(lowpass_hz=20.0)})
+
+    assert filtrado.channel_by_name("C3-C4").derived_from == ("C3", "C4")
 
 
 def test_el_pasaaltos_saca_la_componente_baja():

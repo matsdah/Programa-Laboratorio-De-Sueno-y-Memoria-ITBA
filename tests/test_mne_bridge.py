@@ -26,6 +26,7 @@ from psglab.analysis.mne_bridge import (
     to_raw,
     unidad_de_salida,
 )
+from psglab.analysis.derivation import derive
 from psglab.core.recording import Channel, ChannelKind, Recording
 from psglab.utils.errors import InvalidRecordingError, PsgLabError
 from psglab.utils.units import MICROVOLT
@@ -132,6 +133,14 @@ def test_la_temperatura_sobrevive_la_ida_y_vuelta(mixto: Recording):
 
     assert np.allclose(vuelta.data[1], mixto.data[1])
     assert vuelta.channels[1].unit == "DegC"
+
+
+def test_ida_y_vuelta_conserva_procedencia_de_derivados(registro_sintetico: Recording):
+    montado = derive(registro_sintetico, "C3", "C4")
+
+    vuelta = from_raw(to_raw(montado), montado)
+
+    assert vuelta.channel_by_name("C3-C4").derived_from == ("C3", "C4")
 
 
 def test_la_unidad_de_salida_dice_la_regla(mixto: Recording):

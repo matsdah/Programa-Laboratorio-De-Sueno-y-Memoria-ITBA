@@ -1,6 +1,6 @@
 # Historial — los hitos cerrados
 
-Los hitos del 0 al 81, en orden, cada uno con lo que se hizo, lo que se
+Los hitos del 0 al 83, en orden, cada uno con lo que se hizo, lo que se
 decidió y lo que se midió. **No lleva estado**: lo abierto, las preguntas al
 cliente y la tabla de progreso están en [`TODO.md`](TODO.md), que es el único
 lugar que dice qué falta. Hasta el 27 de septiembre de 2026 las dos cosas
@@ -111,7 +111,9 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 78](#hito-78-que-la-suite-vea-la-letra-real)** hizo que los tests, las capturas y los bancos la vean, y el
 **[hito 79](#hito-79-la-auditoría-del-26-de-septiembre)** resolvió lo que encontró la auditoría del 26 de septiembre, y el
 **[hito 80](#hito-80-la-suite-sale-sin-desarmar-qt)** hizo que la suite salga sin desarmar Qt, que tiraba el CI con todo en verde, y el
-**[hito 81](#hito-81-la-cobertura-de-los-tests)** midió por primera vez qué líneas ejecuta la suite y cubrió lo que ningún test recorría.
+**[hito 81](#hito-81-la-cobertura-de-los-tests)** midió por primera vez qué líneas ejecuta la suite y cubrió lo que ningún test recorría, y el
+**[hito 82](#hito-82-la-revisión-de-claude-contra-master)** sumó una revisión de Claude, bloqueante, a las pull requests contra `Master`, y el
+**[hito 83](#hito-83-la-cobertura-en-cada-pull-request)** subió la cobertura a Codecov, que la comenta en cada pull request.
 
 **Del 34 al 48 se hicieron con el 33 abierto**, y lo cerró el 49. Decía acá
 que el 34 era «la única vez que pasa» y dejó de ser cierto en el 35: es
@@ -7409,3 +7411,65 @@ sin registro. Los respaldos de lectura que necesitan un error del disco entre
 dos lecturas. Y la guarda de `connectivity.py` para un registro de menos de
 dos muestras por época. Ninguno es código muerto, y escribirles un test es
 simular una falla que el programa no puede provocar.
+
+## Hito 82: La revisión de Claude contra Master
+
+**Abierto y cerrado el 30 de septiembre de 2026.** El usuario preguntó si un
+agente de Claude podía revisar solo las pull requests, y decidió tres cosas:
+que revise las que van **contra `Master`** y no contra `Add`, porque son pocas
+y son las que llegan a la rama principal; que **bloquee** el merge, y que se
+autentique con **la suscripción del equipo** y no con una API key.
+
+- [x] **[`.github/workflows/claude-review.yml`](../.github/workflows/claude-review.yml)**,
+      con `anthropics/claude-code-action`. Lee `CLAUDE.md` y los README de
+      las carpetas tocadas, comenta cada hallazgo en su línea y deja un
+      resumen. No corre tests: eso lo hace `ci.yml`.
+- [x] **El veredicto va a un archivo**, `claude-veredicto.txt`, y un último
+      paso lo lee. La acción termina en verde aunque Claude encuentre algo
+      grave, así que el check no puede salir de ella; y si Claude no termina,
+      el archivo no existe y el check queda en rojo en vez de pasar por
+      aprobado.
+- [x] **Qué bloquea está en el prompt**: un bug de correctitud, una regla dura
+      de `CLAUDE.md` rota o un hito cerrado sin sus cinco ediciones. El estilo
+      se comenta y no bloquea.
+- [x] **Corre con Sonnet 5.5, fijado con `--model`** en `claude_args`. Sin
+      fijarlo sería el modelo por defecto de la cuenta del token, que cambia
+      sin que nadie toque el workflow; Sonnet y no Opus, para gastar menos
+      cuota de la suscripción.
+- [x] **Se saltea en borradores y en las de Dependabot**, que no recibe los
+      secrets de Actions. Un job salteado cuenta como aprobado para el check
+      requerido.
+- [x] `CLAUDE.md`, `README.md` y la sección del CI del TODO lo describen.
+
+**Lo que no vive en ningún archivo**, igual que el ruleset: el secret
+`CLAUDE_CODE_OAUTH_TOKEN`, sacado con `claude setup-token`, la GitHub App de
+Claude instalada en el repositorio, y el check «Claude review» sumado al
+ruleset de `Master`, que GitHub sólo ofrece después de haberlo visto correr
+una vez.
+
+## Hito 83: La cobertura en cada pull request
+
+**Abierto y cerrado el 30 de septiembre de 2026.** El hito 81 dejó la
+cobertura medible pero sólo en local, así que nadie la miraba al revisar una
+pull request. El usuario pidió sumar Codecov, que es gratis para repositorios
+públicos.
+
+- [x] **[`ci.yml`](../.github/workflows/ci.yml) mide con Python 3.14**, en los
+      tres sistemas, con `COVERAGE_CORE=sysmon`: 3.11 no tiene `sysmon` y el
+      trazador de siempre no ve los `QThread`. Los jobs de 3.11 corren la suite
+      como antes.
+- [x] **`coverage xml` va en su propio paso.** En Windows el shell es
+      PowerShell, que no corta ante un comando nativo que falla: en el mismo
+      paso que la suite, su verde tapaba el rojo de los tests.
+- [x] **Sube por OIDC**, con `id-token: write` sólo en el job de tests, y
+      `fail_ci_if_error: false`: una caída de Codecov no pone en rojo los tests.
+- [x] **[`.github/codecov.yml`](../.github/codecov.yml) deja los estados como
+      informativos**, porque el número no es una meta (tests/README.md), y el
+      comentario sólo aparece si la cobertura cambió.
+- [x] **`relative_files = True` en `.coveragerc`**, para que Codecov junte los
+      reportes de Windows y de Linux.
+- [x] `CLAUDE.md`, `README.md`, `tests/README.md` y la sección del CI del TODO
+      lo describen.
+
+**Lo que no vive en ningún archivo**: el repositorio dado de alta en
+codecov.io y la GitHub App de Codecov instalada, que es la que comenta.
