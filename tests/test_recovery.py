@@ -200,6 +200,101 @@ def test_una_copia_de_otra_forma_no_coincide():
     assert not recovery.matches(copia, _registro())
 
 
+def _identidad_v1(registro: Recording) -> dict[str, object]:
+    """Los cuatro campos de `registro` que escribía el formato 1."""
+    return {
+        "archivo": registro.file_path.name,
+        "frecuencia": float(registro.sampling_rate),
+        "muestras": int(registro.n_samples),
+        "canales": registro.channel_names(),
+    }
+
+
+def test_v1_coincide_solo_con_la_identidad_antigua_del_original():
+    original = _registro()
+    copia = {"formato": 1, "registro": _identidad_v1(original)}
+
+    assert recovery.legacy_matches(copia, original)
+    assert not recovery.legacy_matches(copia, _registro(nombre="otra.edf"))
+    assert not recovery.legacy_matches(copia, _registro(ventanas=VENTANAS + 1))
+    assert not recovery.legacy_matches(copia, _registro(canales=3))
+    assert not recovery.legacy_matches(copia, _registro(canales=1))
+    assert not recovery.matches(copia, original)
+
+
+def test_v1_no_puede_distinguir_otra_senal_con_la_misma_forma():
+    original = _registro()
+    copia = {"formato": 1, "registro": _identidad_v1(original)}
+    reemplazo = _registro()
+    reemplazo.data[0, reemplazo.n_samples // 2] = 1.0
+
+    assert recovery.legacy_matches(copia, reemplazo)
+
+
+@pytest.mark.parametrize(
+    "campo, valor",
+    [
+        ("archivo", "otra.edf"),
+        ("frecuencia", 99.0),
+        ("muestras", 12001),
+        ("canales", ["C1", "C0"]),
+    ],
+)
+def test_v1_rechaza_cualquier_cambio_en_la_identidad(campo: str, valor: object):
+    original = _registro()
+    registro_v1 = _identidad_v1(original)
+    registro_v1[campo] = valor
+
+    assert not recovery.legacy_matches({"formato": 1, "registro": registro_v1}, original)
+
+
+@pytest.mark.parametrize(
+    "cambio",
+    [
+        {"formato": True},
+        {"formato": 2},
+        {"derivaciones": []},
+        {"registro": {"archivo": "noche.edf", "frecuencia": 100.0,
+                      "muestras": 12000, "canales": ["C0", "C1", "C0-M1"]}},
+        {"registro": {"archivo": "noche.edf", "frecuencia": 100.0,
+                      "muestras": True, "canales": ["C0", "C1"]}},
+    ],
+    ids=["formato-bool", "formato-nuevo", "receta-nueva", "canal-extra", "muestras-bool"],
+)
+def test_v1_rechaza_formas_o_canales_que_no_son_del_original(cambio: dict):
+    original = _registro()
+    copia = {"formato": 1, "registro": _identidad_v1(original), **cambio}
+
+    assert not recovery.legacy_matches(copia, original)
+
+
+def test_v1_se_convierte_solo_en_memoria_y_pasa_el_preflight_actual():
+    original = _registro()
+    copia_v1 = {
+        "formato": 1,
+        "registro": _identidad_v1(original),
+        "ventana": 1,
+        "nomenclatura": "AASM",
+        "fases": ["N2", "UNSCORED", "UNSCORED", "UNSCORED"],
+        "arousals": [],
+        "clases": [["Spindle", "#123456"]],
+        "anotaciones": [["Spindle", 100, 50, ["C0"], None]],
+    }
+    antes = _por_texto(copia_v1)
+    identidad = recovery.fingerprint(original)
+
+    convertida = recovery.upgrade_legacy(copia_v1, original, identidad)
+
+    assert copia_v1 == antes
+    assert convertida == {
+        **copia_v1,
+        "formato": recovery.RECOVERY_FORMAT,
+        "registro": identidad,
+        "derivaciones": [],
+    }
+    recovery.preflight(_sesion(original), convertida, identidad)
+
+
 def test_misma_forma_con_senal_distinta_no_coincide():
     original = _registro()
     copia = recovery.snapshot(_sesion(original))
