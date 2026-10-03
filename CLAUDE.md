@@ -276,6 +276,20 @@ En la consola de Windows los acentos de los mensajes salen como mojibake
 todo el texto que ve el usuario está en español y los archivos son UTF-8.
 `$env:PYTHONUTF8=1` lo corrige para esa corrida.
 
+**El instalador de WSL** (`scripts/`, hito 85) no es parte del programa y
+pytest no lo ve. Se prueba en Ubuntu, dentro de WSL o no, con los paquetes del
+sistema ya instalados; cada escenario hace una instalación entera, así que
+tarda:
+
+```bash
+bash scripts/verify_install_wsl.sh
+```
+
+Desde la herramienta Bash de Windows hay que llamarlo con
+`MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash /mnt/c/...`: sin esa variable,
+Git Bash convierte la ruta `/mnt/c` y WSL no la encuentra. **No editar los
+scripts mientras corre**: bash los lee a medida que los ejecuta.
+
 Verificación de licencias a mano. El CI ya la corre en cada push, así que
 esto sirve para mirar el detalle, no para no olvidarse:
 
@@ -439,8 +453,9 @@ nunca se saltean en silencio.
 El [workflow de CI](.github/workflows/ci.yml) corre en cada push y cada pull
 request contra `Add` y `Master`: los tests en Windows, macOS y Linux con Python
 3.11 y 3.14 —la única prueba real de que el programa es multiplataforma—, esos
-chequeos de consistencia, y la verificación de licencias, que falla si entra una
-dependencia GPL. Contempla que PySide6 declara una licencia disyuntiva
+chequeos de consistencia, la verificación de licencias, que falla si entra una
+dependencia GPL, y el instalador de WSL (hito 85), que instala el árbol de la
+pull request con el `python3` de Ubuntu y lo verifica. Contempla que PySide6 declara una licencia disyuntiva
 (`LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`), así que un chequeo ingenuo de
 "GPL" fallaría contra la dependencia principal del proyecto.
 
@@ -458,6 +473,8 @@ cuentas de tests se saltea si se le pasa un archivo suelto.
 **`Add` y `Master` exigen el CI en verde para mergear**, desde el 26 de
 septiembre. Es un ruleset del repositorio en GitHub —no vive en ningún archivo—
 que pide pull request y los siete jobs, y prohíbe el force push y el borrado.
+El del instalador de WSL es el octavo y **no está entre los obligatorios**
+mientras nadie lo sume al ruleset.
 Hasta entonces sólo cubría `Master`, y el PR #82 entró en `Add` con los dos
 jobs de macOS fallando sin que la suite local, que corre en Windows, pudiera
 verlo. El rol Admin puede saltearlo, pero sólo desde una pull request y
@@ -732,6 +749,12 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   dos respuestas a la misma pregunta. **La itálica quiere decir «esto no lo
   midió ni lo eligió nadie»** —«sin medir», «sin scorear»— y no «esto es
   importante»: usarla para otra cosa le saca el significado.
+- **El icono de la aplicación no sigue el esquema** (hito 85). Lo dibuja
+  `ui/icons.py` —`app_icon_image()`— y lo pone `install_app_icon()` desde
+  `create_application()`, con colores fijos: también lo usan los accesos
+  directos que crea el instalador de WSL, que no se redibujan al pasar a
+  Nocturno. **No hay ningún archivo de icono en el repositorio**: el PNG y el
+  ICO los genera el instalador.
 - **Un cuadro tiene 40 ms de presupuesto**, que es lo que pide el reloj de la
   reproducción. El hito 25 los consiguió con tres decisiones que se deshacen
   sin querer: la grilla es **un solo objeto** de la escena y no una

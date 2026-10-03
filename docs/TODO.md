@@ -371,13 +371,13 @@ en WSLg, cuánto tarda abrir el EDF desde `/mnt/c` contra hacerlo en Windows, y
 si la escala de pantalla se ve bien, con `tests.capturar_pantalla`.
 
 - [x] El diseño, en esta sección, y la decisión en `ARQUITECTURA.md`.
-- [ ] El icono en `ui/icons.py`, puesto por `app.py`, con sus tests y el
+- [x] El icono en `ui/icons.py`, puesto por `app.py`, con sus tests y el
       README de `ui/`.
-- [ ] `scripts/install_wsl.sh` y `scripts/README.md`, con el lanzador, el
+- [x] `scripts/install_wsl.sh` y `scripts/README.md`, con el lanzador, el
       icono exportado y el acceso en el escritorio.
-- [ ] El job `instalador` en `ci.yml`, y su descripción en `CLAUDE.md` y en el
+- [x] El job `instalador` en `ci.yml`, y su descripción en `CLAUDE.md` y en el
       README.
-- [ ] El README: el apartado de WSL dentro de «Instalación», el aviso del
+- [x] El README: el apartado de WSL dentro de «Instalación», el aviso del
       Control de aplicaciones remitiendo a él y la fila de `scripts/` en la
       tabla de estructura. `CLAUDE.md`: la línea en «Comandos».
 - [ ] La prueba a mano: «PSGLab» con su icono en el menú Inicio, en el
