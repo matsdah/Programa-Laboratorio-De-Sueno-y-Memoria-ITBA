@@ -41,7 +41,7 @@ Con `BASE` = `$XDG_DATA_HOME`, que por omisión es `~/.local/share`:
 |---|---|
 | `BASE/psglab/<versión>.XXXXXX/` | Una versión, con el código en `app/` y su entorno en `venv/`. |
 | `BASE/psglab/actual` | Enlace a la versión en uso. **Recién se cambia cuando la prueba de humo pasó**: una instalación que falla no pisa la que andaba, y la próxima buena borra lo que haya quedado a medias. |
-| `BASE/psglab/launch` | El lanzador. Entra en la carpeta de usuario de Windows y abre el programa de `actual`. |
+| `BASE/psglab/launch` | El lanzador. Entra en la carpeta de usuario de Windows, le da a Qt la escala de pantalla de Windows y abre el programa de `actual`. |
 | `BASE/psglab/psglab.png` | El icono, que dibuja el programa instalado. Una versión anterior a que existiera no lo trae, y los accesos directos quedan sin icono. |
 | `BASE/applications/psglab.desktop` | El acceso directo de Linux. |
 | `/usr/share/applications/psglab.desktop` | Sólo dentro de WSL: una copia del anterior, con `sudo`. **WSLg publica en el menú Inicio sólo lo de esta carpeta**, como «PSGLab (Ubuntu)»: el de `BASE/applications` no apareció. Si `sudo` no anda, el instalador avisa el comando y sigue. |
@@ -51,6 +51,11 @@ Con `BASE` = `$XDG_DATA_HOME`, que por omisión es `~/.local/share`:
 WSLg arma su `.lnk` con `wslg.exe --cd "~"` y esa línea no llega. Entrar en la
 carpeta de usuario de Windows es lo que hace que el diálogo de apertura arranque
 en las carpetas de siempre la primera vez.
+
+**El lanzador también pone la escala.** WSLg le pasa al programa escala 1
+aunque Windows esté en 125 %, y el texto salía un quinto más chico que en el
+resto de Windows. En cada arranque lee la escala de Windows del registro, con
+`reg.exe`, y se la da a Qt con `QT_SCALE_FACTOR`; una puesta a mano se respeta.
 
 Las preferencias, los registros recientes y la copia de recuperación no son del
 instalador: los escribe el programa en `~/.config/psglab`, como en cualquier

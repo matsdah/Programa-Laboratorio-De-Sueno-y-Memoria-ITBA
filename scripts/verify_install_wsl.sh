@@ -59,6 +59,7 @@ ESCENARIOS=(
     rejects_path_in_version
     resolve_uses_token
     windows_text_round_trip
+    launcher_follows_windows_scale
 )
 
 # -- Ayudas -------------------------------------------------------------------
@@ -392,6 +393,28 @@ scenario_windows_text_round_trip() {
     texto=$( (load_installer; windows_eval "'P' + [char]0x00E9 + 'rez ' + [char]0x0141") 2>&1 ) \
         || fail "windows_eval salió con error: «$texto»"
     [[ "$texto" == "Pérez Ł" ]] || fail "volvió «$texto» y no «Pérez Ł»"
+}
+
+# WSLg le pasa al programa escala 1 aunque Windows esté en 125 %: el
+# lanzador lee la escala de Windows y se la da a Qt. Con un `reg.exe` de
+# mentira que contesta 120 DPI, el programa tiene que arrancar con 1.25; sin
+# `reg.exe` —fuera de WSL—, sin escala; y una puesta a mano se respeta.
+scenario_launcher_follows_windows_scale() {
+    local raiz bin="$TRABAJO/bin-escala" salida
+    raiz=$(raiz)
+    mkdir -p "$bin" "$raiz/falsa/venv/bin" "$raiz/falsa/app"
+    # shellcheck disable=SC2016  # `$QT_SCALE_FACTOR` lo expande el Python de mentira.
+    printf '#!/bin/sh\nprintf "escala=%%s\\n" "$QT_SCALE_FACTOR"\n' > "$raiz/falsa/venv/bin/python"
+    printf '#!/bin/sh\nprintf "\\r\\nHKEY_CURRENT_USER\\\\Control Panel\\\\Desktop\\\\WindowMetrics\\r\\n    AppliedDPI    REG_DWORD    0x78\\r\\n\\r\\n"\n' > "$bin/reg.exe"
+    chmod +x "$raiz/falsa/venv/bin/python" "$bin/reg.exe"
+    ln -s falsa "$raiz/actual"
+    ( load_installer; write_launcher "$raiz" "$TRABAJO" ) || fail "write_launcher salió con error"
+    salida=$(PATH="$bin:/usr/bin:/bin" "$raiz/launch") || fail "el lanzador salió con error"
+    [[ "$salida" == "escala=1.25" ]] || fail "con 120 DPI arrancó con «$salida»"
+    salida=$(PATH="/usr/bin:/bin" "$raiz/launch")
+    [[ "$salida" == "escala=" ]] || fail "sin reg.exe puso una escala: «$salida»"
+    salida=$(PATH="$bin:/usr/bin:/bin" QT_SCALE_FACTOR=2 "$raiz/launch")
+    [[ "$salida" == "escala=2" ]] || fail "no respetó la escala puesta a mano: «$salida»"
 }
 
 # -- Corrida ------------------------------------------------------------------

@@ -250,12 +250,29 @@ launch_dir() {
 # **El lanzador entra en la carpeta, y no la línea `Path=` del acceso
 # directo:** WSLg arma su `.lnk` con `wslg.exe --cd "~"` y esa línea no
 # llega.
+#
+# **La escala de la pantalla también la pone el lanzador.** WSLg le pasa al
+# programa escala 1 aunque Windows esté en 125 %, porque por omisión sólo
+# maneja escalas enteras, y el texto salía un quinto más chico que en el
+# resto de Windows. Se lee en cada arranque —`reg.exe` tarda 0,1 s—, así que
+# acompaña un cambio de escala o de monitor. Fuera de WSL no hay `reg.exe` y
+# no se toca nada; una `QT_SCALE_FACTOR` puesta a mano se respeta.
 write_launcher() {
     local raiz=$1 carpeta=$2
     {
         printf '#!/usr/bin/env bash\n'
         printf '# Abre PSGLab. Lo escribe scripts/install_wsl.sh.\n'
         printf 'cd -- %q 2> /dev/null || cd ~\n' "$carpeta"
+        cat <<'ESCALA'
+if [[ -z "${QT_SCALE_FACTOR:-}" ]] && command -v reg.exe > /dev/null; then
+    dpi=$(reg.exe query 'HKCU\Control Panel\Desktop\WindowMetrics' /v AppliedDPI 2> /dev/null \
+        | tr -d '\r' | awk '$1 == "AppliedDPI" { print $3 }')
+    if [[ "$dpi" =~ ^0x[0-9a-fA-F]+$ ]] && (( dpi > 96 )); then
+        QT_SCALE_FACTOR=$(awk -v dpi=$((dpi)) 'BEGIN { printf "%.2f", dpi / 96 }')
+        export QT_SCALE_FACTOR
+    fi
+fi
+ESCALA
         printf 'exec %q %q "$@"\n' "$raiz/actual/venv/bin/python" "$raiz/actual/app/main.py"
     } > "$raiz/launch"
     chmod +x "$raiz/launch"

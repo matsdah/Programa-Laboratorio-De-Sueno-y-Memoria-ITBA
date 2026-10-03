@@ -170,7 +170,7 @@ base fallara, activarla y navegar a otra ventana rompería el programa.
 ### En Windows se instala por WSL y no con un ejecutable firmado
 
 Decidido el 2 de octubre de 2026, en el
-[hito 85](TODO.md#hito-85-instalar-en-windows-por-wsl).
+[hito 85](HISTORIAL.md#hito-85-instalar-en-windows-por-wsl).
 
 **El problema es el Control inteligente de aplicaciones de Windows 11.** Carga
 un ejecutable o una DLL sólo si los servicios de Microsoft lo reconocen como
