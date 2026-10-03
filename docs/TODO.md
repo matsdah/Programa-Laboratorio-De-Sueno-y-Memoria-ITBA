@@ -15,8 +15,9 @@ ver «Al agregar o cerrar un ítem», al final.
 Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos: las dos Partes
 están cerradas y ningún módulo de `psglab/` eleva `NotImplementedError`.
 
-Son **ochenta y cinco hitos**, del 0 al 84, que son las filas de la tabla de
-progreso; el 84 sigue abierto hasta la revisión independiente. La cuenta vive
+Son **ochenta y seis hitos**, del 0 al 85, que son las filas de la tabla de
+progreso; el 84 sigue abierto hasta la revisión independiente y el 85 está en
+curso. La cuenta vive
 sólo en este archivo:
 hasta el hito 79 la repetían cuatro documentos, y cada hito nuevo obligaba a
 corregir los cuatro.
@@ -207,6 +208,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [82. La revisión de Claude contra Master](HISTORIAL.md#hito-82-la-revisión-de-claude-contra-master) | — | 0 | ✅ cerrado |
 | [83. La cobertura en cada pull request](HISTORIAL.md#hito-83-la-cobertura-en-cada-pull-request) | — | 0 | ✅ cerrado |
 | [84. Recuperar copias antiguas sin perderlas](TODO.md#hito-84-recuperar-copias-antiguas-sin-perderlas) | — | 0 | en revisión |
+| [85. Instalar en Windows por WSL](TODO.md#hito-85-instalar-en-windows-por-wsl) | — | 0 | en curso |
 | | **0** | **0** | |
 
 ## Hito 84: Recuperar copias antiguas sin perderlas
@@ -232,6 +234,112 @@ cerrar el hito.
 seis ítems eran código escrito que nadie llamaba. `contar_stubs()` cuenta
 `raise NotImplementedError`, no caminos muertos, y con esa medida los hitos 6 y
 7 se dieron por cerrados con la mitad de la interfaz sin conectar.
+
+## Hito 85: Instalar en Windows por WSL
+
+En Windows 11, con el Control inteligente de aplicaciones activado, el programa
+instalado con `pip` puede no arrancar, o fallar al pedir un análisis de la
+Parte 2: el control bloquea las DLL sin firma de pandas, numba y scipy. Lo
+encontró la verificación de la pre-release v0.1.0. Por qué la salida es WSL y
+no un ejecutable firmado está en
+[`ARQUITECTURA.md`](ARQUITECTURA.md#en-windows-se-instala-por-wsl-y-no-con-un-ejecutable-firmado).
+
+**Se abrió con el hito 84 en revisión**, por decisión del usuario. La regla de
+no empezar un hito con el anterior abierto existe para no escribir contra
+código que todavía no se puede probar, y éste no usa nada del 84: el instalador
+no toca `psglab/`.
+
+### Qué hace quien instala
+
+1. Si WSL no está, `wsl --install` en PowerShell como administrador, reiniciar
+   y elegir usuario y contraseña de Ubuntu.
+2. Abrir «Ubuntu» desde el menú Inicio y pegar un solo comando, que baja
+   `scripts/install_wsl.sh` de `Master` y lo corre. Con una versión al final
+   instala ésa; sin nada, la última publicada.
+3. Abrir «PSGLab» desde el menú Inicio.
+
+**En Windows no se ejecuta ningún script.** Con el Control de aplicaciones
+activado, un `.bat` o un `.ps1` bajado sin firma tiene el mismo problema que
+las DLL. El instalador entero es bash y corre dentro de Ubuntu.
+
+### Qué hace el script
+
+Correrlo de nuevo actualiza. En orden:
+
+1. **Comprueba el terreno:** que corre en Linux, dentro de WSL o no, y que el
+   `python3` del sistema es 3.11 o más nuevo. Si no, se frena diciendo qué falta.
+2. **Instala lo del sistema** con `sudo apt-get`: `python3-venv` y las
+   librerías de Qt del job de Linux del CI, más las que necesite la ventana en
+   WSLg, que se miden en la prueba a mano.
+3. **Elige la versión:** la pedida, o la última publicada **contando las
+   pre-releases**, que la API de «la última release» de GitHub saltea.
+4. **Baja el código** de esa release a `~/.local/share/psglab/<versión>/`, le
+   crea su venv e instala `requirements.txt` y `requirements-analysis.txt`. Las
+   de desarrollo no.
+5. **Prueba de humo:** importa el paquete, los lectores y las herramientas —que
+   se descubren al arrancar—, y las dependencias de la Parte 2.
+6. **Cambia de versión sólo si todo salió bien:** recién entonces apunta
+   `~/.local/share/psglab/actual` a la nueva. Una instalación que falla a mitad
+   de camino no pisa la que andaba.
+7. **Escribe el acceso directo** `~/.local/share/applications/psglab.desktop`,
+   que WSLg publica en el menú Inicio. Lanza el programa desde la carpeta de
+   usuario de Windows, que el script le pregunta a Windows, así el diálogo de
+   apertura arranca ahí la primera vez. Fuera de WSL, desde la carpeta personal.
+
+Con `--source <carpeta>` instala desde un árbol local en vez de bajar una
+release: es lo que usan el CI y quien prueba un cambio.
+
+### Lo que queda afuera
+
+- **`psglab/` no cambia.** Las preferencias, los recientes y la copia de
+  recuperación quedan en `~/.config` de Ubuntu, que persiste entre sesiones.
+- **No se fijan versiones:** cada instalación resuelve las dependencias del
+  día, como `pip` hoy. Fijarlas con `uv` y un archivo de versiones se evaluó y
+  queda para cuando una instalación del laboratorio se rompa por una versión
+  nueva.
+- **Ni ejecutable, ni firma, ni Docker:** ver la decisión en `ARQUITECTURA.md`.
+- **Desinstalar se documenta y no se programa:** son dos `rm` y van en
+  `scripts/README.md`.
+- **macOS y Linux** siguen instalando como dice el README; el script anda en
+  Linux, pero no se ofrece como la vía de esas plataformas.
+
+### Cómo se prueba
+
+**Un job nuevo del CI, `instalador`, en `ubuntu-latest`,** con las mismas ramas
+que el resto. Instala con `--source` sobre el árbol de la pull request y:
+
+- comprueba la prueba de humo, el enlace `actual` y el acceso directo, con
+  `desktop-file-validate`;
+- abre la ventana del programa instalado con `QT_QPA_PLATFORM=offscreen` y la
+  cierra;
+- instala dos veces y comprueba que la segunda reemplace a la primera;
+- instala desde una copia con una dependencia que no existe y comprueba que
+  `actual` siga apuntando a la que andaba;
+- pasa `shellcheck` sobre el script;
+- resuelve la versión contra la API real de GitHub, sin instalar nada.
+
+Que el job sea obligatorio para mergear lo decide el usuario en el ruleset de
+GitHub, que no vive en ningún archivo.
+
+**Una prueba a mano en un Windows 11 con el Control de aplicaciones
+activado**, que ningún CI puede hacer. El instalador lo corre el usuario,
+porque `sudo` pide su contraseña; el resultado se verifica después con `wsl`.
+Se mide además lo que no se puede dar por sentado: qué librerías necesita Qt
+en WSLg, cuánto tarda abrir el EDF desde `/mnt/c` contra hacerlo en Windows, y
+si la escala de pantalla se ve bien, con `tests.capturar_pantalla`.
+
+- [x] El diseño, en esta sección, y la decisión en `ARQUITECTURA.md`.
+- [ ] `scripts/install_wsl.sh` y `scripts/README.md`.
+- [ ] El job `instalador` en `ci.yml`, y su descripción en `CLAUDE.md` y en el
+      README.
+- [ ] El README: el apartado de WSL dentro de «Instalación», el aviso del
+      Control de aplicaciones remitiendo a él y la fila de `scripts/` en la
+      tabla de estructura. `CLAUDE.md`: la línea en «Comandos».
+- [ ] La prueba a mano: «PSGLab» en el menú Inicio, abrir el EDF de `data/`
+      desde `/mnt/c`, scorear y exportar los tres archivos, pedir las fases
+      sugeridas sin ningún bloqueo, y cerrar sin exportar para ver la
+      recuperación.
+- [ ] Las tres mediciones, anotadas en este hito.
 
 ## Al agregar o cerrar un ítem
 
