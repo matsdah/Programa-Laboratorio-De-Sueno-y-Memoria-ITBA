@@ -70,11 +70,35 @@ brew install libomp             # para macOS
 > de Windows 11. Bloquea las DLL sin firma que todavía no tienen reputación, y
 > las de pandas, numba y scipy que instala `pip` no vienen firmadas: falla sobre
 > todo la Parte 2. No admite excepciones por programa, así que desde el código
-> no se puede evitar. Se ve en *Seguridad de Windows → Control de aplicaciones y
-> navegador*. Si el equipo lo administra el ITBA, el permiso para la carpeta del
-> proyecto lo da sistemas; si es personal, la salida es apagarlo, y desde
-> Windows 11 25H2 se puede volver a encender sin reinstalar. A veces alcanza con
-> reintentar.
+> no se puede evitar. **La salida es instalar por WSL**, como se explica justo
+> abajo: ahí corre la versión Linux del programa, que ese control no revisa. Si
+> WSL no se puede usar, el control se ve en *Seguridad de Windows → Control de
+> aplicaciones y navegador*: si el equipo lo administra el ITBA, el permiso para
+> la carpeta del proyecto lo da sistemas; si es personal, se puede apagar, y
+> desde Windows 11 25H2 se vuelve a encender sin reinstalar.
+
+### En Windows, sin instalar Python: WSL
+
+Es la forma de instalarlo en Windows sin Python ni `pip`, y la que no choca con
+el Control inteligente de aplicaciones. El programa queda en el escritorio y en
+el menú Inicio, como cualquier otro.
+
+1. Si WSL no está instalado, en PowerShell **como administrador**:
+   `wsl --install`. Reiniciá y elegí un usuario y una contraseña de Ubuntu.
+2. Abrí «Ubuntu» desde el menú Inicio y pegá, sin `sudo`:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/matsdah/Programa-Laboratorio-De-Sueno-y-Memoria-ITBA/Master/scripts/install_wsl.sh | bash
+   ```
+
+   Instala la versión más nueva y te pide la contraseña de Ubuntu para lo que
+   le falte al sistema. Para una versión puntual, terminá el comando con
+   `| bash -s -- v0.1.0`. Correrlo de nuevo actualiza.
+3. Abrí «PSGLab» desde el escritorio o desde el menú Inicio.
+
+Los registros se abren desde el disco de Windows, que en Ubuntu se ve como
+`/mnt/c`. Qué deja el instalador, dónde y cómo se desinstala está en
+[`scripts/README.md`](scripts/README.md).
 
 ## Ejecución
 
@@ -100,6 +124,7 @@ que la gobiernan y cómo extenderla.
 | [`psglab/utils/`](psglab/utils/README.md) | Unidades (µV) y errores propios. | [→](psglab/utils/README.md) |
 | [`docs/`](docs/README.md) | Documentación. | [→](docs/README.md) |
 | [`tests/`](tests/README.md) | Test por componente. | [→](tests/README.md) |
+| [`scripts/`](scripts/README.md) | El instalador de WSL para Windows y su verificación. No es parte del programa. | [→](scripts/README.md) |
 | `.githooks/` | El hook de coautores; ver [Coautores en cada commit](#coautores-en-cada-commit). | |
 
 Para saber qué archivo implementa cada requisito del pliego, mirá
@@ -158,6 +183,9 @@ python -m pytest -rs
 
 - **Tests en Windows, macOS y Linux**, con Python 3.11 y 3.14.
 - **Verificación de licencias**, que falla si entra una dependencia GPL.
+- **El instalador de WSL**, en Ubuntu con su `python3`: instala con
+  `scripts/install_wsl.sh` el árbol de la pull request y lo verifica con
+  `scripts/verify_install_wsl.sh`.
 - **Cobertura**, con Python 3.14, que sube a
   [Codecov](https://app.codecov.io/gh/matsdah/Programa-Laboratorio-De-Sueno-y-Memoria-ITBA)
   y se comenta en la pull request. Es informativa: no bloquea el merge.
