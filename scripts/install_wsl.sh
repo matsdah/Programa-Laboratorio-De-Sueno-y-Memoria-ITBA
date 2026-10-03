@@ -281,6 +281,19 @@ write_desktop_entry() {
     } > "$dir/psglab.desktop"
 }
 
+# **WSLg publica en el menú Inicio sólo lo de la carpeta del sistema**,
+# `/usr/share/applications`: el acceso de `~/.local/share/applications` no
+# apareció, y el mismo archivo copiado ahí sí. Se copia con el `sudo` que ya
+# se usó para `apt`; si no anda, avisa el comando y sigue.
+publish_start_menu_entry() {
+    local origen=$1 sistema=$2
+    if sudo install -m 644 "$origen" "$sistema/psglab.desktop" < /dev/null; then
+        return 0
+    fi
+    warn "No se pudo publicar PSGLab en el menú Inicio. Se hace a mano, desde Ubuntu: sudo cp $origen $sistema/"
+    return 0
+}
+
 # Un texto entre comillas simples de PowerShell, que se escapan duplicándolas.
 ps_quote() {
     printf "'%s'" "${1//\'/\'\'}"
@@ -430,6 +443,10 @@ main() {
     write_launcher "$raiz" "$carpeta"
     export_icon "$raiz" "" || true
     write_desktop_entry "$raiz" "$carpeta"
+    if in_wsl; then
+        publish_start_menu_entry "${XDG_DATA_HOME:-$HOME/.local/share}/applications/psglab.desktop" \
+            /usr/share/applications
+    fi
     create_windows_shortcut "$raiz"
 
     step "Listo: PSGLab $etiqueta quedó instalado en $raiz/actual."

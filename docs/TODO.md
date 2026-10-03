@@ -294,10 +294,10 @@ Correrlo de nuevo actualiza. En orden:
    tiene que poder leer aunque la distribución esté apagada.
 9. **Escribe el acceso directo de Linux**,
    `~/.local/share/applications/psglab.desktop`, con el lanzador y el icono.
-   WSLg lo publica en el menú Inicio como «PSGLab (Ubuntu)». Que WSLg lea esa
-   carpeta y no sólo `/usr/share/applications` no está documentado: lo
-   confirma la prueba a mano, y si no la lee, el script lo escribe en la del
-   sistema con el mismo `sudo` de `apt`.
+   **Dentro de WSL lo copia además a `/usr/share/applications`**, con el
+   mismo `sudo` de `apt`: la prueba a mano mostró que WSLg publica en el menú
+   Inicio, como «PSGLab (Ubuntu)», sólo lo de esa carpeta. Si `sudo` no anda,
+   avisa el comando y sigue.
 10. **Sólo dentro de WSL, crea «PSGLab» en el escritorio de Windows:** un `.lnk`
     a `wslg.exe -d <distribución> -- <lanzador>`, con el icono ICO. La ruta del
     escritorio se le pide a Windows, porque puede estar en OneDrive —en la

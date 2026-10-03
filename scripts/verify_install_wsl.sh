@@ -52,6 +52,8 @@ ESCENARIOS=(
     platform_libraries
     windows_shortcut_quoting
     windows_shortcut_fallback
+    start_menu_entry
+    start_menu_entry_without_sudo
 )
 
 # -- Ayudas -------------------------------------------------------------------
@@ -64,7 +66,7 @@ load_installer() {
 }
 
 # Corre el instalador. La primera vez del CI, con los paquetes del sistema.
-install() {
+run_installer() {
     local extra=(--skip-system-packages)
     if [[ "${VERIFY_SYSTEM_PACKAGES:-}" == 1 && ! -e "$TRABAJO/.sistema" ]]; then
         extra=()
@@ -75,7 +77,7 @@ install() {
 
 # Instala y, si falla, falla el escenario con el final de lo que dijo.
 install_ok() {
-    install "$@" > "$XDG_DATA_HOME/instalacion.log" 2>&1 \
+    run_installer "$@" > "$XDG_DATA_HOME/instalacion.log" 2>&1 \
         || fail "la instalación salió con error: $(tail -n 3 "$XDG_DATA_HOME/instalacion.log")"
 }
 
@@ -161,7 +163,7 @@ scenario_failed_install_keeps_current() {
     antes=$(readlink "$(raiz)/actual")
     copiar_repo "$copia"
     printf '\npsglab-paquete-que-no-existe==0.0.0\n' >> "$copia/requirements-analysis.txt"
-    if install --source "$copia" > "$XDG_DATA_HOME/rota.log" 2>&1; then
+    if run_installer --source "$copia" > "$XDG_DATA_HOME/rota.log" 2>&1; then
         fail "instaló una copia con una dependencia que no existe"
     fi
     [[ "$(readlink "$(raiz)/actual")" == "$antes" ]] || fail "«actual» cambió después de una instalación fallida"
@@ -178,7 +180,7 @@ scenario_unknown_version() {
     install_ok --source "$REPO"
     local antes error
     antes=$(readlink "$(raiz)/actual")
-    if error=$(install v0.0.0-no-existe 2>&1 > /dev/null); then
+    if error=$(run_installer v0.0.0-no-existe 2>&1 > /dev/null); then
         fail "instaló una versión que no existe"
     fi
     [[ "$(head -n 1 <<< "$error")" == PSGLab:* ]] || fail "el error no empieza con «PSGLab:»: «$error»"
@@ -203,7 +205,7 @@ scenario_old_version_without_icon() {
     local copia="$TRABAJO/copia-rota" error
     copiar_repo "$copia"
     sed -i 's/^def app_icon_image(/def _sin_icono_de_aplicacion(/' "$copia/psglab/ui/icons.py"
-    install --source "$copia" > "$XDG_DATA_HOME/instalacion.log" 2> "$XDG_DATA_HOME/errores.log" \
+    run_installer --source "$copia" > "$XDG_DATA_HOME/instalacion.log" 2> "$XDG_DATA_HOME/errores.log" \
         || fail "una versión sin icono no se instaló: $(tail -n 3 "$XDG_DATA_HOME/errores.log")"
     error=$(cat "$XDG_DATA_HOME/errores.log")
     [[ "$error" == *"sin icono"* ]] || fail "no avisó que queda sin icono: «$error»"
@@ -296,6 +298,37 @@ scenario_windows_shortcut_fallback() {
                   create_windows_shortcut "$XDG_DATA_HOME/psglab") 2>&1 ) \
         || fail "sin PowerShell la instalación falló: «$error»"
     [[ "$error" == *"menú Inicio"* ]] || fail "no explicó cómo hacerlo a mano: «$error»"
+}
+
+# Un `sudo` de mentira que corre el comando sin privilegios, o que falla.
+sudo_de_mentira() {
+    mkdir -p "$TRABAJO/bin"
+    if [[ "$1" == anda ]]; then
+        printf '#!/bin/sh\nexec "$@"\n' > "$TRABAJO/bin/sudo"
+    else
+        printf '#!/bin/sh\nexit 1\n' > "$TRABAJO/bin/sudo"
+    fi
+    chmod +x "$TRABAJO/bin/sudo"
+}
+
+scenario_start_menu_entry() {
+    local origen="$XDG_DATA_HOME/psglab.desktop" sistema="$XDG_DATA_HOME/sistema"
+    mkdir -p "$sistema"
+    printf '[Desktop Entry]\nName=PSGLab\n' > "$origen"
+    sudo_de_mentira anda
+    ( load_installer; PATH="$TRABAJO/bin:$PATH" publish_start_menu_entry "$origen" "$sistema" ) \
+        || fail "publish_start_menu_entry salió con error"
+    cmp -s "$origen" "$sistema/psglab.desktop" || fail "no copió el acceso a la carpeta del sistema"
+}
+
+scenario_start_menu_entry_without_sudo() {
+    local origen="$XDG_DATA_HOME/psglab.desktop" sistema="$XDG_DATA_HOME/sistema" error
+    mkdir -p "$sistema"
+    printf '[Desktop Entry]\nName=PSGLab\n' > "$origen"
+    sudo_de_mentira falla
+    error=$( (load_installer; PATH="$TRABAJO/bin:$PATH" publish_start_menu_entry "$origen" "$sistema") 2>&1 ) \
+        || fail "sin sudo la instalación falló: «$error»"
+    [[ "$error" == *"sudo cp"* ]] || fail "no dijo cómo hacerlo a mano: «$error»"
 }
 
 # -- Corrida ------------------------------------------------------------------

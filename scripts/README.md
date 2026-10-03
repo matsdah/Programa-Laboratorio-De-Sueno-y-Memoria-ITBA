@@ -43,7 +43,8 @@ Con `BASE` = `$XDG_DATA_HOME`, que por omisión es `~/.local/share`:
 | `BASE/psglab/actual` | Enlace a la versión en uso. **Recién se cambia cuando la prueba de humo pasó**: una instalación que falla no pisa la que andaba, y la próxima buena borra lo que haya quedado a medias. |
 | `BASE/psglab/launch` | El lanzador. Entra en la carpeta de usuario de Windows y abre el programa de `actual`. |
 | `BASE/psglab/psglab.png` | El icono, que dibuja el programa instalado. Una versión anterior a que existiera no lo trae, y los accesos directos quedan sin icono. |
-| `BASE/applications/psglab.desktop` | El acceso directo de Linux. WSLg lo publica en el menú Inicio de Windows como «PSGLab (Ubuntu)». |
+| `BASE/applications/psglab.desktop` | El acceso directo de Linux. |
+| `/usr/share/applications/psglab.desktop` | Sólo dentro de WSL: una copia del anterior, con `sudo`. **WSLg publica en el menú Inicio sólo lo de esta carpeta**, como «PSGLab (Ubuntu)»: el de `BASE/applications` no apareció. Si `sudo` no anda, el instalador avisa el comando y sigue. |
 | `%LOCALAPPDATA%\PSGLab\psglab.ico` y `PSGLab.lnk` en el escritorio | Sólo dentro de WSL: el acceso directo del escritorio de Windows y su icono. |
 
 **El lanzador entra en la carpeta, y no la línea `Path=` del acceso directo**:
@@ -76,7 +77,10 @@ En Ubuntu:
 
 ```bash
 rm -rf ~/.local/share/psglab ~/.local/share/applications/psglab.desktop
+sudo rm -f /usr/share/applications/psglab.desktop
 ```
+
+El segundo comando es el que lo saca del menú Inicio.
 
 En Windows, borrar `PSGLab.lnk` del escritorio y la carpeta
 `%LOCALAPPDATA%\PSGLab`. Las preferencias y la copia de recuperación quedan en
