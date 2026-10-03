@@ -2,7 +2,7 @@
 #
 # Corre en cada push a Add y a Master, y en cada pull request contra ellas: un
 # push a una rama de trabajo no corre nada hasta que se abre la PR. Hace
-# tres cosas que hasta ahora se hacían a mano y que con un equipo de tres
+# cuatro cosas que hasta ahora se hacían a mano y que con un equipo de tres
 # personas ya no se sostienen:
 #
 #   1. Los tests, en los tres sistemas operativos que el pliego exige soportar.
@@ -11,6 +11,8 @@
 #      viven en tests/test_consistencia.py y corren junto con el resto.
 #   3. La verificación de licencias, que el pliego pide antes de cada release y
 #      que hoy nadie ejecuta si no se acuerda.
+#   4. El instalador de WSL, que es la vía de Windows cuando el Control
+#      inteligente de aplicaciones bloquea las DLL sin firma.
 #
 # Con Python 3.14 mide además la cobertura y la sube a Codecov, que la comenta
 # en cada pull request. Es informativa: no bloquea nada (ver .github/codecov.yml).
@@ -250,3 +252,32 @@ jobs:
               sys.exit(1)
           print("Ninguna dependencia obliga a relicenciar: la licencia MIT se sostiene.")
           PYTHON
+
+
+  # El instalador de WSL (`scripts/install_wsl.sh`), con el árbol de la PR y
+  # no con la última release: `verify_install_wsl.sh` instala con `--source`.
+  #
+  # **Sin `setup-python`, a propósito.** En WSL el instalador usa el `python3`
+  # de Ubuntu, y es ése el que hay que probar: con el de `setup-python` el job
+  # pasaría aunque el de Ubuntu no alcanzara.
+  instalador:
+    name: Instalador de WSL
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Herramientas de verificación
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck desktop-file-utils
+
+      - name: shellcheck
+        run: shellcheck -x scripts/install_wsl.sh scripts/verify_install_wsl.sh
+
+      # La primera instalación corre también `apt`, como en una máquina nueva.
+      - name: Instalar y verificar
+        env:
+          VERIFY_SYSTEM_PACKAGES: "1"
+        run: bash scripts/verify_install_wsl.sh
