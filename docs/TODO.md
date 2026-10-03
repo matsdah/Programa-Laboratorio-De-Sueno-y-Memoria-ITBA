@@ -388,6 +388,12 @@ inteligente de aplicaciones activado y Ubuntu 26.04 en WSL, con Python 3.14:
   scorear, anotar, sugerir las fases de las 2650 ventanas (11 s), PSD,
   complejidad, conectividad, los tres archivos exportados y la recuperación.
   La suite entera también pasa con el entorno que deja el instalador.
+- **Rendimiento bajo WSLg**, con `tests.medir_rendimiento`, escala 1,25 y la
+  ventana en «modo copia» —WSLg lo avisa en el título, «[WARN:COPY MODE]»—:
+  todo entra en los 40 ms por cuadro. Un paso de la reproducción tarda de 6,5
+  a 8,6 ms con 7 canales a 100 Hz y de 15 a 19,5 ms con 32 canales a 1000 Hz;
+  la lupa, 15 ms sin anotaciones y 38 ms con 400; la flecha sobre una noche
+  de 8 h, 12 ms. Abrir el EDF real por la ventana, 2,2 s.
 - **El menú Inicio:** WSLg publicó el acceso de `/usr/share/applications` y no
   el de `~/.local/share/applications`.
 
