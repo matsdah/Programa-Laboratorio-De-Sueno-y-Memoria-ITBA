@@ -246,8 +246,8 @@ no un ejecutable firmado está en
 
 **Se abrió con el hito 84 en revisión**, por decisión del usuario. La regla de
 no empezar un hito con el anterior abierto existe para no escribir contra
-código que todavía no se puede probar, y éste no usa nada del 84: el instalador
-no toca `psglab/`.
+código que todavía no se puede probar, y éste no usa nada del 84: de `psglab/`
+sólo toca el icono, en `ui/icons.py` y `app.py`, que el 84 no tocó.
 
 ### Qué hace quien instala
 
@@ -256,7 +256,8 @@ no toca `psglab/`.
 2. Abrir «Ubuntu» desde el menú Inicio y pegar un solo comando, que baja
    `scripts/install_wsl.sh` de `Master` y lo corre. Con una versión al final
    instala ésa; sin nada, la última publicada.
-3. Abrir «PSGLab» desde el menú Inicio.
+3. Abrir «PSGLab» desde el escritorio o desde el menú Inicio, como cualquier
+   otro programa.
 
 **En Windows no se ejecuta ningún script.** Con el Control de aplicaciones
 activado, un `.bat` o un `.ps1` bajado sin firma tiene el mismo problema que
@@ -281,25 +282,62 @@ Correrlo de nuevo actualiza. En orden:
 6. **Cambia de versión sólo si todo salió bien:** recién entonces apunta
    `~/.local/share/psglab/actual` a la nueva. Una instalación que falla a mitad
    de camino no pisa la que andaba.
-7. **Escribe el acceso directo** `~/.local/share/applications/psglab.desktop`,
-   que WSLg publica en el menú Inicio. Lanza el programa desde la carpeta de
-   usuario de Windows, que el script le pregunta a Windows, así el diálogo de
-   apertura arranca ahí la primera vez. Fuera de WSL, desde la carpeta personal.
+7. **Escribe un lanzador**, `~/.local/share/psglab/launch`, que entra en la
+   carpeta de usuario de Windows —el script se la pregunta a Windows— y abre
+   el programa de `actual`. Así el diálogo de apertura arranca ahí la primera
+   vez. Fuera de WSL entra en la carpeta personal. **Tiene que ser el lanzador
+   y no la línea `Path=` del acceso directo:** WSLg arma su `.lnk` con
+   `wslg.exe --cd "~"` y la ignora, como se ve en el de Alacritty de la
+   máquina del usuario.
+8. **Exporta el icono** con el Python del venv nuevo: un PNG para Linux y un
+   ICO para Windows, éste en `%LOCALAPPDATA%\PSGLab\`, porque un `.lnk` lo
+   tiene que poder leer aunque la distribución esté apagada.
+9. **Escribe el acceso directo de Linux**,
+   `~/.local/share/applications/psglab.desktop`, con el lanzador y el icono.
+   WSLg lo publica en el menú Inicio como «PSGLab (Ubuntu)». Que WSLg lea esa
+   carpeta y no sólo `/usr/share/applications` no está documentado: lo
+   confirma la prueba a mano, y si no la lee, el script lo escribe en la del
+   sistema con el mismo `sudo` de `apt`.
+10. **Sólo dentro de WSL, crea «PSGLab» en el escritorio de Windows:** un `.lnk`
+    a `wslg.exe -d <distribución> -- <lanzador>`, con el icono ICO. La ruta del
+    escritorio se le pide a Windows, porque puede estar en OneDrive —en la
+    máquina del usuario es `OneDrive\Escritorio`—, y el `.lnk` se crea con
+    PowerShell. Si PowerShell está restringido, como puede estar en un equipo
+    administrado, el script no falla: avisa y explica cómo arrastrarlo desde
+    el menú Inicio.
 
 Con `--source <carpeta>` instala desde un árbol local en vez de bajar una
 release: es lo que usan el CI y quien prueba un cambio.
 
+### El icono
+
+**Una luna creciente en ámbar sobre una onda clara**, en un cuadrado de
+esquinas redondeadas con el acento de Sereno. Se eligió entre tres candidatos
+porque es el único que se sigue leyendo a 16 px, que es el tamaño de la barra
+de tareas y de la barra de título; un hipnograma y una onda con un huso se
+perdían.
+
+Se dibuja con `QPainterPath` en `ui/icons.py`, como los de la barra, así que
+**sigue sin haber ningún archivo de icono en el repositorio**: el PNG y el ICO
+los genera el instalador. `app.py` lo pone como icono de la aplicación, así
+que la ventana lo lleva también en Windows, macOS y Linux. Los colores son
+fijos y no siguen el esquema elegido: un acceso directo no se redibuja cuando
+el usuario cambia a Nocturno.
+
 ### Lo que queda afuera
 
-- **`psglab/` no cambia.** Las preferencias, los recientes y la copia de
-  recuperación quedan en `~/.config` de Ubuntu, que persiste entre sesiones.
+- **De `psglab/` cambia sólo el icono.** Las preferencias, los recientes y la
+  copia de recuperación quedan en `~/.config` de Ubuntu, que persiste entre
+  sesiones.
 - **No se fijan versiones:** cada instalación resuelve las dependencias del
   día, como `pip` hoy. Fijarlas con `uv` y un archivo de versiones se evaluó y
   queda para cuando una instalación del laboratorio se rompa por una versión
   nueva.
 - **Ni ejecutable, ni firma, ni Docker:** ver la decisión en `ARQUITECTURA.md`.
-- **Desinstalar se documenta y no se programa:** son dos `rm` y van en
-  `scripts/README.md`.
+- **Desinstalar se documenta y no se programa:** es borrar la carpeta, los
+  dos accesos directos y el ICO, y va en `scripts/README.md`.
+- **No aparece en «Aplicaciones instaladas» de Windows, ni abre un `.edf` con
+  doble clic:** no es un programa de Windows.
 - **macOS y Linux** siguen instalando como dice el README; el script anda en
   Linux, pero no se ofrece como la vía de esas plataformas.
 
@@ -308,8 +346,8 @@ release: es lo que usan el CI y quien prueba un cambio.
 **Un job nuevo del CI, `instalador`, en `ubuntu-latest`,** con las mismas ramas
 que el resto. Instala con `--source` sobre el árbol de la pull request y:
 
-- comprueba la prueba de humo, el enlace `actual` y el acceso directo, con
-  `desktop-file-validate`;
+- comprueba la prueba de humo, el enlace `actual`, el lanzador, el PNG del
+  icono y el acceso directo, con `desktop-file-validate`;
 - abre la ventana del programa instalado con `QT_QPA_PLATFORM=offscreen` y la
   cierra;
 - instala dos veces y comprueba que la segunda reemplace a la primera;
@@ -321,6 +359,10 @@ que el resto. Instala con `--source` sobre el árbol de la pull request y:
 Que el job sea obligatorio para mergear lo decide el usuario en el ruleset de
 GitHub, que no vive en ningún archivo.
 
+**El icono se prueba en la suite**, en `tests/test_icons.py`: que se dibuje,
+que no salga vacío, que a 16 px conserve la luna, y que la aplicación lo lleve.
+Cómo se ve lo dice `tests.capturar_pantalla`, no un test.
+
 **Una prueba a mano en un Windows 11 con el Control de aplicaciones
 activado**, que ningún CI puede hacer. El instalador lo corre el usuario,
 porque `sudo` pide su contraseña; el resultado se verifica después con `wsl`.
@@ -329,13 +371,17 @@ en WSLg, cuánto tarda abrir el EDF desde `/mnt/c` contra hacerlo en Windows, y
 si la escala de pantalla se ve bien, con `tests.capturar_pantalla`.
 
 - [x] El diseño, en esta sección, y la decisión en `ARQUITECTURA.md`.
-- [ ] `scripts/install_wsl.sh` y `scripts/README.md`.
+- [ ] El icono en `ui/icons.py`, puesto por `app.py`, con sus tests y el
+      README de `ui/`.
+- [ ] `scripts/install_wsl.sh` y `scripts/README.md`, con el lanzador, el
+      icono exportado y el acceso en el escritorio.
 - [ ] El job `instalador` en `ci.yml`, y su descripción en `CLAUDE.md` y en el
       README.
 - [ ] El README: el apartado de WSL dentro de «Instalación», el aviso del
       Control de aplicaciones remitiendo a él y la fila de `scripts/` en la
       tabla de estructura. `CLAUDE.md`: la línea en «Comandos».
-- [ ] La prueba a mano: «PSGLab» en el menú Inicio, abrir el EDF de `data/`
+- [ ] La prueba a mano: «PSGLab» con su icono en el menú Inicio, en el
+      escritorio y en la barra de tareas, abrir el EDF de `data/`
       desde `/mnt/c`, scorear y exportar los tres archivos, pedir las fases
       sugeridas sin ningún bloqueo, y cerrar sin exportar para ver la
       recuperación.
