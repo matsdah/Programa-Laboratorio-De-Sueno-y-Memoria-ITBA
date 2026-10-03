@@ -378,10 +378,16 @@ inteligente de aplicaciones activado y Ubuntu 26.04 en WSL, con Python 3.14:
   `libxcb-util1`, no estaba en la lista del diseño.
 - **Leer el EDF de `data/`, de 46 MB, desde `/mnt/c` no es más lento:** 2,33 s
   la primera vez y 1,41 s la segunda en WSL, contra 5,49 s y 1,54 s en Windows.
-- **Escala:** la captura de `tests.capturar_pantalla` desde la instalación de
-  WSL sale con la tipografía, los colores y la disposición de siempre. La
-  captura no pasa por el escalado de WSLg; cómo se ve la ventana real lo dice
-  la prueba a mano.
+- **Escala:** WSLg le pasaba al programa escala 1 con Windows en 125 %
+  —por omisión sólo maneja escalas enteras—, y el texto salía un quinto más
+  chico que en el resto de Windows. El lanzador lee la escala de Windows del
+  registro en cada arranque, en 0,1 s, y se la da a Qt con `QT_SCALE_FACTOR`:
+  la ventana queda en los mismos 1536 × 864 lógicos que en Windows, sin nada
+  cortado, con el EDF real abierto.
+- **De punta a punta, con lo instalado y el EDF real:** abrir desde `/mnt/c`,
+  scorear, anotar, sugerir las fases de las 2650 ventanas (11 s), PSD,
+  complejidad, conectividad, los tres archivos exportados y la recuperación.
+  La suite entera también pasa con el entorno que deja el instalador.
 - **El menú Inicio:** WSLg publicó el acceso de `/usr/share/applications` y no
   el de `~/.local/share/applications`.
 
