@@ -104,7 +104,7 @@ PAQUETES_DEL_SISTEMA=(
     python3-venv curl
     libegl1 libgl1 libxkbcommon0 libdbus-1-3 libglib2.0-0 libfontconfig1 libfreetype6
     libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1
-    libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1
+    libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libxcb-util1
     libwayland-client0 libwayland-cursor0 libwayland-egl1
 )
 
@@ -119,9 +119,10 @@ system_packages() {
         return 0
     fi
     step "Instalando lo que le falta a Ubuntu. Te va a pedir tu contraseña de Ubuntu."
-    sudo apt-get update < /dev/null \
-        && sudo apt-get install -y --no-install-recommends "${PAQUETES_DEL_SISTEMA[@]}" < /dev/null \
-        || die "No se pudieron instalar los paquetes de Ubuntu. Revisá el mensaje de «apt» de arriba y volvé a correr el comando."
+    if ! sudo apt-get update < /dev/null \
+        || ! sudo apt-get install -y --no-install-recommends "${PAQUETES_DEL_SISTEMA[@]}" < /dev/null; then
+        die "No se pudieron instalar los paquetes de Ubuntu. Revisá el mensaje de «apt» de arriba y volvé a correr el comando."
+    fi
 }
 
 # Deja el código en `<destino>`: el de `--source`, o el de la release `<tag>`.
@@ -189,6 +190,92 @@ switch_to() {
             rm -rf "$dir"
         fi
     done
+}
+
+# -- Accesos directos ---------------------------------------------------------
+
+in_wsl() {
+    [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qi microsoft /proc/version 2>/dev/null
+}
+
+# Desde dónde se abre el programa: la carpeta de usuario de Windows, así el
+# diálogo de apertura arranca en las carpetas de siempre y no en un `/home`
+# vacío. Fuera de WSL, o si Windows no contesta, la carpeta personal.
+launch_dir() {
+    if in_wsl && command -v cmd.exe > /dev/null && command -v wslpath > /dev/null; then
+        local windows linux
+        windows=$( (cd /mnt/c && cmd.exe /c 'echo %USERPROFILE%') 2> /dev/null < /dev/null | tr -d '\r')
+        if [[ -n "$windows" && "$windows" != *%* ]] \
+            && linux=$(wslpath -u "$windows" 2> /dev/null) && [[ -d "$linux" ]]; then
+            printf '%s\n' "$linux"
+            return
+        fi
+    fi
+    printf '%s\n' "$HOME"
+}
+
+# **El lanzador entra en la carpeta, y no la línea `Path=` del acceso
+# directo:** WSLg arma su `.lnk` con `wslg.exe --cd "~"` y esa línea no
+# llega.
+write_launcher() {
+    local raiz=$1 carpeta=$2
+    {
+        printf '#!/usr/bin/env bash\n'
+        printf '# Abre PSGLab. Lo escribe scripts/install_wsl.sh.\n'
+        printf 'cd -- %q 2> /dev/null || cd ~\n' "$carpeta"
+        printf 'exec %q %q "$@"\n' "$raiz/actual/venv/bin/python" "$raiz/actual/app/main.py"
+    } > "$raiz/launch"
+    chmod +x "$raiz/launch"
+}
+
+# Guarda el icono como `<raíz>/psglab.png` y, si se pide, como ICO para
+# Windows. Lo dibuja el programa instalado, así que una versión publicada
+# antes de que existiera el icono no lo trae: avisa y sigue sin él.
+export_icon() {
+    local raiz=$1 ico=${2:-}
+    rm -f "$raiz/psglab.png"
+    if (cd "$raiz/actual/app" && QT_QPA_PLATFORM=offscreen "$raiz/actual/venv/bin/python" - \
+        "$raiz/psglab.png" "$ico" <<'PYTHON'
+import sys
+
+from PySide6.QtGui import QGuiApplication
+
+aplicacion = QGuiApplication(sys.argv[:1])
+try:
+    from psglab.ui.icons import app_icon_image
+except ImportError:
+    sys.exit(3)
+imagen = app_icon_image(256)
+if not imagen.save(sys.argv[1], "PNG"):
+    sys.exit(1)
+if sys.argv[2] and not imagen.save(sys.argv[2], "ICO"):
+    sys.exit(1)
+PYTHON
+    ) > /dev/null 2>&1; then
+        return 0
+    fi
+    rm -f "$raiz/psglab.png"
+    warn "Esta versión no pudo dibujar el icono del programa, así que los accesos directos quedan sin icono. El programa funciona igual."
+    return 1
+}
+
+write_desktop_entry() {
+    local raiz=$1 carpeta=$2 dir
+    dir="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+    mkdir -p "$dir"
+    {
+        printf '[Desktop Entry]\n'
+        printf 'Type=Application\n'
+        printf 'Name=PSGLab\n'
+        printf 'Comment=Scoring de sueño y análisis de polisomnografía\n'
+        printf 'Exec="%s"\n' "$raiz/launch"
+        if [[ -f "$raiz/psglab.png" ]]; then
+            printf 'Icon=%s\n' "$raiz/psglab.png"
+        fi
+        printf 'Path=%s\n' "$carpeta"
+        printf 'Terminal=false\n'
+        printf 'Categories=Science;MedicalSoftware;\n'
+    } > "$dir/psglab.desktop"
 }
 
 #: La versión que se está armando. Si el script termina antes de cambiar
@@ -263,6 +350,13 @@ main() {
     smoke_test "$CONSTRUCCION"
     switch_to "$CONSTRUCCION"
     CONSTRUCCION=""
+
+    step "Creando el acceso directo."
+    local carpeta
+    carpeta=$(launch_dir)
+    write_launcher "$raiz" "$carpeta"
+    export_icon "$raiz" "" || true
+    write_desktop_entry "$raiz" "$carpeta"
 
     step "Listo: PSGLab $etiqueta quedó instalado en $raiz/actual."
 }

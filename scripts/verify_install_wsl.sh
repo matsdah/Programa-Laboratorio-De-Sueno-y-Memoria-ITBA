@@ -17,6 +17,8 @@
 # variable todas corren con `--skip-system-packages`, porque `sudo` pediría
 # una contraseña.
 
+# shellcheck source-path=SCRIPTDIR
+
 set -uo pipefail
 
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -37,6 +39,12 @@ ESCENARIOS=(
     failed_install_keeps_current
     leftovers_removed
     unknown_version
+    desktop_entry
+    old_version_without_icon
+    desktop_entry_spaces
+    launcher
+    window_offscreen
+    platform_libraries
 )
 
 # -- Ayudas -------------------------------------------------------------------
@@ -169,6 +177,88 @@ scenario_unknown_version() {
     [[ "$(head -n 1 <<< "$error")" == PSGLab:* ]] || fail "el error no empieza con «PSGLab:»: «$error»"
     [[ "$error" == *v0.0.0-no-existe* ]] || fail "el error no nombra la versión: «$error»"
     [[ "$(readlink "$(raiz)/actual")" == "$antes" ]] || fail "«actual» cambió"
+}
+
+acceso_directo() {
+    printf '%s/applications/psglab.desktop' "$XDG_DATA_HOME"
+}
+
+scenario_desktop_entry() {
+    install_ok --source "$REPO"
+    desktop-file-validate "$(acceso_directo)" || fail "el acceso directo no valida"
+    grep -q '^Exec=.*/psglab/launch' "$(acceso_directo)" || fail "«Exec» no llama al lanzador"
+    local icono
+    icono=$(sed -n 's/^Icon=//p' "$(acceso_directo)")
+    [[ -n "$icono" && -f "$icono" ]] || fail "«Icon» no apunta a un PNG que exista: «$icono»"
+}
+
+scenario_old_version_without_icon() {
+    local copia="$TRABAJO/copia-rota" error
+    copiar_repo "$copia"
+    sed -i 's/^def app_icon_image(/def _sin_icono_de_aplicacion(/' "$copia/psglab/ui/icons.py"
+    install --source "$copia" > "$XDG_DATA_HOME/instalacion.log" 2> "$XDG_DATA_HOME/errores.log" \
+        || fail "una versión sin icono no se instaló: $(tail -n 3 "$XDG_DATA_HOME/errores.log")"
+    error=$(cat "$XDG_DATA_HOME/errores.log")
+    [[ "$error" == *"sin icono"* ]] || fail "no avisó que queda sin icono: «$error»"
+    desktop-file-validate "$(acceso_directo)" || fail "el acceso directo no valida"
+    if grep -q '^Icon=' "$(acceso_directo)"; then
+        fail "el acceso directo nombra un icono que no hay"
+    fi
+}
+
+scenario_desktop_entry_spaces() {
+    ( load_installer; write_desktop_entry "$XDG_DATA_HOME/psglab" "/mnt/c/Users/Juan Pérez" ) \
+        || fail "write_desktop_entry salió con error"
+    desktop-file-validate "$(acceso_directo)" || fail "el acceso directo no valida"
+    grep -qx 'Path=/mnt/c/Users/Juan Pérez' "$(acceso_directo)" || fail "la línea «Path» no quedó intacta"
+}
+
+scenario_launcher() {
+    local raiz carpeta="$TRABAJO/Juan Pérez" salida
+    raiz=$(raiz)
+    mkdir -p "$carpeta" "$raiz/falsa/venv/bin" "$raiz/falsa/app"
+    # shellcheck disable=SC2016  # `$PWD` y `$*` los expande el Python de mentira, no este script.
+    printf '#!/bin/sh\nprintf "%%s\\n" "$PWD" "$*"\n' > "$raiz/falsa/venv/bin/python"
+    chmod +x "$raiz/falsa/venv/bin/python"
+    ln -s falsa "$raiz/actual"
+    ( load_installer; write_launcher "$raiz" "$carpeta" ) || fail "write_launcher salió con error"
+    [[ -x "$raiz/launch" ]] || fail "el lanzador no es ejecutable"
+    salida=$("$raiz/launch" uno dos) || fail "el lanzador salió con error"
+    [[ "$(head -n 1 <<< "$salida")" == "$carpeta" ]] || fail "no entró en «$carpeta»: «$salida»"
+    [[ "$(tail -n 1 <<< "$salida")" == *"/app/main.py uno dos" ]] || fail "no pasó los argumentos: «$salida»"
+}
+
+scenario_window_offscreen() {
+    install_ok --source "$REPO"
+    local salida
+    # La configuración de quien corre esto no tiene que cambiar el resultado.
+    salida=$(cd "$(raiz)/actual/app" && XDG_CONFIG_HOME="$XDG_DATA_HOME/config" \
+        QT_QPA_PLATFORM=offscreen "$(raiz)/actual/venv/bin/python" -c '
+import os, sys
+from psglab.app import create_application, create_main_window
+aplicacion = create_application(sys.argv)
+ventana = create_main_window()
+ventana.show()
+aplicacion.processEvents()
+assert not aplicacion.windowIcon().isNull(), "la aplicación no tiene icono"
+ventana.close()
+aplicacion.processEvents()
+print("ventana: ok", flush=True)
+os._exit(0)
+' 2>&1) || fail "la ventana no abrió: $(tail -n 3 <<< "$salida")"
+    [[ "$salida" == *"ventana: ok"* ]] || fail "no llegó a cerrar la ventana: «$salida»"
+}
+
+scenario_platform_libraries() {
+    install_ok --source "$REPO"
+    local carpetas faltan so
+    carpetas=("$(raiz)"/actual/venv/lib/python3*/site-packages/PySide6/Qt/plugins/platforms)
+    [[ -f "${carpetas[0]}/libqxcb.so" ]] || fail "no está el plugin de X de Qt"
+    faltan=$(for so in "${carpetas[0]}"/libqxcb.so "${carpetas[0]}"/libqwayland*.so \
+                 "${carpetas[0]}"/libqoffscreen.so; do
+                 [[ -e "$so" ]] && ldd "$so" | grep 'not found'
+             done | sort -u)
+    [[ -z "$faltan" ]] || fail "le faltan librerías del sistema a Qt: $faltan"
 }
 
 # -- Corrida ------------------------------------------------------------------
