@@ -21,7 +21,10 @@ set -uo pipefail
 
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 INSTALLER="$REPO/scripts/install_wsl.sh"
-TRABAJO=$(mktemp -d)
+# **En la carpeta personal y no en `/tmp`.** Cada instalación ocupa más de un
+# gigabyte, y en WSL `/tmp` es un disco en memoria de unos pocos: con dos
+# instalaciones vivas, `pip` se quedaba sin espacio.
+TRABAJO=$(mktemp -d "$HOME/.psglab-verify.XXXXXX")
 trap 'rm -rf "$TRABAJO"' EXIT
 
 ESCENARIOS=(
@@ -29,6 +32,11 @@ ESCENARIOS=(
     resolve_given
     refuses_root
     old_python
+    install_once
+    install_twice
+    failed_install_keeps_current
+    leftovers_removed
+    unknown_version
 )
 
 # -- Ayudas -------------------------------------------------------------------
@@ -48,6 +56,28 @@ install() {
         touch "$TRABAJO/.sistema"
     fi
     bash "$INSTALLER" "${extra[@]}" "$@"
+}
+
+# Instala y, si falla, falla el escenario con el final de lo que dijo.
+install_ok() {
+    install "$@" > "$XDG_DATA_HOME/instalacion.log" 2>&1 \
+        || fail "la instalación salió con error: $(tail -n 3 "$XDG_DATA_HOME/instalacion.log")"
+}
+
+# La carpeta de PSGLab del escenario, y sus carpetas de versión.
+raiz() {
+    printf '%s/psglab' "$XDG_DATA_HOME"
+}
+
+versiones() {
+    find "$(raiz)" -mindepth 1 -maxdepth 1 -type d | sort
+}
+
+# Copia el repositorio sin lo que no es código, para poder romperlo.
+copiar_repo() {
+    mkdir -p "$1"
+    tar -C "$REPO" --exclude=.git --exclude='.venv*' --exclude=data \
+        --exclude=.superpowers --exclude=__pycache__ -cf - . | tar -C "$1" -xf -
 }
 
 # Falla el escenario con un motivo. Sale y no vuelve: cada escenario corre en
@@ -90,6 +120,57 @@ scenario_old_python() {
     [[ "$error" == *3.11* ]] || fail "el mensaje no nombra la versión que hace falta: «$error»"
 }
 
+scenario_install_once() {
+    install_ok --source "$REPO"
+    local destino
+    destino=$(readlink "$(raiz)/actual") || fail "no quedó el enlace «actual»"
+    [[ "$destino" == source.* ]] || fail "«actual» apunta a «$destino»"
+    (cd "$(raiz)/actual/app" && "$(raiz)/actual/venv/bin/python" -c 'import psglab') \
+        || fail "el venv instalado no importa psglab"
+    [[ $(versiones | wc -l) -eq 1 ]] || fail "quedaron $(versiones | wc -l) carpetas de versión"
+}
+
+scenario_install_twice() {
+    install_ok --source "$REPO"
+    local primera segunda
+    primera=$(readlink "$(raiz)/actual")
+    install_ok --source "$REPO"
+    segunda=$(readlink "$(raiz)/actual")
+    [[ "$segunda" != "$primera" ]] || fail "la segunda instalación no reemplazó a la primera"
+    [[ $(versiones | wc -l) -eq 1 ]] || fail "quedaron $(versiones | wc -l) carpetas de versión"
+}
+
+scenario_failed_install_keeps_current() {
+    install_ok --source "$REPO"
+    local antes copia="$TRABAJO/copia-rota"
+    antes=$(readlink "$(raiz)/actual")
+    copiar_repo "$copia"
+    printf '\npsglab-paquete-que-no-existe==0.0.0\n' >> "$copia/requirements-analysis.txt"
+    if install --source "$copia" > "$XDG_DATA_HOME/rota.log" 2>&1; then
+        fail "instaló una copia con una dependencia que no existe"
+    fi
+    [[ "$(readlink "$(raiz)/actual")" == "$antes" ]] || fail "«actual» cambió después de una instalación fallida"
+    [[ $(versiones | wc -l) -eq 1 ]] || fail "la instalación fallida dejó su carpeta"
+}
+
+scenario_leftovers_removed() {
+    mkdir -p "$(raiz)/v0.0.0.abcdef"
+    install_ok --source "$REPO"
+    [[ ! -e "$(raiz)/v0.0.0.abcdef" ]] || fail "quedó la carpeta de una instalación interrumpida"
+}
+
+scenario_unknown_version() {
+    install_ok --source "$REPO"
+    local antes error
+    antes=$(readlink "$(raiz)/actual")
+    if error=$(install v0.0.0-no-existe 2>&1 > /dev/null); then
+        fail "instaló una versión que no existe"
+    fi
+    [[ "$(head -n 1 <<< "$error")" == PSGLab:* ]] || fail "el error no empieza con «PSGLab:»: «$error»"
+    [[ "$error" == *v0.0.0-no-existe* ]] || fail "el error no nombra la versión: «$error»"
+    [[ "$(readlink "$(raiz)/actual")" == "$antes" ]] || fail "«actual» cambió"
+}
+
 # -- Corrida ------------------------------------------------------------------
 
 FALLAS=0
@@ -104,6 +185,7 @@ run_scenario() {
         printf 'FALLÓ %s: %s\n' "$nombre" "$(tail -n 5 <<< "$motivo")"
         FALLAS=$((FALLAS + 1))
     fi
+    rm -rf "$XDG_DATA_HOME" "$TRABAJO/copia-rota"
 }
 
 if (($#)); then
