@@ -280,4 +280,7 @@ jobs:
       - name: Instalar y verificar
         env:
           VERIFY_SYSTEM_PACKAGES: "1"
+          # Para consultar las versiones publicadas sin chocar con el límite
+          # de pedidos por dirección, que los runners comparten.
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/verify_install_wsl.sh

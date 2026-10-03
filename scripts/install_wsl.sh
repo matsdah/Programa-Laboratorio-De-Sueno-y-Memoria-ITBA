@@ -82,8 +82,13 @@ resolve_version() {
         printf '%s\n' "$1"
         return
     fi
-    local respuesta
-    respuesta=$(curl -fsSL "https://api.github.com/repos/$REPOSITORIO/releases?per_page=1") \
+    # Con un token, la API no aplica el límite de pedidos por dirección, que
+    # los runners del CI comparten. Quien instala no lo necesita.
+    local respuesta autorizacion=()
+    if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+        autorizacion=(--header "Authorization: Bearer $GITHUB_TOKEN")
+    fi
+    respuesta=$(curl -fsSL "${autorizacion[@]}" "https://api.github.com/repos/$REPOSITORIO/releases?per_page=1") \
         || die "No se pudo consultar qué versiones hay publicadas. Revisá la conexión a internet y volvé a correr el comando."
     printf '%s' "$respuesta" | python3 -c '
 import json, sys
@@ -178,11 +183,21 @@ import psglab.ui.main_window
 
 # Apunta `actual` a la versión nueva y borra las demás. El enlace se cambia de
 # una vez: se arma al lado y se renombra encima del viejo.
+#
+# **Sólo dentro de la carpeta de PSGLab**: lo que sigue borra con `rm -rf`
+# toda carpeta vecina de la nueva, así que si la nueva no está ahí, se niega.
+# **La construcción deja de serlo apenas cambia el enlace**: un Ctrl+C
+# mientras se borran las viejas corre la trampa de salida, que si no borraría
+# la versión a la que ya apunta `actual`.
 switch_to() {
     local nueva=$1 raiz
     raiz=$(dirname "$nueva")
+    if [[ "$(realpath -m -- "$raiz")" != "$(realpath -m -- "$(psglab_root)")" ]]; then
+        die "No se cambia de versión fuera de $(psglab_root): «$nueva»."
+    fi
     ln -sfn "$(basename "$nueva")" "$raiz/.actual-nuevo"
     mv -T "$raiz/.actual-nuevo" "$raiz/actual"
+    CONSTRUCCION=""
     local dir
     for dir in "$raiz"/*/; do
         dir=${dir%/}
@@ -201,14 +216,29 @@ in_wsl() {
     [[ -n "${WSL_DISTRO_NAME:-}" ]]
 }
 
+# Corre código de PowerShell en Windows y devuelve lo que imprime, en UTF-8.
+# **Ni la entrada ni la salida pasan por la página de códigos de la consola**:
+# `powershell.exe` y `cmd.exe` escriben al pipe en la OEM —850 en un Windows en
+# español— y «Pérez» llegaba como «P\x82rez», así que una carpeta de usuario
+# con acentos no se encontraba. El código va en UTF-16 con `-EncodedCommand`,
+# y lo primero que hace es pasar la salida a UTF-8.
+windows_eval() {
+    local codigo codificado
+    codigo="[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$1"
+    codificado=$(printf '%s' "$codigo" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0) || return 1
+    (cd /mnt/c && powershell.exe -NoProfile -NonInteractive -EncodedCommand "$codificado") \
+        < /dev/null 2> /dev/null | tr -d '\r'
+}
+
 # Desde dónde se abre el programa: la carpeta de usuario de Windows, así el
 # diálogo de apertura arranca en las carpetas de siempre y no en un `/home`
 # vacío. Fuera de WSL, o si Windows no contesta, la carpeta personal.
 launch_dir() {
-    if in_wsl && command -v cmd.exe > /dev/null && command -v wslpath > /dev/null; then
+    if in_wsl && command -v powershell.exe > /dev/null && command -v wslpath > /dev/null; then
         local windows linux
-        windows=$( (cd /mnt/c && cmd.exe /c 'echo %USERPROFILE%') 2> /dev/null < /dev/null | tr -d '\r')
-        if [[ -n "$windows" && "$windows" != *%* ]] \
+        windows=$(windows_eval "[Environment]::GetFolderPath('UserProfile')") || windows=""
+        if [[ -n "$windows" ]] \
             && linux=$(wslpath -u "$windows" 2> /dev/null) && [[ -d "$linux" ]]; then
             printf '%s\n' "$linux"
             return
@@ -331,13 +361,13 @@ create_windows_shortcut() {
     # `wslg.exe` no suele estar en el PATH de Windows: vive en la carpeta de
     # WSL, que es de donde lo lanzan los accesos que WSLg publica.
     local datos escritorio datos_locales wslg
-    datos=$( (cd /mnt/c && powershell.exe -NoProfile -NonInteractive -Command "
+    datos=$(windows_eval "
         [Environment]::GetFolderPath('Desktop')
         \$env:LOCALAPPDATA
         \$encontrado = Get-Command wslg.exe -ErrorAction SilentlyContinue
         if (\$encontrado) { \$encontrado.Source }
-        else { Join-Path \$env:ProgramFiles 'WSL\\wslg.exe' | Where-Object { Test-Path \$_ } }") \
-        < /dev/null 2> /dev/null | tr -d '\r') || datos=""
+        else { Join-Path \$env:ProgramFiles 'WSL\wslg.exe' | Where-Object { Test-Path \$_ } }") \
+        || datos=""
     escritorio=$(sed -n 1p <<< "$datos")
     datos_locales=$(sed -n 2p <<< "$datos")
     wslg=$(sed -n 3p <<< "$datos")
@@ -349,15 +379,15 @@ create_windows_shortcut() {
     local ico=""
     if [[ -f "$raiz/psglab.png" ]]; then
         local carpeta_ico
-        carpeta_ico=$(wslpath -u "$datos_locales\\PSGLab")
-        if mkdir -p "$carpeta_ico" && export_icon "$raiz" "$carpeta_ico/psglab.ico"; then
+        carpeta_ico=$(wslpath -u "$datos_locales\\PSGLab" 2> /dev/null) || carpeta_ico=""
+        if [[ -n "$carpeta_ico" ]] && mkdir -p "$carpeta_ico" 2> /dev/null \
+            && export_icon "$raiz" "$carpeta_ico/psglab.ico"; then
             ico="$datos_locales\\PSGLab\\psglab.ico"
         fi
     fi
 
-    if ! windows_shortcut_script "$escritorio\\PSGLab.lnk" "$wslg" "$WSL_DISTRO_NAME" \
-        "$raiz/launch" "$ico" \
-        | (cd /mnt/c && powershell.exe -NoProfile -NonInteractive -Command -) > /dev/null 2>&1; then
+    if ! windows_eval "$(windows_shortcut_script "$escritorio\\PSGLab.lnk" "$wslg" \
+        "$WSL_DISTRO_NAME" "$raiz/launch" "$ico")" > /dev/null; then
         warn "No se pudo crear el acceso del escritorio, porque PowerShell no lo permitió. $a_mano"
         return 0
     fi
@@ -397,6 +427,10 @@ parse_args() {
                 ;;
             *)
                 [[ -z "$VERSION" ]] || die "Se pidieron dos versiones: «$VERSION» y «$1»."
+                # La versión termina en una ruta, así que no puede traer
+                # barras ni empezar con un punto.
+                [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
+                    || die "«$1» no es una versión. Se escribe como en GitHub, por ejemplo «v0.1.0»."
                 VERSION=$1
                 shift
                 ;;

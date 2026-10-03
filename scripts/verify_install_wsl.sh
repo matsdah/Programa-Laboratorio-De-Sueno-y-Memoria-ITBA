@@ -54,6 +54,11 @@ ESCENARIOS=(
     windows_shortcut_fallback
     start_menu_entry
     start_menu_entry_without_sudo
+    switch_releases_build_before_cleanup
+    switch_refuses_outside_root
+    rejects_path_in_version
+    resolve_uses_token
+    windows_text_round_trip
 )
 
 # -- Ayudas -------------------------------------------------------------------
@@ -329,6 +334,64 @@ scenario_start_menu_entry_without_sudo() {
     error=$( (load_installer; PATH="$TRABAJO/bin:$PATH" publish_start_menu_entry "$origen" "$sistema") 2>&1 ) \
         || fail "sin sudo la instalación falló: «$error»"
     [[ "$error" == *"sudo cp"* ]] || fail "no dijo cómo hacerlo a mano: «$error»"
+}
+
+# Un Ctrl+C mientras se borran las versiones viejas corre la trampa de
+# salida, que borra la versión en construcción: para entonces ya tiene que
+# haber dejado de serlo, porque `actual` apunta a ella.
+scenario_switch_releases_build_before_cleanup() {
+    local raiz
+    raiz=$(raiz)
+    mkdir -p "$raiz/vieja.abcdef" "$raiz/nueva.abcdef"
+    ( load_installer
+      CONSTRUCCION="$raiz/nueva.abcdef"
+      rm() {
+          [[ -z "$CONSTRUCCION" ]] || { echo "borraba con la construcción todavía pendiente"; exit 1; }
+          command rm "$@"
+      }
+      switch_to "$raiz/nueva.abcdef" ) || fail "la construcción seguía pendiente durante el borrado"
+    [[ "$(readlink "$raiz/actual")" == nueva.abcdef ]] || fail "«actual» no apunta a la nueva"
+}
+
+scenario_switch_refuses_outside_root() {
+    local afuera="$TRABAJO/afuera" error
+    mkdir -p "$afuera/nueva.abcdef" "$afuera/ajena"
+    if error=$( (load_installer; switch_to "$afuera/nueva.abcdef") 2>&1 ); then
+        fail "cambió de versión fuera de la carpeta de PSGLab"
+    fi
+    [[ -d "$afuera/ajena" ]] || fail "borró una carpeta que no era de PSGLab"
+    [[ "$error" == PSGLab:* ]] || fail "el error no empieza con «PSGLab:»: «$error»"
+}
+
+scenario_rejects_path_in_version() {
+    local error
+    if error=$(run_installer ../../v0.1.0 2>&1 > /dev/null); then
+        fail "aceptó una versión con «..»"
+    fi
+    [[ "$error" == PSGLab:*"../../v0.1.0"* ]] || fail "el error no nombra la versión: «$error»"
+    if compgen -G "$XDG_DATA_HOME/../v0.1.0.*" > /dev/null; then
+        fail "creó algo fuera de la carpeta de PSGLab"
+    fi
+}
+
+# Con `GITHUB_TOKEN` definido, la consulta lo manda: uno inválido tiene que
+# hacerla fallar. Sin token, desde los runners del CI se choca con el límite
+# de pedidos por hora.
+scenario_resolve_uses_token() {
+    if GITHUB_TOKEN=token-que-no-existe bash "$INSTALLER" --resolve-only > /dev/null 2>&1; then
+        fail "la consulta no mandó el token"
+    fi
+}
+
+# Dentro de WSL, un texto con acentos tiene que ir y volver de Windows
+# intacto: `cmd.exe` y `powershell.exe` escriben en la página de códigos de la
+# consola, y «Pérez» llegaba como «P\x82rez». Fuera de WSL no hay Windows.
+scenario_windows_text_round_trip() {
+    command -v powershell.exe > /dev/null || return 0
+    local texto
+    texto=$( (load_installer; windows_eval "'P' + [char]0x00E9 + 'rez ' + [char]0x0141") 2>&1 ) \
+        || fail "windows_eval salió con error: «$texto»"
+    [[ "$texto" == "Pérez Ł" ]] || fail "volvió «$texto» y no «Pérez Ł»"
 }
 
 # -- Corrida ------------------------------------------------------------------
