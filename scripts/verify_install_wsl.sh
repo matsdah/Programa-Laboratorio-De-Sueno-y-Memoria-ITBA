@@ -29,6 +29,11 @@ INSTALLER="$REPO/scripts/install_wsl.sh"
 TRABAJO=$(mktemp -d "$HOME/.psglab-verify.XXXXXX")
 trap 'rm -rf "$TRABAJO"' EXIT
 
+# **Las instalaciones de los escenarios no saben que están en WSL.** Si lo
+# supieran, cada corrida dejaría un `PSGLab.lnk` de verdad en el escritorio de
+# Windows. El acceso del escritorio se prueba con sus funciones sueltas.
+unset WSL_DISTRO_NAME
+
 ESCENARIOS=(
     resolve_latest
     resolve_given
@@ -45,6 +50,8 @@ ESCENARIOS=(
     launcher
     window_offscreen
     platform_libraries
+    windows_shortcut_quoting
+    windows_shortcut_fallback
 )
 
 # -- Ayudas -------------------------------------------------------------------
@@ -259,6 +266,36 @@ scenario_platform_libraries() {
                  [[ -e "$so" ]] && ldd "$so" | grep 'not found'
              done | sort -u)
     [[ -z "$faltan" ]] || fail "le faltan librerías del sistema a Qt: $faltan"
+}
+
+scenario_windows_shortcut_quoting() {
+    local guion
+    # shellcheck disable=SC1003  # Son barras de rutas de Windows, no escapes.
+    guion=$( (load_installer
+              windows_shortcut_script 'C:\Users\O'"'"'Brien\OneDrive\Escritorio\PSGLab.lnk' \
+                  'C:\Program Files\WSL\wslg.exe' Ubuntu /home/o/.local/share/psglab/launch \
+                  'C:\Users\O'"'"'Brien\AppData\Local\PSGLab\psglab.ico') 2>&1 ) \
+        || fail "windows_shortcut_script salió con error: $guion"
+    [[ "$guion" == *"'C:\Users\O''Brien\OneDrive\Escritorio\PSGLab.lnk'"* ]] \
+        || fail "la ruta del .lnk no quedó bien citada: «$guion»"
+    [[ "$guion" == *"'-d Ubuntu -- \"/home/o/.local/share/psglab/launch\"'"* ]] \
+        || fail "los argumentos de wslg no quedaron bien: «$guion»"
+    # Dentro de WSL, que PowerShell lo pueda leer. `Create` sólo lo analiza:
+    # no lo corre, así que no crea ningún acceso.
+    if command -v powershell.exe > /dev/null; then
+        printf '%s' "$guion" | (cd /mnt/c && powershell.exe -NoProfile -NonInteractive \
+            -Command '[scriptblock]::Create([Console]::In.ReadToEnd()) | Out-Null') \
+            || fail "PowerShell no puede leer el código: «$guion»"
+    fi
+}
+
+scenario_windows_shortcut_fallback() {
+    local error
+    error=$( (load_installer
+              PATH=/usr/bin:/bin WSL_DISTRO_NAME=Prueba \
+                  create_windows_shortcut "$XDG_DATA_HOME/psglab") 2>&1 ) \
+        || fail "sin PowerShell la instalación falló: «$error»"
+    [[ "$error" == *"menú Inicio"* ]] || fail "no explicó cómo hacerlo a mano: «$error»"
 }
 
 # -- Corrida ------------------------------------------------------------------

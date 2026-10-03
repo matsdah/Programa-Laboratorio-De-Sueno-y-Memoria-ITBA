@@ -194,8 +194,11 @@ switch_to() {
 
 # -- Accesos directos ---------------------------------------------------------
 
+# WSL define `WSL_DISTRO_NAME` en cada sesión. Es lo único que se mira: así
+# `verify_install_wsl.sh` la puede borrar para que sus instalaciones no dejen
+# accesos de verdad en el escritorio de Windows.
 in_wsl() {
-    [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qi microsoft /proc/version 2>/dev/null
+    [[ -n "${WSL_DISTRO_NAME:-}" ]]
 }
 
 # Desde dónde se abre el programa: la carpeta de usuario de Windows, así el
@@ -278,6 +281,76 @@ write_desktop_entry() {
     } > "$dir/psglab.desktop"
 }
 
+# Un texto entre comillas simples de PowerShell, que se escapan duplicándolas.
+ps_quote() {
+    printf "'%s'" "${1//\'/\'\'}"
+}
+
+# El código de PowerShell que crea el `.lnk` del escritorio: abre el
+# lanzador con `wslg.exe`, que es lo mismo que hacen los accesos que WSLg
+# publica en el menú Inicio.
+# shellcheck disable=SC2016  # `$acceso` es de PowerShell: bash no lo tiene que expandir.
+windows_shortcut_script() {
+    local lnk=$1 wslg=$2 distro=$3 lanzador=$4 ico=${5:-}
+    printf '$acceso = (New-Object -ComObject WScript.Shell).CreateShortcut(%s)\n' "$(ps_quote "$lnk")"
+    printf '$acceso.TargetPath = %s\n' "$(ps_quote "$wslg")"
+    printf '$acceso.Arguments = %s\n' "$(ps_quote "-d $distro -- \"$lanzador\"")"
+    printf '$acceso.Description = %s\n' "$(ps_quote 'PSGLab')"
+    if [[ -n "$ico" ]]; then
+        printf '$acceso.IconLocation = %s\n' "$(ps_quote "$ico")"
+    fi
+    printf '$acceso.Save()\n'
+}
+
+# Sólo dentro de WSL: «PSGLab» en el escritorio de Windows. La ruta del
+# escritorio se le pide a Windows, porque puede estar en OneDrive. **Si algo
+# falla, la instalación no falla**: avisa cómo hacerlo a mano. Pasa, por
+# ejemplo, en un equipo administrado donde PowerShell está restringido.
+create_windows_shortcut() {
+    local raiz=$1
+    in_wsl || return 0
+    local a_mano="Para tenerlo en el escritorio, buscá «PSGLab (Ubuntu)» en el menú Inicio y arrastralo al escritorio."
+    if ! command -v powershell.exe > /dev/null || ! command -v wslpath > /dev/null; then
+        warn "No se pudo crear el acceso del escritorio, porque no se encontró PowerShell. $a_mano"
+        return 0
+    fi
+
+    # `wslg.exe` no suele estar en el PATH de Windows: vive en la carpeta de
+    # WSL, que es de donde lo lanzan los accesos que WSLg publica.
+    local datos escritorio datos_locales wslg
+    datos=$( (cd /mnt/c && powershell.exe -NoProfile -NonInteractive -Command "
+        [Environment]::GetFolderPath('Desktop')
+        \$env:LOCALAPPDATA
+        \$encontrado = Get-Command wslg.exe -ErrorAction SilentlyContinue
+        if (\$encontrado) { \$encontrado.Source }
+        else { Join-Path \$env:ProgramFiles 'WSL\\wslg.exe' | Where-Object { Test-Path \$_ } }") \
+        < /dev/null 2> /dev/null | tr -d '\r') || datos=""
+    escritorio=$(sed -n 1p <<< "$datos")
+    datos_locales=$(sed -n 2p <<< "$datos")
+    wslg=$(sed -n 3p <<< "$datos")
+    if [[ -z "$escritorio" || -z "$datos_locales" || -z "$wslg" ]]; then
+        warn "No se pudo crear el acceso del escritorio, porque Windows no dijo dónde está el escritorio. $a_mano"
+        return 0
+    fi
+
+    local ico=""
+    if [[ -f "$raiz/psglab.png" ]]; then
+        local carpeta_ico
+        carpeta_ico=$(wslpath -u "$datos_locales\\PSGLab")
+        if mkdir -p "$carpeta_ico" && export_icon "$raiz" "$carpeta_ico/psglab.ico"; then
+            ico="$datos_locales\\PSGLab\\psglab.ico"
+        fi
+    fi
+
+    if ! windows_shortcut_script "$escritorio\\PSGLab.lnk" "$wslg" "$WSL_DISTRO_NAME" \
+        "$raiz/launch" "$ico" \
+        | (cd /mnt/c && powershell.exe -NoProfile -NonInteractive -Command -) > /dev/null 2>&1; then
+        warn "No se pudo crear el acceso del escritorio, porque PowerShell no lo permitió. $a_mano"
+        return 0
+    fi
+    printf 'El acceso «PSGLab» quedó en el escritorio.\n'
+}
+
 #: La versión que se está armando. Si el script termina antes de cambiar
 #: `actual`, por un error o un Ctrl+C, se borra.
 CONSTRUCCION=""
@@ -357,6 +430,7 @@ main() {
     write_launcher "$raiz" "$carpeta"
     export_icon "$raiz" "" || true
     write_desktop_entry "$raiz" "$carpeta"
+    create_windows_shortcut "$raiz"
 
     step "Listo: PSGLab $etiqueta quedó instalado en $raiz/actual."
 }
