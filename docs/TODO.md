@@ -370,6 +370,21 @@ Se mide además lo que no se puede dar por sentado: qué librerías necesita Qt
 en WSLg, cuánto tarda abrir el EDF desde `/mnt/c` contra hacerlo en Windows, y
 si la escala de pantalla se ve bien, con `tests.capturar_pantalla`.
 
+**Medido el 2 de octubre de 2026**, en Windows 11 25H2 con el Control
+inteligente de aplicaciones activado y Ubuntu 26.04 en WSL, con Python 3.14:
+
+- **Librerías:** con la lista del instalador, `ldd` no encuentra ninguna
+  faltante en los plugins de plataforma de Qt. Sin ellas faltaban varias, y una,
+  `libxcb-util1`, no estaba en la lista del diseño.
+- **Leer el EDF de `data/`, de 46 MB, desde `/mnt/c` no es más lento:** 2,33 s
+  la primera vez y 1,41 s la segunda en WSL, contra 5,49 s y 1,54 s en Windows.
+- **Escala:** la captura de `tests.capturar_pantalla` desde la instalación de
+  WSL sale con la tipografía, los colores y la disposición de siempre. La
+  captura no pasa por el escalado de WSLg; cómo se ve la ventana real lo dice
+  la prueba a mano.
+- **El menú Inicio:** WSLg publicó el acceso de `/usr/share/applications` y no
+  el de `~/.local/share/applications`.
+
 - [x] El diseño, en esta sección, y la decisión en `ARQUITECTURA.md`.
 - [x] El icono en `ui/icons.py`, puesto por `app.py`, con sus tests y el
       README de `ui/`.
@@ -385,7 +400,7 @@ si la escala de pantalla se ve bien, con `tests.capturar_pantalla`.
       desde `/mnt/c`, scorear y exportar los tres archivos, pedir las fases
       sugeridas sin ningún bloqueo, y cerrar sin exportar para ver la
       recuperación.
-- [ ] Las tres mediciones, anotadas en este hito.
+- [x] Las tres mediciones, anotadas en este hito.
 
 ## Al agregar o cerrar un ítem
 
