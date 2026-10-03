@@ -60,6 +60,22 @@ brew install libomp             # para macOS
 > Para WSL usá otro directorio (`python3 -m venv .venv-linux`). Si renombrás o
 > movés la carpeta del proyecto, borrá `.venv` y rehacelo.
 
+> **En Windows, el proyecto va en una ruta corta**, como `C:\PSGLab`. Windows
+> limita las rutas a 260 caracteres y las librerías de Qt quedan varias carpetas
+> adentro de `.venv`: en una carpeta muy profunda PySide6 no carga, y el error
+> dice *"El nombre del archivo o la extensión es demasiado largo"*.
+
+> **Si Windows bloquea una librería** con *"Una directiva de Control de
+> aplicaciones bloqueó este archivo"*, es el Control inteligente de aplicaciones
+> de Windows 11. Bloquea las DLL sin firma que todavía no tienen reputación, y
+> las de pandas, numba y scipy que instala `pip` no vienen firmadas: falla sobre
+> todo la Parte 2. No admite excepciones por programa, así que desde el código
+> no se puede evitar. Se ve en *Seguridad de Windows → Control de aplicaciones y
+> navegador*. Si el equipo lo administra el ITBA, el permiso para la carpeta del
+> proyecto lo da sistemas; si es personal, la salida es apagarlo, y desde
+> Windows 11 25H2 se puede volver a encender sin reinstalar. A veces alcanza con
+> reintentar.
+
 ## Ejecución
 
 ```bash
