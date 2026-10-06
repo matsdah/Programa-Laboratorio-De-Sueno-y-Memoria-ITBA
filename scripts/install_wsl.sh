@@ -63,7 +63,7 @@ step() {
 # quien lo instaló.
 check_not_root() {
     if [[ "$1" == 0 ]]; then
-        die "No hace falta ser administrador. Corré el comando sin sudo: el script pide la contraseña sólo para instalar con «apt» lo que le falta a Ubuntu."
+        die "No hace falta ser administrador. Corré el comando sin sudo: el script pide la contraseña sólo para lo que va en las carpetas del sistema: lo que le falta a Ubuntu y el acceso del menú Inicio."
     fi
 }
 

@@ -30,7 +30,7 @@ Correrlo de nuevo actualiza. Las opciones:
 |---|---|
 | `VERSION` | Instala esa versión, por ejemplo `v0.1.0`. Sin ella, la más nueva publicada, **contando las pre-releases**. Con `curl`, va como `\| bash -s -- v0.1.0`. |
 | `--source DIR` | Instala desde un árbol local en vez de bajar una release. Es lo que usan el CI y quien prueba un cambio. No copia `.git`, los entornos ni `data/`. |
-| `--skip-system-packages` | No corre `apt`. Sirve cuando los paquetes de Ubuntu ya están y no se quiere escribir la contraseña. |
+| `--skip-system-packages` | No corre `apt`. Sirve cuando los paquetes de Ubuntu ya están. **Dentro de WSL la contraseña se pide igual**, una vez, para publicar el acceso en el menú Inicio; si no se escribe, el instalador avisa y termina sin ese acceso. |
 | `--resolve-only` | Dice qué versión instalaría y termina. |
 
 ## Qué deja y dónde
