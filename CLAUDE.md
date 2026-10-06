@@ -65,9 +65,9 @@ cargarse y los mecanismos enchufables no existirían.
 
 **[`docs/TODO.md`](docs/TODO.md) es la cola de trabajo** y el único documento
 que lleva estado. Ordena el trabajo en hitos **por dependencias reales**, no por
-sección del pliego, y lleva las dos Partes. Hoy no queda ningún stub ni
-ningún hito abierto: lo que sigue pendiente son las preguntas al cliente, al
-principio del TODO, y el próximo trabajo se abre como un hito nuevo.
+sección del pliego, y lleva las dos Partes. Qué hito está abierto y qué
+preguntas al cliente siguen pendientes se lee ahí, no acá; el próximo trabajo
+se abre como un hito nuevo.
 
 **Un hito no se empieza si el anterior no está cerrado**, por la misma razón de
 siempre: se escribiría contra algo que todavía no se puede testear. Un módulo
@@ -111,23 +111,18 @@ Preparar el entorno, si todavía no está (el detalle está en `README.md`):
 ```bash
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements.txt -r requirements-dev.txt -r requirements-analysis.txt
 ```
 
 Cada clon activa también el hook que pone al equipo como coautor de cada
 commit, con `git config core.hooksPath .githooks`. Qué hace y cómo se suma a
 alguien está en el README, en "Coautores en cada commit".
 
-Hay un tercer archivo, `requirements-analysis.txt`, con las tres dependencias
-exclusivas de la Parte 2 (`mne-connectivity`, `antropy` y, desde el hito 75,
-`yasa`), que arrastran numba, llvmlite, xarray, pandas, scikit-learn y
-lightgbm. **Hay que instalarlo**: desde el hito 10 hay tests que las importan,
-así que sin él `test_complexity.py`, `test_connectivity.py`,
+**Los tres archivos hacen falta.** `requirements-analysis.txt` trae las tres
+dependencias exclusivas de la Parte 2 (`mne-connectivity`, `antropy` y `yasa`),
+que arrastran numba, llvmlite, xarray, pandas, scikit-learn y lightgbm, y hay
+tests que las importan: sin él, `test_complexity.py`, `test_connectivity.py`,
 `test_auto_scoring.py` y parte de los `test_entrega*.py` fallan.
-
-```bash
-pip install -r requirements-analysis.txt
-```
 
 Los imports son diferidos a nivel de función, así que la recolección pasa y el
 fallo sale recién al correr el test, con un `ModuleNotFoundError` que no dice
@@ -186,6 +181,20 @@ Windows con `TerminateProcess`: desarmar al final las ventanas de Qt que dejan
 los tests tiraba el CI con un `Segmentation fault`, con todo en verde, y en
 Windows salía con 139 sin que nadie lo notara. Lo hace `conftest.py`, y el
 código de salida es el de la sesión: **mirarlo**, no sólo el resumen.
+
+Dos excepciones que dependen de la máquina y no del cambio que se prueba:
+
+- **En Ubuntu 26.04 con Python 3.14, dentro de WSL**, la suite termina con 139
+  antes de imprimir el resumen, con todo en verde: Python libera widgets de Qt
+  antes de que llegue el `os._exit()`. Pasa igual sobre el código de antes de
+  cualquier cambio; el CI de Linux, en Ubuntu 24.04, termina limpio.
+- **En Windows 11 con el Control inteligente de aplicaciones activado**, la
+  suite puede fallar en decenas de tests de la Parte 2 y cortarse sin resumen,
+  con 127. El mensaje que lo delata es *«Una directiva de Control de
+  aplicaciones bloqueó este archivo»*, sobre una DLL de numba, lightgbm o
+  pandas: el control bloquea las que todavía no tienen reputación, y suele
+  dejar de hacerlo con el tiempo. Ante la duda, correr la suite en WSL o sobre
+  el commit de partida, y comparar.
 
 **La suite completa tarda varios minutos**, sobre todo por los seis
 `test_entrega*.py`, que arman una ventana por test —eran uno solo hasta el
@@ -510,7 +519,8 @@ antes de escribir código en ella:
 [`analysis/`](psglab/analysis/README.md) ·
 [`utils/`](psglab/utils/README.md) ·
 [`tests/`](tests/README.md) ·
-[`docs/`](docs/README.md)
+[`docs/`](docs/README.md) ·
+[`scripts/`](scripts/README.md)
 
 Al agregar un módulo o cambiar una regla de una carpeta, **actualizar el README
 de esa carpeta en el mismo commit**, igual que `docs/TRAZABILIDAD.md`.
