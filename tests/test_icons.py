@@ -146,3 +146,71 @@ def test_los_chevrones_de_pagina_ya_no_existen(nombre: str):
     dibujo que nadie ve, y dejarlo haría creer que la barra todavía lo usa."""
     with pytest.raises(PsgLabError):
         icons.icon(nombre, "#000000")
+
+
+# -- El icono de la aplicación ------------------------------------------------
+
+#: El ámbar de la luna. Es lo único del icono que no es fondo ni trazo claro,
+#: así que contar sus píxeles dice si la luna sobrevivió al achicarse.
+AMBAR = (0xF2, 0xC1, 0x4E)
+
+
+def _pintados(imagen) -> int:
+    return sum(
+        1
+        for x in range(imagen.width())
+        for y in range(imagen.height())
+        if imagen.pixelColor(x, y).alpha() > 0
+    )
+
+
+@pytest.mark.parametrize("lado", [16, 32, 256])
+def test_el_icono_de_la_aplicacion_se_dibuja_en_cada_tamano(qt_app, lado: int):
+    imagen = icons.app_icon_image(lado)
+
+    assert not imagen.isNull()
+    assert (imagen.width(), imagen.height()) == (lado, lado)
+    assert _pintados(imagen) > 0
+
+
+def test_el_icono_de_la_aplicacion_conserva_la_luna_a_16_px(qt_app):
+    """A 16 px es como se ve en la barra de tareas y en la de título. Fue el
+    motivo para elegir la luna entre tres candidatos: los otros se perdían."""
+    imagen = icons.app_icon_image(16)
+
+    ambar = 0
+    for x in range(16):
+        for y in range(16):
+            color = imagen.pixelColor(x, y)
+            canales = (color.red(), color.green(), color.blue())
+            if color.alpha() > 200 and all(abs(c - a) < 60 for c, a in zip(canales, AMBAR)):
+                ambar += 1
+
+    assert ambar >= 4
+
+
+def test_el_icono_de_la_aplicacion_tiene_las_esquinas_transparentes(qt_app):
+    """Las esquinas redondeadas tienen que dejar ver lo que hay atrás: un
+    cuadrado lleno se ve como un recorte sobre la barra de tareas."""
+    imagen = icons.app_icon_image(256)
+
+    assert imagen.pixelColor(0, 0).alpha() == 0
+
+
+@pytest.mark.parametrize("lado", [8, 0, "32"])
+def test_un_lado_invalido_del_icono_avisa(qt_app, lado):
+    with pytest.raises(UnknownIconError):
+        icons.app_icon_image(lado)  # type: ignore[arg-type]
+
+
+def test_la_aplicacion_lleva_el_icono(qt_app):
+    """`create_application()` lo pone con `install_app_icon()`; la suite no
+    pasa por ella, igual que con la traducción, así que se prueba la pieza."""
+    from psglab.app import install_app_icon
+
+    install_app_icon(qt_app)
+
+    icono = qt_app.windowIcon()
+    assert not icono.isNull()
+    lados = {tamano.width() for tamano in icono.availableSizes()}
+    assert {16, 256} <= lados

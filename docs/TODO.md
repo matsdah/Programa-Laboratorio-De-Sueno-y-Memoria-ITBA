@@ -15,7 +15,7 @@ ver «Al agregar o cerrar un ítem», al final.
 Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos: las dos Partes
 están cerradas y ningún módulo de `psglab/` eleva `NotImplementedError`.
 
-Son **ochenta y cinco hitos**, del 0 al 84, que son las filas de la tabla de
+Son **ochenta y seis hitos**, del 0 al 85, que son las filas de la tabla de
 progreso; el 84 sigue abierto hasta la revisión independiente. La cuenta vive
 sólo en este archivo:
 hasta el hito 79 la repetían cuatro documentos, y cada hito nuevo obligaba a
@@ -207,6 +207,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [82. La revisión de Claude contra Master](HISTORIAL.md#hito-82-la-revisión-de-claude-contra-master) | — | 0 | ✅ cerrado |
 | [83. La cobertura en cada pull request](HISTORIAL.md#hito-83-la-cobertura-en-cada-pull-request) | — | 0 | ✅ cerrado |
 | [84. Recuperar copias antiguas sin perderlas](TODO.md#hito-84-recuperar-copias-antiguas-sin-perderlas) | — | 0 | en revisión |
+| [85. Instalar en Windows por WSL](HISTORIAL.md#hito-85-instalar-en-windows-por-wsl) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 ## Hito 84: Recuperar copias antiguas sin perderlas

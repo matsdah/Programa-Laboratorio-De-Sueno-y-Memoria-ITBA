@@ -167,6 +167,51 @@ Los métodos de evento **no hacen nada por defecto** en vez de elevar
 la banda de amplitud escucha el movimiento del mouse y nada más. Si el método
 base fallara, activarla y navegar a otra ventana rompería el programa.
 
+### En Windows se instala por WSL y no con un ejecutable firmado
+
+Decidido el 2 de octubre de 2026, en el
+[hito 85](HISTORIAL.md#hito-85-instalar-en-windows-por-wsl).
+
+**El problema es el Control inteligente de aplicaciones de Windows 11.** Carga
+un ejecutable o una DLL sólo si los servicios de Microsoft lo reconocen como
+seguro, o si está firmado con un certificado de una autoridad del programa raíz
+de Microsoft. Las DLL de pandas, numba y scipy que instala `pip` no vienen
+firmadas, y una versión recién publicada todavía no tiene reputación. Al
+verificar la pre-release v0.1.0 se bloquearon `algos` de pandas 3.0.6 y
+`_helperlib` de numba, este último en un `.venv` que hasta entonces andaba.
+**No admite excepciones por programa**: desde el código no se puede evitar.
+
+Se descartaron dos alternativas:
+
+- **Un ejecutable empaquetado con todas sus DLL firmadas.** Firmar sólo el
+  `.exe` no alcanza, porque Windows revisa cada módulo que se carga: hay que
+  firmar cientos de DLL de terceros en cada versión. Hace falta un certificado
+  de una autoridad del programa raíz, y uno autofirmado no sirve.
+  Artifact Signing, el servicio barato de Microsoft, sólo acepta organizaciones
+  de EE. UU., Canadá, la UE y el Reino Unido, y personas de EE. UU. y Canadá.
+  Un certificado comercial cuesta bastante más, y desde 2023 su clave tiene que
+  vivir en hardware dedicado. Además PyInstaller lleva GPL con una excepción
+  para lo que genera, y el job de licencias del CI lo rechazaría.
+- **Docker.** También esquiva el control, pero suma Docker Desktop, que pide
+  administrador, y un volumen para que la copia de recuperación no se pierda
+  cuando se borra el contenedor.
+
+**WSL directo resuelve lo mismo con menos piezas.** Dentro de WSL corre la
+versión Linux del programa, y el Control de aplicaciones sólo revisa binarios
+de Windows. La distribución guarda su disco entre sesiones, así que las
+preferencias y la copia de recuperación quedan donde el programa ya las busca,
+y WSLg publica el acceso directo en el menú Inicio. No suma ninguna dependencia
+al proyecto.
+
+**El costo aceptado** es que cada equipo necesita WSL2 y la virtualización
+activada, que el diálogo de apertura muestra rutas de Linux (`/mnt/c/...`) y
+que leer un registro desde el disco de Windows es más lento que leerlo desde
+Windows.
+
+**Cuándo revisarla:** si el laboratorio no puede usar WSL —equipos sin
+virtualización, o donde sistemas no la habilite— o si el ITBA consigue un
+certificado de firma de código.
+
 ---
 
 ## Licencias de las dependencias

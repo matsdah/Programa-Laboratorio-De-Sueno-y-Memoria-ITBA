@@ -65,9 +65,9 @@ cargarse y los mecanismos enchufables no existirían.
 
 **[`docs/TODO.md`](docs/TODO.md) es la cola de trabajo** y el único documento
 que lleva estado. Ordena el trabajo en hitos **por dependencias reales**, no por
-sección del pliego, y lleva las dos Partes. Hoy no queda ningún stub ni
-ningún hito abierto: lo que sigue pendiente son las preguntas al cliente, al
-principio del TODO, y el próximo trabajo se abre como un hito nuevo.
+sección del pliego, y lleva las dos Partes. Qué hito está abierto y qué
+preguntas al cliente siguen pendientes se lee ahí, no acá; el próximo trabajo
+se abre como un hito nuevo.
 
 **Un hito no se empieza si el anterior no está cerrado**, por la misma razón de
 siempre: se escribiría contra algo que todavía no se puede testear. Un módulo
@@ -111,23 +111,18 @@ Preparar el entorno, si todavía no está (el detalle está en `README.md`):
 ```bash
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements.txt -r requirements-dev.txt -r requirements-analysis.txt
 ```
 
 Cada clon activa también el hook que pone al equipo como coautor de cada
 commit, con `git config core.hooksPath .githooks`. Qué hace y cómo se suma a
 alguien está en el README, en "Coautores en cada commit".
 
-Hay un tercer archivo, `requirements-analysis.txt`, con las tres dependencias
-exclusivas de la Parte 2 (`mne-connectivity`, `antropy` y, desde el hito 75,
-`yasa`), que arrastran numba, llvmlite, xarray, pandas, scikit-learn y
-lightgbm. **Hay que instalarlo**: desde el hito 10 hay tests que las importan,
-así que sin él `test_complexity.py`, `test_connectivity.py`,
+**Los tres archivos hacen falta.** `requirements-analysis.txt` trae las tres
+dependencias exclusivas de la Parte 2 (`mne-connectivity`, `antropy` y `yasa`),
+que arrastran numba, llvmlite, xarray, pandas, scikit-learn y lightgbm, y hay
+tests que las importan: sin él, `test_complexity.py`, `test_connectivity.py`,
 `test_auto_scoring.py` y parte de los `test_entrega*.py` fallan.
-
-```bash
-pip install -r requirements-analysis.txt
-```
 
 Los imports son diferidos a nivel de función, así que la recolección pasa y el
 fallo sale recién al correr el test, con un `ModuleNotFoundError` que no dice
@@ -186,6 +181,20 @@ Windows con `TerminateProcess`: desarmar al final las ventanas de Qt que dejan
 los tests tiraba el CI con un `Segmentation fault`, con todo en verde, y en
 Windows salía con 139 sin que nadie lo notara. Lo hace `conftest.py`, y el
 código de salida es el de la sesión: **mirarlo**, no sólo el resumen.
+
+Dos excepciones que dependen de la máquina y no del cambio que se prueba:
+
+- **En Ubuntu 26.04 con Python 3.14, dentro de WSL**, la suite termina con 139
+  antes de imprimir el resumen, con todo en verde: Python libera widgets de Qt
+  antes de que llegue el `os._exit()`. Pasa igual sobre el código de antes de
+  cualquier cambio; el CI de Linux, en Ubuntu 24.04, termina limpio.
+- **En Windows 11 con el Control inteligente de aplicaciones activado**, la
+  suite puede fallar en decenas de tests de la Parte 2 y cortarse sin resumen,
+  con 127. El mensaje que lo delata es *«Una directiva de Control de
+  aplicaciones bloqueó este archivo»*, sobre una DLL de numba, lightgbm o
+  pandas: el control bloquea las que todavía no tienen reputación, y suele
+  dejar de hacerlo con el tiempo. Ante la duda, correr la suite en WSL o sobre
+  el commit de partida, y comparar.
 
 **La suite completa tarda varios minutos**, sobre todo por los seis
 `test_entrega*.py`, que arman una ventana por test —eran uno solo hasta el
@@ -275,6 +284,20 @@ En la consola de Windows los acentos de los mensajes salen como mojibake
 (`configuraci�n`) por la codepage cp1252. Es cosmético y no un bug del código:
 todo el texto que ve el usuario está en español y los archivos son UTF-8.
 `$env:PYTHONUTF8=1` lo corrige para esa corrida.
+
+**El instalador de WSL** (`scripts/`, hito 85) no es parte del programa y
+pytest no lo ve. Se prueba en Ubuntu, dentro de WSL o no, con los paquetes del
+sistema ya instalados; cada escenario hace una instalación entera, así que
+tarda:
+
+```bash
+bash scripts/verify_install_wsl.sh
+```
+
+Desde la herramienta Bash de Windows hay que llamarlo con
+`MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash /mnt/c/...`: sin esa variable,
+Git Bash convierte la ruta `/mnt/c` y WSL no la encuentra. **No editar los
+scripts mientras corre**: bash los lee a medida que los ejecuta.
 
 Verificación de licencias a mano. El CI ya la corre en cada push, así que
 esto sirve para mirar el detalle, no para no olvidarse:
@@ -439,8 +462,9 @@ nunca se saltean en silencio.
 El [workflow de CI](.github/workflows/ci.yml) corre en cada push y cada pull
 request contra `Add` y `Master`: los tests en Windows, macOS y Linux con Python
 3.11 y 3.14 —la única prueba real de que el programa es multiplataforma—, esos
-chequeos de consistencia, y la verificación de licencias, que falla si entra una
-dependencia GPL. Contempla que PySide6 declara una licencia disyuntiva
+chequeos de consistencia, la verificación de licencias, que falla si entra una
+dependencia GPL, y el instalador de WSL (hito 85), que instala el árbol de la
+pull request con el `python3` de Ubuntu y lo verifica. Contempla que PySide6 declara una licencia disyuntiva
 (`LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`), así que un chequeo ingenuo de
 "GPL" fallaría contra la dependencia principal del proyecto.
 
@@ -458,6 +482,8 @@ cuentas de tests se saltea si se le pasa un archivo suelto.
 **`Add` y `Master` exigen el CI en verde para mergear**, desde el 26 de
 septiembre. Es un ruleset del repositorio en GitHub —no vive en ningún archivo—
 que pide pull request y los siete jobs, y prohíbe el force push y el borrado.
+El del instalador de WSL es el octavo y **no está entre los obligatorios**
+mientras nadie lo sume al ruleset.
 Hasta entonces sólo cubría `Master`, y el PR #82 entró en `Add` con los dos
 jobs de macOS fallando sin que la suite local, que corre en Windows, pudiera
 verlo. El rol Admin puede saltearlo, pero sólo desde una pull request y
@@ -493,7 +519,8 @@ antes de escribir código en ella:
 [`analysis/`](psglab/analysis/README.md) ·
 [`utils/`](psglab/utils/README.md) ·
 [`tests/`](tests/README.md) ·
-[`docs/`](docs/README.md)
+[`docs/`](docs/README.md) ·
+[`scripts/`](scripts/README.md)
 
 Al agregar un módulo o cambiar una regla de una carpeta, **actualizar el README
 de esa carpeta en el mismo commit**, igual que `docs/TRAZABILIDAD.md`.
@@ -732,6 +759,12 @@ Reglas de esta capa que no se ven leyendo un solo archivo:
   dos respuestas a la misma pregunta. **La itálica quiere decir «esto no lo
   midió ni lo eligió nadie»** —«sin medir», «sin scorear»— y no «esto es
   importante»: usarla para otra cosa le saca el significado.
+- **El icono de la aplicación no sigue el esquema** (hito 85). Lo dibuja
+  `ui/icons.py` —`app_icon_image()`— y lo pone `install_app_icon()` desde
+  `create_application()`, con colores fijos: también lo usan los accesos
+  directos que crea el instalador de WSL, que no se redibujan al pasar a
+  Nocturno. **No hay ningún archivo de icono en el repositorio**: el PNG y el
+  ICO los genera el instalador.
 - **Un cuadro tiene 40 ms de presupuesto**, que es lo que pide el reloj de la
   reproducción. El hito 25 los consiguió con tres decisiones que se deshacen
   sin querer: la grilla es **un solo objeto** de la escena y no una

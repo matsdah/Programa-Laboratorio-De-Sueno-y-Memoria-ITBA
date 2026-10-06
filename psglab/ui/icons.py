@@ -1,7 +1,8 @@
 """Los iconos de la interfaz, dibujados por el programa.
 
-Son los de la barra de navegación y el botón de abrir un registro, que ocupa en
-la barra de menú el lugar que antes tenía «Archivo».
+Son los de la barra de navegación, el botón de abrir un registro, que ocupa en
+la barra de menú el lugar que antes tenía «Archivo», y el de la aplicación, que
+lleva la ventana y los accesos directos que crea el instalador de WSL.
 
 **No hay ningún archivo de icono en el repositorio, y es a propósito.** La
 referencia visual de este refactor es EDFbrowser, que está bajo GPL-2.0;
@@ -33,10 +34,11 @@ fondo nuevo.
 Cubre del pliego: ningún ID. Es presentación.
 """
 
+import math
 from typing import Final
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPixmap
+from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
 
 from psglab.utils.errors import UnknownIconError
 
@@ -283,4 +285,96 @@ def _barras_de_pausa(borde: float, lado: float) -> QPainterPath:
     camino = QPainterPath()
     camino.addRect(QRectF(x, y, ancho, alto))
     camino.addRect(QRectF(x + ancho + hueco, y, ancho, alto))
+    return camino
+
+
+# -- El icono de la aplicación ------------------------------------------------
+
+#: Los tamaños en que se dibuja el icono de la aplicación. **Cada uno se dibuja a
+#: su medida** y no se escala desde el grande: achicado, el trazo de la onda
+#: queda por debajo de un píxel y la luna se desdibuja.
+TAMANOS_DE_LA_APLICACION: Final[tuple[int, ...]] = (16, 24, 32, 48, 64, 128, 256)
+
+#: El lado más chico que tiene sentido pedir: es el de la barra de tareas.
+_LADO_MINIMO_DE_LA_APLICACION: Final[int] = 16
+
+#: La luna. Es el único color del icono que no sale del esquema Sereno.
+_AMBAR_DE_LA_LUNA: Final[str] = "#f2c14e"
+
+
+def app_icon_image(side: int) -> QImage:
+    """El icono de la aplicación, de `side` × `side` píxeles.
+
+    Una luna creciente en ámbar sobre una onda clara, en un cuadrado de esquinas
+    redondeadas con el acento de Sereno: sueño y señal. **Los colores son fijos
+    y no siguen el esquema elegido**, porque el icono también vive en accesos
+    directos que el sistema dibuja una sola vez y no se enteran de que el
+    usuario pasó a Nocturno. Fuera del cuadrado el fondo es transparente.
+
+    Lo usan la ventana, por `app_icon()`, y el instalador de WSL, que lo guarda
+    como PNG y como ICO para los accesos directos: por eso devuelve una
+    `QImage`, que se puede guardar sin una aplicación con ventanas.
+
+    Raises:
+        UnknownIconError: si `side` no es un entero o es menor que 16.
+    """
+    if isinstance(side, bool) or not isinstance(side, int) or side < _LADO_MINIMO_DE_LA_APLICACION:
+        raise UnknownIconError(
+            f"No se puede dibujar el icono de la aplicación de «{side}» píxeles.",
+            details=f"El lado tiene que ser un entero de {_LADO_MINIMO_DE_LA_APLICACION} o más.",
+        )
+
+    from psglab.ui.theme import SERENO
+
+    lado = float(side)
+    imagen = QImage(side, side, QImage.Format.Format_ARGB32_Premultiplied)
+    imagen.fill(Qt.GlobalColor.transparent)
+
+    pintor = QPainter(imagen)
+    pintor.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+    borde = lado * 0.06
+    fondo = QPainterPath()
+    fondo.addRoundedRect(
+        QRectF(borde, borde, lado - 2 * borde, lado - 2 * borde), lado * 0.2, lado * 0.2
+    )
+    pintor.fillPath(fondo, QColor(SERENO.accent))
+
+    disco = QPainterPath()
+    disco.addEllipse(QPointF(lado * 0.40, lado * 0.36), lado * 0.17, lado * 0.17)
+    mordida = QPainterPath()
+    mordida.addEllipse(QPointF(lado * 0.48, lado * 0.30), lado * 0.15, lado * 0.15)
+    pintor.fillPath(disco.subtracted(mordida), QColor(_AMBAR_DE_LA_LUNA))
+
+    pluma = QPen(QColor(SERENO.background), max(lado * 0.05, 1.5))
+    pluma.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pluma.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    pintor.setPen(pluma)
+    pintor.drawPath(_onda_de_la_aplicacion(lado))
+    pintor.end()
+    return imagen
+
+
+def app_icon() -> QIcon:
+    """El icono de la aplicación en todos sus tamaños, para la ventana."""
+    icono = QIcon()
+    for lado in TAMANOS_DE_LA_APLICACION:
+        icono.addPixmap(QPixmap.fromImage(app_icon_image(lado)))
+    return icono
+
+
+def _onda_de_la_aplicacion(lado: float) -> QPainterPath:
+    """Tres ondulaciones que crecen hacia el medio, en la mitad de abajo."""
+    x0, x1, centro = lado * 0.18, lado * 0.82, lado * 0.70
+    puntos = 160
+    camino = QPainterPath()
+    for k in range(puntos + 1):
+        t = k / puntos
+        x = x0 + t * (x1 - x0)
+        envolvente = 0.6 + 0.4 * math.sin(t * math.pi)
+        y = centro - lado * 0.07 * math.sin(t * 2 * math.pi * 3.0) * envolvente
+        if k == 0:
+            camino.moveTo(x, y)
+        else:
+            camino.lineTo(x, y)
     return camino

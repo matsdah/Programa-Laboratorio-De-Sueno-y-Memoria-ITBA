@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from psglab.readers.base import load_all_readers
 from psglab.tools.registry import load_all_tools
-from psglab.ui import fonts, preferences, theme
+from psglab.ui import fonts, icons, preferences, theme
 from psglab.ui.main_window import MainWindow
 from psglab.utils.errors import PsgLabError
 
@@ -63,6 +63,7 @@ def create_application(argv: list[str]) -> QApplication:
     """
     aplicacion = QApplication(argv)
     install_qt_translations(aplicacion)
+    install_app_icon(aplicacion)
     aplicacion.setApplicationName("PSGLab")
     aplicacion.setOrganizationName("Laboratorio de Sueño y Memoria — ITBA")
     # **Los colores ya no se fijan acá.** Antes eran dos `setConfigOption` con
@@ -86,6 +87,16 @@ def create_application(argv: list[str]) -> QApplication:
     # un registro real de siete canales, no con señal sintética corta.
     pg.setConfigOption("antialias", False)
     return aplicacion
+
+
+def install_app_icon(application: QApplication) -> None:
+    """Pone el icono de la aplicación, que llevan todas sus ventanas.
+
+    Es una función aparte, como la traducción, porque la suite arma su
+    `QApplication` sin pasar por `create_application()`: así se la puede
+    probar sobre esa misma instancia.
+    """
+    application.setWindowIcon(icons.app_icon())
 
 
 def install_qt_translations(application: QApplication) -> bool:
