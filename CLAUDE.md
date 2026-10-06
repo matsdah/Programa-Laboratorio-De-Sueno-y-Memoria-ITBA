@@ -481,24 +481,27 @@ cuentas de tests se saltea si se le pasa un archivo suelto.
 
 **`Add` y `Master` exigen el CI en verde para mergear**, desde el 26 de
 septiembre. Es un ruleset del repositorio en GitHub —no vive en ningún archivo—
-que pide pull request y los siete jobs, y prohíbe el force push y el borrado.
-El del instalador de WSL es el octavo y **no está entre los obligatorios**
-mientras nadie lo sume al ruleset.
-Hasta entonces sólo cubría `Master`, y el PR #82 entró en `Add` con los dos
-jobs de macOS fallando sin que la suite local, que corre en Windows, pudiera
-verlo. El rol Admin puede saltearlo, pero sólo desde una pull request y
-marcándolo a mano: nunca con un push directo.
+que pide pull request y los ocho jobs del CI, y prohíbe el force push y el
+borrado. El del instalador de WSL es el octavo, y es obligatorio desde el 6 de
+octubre. Hasta el 26 de septiembre el ruleset sólo cubría `Master`, y el PR
+#82 entró en `Add` con los dos jobs de macOS fallando sin que la suite local,
+que corre en Windows, pudiera verlo. **Nadie puede saltearlo**, ni el rol
+Admin: un job en rojo se arregla, no se esquiva.
 
 **Las pull requests contra `Master` pasan además por una revisión de Claude**
 (hito 82), en [otro workflow](.github/workflows/claude-review.yml): Claude
 Code lee el diff contra las reglas de este archivo, lo comenta en la pull
 request y deja un veredicto, `APROBADO` o `BLOQUEAR`. **Es bloqueante**: en
-`Master` el ruleset exige ese check además de los siete del CI, y en `Add` no
-corre, porque ahí las pull requests son muchas y chicas. Qué cuenta como
-bloqueante lo dice el prompt de ese workflow; si se equivoca seguido, se
-corrige ahí. Autentica con la suscripción del equipo, en el secret
+`Master` lo exige un segundo ruleset, sólo de esa rama, además de los ocho del
+CI, y en `Add` no corre, porque ahí las pull requests son muchas y chicas. **No
+puede ir en el ruleset de los ocho**, que cubre también `Add`: ahí el check no
+aparece nunca, y ninguna pull request contra `Add` se podría mergear. Qué
+cuenta como bloqueante lo dice el prompt de ese workflow; si se equivoca
+seguido, se corrige ahí. Autentica con la suscripción del equipo, en el secret
 `CLAUDE_CODE_OAUTH_TOKEN`: si el token vence o se agota la cuota, el check
-queda en rojo y no se puede mergear a `Master` sin el bypass de Admin.
+queda en rojo. Para eso el segundo ruleset deja que el rol Admin lo saltee,
+sólo desde una pull request y marcándolo a mano; los ocho del CI siguen
+siendo obligatorios.
 
 Dependabot actualiza **sólo las acciones del workflow**, una vez por mes y
 contra `Add` (`.github/dependabot.yml`); los `requirements*.txt` no, por el
