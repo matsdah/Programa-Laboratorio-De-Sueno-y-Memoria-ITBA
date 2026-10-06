@@ -17,5 +17,5 @@ Cubre del pliego: ningún ID. Es el paquete, no un componente: los IDs los
 cubren los módulos de adentro.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __license__ = "MIT"
