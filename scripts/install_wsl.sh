@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Instala PSGLab dentro de Ubuntu, en WSL o en un Linux cualquiera.
+# Instala PSGLab en Ubuntu o en Debian, dentro de WSL o no: los paquetes del
+# sistema se instalan con `apt`.
 #
 # **Por qué existe.** En Windows 11, el Control inteligente de aplicaciones
 # bloquea las DLL sin firma que instala `pip` —pandas, numba, scipy—, y no
@@ -59,12 +60,17 @@ step() {
 
 # -- Comprobaciones -----------------------------------------------------------
 
-# Con `sudo`, todo quedaría en la carpeta de root, lejos del menú Inicio de
-# quien lo instaló.
+# Como root, todo quedaría en la carpeta de root, lejos del menú Inicio de
+# quien lo instaló. Si root llegó por `sudo`, alcanza con sacarlo; si no
+# —una distribución que entra como root—, hace falta un usuario común.
 check_not_root() {
-    if [[ "$1" == 0 ]]; then
+    if [[ "$1" != 0 ]]; then
+        return 0
+    fi
+    if [[ -n "${SUDO_USER:-}" ]]; then
         die "No hace falta ser administrador. Corré el comando sin sudo: el script pide la contraseña sólo para lo que va en las carpetas del sistema: lo que le falta a Ubuntu y el acceso del menú Inicio."
     fi
+    die "Esta terminal entra como administrador (root), y PSGLab se instala para un usuario común. Creá uno con «adduser nombre» y «usermod -aG sudo nombre», hacé que Ubuntu entre con él y volvé a correr el comando. Los pasos están en https://github.com/$REPOSITORIO/blob/Master/scripts/README.md#si-ubuntu-entra-como-root"
 }
 
 check_python() {
@@ -189,6 +195,10 @@ import psglab.ui.main_window
 # **La construcción deja de serlo apenas cambia el enlace**: un Ctrl+C
 # mientras se borran las viejas corre la trampa de salida, que si no borraría
 # la versión a la que ya apunta `actual`.
+#
+# **Una versión abierta no se borra**: el programa que corre seguiría
+# cargando módulos de una carpeta que ya no está. Queda hasta la próxima
+# instalación, que la borra si para entonces se cerró.
 switch_to() {
     local nueva=$1 raiz
     raiz=$(dirname "$nueva")
@@ -201,10 +211,24 @@ switch_to() {
     local dir
     for dir in "$raiz"/*/; do
         dir=${dir%/}
-        if [[ "$dir" != "$nueva" && ! -L "$dir" ]]; then
-            rm -rf "$dir"
+        if [[ "$dir" == "$nueva" || -L "$dir" ]]; then
+            continue
         fi
+        if in_use "$dir"; then
+            warn "PSGLab está abierto, así que la versión anterior queda hasta la próxima instalación. La nueva se usa la próxima vez que lo abras."
+            continue
+        fi
+        rm -rf "$dir"
     done
+}
+
+# Si algún proceso tiene mapeado un archivo de `<carpeta>`: el intérprete de
+# un PSGLab abierto mapea las librerías de su venv. Mira los procesos propios,
+# que son los únicos cuyo mapa se puede leer sin ser root.
+in_use() {
+    local carpeta
+    carpeta=$(realpath -m -- "$1")
+    grep -qsF -- "$carpeta/" /proc/[0-9]*/maps
 }
 
 # -- Accesos directos ---------------------------------------------------------
@@ -278,14 +302,18 @@ ESCALA
     chmod +x "$raiz/launch"
 }
 
-# Guarda el icono como `<raíz>/psglab.png` y, si se pide, como ICO para
-# Windows. Lo dibuja el programa instalado, así que una versión publicada
-# antes de que existiera el icono no lo trae: avisa y sigue sin él.
+# Sin `<ico>`, guarda el icono como `<raíz>/psglab.png`; con `<ico>`, sólo
+# como ICO para Windows en esa ruta, y **el PNG no se toca**: ya lo nombra el
+# acceso de Linux. Lo dibuja el programa instalado, así que una versión
+# publicada antes de que existiera el icono no lo trae: avisa y sigue sin él.
 export_icon() {
-    local raiz=$1 ico=${2:-}
-    rm -f "$raiz/psglab.png"
+    local raiz=$1 ico=${2:-} png=""
+    if [[ -z "$ico" ]]; then
+        png="$raiz/psglab.png"
+        rm -f "$png"
+    fi
     if (cd "$raiz/actual/app" && QT_QPA_PLATFORM=offscreen "$raiz/actual/venv/bin/python" - \
-        "$raiz/psglab.png" "$ico" <<'PYTHON'
+        "$png" "$ico" <<'PYTHON'
 import sys
 
 from PySide6.QtGui import QGuiApplication
@@ -296,7 +324,7 @@ try:
 except ImportError:
     sys.exit(3)
 imagen = app_icon_image(256)
-if not imagen.save(sys.argv[1], "PNG"):
+if sys.argv[1] and not imagen.save(sys.argv[1], "PNG"):
     sys.exit(1)
 if sys.argv[2] and not imagen.save(sys.argv[2], "ICO"):
     sys.exit(1)
@@ -304,7 +332,10 @@ PYTHON
     ) > /dev/null 2>&1; then
         return 0
     fi
-    rm -f "$raiz/psglab.png"
+    if [[ -n "$ico" ]]; then
+        return 1
+    fi
+    rm -f "$png"
     warn "Esta versión no pudo dibujar el icono del programa, así que los accesos directos quedan sin icono. El programa funciona igual."
     return 1
 }
@@ -369,7 +400,7 @@ windows_shortcut_script() {
 create_windows_shortcut() {
     local raiz=$1
     in_wsl || return 0
-    local a_mano="Para tenerlo en el escritorio, buscá «PSGLab (Ubuntu)» en el menú Inicio y arrastralo al escritorio."
+    local a_mano="Para tenerlo en el escritorio, buscá «PSGLab ($WSL_DISTRO_NAME)» en el menú Inicio y arrastralo al escritorio."
     if ! command -v powershell.exe > /dev/null || ! command -v wslpath > /dev/null; then
         warn "No se pudo crear el acceso del escritorio, porque no se encontró PowerShell. $a_mano"
         return 0
@@ -464,8 +495,6 @@ main() {
         return
     fi
 
-    system_packages
-
     local raiz etiqueta
     raiz=$(psglab_root)
     mkdir -p "$raiz"
@@ -481,6 +510,9 @@ main() {
 
     step "Bajando PSGLab $etiqueta."
     fetch_source "$etiqueta" "$CONSTRUCCION/app"
+    # Recién con el código bajado: una versión que no existe falla antes de
+    # pedir la contraseña.
+    system_packages
     step "Instalando las dependencias. Tarda unos minutos."
     create_venv "$CONSTRUCCION"
     step "Probando la instalación."
