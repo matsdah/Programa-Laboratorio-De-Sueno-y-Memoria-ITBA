@@ -11,7 +11,7 @@ suite de pytest no la recolecta.
 
 | Archivo | De qué se ocupa |
 |---|---|
-| `install_wsl.sh` | Instala una versión de PSGLab en Ubuntu, con su venv, el lanzador y los accesos directos. Corre en WSL o en cualquier Linux, sin `sudo`. |
+| `install_wsl.sh` | Instala una versión de PSGLab en Ubuntu, con su venv, el lanzador y los accesos directos. Corre en Ubuntu o en Debian, dentro de WSL o no, sin `sudo`: los paquetes del sistema se instalan con `apt`. |
 | `verify_install_wsl.sh` | Lo prueba escenario por escenario. Lo corre el job «Instalador de WSL» del CI. |
 
 ## Cómo se instala
@@ -33,6 +33,25 @@ Correrlo de nuevo actualiza. Las opciones:
 | `--skip-system-packages` | No corre `apt`. Sirve cuando los paquetes de Ubuntu ya están. **Dentro de WSL la contraseña se pide igual**, una vez, para publicar el acceso en el menú Inicio; si no se escribe, el instalador avisa y termina sin ese acceso. |
 | `--resolve-only` | Dice qué versión instalaría y termina. |
 
+## Si Ubuntu entra como root
+
+El instalador se niega a correr como root, porque todo quedaría en la carpeta
+de root y no en la de quien lo va a usar. **Si la terminal de Ubuntu ya
+entra como root**, sin `sudo` de por medio, hace falta un usuario común. En
+WSL, desde esa terminal, con el nombre que quieras en lugar de `nombre`:
+
+```bash
+adduser nombre
+usermod -aG sudo nombre
+printf '[user]\ndefault=nombre\n' >> /etc/wsl.conf
+```
+
+Después, en PowerShell, `wsl --terminate Ubuntu`, y al volver a abrir Ubuntu
+entra con ese usuario: ahí se corre el comando de instalación. **No alcanza
+con `su - nombre`**: borra las variables de WSL, y el instalador no crearía
+los accesos de Windows. Fuera de WSL, sí: se entra con ese usuario y se corre
+el comando.
+
 ## Qué deja y dónde
 
 Con `BASE` = `$XDG_DATA_HOME`, que por omisión es `~/.local/share`:
@@ -40,7 +59,7 @@ Con `BASE` = `$XDG_DATA_HOME`, que por omisión es `~/.local/share`:
 | Ruta | Qué es |
 |---|---|
 | `BASE/psglab/<versión>.XXXXXX/` | Una versión, con el código en `app/` y su entorno en `venv/`. |
-| `BASE/psglab/actual` | Enlace a la versión en uso. **Recién se cambia cuando la prueba de humo pasó**: una instalación que falla no pisa la que andaba, y la próxima buena borra lo que haya quedado a medias. |
+| `BASE/psglab/actual` | Enlace a la versión en uso. **Recién se cambia cuando la prueba de humo pasó**: una instalación que falla no pisa la que andaba, y la próxima buena borra lo que haya quedado a medias. **La versión anterior no se borra si PSGLab está abierto**: queda hasta la próxima instalación, y el programa abierto sigue andando hasta que se cierre. |
 | `BASE/psglab/launch` | El lanzador. Entra en la carpeta de usuario de Windows, le da a Qt la escala de pantalla de Windows y abre el programa de `actual`. |
 | `BASE/psglab/psglab.png` | El icono, que dibuja el programa instalado. Una versión anterior a que existiera no lo trae, y los accesos directos quedan sin icono. |
 | `BASE/applications/psglab.desktop` | El acceso directo de Linux. |
