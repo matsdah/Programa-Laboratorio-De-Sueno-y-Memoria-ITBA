@@ -1279,7 +1279,7 @@ def test_los_numeros_de_maquina_siguen_existiendo():
 #: «Convenciones»: un docstring dice qué hace el código y por qué, en presente,
 #: y la historia va al hito y al commit. Era 476 cuando se puso el trinquete;
 #: `core/` bajó a cero en la misma PR.
-TOPE_DE_MENCIONES_A_HITOS = 447
+TOPE_DE_MENCIONES_A_HITOS = 446
 
 #: Capas donde la regla ya se aplicó entera: ahí no puede volver ninguna.
 CAPAS_SIN_MENCIONES_A_HITOS: tuple[str, ...] = ("core",)
