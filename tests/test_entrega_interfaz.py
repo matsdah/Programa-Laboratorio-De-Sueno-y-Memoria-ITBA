@@ -873,6 +873,23 @@ def test_el_espectro_dice_que_una_banda_queda_fuera(
     assert f"{nyquist:g} Hz" in ventana.psd_panel.caption()
 
 
+def test_el_espectro_explica_una_banda_sin_bins_por_resolucion(
+    ventana: MainWindow, elige_opciones
+):
+    """Una banda dentro del rango puede no contener bins por su ancho finito."""
+    ventana.apply_preferences(
+        ventana.current_preferences.with_bands({"Estrecha": (10.01, 10.02)})
+    )
+    elige_opciones(("C3", True))
+
+    ventana.show_psd_dialog()
+
+    caption = ventana.psd_panel.caption()
+    assert "Estrecha" in caption
+    assert "resolución" in caption
+    assert "fuera de lo que este registro puede medir" not in caption
+
+
 # -- Los botones que arma Qt, en español (hito 53) ---------------------------
 
 

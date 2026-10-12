@@ -28,6 +28,18 @@ desde un script del laboratorio sin abrir el programa.
 | `auto_scoring.py` | Las fases sugeridas (hito 75): `default_channels()` elige un EEG —central si hay—, un EOG y un EMG entre los grabados a más de 80 Hz, y `suggest_stages()` le pide al clasificador de YASA una fase AASM por ventana, con su confianza. Sugiere, no scorea: lo que devuelve va a la capa de sugeridas de `Scoring`. | — (el «scoring automático» de las motivaciones del pliego) |
 | `mne_bridge.py` | El puente `Recording` ↔ `mne.io.Raw` en las dos direcciones, y la escala volts ↔ µV. `_registro_parcial()` arma el pedazo que se le pasa a MNE cuando no va la señal entera (hitos 58 y 59). **Lleva la única guarda de registro de la carpeta** (hito 79): `_exigir_registro()` recibe el comienzo del mensaje de cada análisis, y la red de consistencia rechaza otra `isinstance(x, Recording)` escrita en esta carpeta. | — (infraestructura) |
 
+### Contrato de potencia por banda
+
+`band_power()` acepta únicamente una grilla unidimensional, finita,
+estrictamente creciente y uniforme, con al menos dos frecuencias; la dimensión
+final de la PSD debe tener un valor por frecuencia. Se tolera una diferencia
+entre pasos de hasta `1e-7` relativa (sin tolerancia absoluta) por redondeo de
+Welch y multitaper. La banda `[desde, hasta)` selecciona centros de bin, y la
+potencia es la suma de las densidades seleccionadas multiplicada por `df`.
+Por eso una banda menor que `df` puede incluir un bin entero o ninguno: no
+puede resolver sub-bin. La potencia relativa divide esa suma por la suma de
+todos los bins.
+
 Varias funciones vienen en dos sabores: una sobre una ventana concreta
 (`compute_psd`, `compute_connectivity`) y otra sobre el registro entero
 (`band_powers_by_window`, `complexity_by_window`, `connectivity_by_window`). La

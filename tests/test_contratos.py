@@ -690,6 +690,21 @@ def test_una_entrada_hostil_sale_como_error_del_programa(modulo, nombre, llamada
 
 
 @pytest.mark.parametrize(
+    ("frecuencias", "potencias"),
+    [
+        (np.array([1.0]), np.ones(1)),
+        (np.array([1.0, 2.0, 4.0]), np.ones(3)),
+        (np.array([1.0, 2.0, 3.0]), np.ones(2)),
+    ],
+)
+def test_band_power_rechaza_espectros_invalidos_con_error_del_programa(
+    frecuencias, potencias
+):
+    with pytest.raises(PsgLabError):
+        psd.band_power(frecuencias, potencias, (0.0, 10.0))
+
+
+@pytest.mark.parametrize(
     ("nombre", "valor", "llamada"),
     RECHAZOS_OBLIGATORIOS,
     ids=[n for n, _, _ in RECHAZOS_OBLIGATORIOS],

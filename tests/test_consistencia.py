@@ -1047,32 +1047,23 @@ def test_los_requirements_que_nombra_la_documentacion_existen():
 #: Atributos de numpy que el paquete usa y en qué versión aparecieron. Cada fila
 #: es un piso que `requirements.txt` no puede declarar por debajo.
 #:
-#: Existe por un `numpy>=1.24` que convivió con `np.trapezoid` sin que nada
-#: fallara: `pip` resuelve a la versión más nueva, así que todo el mundo
-#: instalaba un numpy 2.x. El archivo era una trampa para quien respetara el
-#: piso que declaraba, y ninguna de las seis combinaciones del CI podía verlo.
-#:
 #: **Al usar un atributo de numpy que no existía siempre, agregar acá su fila.**
-APIS_DE_NUMPY: dict[str, tuple[int, int]] = {
-    # numpy 2.0 renombró `trapz` a `trapezoid` y quitó el nombre viejo.
-    "trapezoid": (2, 0),
-}
+APIS_DE_NUMPY: dict[str, tuple[int, int]] = {}
 
 
 def test_el_piso_de_numpy_alcanza_para_lo_que_el_codigo_usa():
     """El piso declarado tiene que cubrir cada API de numpy que el paquete usa.
 
-    Es la clase de error que no falla nunca en la máquina de quien lo escribe.
-    `requirements.txt` decía `numpy>=1.24` y `psglab/analysis/psd.py` llamaba a
-    `np.trapezoid`, que no existe antes de numpy 2.0; como `pip` instala la más
-    nueva, el archivo mentía sin consecuencias hasta que alguien respetara el
-    piso que declaraba. Ahí `band_power()` —V1_F de "Power Spectral Density"—
-    revienta con un `AttributeError`.
+    El piso 2.0 es una política de compatibilidad del proyecto, no una
+    exigencia de `np.trapezoid`: `band_power()` integra por suma de bins y no
+    depende de esa API. Este chequeo queda como red para APIs futuras.
     """
     requisitos = (RAIZ / "requirements.txt").read_text(encoding="utf-8")
     declarado = re.search(r"^numpy>=(\d+)\.(\d+)", requisitos, re.M)
     assert declarado is not None, "requirements.txt ya no declara un piso para numpy"
     piso = (int(declarado.group(1)), int(declarado.group(2)))
+
+    assert piso >= (2, 0), "la política de compatibilidad fija numpy>=2.0"
 
     fuente = "\n".join(f.read_text(encoding="utf-8") for f in modulos_del_paquete())
     problemas = [
@@ -1279,7 +1270,7 @@ def test_los_numeros_de_maquina_siguen_existiendo():
 #: «Convenciones»: un docstring dice qué hace el código y por qué, en presente,
 #: y la historia va al hito y al commit. Era 476 cuando se puso el trinquete;
 #: `core/` bajó a cero en la misma PR.
-TOPE_DE_MENCIONES_A_HITOS = 447
+TOPE_DE_MENCIONES_A_HITOS = 446
 
 #: Capas donde la regla ya se aplicó entera: ahí no puede volver ninguna.
 CAPAS_SIN_MENCIONES_A_HITOS: tuple[str, ...] = ("core",)

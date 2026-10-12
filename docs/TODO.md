@@ -15,7 +15,7 @@ ver «Al agregar o cerrar un ítem», al final.
 Quedan **0 stubs** (`raise NotImplementedError`) en 0 módulos: las dos Partes
 están cerradas y ningún módulo de `psglab/` eleva `NotImplementedError`.
 
-Son **ochenta y seis hitos**, del 0 al 85, que son las filas de la tabla de
+Son **ochenta y siete hitos**, del 0 al 86, que son las filas de la tabla de
 progreso; el 84 sigue abierto hasta la revisión independiente. La cuenta vive
 sólo en este archivo:
 hasta el hito 79 la repetían cuatro documentos, y cada hito nuevo obligaba a
@@ -208,6 +208,7 @@ nada**. Un verde por omisión es peor que un rojo.
 | [83. La cobertura en cada pull request](HISTORIAL.md#hito-83-la-cobertura-en-cada-pull-request) | — | 0 | ✅ cerrado |
 | [84. Recuperar copias antiguas sin perderlas](TODO.md#hito-84-recuperar-copias-antiguas-sin-perderlas) | — | 0 | en revisión |
 | [85. Instalar en Windows por WSL](HISTORIAL.md#hito-85-instalar-en-windows-por-wsl) | — | 0 | ✅ cerrado |
+| [86. La potencia de las bandas por bins](HISTORIAL.md#hito-86-la-potencia-de-las-bandas-por-bins) | — | 0 | ✅ cerrado |
 | | **0** | **0** | |
 
 ## Hito 84: Recuperar copias antiguas sin perderlas
@@ -226,7 +227,7 @@ cerrar el hito.
 - [ ] Revisión independiente de Prisma y corrección de los hallazgos que bloqueen.
 - [x] Tests: `tests/test_recovery.py`, **51 tests en verde**;
       `tests/test_work_guard.py`, **48 tests en verde**; y
-      `tests/test_contratos.py`, **1453 tests en verde**. Suite completa:
+      `tests/test_contratos.py`, **1456 tests en verde**. Suite completa:
       4959 aprobados y 25 salteados en macOS con Python 3.14.
 
 **La columna de stubs nunca midió el hito 9**, y por eso el hito 9 existió: sus
