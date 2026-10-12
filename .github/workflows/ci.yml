@@ -128,18 +128,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt -r requirements-analysis.txt
 
-      # Diagnóstico temporal del SIGABRT reproducido al exportar y cerrar.
-      # Correr el caso solo primero hace que faulthandler y cualquier salida
-      # nativa queden cerca del punto de fallo, antes de la suite completa.
-      - name: Diagnóstico · exportar y cerrar (Linux, Python 3.11)
-        if: runner.os == 'Linux' && matrix.python == '3.11'
-        run: python -X faulthandler -m pytest -v -s tests/test_entrega.py::test_exportar_escribe_el_scoring_y_despues_cierra
-
       # Con `python -m`, que es la invocación que funciona sin pyproject.toml:
       # `pytest` a secas falla con ModuleNotFoundError. Que el CI lo haga así
       # deja documentada la trampa.
       - name: Tests
         if: matrix.python != '3.14'
+        # Faulthandler y `--capture=sys` dejan visibles las trazas fatales nativas.
         run: python -X faulthandler -m pytest -v --capture=sys
 
       # La cobertura se mide sólo con 3.14, una vez por sistema: con

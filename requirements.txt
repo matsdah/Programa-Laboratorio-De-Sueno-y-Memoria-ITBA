@@ -4,7 +4,13 @@
 # PROHIBIDO agregar PyQt5 o PyQt6: son GPL y romperían la licencia MIT.
 # Ver docs/ARQUITECTURA.md para el detalle de licencias.
 
-PySide6>=6.6        # LGPL-3.0  - interfaz gráfica (Qt for Python)
+PySide6>=6.6,!=6.12.0  # LGPL-3.0  - interfaz gráfica (Qt for Python)
+# Exclusión puntual, no un techo genérico: dos corridas de CI en Linux/Python
+# 3.11 abortaron con código 134 durante la construcción de la ventana. La
+# traza de faulthandler ubica `none_dealloc` en una extensión C al traducir la
+# interfaz de `ConnectivityPanel` (pyqtgraph). Se vuelve a probar con la
+# versión anterior que resuelva; esto registra lo observado, sin atribuirlo a
+# una causa confirmada aguas arriba.
 pyqtgraph>=0.13     # MIT       - render rápido de las ondas
 numpy>=2.0          # BSD-3     - base numérica
 scipy>=1.11         # BSD-3     - filtros, PSD y estadística
@@ -17,7 +23,7 @@ mne>=1.6            # BSD-3     - lectura de BrainVision, EDF y otros formatos
 # 2 sigue viviendo en requirements-analysis.txt, por la dependencia de numba.
 
 # ---------------------------------------------------------------------------
-# POR QUÉ ACÁ NO HAY NINGÚN TECHO
+# POR QUÉ ACÁ NO HAY TECHOS GENÉRICOS
 # ---------------------------------------------------------------------------
 #
 # Se evaluó ponerle un tope de versión mayor a PySide6, mne, scipy y pyqtgraph
@@ -27,7 +33,9 @@ mne>=1.6            # BSD-3     - lectura de BrainVision, EDF y otros formatos
 # El `numpy<2.6` de requirements-analysis.txt **no es una protección
 # preventiva**: es una restricción que ya existe río arriba, porque numba la
 # declara. Ponerla acá sólo la hace visible y evita que el resolvedor la
-# descubra a fuerza de retroceder. No hay ninguna equivalente para estas cuatro.
+# descubra a fuerza de retroceder. Para estas cuatro no había una restricción
+# equivalente río arriba; la exclusión puntual de PySide6 6.12.0 responde al
+# fallo medido arriba, no a una dependencia.
 #
 # Un techo puesto por las dudas cuesta caro y no compra lo que parece:
 #
