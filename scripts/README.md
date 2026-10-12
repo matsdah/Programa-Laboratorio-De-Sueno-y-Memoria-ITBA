@@ -13,6 +13,7 @@ suite de pytest no la recolecta.
 |---|---|
 | `install_wsl.sh` | Instala una versión de PSGLab en Ubuntu, con su venv, el lanzador y los accesos directos. Corre en WSL o en cualquier Linux, sin `sudo`. |
 | `verify_install_wsl.sh` | Lo prueba escenario por escenario. Lo corre el job «Instalador de WSL» del CI. |
+| [`diagnose_qt_refcount.py`](diagnose_qt_refcount.py) | Sondea conteos de referencias de `None` en llamadas Qt y objetos de PySide6/PyQtGraph. Se usó en procesos Linux controlados para investigar el aborto nativo observado con PySide6 6.12.0; el contexto, la evidencia y el criterio para retirar la exclusión están en [`docs/INCIDENTE_PYSIDE_6_12.md`](../docs/INCIDENTE_PYSIDE_6_12.md). |
 
 ## Cómo se instala
 
