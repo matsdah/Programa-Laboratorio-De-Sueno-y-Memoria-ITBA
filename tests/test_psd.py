@@ -36,6 +36,7 @@ from psglab.core.windows import count_windows
 from psglab.utils.errors import (
     ChannelNotFoundError,
     InvalidBandError,
+    InvalidSpectrumError,
     InvalidRecordingError,
     PsgLabError,
     UnknownPsdMethodError,
@@ -185,13 +186,53 @@ def test_la_potencia_relativa_de_toda_la_psd_es_uno(registro_sintetico: Recordin
     assert relativa[0] == pytest.approx(1.0, abs=1e-6)
 
 
+def test_la_potencia_de_un_bin_es_densidad_por_ancho_de_bin():
+    frecuencias = np.array([1.0, 1.25, 1.5])
+    potencias = np.array([2.0, 5.0, 7.0])
+
+    assert band_power(frecuencias, potencias, (1.20, 1.30)) == pytest.approx(1.25)
+
+
+def test_bandas_que_particionan_todos_los_bins_suman_el_total_incluido_el_ultimo():
+    frecuencias = np.arange(5.0)
+    potencias = np.array([1.0, 3.0, 2.0, 5.0, 11.0])
+    bandas = [(0.0, 2.0), (2.0, 4.0), (4.0, 5.0)]
+
+    por_bandas = sum(band_power(frecuencias, potencias, banda) for banda in bandas)
+    total = band_power(frecuencias, potencias, (0.0, 5.0))
+    suma_relativa = sum(
+        band_power(frecuencias, potencias, banda, relative=True) for banda in bandas
+    )
+
+    assert por_bandas == pytest.approx(total)
+    assert por_bandas == pytest.approx(potencias.sum())
+    assert suma_relativa == pytest.approx(1.0)
+
+
+def test_una_banda_mas_angosta_que_df_asigna_el_bin_entero():
+    frecuencias = np.array([1.0, 2.0, 3.0])
+    potencias = np.array([2.0, 5.0, 7.0])
+
+    assert band_power(frecuencias, potencias, (1.95, 2.05)) == pytest.approx(5.0)
+
+
+@pytest.mark.parametrize("metodo", METHODS)
+def test_la_psd_real_de_cada_metodo_cumple_el_contrato_de_grilla_uniforme(
+    registro_sintetico: Recording, metodo: str
+):
+    frecuencias, potencias = compute_psd(registro_sintetico, channels=["C4"], method=metodo)
+
+    integral = band_power(frecuencias, potencias, (frecuencias[0], frecuencias[-1] + 1))
+    assert integral[0] > 0
+
+
 def test_la_relativa_esta_entre_cero_y_uno(registro_sintetico: Recording):
     frecuencias, potencias = compute_psd(registro_sintetico)
 
     for banda in DEFAULT_BANDS.values():
         relativa = band_power(frecuencias, potencias, banda, relative=True)
         assert np.all(relativa >= 0.0)
-        assert np.all(relativa <= 1.0)
+        assert np.all(relativa <= 1.0 + 1e-12)
 
 
 def test_las_bandas_convencionales_no_se_pisan(registro_sintetico: Recording):
@@ -222,6 +263,28 @@ def test_un_canal_plano_da_relativa_cero():
     plana = np.zeros((1, 201))
 
     assert band_power(frecuencias, plana, (8.0, 12.0), relative=True)[0] == 0.0
+
+
+@pytest.mark.parametrize(
+    "frecuencias",
+    [
+        np.array([1.0]),
+        np.array([1.0, 2.0, 4.0]),
+        np.array([1.0, np.nan, 3.0]),
+        np.array([0.0, 1e-15, 3e-15]),
+        np.array([-1e308, 1e308]),
+    ],
+)
+def test_band_power_rechaza_grillas_de_frecuencia_invalidas(frecuencias):
+    with pytest.raises(InvalidSpectrumError):
+        band_power(frecuencias, np.ones(len(frecuencias)), (0.0, 10.0))
+
+
+def test_band_power_rechaza_frecuencias_no_unidimensionales_y_formas_incompatibles():
+    with pytest.raises(InvalidSpectrumError):
+        band_power(np.array([[1.0, 2.0, 3.0]]), np.ones(3), (0.0, 10.0))
+    with pytest.raises(InvalidSpectrumError):
+        band_power(np.array([1.0, 2.0, 3.0]), np.ones(2), (0.0, 10.0))
 
 
 # -- La noche entera, ventana por ventana ------------------------------------

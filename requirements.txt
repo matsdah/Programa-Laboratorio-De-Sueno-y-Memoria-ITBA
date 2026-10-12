@@ -4,30 +4,26 @@
 # PROHIBIDO agregar PyQt5 o PyQt6: son GPL y romperían la licencia MIT.
 # Ver docs/ARQUITECTURA.md para el detalle de licencias.
 
-PySide6>=6.6        # LGPL-3.0  - interfaz gráfica (Qt for Python)
+PySide6>=6.6,!=6.12.0  # LGPL-3.0  - interfaz gráfica (Qt for Python)
+# Exclusión puntual, no un techo genérico: dos corridas de CI en Linux/Python
+# 3.11 abortaron con código 134 durante la construcción de la ventana. La
+# traza de faulthandler ubica `none_dealloc` en una extensión C al traducir la
+# interfaz de `ConnectivityPanel` (pyqtgraph). Se vuelve a probar con la
+# versión anterior que resuelva; esto registra lo observado, sin atribuirlo a
+# una causa confirmada aguas arriba.
 pyqtgraph>=0.13     # MIT       - render rápido de las ondas
 numpy>=2.0          # BSD-3     - base numérica
 scipy>=1.11         # BSD-3     - filtros, PSD y estadística
 mne>=1.6            # BSD-3     - lectura de BrainVision, EDF y otros formatos
 
-# El piso de numpy es 2.0 porque el código lo necesita, no por preferencia:
-# `psglab/analysis/psd.py` integra la potencia por banda con `np.trapezoid`, que
-# es el nombre que numpy 2.0 le puso a `np.trapz` al renombrarlo. En la serie
-# 1.x ese atributo **no existe**.
-#
-# Decía `numpy>=1.24`, y eso convertía el archivo en una trampa: `pip` resuelve
-# a la versión más nueva, así que todo el mundo instalaba un numpy 2.x y nada
-# fallaba nunca. Quien respetara el piso declarado —un entorno preexistente del
-# laboratorio, o un `pip install "numpy<2"`— se comía un `AttributeError` en
-# `band_power()`, que es V1_F de "Power Spectral Density".
-#
-# Se eligió subir el piso en vez de resolver el nombre con un alias en `psd.py`:
-# el alias haría que el programa arranque con un numpy que ninguna combinación
-# del CI prueba, y que nadie tiene instalado. El techo de la Parte 2 sigue
-# viviendo en requirements-analysis.txt, con su propio motivo.
+# El piso de numpy es 2.0 como política de compatibilidad del proyecto. La
+# versión se fija explícitamente aunque las operaciones de `band_power()`
+# también existan en numpy 1.x: el piso común evita ampliar la matriz de
+# versiones admitidas sin una decisión y cobertura de CI. El techo de la Parte
+# 2 sigue viviendo en requirements-analysis.txt, por la dependencia de numba.
 
 # ---------------------------------------------------------------------------
-# POR QUÉ ACÁ NO HAY NINGÚN TECHO
+# POR QUÉ ACÁ NO HAY TECHOS GENÉRICOS
 # ---------------------------------------------------------------------------
 #
 # Se evaluó ponerle un tope de versión mayor a PySide6, mne, scipy y pyqtgraph
@@ -37,7 +33,9 @@ mne>=1.6            # BSD-3     - lectura de BrainVision, EDF y otros formatos
 # El `numpy<2.6` de requirements-analysis.txt **no es una protección
 # preventiva**: es una restricción que ya existe río arriba, porque numba la
 # declara. Ponerla acá sólo la hace visible y evita que el resolvedor la
-# descubra a fuerza de retroceder. No hay ninguna equivalente para estas cuatro.
+# descubra a fuerza de retroceder. Para estas cuatro no había una restricción
+# equivalente río arriba; la exclusión puntual de PySide6 6.12.0 responde al
+# fallo medido arriba, no a una dependencia.
 #
 # Un techo puesto por las dudas cuesta caro y no compra lo que parece:
 #

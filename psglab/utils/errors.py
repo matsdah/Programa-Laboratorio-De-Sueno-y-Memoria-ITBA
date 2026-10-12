@@ -264,6 +264,10 @@ class InvalidBandError(PsgLabError):
     """
 
 
+class InvalidSpectrumError(PsgLabError):
+    """La grilla de frecuencias y la densidad espectral no son compatibles."""
+
+
 class UnknownMeasureError(PsgLabError):
     """Se pidió una medida de complejidad que el programa no conoce.
 

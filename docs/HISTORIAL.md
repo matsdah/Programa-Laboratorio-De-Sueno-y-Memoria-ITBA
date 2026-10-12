@@ -1,9 +1,9 @@
 # Historial — los hitos cerrados
 
-Los hitos del 0 al 83, en orden, cada uno con lo que se hizo, lo que se
-decidió y lo que se midió. **No lleva estado**: lo abierto, las preguntas al
-cliente y la tabla de progreso están en [`TODO.md`](TODO.md), que es el único
-lugar que dice qué falta. Hasta el 27 de septiembre de 2026 las dos cosas
+Los hitos cerrados, en orden, cada uno con lo que se hizo, lo que se decidió y
+lo que se midió. **No lleva estado**: lo abierto, las preguntas al cliente y
+la tabla de progreso están en [`TODO.md`](TODO.md), que es el único lugar que
+dice qué falta. Hasta el 27 de septiembre de 2026 las dos cosas
 eran un solo archivo; se separaron en el hito 79.
 
 **Se lee como lo que es: un registro.** Las cuentas de tests
@@ -114,7 +114,7 @@ y desplace la página. El **[hito 57](#hito-57-cuánta-memoria-cuesta-cada-cosa)
 **[hito 81](#hito-81-la-cobertura-de-los-tests)** midió por primera vez qué líneas ejecuta la suite y cubrió lo que ningún test recorría, y el
 **[hito 82](#hito-82-la-revisión-de-claude-contra-master)** sumó una revisión de Claude, bloqueante, a las pull requests contra `Master`, y el
 **[hito 83](#hito-83-la-cobertura-en-cada-pull-request)** subió la cobertura a Codecov, que la comenta en cada pull request, y el
-**[hito 85](#hito-85-instalar-en-windows-por-wsl)** hizo que el programa se instale en Windows por WSL, donde el Control inteligente de aplicaciones no lo bloquea.
+**[hito 85](#hito-85-instalar-en-windows-por-wsl)** hizo que el programa se instale en Windows por WSL, donde el Control inteligente de aplicaciones no lo bloquea, y el **[hito 86](#hito-86-la-potencia-de-las-bandas-por-bins)** hizo que la potencia de cada banda sume bins enteros de la PSD y que la interfaz explique cuándo una banda no contiene ninguno por la resolución.
 
 **Del 34 al 48 se hicieron con el 33 abierto**, y lo cerró el 49. Decía acá
 que el 34 era «la única vez que pasa» y dejó de ser cierto en el 35: es
@@ -7659,3 +7659,26 @@ inteligente de aplicaciones activado y Ubuntu 26.04 en WSL, con Python 3.14:
       sugeridas y la recuperación— se recorrió con el programa instalado y
       el EDF real, por la ventana de verdad, y está en lo medido arriba.
 - [x] Las tres mediciones, anotadas en este hito.
+
+## Hito 86: La potencia de las bandas por bins
+
+Se corrigió cómo se integra la densidad espectral por banda. La regla anterior
+interpolaba entre los puntos de la PSD, por lo que un bin aislado podía aportar
+cero y una partición de bandas podía perder la potencia del último bin.
+
+- [x] `analysis/psd.py::band_power()` valida que las frecuencias sean una grilla
+      unidimensional, finita, creciente y uniforme, con al menos dos puntos, y
+      que la dimensión final de la PSD coincida. Una grilla inválida eleva
+      `InvalidSpectrumError`.
+- [x] La banda semiabierta `[desde, hasta)` suma la densidad de los bins cuyos
+      centros caen dentro y la multiplica por `df`. Un bin se cuenta entero;
+      una banda más angosta que `df` puede contener uno o ninguno, y su ancho
+      pedido no aumenta la resolución. La potencia relativa usa la misma suma
+      sobre toda la grilla.
+- [x] La interfaz distingue una banda fuera de lo que puede medir el registro
+      de una banda dentro del rango que no contiene bins por resolución.
+- [x] Prisma, usando Sol, revisó independientemente el árbol de trabajo y
+      aprobó sin bloqueos. Pasaron **67 tests en `test_psd.py`**, **1456 en
+      `test_contratos.py`** y **105 en `test_entrega_interfaz.py`**. La suite
+      completa pasó con **4983 aprobados, 25 salteados y 41 advertencias ya
+      existentes**, en macOS con Python 3.14.

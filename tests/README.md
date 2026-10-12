@@ -85,7 +85,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_consistencia.py` | **El repositorio, no un componente.** Ver abajo. |
 | `test_errors.py` | Que el mensaje y la causa técnica viajen separados, y que un solo `except` las atrape todas. |
 | `test_validation.py` | Que un NaN no atraviese una guarda numérica. |
-| `test_contratos.py` | Que ningún método público escape del `except` de la interfaz. |
+| `test_contratos.py` | Que ningún método público escape del `except` de la interfaz; `band_power()` también rechaza grillas de frecuencia incompatibles con un error del programa (hito 86). |
 | `test_units.py` | La conversión a microvoltios, sobre todo con entrada sucia. |
 | `test_salida.py` | Cómo termina el proceso de la suite (hito 80): `conftest.py` sale con `os._exit()` en cuanto pytest informó, para que el intérprete no desarme las ventanas de Qt —en el CI eso cayó con un `Segmentation fault` con todo en verde—. Verifica, en otro proceso, que el código de salida y el resumen no se pierdan. |
 | `test_formatting.py` | Cómo se escribe un número para el usuario y cómo se lee el que escribe (hito 79): con coma, sin ceros de más, un NaN que no se escribe «nan», las duraciones y que «inf» no se lea como un corte de filtro. |
@@ -123,7 +123,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_exporters.py` | El formato exacto de los archivos de salida. |
 | `test_mne_bridge.py` | El puente con MNE: que ida y vuelta devuelva lo mismo, y que un termómetro no se escale como si fuera un EEG. |
 | `test_derivation.py` | Las derivaciones: una resta exacta, y qué clase y qué unidad lleva el canal nuevo. |
-| `test_psd.py` | El espectro: que una onda de 10 Hz dé su pico en 10 Hz, y qué pasa con la última ventana incompleta. |
+| `test_psd.py` | El espectro: que una onda de 10 Hz dé su pico en 10 Hz, qué pasa con la última ventana incompleta y cómo la potencia suma bins enteros por `df`, incluso al partir bandas o pedir una más angosta que la resolución (hito 86). |
 | `test_psd_panel.py` | El panel del espectro: qué curvas quedan, dónde caen las bandas, y que la potencia no salga en logaritmos. |
 | `test_analysis_request.py` | La fila con que se pide un análisis desde su panel, **sin la ventana** (hito 79): qué se conserva al volver a llenarla, cuándo se prende «Calcular» y qué pasa con un campo o una opción que no existen. |
 | `test_settings_dialog.py` | La ventana de configuración: que mostrar no sea elegir, y que cada solapa entregue unas preferencias válidas. |
@@ -144,7 +144,7 @@ verde por omisión, que es peor que dar rojo.
 | `test_entrega_anotacion.py` | Anotar por la ventana, con el mouse de verdad: crear y corregir una anotación, la clase activa, las marcas del archivo y el camino entre una herramienta que dibuja y la pantalla. |
 | `test_entrega_vista.py` | Mirar la señal por la ventana: la Übersicht, la reproducción contada desde el medio y la rueda que cambia la escala de tiempo. |
 | `test_entrega_analisis.py` | La Parte 2 por la ventana: el menú «Analizar» y cómo se deshace, espectro, complejidad, conectividad, ICA, impedancia, filtros, y lo que se calcula fuera del hilo de la interfaz. |
-| `test_entrega_interfaz.py` | La interfaz por la ventana: que las preferencias lleguen a donde tienen efecto, el teclado, los textos de los carteles y el de los errores inesperados. |
+| `test_entrega_interfaz.py` | La interfaz por la ventana: que las preferencias lleguen a donde tienen efecto, el teclado, los textos de los carteles —incluida la diferencia entre quedar fuera del rango y no tener bins por resolución (hito 86)— y el de los errores inesperados. |
 | `entrega_comun.py` | **No es un test**: lo que comparten los seis archivos de la comprobación de entrega (hito 79). La fixture `ventana` —la principal con un registro abierto, armada como la arma `main.py`—, los gestos de mouse y las fixtures con otros registros. Sólo está lo que usa más de uno. |
 | `test_main_window_layout.py` | Cómo se llama lo que la ventana hace: la superficie pública que un refactor no puede renombrar en silencio. Desde el hito 76, también que sus pedazos vayan antes que `QMainWindow` y no se pisen. |
 | `test_theme.py` | Los esquemas de color: que un esquema sea inmutable, que la paleta cicle y que lo guardado vuelva igual. |

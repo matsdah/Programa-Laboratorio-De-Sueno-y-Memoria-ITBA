@@ -45,6 +45,7 @@ from psglab.core.windows import count_windows, window_to_samples
 from psglab.utils.errors import (
     InvalidBandError,
     InvalidRecordingError,
+    InvalidSpectrumError,
     UnknownPsdMethodError,
     WindowOutOfRangeError,
 )
@@ -271,6 +272,14 @@ def band_power(
     incluidos ese bin se contaría dos veces, con lo cual las potencias relativas
     sumarían más de 1 sin que nada fallara.
 
+    Para una grilla uniforme se suman los valores de densidad de los bins
+    seleccionados y se multiplican por `df`. Un bin aislado vale, por tanto,
+    `PSD[bin] * df`. La selección usa los centros de bin: una banda más angosta
+    que `df` puede asignar un bin entero o ninguno; el ancho pedido no mejora
+    la resolución del estimador. Se aceptan diferencias entre espacios de hasta
+    `1e-7` relativa, para tolerar redondeo de Welch y multitaper. No se usa
+    tolerancia absoluta, así que la misma regla se aplica a cualquier escala.
+
     `relative` normaliza contra **toda la PSD calculada**, no contra la suma de
     `DEFAULT_BANDS`: es lo que dice "fracción de la potencia total", y depende
     sólo de lo que se midió y no de qué bandas eligió el usuario.
@@ -278,10 +287,48 @@ def band_power(
     Raises:
         InvalidBandError: si la banda está invertida, tiene un extremo negativo
             o no es un par de números.
+        InvalidSpectrumError: si las frecuencias no forman una grilla uniforme
+            con al menos dos elementos o la forma de PSD no coincide.
     """
     desde, hasta = validate_band(band)
-    frecuencias = np.asarray(frequencies, dtype=float)
-    potencias = np.asarray(psd, dtype=float)
+    try:
+        frecuencias = np.asarray(frequencies, dtype=float)
+        potencias = np.asarray(psd, dtype=float)
+    except (TypeError, ValueError) as error:
+        raise InvalidSpectrumError(
+            "El espectro tiene que contener frecuencias y potencias numéricas.",
+            details=str(error),
+        ) from error
+    if frecuencias.ndim != 1 or frecuencias.size < 2:
+        raise InvalidSpectrumError(
+            "El espectro necesita una grilla de frecuencias unidimensional con al menos dos puntos.",
+            details=f"frequencies tiene forma {frecuencias.shape}.",
+        )
+    if not np.all(np.isfinite(frecuencias)):
+        raise InvalidSpectrumError(
+            "El espectro contiene frecuencias que no son finitas."
+        )
+    with np.errstate(over="ignore", invalid="ignore"):
+        diferencias = np.diff(frecuencias)
+    if not np.all(np.isfinite(diferencias)):
+        raise InvalidSpectrumError(
+            "La separación entre frecuencias del espectro no es finita."
+        )
+    if np.any(diferencias <= 0):
+        raise InvalidSpectrumError(
+            "Las frecuencias del espectro tienen que estar estrictamente ordenadas."
+        )
+    df = float(diferencias[0])
+    if not np.allclose(diferencias, df, rtol=1e-7, atol=0.0):
+        raise InvalidSpectrumError(
+            "Las frecuencias del espectro tienen que estar uniformemente espaciadas.",
+            details=f"separaciones entre bins: {diferencias!r}.",
+        )
+    if potencias.ndim == 0 or potencias.shape[-1] != frecuencias.size:
+        raise InvalidSpectrumError(
+            "La cantidad de potencias no coincide con la grilla de frecuencias.",
+            details=f"PSD tiene forma {potencias.shape}; hay {frecuencias.size} frecuencias.",
+        )
 
     dentro = (frecuencias >= desde) & (frecuencias < hasta)
     if not dentro.any():
@@ -290,11 +337,11 @@ def band_power(
         # legítimo aunque no se pueda responder con más que cero.
         parcial = np.zeros(potencias.shape[:-1])
     else:
-        parcial = np.trapezoid(potencias[..., dentro], frecuencias[dentro], axis=-1)
+        parcial = np.sum(potencias[..., dentro], axis=-1) * df
 
     if not relative:
         return parcial
-    total = np.trapezoid(potencias, frecuencias, axis=-1)
+    total = np.sum(potencias, axis=-1) * df
     # Un canal plano tiene potencia total cero y su fracción no está definida.
     # Cero es la respuesta que no miente: no hay potencia en la banda.
     return np.divide(

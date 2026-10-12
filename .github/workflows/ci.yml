@@ -133,7 +133,8 @@ jobs:
       # deja documentada la trampa.
       - name: Tests
         if: matrix.python != '3.14'
-        run: python -m pytest -v
+        # Faulthandler y `--capture=sys` dejan visibles las trazas fatales nativas.
+        run: python -X faulthandler -m pytest -v --capture=sys
 
       # La cobertura se mide sólo con 3.14, una vez por sistema: con
       # `COVERAGE_CORE=sysmon` ve también lo que corre en un `QThread`, y eso

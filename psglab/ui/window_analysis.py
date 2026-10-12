@@ -590,23 +590,43 @@ class AnalysisMixin:
         descripcion = f"Espectro de «{canal}» — ventana {ventana + 1}"
         if self._planos_en_la_ventana(ventana, [canal]):
             descripcion += "<br>El canal está plano en esta ventana: no hay potencia que medir."
-        # **Una banda por encima de lo que el registro alcanza da cero**, y un
-        # cero no se distingue de un cero real: se dice cuáles y hasta dónde
-        # llega el archivo (hito 33). La regla es la misma que usa `band_power`:
-        # la banda es semiabierta, `[desde, hasta)`.
+        # **Una banda sin bins puede estar fuera del registro o ser más angosta
+        # que la resolución del espectro.** Se explican por separado: ambas dan
+        # cero, pero sólo la primera está fuera de lo que puede medir el archivo.
+        # La regla de selección es semiabierta, `[desde, hasta)`.
         sin_medir = [
             nombre
             for nombre, (desde, hasta) in bandas.items()
             if not ((frecuencias >= desde) & (frecuencias < hasta)).any()
         ]
-        if sin_medir:
+        if sin_medir and len(frecuencias):
             tope = self._session.recording.sampling_rate / 2
-            descripcion += (
-                f"<br>{self._nombrar(sin_medir)} "
-                f"{'queda' if len(sin_medir) == 1 else 'quedan'} fuera de lo que este "
-                f"registro puede medir, que llega hasta {quantity(tope, 'Hz')}: su potencia sale "
-                "en cero."
-            )
+            fuera_de_rango = [
+                nombre
+                for nombre in sin_medir
+                if bandas[nombre][1] <= frecuencias[0]
+                or bandas[nombre][0] >= tope
+            ]
+            sin_bins = [nombre for nombre in sin_medir if nombre not in fuera_de_rango]
+            if fuera_de_rango:
+                rango = self._nombrar(fuera_de_rango)
+                verbo = "queda" if len(fuera_de_rango) == 1 else "quedan"
+                descripcion += (
+                    f"<br>{rango} {verbo} fuera de lo que este registro puede medir, "
+                    f"que llega hasta {quantity(tope, 'Hz')}: su potencia sale en cero."
+                )
+            if sin_bins:
+                delta_f = (
+                    float(frecuencias[1] - frecuencias[0])
+                    if len(frecuencias) > 1
+                    else 0.0
+                )
+                descripcion += (
+                    f"<br>{self._nombrar(sin_bins)} "
+                    f"{'no contiene' if len(sin_bins) == 1 else 'no contienen'} bins "
+                    f"con esta resolución ({quantity(delta_f, 'Hz')}): su potencia sale en cero. "
+                    "Una banda más estrecha puede no contener bins; si contiene uno, se cuenta entero."
+                )
         # **Y un canal grabado más lento** (hito 72): el archivo lo trae a la
         # frecuencia del registro, pero por encima de la mitad de la suya lo
         # que se ve es interpolación, y la potencia de esas bandas no es suya.
