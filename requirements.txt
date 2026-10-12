@@ -7,10 +7,14 @@
 PySide6>=6.6,!=6.12.0  # LGPL-3.0  - interfaz gráfica (Qt for Python)
 # Exclusión puntual, no un techo genérico: dos corridas de CI en Linux/Python
 # 3.11 abortaron con código 134 durante la construcción de la ventana. La
-# traza de faulthandler ubica `none_dealloc` en una extensión C al traducir la
-# interfaz de `ConnectivityPanel` (pyqtgraph). Se vuelve a probar con la
-# versión anterior que resuelva; esto registra lo observado, sin atribuirlo a
-# una causa confirmada aguas arriba.
+# traza de faulthandler señaló la traducción de `ConnectivityPanel` como el
+# punto donde se detectó el fallo. Una comparación controlada posterior,
+# también en Linux/CPython 3.11, midió cuatro setters Qt comunes: cada llamada
+# consumió una referencia de `None` con PySide6 6.12.0; los mismos setters
+# quedaron estables con 6.11.2. La traducción no fue la causa aislada. El
+# diagnóstico y sus límites están en
+# [docs/INCIDENTE_PYSIDE_6_12.md](docs/INCIDENTE_PYSIDE_6_12.md); el probe
+# reproducible está en `scripts/diagnose_qt_refcount.py`.
 pyqtgraph>=0.13     # MIT       - render rápido de las ondas
 numpy>=2.0          # BSD-3     - base numérica
 scipy>=1.11         # BSD-3     - filtros, PSD y estadística
