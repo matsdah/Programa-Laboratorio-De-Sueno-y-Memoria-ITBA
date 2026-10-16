@@ -60,6 +60,9 @@ ESCENARIOS=(
     resolve_uses_token
     windows_text_round_trip
     launcher_follows_windows_scale
+    switch_keeps_running_version
+    windows_icon_keeps_png
+    unknown_version_asks_no_password
 )
 
 # -- Ayudas -------------------------------------------------------------------
@@ -126,11 +129,15 @@ scenario_resolve_given() {
 
 scenario_refuses_root() {
     local error
-    if error=$( (load_installer; check_not_root 0) 2>&1 ); then
+    if error=$( (load_installer; SUDO_USER=juan check_not_root 0) 2>&1 ); then
         fail "check_not_root 0 no se negó"
     fi
     [[ "$error" == *"Corré el comando sin sudo"* ]] || fail "el mensaje no dice cómo correrlo: «$error»"
     ( load_installer; check_not_root 1000 ) || fail "check_not_root 1000 se negó"
+    # Una distribución que entra como root no se arregla sacando el `sudo`.
+    error=$( (load_installer; unset SUDO_USER; check_not_root 0) 2>&1 )
+    [[ "$error" == *adduser* ]] || fail "sin sudo de por medio no dice cómo crear un usuario: «$error»"
+    [[ "$error" != *"sin sudo"* ]] || fail "sin sudo de por medio pide sacar el sudo: «$error»"
 }
 
 scenario_old_python() {
@@ -304,6 +311,7 @@ scenario_windows_shortcut_fallback() {
                   create_windows_shortcut "$XDG_DATA_HOME/psglab") 2>&1 ) \
         || fail "sin PowerShell la instalación falló: «$error»"
     [[ "$error" == *"menú Inicio"* ]] || fail "no explicó cómo hacerlo a mano: «$error»"
+    [[ "$error" == *"PSGLab (Prueba)"* ]] || fail "no nombró el acceso con la distribución: «$error»"
 }
 
 # Un `sudo` de mentira que corre el comando sin privilegios, o que falla.
@@ -415,6 +423,60 @@ scenario_launcher_follows_windows_scale() {
     [[ "$salida" == "escala=" ]] || fail "sin reg.exe puso una escala: «$salida»"
     salida=$(PATH="$bin:/usr/bin:/bin" QT_SCALE_FACTOR=2 "$raiz/launch")
     [[ "$salida" == "escala=2" ]] || fail "no respetó la escala puesta a mano: «$salida»"
+}
+
+# Actualizar con el programa abierto no borra la versión que está corriendo:
+# queda hasta la próxima instalación. Un `sleep` copiado adentro hace de
+# programa abierto, porque su ejecutable queda mapeado desde esa carpeta.
+scenario_switch_keeps_running_version() {
+    local raiz pid error
+    raiz=$(raiz)
+    mkdir -p "$raiz/vieja.abcdef" "$raiz/nueva.abcdef"
+    cp "$(command -v sleep)" "$raiz/vieja.abcdef/sleep"
+    "$raiz/vieja.abcdef/sleep" 60 &
+    pid=$!
+    error=$( (load_installer; switch_to "$raiz/nueva.abcdef") 2>&1 )
+    local salida=$?
+    kill "$pid" 2> /dev/null
+    wait "$pid" 2> /dev/null
+    ((salida == 0)) || fail "switch_to salió con error: «$error»"
+    [[ -d "$raiz/vieja.abcdef" ]] || fail "borró la versión que estaba abierta"
+    [[ "$error" == *abiert* ]] || fail "no avisó que la deja por estar abierta: «$error»"
+    ( load_installer; switch_to "$raiz/nueva.abcdef" ) 2> /dev/null || fail "el segundo switch_to salió con error"
+    [[ ! -e "$raiz/vieja.abcdef" ]] || fail "cerrado el programa, la versión vieja no se borró"
+}
+
+# El ICO del escritorio de Windows se exporta aparte, después del acceso de
+# Linux: si falla, el PNG que ya nombra ese acceso tiene que seguir ahí.
+scenario_windows_icon_keeps_png() {
+    local raiz
+    raiz=$(raiz)
+    mkdir -p "$raiz/falsa/venv/bin" "$raiz/falsa/app"
+    # Un Python de mentira que escribe el PNG y no puede escribir el ICO.
+    # shellcheck disable=SC2016  # Los `$` los expande el Python de mentira.
+    printf '#!/bin/sh\nshift\n[ -z "$2" ] || exit 1\n[ -z "$1" ] || echo png > "$1"\n' \
+        > "$raiz/falsa/venv/bin/python"
+    chmod +x "$raiz/falsa/venv/bin/python"
+    ln -s falsa "$raiz/actual"
+    ( load_installer; export_icon "$raiz" "" ) 2> /dev/null || fail "export_icon del PNG salió con error"
+    [[ -f "$raiz/psglab.png" ]] || fail "no quedó el PNG"
+    if ( load_installer; export_icon "$raiz" "$TRABAJO/psglab.ico" ) 2> /dev/null; then
+        fail "export_icon no avisó que el ICO falló"
+    fi
+    [[ -f "$raiz/psglab.png" ]] || fail "un ICO que falló borró el PNG"
+}
+
+# Una versión que no existe tiene que fallar antes de pedir la contraseña
+# para `apt`: si no, se escribe la contraseña para nada.
+scenario_unknown_version_asks_no_password() {
+    local bin="$TRABAJO/bin-sudo" registro="$TRABAJO/sudo.log"
+    mkdir -p "$bin"
+    printf '#!/bin/sh\necho "$*" >> %q\nexit 1\n' "$registro" > "$bin/sudo"
+    chmod +x "$bin/sudo"
+    if PATH="$bin:$PATH" bash "$INSTALLER" v0.0.0-no-existe > /dev/null 2>&1; then
+        fail "instaló una versión que no existe"
+    fi
+    [[ ! -e "$registro" ]] || fail "llamó a sudo antes de saber que la versión no existe: $(cat "$registro")"
 }
 
 # -- Corrida ------------------------------------------------------------------

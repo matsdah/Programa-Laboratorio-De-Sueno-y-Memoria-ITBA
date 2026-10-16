@@ -73,9 +73,6 @@ ALTO_MINIMO_DE_UN_OBJETIVO = 24
 #: Sin él, la casilla se lee como una fase más.
 SEPARACION_DEL_AROUSAL: Final[int] = 8
 
-#: Hasta dónde se achica el selector de nomenclatura. Alcanza para «AASM».
-ANCHO_MINIMO_DEL_SELECTOR: Final[int] = 72
-
 #: Cómo se muestra cada nomenclatura en el selector. «Rechtschaffen y Kales»
 #: entero hacía que el selector solo ocupara 160 px. Una nomenclatura que no
 #: esté acá se muestra con su nombre completo, que es largo pero correcto.
@@ -180,10 +177,12 @@ class ScoringPanel(QWidget):
         self._grupo.setExclusive(True)
 
         self._nomenclaturas = QComboBox()
-        self._nomenclaturas.setMinimumWidth(ANCHO_MINIMO_DEL_SELECTOR)
-        # **No se achica por debajo de lo que pide su texto** (hito 79): en el
-        # renglón, lo que sobra se lo llevan las fases, y el selector quedaba
-        # en su mínimo diciendo «AASN». Lo mostró la captura.
+        # **No se achica por debajo de lo que pide su texto**: en el renglón,
+        # lo que sobra se lo llevan las fases. Con la política fija y **sin
+        # mínimo explícito**, el mínimo es el ancho que el estilo calcula para
+        # la abreviatura más larga, y acompaña un cambio de tamaño de letra.
+        # Un mínimo en píxeles le gana a la política, y el selector decía
+        # «AASN».
         self._nomenclaturas.setSizePolicy(
             QSizePolicy.Policy.Fixed, self._nomenclaturas.sizePolicy().verticalPolicy()
         )

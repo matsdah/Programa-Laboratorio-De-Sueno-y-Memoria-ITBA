@@ -252,11 +252,7 @@ def test_el_scoring_se_deja_angostar(ventana: MainWindow, nomenclatura: Nomencla
     fases, el arousal y el selector. Se exige que ninguno pase del suyo.
     """
     from psglab.core.nomenclature import stages_of
-    from psglab.ui.scoring_panel import (
-        ANCHO_MINIMO_DE_BOTON,
-        ANCHO_MINIMO_DEL_SELECTOR,
-        SEPARACION_DEL_AROUSAL,
-    )
+    from psglab.ui.scoring_panel import ANCHO_MINIMO_DE_BOTON, SEPARACION_DEL_AROUSAL
 
     panel = ventana.scoring_panel
     panel.set_nomenclature(nomenclatura)
@@ -268,7 +264,7 @@ def test_el_scoring_se_deja_angostar(ventana: MainWindow, nomenclatura: Nomencla
         + panel._fila.spacing() * 3
         + SEPARACION_DEL_AROUSAL
         + panel._arousal.minimumSizeHint().width()
-        + ANCHO_MINIMO_DEL_SELECTOR
+        + panel._nomenclaturas.sizeHint().width()
     )
     tope = margenes.left() + margenes.right() + renglon
 
@@ -276,6 +272,32 @@ def test_el_scoring_se_deja_angostar(ventana: MainWindow, nomenclatura: Nomencla
     # Lo que un botón pasa de su mínimo es lo que mide su texto (hito 79).
     de_mas = sum(b.minimumWidth() - ANCHO_MINIMO_DE_BOTON for b in panel._botones.values())
     assert panel.minimumSizeHint().width() <= tope + de_mas
+
+
+def test_el_selector_de_nomenclatura_no_corta_su_texto(ventana: MainWindow):
+    """El selector decía «AASN», en Linux y en Windows: su mínimo explícito de
+    72 px le ganaba a la política fija, y el campo del texto medía 30 px para
+    los 33 de «AASM». Se arma la ventana entera porque el ancho sale de la
+    hoja de estilo y de la tipografía, que un panel suelto no tiene. Se mide
+    el campo que dibuja el estilo, que ya descuenta la flecha y el borde."""
+    from PySide6.QtWidgets import QStyle, QStyleOptionComboBox
+
+    ventana.show()
+    QApplication.processEvents()
+    selector = ventana.scoring_panel._nomenclaturas
+
+    for posicion in range(selector.count()):
+        selector.setCurrentIndex(posicion)
+        opcion = QStyleOptionComboBox()
+        selector.initStyleOption(opcion)
+        campo = selector.style().subControlRect(
+            QStyle.ComplexControl.CC_ComboBox,
+            opcion,
+            QStyle.SubControl.SC_ComboBoxEditField,
+            selector,
+        )
+        texto = selector.itemText(posicion)
+        assert campo.width() >= selector.fontMetrics().horizontalAdvance(texto), texto
 
 
 def test_el_scoring_es_una_sola_fila(ventana: MainWindow):
